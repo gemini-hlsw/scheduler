@@ -3,11 +3,11 @@
 The main executable.
 """
 
+from greedy_max_algorithm import *
 from astropy.table import Table
 from astropy.visualization import time_support
 time_support()
 
-from greedy_max_algorithm import *
 
 tabdir = './data/'
 
