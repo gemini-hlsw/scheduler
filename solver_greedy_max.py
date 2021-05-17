@@ -3,7 +3,7 @@
 The main executable.
 """
 
-from greedy_max_algorithm import *
+from greedy_max import *
 from astropy.table import Table
 from astropy.visualization import time_support
 time_support()
