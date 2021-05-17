@@ -32,20 +32,21 @@ if __name__ == '__main__':
     resource = Resource('/resource_mock/data')
     resource.connect(['n','s'])
     
-    fpu = {site: resource.night_info('fpu', site, night_date) for site in sites}
-    fpur = {site: resource.night_info('fpur', site, night_date) for site in sites}
-    grat = {site: resource.night_info('grat', site, night_date) for site in sites}
-    instruments = {site: resource.night_info('instr', site, night_date) for site in sites}
-    lgs = {site: resource.night_info('LGS', site, night_date) for site in sites}
-    modes = {site: resource.night_info('mode', site, night_date) for site in sites}
+    fpu = {site: resource.night_info('fpu', site.name.lower(), night_date) for site in sites}
+    fpur = {site: resource.night_info('fpur', site.name.lower(), night_date) for site in sites}
+    grat = {site: resource.night_info('grat', site.name.lower(), night_date) for site in sites}
+    instruments = {site: resource.night_info('instr', site.name.lower(), night_date) for site in sites}
+    lgs = {site: resource.night_info('LGS', site.name.lower(), night_date) for site in sites}
+    modes = {site: resource.night_info('mode', site.name.lower(), night_date) for site in sites}
     ifus = {'FPU':None,'FPUr':None}
-    ifus['FPU'] = {site: resource.night_info('fpu-ifu', site, night_date) for site in sites}
-    ifus['FPUr'] = {site: resource.night_info('fpur-ifu', site, night_date) for site in sites}
+    ifus['FPU'] = {site: resource.night_info('fpu-ifu', site.name.lower(), night_date) for site in sites}
+    ifus['FPUr'] = {site: resource.night_info('fpur-ifu', site.name.lower(), night_date) for site in sites}
     fpu2b = resource.fpu_to_barcode
     
-    print(fpu)    
-    print(grat)
-    print(fpur)
+    # Testing  
+    #print(fpu)    
+    #print(grat)
+    #print(fpur)
 
     # Load observation 
     obs_ids = [row['obs_id'] for row in otab_gngs]

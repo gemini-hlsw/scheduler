@@ -3,6 +3,7 @@ from os import getcwd
 
 from openpyxl import load_workbook
 from datetime import datetime
+from typing import Dict, List, NoReturn
 
 class Resource:
     def __init__(self,path):
@@ -16,7 +17,7 @@ class Resource:
         self.LGS = {}
         self.IFU = {'gs': {}, 'gn': {}}
 
-    def _load_fpu(self, name, site):
+    def _load_fpu(self, name: str, site: str) -> Dict[str,str]:
         barcodes = {}
         ifu = {}
         with open(f'{self.path}/GMOS{site.upper()}_{name}201789.txt') as f:
@@ -26,7 +27,7 @@ class Resource:
                 ifu[row[0].strip()] = row[1].strip()
         return ifu, barcodes
                 
-    def _load_grat(self, site):
+    def _load_grat(self, site: str) -> Dict[str,str]:
         out_dict = {}
         with open(f'{self.path}/GMOS{site.upper()}_GRAT201789.txt') as f:
             reader =  csv.reader(f, delimiter=',') 
@@ -34,7 +35,7 @@ class Resource:
                 out_dict[row[0].strip()] = [i.rstrip() for i in row[1:]]
         return out_dict
 
-    def _load_f2b(self, site):
+    def _load_f2b(self, site: str) -> Dict[str,str]:
         out_dict = {}
         with open(f'{self.path}/gmos{site}_fpu_barcode.txt') as f:
             
@@ -43,10 +44,10 @@ class Resource:
                 out_dict[fpu] = barcode
         return out_dict
     
-    def _to_bool(self, b):
+    def _to_bool(self, b: str) -> bool:
         return True if b == 'Yes' else False
 
-    def _excel_reader(self,sites):
+    def _excel_reader(self, sites: List[str]) -> NoReturn:
         workbook = load_workbook(filename=f'{self.path}/2018B-2019A Telescope Schedules.xlsx')
         for site in sites:
             sheet = workbook[site]
@@ -60,7 +61,7 @@ class Resource:
         if not self.instruments or not self.mode or not self.LGS:
             raise Exception("Problems on reading spreadsheet...") 
 
-    def connect(self, sites):
+    def connect(self, sites: List[str]) -> NoReturn:
         """
         Allows the mock to load all the data locally, emulating a connection to the API.
 
@@ -78,9 +79,7 @@ class Resource:
         
         self._excel_reader(['GS','GN'])
 
-    def night_info(self, info, site, date):
-
-        site = 'gs' if site == site.GS else 'gn'
+    def night_info(self, info: str, site: str, date: str):
 
         if info == 'fpu':
             return self.FPU[site][date] if date in self.FPU[site] else None
