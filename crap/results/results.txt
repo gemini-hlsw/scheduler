@@ -1,0 +1,145 @@
+1.000002 min
+2019-02-02 00:39:00.000 2458516.527083333
+Iteration    1
+GS
+Obsid              obs_order  i_start    i_end    Max W
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+Iteration    2
+GS
+Obsid              obs_order  i_start    i_end    Max W
+N19A-FT-101[9]           413        9      167  10.5420
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+Iteration    3
+GS
+Obsid              obs_order  i_start    i_end    Max W
+N19A-FT-101[9]           413        9      167  10.5420
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+S18B-Q-201[28]            14      318      424   6.0385
+Iteration    4
+GS
+Obsid              obs_order  i_start    i_end    Max W
+N19A-FT-101[9]           413        9      167  10.5420
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+S18B-Q-201[28]            14      318      424   6.0385
+N18B-Q-131[16]           343      425      461   3.8403
+Iteration    5
+GS
+Obsid              obs_order  i_start    i_end    Max W
+N19A-FT-101[9]           413        9      167  10.5420
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+S18B-Q-201[28]            14      318      424   6.0385
+N18B-Q-131[16]           343      425      461   3.8403
+S18B-Q-207[62]            21      462      499   1.3001
+Iteration    6
+GS
+Obsid              obs_order  i_start    i_end    Max W
+N19A-FT-101[9]           413        9      167  10.5420
+N19A-Q-903[71]           598      329      490   1.2718
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+S18B-Q-201[28]            14      318      424   6.0385
+N18B-Q-131[16]           343      425      461   3.8403
+S18B-Q-207[62]            21      462      499   1.3001
+Iteration    7
+GS
+Obsid              obs_order  i_start    i_end    Max W
+N19A-FT-101[9]           413        9      167  10.5420
+S18B-Q-218[342]           26      168      276   1.2087
+N19A-Q-903[71]           598      329      490   1.2718
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+S18B-Q-201[28]            14      318      424   6.0385
+N18B-Q-131[16]           343      425      461   3.8403
+S18B-Q-207[62]            21      462      499   1.3001
+Iteration    8
+GS
+Obsid              obs_order  i_start    i_end    Max W
+N19A-FT-101[9]           413        9      167  10.5420
+S18B-Q-218[342]           26      168      276   1.2087
+N18B-Q-238[116]          348      277      328   0.7829
+N19A-Q-903[71]           598      329      490   1.2718
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+S18B-Q-201[28]            14      318      424   6.0385
+N18B-Q-131[16]           343      425      461   3.8403
+S18B-Q-207[62]            21      462      499   1.3001
+Iteration    9
+GS
+Obsid              obs_order  i_start    i_end    Max W
+N19A-FT-101[9]           413        9      167  10.5420
+S18B-Q-218[342]           26      168      276   1.2087
+N18B-Q-238[116]          348      277      328   0.7829
+N19A-Q-903[71]           598      329      490   1.2718
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+S18B-Q-201[28]            14      318      424   6.0385
+N18B-Q-131[16]           343      425      461   3.8403
+S18B-Q-207[62]            21      462      499   1.3001
+N19A-Q-229[9]            504      503      909   0.5283
+Iteration   10
+GS
+Obsid              obs_order  i_start    i_end    Max W
+N19A-FT-101[9]           413        9      167  10.5420
+S18B-Q-218[342]           26      168      276   1.2087
+N18B-Q-238[116]          348      277      328   0.7829
+N19A-Q-903[71]           598      329      490   1.2718
+S18B-Q-224[34]            27      500      516   0.0322
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+S18B-Q-201[28]            14      318      424   6.0385
+N18B-Q-131[16]           343      425      461   3.8403
+S18B-Q-207[62]            21      462      499   1.3001
+N19A-Q-229[9]            504      503      909   0.5283
+Iteration   11
+GS
+Obsid              obs_order  i_start    i_end    Max W
+N19A-FT-101[9]           413        9      167  10.5420
+S18B-Q-218[342]           26      168      276   1.2087
+N18B-Q-238[116]          348      277      328   0.7829
+N19A-Q-903[71]           598      329      490   1.2718
+S18B-Q-224[34]            27      500      516   0.0322
+GN
+Obsid              obs_order  i_start    i_end    Max W
+N18B-Q-228[31]           347      281      317  29.2171
+S18B-Q-201[28]            14      318      424   6.0385
+N18B-Q-131[16]           343      425      461   3.8403
+S18B-Q-207[62]            21      462      499   1.3001
+N19A-Q-229[9]            504      503      909   0.5283
+Sum score = 3924.39
+Sum score/time step =    2.11
+Time scheduled = 18.75 h
+GS
+N19A-FT-101[9]     00:48 03:26  10.5420
+S18B-Q-218[342]    03:27 05:15   1.2087
+N18B-Q-238[116]    05:16 06:07   0.7814
+N19A-Q-903[71]     06:08 08:49   1.2718
+S18B-Q-224[34]     08:59 09:15   0.0322
+Sum score = 1896.89
+Sum score/time step =    2.04
+Time scheduled =  8.32 h
+
+GN
+N18B-Q-228[31]     05:20 05:56  29.2171
+S18B-Q-201[28]     05:57 07:43   6.0385
+N18B-Q-131[16]     07:44 08:20   3.8403
+S18B-Q-207[62]     08:21 08:58   1.3001
+N19A-Q-229[9]      09:02 15:48   0.5283
+Sum score = 2027.50
+Sum score/time step =    2.18
+Time scheduled = 10.43 h
+
