@@ -51,10 +51,19 @@ class Observation:
 
 
 class TimeSlots:
-    def __init__(self, time_slot_length, weights, total_amount):
+    def __init__(self, time_slot_length, weights, total_amount, 
+                 fpu, fpur, grat, instruments, lgs, mode, fpu2b, ifus):
         self.slot_length = time_slot_length
         self.weights = weights
         self.total = total_amount
+        self.fpu = fpu
+        self.fpur = fpur
+        self.grating = grat 
+        self.instruments = instruments
+        self.LGS = lgs
+        self.mode = mode
+        self.fpu_to_barcode = fpu2b
+        self.ifu = ifus
 
     # TODO: This method can be static and uses no data from TimeSlots.
     # TODO: No idea what these variables are. ni vs nint?
@@ -70,4 +79,34 @@ class TimeSlots:
 
         idx = np.digitize(cvec, bins=np.arange(ni) + 1)
 
-        return idx
+        return idx 
+
+    def _decode_mask(self, mask_name):
+        decoder = {'A':'0','B':'1','Q':'0',
+                                 'C':'1','LP':'2','FT':'3',
+                                 'SV':'8','DD':'9'}
+        pattern = '|'.join(map(re.escape, decoder.keys()))
+        return '1'+ re.sub(f'({pattern})', 
+                           lambda m: decoder[m.group()], mask_name).replace('-','')[6:]
+    
+    def is_available(self, site, instrument):
+        return True if instrument in self.instruments[site] else False 
+    
+    def is_mask_available(self, site, fpu_mask, mask_type):
+        
+        barcode = None
+        if fpu_mask in self.fpu_to_barcode:
+            barcode = self.fpu_to_barcode[fpu_mask]
+        else:
+            barcode = _decode_mask(fpu_mask)
+        
+        if mask_type == 'FPU':
+            return True if barcode in self.fpu[site] else False
+        elif mask_type == 'FPUr':
+            return True if barcode in self.fpur[site] else False
+        elif mask_type == 'GRAT':
+            return True if barcode in self.grating[site] else False
+        else:
+            return False
+        
+
