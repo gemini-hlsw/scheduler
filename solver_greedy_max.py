@@ -4,10 +4,15 @@ The main executable.
 """
 
 from greedy_max import *
+from resource_mock import Resource
+
 from astropy.table import Table
 from astropy.visualization import time_support
 time_support()
 
+
+#from schedule import SchedulingGroup, Observation
+#import odb
 
 tabdir = './data/'
 
@@ -19,11 +24,28 @@ if __name__ == '__main__':
 
     # Observation table
     otab_gngs = Table.read(tabdir + 'obstab_gngs_20201123.fits')
-
+    night_date = '2018-06-20'
     # Remove inst and disperser columns so that greedy-max doesn't add time for partner cals
     # otab_gngs.remove_columns(['inst', 'disperser'])
 
-    # Load the observations.
+    sites = list(sites_from_column_names(ttab_gngs.colnames))
+
+    # Resource API mock 
+    resource = Resource('/resource_mock/data')
+    resource.connect()
+    
+    fpu = resource.night_info('fpu', sites, night_date)
+    fpur = resource.night_info('fpur', sites, night_date)
+    grat = resource.night_info('grat', sites, night_date)
+    instruments = resource.night_info('instr', sites, night_date)
+    lgs = resource.night_info('LGS', sites, night_date)
+    modes = resource.night_info('mode', sites, night_date)
+    ifus = {'FPU':None, 'FPUr':None}
+    ifus['FPU'] = resource.night_info('fpu-ifu', sites, night_date)
+    ifus['FPUr'] = resource.night_info('fpur-ifu', sites, night_date)
+    fpu2b = resource.fpu_to_barcode
+
+    # Load observation 
     obs_ids = [row['obs_id'] for row in otab_gngs]
     bands = {obs_id: Band(otab_gngs[obs_id == obs_id]['band']) for obs_id in obs_ids}
     if 'inst' in otab_gngs.colnames or 'disperser' in otab_gngs.colnames:
@@ -41,10 +63,9 @@ if __name__ == '__main__':
     tot_times = {obs_id: otab_gngs['tot_time'].quantity[idx] for idx, obs_id in enumerate(obs_ids)}
     completions = {obs_id: otab_gngs['obs_comp'].quantity[idx] for idx, obs_id in enumerate(obs_ids)}
    
-    sites_by_obs = {obs_id: 'gs' if sum(ttab_gngs['weight_gs'][idx]) > 0 else 'gn' for idx, obs_id in enumerate(obs_ids)}
+    sites_by_obs = {obs_id: Site.GS if sum(ttab_gngs['weight_gs'][idx]) > 0 else Site.GN 
+                    for idx, obs_id in enumerate(obs_ids)}
 
-    sites = list(sites_from_column_names(ttab_gngs.colnames))
-    
     observations = [Observation(obs_id, bands[obs_id], sites_by_obs[obs_id],
                                 instruments[obs_id], dispersers[obs_id], user_priorities[obs_id],
                                 times[obs_id], tot_times[obs_id], completions[obs_id])
@@ -56,11 +77,12 @@ if __name__ == '__main__':
 
     # Time array
     timestab_gngs = Table.read(tabdir + 'timetab_gngs_20201123.fits')
+  
     dt = time_slot_length(timestab_gngs['time'])
     nt = len(ttab_gngs['weight_' + Site(sites[0]).name.lower()][0])
-
-    # TODO: Calculate nt by site
-    time_slots = TimeSlots(dt, weights, nt)
+    #TODO: Calculate nt by site
+    time_slots = TimeSlots(dt, weights, nt, fpu, fpur, grat, 
+                            instruments, lgs, modes, fpu2b, ifus)
 
     print(dt.to(u.min))
 
