@@ -4,11 +4,13 @@ The main executable.
 """
 
 from greedy_max import *
+from resource_mock import Resource
+
 from astropy.table import Table
 from astropy.visualization import time_support
 time_support()
 
-from resource_mock import Resource
+
 #from schedule import SchedulingGroup, Observation
 #import odb
 
@@ -22,7 +24,7 @@ if __name__ == '__main__':
 
     # Observation table
     otab_gngs = Table.read(tabdir + 'obstab_gngs_20201123.fits')
-    night_date = '2018-06-08'
+    night_date = '2018-06-20'
     # Remove inst and disperser columns so that greedy-max doesn't add time for partner cals
     # otab_gngs.remove_columns(['inst', 'disperser'])
 
@@ -30,23 +32,18 @@ if __name__ == '__main__':
 
     # Resource API mock 
     resource = Resource('/resource_mock/data')
-    resource.connect(['n','s'])
+    resource.connect()
     
-    fpu = {site: resource.night_info('fpu', site.name.lower(), night_date) for site in sites}
-    fpur = {site: resource.night_info('fpur', site.name.lower(), night_date) for site in sites}
-    grat = {site: resource.night_info('grat', site.name.lower(), night_date) for site in sites}
-    instruments = {site: resource.night_info('instr', site.name.lower(), night_date) for site in sites}
-    lgs = {site: resource.night_info('LGS', site.name.lower(), night_date) for site in sites}
-    modes = {site: resource.night_info('mode', site.name.lower(), night_date) for site in sites}
-    ifus = {'FPU':None,'FPUr':None}
-    ifus['FPU'] = {site: resource.night_info('fpu-ifu', site.name.lower(), night_date) for site in sites}
-    ifus['FPUr'] = {site: resource.night_info('fpur-ifu', site.name.lower(), night_date) for site in sites}
+    fpu = resource.night_info('fpu', sites, night_date)
+    fpur = resource.night_info('fpur', sites, night_date)
+    grat = resource.night_info('grat', sites, night_date)
+    instruments = resource.night_info('instr', sites, night_date)
+    lgs = resource.night_info('LGS', sites, night_date)
+    modes = resource.night_info('mode', sites, night_date)
+    ifus = {'FPU':None, 'FPUr':None}
+    ifus['FPU'] = resource.night_info('fpu-ifu', sites, night_date)
+    ifus['FPUr'] = resource.night_info('fpur-ifu', sites, night_date)
     fpu2b = resource.fpu_to_barcode
-    
-    # Testing  
-    #print(fpu)    
-    #print(grat)
-    #print(fpur)
 
     # Load observation 
     obs_ids = [row['obs_id'] for row in otab_gngs]
@@ -66,9 +63,9 @@ if __name__ == '__main__':
     tot_times = {obs_id: otab_gngs['tot_time'].quantity[idx] for idx, obs_id in enumerate(obs_ids)}
     completions = {obs_id: otab_gngs['obs_comp'].quantity[idx] for idx, obs_id in enumerate(obs_ids)}
    
-    sites_by_obs = {obs_id: 'gs' if sum(ttab_gngs['weight_gs'][idx]) > 0 else 'gn' for idx, obs_id in enumerate(obs_ids)}
+    sites_by_obs = {obs_id: Site.GS if sum(ttab_gngs['weight_gs'][idx]) > 0 else Site.GN 
+                    for idx, obs_id in enumerate(obs_ids)}
 
-    
     observations = [Observation(obs_id, bands[obs_id], sites_by_obs[obs_id],
                                 instruments[obs_id], dispersers[obs_id], user_priorities[obs_id],
                                 times[obs_id], tot_times[obs_id], completions[obs_id])

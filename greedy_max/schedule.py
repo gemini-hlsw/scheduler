@@ -1,10 +1,11 @@
 import astropy.units as u
 from astropy.units.quantity import Quantity
 import numpy as np
+import re
 from greedy_max.band import Band
 from greedy_max.site import Site
-
-
+from typing import Dict, List
+ 
 class Observation:
     """
     The data that comprises an observation.
@@ -51,8 +52,23 @@ class Observation:
 
 
 class TimeSlots:
-    def __init__(self, time_slot_length, weights, total_amount, 
-                 fpu, fpur, grat, instruments, lgs, mode, fpu2b, ifus):
+    decoder = {'A':'0','B':'1','Q':'0',
+                'C':'1','LP':'2','FT':'3',
+                'SV':'8','DD':'9'}
+    #pattern = '|'.join(map(re.escape, decoder.keys()))
+    pattern = '|'.join(decoder.keys())
+    def __init__(self, 
+                 time_slot_length: Quantity, 
+                 weights: List[int] , 
+                 total_amount: int, 
+                 fpu: Dict[Site, List[str]], 
+                 fpur: Dict[Site, List[str]], 
+                 grat: Dict[Site, List[str]], 
+                 instruments: Dict[Site, List[str]], 
+                 lgs: Dict[Site,bool] , 
+                 mode: Dict[Site,str], 
+                 fpu2b: Dict[str,str], 
+                 ifus: Dict[str,str]):
         self.slot_length = time_slot_length
         self.weights = weights
         self.total = total_amount
@@ -60,7 +76,7 @@ class TimeSlots:
         self.fpur = fpur
         self.grating = grat 
         self.instruments = instruments
-        self.LGS = lgs
+        self.laser_guide = lgs
         self.mode = mode
         self.fpu_to_barcode = fpu2b
         self.ifu = ifus
@@ -81,31 +97,26 @@ class TimeSlots:
 
         return idx 
 
-    def _decode_mask(self, mask_name):
-        decoder = {'A':'0','B':'1','Q':'0',
-                                 'C':'1','LP':'2','FT':'3',
-                                 'SV':'8','DD':'9'}
-        pattern = '|'.join(map(re.escape, decoder.keys()))
-        return '1'+ re.sub(f'({pattern})', 
-                           lambda m: decoder[m.group()], mask_name).replace('-','')[6:]
+    def _decode_mask(self, mask_name: str ) -> str:
+        return '1'+ re.sub(f'({TimeSlots.pattern})', 
+                           lambda m: TimeSlots.decoder[m.group()], mask_name).replace('-','')[6:]
     
-    def is_available(self, site, instrument):
-        return True if instrument in self.instruments[site] else False 
+    def is_instrument_available(self, site: Site, instrument: str) -> bool:
+        return instrument in self.instruments[site]
     
-    def is_mask_available(self, site, fpu_mask, mask_type):
+    def is_mask_available(self, site: str, fpu_mask: str, mask_type: str) -> bool:
         
         barcode = None
         if fpu_mask in self.fpu_to_barcode:
             barcode = self.fpu_to_barcode[fpu_mask]
         else:
-            barcode = _decode_mask(fpu_mask)
-        
+            barcode = self._decode_mask(fpu_mask)
         if mask_type == 'FPU':
-            return True if barcode in self.fpu[site] else False
+            return barcode in self.fpu[site] 
         elif mask_type == 'FPUr':
-            return True if barcode in self.fpur[site] else False
+            return barcode in self.fpur[site] 
         elif mask_type == 'GRAT':
-            return True if barcode in self.grating[site] else False
+            return barcode in self.grating[site]
         else:
             return False
         
