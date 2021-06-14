@@ -1,8 +1,12 @@
 from dataclasses import dataclass
+from hashlib import new
 from astropy.time import Time
-from typing import Dict, List, Optional, Sized, Tuple
+from typing import Dict, List, NoReturn, Optional, Sized, Tuple
+
+from numpy.core.numeric import indices
 from greedy_max.schedule import *
 import astropy.units as u
+from astropy.units.quantity import Quantity
 
 EMPTY = -1
 UNSCHEDULABLE = -2
@@ -23,9 +27,9 @@ class Plan:
         """
         Determine the number of empty time slots at both sites.
         """
-        return sum(len(self.empty_slots(site)) for site in self.sites)
+        return sum(len(self._empty_slots(site)) for site in self.sites)
     
-    def empty_slots(self, site: Site) -> np.ndarray:
+    def _empty_slots(self, site: Site) -> np.ndarray:
         """
         Determine the number of empty time slots at a given site..
         """
@@ -43,6 +47,17 @@ class Plan:
         from start to finish.
         """
         self.schedule[site][start:finish] = obs_idx
+    
+    def schedule_observations(self, site: Site, science: List[Observation], start: int, end: int) -> NoReturn:
+        """
+        Add all the observations inside a unit in the time slots from start to finish.
+        """
+        for sci in science:
+            if start < end:
+                    sci_length = end - start+ 1  if start + sci_length - 1 > end else sci.length
+                    self.schedule_observation(site, sci, start, start + sci_length)
+                    sci.observed+=sci_length 
+                    start+=sci_length
 
     def is_observation_scheduled(self, site: Site, obs_idx: int) -> bool:
         """
@@ -50,12 +65,39 @@ class Plan:
         """
         return len(self.slots_for_observation(site, obs_idx)) != 0
 
+    def is_complete(self, site: Site) -> bool:
+        return len(self._empty_slots(site)) < 0
+
+    def _intervals(self, empty_slots: np.ndarray) -> np.ndarray:
+        """
+        Given the empty slots in the schedule, returns an array with the indices with the
+        intervals that can schedule an observation
+        """
+        ni = len(empty_slots)
+        cvec = np.zeros(ni, dtype=int)
+        nint = 1
+        cvec[0] = nint
+        for j in range(1, ni):
+            if empty_slots[j] != (empty_slots[j - 1] + 1):
+                nint = nint + 1
+            cvec[j] = nint 
+
+        idx = np.digitize(cvec, bins=np.arange(ni) + 1)
+
+        return idx
+
+    def get_available_interval(self, site: Site) -> np.ndarray:
+        """
+        Get the first available space in the schedule that can allocate an observation 
+        """  
+        empty_slots =  self._empty_slots(site)
+        return empty_slots[np.where(self._intervals(empty_slots) == 1)[0][:]]
+
     def __getitem__(self, site: Site) -> np.ndarray:
         """
         Get the schedule for the specified site.
         """
         return self.schedule[site]
-
 
 @dataclass
 class TimeWindow:
@@ -66,9 +108,10 @@ class TimeWindow:
     """
     start: int
     end: int
-    nobswin: int
-    total_time: int
-    calibration_time: int
+    length: int
+    time_slots: int
+    indices: np.ndarray
+    min_slot_time: int
     intervals: Dict[Site, np.ndarray]
 
 
@@ -79,7 +122,6 @@ def sites_from_column_names(colnames: List[str], column: str = 'weight') -> List
     found.
     """
     return [Site(name[name.rfind('_') + 1:]) for name in colnames if column in name]
-
 
 def get_order(plan):
     """
@@ -127,14 +169,12 @@ def get_order(plan):
             i_end.append(i)
     return ind_order, i_start, i_end
 
-
 def short_observation_id(obsid):
     """
     Return the short form of the observation ID.
     """
     idsp = obsid.split('-')
     return idsp[0][1] + idsp[1][2:5] + '-' + idsp[2] + '-' + idsp[3] + '[' + idsp[4] + ']'
-
 
 # TODO: What is dt / differential total time length?
 def time_slot_length(time_strings: np.ndarray) -> Quantity:
@@ -155,7 +195,7 @@ def time_slot_length(time_strings: np.ndarray) -> Quantity:
 
 
 class GreedyMax:
-    def __init__(self, obs: List[Observation], time_slots: TimeSlots, sites: List[Site],
+    def __init__(self, obs: List[SchedulingUnit], time_slots: TimeSlots, sites: List[Site],
                  tmin: Quantity = 30.0 * u.min, verbose: bool = False):
         self.plan = Plan(time_slots.total, sites)
         self.observations = obs
@@ -163,38 +203,71 @@ class GreedyMax:
         self.tmin = tmin
         self.sites = sites
         self.verbose = verbose
-        self.min_slot_time = int(np.ceil(tmin.to(u.h) / time_slots.slot_length.to(u.h)))
+        #self.min_slot_time = int(np.ceil(tmin.to(u.h) / time_slots.slot_length.to(u.h)))
 
-    # TODO: What does this do?
-    def _reset_slot_time(self):
-        self.min_slot_time = int(np.ceil(self.tmin.to(u.h) / self.time_slots.slot_length.to(u.h)))
+    def min_slot_time(self):
+        return int(np.ceil(self.tmin.to(u.h) / self.time_slots.slot_length.to(u.h)))
 
-    # TODO: Move this method to scheduling groups
-    # TODO: This method may be static.
-    # TODO: This method is not in use.
-    # @staticmethod
-    # def _time_calibration(self, inst: str, disperser: str) -> Quantity:
-    #     """
-    #     Return the time needed for calibrations (esp. telluric standards)
-    #     """
-    #     dl = disperser.lower()
-    #     return (18.00 if 'GMOS' not in inst and 'mirror' not in dl and 'null' not in dl else 0.0) * u.min
+    def _match_airmass(self, site, time_window, science_obs, calibrations) -> Tuple[int, bool]:
 
-    # TODO: This method may be static.
-    @staticmethod
-    def _acquisition_overhead_time(self, disperser: str) -> Quantity:
-        """
-        Get acquisition overhead time
-        """
-        if 'mirror' in disperser.lower():
-            return 0.2 * u.h
-        else:
-            return 0.3 * u.h
+        airmass = self.time_slots.airmass[site]
+
+        for calibration in calibrations:
+            min_delta = 99999.
+
+            # Try std before
+            new_start = time_window.start
+            xmean_std = np.mean(airmass[calibration.idx][new_start:new_start + calibration.length])
+            new_start += calibration.length
+            
+            sci_airmass = np.zeros(len(science_obs))
+
+            for science in science_obs:
+                if new_start < time_window.end:
+                    science_length = science.length
+                    if new_start + science_length - 1 > time_window.end:
+                        science_length = time_window.end - new_start+1
+                    sci_airmass[science.idx] = np.mean(airmass[science.idx][new_start:new_start+science_length])
+                    new_start+=science_length
+            
+            xmean_sci = np.mean(sci_airmass)
+            delta_before = np.abs(xmean_std - xmean_sci)
+
+            # Try std after
+            new_end = time_window.end - calibration.length + 1
+            xmean_std = np.mean(airmass[calibration.idx][new_end:new_end+calibration.length])
+            new_start = time_window.start
+
+            sci_airmass = np.zeros(len(science_obs))
+            for science in science_obs:
+                if new_start < new_end:
+                    science_length = science.length
+                    if new_start + science_length - 1 > new_end:
+                        science_length = new_end - new_start + 1
+                    sci_airmass[science.idx] = np.mean(airmass[science.idx][new_start:new_start+science_length])
+                    new_start+=science_length
+
+            xmean_sci = np.mean(xmean_sci)
+            delta_after = np.abs(xmean_std - xmean_sci)
+
+            # Compare airmass differences
+            if delta_before <= delta_after:
+                delta = delta_before
+                placement = True # before
+            else:
+                delta = delta_after
+                placement = False # after       
+            
+            if delta < min_delta:
+                min_delta = delta
+                best_standard = calibration
+                best_placement = placement
+        
+        return best_standard, best_placement
 
     def _find_max_observation(self) -> Tuple[
-                                            Optional[Observation],
-                                            Dict[Site, np.ndarray],
-                                            np.ndarray
+                                            Optional[SchedulingUnit],
+                                            Optional[TimeWindow]
                                         ]:
         """
         Select the observation with the maximum weight in a time interval
@@ -203,56 +276,79 @@ class GreedyMax:
         -------
         max_obs : Observation object (or None)
 
-        intervals : time intervals array for that observation
+        time_window : TimeWindow object (or None)
 
-        iwinmax : time window indices
         """
         max_weight = 0.  # maximum weight in time interval
         intervals = {}  # save intervals for each site for later use
 
-        iwinmax = None
         max_obs = None
+        time_window = None
+        min_slot_time = self.min_slot_time()
 
-        for site in self.sites:
-            empty_slots = self.plan.empty_slots(site)
-
-            if len(empty_slots) != 0:
-                indx = self.time_slots.intervals(empty_slots)  # intervals of empty time slots
-                iint = empty_slots[np.where(indx == 1)[0][:]]  # first interval of indx
-                intervals[site] = iint
+        for site in self.sites:    
+            if not self.plan.is_complete(site):
+    
+                first_interval = self.plan.get_available_interval(site)
+                intervals[site] = first_interval
 
                 if self.verbose:
-                    print('Empty slots:', empty_slots)
-                    print('indx', indx)
-                    print('iint: ', iint)
+                    print('iint: ' ,first_interval)
                     print('site: ', site)
 
                 for observation in self.observations:
+                    obs_idx = observation.idx
                     # Get the maximum weight in the interval.
-                    wmax = np.max(self.time_slots.weights[site][observation.idx][iint])
-
-                    # Get the indices of weights > 0 in the interval.
-                    ipos = np.where(self.time_slots.weights[site][observation.idx][iint] > 0)[0][:]
-
+                    wmax = self.time_slots.max_weight(site, obs_idx, first_interval)
+                    
                     # Test
                     # TODO: What is this testing? We should document this.
-                    if len(ipos) > 0 and wmax > max_weight:
-                        iwinmax = iint[ipos]  # indices with pos. weights within first empty window
-                        max_weight = wmax
+                    if wmax > max_weight:
+                        
+                        candidate_intervals = self.time_slots.non_zero_intervals(site, obs_idx, first_interval)
+                        #time_slots_needed = observation.time_slots_needed(self.time_slots.slot_length)
+                        time_slots_needed = observation.length - observation.observed 
 
-                        observation.site = site
-                        max_obs = observation
+                        if time_slots_needed - min_slot_time <= min_slot_time:
+                            min_slot_time = time_slots_needed
+                        
+                        max_weight_on_interval = 0.0
+                        max_interval = None
+                        for interval in candidate_intervals:
+                            interval_length = interval[1]-interval[0]+1
+                            print(interval)
+                            input()
+                            max_weight = self.time_slots.max_weight(site, obs_idx, 
+                                                                    first_interval[interval[0]:interval[1]+1])
+                            if max_weight > max_weight_on_interval and interval_length >= min_slot_time:
+                                max_weight_on_interval = max_weight
+                                max_interval = interval
+                        
+                        if max_weight_on_interval > max_weight and (time_slots_needed <= interval_length 
+                                                                    or observation.can_be_split):
+                            max_weight = max_weight_on_interval
+                            # Boundaries of available window
+                            start = first_interval[max_interval[0]]
+                            end = first_interval[max_interval[1]]
+                            indices = first_interval[start:end+1]
+                            length = end - start + 1
+                            time_slots_in_window = time_slots_needed
+                            observation.site = site
+                            max_obs = observation
+                            time_window = TimeWindow(start, end, length, time_slots_in_window, 
+                                                     indices, min_slot_time,intervals)
+                        else:
+                            self.time_slots.weights[site][obs_idx][intervals[site]] = 0.
 
                         if self.verbose:
                             print('maxweight', max_weight)
-                            print('max obs: ', observation.name)
+                            #print('max obs: ', observation.name)
                             print('iimax', observation.idx)
                             print('smax', observation.site)
                             input()
+        return max_obs, time_window
 
-        return max_obs, intervals, iwinmax
-
-    def _insert(self, max_observation: Optional[Observation], time_window: Optional[TimeWindow]) -> bool:
+    def _insert(self, max_observation: Optional[SchedulingUnit], time_window: Optional[TimeWindow]) -> bool:
         """
         Insert an observation to the final plan, trying to shift the observation inside the time window.
 
@@ -279,12 +375,18 @@ class GreedyMax:
         max_idx = max_observation.idx
         max_weights = self.time_slots.weights[max_site][max_idx]
 
-        if 0 < time_window.total_time <= time_window.nobswin:
+        if 0 < time_window.total_time <= time_window.length:
             if not self.plan.is_observation_scheduled(max_site, max_idx):
                 # Determine schedule placement for maximum integrated weight
-                maxf = 0.0
+                max_integral_weight = 0.0
+
+                # Schedule interrupt ToO at beginning of window
+                #if max_observation.priority == 'interrupt': 
+                #    start = time_window.start
+                #    end = time_window.start + time_window.time_slots - 1
+
                 # TODO: I'm not clear on this documentation.
-                if time_window.total_time > 1:
+                if time_window.time_slots > 1:
                     # NOTE: integrates over one extra time slot...
                     # ie. if nttime = 14, then the program will choose 15
                     # x values to do trapz integration (therefore integrating
@@ -293,47 +395,46 @@ class GreedyMax:
                         print('\nIntegrating max obs. over window...')
                         print('wstart', time_window.start)
                         print('wend', time_window.end)
-                        print('nttime', time_window.total_time)
+                        print('nttime', time_window.time_slots)
                         print('j values', np.arange(time_window.start, time_window.end - time_window.total_time + 2))
 
-                    for j in range(time_window.start, time_window.end - time_window.total_time + 2):
-                        f = sum(max_weights[j:j + time_window.total_time])
+                    # Determine placement for maximum integrated weight 
+                    for window_idx in range(time_window.start, time_window.end - time_window.time_slots + 2):
+                        
+                        integral_weight = sum(max_weights[window_idx: window_idx + time_window.time_slots])
 
-                        # TODO: Error here: nttime is not defined. Is it time_window.total_time?
-                        # TODO: This will crash if verbose is on.
-                        # TODO: The only place I see nttime defined is in the _run method as a local variable.
                         if self.verbose:
-                            print('j range', j, j + nttime - 1)
-                            print('obs weight', max_weights[j:j + nttime])
-                            print('integral', f)
-
-                        if f > maxf:
-                            maxf = f
-                            start = j
-                            end = start + time_window.total_time - 1
+                            print('j range', window_idx, window_idx + time_window.time_slots - 1)
+                            print('obs weight', max_weights[window_idx:window_idx + time_window.time_slots])
+                            print('integral', integral_weight)
+                        
+                        if integral_weight > max_integral_weight:
+                            max_integral_weight = integral_weight
+                            start = window_idx
+                            end = start + time_window.time_slots - 1
                 else:
-                    # TODO: Error here: iwinmax is not defined. Again, only defined in _run method as local variable.
-                    # TODO: This will crash if it is reached.
-                    start = np.argmax(max_weights[iwinmax])
-                    maxf = np.amax(max_weights[start])
-                    end = start + time_window.total_time - 1
+                    start = np.argmax(max_weights[indices])
+                    max_integral_weight = np.amax(max_weights[start])
+                    end = start + time_window.time_slots - 1
 
                 # TODO: If else code is reached above, start and end will not be defined, and the code will crash.
                 if self.verbose:
-                    print('max integral of weight func (maxf)', maxf)
+                    print('max integral of weight func (maxf)',  max_integral_weight)
                     print('index start', start)
                     print('index end', end)
 
                 # Shift to start or end of night if within minimum block time from boundary.
+                # NOTE: BM, 2021may13 - I believe the following code related to the window
+                # boundary does the same thing, so the start/end night check seems redundant
                 # Nudge:
-                if start < self.min_slot_time:
-                    if self.plan[max_site][0] == -1 and max_weights[0] > 0:
-                        start = 0
-                        end = start + time_window.total_time - 1
-                elif self.time_slots.total - end < self.min_slot_time:
-                    if self.plan[max_site][-1] == -1 and max_weights[-1] > 0:
-                        end = self.time_slots.total - 1
-                        start = end - time_window.total_time + 1
+                #if start < self.min_slot_time:
+                #    if self.plan[max_site][0] == -1 and max_weights[0] > 0:
+                #        start = 0
+                #        end = start + time_window.total_time - 1
+                #elif self.time_slots.total - end < self.min_slot_time:
+                #    if self.plan[max_site][-1] == -1 and max_weights[-1] > 0:
+                #        end = self.time_slots.total - 1
+                #        start = end - time_window.total_time + 1
 
                 # Shift to window boundary if within minimum block time of edge.
                 # If near both boundaries, choose boundary with higher weight.
@@ -341,17 +442,17 @@ class GreedyMax:
                 wt_end = max_weights[time_window.end]  # weight at end
                 delta_start = start - time_window.start - 1  # difference between start of window and block
                 delta_end = time_window.end - end + 1  # difference between end of window and block
-                if delta_start < self.min_slot_time and delta_end < self.min_slot_time:
+                if delta_start < time_window.min_slot_time and delta_end < time_window.min_slot_time:
                     if wt_start > time_window.end and wt_start > 0:
                         start = time_window.start
-                        end = time_window.start + time_window.total_time - 1
+                        end = time_window.start + time_window.time_slots - 1
                     elif wt_end > 0:
-                        start = time_window.end - time_window.total_time + 1
+                        start = time_window.end - time_window.time_slots + 1
                         end = time_window.end
-                elif delta_start < self.min_slot_time and wt_start > 0:
+                elif delta_start < time_window.min_slot_time and wt_start > 0:
                     start = time_window.start
-                    end = time_window.start + time_window.total_time - 1
-                elif delta_end < self.min_slot_time and wt_start > 0:
+                    end = time_window.start + time_window.time_slots - 1
+                elif delta_end < time_window.min_slot_time and wt_start > 0:
                     start = time_window.end - time_window.total_time + 1
                     end = time_window.end
 
@@ -361,10 +462,10 @@ class GreedyMax:
                 if np.where(self.schedule[max_site] == max_idx)[0][0] < time_window.start:
                     # Existing obs in plan before window. Schedule at beginning of window.
                     start = time_window.start
-                    end = time_window.start + time_window.total_time - 1
+                    end = time_window.start + time_window.time_slots - 1
                 else:
                     # Existing obs in plan after window. Schedule at end of window.
-                    start = time_window.end - time_window.total_time + 1
+                    start = time_window.end - time_window.time_slots + 1
                     end = time_window.end
 
         else:
@@ -379,27 +480,86 @@ class GreedyMax:
             print('Current tot time: ', max_observation.total_time)
             input()
 
-        self.plan.schedule_observation(max_site, max_idx, start, end + 1)
+
+        #self.plan.schedule_observation(max_site, max_idx, start, end + 1)
+
+        # Select calibration and place/split observations
+        # This should be done like the group analysis, the following is simplified
+        # First pass analysis, observation lengths and classes
+        calibrations = max_observation.calibrations
+        science = max_observation.observations
+
+        if len(calibrations) > 0: #0 need for calibration
+            # How many standards needed based on science time
+            std_time_slots = max_observation.standard_time  
+            standards = max(1,int(time_window.length - calibrations[0].length // std_time_slots))
+
+            if standards == 1:
+                
+                calibration, before = self._match_airmass(max_observation.site, time_window, science, 
+                                                         calibrations)
+                # Check for the right placement on 
+                if before:
+                    
+                    self.plan.schedule_observation(max_site, calibration, start, start+calibration.length)
+                    calibration.observed+=calibration.length # Time accounting 
+                    new_start = start + calibration.length
+
+                    self.plan.schedule_observations(max_site,max_observation.science, new_start, end)
+                else:
+                    new_end = end - calibration.length + 1
+                    self.plan.schedule_observation(max_site, calibration, new_end, 
+                                                   new_end+calibration.length)
+                    calibration.observed+=calibration.length  # Time accounting                           
+                    
+                    self.plan.schedule_observations(max_site,max_observation.science, start, new_end)
+                    
+            else:
+             # NOTE: From Bryan's old code:
+             # need two or more standards
+             # if one standard, should put before and after if airmass match ok, otherwise the best one
+             # the general case should handle any number of standards, splitting as needed
+             # need to check that all standards are visible where placed
+             # currently this just uses the first two standards defined
+
+                first_calibration = calibrations[0]
+                second_calibration = calibrations[1]
+                new_start = start + first_calibration.length
+
+                # First standard
+                self.plan.schedule_observation(max_site, first_calibration, start, new_start)
+                first_calibration.observed += first_calibration.length  # Time accounting  
+                
+                new_end = end - second_calibration.length + 1
+                self.plan.schedule_observations(max_site, science, new_start, new_end)
+
+                # Second standard
+                self.plan.schedule_observation(max_site, calibrations[1], start,
+                                               start+second_calibration.length)
+                second_calibration.observed += second_calibration.length # Time accounting 
+        else:
+            # put science observations in order no need for calibrations 
+            self.plan.schedule_observations(max_site, science, start, end)
+
 
         # Number of spots in time grid used (excluding calibration).
-        ntmin = np.minimum(time_window.total_time - time_window.calibration_time,
-                           end - start + 1)
+        ntmin = np.minimum(time_window.time_slots, end - start + 1)
 
         # Update time.
-        max_observation.time += self.time_slots.slot_length.to(u.h) * ntmin
+        #max_observation.time += self.time_slots.slot_length.to(u.h) * ntmin
 
         # Update completion fraction.
-        max_observation.completion += self.time_slots.slot_length.to(u.h) * ntmin / max_observation.total_time
+        #max_observation.completion += self.time_slots.slot_length.to(u.h) * ntmin / max_observation.total_time
 
         # Adjust weights of scheduled observation.
-        if max_observation.completion >= 1:
+        if max_observation.observed == max_observation.length:
             # If completed, set all to negative values.
             max_weights = -1.0 * max_weights
         else:
             # If observation not fully completed, set only scheduled portion negative. Increase remaining.
             max_weights[start:end + 1] = -1.0 * max_weights[start:end + 1]
-            wpositive = np.where(max_weights > 0)[0][:]
-            max_weights[wpositive] = max_weights[wpositive] * 1.5
+            # wpositive = np.where(max_weights > 0)[0][:]
+            # max_weights[wpositive] = max_weights[wpositive] * 1.5
             # TODO: Update visfrac and weight, do outside this routine?
 
         # Set weights to zero for other sites so it won't be scheduled again
@@ -407,11 +567,9 @@ class GreedyMax:
             if site != max_site:
                 self.time_slots.weights[site][max_idx][:] = 0.0
 
-        # Add to total time if observation not complete.
-        if max_observation.disperser and max_observation.time < max_observation.total_time:
-            acqover = GreedyMax._acquisition_overhead_time(max_observation.disperser)
-            max_observation.total_time += acqover
-
+        # Add new acquisition overhead to total time if observation not complete.
+        max_observation.acquisition() # NOTE: this method now is specific to incomplete observations
+        
         # Save changes.
         self.observations[max_observation.idx] = max_observation
         self.time_slots.weights[max_site][max_idx] = max_weights
@@ -453,37 +611,29 @@ class GreedyMax:
                 can_be_scheduled = False
                 while not can_be_scheduled:
                     i_gow += 1
-
                     if self.verbose:
                         print('i_gow', i_gow)
 
-                    self._reset_slot_time()
-                    max_observation, intervals, iwinmax = self._find_max_observation()
-
-                    # Determine observation window and length if there is an observation.
-                    if not max_observation:
-                        break
+                    max_observation, time_window = self._find_max_observation()
+                    input()
+                    if max_observation and time_window:
+                        can_be_scheduled = True
 
                     # Boundaries of available window
-                    wstart = iwinmax[0]  # window start
-                    wend = iwinmax[-1]   # window end
-                    nobswin = wend - wstart + 1
-
+                    #wstart = iwinmax[0]  # window start
+                    #wend = iwinmax[-1]   # window end
+                    #nobswin = wend - wstart + 1
                     # Calibration time
-                    ntcal = max_observation.calibrate(self.time_slots.slot_length)
-
+                    #ntcal = max_observation.calibrate(self.time_slots.slot_length)
                     # Remaining time (including calibration)
-                    ttime = (max_observation.total_time - max_observation.time)
-
+                    #ttime = (max_observation.total_time - max_observation.time)
                     # Number of slots needed in time grid, rounding up.
-                    nttime = int(np.ceil((ttime.to(u.h) / self.time_slots.slot_length.to(u.h)))) + ntcal
+                    #nttime = int(np.ceil((ttime.to(u.h) / self.time_slots.slot_length.to(u.h)))) + ntcal
 
                     # Don't leave little pieces of observations remaining.
                     # Also, short observations are done entirely.
-                    if nttime - self.min_slot_time <= self.min_slot_time:
-                        self.min_slot_time = nttime
-
-                    time_window = TimeWindow(wstart, wend, nobswin, nttime, ntcal, intervals)
+                    #if nttime - self.min_slot_time <= self.min_slot_time:
+                    #    self.min_slot_time = nttime
 
                     if self.verbose:
                         print('ID of chosen ob.', max_observation.name)
@@ -502,14 +652,15 @@ class GreedyMax:
                         input()
 
                     # Decide whether or not to add to schedule.
-                    if np.logical_or(nttime <= nobswin, nobswin >= self.min_slot_time):
+                    
+                    #if np.logical_or(nttime <= nobswin, nobswin >= self.min_slot_time):
                         # Schedule the observation.
-                        can_be_scheduled = True
-                    else:  # Do not schedule observation
-                        self.time_slots.weights[max_observation.site][max_observation.idx][
-                            intervals[max_observation.site]] = 0
-                        if self.verbose:
-                            print('Block too short to schedule...')
+                    #    can_be_scheduled = True
+                    #else:  # Do not schedule observation
+                    #    self.time_slots.weights[max_observation.site][max_observation.idx][
+                    #        time_window.intervals[max_observation.site]] = 0
+                    #    if self.verbose:
+                    #        print('Block too short to schedule...')
 
                 # TODO: If while loop above is not executed, max_observation and time_window will be unassigned?
                 # TODO: Will this crash?
