@@ -30,6 +30,9 @@ class Observation:
         self.instrument = instrument
         self.disperser = disperser 
         self.acquisition = acquisition
+    
+    def __str__(self) -> str:
+        return f'{self.name} {self.observed/self.length}'
 
 class SchedulingUnit:
     def __init__(self,
@@ -73,6 +76,14 @@ class SchedulingUnit:
         for observation in self.observations:
             if observation.observed < observation.length: # not complete observation
                 observation.length += observation.acquisition
+
+    def get_observations(self) -> Dict[int,str]:
+        total_obs = {}
+        for obs in self.observations:
+            total_obs[obs.idx] = obs.name
+        for cal in self.calibrations:
+            total_obs[cal.idx] = cal.name
+        return total_obs
 
 class TimeSlots:
     decoder = {'A':'0','B':'1','Q':'0',

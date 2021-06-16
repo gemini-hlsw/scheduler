@@ -80,42 +80,52 @@ if __name__ == '__main__':
     # Time management for observation  
     obs_times = {obs_id: int(np.ceil(otab_gngs['obs_time'].quantity[idx] / dt.to(u.h).value)) for idx, obs_id in enumerate(obs_ids)}
     tot_times = {obs_id: int(np.ceil(otab_gngs['tot_time'].quantity[idx] / dt.to(u.h).value)) for idx, obs_id in enumerate(obs_ids)}
-    categories = {obs_id: otab_gngs['obsclass'][idx].lower() for idx, obs_id in enumerate(obs_ids)}
+    categories = {obs_id: Category(otab_gngs['obsclass'][idx].lower()) for idx, obs_id in enumerate(obs_ids)}
 
     units = [] 
     for grp_id, group in enumerate(grptab_gngs):
         obs_idxs = group['oidx']
         can_be_split = group['split']
+        #print('pstdt',group['pstdt'].to(u.h).value)
         standard_time = int(np.ceil(group['pstdt'].to(u.h).value/ dt.to(u.h).value))
         site = Site.GS if sum(ttab_gngs['weight_gs'][grp_id]) > 0 else Site.GN
-    
+        #print(group['pstdt'], [ otab_gngs['obsclass'][obs].lower() for obs in group['oidx']])
         if len(obs_idxs) > 1: #group 
-
+            
             observations = []
             calibrations = []
             for obs in obs_idxs:
                 obs_id = obs_ids[obs]
                 acq_value = int(np.ceil(10./60.) / dt.to(u.h).value) if dispersers[obs_id] == 'mirror' else int(np.ceil(15. / 60.)/dt.to(u.h).value)
+                
                 new_obs = Observation(obs, obs_id, bands[obs_id], 
                                 categories[obs_id], obs_times[obs_id],
                                 tot_times[obs_id], instruments[obs_id],
                                 dispersers[obs_id], acq_value)
-                if categories[obs_id] == Category.Science:
+                if categories[obs_id] == Category.Science or Category.ProgramCalibration:
                     observations.append(new_obs)
                 else:
+                    #print('cal in group')
+                    #print(group['pstdt'])
+                    #print('std',standard_time)
                     calibrations.append(new_obs)
 
         else: #single observation 
-            
             obs = group['oidx'][0]
             obs_id = obs_ids[obs]
             acq_value = int(np.ceil(10./60.) / dt.to(u.h).value) if dispersers[obs_id] == 'mirror' else int(np.ceil(15. / 60.)/dt.to(u.h).value)
+            
             new_obs = Observation(obs, obs_id, bands[obs_id], 
                                   categories[obs_id],obs_times[obs_id],
                                   tot_times[obs_id], instruments[obs_id],
                                   dispersers[obs_id], acq_value)
-            observations = [new_obs] if new_obs == Category.Science else []
-            calibrations = [new_obs] if new_obs == Category.Calibration else []
+            observations = [new_obs] if new_obs == Category.Science or Category.ProgramCalibration else []
+            calibrations = [new_obs] if new_obs == Category.PartnerCalibration  else []
+
+            #if calibrations:
+                #print('single cal obs')
+                #print('calibration array: ',calibrations)
+                #print('std',standard_time)
 
         units.append(SchedulingUnit(grp_id, site, observations, calibrations, 
                                     can_be_split, standard_time))
