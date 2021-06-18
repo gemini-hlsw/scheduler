@@ -42,6 +42,7 @@ if __name__ == '__main__':
     print(grptab_gngs.colnames)
     print(otab_gngs.colnames)
     print(ttab_gngs.colnames)
+    print(len(grptab_gngs['obs_id']),len(grptab_gngs['prog_ref']))
     
     night_date = '2018-06-20'
     sites = list(sites_from_column_names(ttab_gngs.colnames))
@@ -180,6 +181,7 @@ if __name__ == '__main__':
                 sum_score += np.sum(abs(targtab.weights[site][obs_order[i]][i_start[i]:i_end[i] + 1]))
                 # sum_metric += np.sum(targtab['metric'][obs_order[i]][i_start[i]:i_end[i] + 1])
                 time_used += (i_end[i] - i_start[i] + 1) * dt
+        
         print('Sum score = {:7.2f}'.format(sum_score))
         print('Sum score/time step = {:7.2f}'.format(sum_score / nt))
         # print('Sum metric = {:7.2f}'.format(sum_metric))

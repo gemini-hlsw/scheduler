@@ -32,7 +32,7 @@ class Observation:
         self.acquisition = acquisition
     
     def __str__(self) -> str:
-        return f'{self.name} {self.observed/self.length}'
+        return f'{self.idx}-{self.name}'
 
 class SchedulingUnit:
     def __init__(self,
@@ -84,6 +84,22 @@ class SchedulingUnit:
         for cal in self.calibrations:
             total_obs[cal.idx] = cal.name
         return total_obs
+    
+    def __contains__(self, obs_idx:int) -> bool:
+        
+        if obs_idx in [sci.idx for sci in self.observations]:
+            return True
+        elif obs_idx in [cal.idx for cal in self.calibrations]:
+            return True
+        else:
+            return False
+    
+    def __str__(self) -> str:
+        return f'Unit {self.idx} \n\
+                 -- observations: {[sci.idx for sci in self.observations]} \n\
+                 -- calibrations: {[cal.idx for cal in self.calibrations]}'
+    
+    
 
 class TimeSlots:
     decoder = {'A':'0','B':'1','Q':'0',
