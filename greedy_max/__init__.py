@@ -58,6 +58,7 @@ class Plan:
         Add all the observations inside a unit in the time slots from start to finish.
         """
         for sci in science:
+            print(f'jnow:{start} < jend:{end}')
             if start < end:
                     sci_length = end - start+ 1  if start + sci.length - 1 > end else sci.length
                     self.schedule_observation(site, sci.idx, start, start + sci_length)
@@ -207,12 +208,12 @@ def short_observation_id(obsid):
     idsp = obsid.split('-')
     return idsp[0][1] + idsp[1][2:5] + '-' + idsp[2] + '-' + idsp[3] + '[' + idsp[4] + ']'
 
-def get_observations_names(units):
-    names = {}
+def get_observations(units: List[SchedulingUnit]) -> Dict[int,Observation]:
+    obs = {}
     for unit in units:
         aux = unit.get_observations() 
-        names = {**names, **aux}
-    return names
+        obs = {**obs, **aux}
+    return obs
 
 # TODO: What is dt / differential total time length?
 def time_slot_length(time_strings: np.ndarray) -> Quantity:
@@ -581,16 +582,19 @@ class GreedyMax:
                 new_start = start + first_calibration.length
 
                 # First standard
-                self.plan.schedule_observation(max_site, first_calibration, start, new_start)
+                print(first_calibration.name, first_calibration.idx)
+                self.plan.schedule_observation(max_site, first_calibration.idx, start, new_start)
                 first_calibration.observed += first_calibration.length  # Time accounting  
                 
                 new_end = end - second_calibration.length + 1
                 self.plan.schedule_observations(max_site, science, new_start, new_end)
+                
 
                 # Second standard
-                self.plan.schedule_observation(max_site, calibrations[1], start,
-                                               start+second_calibration.length)
-                second_calibration.observed += second_calibration.length # Time accounting 
+                #self.plan.schedule_observation(max_site, second_calibration.idx, start,
+                #                               new_start+second_calibration.length)
+                #second_calibration.observed += second_calibration.length # Time accounting 
+      
         else:
             # put science observations in order no need for calibrations 
             self.plan.schedule_observations(max_site, science, start, end)
@@ -696,7 +700,7 @@ class GreedyMax:
         sum_score = 0.0
         time_used = 0
         n_iter = 0
-        obs_names = get_observations_names(self.observations)
+        all_obs = get_observations(self.observations)
 
         # Unscheduled time slots.
         while self.plan.timeslots_not_scheduled() != 0:
@@ -725,31 +729,17 @@ class GreedyMax:
                     
                     if obs_idx != EMPTY and obs_idx != UNSCHEDULABLE:
                         unit = self.plan.get_unit_by_observation(site, obs_idx) # TODO: handle None case
-                        name = obs_names[obs_idx]
+                        name = all_obs[obs_idx].name
+
                         weights = np.max(abs(self.time_slots.weights[site][unit.idx][start:end+1]))
-                    
+                        category = all_obs[obs_idx].category
                         #print(f' {name:18} {obs_idx:>9d} {start:>8d} {end:>8d} {score:8.4f}')
-                        output_table.append([name,obs_idx,start, end, weights])
+                        output_table.append([name,obs_idx,category,start, end, weights])
                         sum_score += np.sum(abs(weights))
                         time_used += (end - start + 1)
                 
 
-                print(tabulate(output_table, headers=['Obs', 'obs_order', 'start', 'end', 'Max W']))
-                #obs_order, i_start, i_end = get_order(plan=plan.schedule[site])
-                #print([ (a,b,c) for a,b,c in zip(obs_order,i_start,i_end)])
-
-
-                #for i in range(len(obs_order)):
-                #    if obs_order[i] >= 0:
-                #        print('{:18} {:>9d} {:>8d} {:>8d} {:8.4f}'.format(short_observation_id(self.observations[obs_order[i]].name),
-                #                                                          obs_order[i], i_start[i], i_end[i],
-                #                                                          np.max(abs(
-                #                                                              self.time_slots.weights[site][
-                #                                                                  obs_order[i]][
-                #                                                                  i_start[i]:i_end[i] + 1]))))
-                #        sum_score += np.sum(abs(self.time_slots.weights[site][obs_order[i]][i_start[i]:i_end[i] + 1]))
-                #        time_used += (i_end[i] - i_start[i] + 1)
-            # 
+                print(tabulate(output_table, headers=['Obs', 'obs_order', 'category' 'start', 'end', 'Max W']))
             input()
 
         print('Sum score = {:7.2f}'.format(sum_score))

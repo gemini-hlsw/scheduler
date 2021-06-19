@@ -77,12 +77,12 @@ class SchedulingUnit:
             if observation.observed < observation.length: # not complete observation
                 observation.length += observation.acquisition
 
-    def get_observations(self) -> Dict[int,str]:
+    def get_observations(self) -> Dict[int,Observation]:
         total_obs = {}
         for obs in self.observations:
-            total_obs[obs.idx] = obs.name
+            total_obs[obs.idx] = obs
         for cal in self.calibrations:
-            total_obs[cal.idx] = cal.name
+            total_obs[cal.idx] = cal
         return total_obs
     
     def __contains__(self, obs_idx:int) -> bool:

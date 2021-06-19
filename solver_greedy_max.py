@@ -26,8 +26,8 @@ if __name__ == '__main__':
     # Observation table
     #otab_gngs = Table.read(tabdir + 'obstab_gngs_20201123.fits')
     # Time array
-    timestab_gngs = Table.read(tabdir + 'timetab_gngs_20201123.fits')
-
+    #timestab_gngs = Table.read(tabdir + 'timetab_gngs_20201123.fits')
+    timestab_gngs = Table.read(tabdir + 'timetab_gs_2019-02-02.fits')
     #Group table
     f0 = open(f'{tabdir}/grptab_plan','rb')
     grptab_gngs = pickle.load(f0)
@@ -42,12 +42,12 @@ if __name__ == '__main__':
     print(grptab_gngs.colnames)
     print(otab_gngs.colnames)
     print(ttab_gngs.colnames)
-    print(len(grptab_gngs['obs_id']),len(grptab_gngs['prog_ref']))
+    #print(len(grptab_gngs['obs_id']),len(grptab_gngs['prog_ref']))
     
     night_date = '2018-06-20'
     sites = list(sites_from_column_names(ttab_gngs.colnames))
     dt = time_slot_length(timestab_gngs['time'])
-
+    print(timestab_gngs)
     # Resource API mock 
     resource = Resource('/resource_mock/data')
     resource.connect()
@@ -91,6 +91,7 @@ if __name__ == '__main__':
         standard_time = int(np.ceil(group['pstdt'].to(u.h).value/ dt.to(u.h).value))
         site = Site.GS if sum(ttab_gngs['weight_gs'][grp_id]) > 0 else Site.GN
         #print(group['pstdt'], [ otab_gngs['obsclass'][obs].lower() for obs in group['oidx']])
+        
         if len(obs_idxs) > 1: #group 
             
             observations = []
@@ -103,12 +104,9 @@ if __name__ == '__main__':
                                 categories[obs_id], obs_times[obs_id],
                                 tot_times[obs_id], instruments[obs_id],
                                 dispersers[obs_id], acq_value)
-                if categories[obs_id] == Category.Science or Category.ProgramCalibration:
+                if categories[obs_id] == Category.Science or categories[obs_id] == Category.ProgramCalibration:
                     observations.append(new_obs)
                 else:
-                    #print('cal in group')
-                    #print(group['pstdt'])
-                    #print('std',standard_time)
                     calibrations.append(new_obs)
 
         else: #single observation 
@@ -122,11 +120,6 @@ if __name__ == '__main__':
                                   dispersers[obs_id], acq_value)
             observations = [new_obs] if new_obs == Category.Science or Category.ProgramCalibration else []
             calibrations = [new_obs] if new_obs == Category.PartnerCalibration  else []
-
-            #if calibrations:
-                #print('single cal obs')
-                #print('calibration array: ',calibrations)
-                #print('std',standard_time)
 
         units.append(SchedulingUnit(grp_id, site, observations, calibrations, 
                                     can_be_split, standard_time))
