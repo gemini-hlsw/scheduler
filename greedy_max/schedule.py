@@ -50,18 +50,28 @@ class SchedulingUnit:
         self.can_be_split = can_be_split # split flag
         self.standard_time = standard_time # standard time in time slots 
         #self.priority = priority # ToO or not? 
-        self.length = self._length()
-        self.observed = self._observed()
+        #self.length = self._length()
+        #self.observed = self._observed()
 
-    def _length(self) -> int:
+    def length(self) -> int:
         """
         Calculate the length of the unit based on both observation and calibrations times
         """
         obs_slots = sum([obs.length for obs in self.observations])
-        cal_slots = sum([cal.length for cal in self.calibrations])
-        return obs_slots + cal_slots
 
-    def _observed(self) -> int:
+        if self.standard_time > 0: # not a single science observation
+            standards_needed = max(1, int(obs_slots // self.standard_time))
+
+            if standards_needed == 1:
+                cal_slots = self.calibrations[0].length #take just one
+            else:
+                cal_slots = sum([cal.length for cal in self.calibrations])
+
+            return obs_slots + cal_slots
+        else:
+            return obs_slots
+
+    def observed(self) -> int:
         """
         Calculate the observed time for both observation and calibrations
         """

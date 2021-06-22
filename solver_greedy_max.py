@@ -39,15 +39,13 @@ if __name__ == '__main__':
     f1.close()
     f2.close()
 
-    print(grptab_gngs.colnames)
-    print(otab_gngs.colnames)
-    print(ttab_gngs.colnames)
-    #print(len(grptab_gngs['obs_id']),len(grptab_gngs['prog_ref']))
+    #print(grptab_gngs.colnames)
+    #print(otab_gngs.colnames)
+    #print(ttab_gngs.colnames)
     
     night_date = '2018-06-20'
     sites = list(sites_from_column_names(ttab_gngs.colnames))
     dt = time_slot_length(timestab_gngs['time'])
-    print(timestab_gngs)
     # Resource API mock 
     resource = Resource('/resource_mock/data')
     resource.connect()
@@ -68,13 +66,13 @@ if __name__ == '__main__':
     grp_ids = [row['prog_ref'] for row in grptab_gngs]
 
     #bands = {obs_id: Band(otab_gngs[obs_id == obs_id]['band']) for obs_id in obs_ids}
-    bands = {obs_id: None for obs_id in obs_ids} # temporary bypass
+    bands = {obs_id: None for obs_id in obs_ids} # NOTE: temporary bypass
 
     if 'inst' in otab_gngs.colnames or 'disperser' in otab_gngs.colnames:
         instruments = {obs_id: otab_gngs['inst'][idx] for idx, obs_id in enumerate(obs_ids)} 
         dispersers = {obs_id: otab_gngs['disperser'][idx] for idx, obs_id in enumerate(obs_ids)}
     else:
-        # TODO: Why is this optional? 
+        # NOTE: Why is this optional? 
         instruments = {obs_id: None for idx, obs_id in enumerate(obs_ids)} 
         dispersers = {obs_id: None for idx, obs_id in enumerate(obs_ids)}
 
@@ -87,10 +85,10 @@ if __name__ == '__main__':
     for grp_id, group in enumerate(grptab_gngs):
         obs_idxs = group['oidx']
         can_be_split = group['split']
-        #print('pstdt',group['pstdt'].to(u.h).value)
+        
         standard_time = int(np.ceil(group['pstdt'].to(u.h).value/ dt.to(u.h).value))
         site = Site.GS if sum(ttab_gngs['weight_gs'][grp_id]) > 0 else Site.GN
-        #print(group['pstdt'], [ otab_gngs['obsclass'][obs].lower() for obs in group['oidx']])
+       
         
         if len(obs_idxs) > 1: #group 
             
@@ -140,7 +138,7 @@ if __name__ == '__main__':
 
     # Convert to UT
     uttime_gngs = Time(timestab_gngs['time'], format='iso')
-    print(uttime_gngs[0], uttime_gngs[0].jd)
+    #print(uttime_gngs[0], uttime_gngs[0].jd)
     nt = len(uttime_gngs) # NOTE: What is this for?
 
     # Make initial plan
