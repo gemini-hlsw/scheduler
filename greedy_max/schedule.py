@@ -5,6 +5,7 @@ from greedy_max.site import Site
 from greedy_max.category import Category
 from typing import Dict, List
 from dataclasses import dataclass
+from astropy.units.quantity import Quantity
 
 class Observation: 
     """
@@ -49,9 +50,6 @@ class SchedulingUnit:
         self.calibrations = calibrations # group or a single cal observation
         self.can_be_split = can_be_split # split flag
         self.standard_time = standard_time # standard time in time slots 
-        #self.priority = priority # ToO or not? 
-        #self.length = self._length()
-        #self.observed = self._observed()
 
     def length(self) -> int:
         """
@@ -108,8 +106,8 @@ class SchedulingUnit:
         return f'Unit {self.idx} \n\
                  -- observations: {[sci.idx for sci in self.observations]} \n\
                  -- calibrations: {[cal.idx for cal in self.calibrations]}'
-    
-    
+
+ValuesByObservation = Dict[int,List[float]]
 
 class TimeSlots:
     decoder = {'A':'0','B':'1','Q':'0',
@@ -117,9 +115,9 @@ class TimeSlots:
                 'SV':'8','DD':'9'}
     pattern = '|'.join(decoder.keys())
     def __init__(self, 
-                 time_slot_length: float, 
-                 weights: Dict[Site,List[int]],
-                 airmass:  Dict[Site,List[int]], 
+                 time_slot_length: Quantity, 
+                 weights: Dict[Site,ValuesByObservation],
+                 airmass:  Dict[Site,ValuesByObservation], 
                  total_amount: int, 
                  fpu: Dict[Site, List[str]], 
                  fpur: Dict[Site, List[str]], 

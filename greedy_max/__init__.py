@@ -7,7 +7,6 @@ from typing import Deque, Dict, List, NoReturn, Optional, Sized, Tuple
 from numpy.core.numeric import indices
 from greedy_max.schedule import *
 import astropy.units as u
-from astropy.units.quantity import Quantity
 
 from tabulate import tabulate
 from collections import deque
@@ -71,7 +70,7 @@ class Plan:
         return len(self.slots_for_observation(site, obs_idx)) != 0
 
     def is_complete(self, site: Site) -> bool:
-        return len(self._empty_slots(site)) < 0
+        return len(self._empty_slots(site)) == 0
 
     def _intervals(self, empty_slots: np.ndarray) -> np.ndarray:
         """
@@ -91,31 +90,42 @@ class Plan:
 
         return idx
 
-    def get_available_interval(self, site: Site) -> np.ndarray:
+    def get_earliest_available_interval(self, site: Site) -> np.ndarray:
         """
-        Get the first available space in the schedule that can allocate an observation 
+        Get the earliest available space in the schedule that can allocate an observation 
         """  
         empty_slots =  self._empty_slots(site)
         return empty_slots[np.where(self._intervals(empty_slots) == 1)[0][:]]
     
     def get_observation_orders(self, site: Site) -> List[Tuple[int]]:
+        """
+        Get the observation idx and position for all the schedule observations in order
+        Return
+        -------
+
+        orders: List of a 3-dimensional tuple: observation.idx, initial position
+                and last position in the plan.
+        """
         
         schedule = self.schedule[site]
-        obs_cmp = self.schedule[site][0]
+        obs_comparator = self.schedule[site][0]
         start = 0
 
         orders = []
         for position ,obs_idx in enumerate(schedule):
-            if obs_idx != obs_cmp:
-                orders.append((obs_cmp,start,position-1))
+            if obs_idx != obs_comparator:
+                orders.append((obs_comparator,start,position-1))
                 start = position
-                obs_cmp = obs_idx
+                obs_comparator = obs_idx
             elif position == len(schedule)-1:
-                orders.append((obs_cmp,start,position))
+                orders.append((obs_comparator,start,position))
             
         return orders
     
     def get_unit_by_observation(self, site: Site, obs_idx: int ) -> Optional[SchedulingUnit]:
+        """
+        Retrieve the unit that owns the observation 
+        """
         unit = None
         for u in self.units[site]:
             if obs_idx in u:
@@ -211,7 +221,7 @@ def get_observations(units: List[SchedulingUnit]) -> Dict[int,Observation]:
     obs = {}
     for unit in units:
         aux = unit.get_observations() 
-        obs = {**obs, **aux}
+        obs = {**obs, **aux} # merge obs and aux 
     return obs
 
 # TODO: What is dt / differential total time length?
@@ -234,14 +244,13 @@ def time_slot_length(time_strings: np.ndarray) -> Quantity:
 
 class GreedyMax:
     def __init__(self, obs: List[SchedulingUnit], time_slots: TimeSlots, sites: List[Site],
-                 tmin: Quantity = 30.0 * u.min, verbose: bool = False):
+                 tmin: Quantity = 30 * u.min, verbose: bool = False):
         self.plan = Plan(time_slots.total, sites)
         self.observations = obs
         self.time_slots = time_slots
         self.tmin = tmin
         self.sites = sites
         self.verbose = verbose
-        #self.min_slot_time = int(np.ceil(tmin.to(u.h) / time_slots.slot_length.to(u.h)))
 
     def min_slot_time(self):
         return int(np.ceil(self.tmin.to(u.h) / self.time_slots.slot_length.to(u.h)))
@@ -249,6 +258,15 @@ class GreedyMax:
     def _match_airmass(self, site: Site, start: int, end: int, 
                        science_obs: List[Observation], 
                        calibrations: List[Observation]) -> Tuple[Observation, bool]:
+        """
+        Given the observations and calibrations in a unit. Match the airmass mask between calibration and science observation
+        to get the best placement for the calibration. 
+        -----
+        Returns
+
+        best_placement: Bool, True is before science and False is after science
+        best_calibration: Observation object of the calibration to be schedule
+        """
 
         airmass = self.time_slots.airmass[site]
         min_delta = 99999.
@@ -319,7 +337,7 @@ class GreedyMax:
         time_window : TimeWindow object (or None)
 
         """
-        max_weight = 0.  # maximum weight in time interval
+        max_weight = 0  # maximum weight in time interval
         intervals = {}  # save intervals for each site for later use
 
         max_obs = None
@@ -329,7 +347,7 @@ class GreedyMax:
         for site in self.sites:    
             if not self.plan.is_complete(site):
     
-                first_interval = self.plan.get_available_interval(site)
+                first_interval = self.plan.get_earliest_available_interval(site)
                 intervals[site] = first_interval
 
                 if self.verbose:
@@ -351,7 +369,7 @@ class GreedyMax:
                         used_min_slot = time_slots_needed if time_slots_needed - min_slot_time <= min_slot_time \
                                                           else min_slot_time
 
-                        max_weight_on_interval = 0.0
+                        max_weight_on_interval = 0
                         max_interval = None
                         for interval in candidate_intervals:
                             interval_length = interval[1]-interval[0]
@@ -388,7 +406,7 @@ class GreedyMax:
                                 print('smax', observation.site)
                                
                         else:
-                            self.time_slots.weights[site][obs_idx][intervals[site]] = 0.
+                            self.time_slots.weights[site][obs_idx][intervals[site]] = 0
 
         time_window.intervals = intervals
         return max_obs, time_window
@@ -427,7 +445,7 @@ class GreedyMax:
         if time_window.time_slots > 0  and time_window.time_slots <= time_window.length:
             if not self.plan.is_observation_scheduled(max_site, max_idx):
                 # Determine schedule placement for maximum integrated weight
-                max_integral_weight = 0.0
+                max_integral_weight = 0
 
                 #TODO: ToO case not added yet because there is no data to test it yet
                 # Schedule interrupt ToO at beginning of window
@@ -447,6 +465,9 @@ class GreedyMax:
                         print('wend', time_window.end)
                         print('nttime', time_window.time_slots)
                         print('j values', np.arange(time_window.start, time_window.end - time_window.time_slots + 2))
+                    
+                    print(f'range in question {time_window.start},{time_window.end} - {time_window.time_slots}')
+                    print(f'replace range {time_window.length}')
 
                     # Determine placement for maximum integrated weight 
                     for window_idx in range(time_window.start, time_window.end - time_window.time_slots + 2):
@@ -593,10 +614,6 @@ class GreedyMax:
 
         self.plan.units[max_site].append(max_observation) # add unit to plan queue
         
-        
-        # Number of spots in time grid used (excluding calibration).
-        ntmin = np.minimum(time_window.time_slots, end - start + 1)
-
         # Adjust weights of scheduled observation.
         if max_observation.observed() == max_observation.length():
             # If completed, set all to negative values.
@@ -611,7 +628,7 @@ class GreedyMax:
         # Set weights to zero for other sites so it won't be scheduled again
         for site in self.sites:
             if site != max_site:
-                self.time_slots.weights[site][max_idx][:] = 0.0
+                self.time_slots.weights[site][max_idx][:] = 0
 
         # Add new acquisition overhead to total time if observation not complete.
         max_observation.acquisition() # NOTE: this method now is specific to incomplete observations
@@ -624,7 +641,6 @@ class GreedyMax:
         if self.verbose:
             print('Current plan: ', self.plan[max_observation.site])
             print('New obs. weights: ', max_weights)
-            print('ntmin: ', ntmin)
             print('Tot time: ', max_observation.length())
             print('New obs time: ', max_observation.observed())
             print('New comp time: ', max_observation.length() - max_observation.observed())
@@ -672,7 +688,7 @@ class GreedyMax:
 
         # ====== Initialize plan parameters ======
         # Set these initially here so that they are initialized.
-        sum_score = 0.0
+        sum_score = 0
         time_used = 0
         n_iter = 0
         all_obs = get_observations(self.observations)
@@ -684,13 +700,13 @@ class GreedyMax:
             n_iter += 1
 
             # Fill nightly plan one observation at a time.
-            sum_score = 0.0
+            sum_score = 0
             time_used = 0
 
             # Print current plan
             print(f'Iteration {n_iter:4d}')
             for site in self.sites:
-                print(Site(site).name.upper())
+                print(site.name.upper())
                 obs_in_plan = self.plan.get_observation_orders(site)
 
                 output_table = []
@@ -715,37 +731,3 @@ class GreedyMax:
         print(f'Time scheduled = {(time_used * self.time_slots.slot_length.to(u.hr)):5.2f}')
        
         return self
-
-    def print_plan(self):
-        
-        for site in self.sites:
-            # if s == 'gs':
-            #     night_length = gs_night_length[i_day]
-            # else:
-            #     night_length = gn_night_length[i_day]
-            print(Site(site).name.upper())
-            obs_order, i_start, i_end = get_order(plan=self.plan[site])
-            # print(obs_order, i_start, i_end)
-            sum_score = 0.0
-            sum_metric = 0.0
-            time_used = 0.0 * u.hr
-            for i in range(len(obs_order)):
-                if obs_order[i] >= 0:
-                    print('{:18} {} {} {:8.4f}'.format(short_observation_id(otab_gngs['obs_id'][obs_order[i]]),
-                                                    uttime_gngs[i_start[i]].strftime('%H:%M'),
-                                                    uttime_gngs[i_end[i]].strftime('%H:%M'),
-                                                    np.max(abs(targtab.weights[site][obs_order[i]][i_start[i]:i_end[i]]))
-                                                    )
-                        )
-                    # print(obs_order[i], np.mean(scores[obs_order[i]][i_start[i]:i_end[i]]))
-                    sum_score += np.sum(abs(targtab.weights[site][obs_order[i]][i_start[i]:i_end[i] + 1]))
-                    # sum_metric += np.sum(targtab['metric'][obs_order[i]][i_start[i]:i_end[i] + 1])
-                    time_used += (i_end[i] - i_start[i] + 1) * dt
-            
-            print('Sum score = {:7.2f}'.format(sum_score))
-            print('Sum score/time step = {:7.2f}'.format(sum_score / nt))
-            # print('Sum metric = {:7.2f}'.format(sum_metric))
-            # print('Sum metric/time step = {:7.2f}'.format(sum_metric / nt))
-            print('Time scheduled = {:5.2f}'.format(time_used))
-            # print('Fraction of night scheduled = {:5.2f}'.format((time_used / night_length).value))
-            print('')
