@@ -142,7 +142,7 @@ if __name__ == '__main__':
     nt = len(uttime_gngs) # NOTE: What is this for?
 
     # Make initial plan
-    gm = GreedyMax(units, time_slots, sites, verbose=True)
+    gm = GreedyMax(units, time_slots, sites)
     gm.schedule()
     plan, obstab, targtab = gm.plan, gm.observations, gm.time_slots
 
