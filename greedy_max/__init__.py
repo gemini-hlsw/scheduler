@@ -332,15 +332,15 @@ class GreedyMax:
                 start, end = self._integrate(time_window, max_weights)
             # If observation is already in plan, shift to side of window closest to existing obs.
             # TODO: try to shift the plan to join the pieces and save an acq
+            
+            elif self.plan.slots_for_observation(max_site, max_idx)[0] < time_window.start:
+                # Existing obs in plan before window. Schedule at beginning of window.
+                start = time_window.start
+                end = time_window.start + time_window.time_slots - 1
             else:
-                if np.where(self.schedule[max_site] == max_idx)[0][0] < time_window.start:
-                    # Existing obs in plan before window. Schedule at beginning of window.
-                    start = time_window.start
-                    end = time_window.start + time_window.time_slots - 1
-                else:
-                    # Existing obs in plan after window. Schedule at end of window.
-                    start = time_window.end - time_window.time_slots + 1
-                    end = time_window.end
+                # Existing obs in plan after window. Schedule at end of window.
+                start = time_window.end - time_window.time_slots + 1
+                end = time_window.end
 
         else:
             # If window smaller than observation length.
