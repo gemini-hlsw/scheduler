@@ -248,7 +248,7 @@ class GreedyMax:
                             start = window_idx
                             end = start + time_window.time_slots - 1
                 else:
-                    start = np.argmax(max_weights[indices])
+                    start = np.argmax(max_weights[time_window.indices])
                     max_integral_weight = np.amax(max_weights[start])
                     end = start + time_window.time_slots - 1
 
