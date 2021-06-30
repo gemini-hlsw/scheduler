@@ -181,6 +181,122 @@ class GreedyMax:
         time_window.intervals = intervals
         return max_obs, time_window
 
+    def _calibrate(self, science, calibrations, max_site, max_std_time, length, start, end):
+        # How many standards needed based on science time
+        std_time_slots = max_std_time 
+        standards = max(1,int((length - calibrations[0].length) // std_time_slots))     
+
+        if standards == 1:
+            
+            calibration, before = self._match_airmass(max_site, start, end, science, 
+                                                        calibrations)
+            # Check for the right placement on 
+            if before:
+                
+                self.plan.schedule_observation(max_site, calibration.idx, start, start+calibration.length)
+                calibration.observed+=calibration.length # Time accounting 
+                new_start = start + calibration.length
+
+                self.plan.schedule_observations(max_site, science, new_start, end)
+                
+            else:
+                new_end = end - calibration.length + 1
+                self.plan.schedule_observation(max_site, calibration.idx, new_end, 
+                                                new_end+calibration.length)
+                calibration.observed+=calibration.length  # Time accounting                           
+                
+                self.plan.schedule_observations(max_site, science, start, new_end)
+                
+        else:
+            # NOTE: From Bryan's old code:
+            # need two or more standards
+            # if one standard, should put before and after if airmass match ok, otherwise the best one
+            # the general case should handle any number of standards, splitting as needed
+            # need to check that all standards are visible where placed
+            # currently this just uses the first two standards defined
+
+            first_calibration = calibrations[0]
+            second_calibration = calibrations[1]
+            new_start = start + first_calibration.length
+
+            # First standard
+            self.plan.schedule_observation(max_site, first_calibration.idx, start, new_start)
+            first_calibration.observed += first_calibration.length  # Time accounting  
+            
+            new_end = end - second_calibration.length + 1
+            self.plan.schedule_observations(max_site, science, new_start, new_end)
+        
+            #Second standard
+            self.plan.schedule_observation(max_site, second_calibration.idx, start,
+                                            new_start+second_calibration.length)
+            second_calibration.observed += second_calibration.length # Time accounting 
+
+    def _integrate(self, time_window, max_weights):
+        # Determine schedule placement for maximum integrated weight
+        max_integral_weight = 0
+
+        #TODO: ToO case not added yet because there is no data to test it yet
+        # Schedule interrupt ToO at beginning of window
+        #if max_observation.priority == 'interrupt': 
+        #    start = time_window.start
+        #    end = time_window.start + time_window.time_slots - 1
+
+        # NOTE: I'm not clear on this documentation.
+        if time_window.time_slots > 1:
+            # NOTE: integrates over one extra time slot...
+            # ie. if nttime = 14, then the program will choose 15
+            # x values to do trapz integration (therefore integrating
+            # 14 time slots).
+
+            logger.info('Integrating max obs. over window...')
+            logger.debug(f'wstart: {time_window.start}')
+            logger.debug(f'wend: {time_window.end}')
+            logger.debug(f'nttime: {time_window.time_slots}')
+
+            # Determine placement for maximum integrated weight 
+            for window_idx in range(time_window.start, time_window.end - time_window.time_slots + 2):
+                
+                integral_weight = sum(max_weights[window_idx: window_idx + time_window.time_slots])
+
+                logger.debug(f'j range: {window_idx}  {window_idx + time_window.time_slots - 1}')
+                logger.debug(f'obs weight: {max_weights[window_idx:window_idx + time_window.time_slots]}')
+                logger.debug(f'integral {integral_weight}')
+
+                if integral_weight > max_integral_weight:
+                    max_integral_weight = integral_weight
+                    start = window_idx
+                    end = start + time_window.time_slots - 1
+        else:
+            start = np.argmax(max_weights[time_window.indices])
+            max_integral_weight = np.amax(max_weights[start])
+            end = start + time_window.time_slots - 1
+
+        logger.debug(f'max integral of weight func (maxf) {max_integral_weight}')
+        logger.debug(f'index start {start}')
+        logger.debug(f'index end {end}')
+
+        # Shift to window boundary if within minimum block time of edge.
+        # If near both boundaries, choose boundary with higher weight.
+        wt_start = max_weights[time_window.start]  # weight at start
+        wt_end = max_weights[time_window.end]  # weight at end
+        delta_start = start - time_window.start - 1  # difference between start of window and block
+        delta_end = time_window.end - end + 1  # difference between end of window and block
+        if delta_start < time_window.min_slot_time and delta_end < time_window.min_slot_time:
+            if wt_start > time_window.end and wt_start > 0:
+                start = time_window.start
+                end = time_window.start + time_window.time_slots - 1
+            elif wt_end > 0:
+                start = time_window.end - time_window.time_slots + 1
+                end = time_window.end
+        elif delta_start < time_window.min_slot_time and wt_start > 0:
+            start = time_window.start
+            end = time_window.start + time_window.time_slots - 1
+        elif delta_end < time_window.min_slot_time and wt_start > 0:
+            start = time_window.end - time_window.time_slots + 1
+            end = time_window.end
+        
+        return start, end
+
     def _insert(self, max_observation: Optional[SchedulingUnit], time_window: Optional[TimeWindow]) -> bool:
         """
         Insert an observation to the final plan, trying to shift the observation inside the time window.
@@ -213,82 +329,7 @@ class GreedyMax:
 
         if time_window.time_slots > 0  and time_window.time_slots <= time_window.length:
             if not self.plan.is_observation_scheduled(max_site, max_idx):
-                # Determine schedule placement for maximum integrated weight
-                max_integral_weight = 0
-
-                #TODO: ToO case not added yet because there is no data to test it yet
-                # Schedule interrupt ToO at beginning of window
-                #if max_observation.priority == 'interrupt': 
-                #    start = time_window.start
-                #    end = time_window.start + time_window.time_slots - 1
-
-                # NOTE: I'm not clear on this documentation.
-                if time_window.time_slots > 1:
-                    # NOTE: integrates over one extra time slot...
-                    # ie. if nttime = 14, then the program will choose 15
-                    # x values to do trapz integration (therefore integrating
-                    # 14 time slots).
-
-                    logger.info('Integrating max obs. over window...')
-                    logger.debug(f'wstart: {time_window.start}')
-                    logger.debug(f'wend: {time_window.end}')
-                    logger.debug(f'nttime: {time_window.time_slots}')
-
-                    # Determine placement for maximum integrated weight 
-                    for window_idx in range(time_window.start, time_window.end - time_window.time_slots + 2):
-                        
-                        integral_weight = sum(max_weights[window_idx: window_idx + time_window.time_slots])
-
-                        logger.debug(f'j range: {window_idx}  {window_idx + time_window.time_slots - 1}')
-                        logger.debug(f'obs weight: {max_weights[window_idx:window_idx + time_window.time_slots]}')
-                        logger.debug(f'integral {integral_weight}')
-
-                        if integral_weight > max_integral_weight:
-                            max_integral_weight = integral_weight
-                            start = window_idx
-                            end = start + time_window.time_slots - 1
-                else:
-                    start = np.argmax(max_weights[time_window.indices])
-                    max_integral_weight = np.amax(max_weights[start])
-                    end = start + time_window.time_slots - 1
-
-                logger.debug(f'max integral of weight func (maxf) {max_integral_weight}')
-                logger.debug(f'index start {start}')
-                logger.debug(f'index end {end}')
-
-                # Shift to start or end of night if within minimum block time from boundary.
-                # NOTE: BM, 2021may13 - I believe the following code related to the window
-                # boundary does the same thing, so the start/end night check seems redundant
-                # Nudge:
-                #if start < self.min_slot_time:
-                #    if self.plan[max_site][0] == -1 and max_weights[0] > 0:
-                #        start = 0
-                #        end = start + time_window.total_time - 1
-                #elif self.time_slots.total - end < self.min_slot_time:
-                #    if self.plan[max_site][-1] == -1 and max_weights[-1] > 0:
-                #        end = self.time_slots.total - 1
-                #        start = end - time_window.total_time + 1
-
-                # Shift to window boundary if within minimum block time of edge.
-                # If near both boundaries, choose boundary with higher weight.
-                wt_start = max_weights[time_window.start]  # weight at start
-                wt_end = max_weights[time_window.end]  # weight at end
-                delta_start = start - time_window.start - 1  # difference between start of window and block
-                delta_end = time_window.end - end + 1  # difference between end of window and block
-                if delta_start < time_window.min_slot_time and delta_end < time_window.min_slot_time:
-                    if wt_start > time_window.end and wt_start > 0:
-                        start = time_window.start
-                        end = time_window.start + time_window.time_slots - 1
-                    elif wt_end > 0:
-                        start = time_window.end - time_window.time_slots + 1
-                        end = time_window.end
-                elif delta_start < time_window.min_slot_time and wt_start > 0:
-                    start = time_window.start
-                    end = time_window.start + time_window.time_slots - 1
-                elif delta_end < time_window.min_slot_time and wt_start > 0:
-                    start = time_window.end - time_window.time_slots + 1
-                    end = time_window.end
-
+                start, end = self._integrate(time_window, max_weights)
             # If observation is already in plan, shift to side of window closest to existing obs.
             # TODO: try to shift the plan to join the pieces and save an acq
             else:
@@ -315,56 +356,10 @@ class GreedyMax:
         calibrations = max_observation.calibrations
         science = max_observation.observations
 
-        if len(calibrations) > 0: #0 need for calibration
-            # How many standards needed based on science time
-            std_time_slots = max_observation.standard_time  
-            standards = max(1,int((time_window.length - calibrations[0].length) // std_time_slots))     
-
-            if standards == 1:
-                
-                calibration, before = self._match_airmass(max_observation.site, start, end, science, 
-                                                         calibrations)
-                # Check for the right placement on 
-                if before:
-                    
-                    self.plan.schedule_observation(max_site, calibration.idx, start, start+calibration.length)
-                    calibration.observed+=calibration.length # Time accounting 
-                    new_start = start + calibration.length
-
-                    self.plan.schedule_observations(max_site, max_observation.observations, new_start, end)
-                    
-                else:
-                    new_end = end - calibration.length + 1
-                    self.plan.schedule_observation(max_site, calibration.idx, new_end, 
-                                                   new_end+calibration.length)
-                    calibration.observed+=calibration.length  # Time accounting                           
-                    
-                    self.plan.schedule_observations(max_site, max_observation.observations, start, new_end)
-                    
-            else:
-             # NOTE: From Bryan's old code:
-             # need two or more standards
-             # if one standard, should put before and after if airmass match ok, otherwise the best one
-             # the general case should handle any number of standards, splitting as needed
-             # need to check that all standards are visible where placed
-             # currently this just uses the first two standards defined
-
-                first_calibration = calibrations[0]
-                second_calibration = calibrations[1]
-                new_start = start + first_calibration.length
-
-                # First standard
-                self.plan.schedule_observation(max_site, first_calibration.idx, start, new_start)
-                first_calibration.observed += first_calibration.length  # Time accounting  
-                
-                new_end = end - second_calibration.length + 1
-                self.plan.schedule_observations(max_site, science, new_start, new_end)
-            
-                #Second standard
-                self.plan.schedule_observation(max_site, second_calibration.idx, start,
-                                               new_start+second_calibration.length)
-                second_calibration.observed += second_calibration.length # Time accounting 
-      
+        if len(calibrations) > 0: # need for calibration
+            self._calibrate(science,calibrations,max_site, 
+                            max_observation.standard_time, 
+                            time_window.length, start, end)
         else:
             # put science observations in order no need for calibrations 
             self.plan.schedule_observations(max_site, science, start, end)
