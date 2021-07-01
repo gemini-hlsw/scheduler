@@ -181,7 +181,12 @@ class GreedyMax:
         time_window.intervals = intervals
         return max_obs, time_window
 
-    def _calibrate(self, science, calibrations, max_site, max_std_time, length, start, end):
+    def _calibrate(self, science: List[Observation], calibrations: List[Observation], 
+                   max_site: Site, max_std_time: int, length: int, start:int , end: int) -> NoReturn:
+        """
+        In case the unit needs to add calibrations, checks for placement and 
+        how many calibrations are needed
+        """
         # How many standards needed based on science time
         std_time_slots = max_std_time 
         standards = max(1,int((length - calibrations[0].length) // std_time_slots))     
@@ -231,7 +236,15 @@ class GreedyMax:
                                             new_start+second_calibration.length)
             second_calibration.observed += second_calibration.length # Time accounting 
 
-    def _integrate(self, time_window, max_weights):
+    def _integrate(self, time_window: TimeWindow, max_weights: Dict[Site,List[float]])-> Tuple[int,int]:
+        """
+        Integrate the observation inside the time_window to get the position with the best score. 
+        -----
+        Return
+
+        start: int, time window's starting index
+        end: int, time window's ending index
+        """
         # Determine schedule placement for maximum integrated weight
         max_integral_weight = 0
 
