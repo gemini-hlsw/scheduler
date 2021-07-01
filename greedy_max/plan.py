@@ -59,31 +59,20 @@ class Plan:
 
     def is_complete(self, site: Site) -> bool:
         return len(self._empty_slots(site)) == 0
-
-    def _intervals(self, empty_slots: np.ndarray) -> np.ndarray:
+    
+    def _available_intervals(self, empty_slots: np.ndarray) -> np.ndarray:
         """
-        Given the empty slots in the schedule, returns an array with the indices with the
-        intervals that can schedule an observation
+        Calculate the available intervals in the schedule by creating an array that contains all
+        the groups of consecutive numbers 
         """
-        ni = len(empty_slots)
-        cvec = np.zeros(ni, dtype=int)
-        nint = 1
-        cvec[0] = nint
-        for j in range(1, ni):
-            if empty_slots[j] != (empty_slots[j - 1] + 1):
-                nint = nint + 1
-            cvec[j] = nint 
-
-        idx = np.digitize(cvec, bins=np.arange(ni) + 1)
-
-        return idx
+        return np.split(empty_slots, np.where(np.diff(empty_slots) != 1)[0]+1)
 
     def get_earliest_available_interval(self, site: Site) -> np.ndarray:
         """
         Get the earliest available space in the schedule that can allocate an observation 
         """  
         empty_slots =  self._empty_slots(site)
-        return empty_slots[np.where(self._intervals(empty_slots) == 1)[0][:]]
+        return self._available_intervals(empty_slots)[0]
     
     def get_observation_orders(self, site: Site) -> List[Tuple[int]]:
         """
