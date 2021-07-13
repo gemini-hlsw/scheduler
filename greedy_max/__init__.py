@@ -439,7 +439,7 @@ class GreedyMax:
             else: # No available spots in plan
                 break
 
-    def schedule(self):
+    def schedule(self, ask_input=True):
         """
         Schedule a single night for multiple sites using the greedy-max algorithm
         """
@@ -482,7 +482,9 @@ class GreedyMax:
                         sum_score += np.sum(abs(self.time_slots.weights[site][unit.idx][start:end+1]))
                         time_used += (end - start + 1)    
                 logger.info(tabulate(output_table, headers=['Obs', 'obs_order', 'category','start', 'end', 'Max W']))
-            input()
+            
+            if ask_input:
+                input()
 
         logger.info(f'Sum score = {sum_score:7.2f}')
         logger.info(f'Sum score/time step = {(sum_score / (len(self.sites) * self.time_slots.total)):7.2f}') 
