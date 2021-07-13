@@ -43,7 +43,7 @@ if __name__ == '__main__':
     #print(otab_gngs.colnames)
     #print(ttab_gngs.colnames)
     
-    night_date = '2018-06-20'
+    night_date = '2019-01-03'
     sites = list(sites_from_column_names(ttab_gngs.colnames))
     dt = time_slot_length(timestab_gngs['time'])
     # Resource API mock 
