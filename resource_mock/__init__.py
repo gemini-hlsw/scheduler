@@ -32,7 +32,7 @@ class Resource:
         with open(f'{self.path}/GMOS{site.upper()}_GRAT201789.txt') as f:
             reader =  csv.reader(f, delimiter=',') 
             for row in reader:
-                out_dict[row[0].strip()] = [i.rstrip() for i in row[1:]]
+                out_dict[row[0].strip()] = [i.strip() for i in row[1:]]
         return out_dict
 
     def _load_f2b(self, site: str) -> Dict[str,str]:
