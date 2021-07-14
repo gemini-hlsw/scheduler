@@ -99,7 +99,7 @@ class Plan:
             
         return orders
     
-    def get_unit_by_observation(self, site: Site, obs_idx: int ) -> Optional[SchedulingUnit]:
+    def get_visit_by_observation(self, site: Site, obs_idx: int ) -> Optional[Visit]:
         """
         Retrieve the unit that owns the observation 
         """
