@@ -4,6 +4,7 @@ from os import getcwd
 from openpyxl import load_workbook
 from typing import Dict, List, NoReturn
 from greedy_max import Site
+from datetime import datetime
 
 class Resource:
     def __init__(self,path):
@@ -12,9 +13,9 @@ class Resource:
         self.fpur = {}
         self.grat = {}
         self.fpu_to_barcode = {}
-        self.instruments = {}
-        self.mode = {}
-        self.lgs = {}
+        self.instruments = {Site.GS: {}, Site.GN: {}}
+        self.mode = {Site.GS: {}, Site.GN: {}}
+        self.lgs = {Site.GS: {}, Site.GN: {}}
         self.ifu = {Site.GS: {}, Site.GN: {}}
 
     def _load_fpu(self, name: str, site: str) -> Dict[str,str]:
@@ -23,8 +24,8 @@ class Resource:
         with open(f'{self.path}/GMOS{site.upper()}_{name}201789.txt') as f:
             reader =  csv.reader(f, delimiter=',') 
             for row in reader:
-                barcodes[row[0].strip()] = [i.strip() for i in row[2:]]
-                ifu[row[0].strip()] = row[1].strip()
+                barcodes[datetime.strptime(row[0].strip(),"%Y-%m-%d")] = [i.strip() for i in row[2:]]
+                ifu[datetime.strptime(row[0].strip(),"%Y-%m-%d")] = row[1].strip()
         return ifu, barcodes
                 
     def _load_grat(self, site: str) -> Dict[str,str]:
@@ -32,7 +33,7 @@ class Resource:
         with open(f'{self.path}/GMOS{site.upper()}_GRAT201789.txt') as f:
             reader =  csv.reader(f, delimiter=',') 
             for row in reader:
-                out_dict[row[0].strip()] = [i.strip() for i in row[1:]]
+                out_dict[datetime.strptime(row[0].strip(),"%Y-%m-%d")] = [i.strip() for i in row[1:]]
         return out_dict
 
     def _load_f2b(self, site: str) -> Dict[str,str]:
@@ -46,6 +47,9 @@ class Resource:
     
     def _to_bool(self, b: str) -> bool:
         return b == 'Yes'
+    
+    def _nearest(self, items, pivot):
+        return min(items, key=lambda x: abs(x - pivot))
 
     def _excel_reader(self) -> NoReturn:
 
@@ -53,12 +57,12 @@ class Resource:
         workbook = load_workbook(filename=f'{self.path}/2018B-2019A Telescope Schedules.xlsx')
         for site in sites:
             sheet = workbook[site.name]
-            for row in sheet.iter_rows(min_row=2):
-                date = row[0].value.strftime("%Y-%m-%d")
-                self.instruments[site] = {date: [c.value for c in row[3:]]} 
-                self.mode[site] = {date: row[1].value}
-                self.lgs[site] = {date: self._to_bool(row[2].value)}
-           
+            for row in sheet.iter_rows(min_row=2):                
+                date = row[0].value
+                self.instruments[site][date] = [c.value for c in row[3:]] 
+                self.mode[site][date] = row[1].value
+                self.lgs[site][date] = self._to_bool(row[2].value)
+            
         if not self.instruments or not self.mode or not self.lgs:
             raise Exception("Problems on reading spreadsheet...") 
 
@@ -81,7 +85,9 @@ class Resource:
         
         self._excel_reader()
 
-    def _get_info(self, info: str, site: Site, date: str):
+    def _get_info(self, info: str, site: Site, date_str: str):
+        
+        date= datetime.strptime(date_str,"%Y-%m-%d")
 
         info_types = { 'fpu': self.fpu[site], 
                        'fpur': self.fpur[site],
@@ -93,7 +99,12 @@ class Resource:
                        'fpur-ifu': self.ifu[site]['FPUr'] }
 
         if info in info_types:
-            return info_types[info][date] if date in info_types[info] else None
+            if date in info_types[info]:
+                return info_types[info][date]
+            else:
+                nearest_date = self._nearest(info_types[info].keys(), date)
+                return info_types[info][nearest_date]
+                
         else:
             print(f'No information about {info} is stored')
             return None

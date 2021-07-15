@@ -1,6 +1,6 @@
 import greedy_max
 from typing import List, Dict
-from greedy_max.schedule import Observation, SchedulingUnit
+from greedy_max.schedule import Observation, Visit
 from greedy_max.site import Site
 from astropy.units.quantity import Quantity
 from astropy.time import Time
@@ -14,10 +14,10 @@ def sites_from_column_names(colnames: List[str], column: str = 'weight') -> List
     """
     return [Site(name[name.rfind('_') + 1:]) for name in colnames if column in name]
 
-def get_observations(units: List[SchedulingUnit]) -> Dict[int,Observation]:
+def get_observations(visits: List[Visit]) -> Dict[int,Observation]:
     obs = {}
-    for unit in units:
-        aux = unit.get_observations() 
+    for visit in visits:
+        aux = visit.get_observations() 
         obs = {**obs, **aux} # merge obs and aux 
     return obs
 

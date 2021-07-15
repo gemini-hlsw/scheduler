@@ -43,7 +43,7 @@ if __name__ == '__main__':
     #print(otab_gngs.colnames)
     #print(ttab_gngs.colnames)
     
-    night_date = '2018-06-20'
+    night_date = '2019-01-03'
     sites = list(sites_from_column_names(ttab_gngs.colnames))
     dt = time_slot_length(timestab_gngs['time'])
     # Resource API mock 
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     tot_times = {obs_id: int(np.ceil(otab_gngs['tot_time'].quantity[idx] / dt.to(u.h).value)) for idx, obs_id in enumerate(obs_ids)}
     categories = {obs_id: Category(otab_gngs['obsclass'][idx].lower()) for idx, obs_id in enumerate(obs_ids)}
 
-    units = [] 
+    visits = [] 
     for grp_id, group in enumerate(grptab_gngs):
         obs_idxs = group['oidx']
         can_be_split = group['split']
@@ -119,7 +119,7 @@ if __name__ == '__main__':
             observations = [new_obs] if new_obs == Category.Science or Category.ProgramCalibration else []
             calibrations = [new_obs] if new_obs == Category.PartnerCalibration  else []
 
-        units.append(SchedulingUnit(grp_id, site, observations, calibrations, 
+        visits.append(Visit(grp_id, site, observations, calibrations, 
                                     can_be_split, standard_time))
 
     airmass_gs = {idx: otab_gngs['airmass_gs'][idx] for idx, obs_id in enumerate(obs_ids)}
@@ -142,9 +142,9 @@ if __name__ == '__main__':
     nt = len(uttime_gngs) # NOTE: What is this for?
 
     # Make initial plan
-    gm = GreedyMax(units, time_slots, sites)
+    gm = GreedyMax(visits, time_slots, sites)
     gm.schedule()
-    plan, obstab, targtab = gm.plan, gm.observations, gm.time_slots
+    plan, obstab, targtab = gm.plan, gm.visits, gm.time_slots
 
     # Print current plan
     # i_day = 0

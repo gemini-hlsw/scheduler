@@ -13,10 +13,10 @@ stream_handler.setLevel(logging.INFO)
 logger.addHandler(stream_handler)
 
 class GreedyMax:
-    def __init__(self, obs: List[SchedulingUnit], time_slots: TimeSlots, sites: List[Site],
+    def __init__(self, obs: List[Visit], time_slots: TimeSlots, sites: List[Site],
                  min_len_time_slot: Quantity = 30 * u.min):
         self.plan = Plan(time_slots.total, sites)
-        self.observations = obs
+        self.visits = obs
         self.time_slots = time_slots
         self.min_len_time_slot = min_len_time_slot
         self.sites = sites
@@ -95,16 +95,16 @@ class GreedyMax:
         
         return best_standard, best_placement
 
-    def _find_max_observation(self) -> Tuple[
-                                            Optional[SchedulingUnit],
+    def _find_max_visit(self) -> Tuple[
+                                            Optional[Visit],
                                             Optional[TimeWindow]
                                         ]:
         """
-        Select the observation with the maximum weight in a time interval
+        Select the Visit with the maximum weight in a time interval
 
         Returns
         -------
-        max_obs : Observation object (or None)
+        max_visit : Visit object (or None)
 
         time_window : TimeWindow object (or None)
 
@@ -112,7 +112,7 @@ class GreedyMax:
         max_weight = 0  # maximum weight in time interval
         intervals = {}  # save intervals for each site for later use
 
-        max_obs = None
+        max_visit = None
         time_window = TimeWindow(0, 0, 0, 0, None, 0, None) 
         min_slot_time = self.min_slot_time()
         
@@ -125,8 +125,8 @@ class GreedyMax:
                 logger.debug(f'iint: {first_interval}')
                 logger.debug(f'site: {site}')
 
-                for observation in self.observations:
-                    obs_idx = observation.idx
+                for visit in self.visits:
+                    obs_idx = visit.idx
                     # Get the maximum weight in the interval.
                     wmax = self.time_slots.max_weight(site, obs_idx, first_interval)
 
@@ -134,7 +134,7 @@ class GreedyMax:
                         
                         candidate_intervals = self.time_slots.non_zero_intervals(site, obs_idx, first_interval)
 
-                        time_slots_needed = observation.length() - observation.observed()
+                        time_slots_needed = visit.length() - visit.observed()
 
 
                         used_min_slot = time_slots_needed if time_slots_needed - min_slot_time <= min_slot_time \
@@ -156,7 +156,7 @@ class GreedyMax:
                         
                         # The select 
                         if max_weight_on_interval > max_weight and (time_slots_needed <= interval_length 
-                                                                    or observation.can_be_split):
+                                                                    or visit.can_be_split):
                             max_weight = max_weight_on_interval
                             # Boundaries of available window
                             time_window.start = first_interval[max_interval[0]]
@@ -164,22 +164,22 @@ class GreedyMax:
                             time_window.indices = first_interval[time_window.start:time_window.end+1]
                             time_window.length = time_window.end -time_window.start + 1
                             time_window.time_slots= time_slots_needed
-                            observation.site = site
-                            max_obs = observation
+                            visit.site = site
+                            max_visit = visit
                            
                             logger.debug(f'maxweight: {max_weight}')
-                            logger.debug(f'max obs: {observation}')
-                            logger.debug(f'iimax {observation.idx}')
+                            logger.debug(f'max obs: {visit}')
+                            logger.debug(f'iimax {visit.idx}')
                             logger.debug(f'start: {time_window.start}')
                             logger.debug(f'end {time_window.end}')
-                            logger.debug(f'obs idxs: {observation.observations[0]}')
-                            logger.debug(f'smax: {observation.site}')
+                            logger.debug(f'obs idxs: {visit.observations[0]}')
+                            logger.debug(f'smax: {visit.site}')
                                        
                         else:
                             self.time_slots.weights[site][obs_idx][intervals[site]] = 0
 
         time_window.intervals = intervals
-        return max_obs, time_window
+        return max_visit, time_window
 
     def _calibrate(self, science: List[Observation], calibrations: List[Observation], 
                    max_site: Site, max_std_time: int, length: int, start:int , end: int) -> NoReturn:
@@ -250,7 +250,7 @@ class GreedyMax:
 
         #TODO: ToO case not added yet because there is no data to test it yet
         # Schedule interrupt ToO at beginning of window
-        #if max_observation.priority == 'interrupt': 
+        #if max_visit.priority == 'interrupt': 
         #    start = time_window.start
         #    end = time_window.start + time_window.time_slots - 1
 
@@ -310,15 +310,15 @@ class GreedyMax:
         
         return start, end
 
-    def _insert(self, max_observation: Optional[SchedulingUnit], time_window: Optional[TimeWindow]) -> bool:
+    def _insert(self, max_visit: Optional[Visit], time_window: Optional[TimeWindow]) -> bool:
         """
         Insert an observation to the final plan, trying to shift the observation inside the time window.
 
         Parameters
         ----------
-        max_observation : Observation
+        max_visit : Visit object
 
-        time_window : TimeWindow
+        time_window : TimeWindow object
 
         Returns
         -------
@@ -326,7 +326,7 @@ class GreedyMax:
 
         """
 
-        if not max_observation:
+        if not max_visit:
             logger.info('Unscheduble')
             for site in self.sites:
                 if len(time_window.intervals[site]) > 0:
@@ -334,9 +334,9 @@ class GreedyMax:
             return False
 
         # Place observation within available window --
-        logger.info(f'Placing {max_observation}')
-        max_site = max_observation.site
-        max_idx = max_observation.idx
+        logger.info(f'Placing {max_visit}')
+        max_site = max_visit.site
+        max_idx = max_visit.idx
         max_weights = self.time_slots.weights[max_site][max_idx]
 
 
@@ -362,25 +362,25 @@ class GreedyMax:
         
         logger.debug(f'Chosen index start {start}')
         logger.debug(f'Chosen index end {end}' )
-        logger.debug(f'Current obs time: {max_observation.observed()}')
-        logger.debug(f'Current tot time: {max_observation.length()}')
+        logger.debug(f'Current obs time: {max_visit.observed()}')
+        logger.debug(f'Current tot time: {max_visit.length()}')
 
         # Select calibration and place/split observations
-        calibrations = max_observation.calibrations
-        science = max_observation.observations
+        calibrations = max_visit.calibrations
+        science = max_visit.observations
 
         if len(calibrations) > 0: # need for calibration
             self._calibrate(science,calibrations,max_site, 
-                            max_observation.standard_time, 
+                            max_visit.standard_time, 
                             time_window.length, start, end)
         else:
             # put science observations in order no need for calibrations 
             self.plan.schedule_observations(max_site, science, start, end)
 
-        self.plan.units[max_site].append(max_observation) # add unit to plan queue
+        self.plan.units[max_site].append(max_visit) # add unit to plan queue
         
         # Adjust weights of scheduled observation.
-        if max_observation.observed() == max_observation.length():
+        if max_visit.observed() == max_visit.length():
             # If completed, set all to negative values.
             max_weights = -1.0 * max_weights
         else:
@@ -396,17 +396,17 @@ class GreedyMax:
                 self.time_slots.weights[site][max_idx][:] = 0
 
         # Add new acquisition overhead to total time if observation not complete.
-        max_observation.acquisition() # NOTE: this method now is specific to incomplete observations
+        max_visit.acquisition() # NOTE: this method now is specific to incomplete observations
         
         # Save changes.
-        self.observations[max_observation.idx] = max_observation
+        self.visits[max_visit.idx] = max_visit
         self.time_slots.weights[max_site][max_idx] = max_weights
    
-        logger.debug(f'Current plan: {self.plan[max_observation.site]}')
+        logger.debug(f'Current plan: {self.plan[max_visit.site]}')
         logger.debug(f'New obs. weights: {max_weights} ')
-        logger.debug(f'Tot time: {max_observation.length()}')
-        logger.debug(f'New obs time: {max_observation.observed()}')
-        logger.debug(f'New comp time: {max_observation.length() - max_observation.observed()}')
+        logger.debug(f'Tot time: {max_visit.length()}')
+        logger.debug(f'New obs time: {max_visit.observed()}')
+        logger.debug(f'New comp time: {max_visit.length() - max_visit.observed()}')
 
         return True  # successfully added an observation to the plan
 
@@ -415,7 +415,7 @@ class GreedyMax:
         GreedyMax driver.
         """
         # Initialize variables.
-        max_observation = None
+        max_visit = None
         time_window = None
 
         # -- Add an observation to the plan --
@@ -427,15 +427,15 @@ class GreedyMax:
             logger.debug(f'greedy iteration: {iter}')
 
             if self.plan.timeslots_not_scheduled() != 0:
-                # Find max unit to 
-                max_observation, time_window = self._find_max_observation()
+                # Find max visit and time_window
+                max_visit, time_window = self._find_max_visit()
             
-                # Place observation in schedule
-                if self._insert(max_observation, time_window):
+                # Place visit in schedule
+                if self._insert(max_visit, time_window):
                     scheduled = True
-                    logger.info(f'Observation {max_observation.idx} schedule')
+                    logger.info(f'Visit {max_visit.idx} schedule')
                 else:
-                    logger.info('No max observation picked')
+                    logger.info('No max visit picked')
             else: # No available spots in plan
                 break
 
@@ -449,7 +449,7 @@ class GreedyMax:
         sum_score = 0
         time_used = 0
         n_iter = 0
-        all_obs = get_observations(self.observations)
+        all_obs = get_observations(self.visits)
 
         # Unscheduled time slots.
         while self.plan.timeslots_not_scheduled() != 0:
@@ -474,7 +474,7 @@ class GreedyMax:
                     start = observation[1]
                     end = observation[2]   
                     if obs_idx != EMPTY and obs_idx != UNSCHEDULABLE:
-                        unit = self.plan.get_unit_by_observation(site, obs_idx) # TODO: handle None case
+                        unit = self.plan.get_visit_by_observation(site, obs_idx) # TODO: handle None case
                         name = all_obs[obs_idx].name
                         weights = np.max(abs(self.time_slots.weights[site][unit.idx][start:end+1]))
                         category = all_obs[obs_idx].category.name

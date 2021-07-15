@@ -35,7 +35,7 @@ class Observation:
     def __str__(self) -> str:
         return f'{self.idx}-{self.name}'
 
-class SchedulingUnit:
+class Visit:
     def __init__(self,
                  idx: int,
                  site: Site, 
