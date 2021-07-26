@@ -4,7 +4,7 @@ from os import getcwd
 from openpyxl import load_workbook
 from typing import Dict, List, NoReturn
 from greedy_max import Site
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class Resource:
     def __init__(self,path):
@@ -51,6 +51,19 @@ class Resource:
     def _nearest(self, items, pivot):
         return min(items, key=lambda x: abs(x - pivot))
 
+    def _previous(self, items, pivot):
+        # Return date equal or previous to pivot
+        tdmin = timedelta.min
+        tdzero = timedelta(days=0)
+        result = None
+        # result = min(items, key=lambda x: x)
+        for item in items:
+            diff = item - pivot
+            if tdzero >= diff > tdmin:
+                result = item
+                dmin = diff
+        return result
+
     def _excel_reader(self) -> NoReturn:
 
         sites = [site for site in Site]
@@ -87,7 +100,7 @@ class Resource:
 
     def _get_info(self, info: str, site: Site, date_str: str):
         
-        date= datetime.strptime(date_str,"%Y-%m-%d")
+        date = datetime.strptime(date_str,"%Y-%m-%d")
 
         info_types = { 'fpu': self.fpu[site], 
                        'fpur': self.fpur[site],
@@ -99,11 +112,13 @@ class Resource:
                        'fpur-ifu': self.ifu[site]['FPUr'] }
 
         if info in info_types:
-            if date in info_types[info]:
-                return info_types[info][date]
-            else:
-                nearest_date = self._nearest(info_types[info].keys(), date)
-                return info_types[info][nearest_date]
+            previous_date = self._previous(info_types[info].keys(), date)
+            return info_types[info][previous_date]
+            # if date in info_types[info]:
+            #     return info_types[info][date]
+            # else:
+            #     nearest_date = self._previous(info_types[info].keys(), date)
+            #     return info_types[info][nearest_date]
                 
         else:
             print(f'No information about {info} is stored')
