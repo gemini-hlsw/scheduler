@@ -118,3 +118,5 @@ test
 
 # logger
 *.log
+
+collector/data/

@@ -3,6 +3,7 @@ import re
 from greedy_max.band import Band
 from greedy_max.site import Site
 from greedy_max.category import Category
+from greedy_max.instrument import Instrument
 from typing import Dict, List
 from dataclasses import dataclass
 from astropy.units.quantity import Quantity
@@ -18,9 +19,8 @@ class Observation:
                  category: Category,
                  observed: int, # observation time on time slots
                  length: int, # acq+time (this need to be change)
-                 instrument: str,
-                 disperser: str,
-                 acquisition: int
+                 instrument: Instrument,
+                 #acquisition: int
                  ) -> None:
         self.idx = idx
         self.name = name
@@ -29,9 +29,33 @@ class Observation:
         self.observed = observed
         self.length = length
         self.instrument = instrument
-        self.disperser = disperser 
-        self.acquisition = acquisition
+        #self.acquisition = acquisition
     
+    def acquisition(self):
+
+        mode = self.instrument.observation_mode()
+        name = self.instrument.name 
+
+        gmos = {'imaging': 6.*u.min, 'longslit': 16.*u.min, 'ifu': 18.*u.min, 'mos': 18.*u.min}
+        f2 = {'imaging': 6.*u.min, 'longslit': 20.*u.min, 'mos': 30.*u.min}
+
+        acquistion_lookup = {
+                                'GMOS': gmos[mode],
+                                'Flamingos2': f2[mode],
+                                'NIFS': 11.*u.min,
+                                'GNIRS':  15.*u.min,
+                                'NIRI': 6.*u.min,
+                                'GPI': 10.*u.min,
+                                'GSAOI':  30.*u.min,
+                                'Alopeke': 6.0*u.min,
+                                'Zorro': 6.0*u.min,
+                                'MAROON-X': 10*u.min,
+                                'IGRINS': 10*u.min,
+                                'Visitor Instrument': 10*u.min
+        }
+           
+        return  acquistion_lookup['GMOS'] if 'GMOS' in name else acquistion_lookup[name]
+
     def __str__(self) -> str:
         return f'{self.idx}-{self.name}'
 

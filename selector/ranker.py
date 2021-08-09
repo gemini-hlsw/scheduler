@@ -10,35 +10,37 @@ from joblib import Parallel, delayed
 
 from astropy.coordinates import SkyCoord, Angle
 
+from typing import List
+from greedy_max.site import Site
 class Ranker:
-    def __init__(self, observation_ids, time, sites) -> None:
-        self.observation_ids = observation_ids
-        self.time = time
+    def __init__(self, n_observations: int, times, sites: List[Site]) -> None:
+        self.n_observations = n_observations
+        self.times = times
         self.sites = sites
+        
+        
         self.ivisarr = {}
         self.vishours = {}
         self.visfrac = {}
         for site in self.sites:
-            site_name = site.info.meta['name']
-            n_obs = len(self.observation_ids)
-            self.ivisarr[site_name] = []
-            self.vishours[site_name] = []
-            self.visfrac[site_name] = []
-            self.ha[site_name] = []
-            self.targalt[site_name] = []
-            self.targaz[site_name] = []
-            self.targparang[site_name] = []
-            self.sbcond[site_name] = []
-            self.airmass[site_name] = []
+            self.ivisarr[site] = []
+            self.vishours[site] = []
+            self.visfrac[site] = []
+            self.ha[site] = []
+            self.targalt[site] = []
+            self.targaz[site] = []
+            self.targparang[site] = []
+            self.sbcond[site] = []
+            self.airmass[site] = []
             
-            for i in range(n_obs):
-                self.ivisarr[site_name].append([])
-                self.ha[site_name].append([])
-                self.targalt[site_name].append([])
-                self.targaz[site_name].append([])
-                self.targparang[site_name].append([])
-                self.airmass[site_name].append([])
-                self.sbcond[site_name].append([])
+            for i in range(n_observations):
+                self.ivisarr[site].append([])
+                self.ha[site].append([])
+                self.targalt[site].append([])
+                self.targaz[site].append([])
+                self.targparang[site].append([])
+                self.airmass[site].append([])
+                self.sbcond[site].append([])
             
         
 
@@ -46,8 +48,6 @@ class Ranker:
                    obs_windows, elevation, night_events, total_times, observed_times,
                    jobs=0, overwrite=False, sbtwo= True):
         
- 
-        n_obs = len(self.observation_ids)
         night_length = len(self.times)
     
 
@@ -60,19 +60,18 @@ class Ranker:
         if jobs < 1:
             jobs = multiprocessing.cpu_count()
         
-
         for site in self.sites:
-            site_name = site.info.meta['name']
-
-            obsvishours = np.zeros((n_obs, night_length))
+            
+            obsvishours = np.zeros((self.n_observations, night_length))
 
             for position, period in enumerate(self.times):
                 sun_position = vs.lpsun(period)
                 lst = vs.lpsidereal(period, site)
-                sunalt, _, _ = vs.altazparang(sun_position.dec, lst - sun_position.ra, site.lat)
+                sunalt, sunaz, sunparang = vs.altazparang(sun_position.dec, lst - sun_position.ra, site.lat)
+            #         moonmid, moondistmid = vs.accumoon(midnight[ii], site)
                 moonpos, moondist = vs.accumoon(period, site)
-                moonalt, _, _ = vs.altazparang(moonpos.dec, lst - moonpos.ra, site.lat)
-
+                moonalt, moonaz, moonparang = vs.altazparang(moonpos.dec, lst - moonpos.ra, site.lat)
+                sunmoonang = sun_position.separation(moonpos)
                 if sbtwo:
                     sunmoonang = sun_position.separation(moonpos)  # for sb2
                 else:
@@ -87,26 +86,26 @@ class Ranker:
                                 conditions[id], elevation[id],
                                 obs_windows[id], self.times[id], lst, sunalt,
                                 moonpos, moondist, moonalt, sunmoonang,
-                                night_events[site_name]['twi_eve12'][position],
-                                night_events[site_name]['twi_mor12'][position],
-                                sbtwo=sbtwo, overwrite=overwrite, extras=True) for id in range(n_obs))
+                                night_events[site]['twi_eve12'][position],
+                                night_events[site]['twi_mor12'][position],
+                                sbtwo=sbtwo, overwrite=overwrite, extras=True) for id in range(self.n_observations))
             
 
-                for id in range(n_obs):
+                for id in range(self.n_observations):
                    
-                    self.ivisarr[site_name][id].append(res[id][0])
+                    self.ivisarr[site][id].append(res[id][0])
                     obsvishours[id, position] = len(res[id][0]) * dt.value
                     if position == 0:   # just save info for the first night, uncomment to save every night
-                        self.ha[site_name][id].append(res[id][1])
-                        self.targalt[site_name][id].append(res[id][2])
-                        self.targaz[site_name][id].append(res[id][3])
-                        self.targparang[site_name][id].append(res[id][4])
-                        self.airmass[site_name][id].append(res[id][5])
-                        self.sbcond[site_name][id].append(res[id][6])
+                        self.ha[site][id].append(res[id][1])
+                        self.targalt[site][id].append(res[id][2])
+                        self.targaz[site][id].append(res[id][3])
+                        self.targparang[site][id].append(res[id][4])
+                        self.airmass[site][id].append(res[id][5])
+                        self.sbcond[site][id].append(res[id][6])
 
 
-            for id in range(n_obs):
-                self.vishours[site_name].append(obsvishours[id, :])
+            for id in range(self.n_observations):
+                self.vishours[site].append(obsvishours[id, :])
                 sum_obsvishr = np.sum(obsvishours[id, :])
                 # visfrac needs to be calculated per night, for the current night through
                 # the end of the current period
@@ -114,7 +113,7 @@ class Ranker:
                     visfrac = (total_times[id] - observed_times[id]) / sum_obsvishr
                 else:
                     visfrac = 0.0
-                self.visfrac[site_name].append(visfrac)
+                self.visfrac[site].append(visfrac)
 
         print('Done')
         return

@@ -4,6 +4,8 @@ from astropy.time import Time
 
 warnstates = ['FOR-ACTIVATION', 'ONGOING', 'READY']
 
+
+### ORIGINAL source: https://github.com/bryanmiller/odb
 def GetProgramID(Program):
     progid = Program.attrib.get('name')
     return(progid)   
@@ -95,60 +97,60 @@ def GetClass(Observation):
 
 def GetObsStatus(Observation):
 
-        execstatus = 'AUTO'
-        paramset = Observation.find('paramset')
-        for param in paramset.findall('param'):
+    execstatus = 'AUTO'
+    paramset = Observation.find('paramset')
+    for param in paramset.findall('param'):
 
-            # In 2014A the Status was split into Phase-2 and Exec status
-            # Here I recombine them into one as they were before 2014A:
+        # In 2014A the Status was split into Phase-2 and Exec status
+        # Here I recombine them into one as they were before 2014A:
 
-            if param.attrib.get('name') == 'phase2Status':
-                phase2status = param.attrib.get('value')
-                #logger.debug('Raw Phase 2 Status = %s', phase2status)
+        if param.attrib.get('name') == 'phase2Status':
+            phase2status = param.attrib.get('value')
+            #logger.debug('Raw Phase 2 Status = %s', phase2status)
 
-            if param.attrib.get('name') == 'execStatusOverride':
-                execstatus = param.attrib.get('value')
+        if param.attrib.get('name') == 'execStatusOverride':
+            execstatus = param.attrib.get('value')
+
+    if  execstatus == 'OBSERVED':
+        obsstatus = 'OBSERVED'
+
+    elif execstatus == 'ONGOING':
+        obsstatus = 'ONGOING'
+
+    elif execstatus == 'PENDING':
+        obsstatus = 'READY'
+
+    elif execstatus == 'AUTO':
+        if phase2status == 'PI_TO_COMPLETE':
+            obsstatus = 'PHASE2'
+        elif phase2status == 'NGO_TO_REVIEW':
+            obsstatus = 'FOR-REVIEW'
+        elif phase2status == 'NGO_IN_REVIEW':
+            obsstatus = 'IN-REVIEW'
+        elif phase2status == 'GEMINI_TO_ACTIVATE':
+            obsstatus = 'FOR-ACTIVATION'
+        elif phase2status == 'ON_HOLD':
+            obsstatus = 'ON-HOLD'
+        elif phase2status == 'INACTIVE':
+            obsstatus = 'INACTIVE'
+        elif phase2status == 'PHASE_2_COMPLETE':
+            
+            obslog = GetObsLog(Observation)  # returns a triple: (time, event, datalabel)
+            nsteps = GetNumSteps(Observation)
+            nobs = GetNumObserved(Observation)
+
+            if nobs == 0 and len(obslog[0]) == 0:
+                obsstatus = 'READY'
                 
-        if  execstatus == 'OBSERVED':
-            obsstatus = 'OBSERVED'
-
-        elif execstatus == 'ONGOING':
-            obsstatus = 'ONGOING'
-
-        elif execstatus == 'PENDING':
-            obsstatus = 'READY'
-
-        elif execstatus == 'AUTO':
-            if phase2status == 'PI_TO_COMPLETE':
-                obsstatus = 'PHASE2'
-            elif phase2status == 'NGO_TO_REVIEW':
-                obsstatus = 'FOR-REVIEW'
-            elif phase2status == 'NGO_IN_REVIEW':
-                obsstatus = 'IN-REVIEW'
-            elif phase2status == 'GEMINI_TO_ACTIVATE':
-                obsstatus = 'FOR-ACTIVATION'
-            elif phase2status == 'ON_HOLD':
-                obsstatus = 'ON-HOLD'
-            elif phase2status == 'INACTIVE':
-                obsstatus = 'INACTIVE'
-            elif phase2status == 'PHASE_2_COMPLETE':
+            elif nobs >= nsteps:
+                obsstatus = 'OBSERVED'
                 
-                obslog = GetObsLog(Observation)  # returns a triple: (time, event, datalabel)
-                nsteps = GetNumSteps(Observation)
-                nobs = GetNumObserved(Observation)
-
-                if nobs == 0 and len(obslog[0]) == 0:
-                    obsstatus = 'READY'
-                    
-                elif nobs >= nsteps:
-                    obsstatus = 'OBSERVED'
-                    
-                else:
-                    obsstatus = 'ONGOING'
-                    
             else:
-               print('UNKNOWN PHASE-2 STATUS: %s', phase2status)
-        return(obsstatus)
+                obsstatus = 'ONGOING'
+                
+        else:
+            print('UNKNOWN PHASE-2 STATUS: %s', phase2status)
+    return(obsstatus)
 
 def GetObsLog(Observation):
         
@@ -1277,9 +1279,11 @@ def CheckStatus(Program):
 
     return active, complete
 
+#### CREATED BY ST for Gmax Protoype
+
 def GetFTProgramDates(Notes, semester, year, yp):
 
-    progstart, progend = None    
+    progstart, progend = None, None    
     def monthnum(month, months):
         month = month.lower()
         return [i for i, m in enumerate(months) if month in m].pop()+1
@@ -1325,6 +1329,7 @@ def GetFTProgramDates(Notes, semester, year, yp):
     return progstart, progend
 
 def GetObservationInfo(Program):
+    raw_info, schedgrps = [],[]
     for container in Program.findall('container'):
         if container.attrib.get('type') == 'Observation':
             grpkey = container.attrib.get("key")
@@ -1340,7 +1345,9 @@ def GetObservationInfo(Program):
             schedgrp = {'key': grpkey, 'name': grpname}
             #self.process_observation(container, schedgrp, selection=selection, obsclasses=obsclasses,
             #                        tas=tas, odbplan=odbplan)
-            return container, schedgrp
+            raw_info.append(container)
+            schedgrps.append(schedgrp)
+            #return container, schedgrp
         elif container.attrib.get('type') == 'Group':
             grpkey = container.attrib.get("key")
             grptype = 'None'
@@ -1369,8 +1376,11 @@ def GetObservationInfo(Program):
                     # self.programs[prgid]['groups'].append(grpkey)
                     schedgrp = {'key': grpkey, 'name': grpname}
                 if subcontainer.attrib.get("type") == 'Observation':
-                    return container, schedgrp
-    return None, None
+                    #return subcontainer, schedgrp
+                    raw_info.append(subcontainer)
+                    schedgrps.append(schedgrp)
+            
+    return raw_info, schedgrps
 
 
 ### GMOS FILE
