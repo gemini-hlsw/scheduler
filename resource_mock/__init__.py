@@ -6,6 +6,8 @@ from typing import Dict, List, NoReturn
 from greedy_max import Site
 from datetime import datetime, timedelta
 
+from resource_mock.resources import Resources
+
 class Resource:
     def __init__(self,path):
         self.path = getcwd()+path
@@ -33,7 +35,8 @@ class Resource:
         with open(f'{self.path}/GMOS{site.upper()}_GRAT201789.txt') as f:
             reader =  csv.reader(f, delimiter=',') 
             for row in reader:
-                out_dict[datetime.strptime(row[0].strip(),"%Y-%m-%d")] = [i.strip() for i in row[1:]]
+                out_dict[datetime.strptime(row[0].strip(),"%Y-%m-%d")] = [i.strip().replace('+','') for i in row[1:]]
+                out_dict[datetime.strptime(row[0].strip(),"%Y-%m-%d")].append('MIRROR') # Add mirror for GMOS 
         return out_dict
 
     def _load_f2b(self, site: str) -> Dict[str,str]:
@@ -84,6 +87,7 @@ class Resource:
         Allows the mock to load all the data locally, emulating a connection to the API.
 
         """
+        print('Get Resource data...')
         sites = [site for site in Site]
         for site in sites:
 
@@ -126,3 +130,17 @@ class Resource:
 
     def night_info(self, info_name: str, sites: List[Site], night_date: str):
         return {site: self._get_info(info_name, site, night_date) for site in sites }
+    
+    def get_night_resources(self, sites, night_date):
+        fpu = self.night_info('fpu', sites, night_date)
+        fpur = self.night_info('fpur', sites, night_date)
+        grat = self.night_info('grat', sites, night_date)
+        instruments = self.night_info('instr', sites, night_date)
+        lgs = self.night_info('LGS', sites, night_date)
+        modes = self.night_info('mode', sites, night_date)
+        ifus = {'FPU':None, 'FPUr':None}
+        ifus['FPU'] = self.night_info('fpu-ifu', sites, night_date)
+        ifus['FPUr'] = self.night_info('fpur-ifu', sites, night_date)
+        fpu2b = self.fpu_to_barcode
+
+        return Resources(fpu,fpur,grat,instruments,lgs,modes,fpu2b,ifus)

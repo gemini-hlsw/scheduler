@@ -7,6 +7,8 @@ from greedy_max.instrument import Instrument
 from typing import Dict, List
 from dataclasses import dataclass
 from astropy.units.quantity import Quantity
+import astropy.units as u
+from collector.conditions import SkyConditions
 
 class Observation: 
     """
@@ -20,6 +22,9 @@ class Observation:
                  observed: int, # observation time on time slots
                  length: int, # acq+time (this need to be change)
                  instrument: Instrument,
+                 sky_conditions: SkyConditions,
+                 status: str,
+                 too_status: str
                  #acquisition: int
                  ) -> None:
         self.idx = idx
@@ -29,19 +34,24 @@ class Observation:
         self.observed = observed
         self.length = length
         self.instrument = instrument
+        self.sky_conditions = sky_conditions
+        self.status = status #Observation status
+        self.too_status = too_status
+        self.visibility = None
+        self.score = None
         #self.acquisition = acquisition
-    
+  
     def acquisition(self):
 
         mode = self.instrument.observation_mode()
         name = self.instrument.name 
-
+        
         gmos = {'imaging': 6.*u.min, 'longslit': 16.*u.min, 'ifu': 18.*u.min, 'mos': 18.*u.min}
         f2 = {'imaging': 6.*u.min, 'longslit': 20.*u.min, 'mos': 30.*u.min}
 
-        acquistion_lookup = {
-                                'GMOS': gmos[mode],
-                                'Flamingos2': f2[mode],
+        acquisition_lookup = {
+                                'GMOS': gmos[mode] if 'GMOS' in self.name else 0.*u.min ,
+                                'Flamingos2': f2[mode] if 'Flamingos2' in self.name else 0.*u.min,
                                 'NIFS': 11.*u.min,
                                 'GNIRS':  15.*u.min,
                                 'NIRI': 6.*u.min,
@@ -53,8 +63,11 @@ class Observation:
                                 'IGRINS': 10*u.min,
                                 'Visitor Instrument': 10*u.min
         }
-           
-        return  acquistion_lookup['GMOS'] if 'GMOS' in name else acquistion_lookup[name]
+        
+        return  acquisition_lookup['GMOS'] if 'GMOS' in name else acquisition_lookup[name]
+
+    def get_program_id(self):
+        return self.name[0:self.name.rfind('-')]
 
     def __str__(self) -> str:
         return f'{self.idx}-{self.name}'
@@ -74,6 +87,8 @@ class Visit:
         self.calibrations = calibrations # group or a single cal observation
         self.can_be_split = can_be_split # split flag
         self.standard_time = standard_time # standard time in time slots 
+        self.score = None
+        self.sky_conditions = self.sky_constraints()
 
     def length(self) -> int:
         """
@@ -117,6 +132,28 @@ class Visit:
             total_obs[cal.idx] = cal
         return total_obs
     
+    def airmass(self, obs_idx) -> float:
+        
+        if obs_idx in self.observations:
+            return self.observations[obs_idx].visibility.airmass
+        if obs_idx in self.calibrations:
+            return self.calibrations[obs_idx].visibility.airmass
+        else:
+            return None
+    
+    def sky_constraints(self) -> None:
+        '''
+        Create a new SkyConditions object based on the observation level objects 
+        Use the most restrictive value for each condition. 
+        '''
+        restrictive_iq = min([obs.sky_conditions.image_quality for obs in self.observations])
+        restrictive_bg = min([obs.sky_conditions.brightness for obs in self.observations])
+        restrictive_cc = min([obs.sky_conditions.cloud_conditions for obs in self.observations])
+        restrictive_wv = min([obs.sky_conditions.water_vapour for obs in self.observations])
+
+        return SkyConditions(restrictive_iq,restrictive_bg,restrictive_cc,restrictive_wv)
+            
+
     def __contains__(self, obs_idx:int) -> bool:
         
         if obs_idx in [sci.idx for sci in self.observations]:
@@ -127,9 +164,10 @@ class Visit:
             return False
     
     def __str__(self) -> str:
-        return f'Unit {self.idx} \n\
-                 -- observations: {[sci.idx for sci in self.observations]} \n\
-                 -- calibrations: {[cal.idx for cal in self.calibrations]}'
+        return f'Visit {self.idx} \n '+\
+                f'-- observations: \n {[str(obs) for obs in self.observations]} \n' +\
+                f'-- calibrations: {[str(cal) for cal in self.calibrations]} \n'
+             
 
 ValuesByObservation = Dict[int,List[float]]
 

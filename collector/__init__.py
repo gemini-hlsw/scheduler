@@ -5,14 +5,18 @@ from astropy.coordinates import SkyCoord, EarthLocation
 import astropy.units as u
 from astropy.table import Table, vstack
 
+
 import pytz
 import os      
 import calendar
+import numpy as np
 
 import collector.sb as sb
 from collector.vskyutil import nightevents
 from collector.xmlutils import *
 from collector.get_tadata import get_report, get_tas, sumtas_date
+
+from collector.conditions import SkyConditions, WindConditions
 
 from greedy_max.instrument import Instrument
 from greedy_max.site import Site
@@ -20,10 +24,11 @@ from greedy_max.band import Band
 from greedy_max.schedule import Observation
 from greedy_max.category import Category
 
+from typing import List
+
 #from ranker import Ranker
 
 MAX_AIRMASS = '2.3'
-
 
    
 def uniquelist(seq):
@@ -32,15 +37,6 @@ def uniquelist(seq):
     seen = set()
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]
-
-def searchlist(val, alist):
-    # Search for existence of val in any element of alist
-    found = False
-    for elem in alist:
-        if val in elem:
-            found = True
-            break
-    return found
 
 def ot_timing_windows(strt, dur, rep, per, verbose=False):
     # Turn OT timing constraints into more natural units
@@ -103,14 +99,22 @@ def roundMin(time, up=False):
     return Time(t.iso, format='iso', scale='utc')
 
 class Collector:
-    def __init__(self, sites, semesters, program_types, obsclasses, times=None, time_range=None, dt=1.0*u.min) -> None:
+    def __init__(self, sites: 
+                       List[Site], 
+                       semesters: List[str], 
+                       program_types: List[str], 
+                       obsclasses: List[str], 
+                       times=None, 
+                       time_range=None, 
+                       dt=1.0*u.min) -> None:
+        
         self.sites = sites                   # list of EarthLocation objects
         self.semesters = semesters
         self.program_types =  program_types
         self.obs_classes = obsclasses
         self.time_range = time_range         # Time object, array for visibility start/stop dates
         
-        self.time_grid = None                # Time object, array with entry for each day in time_range
+        self.time_grid = self._calculate_time_grid()               # Time object, array with entry for each day in time_range
         self.dt = dt                         # time step for times
 
         self.observations = []
@@ -125,6 +129,11 @@ class Collector:
         self.scheduling_groups = {}
         self.instconfig = []
         self.nobs = 0
+        
+        # NOTE: This are used to used the EarthLocation and Timezone objects for functions that used those kind of 
+        # objects. This can either be include in the Site class if the use of this libraries is justified. 
+        self.timezones = {}
+        self.locations = {}
 
         self.programs = {}
         self.obsid = []
@@ -157,20 +166,24 @@ class Collector:
     def load(self, path):
         
         #config fiLE?
-        site_name = self.sites[0] #NOTE: temporary hack for just using one site
-
+        site_name = Site.GS.value #NOTE: temporary hack for just using one site
+        #print(site_name)
         xmlselect = [site_name.upper() + '-' + sem + '-' + prog_type for sem in self.semesters for prog_type in self.program_types]
 
-        print(xmlselect)
+        #print(xmlselect)
         # Site details
         if site_name == 'gn':
             site = EarthLocation.of_site('gemini_north')
-            hst = pytz.timezone(site.info.meta['timezone'])
+            self.timezones[Site(site_name)] = pytz.timezone(site.info.meta['timezone'])
+            self.locations[Site(site_name)] = site
         elif site_name == 'gs':
             site = EarthLocation.of_site('gemini_south')
-            clt = pytz.timezone(site.info.meta['timezone'])
+            self.timezones[Site(site_name)] = pytz.timezone(site.info.meta['timezone'])
+            self.locations[Site(site_name)] = site
         else:
             print('ERROR: site_name must be "gs" or "gn".')
+        
+        self._calculate_night_events()
         site.info.meta['name'] = site_name
        
         sitezip = {'GN': '-0715.zip', 'GS': '-0830.zip'}
@@ -179,8 +192,35 @@ class Collector:
 
         time_accounting = self._load_tas(path, site.info.meta['name'].upper())
         
-        self._readzip(zip_path, xmlselect, tas=time_accounting, obsclasses=self.obs_classes)
+        self._readzip(zip_path, xmlselect, site_name, tas=time_accounting, obsclasses=self.obs_classes)
     
+
+    def _calculate_time_grid(self):
+
+        if self.time_range is not None:
+            # Add one day to make the time_range inclusive since using arange
+            return Time(np.arange(self.time_range[0].jd, self.time_range[1].jd + 1.0, \
+                                            (1.0*u.day).value), format='jd')
+        return None
+
+    def _calculate_night_events(self):
+
+        if self.time_grid is not None:
+
+            for site in self.sites:
+                tz = self.timezones[site]
+                site_location = self.locations[site]
+                mid, sset, srise, twi_eve18, twi_mor18, twi_eve12, twi_mor12, mrise, mset, smangs, moonillum = \
+                    nightevents(self.time_grid, site_location, tz, verbose=False)
+                night_length = (twi_mor12 - twi_eve12).to_value('h') * u.h
+                self.night_events[site] = {'midnight': mid, 'sunset': sset, 'sunrise': srise, \
+                                                            'twi_eve18': twi_eve18, 'twi_mor18': twi_mor18, \
+                                                            'twi_eve12': twi_eve12, 'twi_mor12': twi_mor12, \
+                                                            'night_length': night_length, \
+                                                            'moonrise': mrise, 'moonset': mset, \
+                                                            'sunmoonang': smangs, 'moonillum': moonillum}
+
+
     def _load_tas(self, path, ssite):
 
         date = self.time_range[0].strftime('%Y%m%d')
@@ -204,7 +244,7 @@ class Collector:
 
         return sumtas_date(tas, tadate)
 
-    def _readzip(self, zipfile, xmlselect, selection=['ONGOING', 'READY'], obsclasses=['SCIENCE'], tas=None):
+    def _readzip(self, zipfile, xmlselect, site, selection=['ONGOING', 'READY'], obsclasses=['SCIENCE'], tas=None):
         ''' Populate Database from the zip file of an ODB backup'''
 
         with ZipFile(zipfile, 'r') as zip:
@@ -219,7 +259,7 @@ class Collector:
                     (active, complete) = CheckStatus(program)
                     #print(name, active, complete)
                     if active and not complete:
-                        self._process_observation_data(program, selection, obsclasses, tas)
+                        self._process_observation_data(program, selection, obsclasses, tas, site)
  
     def _elevation_contrains(self, elevation_type, max_elevation, min_elevation):
         
@@ -306,7 +346,7 @@ class Collector:
            
         return  acquistion_lookup['GMOS'] if 'GMOS' in inst.name else acquistion_lookup[inst.name]
    
-    def _process_observation_data(self, program, selection, obsclasses, tas):
+    def _process_observation_data(self, program, selection, obsclasses, tas, site):
         
         program_id = GetProgramID(program)
         notes = GetProgNotes(program)
@@ -325,32 +365,37 @@ class Collector:
             award = 0.0 * u.hour
         
         year = program_id[3:7]
-        yp = str(int(year) + 1)
+        next_year = str(int(year) + 1)
         semester = program_id[7]
-        
 
-        progam_start = None
+        program_start = None
         program_end = None
+
         if 'FT' in program_id:
-            program_start, program_end = GetFTProgramDates(notes,semester,year,yp) 
-           
+            program_start, program_end = GetFTProgramDates(notes,semester,year, next_year) 
             # If still undefined, use the values from the previous observation
             if not program_start:
+
                 proglist = list(self.programs.copy())
                 program_start = self.programs[proglist[-1]]['progstart']
                 program_end = self.programs[proglist[-1]]['progend'] 
+                
         else:
 
+            
             beginning_semester_A = Time(year + "-02-01 20:00:00", format='iso')
-            beginning_semester_B = Time(year + "-08-01 20:00:00", format='iso')
+            end_semester_A = Time(year + "-08-01 20:00:00", format='iso')
+            beginning_semester_B =  Time(next_year + "-02-01 20:00:00", format='iso')
+            end_semester_B = Time(next_year + "-08-01 20:00:00", format='iso')
             # This covers 'Q', 'LP' and 'DD' program observations
             if semester == 'A':
                 program_start = beginning_semester_A
                 # Band 1, non-ToO, programs are 'persistent' for the following semester
-                program_end = beginning_semester_A if band == Band.Band1 else beginning_semester_B
+                program_end = beginning_semester_B if band == Band.Band1 else end_semester_A
+
             else:
-                program_start = beginning_semester_B
-                program_end = beginning_semester_B if band == Band.Band1 else beginning_semester_A
+                program_start = end_semester_A
+                program_end = end_semester_B if band == Band.Band1 else beginning_semester_B
 
 
         # Flexible boundaries - could be type-dependent
@@ -392,7 +437,7 @@ class Collector:
 
             if any(obs_class in obsclasses for obs_class in classes) and (status in selection):
                 
-                print('Adding ' + obs_odb_id)
+                print('Adding ' + obs_odb_id, end='\r')
                 total_time = GetObsTime(raw_observation)
                 t, r, d = GetTargetCoords(raw_observation) #No clue what t, r or d means
                 if t is None:
@@ -423,8 +468,7 @@ class Collector:
                     min_elevation = '1.0'
                     max_elevation = MAX_AIRMASS
             
-                start, duration, repeat, period = GetWindows(raw_observation)       
-
+            
                 acquisiton_mode = 'normal'
                 target_tag = 'undef'
                 des = 'undef'
@@ -450,9 +494,6 @@ class Collector:
                 obs_time = 0
                 if tas and program_id in tas and obs_odb_id in tas[program_id]:
                     obs_time = max(0, tas[program_id][obs_odb_id]['prgtime'].value)\
-                    
-                calibration_time = 0
-
 
                 # Total observation time
                 # for IGRINS, update tot_time to take telluric into account if there is time remaining
@@ -465,17 +506,19 @@ class Collector:
                 # Conditions
                 cond = conditions.split(',')
                 condf = sb.convertcond(cond[0], cond[1], cond[2], cond[3])
+                sky_cond = SkyConditions(condf[0],condf[2],condf[1],condf[3])
 
                 # Elevation constraints
                 self._elevation_contrains(elevation_type,max_elevation,min_elevation) 
 
+
+                start, duration, repeat, period = GetWindows(raw_observation) 
                 # This makes a list of timing windows between progstart and progend
-                '''
-                
-                
                 timing_windows = ot_timing_windows(start, duration, repeat, period)
+                
                 progstart = self.programs[program_id]['progstart']
                 progend = self.programs[program_id]['progend']
+                
                 windows = []
                 if len(timing_windows) == 0:
                     windows.append(Time([progstart, progend]))
@@ -490,13 +533,11 @@ class Collector:
                             wend = progstart
                         # Timing window starts at the beginning of the sequence, the slew can be outside the window
                         # Therefore, subtract acquisition time from start of timing window
-                        wstart -= self.observations[self.nobs].acquisition()
+                        wstart -= self.observations[-1].acquisition()
                         windows.append(Time([roundMin(wstart), roundMin(wend)]))
-
-
-
-                '''
+                self.obs_windows.append(windows)
                 
+                # Observation number in program
                 self.programs[program_id]['idx'].append(self.nobs)
 
 
@@ -518,6 +559,8 @@ class Collector:
                 self.obstatus.append(status)
                 #self.obsclass.append(classes[0])
                 self.target_name.append(t)
+                self.target_tag.append(target_tag)
+                self.target_des.append(des)
                 self.coord.append(SkyCoord(r, d, frame='icrs', unit=(u.deg, u.deg)))
                 self.mags.append(target_mags)
                 self.toostatus.append(toostat.lower())
@@ -526,12 +569,63 @@ class Collector:
                 #self.tot_time.append(total_time.total_seconds() / 3600. + calibration_time) 
                 self.conditions.append({'iq': condf[0], 'cc': condf[1], 'bg': condf[2], 'wv': condf[3]})
 
+                
+
                 self.observations.append(Observation(self.nobs,
                                                     obs_odb_id,
                                                     band, 
                                                     Category(classes[0].lower()), 
                                                     obs_time, 
                                                     total_time.total_seconds() / 3600. + calibration_time,
-                                                    inst_config))
+                                                    inst_config,
+                                                    sky_cond,
+                                                    status,
+                                                    too_status.lower()))
                 self.nobs += 1
 
+    def create_time_array(self):
+
+        timesarr = []
+        nnight = len(self.time_grid)
+
+        for ii in range(nnight):
+            tmin = Time('2200-01-01 00:00:00', format='iso', scale='utc')
+            tmax = Time('1980-01-01 00:00:00', format='iso', scale='utc')
+            for site in self.sites:
+                #site_name = site.info.meta['name']
+                if self.night_events[site]['twi_eve12'][ii] < tmin:
+                    tmin = self.night_events[site]['twi_eve12'][ii]
+                if self.night_events[site]['twi_mor12'][ii] > tmax:
+                    tmax = self.night_events[site]['twi_mor12'][ii]
+
+            tstart = roundMin(tmin, up=True)
+            tend = roundMin(tmax, up=False)
+            n = np.int((tend.jd - tstart.jd) / self.dt.to(u.day).value + 0.5)
+            times = Time(np.linspace(tstart.jd, tend.jd - self.dt.to(u.day).value, n), format='jd')
+            timesarr.append(times)
+
+        return timesarr
+    
+    def get_actual_conditions(self):
+        # TODO: This could be an static method but it should be some internal process or API call to ENV
+        # but right now is mostly hardcoded so the plan would be as if 
+
+        actcond = {}
+        time_blocks = [Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')] #
+        variants = {
+            #             'IQ20 CC50': {'iq': 0.2, 'cc': 0.5, 'wv': 1.0, 'wd': -1, 'ws': -1},
+            'IQ70 CC50': {'iq': 0.7, 'cc': 0.5, 'wv': 1.0, 'wdir': 330.*u.deg, 'wsep': 40.*u.deg, 'wspd': 5.0*u.m/u.s, 'tb': time_blocks},
+            #             'IQ70 CC70': {'iq': 0.7, 'cc': 0.7, 'wv': 1.0, 'wdir': -1, 'wsep': 30.*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': time_blocks}, 
+            #             'IQ85 CC50': {'iq': 0.85, 'cc': 0.5, 'wv': 1.0, 'wdir': -1, 'wsep': 30.0*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': time_blocks}, 
+            #             'IQ85 CC70': {'iq': 0.85, 'cc': 0.7, 'wv': 1.0, 'wdir': -1, 'wsep': 30.0*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': time_blocks},
+            #             'IQ85 CC80': {'iq': 1.0, 'cc': 0.8, 'wv': 1.0, 'wdir': -1, 'wsep': 30.0*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': []}
+            }
+
+        selected_variant = variants['IQ70 CC50']
+        
+        actcond['sky'] = SkyConditions(selected_variant['iq'], None, selected_variant['cc'],
+                             selected_variant['wv'])
+        actcond['wind'] = WindConditions( selected_variant['wsep'], selected_variant['wspd'],
+                             selected_variant['wdir'],time_blocks)
+        
+        return actcond

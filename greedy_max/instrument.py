@@ -16,22 +16,27 @@ class Instrument:
             if 'MIRROR' in self.disperser:
                 return 'imaging'
             #elif searchlist('arcsec', config['fpu']):
-            elif any('arcsec' in fpu for fpu in self.configuration['fpu']):
+            elif any(['arcsec' in fpu for fpu in self.configuration['fpu']]):
                 return 'longslit'
-            elif any('IFU' in fpu for fpu in self.configuration['fpu']):
+            elif any(['IFU' in fpu for fpu in self.configuration['fpu']]):
                 return 'ifu'
-            elif any('CUSTOM_MASK' in fpu for fpu in self.configuration['fpu']):
+            elif any(['CUSTOM_MASK' in fpu for fpu in self.configuration['fpu']]):
                 return 'mos'
         def flamingos2_mode():
-            if any('LONGSLIST' in fpu for fpu in self.configuration['fpu']):
+            if any(['LONGSLIT' in fpu for fpu in self.configuration['fpu']]):
                 return 'longslit'
-            if any('FPU_NONE' in fpu for fpu in self.configuration['fpu']) \
+
+            if any(['FPU_NONE' in fpu for fpu in self.configuration['fpu']]) \
                     and any('IMAGING' in fpu for fpu in self.configuration['decker']):
                 return 'imaging'
+            else:
+                'None'
         def niri_mode():
-            return 'imaging' if  'NONE' in self.disperser and 'MASK_IMAGING' in self.configuration['mask'] else None
+            return 'imaging' if ( 'NONE' in self.disperser 
+                                    and 'MASK_IMAGING' in self.configuration['mask']) else None
         def gnirs_mode():
-            if 'ACQUISITION' in self.configuration['decker'] and 'IN' in self.configuration['acquisitionMirror']:
+            if ('ACQUISITION' in self.configuration['decker'] 
+                    and 'IN' in self.configuration['acquisitionMirror']):
                 return 'imaging'
             #elif searchlist('XD', ):
             elif any('XD' in fpu for fpu in self.configuration['crossDispersed']):
@@ -43,16 +48,18 @@ class Instrument:
         def nifs_mode():
             return 'ifu'
 
-    
+        
+
         instrument_lookup = { 
-                            'GMOS': gmos_mode,
+                            'GMOS-S': gmos_mode,
+                            'GMOS-N': gmos_mode,
                             'GSAOI': gsaoi_mode ,
                             'Flamingos2': flamingos2_mode,
                             'NIRI': niri_mode,
                             'NIFS': nifs_mode,
                             'GNIRS': gnirs_mode
-                            }    
-       
+                            }   
+    
         return instrument_lookup[self.name]() if self.name in instrument_lookup else 'unknown'
 
     def wavelength(self):
