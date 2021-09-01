@@ -1,10 +1,12 @@
+from resource_mock import Resource
 from collector import Collector
-from collector.conditions import SkyConditions
+from collector.conditions import SkyConditions, WindConditions
 from selector.visibility import Visibility
 from selector.ranker import Ranker
 from greedy_max.schedule import Observation, Visit
 from greedy_max.category import Category
 from greedy_max.site import Site
+from resource_mock.resources import Resources
 
 import collector.vskyutil as vs
 import collector.sb as sb
@@ -19,6 +21,8 @@ from astropy.coordinates import SkyCoord, Angle
 import astropy.units as u
 from astropy.time import Time
 
+from typing import List, NoReturn, Dict, Union
+
 MAX_AIRMASS = '2.3'
 
 class Selector:
@@ -28,7 +32,6 @@ class Selector:
         self.time_range = time_range         # Time object, array for visibility start/stop dates
         self.dt = dt                         # time step for times
 
-        #self.ranker = Ranker(collector.obsid, time_range, sites)
         self.collector = collector
         if times is not None:
             self.times = times
@@ -38,7 +41,7 @@ class Selector:
 
         self.selection = {}
 
-    def _standard_time(self, instruments, wavelengths, modes, cal_len):
+    def _standard_time(self, instruments: List[str], wavelengths: List[float], modes: List[str], cal_len: int) -> u.hr:
         standard_time = 0.0 * u.hr
         if cal_len > 1:
             if any(item in instruments for item in ['Flamingos2', 'GNIRS', 'NIFS', 'IGRINS']):
@@ -50,7 +53,7 @@ class Selector:
                 standard_time = 2.0 * u.hr
         return standard_time
 
-    def _get_airmass(self,altit):
+    def _get_airmass(self, altit: Angle) -> np.ndarray:
         """true airmass for an altitude.
         Equivalent of getAirmass in the QPT, based on vskyutil.true_airmass
         https://github.com/gemini-hlsw/ocs/blob/12a0999bc8bb598220ddbccbdbab5aa1e601ebdd/bundle/edu.gemini.qpt.client/src/main/java/edu/gemini/qpt/core/util/ImprovedSkyCalcMethods.java#L119
@@ -106,7 +109,7 @@ class Selector:
         return ret
 
     def _calculate_visibility(self, site, des, tag, coo, conditions, elevation, obs_windows, times, lst,
-           sunalt, moonpos, moondist, moonalt, sunmoonang, location, ephem_dir, sbtwo=True, overwrite=False, extras=True):
+                              sunalt, moonpos, moondist, moonalt, sunmoonang, location, ephem_dir, sbtwo=True, overwrite=False, extras=True):
 
         nt = len(times)
         if tag != 'sidereal':
@@ -192,16 +195,20 @@ class Selector:
         else:
             return ivis
 
-    def _check_instrument_availability(self,resources, site, instruments_of_obs):
+    def _check_instrument_availability(self, resources: Resources, 
+                                       site: Site, instruments_of_obs: List[str]) -> bool:
         return all(resources.is_instrument_available(site,instrument) for instrument in instruments_of_obs)
 
-    def _check_conditions(self, visit_conditions, actual_conditions):
+    def _check_conditions(self, visit_conditions: SkyConditions, 
+                          actual_conditions: Dict[str, Union[SkyConditions,WindConditions]]) -> bool:
 
         return (visit_conditions.image_quality >= actual_conditions.image_quality and 
                     visit_conditions.cloud_conditions >= actual_conditions.cloud_conditions and 
                     visit_conditions.water_vapour >= actual_conditions.water_vapour)
 
-    def _match_conditions(self, visit_conditions, actual_conditions, negha, toostatus, scalar_input = False):
+    def _match_conditions(self, visit_conditions: SkyConditions, 
+                          actual_conditions: Dict[str, Union[SkyConditions,WindConditions]], 
+                          negha: bool, toostatus: str, scalar_input = False) -> float:
     
         skyiq = actual_conditions.image_quality
         skycc = actual_conditions.cloud_conditions
@@ -245,7 +252,10 @@ class Selector:
 
         return cmatch
 
-    def visibility(self, site, jobs=0, ephem_dir=None, overwrite=False, sbtwo= True):
+    def visibility(self, site: Site, jobs=0, ephem_dir=None, overwrite=False, sbtwo= True) -> NoReturn:
+        """
+        Main driver to calculate the visibility for each observation 
+        """
 
         target_des = self.collector.target_des
         target_tag = self.collector.target_tag
@@ -372,7 +382,11 @@ class Selector:
 
         print('Done')
 
-    def create_pool(self):
+    def create_pool(self) -> Dict[Site,List[Visit]]:
+        """
+        Process to create the Visits for each site base on the information from Collector
+        """
+
         collected_observations = self.collector.observations
         scheduling_groups = self.collector.scheduling_groups
         visits = { site: [] for site in self.sites} 
@@ -429,9 +443,15 @@ class Selector:
             
         return visits
     
-    def select(self, visits, inight, site, actual_conditions, resources, ephem_dir):
-        # Select scheduling groups for plan
-        # return list of selected groups and scores dictionary?
+    def select(self, visits: List[Visit], 
+               inight: int, site: Site, 
+               actual_conditions: Dict[str,Union[SkyConditions,WindConditions]], 
+               resources: Resources, 
+               ephem_dir: str) -> List[Visit]:
+        """
+        Select the visits that are posible to be schedule under current conditions from the pool 
+        Return a collection of visits for each site
+        """
         
         ranker = Ranker(self.sites, self.times)
 
@@ -542,8 +562,10 @@ class Selector:
         self.selection[site] = selected
         return selected
 
-    def selection_summary(self):
-
+    def selection_summary(self)-> NoReturn:
+        """
+        Show a summary of the selection of Visits
+        """
         if not self.selection:
             print('No Visits were selected')
             return
@@ -552,10 +574,11 @@ class Selector:
             for visit in self.selection[site]:
                 print(visit)
 
-    def has_complementary_mode(self, obs, site):
-
-        # Determines if an observation configuration is valid for site.
-        # This is mainly to determine if it can be observed at an alternative site
+    def has_complementary_mode(self, obs: Observation, site: Site) -> Union[bool,str]:
+        """
+        Determines if an observation configuration is valid for site.
+        This is mainly to determine if it can be observed at an alternative site
+        """    
         go = False
         altinst = 'None'
 

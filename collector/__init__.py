@@ -5,7 +5,6 @@ from astropy.coordinates import SkyCoord, EarthLocation
 import astropy.units as u
 from astropy.table import Table, vstack
 
-
 import pytz
 import os      
 import calendar
@@ -15,7 +14,6 @@ import collector.sb as sb
 from collector.vskyutil import nightevents
 from collector.xmlutils import *
 from collector.get_tadata import get_report, get_tas, sumtas_date
-
 from collector.conditions import SkyConditions, WindConditions
 
 from greedy_max.instrument import Instrument
@@ -24,9 +22,7 @@ from greedy_max.band import Band
 from greedy_max.schedule import Observation
 from greedy_max.category import Category
 
-from typing import List
-
-#from ranker import Ranker
+from typing import List, Dict, Optional, NoReturn
 
 MAX_AIRMASS = '2.3'
 
@@ -108,13 +104,13 @@ class Collector:
                        time_range=None, 
                        dt=1.0*u.min) -> None:
         
-        self.sites = sites                   # list of EarthLocation objects
+        self.sites = sites                   
         self.semesters = semesters
         self.program_types =  program_types
         self.obs_classes = obsclasses
         self.time_range = time_range         # Time object, array for visibility start/stop dates
         
-        self.time_grid = self._calculate_time_grid()               # Time object, array with entry for each day in time_range
+        self.time_grid = self._calculate_time_grid()  # Time object, array with entry for each day in time_range
         self.dt = dt                         # time step for times
 
         self.observations = []
@@ -124,8 +120,7 @@ class Collector:
             self.times = times
             self.dt = self.times[0][1] - self.times[0][0]
 
-        self.night_events = {}
-        
+        self.night_events = {}        
         self.scheduling_groups = {}
         self.instconfig = []
         self.nobs = 0
@@ -141,8 +136,7 @@ class Collector:
         self.obsclass = []
         self.nobs = 0
         self.band = []
-        #self.progstart = []
-        # self.progend = []
+
         self.target_name = []
         self.target_tag = []
         self.target_des = []
@@ -151,26 +145,21 @@ class Collector:
         self.toostatus = []
         self.priority = []
         self.acqmode = []
-        #self.targets = []
-        #self.guidestars = []
         self.instconfig = []
-        #self.pamode = []
         self.tot_time = []  # total program time
         self.obs_time = []  # used/scheduled time
         self.conditions = []
         self.elevation = []
         self.obs_windows = []
-        #self.notes = []
-    
 
-    def load(self, path):
-        
+    def load(self, path: str) -> NoReturn:
+        """ Main collector method. It setups the collecting process and parameters """ 
+
         #config fiLE?
         site_name = Site.GS.value #NOTE: temporary hack for just using one site
-        #print(site_name)
+
         xmlselect = [site_name.upper() + '-' + sem + '-' + prog_type for sem in self.semesters for prog_type in self.program_types]
 
-        #print(xmlselect)
         # Site details
         if site_name == 'gn':
             site = EarthLocation.of_site('gemini_north')
@@ -195,7 +184,7 @@ class Collector:
         self._readzip(zip_path, xmlselect, site_name, tas=time_accounting, obsclasses=self.obs_classes)
     
 
-    def _calculate_time_grid(self):
+    def _calculate_time_grid(self) -> Optional[Time]:
 
         if self.time_range is not None:
             # Add one day to make the time_range inclusive since using arange
@@ -203,7 +192,8 @@ class Collector:
                                             (1.0*u.day).value), format='jd')
         return None
 
-    def _calculate_night_events(self):
+    def _calculate_night_events(self) -> NoReturn:
+        """ Load night events to collector """
 
         if self.time_grid is not None:
 
@@ -221,7 +211,8 @@ class Collector:
                                                             'sunmoonang': smangs, 'moonillum': moonillum}
 
 
-    def _load_tas(self, path, ssite):
+    def _load_tas(self, path: str, ssite: str) -> Dict[str,Dict[str,float]]:
+        """ Load Time Accouting Summary """
 
         date = self.time_range[0].strftime('%Y%m%d')
         plandir = path + '/nightplans/' + date + '/'
@@ -244,25 +235,9 @@ class Collector:
 
         return sumtas_date(tas, tadate)
 
-    def _readzip(self, zipfile, xmlselect, site, selection=['ONGOING', 'READY'], obsclasses=['SCIENCE'], tas=None):
-        ''' Populate Database from the zip file of an ODB backup'''
-
-        with ZipFile(zipfile, 'r') as zip:
-            names = zip.namelist()
-            names.sort()
-            #print(names, xmlselect)
-            #print(dir(odb))
-            for name in names:
-                if any(xs in name for xs in xmlselect):
-                    tree = ElementTree.fromstring(zip.read(name))
-                    program = tree.find('container')
-                    (active, complete) = CheckStatus(program)
-                    #print(name, active, complete)
-                    if active and not complete:
-                        self._process_observation_data(program, selection, obsclasses, tas, site)
- 
     def _elevation_contrains(self, elevation_type, max_elevation, min_elevation):
-        
+        """ Calculate elevation constrains """
+
         if elevation_type == 'NONE' or elevation_type == 'NULL':
             elevation_type = 'AIRMASS'
         if min_elevation == 'NULL' or min_elevation == '0.0':
@@ -277,7 +252,8 @@ class Collector:
                 max_elevation = '5.0'
         self.elevation.append({'type': elevation_type, 'min': float(min_elevation), 'max': float(max_elevation)})
 
-    def _instrument_setup(self, configuration, instrument_name):
+    def _instrument_setup(self, configuration: Dict[str, List[str]], instrument_name: str) -> Instrument:
+        """ Setup instrument configurations for each observation """
         instconfig = {} 
 
         fpuwidths = []
@@ -312,42 +288,40 @@ class Collector:
         #             print(instconfig)
         if any(inst in instrument_name.upper() for inst in ['IGRINS', 'MAROON-X']):
             disperser = 'XD'
-        #return instconfig
+       
         return Instrument(instrument_name,disperser,instconfig)
-        #self.instconfig.append(instrument)
-
-    #NOTE: this need to be an observation method
-    def _acqtime(self, iobs):
-        # Determine acquisition time in min for instrument/mode
-        # Times taken from odb.GetObsTime and OT
-        #print(self.instconfig, iobs)
-        inst = self.instconfig[iobs]
-
-        mode = inst.observation_mode()
-        acqtime = 10.0*u.min
-
-        gmosacq = {'imaging': 6.*u.min, 'longslit': 16.*u.min, 'ifu': 18.*u.min, 'mos': 18.*u.min}
-        f2acq = {'imaging': 6.*u.min, 'longslit': 20.*u.min, 'mos': 30.*u.min}
-
-        acquistion_lookup = {
-                                'GMOS': gmosacq[mode],
-                                'Flamingos2': f2acq[mode],
-                                'NIFS': 11.*u.min,
-                                'GNIRS':  15.*u.min,
-                                'NIRI': 6.*u.min,
-                                'GPI': 10.*u.min,
-                                'GSAOI':  30.*u.min,
-                                'Alopeke': 6.0*u.min,
-                                'Zorro': 6.0*u.min,
-                                'MAROON-X': 10*u.min,
-                                'IGRINS': 10*u.min,
-                                'Visitor Instrument': 10*u.min
-        }
-           
-        return  acquistion_lookup['GMOS'] if 'GMOS' in inst.name else acquistion_lookup[inst.name]
-   
-    def _process_observation_data(self, program, selection, obsclasses, tas, site):
         
+    def _readzip(self, 
+                 zipfile: str, 
+                 xmlselect: List[str], 
+                 site: str,
+                 selection=['ONGOING', 'READY'], 
+                 obsclasses=['SCIENCE'], 
+                 tas=None):
+        """ Populate Database from the zip file of an ODB backup """
+
+        with ZipFile(zipfile, 'r') as zip:
+            names = zip.namelist()
+            names.sort()
+            #print(names, xmlselect)
+            #print(dir(odb))
+            for name in names:
+                if any(xs in name for xs in xmlselect):
+                    tree = ElementTree.fromstring(zip.read(name))
+                    program = tree.find('container')
+                    (active, complete) = CheckStatus(program)
+                    #print(name, active, complete)
+                    if active and not complete:
+                        self._process_observation_data(program, selection, obsclasses, tas, site)
+   
+    def _process_observation_data(self, 
+                                  program, 
+                                  selection: List[str], 
+                                  obsclasses: List[str], 
+                                  tas: Dict[str,Dict[str,float]], 
+                                  site: str) -> NoReturn:
+        """ Parse XML file to Observation objects and other data structures """
+
         program_id = GetProgramID(program)
         notes = GetProgNotes(program)
         program_mode = GetMode(program)
@@ -426,9 +400,6 @@ class Collector:
             #print('Parser issue to get observation info')
             return
 
-        #print(len(raw_observations))
-        #print(len(groups))
-
         for raw_observation, group in zip(raw_observations,groups):
 
             classes = uniquelist(GetClass(raw_observation))
@@ -439,7 +410,7 @@ class Collector:
                 
                 print('Adding ' + obs_odb_id, end='\r')
                 total_time = GetObsTime(raw_observation)
-                t, r, d = GetTargetCoords(raw_observation) #No clue what t, r or d means
+                t, r, d = GetTargetCoords(raw_observation) #NOTE: No clue what t, r or d means
                 if t is None:
                     t = 'None'
                 if r is None:
@@ -488,7 +459,6 @@ class Collector:
                         except:
                             pass
                 
-            
                 # Charged observation time
                 # Used time from Time Accounting Summary (tas) information
                 obs_time = 0
@@ -547,17 +517,14 @@ class Collector:
                     self.programs[program_id]['groups'].append(group['key'])
                 self.scheduling_groups[group['key']]['idx'].append(self.nobs)
 
-                    #print(target_tag)
+                #print(target_tag)
                 # Get Horizons coordinates for nonsidereal targets (write file for future use)
                 #if target_tag in ['asteroid', 'comet', 'major-body']: NOTE: This does not work, and it should!
                 #print(group)
                 #print(self.scheduling_groups)
 
                 
-                #self.obsid.append(obs_odb_id)
-                #self.band.append(band)
                 self.obstatus.append(status)
-                #self.obsclass.append(classes[0])
                 self.target_name.append(t)
                 self.target_tag.append(target_tag)
                 self.target_des.append(des)
@@ -565,11 +532,7 @@ class Collector:
                 self.mags.append(target_mags)
                 self.toostatus.append(toostat.lower())
                 self.priority.append(priority)
-                #self.obs_time.append(obs_time)
-                #self.tot_time.append(total_time.total_seconds() / 3600. + calibration_time) 
                 self.conditions.append({'iq': condf[0], 'cc': condf[1], 'bg': condf[2], 'wv': condf[3]})
-
-                
 
                 self.observations.append(Observation(self.nobs,
                                                     obs_odb_id,

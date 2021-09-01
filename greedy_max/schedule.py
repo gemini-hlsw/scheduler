@@ -42,7 +42,9 @@ class Observation:
         #self.acquisition = acquisition
   
     def acquisition(self):
-
+        """
+        Calculate acquisition time of the observation
+        """
         mode = self.instrument.observation_mode()
         name = self.instrument.name 
         
@@ -67,6 +69,9 @@ class Observation:
         return  acquisition_lookup['GMOS'] if 'GMOS' in name else acquisition_lookup[name]
 
     def get_program_id(self):
+        """
+        Get the ID for the observation's Program
+        """
         return self.name[0:self.name.rfind('-')]
 
     def __str__(self) -> str:
@@ -132,8 +137,10 @@ class Visit:
             total_obs[cal.idx] = cal
         return total_obs
     
-    def airmass(self, obs_idx) -> float:
-        
+    def airmass(self, obs_idx: int) -> float:
+        """
+        Get airmass values for the observation
+        """
         if obs_idx in self.observations:
             return self.observations[obs_idx].visibility.airmass
         if obs_idx in self.calibrations:

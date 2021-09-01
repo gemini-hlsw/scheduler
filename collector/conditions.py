@@ -2,6 +2,9 @@ import numpy as np
 import astropy.units as u
 
 class SkyConditions:
+    """
+    Sky constraints for an observation 
+    """
     def __init__(self, 
                  image_quality: float,
                  brightness: float,
@@ -12,13 +15,10 @@ class SkyConditions:
         self.brightness = brightness
         self.water_vapour = water_vapour
       
-    
-    #windconditions(actcond[site_name]['wdir'], actcond[site_name]['wspd'], \
-    #                                                  self.targaz[site_name][ii][inight], \
-    #                                                  separation=actcond[site_name]['wsep'], verbose=False)
-    
 class WindConditions:
-        
+    """
+    Wind constraints for the night
+    """
     def __init__(self, 
                  wind_separation: float,
                  wind_speed: float,
