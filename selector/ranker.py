@@ -85,24 +85,30 @@ class Ranker:
             for obs in visit.observations:
 
                 score = np.zeros(len(self.times[inight]))
-                program_id = obs.get_program_id()
+                program_id = obs.get_program_id()   
                 program = programs[program_id]
         
                 if remaining is None:
                     remaining = (obs.length - obs.observed) * u.hr
 
                 cplt = (program['usedtime'] + remaining) / program['progtime']
+
+
+                print(program['usedtime'])
+                print(program['progtime'])
+                print(cplt)
+                print(visit.length())
+                print(visit.observed())
+                input()
                 # Metric and slope
                 metrc, metrc_s = self._metric_slope(np.array([cplt.value]),
                                                     np.ones(1, dtype=int) * program['band'],
                                                     np.ones(1) * 0.8, params, 
                                                     pow=pow, thesis=program['thesis'],
                                                     thesis_factor=1.1)
-
-
+                print(metrc,metrc_s)
+                input()
                 # Get coordinates
-                
-                
                 coord = self._query_coordinates(obs, site, [inight], 
                                                 target_tag, target_des, 
                                                 coordinates, ephem_dir,
@@ -137,10 +143,16 @@ class Ranker:
 
 
                 obs.score = score   
-
+                
                 visit_score = np.append(visit_score, np.array([score]), axis=0)
-           
+
+            print(f'Scoring visit {visit.idx}')
+            for score in visit_score:
+                print(f'score: {score}')
+            
             visit.score = np.apply_along_axis(combine_score, 0, visit_score)[0]
+            print(f'visit_score: {np.apply_along_axis(combine_score, 0, visit_score)[0]}' )
+            input()
 
     def _params(self):
         params9 = {'1': {'m1': 1.406, 'b1': 2.0, 'm2': 0.50, 'b2': 0.5, 'xb': 0.8, 'xb0': 0.0, 'xc0': 0.0},

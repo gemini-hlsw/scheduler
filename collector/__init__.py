@@ -1,3 +1,4 @@
+from time import time
 from zipfile import ZipFile
 import xml.etree.cElementTree as ElementTree
 
@@ -173,13 +174,12 @@ class Collector:
             print('ERROR: site_name must be "gs" or "gn".')
         
         self._calculate_night_events()
-        site.info.meta['name'] = site_name
-       
+        
         sitezip = {'GN': '-0715.zip', 'GS': '-0830.zip'}
-        zip_path = f"{path}/{(self.time_range[0] - 1.0*u.day).strftime('%Y%m%d')}{sitezip[site.info.meta['name'].upper()]}"
+        zip_path = f"{path}/{(self.time_range[0] - 1.0*u.day).strftime('%Y%m%d')}{sitezip[site_name.upper()]}"
         print(zip_path)
 
-        time_accounting = self._load_tas(path, site.info.meta['name'].upper())
+        time_accounting = self._load_tas(path, site_name.upper())
         
         self._readzip(zip_path, xmlselect, site_name, tas=time_accounting, obsclasses=self.obs_classes)
     
@@ -224,14 +224,14 @@ class Collector:
         
         for sem in self.semesters:
             tafile = 'tas_' + ssite + '_' + sem + '.txt'
-        if not os.path.exists(plandir + tafile):
-            get_report(ssite, tafile, plandir)
-            
-        tmp = get_tas(plandir + tafile)
-        if tas:
-            tas = vstack([tas, tmp])
-        else:
-            tas = tmp.copy()
+            if not os.path.exists(plandir + tafile):
+                get_report(ssite, tafile, plandir)
+                
+            tmp = get_tas(plandir + tafile)
+            if tas:
+                tas = vstack([tas, tmp])
+            else:
+                tas = tmp.copy()
 
         return sumtas_date(tas, tadate)
 
@@ -285,7 +285,7 @@ class Collector:
             else:
                 instconfig[key] = ulist
 
-        #             print(instconfig)
+
         if any(inst in instrument_name.upper() for inst in ['IGRINS', 'MAROON-X']):
             disperser = 'XD'
        
@@ -303,14 +303,12 @@ class Collector:
         with ZipFile(zipfile, 'r') as zip:
             names = zip.namelist()
             names.sort()
-            #print(names, xmlselect)
-            #print(dir(odb))
+
             for name in names:
                 if any(xs in name for xs in xmlselect):
                     tree = ElementTree.fromstring(zip.read(name))
                     program = tree.find('container')
                     (active, complete) = CheckStatus(program)
-                    #print(name, active, complete)
                     if active and not complete:
                         self._process_observation_data(program, selection, obsclasses, tas, site)
    
@@ -385,6 +383,7 @@ class Collector:
 
 
         # Used time from Time Accounting Summary (tas) information
+    
         if tas and program_id in tas:
             used = tas[program_id]['prgtime']
         else:
