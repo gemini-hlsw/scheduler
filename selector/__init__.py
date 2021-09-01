@@ -325,8 +325,7 @@ class Selector:
             res = []
 
             for id in tqdm(range(len(observations))):
-                #self, site, des, tag, coo, conditions, elevation, obs_windows, times, lst,
-                # sunalt, moonpos, moondist, moonalt, sunmoonang, location, ephem_dir
+              
                 res.append(self._calculate_visibility(site, target_des[id],
                                             target_tag[id], coord[id],
                                             conditions[id], elevation[id],
@@ -342,9 +341,6 @@ class Selector:
                     id = obs.idx
                     
                     obsvishours[site][id, period] = len(res[id][0]) * dt.value
-                    #print(obsvishours[id, period])
-
-                    #input()
                     visibilities[id].append(res[id][0]) 
                     hour_angles[id].append(res[id][1])
                     target_alts[id].append(res[id][2])
@@ -368,8 +364,6 @@ class Selector:
             else:
                 visfrac = 0.0
            
-
-            #print(res[id][0],obsvishours[id, period],res[id][1],res[id][2], res[id][3],res[id][4],res[id][5],res[id][6])           
             obs.visibility = Visibility(visibilities[id], 
                                         obsvishours[site][id, :],
                                         hour_angles[id],
@@ -396,11 +390,7 @@ class Selector:
             for idx, group in enumerate(scheduling_groups.values()):
                 #print(group)
                 obs_idxs = group['idx']
-                #can_be_split = group['split']
             
-                #standard_time = int(np.ceil(group['pstdt'].to(u.h).value/ dt.to(u.h).value))
-                #site = Site.GS if sum(ttab_gngs['weight_gs'][grp_id]) > 0 else Site.GN
-
                 instruments = [collected_observations[obs].instrument
                             for obs in obs_idxs]
                 wavelengths = set([wav for inst in instruments for wav in inst.wavelength()]) 
@@ -434,13 +424,6 @@ class Selector:
                 visits[site].append(Visit(idx, site, observations, calibrations, 
                                             can_be_split, standard_time))
 
-            ## Ranker score
-        
-            #self.ranker.visibility(self.collector.target_des, self.collector.target_tag, 
-            #                    self.collector.coord, self.collector.conditions, self.collector.obs_windows, 
-            #                    self.collector.elevation, visits, self.collector.timezones, site)
-
-            
         return visits
     
     def select(self, visits: List[Visit], 
@@ -512,21 +495,11 @@ class Selector:
                     
                     status_of_obs.append(obs.status)
 
-                #remove duplicates? why is that necessary?
                 instruments_in_obs = list(dict.fromkeys(instruments_in_obs))
                 dispersers_in_obs = list(dict.fromkeys(dispersers_in_obs))
                 fpus_in_obs = list(dict.fromkeys(fpus_in_obs))
                 status_of_obs = list(dict.fromkeys(status_of_obs))
-                
-                # print(instruments_in_obs)
-                # print(vishours_of_obs)
-                # print(status_of_obs)
-                #print(dispersers_in_obs)
-                #print(fpus_in_obs)
-                #print(status_of_obs)
-                #print(self._check_instrument_availability(resources, site, instruments_in_obs))
-                #print(self._check_conditions(visit_conditions, actual_sky_conditions))
-                #input()
+         
                 if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and 
                         self._check_instrument_availability(resources, site, instruments_in_obs) and 
                         all(status in ['ONGOING', 'READY', 'OBSERVED'] for status in status_of_obs) and
@@ -536,14 +509,10 @@ class Selector:
                     if any( 'GMOS' in  instrument for instrument in instruments_in_obs):
                         can_be_selected = False
                         for disperser in dispersers_in_obs:
-                            #print(disperser)
                             if resources.is_disperser_available(site, disperser):
-                                #print('disperser found')
-                                for fpu in fpus_in_obs:
-                                    #print(fpu)
-                                    
+                                for fpu in fpus_in_obs: 
                                     if resources.is_mask_available(site,fpu): 
-                                        #print('selected')
+                                       
                                         can_be_selected = True
 
                         if can_be_selected:
@@ -558,7 +527,6 @@ class Selector:
                     else:
                         selected.append(visit)
 
-        #print(selected)
         self.selection[site] = selected
         return selected
 

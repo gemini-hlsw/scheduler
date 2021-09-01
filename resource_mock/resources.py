@@ -55,24 +55,6 @@ class Resources:
             #print(barcode)
 
         if barcode:
-            return barcode in self.fpu[site]
+            return barcode in self.fpur[site]
         else:
             return False # No mask in register 
-
-    '''
-    def is_mask_available(self, site: Site, fpu_mask: str, mask_type: str) -> bool:
-        
-        barcode = None
-        if fpu_mask in self.fpu_to_barcode:
-            barcode = self.fpu_to_barcode[fpu_mask]
-        else:
-            barcode = self._decode_mask(fpu_mask)
-        if mask_type == 'FPU':
-            return barcode in self.fpu[site] 
-        elif mask_type == 'FPUr':
-            return barcode in self.fpur[site] 
-        elif mask_type == 'GRAT':
-            return barcode in self.grating[site]
-        else:
-            return False
-    '''

@@ -517,12 +517,8 @@ class Collector:
                     self.programs[program_id]['groups'].append(group['key'])
                 self.scheduling_groups[group['key']]['idx'].append(self.nobs)
 
-                #print(target_tag)
                 # Get Horizons coordinates for nonsidereal targets (write file for future use)
                 #if target_tag in ['asteroid', 'comet', 'major-body']: NOTE: This does not work, and it should!
-                #print(group)
-                #print(self.scheduling_groups)
-
                 
                 self.obstatus.append(status)
                 self.target_name.append(t)

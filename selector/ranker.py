@@ -127,35 +127,20 @@ class Ranker:
                 wha = c[0] + c[1] * ha / u.hourangle + (c[2] / u.hourangle ** 2) * ha ** 2
                 kk = np.where(wha <= 0.0)[0][:]
                 wha[kk] = 0.
-                #     print('wha:', wha)
 
                 # p = metrc[0] * wha  # Match Sebastian's Sept 30 Gurobi test?
                 # p = metrc[0] * metrc_s[0] * self.visfrac[site_name][ii] * wha  # My favorite
                 # p = metrc_s[0] * self.visfrac[site_name][ii] * wha # also very good
                 p = (metrc[0] ** metpow) * (obs.visibility.fraction ** vispow) * (wha ** whapow)
-                #     print('p:', p)
-                #                 print(len(wha), len(p), len(score), len(self.ivisarr[site_name][ii][iobs]))
-                #     score[0,self.ivisarr[site_name][iobs][inight]] = p[self.ivisarr[site_name][iobs][inight]]
+
                 score[obs.visibility.visibility[inight]] = p[obs.visibility.visibility[inight]]
 
-                #     print('score:', score.shape)
+
                 obs.score = score   
 
-                #print('score',score)
-                #print(score.shape)
-                
-                #print(visit_score,score)
                 visit_score = np.append(visit_score, np.array([score]), axis=0)
-                #print('visit_score',visit_score)
-                #input()
-
-
-            #print('visit_score',visit_score)
-            #print(np.apply_along_axis(combine_score, 0, visit_score))
-            #input()
+           
             visit.score = np.apply_along_axis(combine_score, 0, visit_score)[0]
-   
-        #print('Done')
 
     def _params(self):
         params9 = {'1': {'m1': 1.406, 'b1': 2.0, 'm2': 0.50, 'b2': 0.5, 'xb': 0.8, 'xb0': 0.0, 'xc0': 0.0},
