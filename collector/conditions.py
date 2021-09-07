@@ -9,11 +9,17 @@ class SkyConditions:
                  image_quality: float,
                  brightness: float,
                  cloud_conditions: float,
-                 water_vapour: float) -> None:
+                 water_vapor: float) -> None:
         self.image_quality = image_quality
         self.cloud_conditions = cloud_conditions
         self.brightness = brightness
-        self.water_vapour = water_vapour
+        self.water_vapor = water_vapor
+    
+    def __str__(self):
+        return f'{str(self.sb.name)},{str(self.cc.name)},{str(self.iq.name)},{str(self.wv.name)}'
+
+    def __repr__(self):
+        return f'Conditions({str(self.sb)},{str(self.cc)},{str(self.iq)},{str(self.wv)})'
       
 class WindConditions:
     """

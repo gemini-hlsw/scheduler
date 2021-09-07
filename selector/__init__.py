@@ -204,7 +204,7 @@ class Selector:
 
         return (visit_conditions.image_quality >= actual_conditions.image_quality and 
                     visit_conditions.cloud_conditions >= actual_conditions.cloud_conditions and 
-                    visit_conditions.water_vapour >= actual_conditions.water_vapour)
+                    visit_conditions.water_vapor >= actual_conditions.water_vapor)
 
     def _match_conditions(self, visit_conditions: SkyConditions, 
                           actual_conditions: Dict[str, Union[SkyConditions,WindConditions]], 
@@ -212,7 +212,7 @@ class Selector:
     
         skyiq = actual_conditions.image_quality
         skycc = actual_conditions.cloud_conditions
-        skywv = actual_conditions.water_vapour
+        skywv = actual_conditions.water_vapor
         
         skyiq = np.asarray(skyiq)
         skycc = np.asarray(skycc)
@@ -231,7 +231,7 @@ class Selector:
         # Where actual conditions worse than requirements
         bad_iq = skyiq > visit_conditions.image_quality
         bad_cc = skycc > visit_conditions.cloud_conditions
-        bad_wv = skywv > visit_conditions.water_vapour
+        bad_wv = skywv > visit_conditions.water_vapor
 
          # Multiply weights by 0 where actual conditions worse than required .
         i_bad_cond = np.where(np.logical_or(np.logical_or(bad_iq, bad_cc), bad_wv))[0][:]

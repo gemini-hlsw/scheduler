@@ -156,7 +156,7 @@ class Visit:
         restrictive_iq = min([obs.sky_conditions.image_quality for obs in self.observations])
         restrictive_bg = min([obs.sky_conditions.brightness for obs in self.observations])
         restrictive_cc = min([obs.sky_conditions.cloud_conditions for obs in self.observations])
-        restrictive_wv = min([obs.sky_conditions.water_vapour for obs in self.observations])
+        restrictive_wv = min([obs.sky_conditions.water_vapor for obs in self.observations])
 
         return SkyConditions(restrictive_iq,restrictive_bg,restrictive_cc,restrictive_wv)
             

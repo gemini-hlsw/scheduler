@@ -26,41 +26,32 @@ from greedy_max.category import Category
 from typing import List, Dict, Optional, NoReturn
 
 MAX_AIRMASS = '2.3'
-
-   
-def uniquelist(seq):
-    # Make a list of unique values
-    # http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-python-whilst-preserving-order
-    seen = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
+FUZZY_BOUNDARY = 14
+CLASSICAL_NIGHT_LEN = 10
 
 def ot_timing_windows(strt, dur, rep, per, verbose=False):
-    # Turn OT timing constraints into more natural units
-    # Inputs are lists
-    # Match output from GetWindows
+    """
+    Turn OT timing constraints into more natural units
+    Inputs are lists
+    Match output from GetWindows
 
-    nwin = len(strt)
-
+    """
+    
     # A date or duration to use for infinity (length of LP)
     infinity = 3. * 365. * 24. * u.h
 
     timing_windows = []
-    for jj in range(nwin):
+    for (jj, (strt, dur)) in enumerate(zip(strt, dur)):
 
         # The timestamps are in milliseconds
         # The start time is unix time (milliseconds from 1970-01-01 00:00:00) UTC
         # Time requires unix time in seconds
-        t0 = float(strt[jj]) * u.ms
+        t0 = float(strt) * u.ms
         begin = Time(t0.to_value('s'), format='unix', scale='utc')
 
         # duration = -1 means forever
-        duration = float(dur[jj])
-        if duration == -1.0:
-            duration = infinity
-        else:
-            # duration =  duration * u.ms
-            duration = duration / 3600000. * u.h
+        duration = float(dur)
+        duration = infinity if duration == -1.0 else duration / 3600000. * u.h
 
         # repeat = -1 means infinite
         repeat = int(rep[jj])
@@ -81,10 +72,13 @@ def ot_timing_windows(strt, dur, rep, per, verbose=False):
 
     return timing_windows
 
-def roundMin(time, up=False):
-    # Round a time down (truncate) or up to the nearest minute
-    # time : astropy.Time
-    # up: bool   Round up?
+def roundMin(time: Time, up=False) -> Time:
+    """
+    Round a time down (truncate) or up to the nearest minute
+    time : astropy.Time
+    up: bool   Round up?s
+    """
+    
 
     t = time.copy()
     t.format = 'iso'
@@ -96,8 +90,7 @@ def roundMin(time, up=False):
     return Time(t.iso, format='iso', scale='utc')
 
 class Collector:
-    def __init__(self, sites: 
-                       List[Site], 
+    def __init__(self, sites: List[Site], 
                        semesters: List[str], 
                        program_types: List[str], 
                        obsclasses: List[str], 
@@ -164,23 +157,23 @@ class Collector:
         # Site details
         if site_name == 'gn':
             site = EarthLocation.of_site('gemini_north')
-            self.timezones[Site(site_name)] = pytz.timezone(site.info.meta['timezone'])
-            self.locations[Site(site_name)] = site
         elif site_name == 'gs':
             site = EarthLocation.of_site('gemini_south')
-            self.timezones[Site(site_name)] = pytz.timezone(site.info.meta['timezone'])
-            self.locations[Site(site_name)] = site
+            
         else:
-            print('ERROR: site_name must be "gs" or "gn".')
+            raise RuntimeError('ERROR: site_name must be "gs" or "gn".')
+            
         
+        self.timezones[Site(site_name)] = pytz.timezone(site.info.meta['timezone'])
+        self.locations[Site(site_name)] = site
+
         self._calculate_night_events()
         
         sitezip = {'GN': '-0715.zip', 'GS': '-0830.zip'}
         zip_path = f"{path}/{(self.time_range[0] - 1.0*u.day).strftime('%Y%m%d')}{sitezip[site_name.upper()]}"
         print(zip_path)
 
-        time_accounting = self._load_tas(path, site_name.upper())
-        
+        time_accounting = self._load_tas(path, site_name.upper())        
         self._readzip(zip_path, xmlselect, site_name, tas=time_accounting, obsclasses=self.obs_classes)
     
 
@@ -228,17 +221,14 @@ class Collector:
                 get_report(ssite, tafile, plandir)
                 
             tmp = get_tas(plandir + tafile)
-            if tas:
-                tas = vstack([tas, tmp])
-            else:
-                tas = tmp.copy()
+            tas = vstack([tas, tmp])
 
         return sumtas_date(tas, tadate)
 
-    def _elevation_contrains(self, elevation_type, max_elevation, min_elevation):
+    def _elevation_constraints(self, elevation_type, max_elevation, min_elevation):
         """ Calculate elevation constrains """
 
-        if elevation_type == 'NONE' or elevation_type == 'NULL':
+        if elevation_type == 'NONE':
             elevation_type = 'AIRMASS'
         if min_elevation == 'NULL' or min_elevation == '0.0':
             if elevation_type == 'AIRMASS':
@@ -259,7 +249,7 @@ class Collector:
         fpuwidths = []
         disperser = 'NONE'
         for key in configuration.keys():
-            ulist = uniquelist(configuration[key])
+            ulist = list(dict.fromkeys(configuration[key]))
             if key in ['filter', 'disperser']:
                 for kk in range(len(ulist)):
                     ifnd = ulist[kk].find('_')
@@ -332,7 +322,7 @@ class Collector:
 
         award, unit = GetAwardedTime(program)
         if award and unit:
-            award = 10 * float(award) * u.hour if unit == 'nights' else float(award) * u.hour
+            award = CLASSICAL_NIGHT_LEN * float(award) * u.hour if unit == 'nights' else float(award) * u.hour
         else:
             award = 0.0 * u.hour
         
@@ -346,33 +336,31 @@ class Collector:
         if 'FT' in program_id:
             program_start, program_end = GetFTProgramDates(notes,semester,year, next_year) 
             # If still undefined, use the values from the previous observation
-            if not program_start:
-
+            if program_start is None:
                 proglist = list(self.programs.copy())
                 program_start = self.programs[proglist[-1]]['progstart']
                 program_end = self.programs[proglist[-1]]['progend'] 
                 
         else:
-
             
-            beginning_semester_A = Time(year + "-02-01 20:00:00", format='iso')
-            end_semester_A = Time(year + "-08-01 20:00:00", format='iso')
-            beginning_semester_B =  Time(next_year + "-02-01 20:00:00", format='iso')
-            end_semester_B = Time(next_year + "-08-01 20:00:00", format='iso')
+            beginning_semester_1 = Time(year + "-02-01 20:00:00", format='iso')
+            end_semester_1 = Time(year + "-08-01 20:00:00", format='iso')
+            beginning_semester_2 =  Time(next_year + "-02-01 20:00:00", format='iso')
+            end_semester_2 = Time(next_year + "-08-01 20:00:00", format='iso')
             # This covers 'Q', 'LP' and 'DD' program observations
             if semester == 'A':
-                program_start = beginning_semester_A
+                program_start = beginning_semester_1
                 # Band 1, non-ToO, programs are 'persistent' for the following semester
-                program_end = beginning_semester_B if band == Band.Band1 else end_semester_A
+                program_end = beginning_semester_2 if band == Band.Band1 else end_semester_1
 
             else:
-                program_start = end_semester_A
-                program_end = end_semester_B if band == Band.Band1 else beginning_semester_B
+                program_start = end_semester_1
+                program_end = end_semester_2 if band == Band.Band1 else beginning_semester_2
 
 
         # Flexible boundaries - could be type-dependent
-        program_start -= 14. * u.day
-        program_end += 14. * u.day
+        program_start -= FUZZY_BOUNDARY * u.day
+        program_end += FUZZY_BOUNDARY * u.day
 
 
         # Thesis program?
@@ -395,13 +383,12 @@ class Collector:
 
         raw_observations, groups = GetObservationInfo(program)
 
-        if not raw_observations:
-            #print('Parser issue to get observation info')
-            return
+        if raw_observations is None:
+            raise RuntimeError('Parser issue to get observation info')
 
         for raw_observation, group in zip(raw_observations,groups):
 
-            classes = uniquelist(GetClass(raw_observation))
+            classes = list(dict.fromkeys(GetClass(raw_observation)))
             status = GetObsStatus(raw_observation)
             obs_odb_id = GetObsID(raw_observation)
 
@@ -409,12 +396,14 @@ class Collector:
                 
                 print('Adding ' + obs_odb_id, end='\r')
                 total_time = GetObsTime(raw_observation)
-                t, r, d = GetTargetCoords(raw_observation) #NOTE: No clue what t, r or d means
-                if t is None:
-                    t = 'None'
-                if r is None:
-                    r = 0.0
-                    d = 0.0
+                target_name, ra, dec = GetTargetCoords(raw_observation) #NOTE: No clue what t, r or d means
+                
+                if target_name is None:
+                    target_name = 'None'
+                if ra is None and dec is None:
+                    ra = 0.0
+                    dec = 0.0
+                
                 target_mags = GetTargetMags(raw_observation, baseonly=True)
                 targets = GetTargets(raw_observation)
                 priority = GetPriority(raw_observation)
@@ -471,14 +460,13 @@ class Collector:
                     calibration_time = 10/ 60   # fractional hour
 
                 inst_config = self._instrument_setup(instrument_config,instrument_name)
-
                 # Conditions
                 cond = conditions.split(',')
                 condf = sb.convertcond(cond[0], cond[1], cond[2], cond[3])
                 sky_cond = SkyConditions(condf[0],condf[2],condf[1],condf[3])
 
                 # Elevation constraints
-                self._elevation_contrains(elevation_type,max_elevation,min_elevation) 
+                self._elevation_constraints(elevation_type,max_elevation,min_elevation) 
 
 
                 start, duration, repeat, period = GetWindows(raw_observation) 
@@ -520,10 +508,10 @@ class Collector:
                 #if target_tag in ['asteroid', 'comet', 'major-body']: NOTE: This does not work, and it should!
                 
                 self.obstatus.append(status)
-                self.target_name.append(t)
+                self.target_name.append(target_name)
                 self.target_tag.append(target_tag)
                 self.target_des.append(des)
-                self.coord.append(SkyCoord(r, d, frame='icrs', unit=(u.deg, u.deg)))
+                self.coord.append(SkyCoord(ra, dec, frame='icrs', unit=(u.deg, u.deg)))
                 self.mags.append(target_mags)
                 self.toostatus.append(toostat.lower())
                 self.priority.append(priority)

@@ -766,7 +766,7 @@ def GetElevation(Observation):
     if container is None:
         return None
 
-    etype = emin = emax = 'NULL'
+    etype = emin = emax = 'NONE'
 
     paramset = container.find('paramset')
     for param in paramset.findall('param'):
