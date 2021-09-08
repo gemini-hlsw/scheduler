@@ -165,7 +165,7 @@ class Selector:
             #         targprop = np.where(targprop < -12., targprop + 24., targprop)
 
             # Sky brightness
-            if conditions['bg'] < 1.0:
+            if conditions.sb < 1.0:
                 targmoonang = coord.separation(moonpos)
                 if sbtwo:
                     # New algorithm
@@ -179,7 +179,7 @@ class Selector:
 
             # Select where sky brightness and elevation constraints are met
             # Evenutally want to allow some observations, e.g. calibration, in twilight
-            ix = np.where(np.logical_and(sbcond <= conditions['bg'], np.logical_and(sunalt <= -12. * u.deg,
+            ix = np.where(np.logical_and(sbcond <= conditions.sb, np.logical_and(sunalt <= -12. * u.deg,
                         np.logical_and(targprop >= elevation['min'], targprop <= elevation['max']))))[0]
             
             # Timing window constraints
@@ -202,17 +202,20 @@ class Selector:
     def _check_conditions(self, visit_conditions: SkyConditions, 
                           actual_conditions: Dict[str, Union[SkyConditions,WindConditions]]) -> bool:
 
-        return (visit_conditions.image_quality >= actual_conditions.image_quality and 
-                    visit_conditions.cloud_conditions >= actual_conditions.cloud_conditions and 
-                    visit_conditions.water_vapor >= actual_conditions.water_vapor)
+        print(visit_conditions)
+        print(actual_conditions)
+
+        return (visit_conditions.iq >= actual_conditions.iq and 
+                    visit_conditions.cc >= actual_conditions.cc and 
+                    visit_conditions.wv >= actual_conditions.wv)
 
     def _match_conditions(self, visit_conditions: SkyConditions, 
                           actual_conditions: Dict[str, Union[SkyConditions,WindConditions]], 
                           negha: bool, toostatus: str, scalar_input = False) -> float:
     
-        skyiq = actual_conditions.image_quality
-        skycc = actual_conditions.cloud_conditions
-        skywv = actual_conditions.water_vapor
+        skyiq = actual_conditions.iq.value
+        skycc = actual_conditions.cc.value
+        skywv = actual_conditions.wv.value
         
         skyiq = np.asarray(skyiq)
         skycc = np.asarray(skycc)
@@ -229,9 +232,9 @@ class Selector:
         cmatch = np.ones(len(skyiq))
 
         # Where actual conditions worse than requirements
-        bad_iq = skyiq > visit_conditions.image_quality
-        bad_cc = skycc > visit_conditions.cloud_conditions
-        bad_wv = skywv > visit_conditions.water_vapor
+        bad_iq = skyiq > visit_conditions.iq
+        bad_cc = skycc > visit_conditions.cc
+        bad_wv = skywv > visit_conditions.wv
 
          # Multiply weights by 0 where actual conditions worse than required .
         i_bad_cond = np.where(np.logical_or(np.logical_or(bad_iq, bad_cc), bad_wv))[0][:]
@@ -239,14 +242,14 @@ class Selector:
         
         # Multiply weights by skyiq/iq where iq better than required and target
         # does not set soon and not a rapid ToO.
-        i_better_iq = np.where(skyiq < visit_conditions.image_quality)[0][:]
+        i_better_iq = np.where(skyiq < visit_conditions.iq)[0][:]
         if len(i_better_iq) != 0 and negha and toostatus != 'rapid':
-            cmatch[i_better_iq] = cmatch[i_better_iq] * skyiq / visit_conditions.image_quality
+            cmatch[i_better_iq] = cmatch[i_better_iq] * skyiq / visit_conditions.iq.value
         # cmatch[i_better_iq] = cmatch[i_better_iq] * (1.0 - (iq - skyiq))
 
-        i_better_cc = np.where(skycc < visit_conditions.cloud_conditions)[0][:]
+        i_better_cc = np.where(skycc < visit_conditions.cc)[0][:]
         if len(i_better_cc) != 0 and negha and toostatus != 'rapid':
-            cmatch[i_better_cc] = cmatch[i_better_cc] * skycc / visit_conditions.cloud_conditions
+            cmatch[i_better_cc] = cmatch[i_better_cc] * skycc / visit_conditions.cc.value
         if scalar_input:
             cmatch = np.squeeze(cmatch)
 
@@ -260,7 +263,7 @@ class Selector:
         target_des = self.collector.target_des
         target_tag = self.collector.target_tag
         coord =  self.collector.coord
-        conditions = self.collector.conditions
+        #conditions = self.collector.conditions
         obs_windows = self.collector.obs_windows
         elevation = self.collector.elevation
         timezones = self.collector.timezones
@@ -328,7 +331,7 @@ class Selector:
               
                 res.append(self._calculate_visibility(site, target_des[id],
                                             target_tag[id], coord[id],
-                                            conditions[id], elevation[id],
+                                            observations[id].sky_conditions, elevation[id],
                                             obs_windows[id], self.times[period], 
                                             lst, sunalt, 
                                             moonpos, moondist, 

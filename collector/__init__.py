@@ -15,7 +15,7 @@ import collector.sb as sb
 from collector.vskyutil import nightevents
 from collector.xmlutils import *
 from collector.get_tadata import get_report, get_tas, sumtas_date
-from collector.conditions import SkyConditions, WindConditions
+from collector.conditions import SkyConditions, WindConditions, conditions_parser, IQ, CC, SB, WV
 from collector.program import Program
 
 from greedy_max.instrument import Instrument
@@ -417,12 +417,26 @@ class Collector:
                 #print(instrument_config)
                 if 'name' in instrument_config:
                     instrument_name = instrument_config['name'][0]
-                too_status = GetObsTooStatus(raw_observation, collected_program.too_status)
-                conditions = GetConditions(raw_observation, label=False)
-
-                if conditions == '' or conditions is None:
-                    conditions = 'ANY,ANY,ANY,ANY'
                 
+                too_status = GetObsTooStatus(raw_observation, self.programs[program_id]['toostatus'])
+                
+                # Conditions
+                conditions = GetConditions(raw_observation, label=False)
+                #print(conditions)
+                
+                if conditions == '' or conditions is None:
+                    #conditions = 'ANY,ANY,ANY,ANY'
+                    sky_cond = SkyConditions()
+                else:
+                    #cond = conditions.split(',')
+                    #condf = sb.convertcond(cond[0], cond[1], cond[2], cond[3])
+                    #sky_cond = SkyConditions(condf[0],condf[2],condf[1],condf[3])
+                    
+                    parse_conditions = conditions_parser(conditions)
+                    #print(parse_conditions)
+                    sky_cond = SkyConditions(*parse_conditions)
+                
+
                 try:
                     elevation_type, min_elevation, max_elevation = GetElevation(raw_observation)
                 except:
@@ -462,11 +476,7 @@ class Collector:
                     calibration_time = 10/ 60   # fractional hour
 
                 inst_config = self._instrument_setup(instrument_config,instrument_name)
-                # Conditions
-                cond = conditions.split(',')
-                condf = sb.convertcond(cond[0], cond[1], cond[2], cond[3])
-                sky_cond = SkyConditions(condf[0],condf[2],condf[1],condf[3])
-
+                
                 # Elevation constraints
                 self._elevation_constraints(elevation_type,max_elevation,min_elevation) 
 
@@ -516,7 +526,7 @@ class Collector:
                 self.mags.append(target_mags)
                 self.toostatus.append(toostat.lower())
                 self.priority.append(priority)
-                self.conditions.append({'iq': condf[0], 'cc': condf[1], 'bg': condf[2], 'wv': condf[3]})
+                #self.conditions.append({'iq': condf[0], 'cc': condf[1], 'bg': condf[2], 'wv': condf[3]})
 
                 self.observations.append(Observation(self.nobs,
                                                     obs_odb_id,
@@ -555,7 +565,7 @@ class Collector:
         time_blocks = [Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')] #
         variants = {
             #             'IQ20 CC50': {'iq': 0.2, 'cc': 0.5, 'wv': 1.0, 'wd': -1, 'ws': -1},
-            'IQ70 CC50': {'iq': 0.7, 'cc': 0.5, 'wv': 1.0, 'wdir': 330.*u.deg, 'wsep': 40.*u.deg, 'wspd': 5.0*u.m/u.s, 'tb': time_blocks},
+            'IQ70 CC50': {'iq': IQ.IQ70, 'cc': CC.CC50, 'wv': WV.WVANY, 'wdir': 330.*u.deg, 'wsep': 40.*u.deg, 'wspd': 5.0*u.m/u.s, 'tb': time_blocks},
             #             'IQ70 CC70': {'iq': 0.7, 'cc': 0.7, 'wv': 1.0, 'wdir': -1, 'wsep': 30.*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': time_blocks}, 
             #             'IQ85 CC50': {'iq': 0.85, 'cc': 0.5, 'wv': 1.0, 'wdir': -1, 'wsep': 30.0*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': time_blocks}, 
             #             'IQ85 CC70': {'iq': 0.85, 'cc': 0.7, 'wv': 1.0, 'wdir': -1, 'wsep': 30.0*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': time_blocks},
@@ -564,7 +574,7 @@ class Collector:
 
         selected_variant = variants['IQ70 CC50']
         
-        actcond['sky'] = SkyConditions(selected_variant['iq'], None, selected_variant['cc'],
+        actcond['sky'] = SkyConditions(selected_variant['iq'], SB.SBANY, selected_variant['cc'],
                              selected_variant['wv'])
         actcond['wind'] = WindConditions( selected_variant['wsep'], selected_variant['wspd'],
                              selected_variant['wdir'],time_blocks)
