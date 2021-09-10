@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from astropy.units.quantity import Quantity
 import astropy.units as u
 from collector.conditions import SkyConditions
+from collector.elevation import ElevationConstraints
 
 class Observation: 
     """
@@ -23,6 +24,7 @@ class Observation:
                  length: int, # acq+time (this need to be change)
                  instrument: Instrument,
                  sky_conditions: SkyConditions,
+                 elevation: ElevationConstraints,
                  status: str,
                  too_status: str
                  #acquisition: int
@@ -35,6 +37,7 @@ class Observation:
         self.length = length
         self.instrument = instrument
         self.sky_conditions = sky_conditions
+        self.elevation = elevation
         self.status = status #Observation status
         self.too_status = too_status
         self.visibility = None

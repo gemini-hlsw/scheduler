@@ -16,6 +16,7 @@ from collector.vskyutil import nightevents
 from collector.xmlutils import *
 from collector.get_tadata import get_report, get_tas, sumtas_date
 from collector.conditions import SkyConditions, WindConditions, conditions_parser, IQ, CC, SB, WV
+from collector.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
 from collector.program import Program
 
 from greedy_max.instrument import Instrument
@@ -222,23 +223,6 @@ class Collector:
 
         return sumtas_date(tas, tadate)
 
-    def _elevation_constraints(self, elevation_type, max_elevation, min_elevation):
-        """ Calculate elevation constrains """
-
-        if elevation_type == 'NONE':
-            elevation_type = 'AIRMASS'
-        if min_elevation == 'NULL' or min_elevation == '0.0':
-            if elevation_type == 'AIRMASS':
-                min_elevation = '1.0'
-            else:
-                min_elevation = '-5.0'
-        if max_elevation == 'NULL' or max_elevation == '0.0':
-            if elevation_type == 'AIRMASS':
-                max_elevation = MAX_AIRMASS
-            else:
-                max_elevation = '5.0'
-        self.elevation.append({'type': elevation_type, 'min': float(min_elevation), 'max': float(max_elevation)})
-
     def _instrument_setup(self, configuration: Dict[str, List[str]], instrument_name: str) -> Instrument:
         """ Setup instrument configurations for each observation """
         instconfig = {} 
@@ -426,7 +410,7 @@ class Collector:
                 
                 if conditions == '' or conditions is None:
                     #conditions = 'ANY,ANY,ANY,ANY'
-                    sky_cond = SkyConditions()
+                    sky_cond = SkyConditions() 
                 else:
                     #cond = conditions.split(',')
                     #condf = sb.convertcond(cond[0], cond[1], cond[2], cond[3])
@@ -436,15 +420,14 @@ class Collector:
                     #print(parse_conditions)
                     sky_cond = SkyConditions(*parse_conditions)
                 
+                # Elevation constraints
+                
+                elevation_type, min_elevation, max_elevation = GetElevation(raw_observation)
 
-                try:
-                    elevation_type, min_elevation, max_elevation = GetElevation(raw_observation)
-                except:
-                # print('GetElevation failed for ' + o)
-                    elevation_type = 'AIRMASS'
-                    min_elevation = '1.0'
-                    max_elevation = MAX_AIRMASS
-            
+                elevation_type = str_to_elevation_type(elevation_type)
+                min_elevation, max_elevation = str_to_float(min_elevation), str_to_float(max_elevation)
+                elevation_constraints = ElevationConstraints(elevation_type, min_elevation, max_elevation)
+        
             
                 acquisiton_mode = 'normal'
                 target_tag = 'undef'
@@ -477,9 +460,6 @@ class Collector:
 
                 inst_config = self._instrument_setup(instrument_config,instrument_name)
                 
-                # Elevation constraints
-                self._elevation_constraints(elevation_type,max_elevation,min_elevation) 
-
                 start, duration, repeat, period = GetWindows(raw_observation) 
                 # This makes a list of timing windows between progstart and progend
                 timing_windows = ot_timing_windows(start, duration, repeat, period)
@@ -536,6 +516,7 @@ class Collector:
                                                     total_time.total_seconds() / 3600. + calibration_time,
                                                     inst_config,
                                                     sky_cond,
+                                                    elevation_constraints,
                                                     status,
                                                     too_status.lower()))
                 self.nobs += 1

@@ -1,6 +1,7 @@
 from resource_mock import Resource
 from collector import Collector
 from collector.conditions import SkyConditions, WindConditions
+from collector.elevation import ElevationType
 from selector.visibility import Visibility
 from selector.ranker import Ranker
 from greedy_max.schedule import Observation, Visit
@@ -154,15 +155,7 @@ class Selector:
             targalt, targaz, targparang = vs.altazparang(coord.dec, ha, location.lat)
             # airmass = vs.xair(90. * u.deg - targalt)
             airmass = self._get_airmass(targalt)
-            if elevation['type'] == 'AIRMASS':
-                # targalt, targaz, targparang = vs.altazparang(coord.dec, ha, site.lat)
-                # targprop = vs.xair(90. * u.deg - targalt)
-                targprop = airmass
-            else:
-                targprop = ha.value
-            #         ha = site.target_hour_angle(times, target).hour
-            #         targprop = np.where(ha > 12., ha - 24., ha)
-            #         targprop = np.where(targprop < -12., targprop + 24., targprop)
+            targprop = airmass if elevation.elevation_type is ElevationType.AIRMASS else ha.value
 
             # Sky brightness
             if conditions.sb < 1.0:
@@ -180,7 +173,7 @@ class Selector:
             # Select where sky brightness and elevation constraints are met
             # Evenutally want to allow some observations, e.g. calibration, in twilight
             ix = np.where(np.logical_and(sbcond <= conditions.sb, np.logical_and(sunalt <= -12. * u.deg,
-                        np.logical_and(targprop >= elevation['min'], targprop <= elevation['max']))))[0]
+                          np.logical_and(targprop >= elevation.min_elevation, targprop <= elevation.max_elevation))))[0]
             
             # Timing window constraints
             #     iit = np.array([], dtype=int)
@@ -201,9 +194,6 @@ class Selector:
 
     def _check_conditions(self, visit_conditions: SkyConditions, 
                           actual_conditions: Dict[str, Union[SkyConditions,WindConditions]]) -> bool:
-
-        print(visit_conditions)
-        print(actual_conditions)
 
         return (visit_conditions.iq >= actual_conditions.iq and 
                     visit_conditions.cc >= actual_conditions.cc and 
@@ -265,7 +255,7 @@ class Selector:
         coord =  self.collector.coord
         #conditions = self.collector.conditions
         obs_windows = self.collector.obs_windows
-        elevation = self.collector.elevation
+        #elevation = self.collector.elevation
         timezones = self.collector.timezones
         site_location = self.collector.locations[site]
         # NOTE: observation set indifferent of site, this might (should?) change
@@ -331,7 +321,8 @@ class Selector:
               
                 res.append(self._calculate_visibility(site, target_des[id],
                                             target_tag[id], coord[id],
-                                            observations[id].sky_conditions, elevation[id],
+                                            observations[id].sky_conditions, 
+                                            observations[id].elevation,
                                             obs_windows[id], self.times[period], 
                                             lst, sunalt, 
                                             moonpos, moondist, 
