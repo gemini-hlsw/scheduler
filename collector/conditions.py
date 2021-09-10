@@ -77,27 +77,27 @@ class SB(ComparableEnum):
     SB20 = 0.2
     SB50 = 0.5
     SB80 = 0.8
-    SBANY = 1
+    SBANY = 1.0
 
 class CC(ComparableEnum):
     CC50 = 0.5
     CC70 = 0.7
     CC80 = 0.8
-    CCANY = 1
+    CCANY = 1.0
 
 
 class IQ(ComparableEnum):
     IQ20 = 0.2
     IQ70 = 0.7
     IQ85 = 0.85
-    IQANY = 1
+    IQANY = 1.0
 
 
 class WV(ComparableEnum):
     WV20 = 0.2
     WV50 = 0.5
     WV80 = 0.8
-    WVANY = 1
+    WVANY = 1.0
 
 
 def conditions_parser(conditions: str) -> tuple:
