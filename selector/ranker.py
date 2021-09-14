@@ -91,13 +91,13 @@ class Ranker:
                 if remaining is None:
                     remaining = (obs.length - obs.observed) * u.hr
 
-                cplt = (program['usedtime'] + remaining) / program['progtime']
+                cplt = (program.used_time + remaining) / program.time
 
                 # Metric and slope
                 metrc, metrc_s = self._metric_slope(np.array([cplt.value]),
-                                                    np.ones(1, dtype=int) * program['band'],
+                                                    np.ones(1, dtype=int) * program.band,
                                                     np.ones(1) * 0.8, params, 
-                                                    pow=pow, thesis=program['thesis'],
+                                                    pow=pow, thesis=program.thesis,
                                                     thesis_factor=1.1)
                 # Get coordinates
                 coord = self._query_coordinates(obs, site, [inight], 

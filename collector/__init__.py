@@ -16,6 +16,7 @@ from collector.vskyutil import nightevents
 from collector.xmlutils import *
 from collector.get_tadata import get_report, get_tas, sumtas_date
 from collector.conditions import SkyConditions, WindConditions
+from collector.program import Program
 
 from greedy_max.instrument import Instrument
 from greedy_max.site import Site
@@ -28,6 +29,10 @@ from typing import List, Dict, Optional, NoReturn
 MAX_AIRMASS = '2.3'
 FUZZY_BOUNDARY = 14
 CLASSICAL_NIGHT_LEN = 10
+INFINITE_DURATION = 3. * 365. * 24. * u.h # A date or duration to use for infinity (length of LP)
+INFINITE_REPEATS = 1000 # number to depict infinity for repeats in OT Timing windows calculations
+MIN_NIGHT_EVENT_TIME = Time('1980-01-01 00:00:00', format='iso', scale='utc')
+MAX_NIGHT_EVENT_TIME = Time('2200-01-01 00:00:00', format='iso', scale='utc')
 
 def ot_timing_windows(strt, dur, rep, per, verbose=False):
     """
@@ -36,9 +41,6 @@ def ot_timing_windows(strt, dur, rep, per, verbose=False):
     Match output from GetWindows
 
     """
-    
-    # A date or duration to use for infinity (length of LP)
-    infinity = 3. * 365. * 24. * u.h
 
     timing_windows = []
     for (jj, (strt, dur)) in enumerate(zip(strt, dur)):
@@ -51,12 +53,12 @@ def ot_timing_windows(strt, dur, rep, per, verbose=False):
 
         # duration = -1 means forever
         duration = float(dur)
-        duration = infinity if duration == -1.0 else duration / 3600000. * u.h
+        duration = INFINITE_DURATION if duration == -1.0 else duration / 3600000. * u.h
 
         # repeat = -1 means infinite
         repeat = int(rep[jj])
         if repeat == -1:
-            repeat = 1000
+            repeat = INFINITE_REPEATS
         if repeat == 0:
             repeat = 1
 
@@ -94,7 +96,6 @@ class Collector:
                        semesters: List[str], 
                        program_types: List[str], 
                        obsclasses: List[str], 
-                       times=None, 
                        time_range=None, 
                        dt=1.0*u.min) -> None:
         
@@ -109,10 +110,6 @@ class Collector:
 
         self.observations = []
         self.programs = {}
-
-        if times is not None:
-            self.times = times
-            self.dt = self.times[0][1] - self.times[0][0]
 
         self.night_events = {}        
         self.scheduling_groups = {}
@@ -293,7 +290,7 @@ class Collector:
         with ZipFile(zipfile, 'r') as zip:
             names = zip.namelist()
             names.sort()
-
+            
             for name in names:
                 if any(xs in name for xs in xmlselect):
                     tree = ElementTree.fromstring(zip.read(name))
@@ -337,9 +334,10 @@ class Collector:
             program_start, program_end = GetFTProgramDates(notes,semester,year, next_year) 
             # If still undefined, use the values from the previous observation
             if program_start is None:
-                proglist = list(self.programs.copy())
-                program_start = self.programs[proglist[-1]]['progstart']
-                program_end = self.programs[proglist[-1]]['progend'] 
+
+                proglist = self.program.copy()
+                program_start = proglist[-1].start
+                program_end = proglist[-1].end
                 
         else:
             
@@ -377,10 +375,16 @@ class Collector:
         else:
             used = 0.0 * u.hour
 
-        self.programs[program_id] = {'mode': program_mode, 'band': band, 'progtime': award, 'usedtime': used,
-                                    'thesis': thesis, 'toostatus': toostat,
-                                    'progstart': program_start, 'progend': program_end, 'idx': [], 'groups': []}
-
+        collected_program = Program(program_id, 
+                                            program_mode, 
+                                            band, 
+                                            thesis, 
+                                            award, 
+                                            used, 
+                                            toostat, 
+                                            program_start, 
+                                            program_end)
+        self.programs[program_id] = collected_program
         raw_observations, groups = GetObservationInfo(program)
 
         if raw_observations is None:
@@ -396,7 +400,7 @@ class Collector:
                 
                 print('Adding ' + obs_odb_id, end='\r')
                 total_time = GetObsTime(raw_observation)
-                target_name, ra, dec = GetTargetCoords(raw_observation) #NOTE: No clue what t, r or d means
+                target_name, ra, dec = GetTargetCoords(raw_observation)
                 
                 if target_name is None:
                     target_name = 'None'
@@ -410,10 +414,10 @@ class Collector:
                 instrument_name = GetInstrument(raw_observation)
                 instrument_config = GetInstConfigs(raw_observation)
 
+                #print(instrument_config)
                 if 'name' in instrument_config:
                     instrument_name = instrument_config['name'][0]
-                
-                too_status = GetObsTooStatus(raw_observation, self.programs[program_id]['toostatus'])
+                too_status = GetObsTooStatus(raw_observation, collected_program.too_status)
                 conditions = GetConditions(raw_observation, label=False)
 
                 if conditions == '' or conditions is None:
@@ -437,11 +441,9 @@ class Collector:
                         try:
                             if target['group']['name'] == 'Base':
                                 target_tag = target['tag']
-                                if target_tag != 'sidereal' and target_tag != '':
-                                    if target_tag == 'major-body':
-                                        des = target['num']
-                                    else:
-                                        des = target['des']
+                                if target_tag and  target_tag != 'sidereal':
+                                    des = target['num'] if target_tag == 'major-body' else target['des']
+
                             if target['group']['name'] == 'User' and target['type'] == 'blindOffset':
                                 acquisiton_mode = 'blindOffset'
                         except:
@@ -468,14 +470,13 @@ class Collector:
                 # Elevation constraints
                 self._elevation_constraints(elevation_type,max_elevation,min_elevation) 
 
-
                 start, duration, repeat, period = GetWindows(raw_observation) 
                 # This makes a list of timing windows between progstart and progend
                 timing_windows = ot_timing_windows(start, duration, repeat, period)
-                
-                progstart = self.programs[program_id]['progstart']
-                progend = self.programs[program_id]['progend']
-                
+
+                progstart = collected_program.start
+                progend = collected_program.end
+
                 windows = []
                 if len(timing_windows) == 0:
                     windows.append(Time([progstart, progend]))
@@ -495,13 +496,13 @@ class Collector:
                 self.obs_windows.append(windows)
                 
                 # Observation number in program
-                self.programs[program_id]['idx'].append(self.nobs)
+                collected_program.add(self.nobs)
 
 
                 # Check if group exists, add if not
                 if group['key'] not in self.scheduling_groups.keys():
                     self.scheduling_groups[group['key']] = {'name': group['name'], 'idx': []}
-                    self.programs[program_id]['groups'].append(group['key'])
+                    collected_program.add(group['key'])
                 self.scheduling_groups[group['key']]['idx'].append(self.nobs)
 
                 # Get Horizons coordinates for nonsidereal targets (write file for future use)
@@ -532,17 +533,11 @@ class Collector:
     def create_time_array(self):
 
         timesarr = []
-        nnight = len(self.time_grid)
 
-        for ii in range(nnight):
-            tmin = Time('2200-01-01 00:00:00', format='iso', scale='utc')
-            tmax = Time('1980-01-01 00:00:00', format='iso', scale='utc')
-            for site in self.sites:
-                #site_name = site.info.meta['name']
-                if self.night_events[site]['twi_eve12'][ii] < tmin:
-                    tmin = self.night_events[site]['twi_eve12'][ii]
-                if self.night_events[site]['twi_mor12'][ii] > tmax:
-                    tmax = self.night_events[site]['twi_mor12'][ii]
+        for i in range(len(self.time_grid)):
+            
+            tmin = min([MAX_NIGHT_EVENT_TIME] + [self.night_events[site]['twi_eve12'][i] for site in self.sites])
+            tmax = max([MIN_NIGHT_EVENT_TIME] + [self.night_events[site]['twi_mor12'][i] for site in self.sites])
 
             tstart = roundMin(tmin, up=True)
             tend = roundMin(tmax, up=False)

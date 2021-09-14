@@ -1328,9 +1328,9 @@ def GetFTProgramDates(Notes, semester, year, yp):
     
     return progstart, progend
 
-def GetObservationInfo(Program):
+def GetObservationInfo(XMLProgram):
     raw_info, schedgrps = [],[]
-    for container in Program.findall('container'):
+    for container in XMLProgram.findall('container'):
         if container.attrib.get('type') == 'Observation':
             grpkey = container.attrib.get("key")
             grpname = 'None'
