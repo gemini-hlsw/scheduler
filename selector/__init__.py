@@ -1,29 +1,32 @@
-from resource_mock import Resource
 from collector import Collector
-from collector.conditions import SkyConditions, WindConditions
+import collector.vskyutil as vs
+import collector.sb as sb
+
+from common.structures.conditions import SkyConditions, WindConditions
+from common.structures.elevation import ElevationType
+from common.structures.target import TargetTag
+from common.constants import MAX_AIRMASS
+
 from selector.visibility import Visibility
 from selector.ranker import Ranker
+import selector.horizons as hz
+
 from greedy_max.schedule import Observation, Visit
 from greedy_max.category import Category
 from greedy_max.site import Site
+
 from resource_mock.resources import Resources
 
-import collector.vskyutil as vs
-import collector.sb as sb
-import selector.horizons as hz
+from astropy.coordinates import SkyCoord, Angle
+import astropy.units as u
+from astropy.time import Time
 
 from joblib import Parallel, delayed
 import multiprocessing
 import numpy as np
 from tqdm import tqdm
 
-from astropy.coordinates import SkyCoord, Angle
-import astropy.units as u
-from astropy.time import Time
-
 from typing import List, NoReturn, Dict, Union
-
-MAX_AIRMASS = '2.3'
 
 class Selector:
 
@@ -112,16 +115,16 @@ class Selector:
                               sunalt, moonpos, moondist, moonalt, sunmoonang, location, ephem_dir, sbtwo=True, overwrite=False, extras=True):
 
         nt = len(times)
-        if tag != 'sidereal':
-            if tag in ['undef', ''] or des in ['undef', '']:
+        if tag is not TargetTag.Sidereal:
+            if tag is None or des is None:
                 coord = None
             else:
                 usite = site.value.upper()
                 horizons = hz.Horizons(usite, airmass=100., daytime=True)
 
-                if tag == 'comet':
+                if tag is TargetTag.Comet:
                     hzname = 'DES=' + des + ';CAP'
-                elif tag == 'asteroid':
+                elif tag is TargetTag.Asteroid:
                     hzname = 'DES=' + des + ';'
                 else:
                     hzname = hz.GetHorizonId(des)
@@ -154,18 +157,10 @@ class Selector:
             targalt, targaz, targparang = vs.altazparang(coord.dec, ha, location.lat)
             # airmass = vs.xair(90. * u.deg - targalt)
             airmass = self._get_airmass(targalt)
-            if elevation['type'] == 'AIRMASS':
-                # targalt, targaz, targparang = vs.altazparang(coord.dec, ha, site.lat)
-                # targprop = vs.xair(90. * u.deg - targalt)
-                targprop = airmass
-            else:
-                targprop = ha.value
-            #         ha = site.target_hour_angle(times, target).hour
-            #         targprop = np.where(ha > 12., ha - 24., ha)
-            #         targprop = np.where(targprop < -12., targprop + 24., targprop)
+            targprop = airmass if elevation.elevation_type is ElevationType.AIRMASS else ha.value
 
             # Sky brightness
-            if conditions['bg'] < 1.0:
+            if conditions.sb < 1.0:
                 targmoonang = coord.separation(moonpos)
                 if sbtwo:
                     # New algorithm
@@ -179,8 +174,8 @@ class Selector:
 
             # Select where sky brightness and elevation constraints are met
             # Evenutally want to allow some observations, e.g. calibration, in twilight
-            ix = np.where(np.logical_and(sbcond <= conditions['bg'], np.logical_and(sunalt <= -12. * u.deg,
-                        np.logical_and(targprop >= elevation['min'], targprop <= elevation['max']))))[0]
+            ix = np.where(np.logical_and(sbcond <= conditions.sb, np.logical_and(sunalt <= -12. * u.deg,
+                          np.logical_and(targprop >= elevation.min_elevation, targprop <= elevation.max_elevation))))[0]
             
             # Timing window constraints
             #     iit = np.array([], dtype=int)
@@ -202,17 +197,17 @@ class Selector:
     def _check_conditions(self, visit_conditions: SkyConditions, 
                           actual_conditions: Dict[str, Union[SkyConditions,WindConditions]]) -> bool:
 
-        return (visit_conditions.image_quality >= actual_conditions.image_quality and 
-                    visit_conditions.cloud_conditions >= actual_conditions.cloud_conditions and 
-                    visit_conditions.water_vapor >= actual_conditions.water_vapor)
+        return (visit_conditions.iq >= actual_conditions.iq and 
+                    visit_conditions.cc >= actual_conditions.cc and 
+                    visit_conditions.wv >= actual_conditions.wv)
 
     def _match_conditions(self, visit_conditions: SkyConditions, 
                           actual_conditions: Dict[str, Union[SkyConditions,WindConditions]], 
                           negha: bool, toostatus: str, scalar_input = False) -> float:
     
-        skyiq = actual_conditions.image_quality
-        skycc = actual_conditions.cloud_conditions
-        skywv = actual_conditions.water_vapor
+        skyiq = actual_conditions.iq.value
+        skycc = actual_conditions.cc.value
+        skywv = actual_conditions.wv.value
         
         skyiq = np.asarray(skyiq)
         skycc = np.asarray(skycc)
@@ -229,9 +224,9 @@ class Selector:
         cmatch = np.ones(len(skyiq))
 
         # Where actual conditions worse than requirements
-        bad_iq = skyiq > visit_conditions.image_quality
-        bad_cc = skycc > visit_conditions.cloud_conditions
-        bad_wv = skywv > visit_conditions.water_vapor
+        bad_iq = skyiq > visit_conditions.iq
+        bad_cc = skycc > visit_conditions.cc
+        bad_wv = skywv > visit_conditions.wv
 
          # Multiply weights by 0 where actual conditions worse than required .
         i_bad_cond = np.where(np.logical_or(np.logical_or(bad_iq, bad_cc), bad_wv))[0][:]
@@ -239,14 +234,14 @@ class Selector:
         
         # Multiply weights by skyiq/iq where iq better than required and target
         # does not set soon and not a rapid ToO.
-        i_better_iq = np.where(skyiq < visit_conditions.image_quality)[0][:]
+        i_better_iq = np.where(skyiq < visit_conditions.iq)[0][:]
         if len(i_better_iq) != 0 and negha and toostatus != 'rapid':
-            cmatch[i_better_iq] = cmatch[i_better_iq] * skyiq / visit_conditions.image_quality
+            cmatch[i_better_iq] = cmatch[i_better_iq] * skyiq / visit_conditions.iq.value
         # cmatch[i_better_iq] = cmatch[i_better_iq] * (1.0 - (iq - skyiq))
 
-        i_better_cc = np.where(skycc < visit_conditions.cloud_conditions)[0][:]
+        i_better_cc = np.where(skycc < visit_conditions.cc)[0][:]
         if len(i_better_cc) != 0 and negha and toostatus != 'rapid':
-            cmatch[i_better_cc] = cmatch[i_better_cc] * skycc / visit_conditions.cloud_conditions
+            cmatch[i_better_cc] = cmatch[i_better_cc] * skycc / visit_conditions.cc.value
         if scalar_input:
             cmatch = np.squeeze(cmatch)
 
@@ -257,12 +252,8 @@ class Selector:
         Main driver to calculate the visibility for each observation 
         """
 
-        target_des = self.collector.target_des
-        target_tag = self.collector.target_tag
-        coord =  self.collector.coord
-        conditions = self.collector.conditions
+
         obs_windows = self.collector.obs_windows
-        elevation = self.collector.elevation
         timezones = self.collector.timezones
         site_location = self.collector.locations[site]
         # NOTE: observation set indifferent of site, this might (should?) change
@@ -326,15 +317,19 @@ class Selector:
 
             for id in tqdm(range(len(observations))):
               
-                res.append(self._calculate_visibility(site, target_des[id],
-                                            target_tag[id], coord[id],
-                                            conditions[id], elevation[id],
-                                            obs_windows[id], self.times[period], 
-                                            lst, sunalt, 
-                                            moonpos, moondist, 
-                                            moonalt, sunmoonang, 
-                                            site_location, ephem_dir,
-                                            sbtwo=sbtwo, overwrite=overwrite, extras=True))
+                res.append(self._calculate_visibility(site, 
+                                                      observations[id].target.designation,
+                                                      observations[id].target.tag, 
+                                                      observations[id].target.coordinates,
+                                                      observations[id].sky_conditions, 
+                                                      observations[id].elevation,
+                                                      obs_windows[id], 
+                                                      self.times[period], 
+                                                      lst, sunalt, 
+                                                      moonpos, moondist, 
+                                                      moonalt, sunmoonang, 
+                                                      site_location, ephem_dir,
+                                                      sbtwo=sbtwo, overwrite=overwrite, extras=True))
                
             if period == 0:
                 for obs in observations:
@@ -438,10 +433,8 @@ class Selector:
         
         ranker = Ranker(self.sites, self.times)
 
-        ranker.score(visits, self.collector.programs, 
-                     self.collector.coord, 
-                     self.collector.target_tag, 
-                     self.collector.target_des,
+        ranker.score(visits, 
+                     self.collector.programs, 
                      self.collector.locations, 
                      inight,
                      ephem_dir)

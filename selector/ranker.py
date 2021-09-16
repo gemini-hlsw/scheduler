@@ -7,6 +7,7 @@ from astropy.time import Time
 
 from typing import List
 from greedy_max.site import Site
+from common.structures.target import TargetTag
 import os
 
 class Ranker:
@@ -15,7 +16,7 @@ class Ranker:
         self.times = times
              
     
-    def _query_coordinates(self, obs, site, night, target_tag, target_des, coords,
+    def _query_coordinates(self, obs, site, night, tag, des, coords,
                            ephem_dir, site_location, overwrite=False, checkephem=False, ):
         # Query coordinates, including for nonsidereal targets from Horizons
         # iobs = list of observations to process, otherwise, all non-sidereal
@@ -26,15 +27,13 @@ class Ranker:
             tstart = self.times[nn][0].strftime('%Y%m%d_%H%M')
             tend = self.times[nn][-1].strftime('%Y%m%d_%H%M')
 
-            tag = target_tag[obs.idx]
-            des = target_des[obs.idx]
-            if tag == 'sidereal':
-                coord = coords[obs.idx]
+            if tag is TargetTag.Sidereal:
+                coord = coords
             else:
-                if tag in ['undef', ''] or des in ['undef', '']:
+                if tag is None or des is None:
                     coord = None
                 else:
-                    if tag == 'comet':
+                    if tag is TargetTag.Comet:
                         hzname = 'DES=' + des + ';CAP'
                     elif tag == 'asteroid':
                         hzname = 'DES=' + des + ';'
@@ -69,8 +68,7 @@ class Ranker:
         
         return query_coords
 
-    def score(self, visits, programs, coordinates, target_tag, 
-              target_des, location, inight,  ephem_dir, 
+    def score(self, visits, programs, location, inight,  ephem_dir, 
               pow=2, metpow=1.0, vispow=1.0, whapow=1.0, remaining=None):
 
         params = self._params()
@@ -101,8 +99,8 @@ class Ranker:
                                                     thesis_factor=1.1)
                 # Get coordinates
                 coord = self._query_coordinates(obs, site, [inight], 
-                                                target_tag, target_des, 
-                                                coordinates, ephem_dir,
+                                                obs.target.tag, obs.target.designation, 
+                                                obs.target.coordinates, ephem_dir,
                                                 site_location)[0]
                 # HA/airmass
                 ha = obs.visibility.hour_angle[inight]

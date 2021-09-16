@@ -8,7 +8,9 @@ from typing import Dict, List
 from dataclasses import dataclass
 from astropy.units.quantity import Quantity
 import astropy.units as u
-from collector.conditions import SkyConditions
+from common.structures.conditions import SkyConditions
+from common.structures.elevation import ElevationConstraints
+from common.structures.target import Target
 
 class Observation: 
     """
@@ -23,8 +25,10 @@ class Observation:
                  length: int, # acq+time (this need to be change)
                  instrument: Instrument,
                  sky_conditions: SkyConditions,
+                 elevation: ElevationConstraints,
+                 target: Target,
                  status: str,
-                 too_status: str
+                 too_status: str,
                  #acquisition: int
                  ) -> None:
         self.idx = idx
@@ -35,6 +39,8 @@ class Observation:
         self.length = length
         self.instrument = instrument
         self.sky_conditions = sky_conditions
+        self.elevation = elevation
+        self.target = target
         self.status = status #Observation status
         self.too_status = too_status
         self.visibility = None
@@ -153,10 +159,10 @@ class Visit:
         Create a new SkyConditions object based on the observation level objects 
         Use the most restrictive value for each condition. 
         '''
-        restrictive_iq = min([obs.sky_conditions.image_quality for obs in self.observations])
-        restrictive_bg = min([obs.sky_conditions.brightness for obs in self.observations])
-        restrictive_cc = min([obs.sky_conditions.cloud_conditions for obs in self.observations])
-        restrictive_wv = min([obs.sky_conditions.water_vapor for obs in self.observations])
+        restrictive_iq = min([obs.sky_conditions.iq for obs in self.observations])
+        restrictive_bg = min([obs.sky_conditions.sb for obs in self.observations])
+        restrictive_cc = min([obs.sky_conditions.cc for obs in self.observations])
+        restrictive_wv = min([obs.sky_conditions.wv for obs in self.observations])
 
         return SkyConditions(restrictive_iq,restrictive_bg,restrictive_cc,restrictive_wv)
             
