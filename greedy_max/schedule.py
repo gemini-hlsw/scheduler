@@ -8,9 +8,9 @@ from typing import Dict, List
 from dataclasses import dataclass
 from astropy.units.quantity import Quantity
 import astropy.units as u
-from collector.conditions import SkyConditions
-from collector.elevation import ElevationConstraints
-from collector.target import Target
+from common.structures.conditions import SkyConditions
+from common.structures.elevation import ElevationConstraints
+from common.structures.target import Target
 
 class Observation: 
     """

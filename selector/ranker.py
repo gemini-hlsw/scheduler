@@ -7,7 +7,7 @@ from astropy.time import Time
 
 from typing import List
 from greedy_max.site import Site
-from collector.target import TargetTag
+from common.structures.target import TargetTag
 import os
 
 class Ranker:

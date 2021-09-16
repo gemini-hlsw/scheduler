@@ -15,10 +15,13 @@ import collector.sb as sb
 from collector.vskyutil import nightevents
 from collector.xmlutils import *
 from collector.get_tadata import get_report, get_tas, sumtas_date
-from collector.conditions import SkyConditions, WindConditions, conditions_parser, IQ, CC, SB, WV
-from collector.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
-from collector.target import TargetTag, Target
 from collector.program import Program
+
+from common.structures.conditions import SkyConditions, WindConditions, conditions_parser, IQ, CC, SB, WV
+from common.structures.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
+from common.structures.target import TargetTag, Target
+from common.helpers import roundMin
+from common.constants import MAX_AIRMASS, FUZZY_BOUNDARY, CLASSICAL_NIGHT_LEN
 
 from greedy_max.instrument import Instrument
 from greedy_max.site import Site
@@ -28,9 +31,6 @@ from greedy_max.category import Category
 
 from typing import List, Dict, Optional, NoReturn
 
-MAX_AIRMASS = '2.3'
-FUZZY_BOUNDARY = 14
-CLASSICAL_NIGHT_LEN = 10
 INFINITE_DURATION = 3. * 365. * 24. * u.h # A date or duration to use for infinity (length of LP)
 INFINITE_REPEATS = 1000 # number to depict infinity for repeats in OT Timing windows calculations
 MIN_NIGHT_EVENT_TIME = Time('1980-01-01 00:00:00', format='iso', scale='utc')
@@ -75,23 +75,6 @@ def ot_timing_windows(strt, dur, rep, per, verbose=False):
             timing_windows.append(Time([start, end]))
 
     return timing_windows
-
-def roundMin(time: Time, up=False) -> Time:
-    """
-    Round a time down (truncate) or up to the nearest minute
-    time : astropy.Time
-    up: bool   Round up?s
-    """
-    
-
-    t = time.copy()
-    t.format = 'iso'
-    t.out_subfmt = 'date_hm'
-    if up:
-        sec = int(t.strftime('%S'))
-        if sec != 0:
-            t += 1.0*u.min
-    return Time(t.iso, format='iso', scale='utc')
 
 class Collector:
     def __init__(self, sites: List[Site], 
