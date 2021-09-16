@@ -2,6 +2,7 @@ from resource_mock import Resource
 from collector import Collector
 from collector.conditions import SkyConditions, WindConditions
 from collector.elevation import ElevationType
+from collector.target import TargetTag
 from selector.visibility import Visibility
 from selector.ranker import Ranker
 from greedy_max.schedule import Observation, Visit
@@ -113,16 +114,16 @@ class Selector:
                               sunalt, moonpos, moondist, moonalt, sunmoonang, location, ephem_dir, sbtwo=True, overwrite=False, extras=True):
 
         nt = len(times)
-        if tag != 'sidereal':
-            if tag in ['undef', ''] or des in ['undef', '']:
+        if tag is not TargetTag.Sidereal:
+            if tag is None or des is None:
                 coord = None
             else:
                 usite = site.value.upper()
                 horizons = hz.Horizons(usite, airmass=100., daytime=True)
 
-                if tag == 'comet':
+                if tag is TargetTag.Comet:
                     hzname = 'DES=' + des + ';CAP'
-                elif tag == 'asteroid':
+                elif tag is TargetTag.Asteroid:
                     hzname = 'DES=' + des + ';'
                 else:
                     hzname = hz.GetHorizonId(des)
@@ -250,12 +251,8 @@ class Selector:
         Main driver to calculate the visibility for each observation 
         """
 
-        target_des = self.collector.target_des
-        target_tag = self.collector.target_tag
-        coord =  self.collector.coord
-        #conditions = self.collector.conditions
+
         obs_windows = self.collector.obs_windows
-        #elevation = self.collector.elevation
         timezones = self.collector.timezones
         site_location = self.collector.locations[site]
         # NOTE: observation set indifferent of site, this might (should?) change
@@ -319,16 +316,19 @@ class Selector:
 
             for id in tqdm(range(len(observations))):
               
-                res.append(self._calculate_visibility(site, target_des[id],
-                                            target_tag[id], coord[id],
-                                            observations[id].sky_conditions, 
-                                            observations[id].elevation,
-                                            obs_windows[id], self.times[period], 
-                                            lst, sunalt, 
-                                            moonpos, moondist, 
-                                            moonalt, sunmoonang, 
-                                            site_location, ephem_dir,
-                                            sbtwo=sbtwo, overwrite=overwrite, extras=True))
+                res.append(self._calculate_visibility(site, 
+                                                      observations[id].target.designation,
+                                                      observations[id].target.tag, 
+                                                      observations[id].target.coordinates,
+                                                      observations[id].sky_conditions, 
+                                                      observations[id].elevation,
+                                                      obs_windows[id], 
+                                                      self.times[period], 
+                                                      lst, sunalt, 
+                                                      moonpos, moondist, 
+                                                      moonalt, sunmoonang, 
+                                                      site_location, ephem_dir,
+                                                      sbtwo=sbtwo, overwrite=overwrite, extras=True))
                
             if period == 0:
                 for obs in observations:
@@ -432,10 +432,8 @@ class Selector:
         
         ranker = Ranker(self.sites, self.times)
 
-        ranker.score(visits, self.collector.programs, 
-                     self.collector.coord, 
-                     self.collector.target_tag, 
-                     self.collector.target_des,
+        ranker.score(visits, 
+                     self.collector.programs, 
                      self.collector.locations, 
                      inight,
                      ephem_dir)

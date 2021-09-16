@@ -17,6 +17,7 @@ from collector.xmlutils import *
 from collector.get_tadata import get_report, get_tas, sumtas_date
 from collector.conditions import SkyConditions, WindConditions, conditions_parser, IQ, CC, SB, WV
 from collector.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
+from collector.target import TargetTag, Target
 from collector.program import Program
 
 from greedy_max.instrument import Instrument
@@ -128,20 +129,11 @@ class Collector:
         self.obsclass = []
         self.nobs = 0
         self.band = []
-
-        self.target_name = []
-        self.target_tag = []
-        self.target_des = []
-        self.coord = []
-        self.mags = []
         self.toostatus = []
         self.priority = []
-        self.acqmode = []
-        self.instconfig = []
+
         self.tot_time = []  # total program time
         self.obs_time = []  # used/scheduled time
-        self.conditions = []
-        self.elevation = []
         self.obs_windows = []
 
     def load(self, path: str) -> NoReturn:
@@ -384,67 +376,57 @@ class Collector:
                 
                 print('Adding ' + obs_odb_id, end='\r')
                 total_time = GetObsTime(raw_observation)
-                target_name, ra, dec = GetTargetCoords(raw_observation)
+                
+                #Target Info
+                target_name, ra, dec = GetTargetCoords(raw_observation) 
                 
                 if target_name is None:
                     target_name = 'None'
                 if ra is None and dec is None:
                     ra = 0.0
                     dec = 0.0
-                
+                target_coords = SkyCoord(ra, dec, frame='icrs', unit=(u.deg, u.deg))
                 target_mags = GetTargetMags(raw_observation, baseonly=True)
                 targets = GetTargets(raw_observation)
+                target_designation = None
+                target_tag = None
+                if targets:
+                    for target in targets:
+                            try:
+                                target_name = target['group']['name']
+                                target_tag = TargetTag(target['tag']) if target_name == 'Base' else None
+                                target_designation = target['num'] if (target_tag is not TargetTag.Sidereal and 
+                                                                        target_tag is not None and 
+                                                                        target_tag is TargetTag.MajorBody) else target['des']
+                            except:
+                                pass
+
+                target= Target(target_name, target_tag, target_mags, target_designation, target_coords)
+                # Observation Priority
                 priority = GetPriority(raw_observation)
+                # Instrument Configuration
                 instrument_name = GetInstrument(raw_observation)
                 instrument_config = GetInstConfigs(raw_observation)
-
-                #print(instrument_config)
                 if 'name' in instrument_config:
                     instrument_name = instrument_config['name'][0]
                 
+                # ToO status
                 too_status = GetObsTooStatus(raw_observation, self.programs[program_id]['toostatus'])
                 
-                # Conditions
+                # Sky Conditions
                 conditions = GetConditions(raw_observation, label=False)
-                #print(conditions)
                 
-                if conditions == '' or conditions is None:
-                    #conditions = 'ANY,ANY,ANY,ANY'
+                if conditions or conditions is None:
                     sky_cond = SkyConditions() 
-                else:
-                    #cond = conditions.split(',')
-                    #condf = sb.convertcond(cond[0], cond[1], cond[2], cond[3])
-                    #sky_cond = SkyConditions(condf[0],condf[2],condf[1],condf[3])
-                    
+                else:               
                     parse_conditions = conditions_parser(conditions)
-                    #print(parse_conditions)
                     sky_cond = SkyConditions(*parse_conditions)
                 
-                # Elevation constraints
-                
+                # Elevation constraints        
                 elevation_type, min_elevation, max_elevation = GetElevation(raw_observation)
-
                 elevation_type = str_to_elevation_type(elevation_type)
                 min_elevation, max_elevation = str_to_float(min_elevation), str_to_float(max_elevation)
                 elevation_constraints = ElevationConstraints(elevation_type, min_elevation, max_elevation)
-        
-            
-                acquisiton_mode = 'normal'
-                target_tag = 'undef'
-                des = 'undef'
-
-                if targets:
-                    for target in targets:
-                        try:
-                            if target['group']['name'] == 'Base':
-                                target_tag = target['tag']
-                                if target_tag and  target_tag != 'sidereal':
-                                    des = target['num'] if target_tag == 'major-body' else target['des']
-
-                            if target['group']['name'] == 'User' and target['type'] == 'blindOffset':
-                                acquisiton_mode = 'blindOffset'
-                        except:
-                            pass
                 
                 # Charged observation time
                 # Used time from Time Accounting Summary (tas) information
@@ -499,11 +481,11 @@ class Collector:
                 #if target_tag in ['asteroid', 'comet', 'major-body']: NOTE: This does not work, and it should!
                 
                 self.obstatus.append(status)
-                self.target_name.append(target_name)
-                self.target_tag.append(target_tag)
-                self.target_des.append(des)
-                self.coord.append(SkyCoord(ra, dec, frame='icrs', unit=(u.deg, u.deg)))
-                self.mags.append(target_mags)
+                #self.target_name.append(target_name)
+                #self.target_tag.append(target_tag)
+                #self.target_des.append(des)
+                #self.coord.append(SkyCoord(ra, dec, frame='icrs', unit=(u.deg, u.deg)))
+                #self.mags.append(target_mags)
                 self.toostatus.append(toostat.lower())
                 self.priority.append(priority)
                 #self.conditions.append({'iq': condf[0], 'cc': condf[1], 'bg': condf[2], 'wv': condf[3]})
@@ -517,6 +499,7 @@ class Collector:
                                                     inst_config,
                                                     sky_cond,
                                                     elevation_constraints,
+                                                    target,
                                                     status,
                                                     too_status.lower()))
                 self.nobs += 1

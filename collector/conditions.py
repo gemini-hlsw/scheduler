@@ -118,64 +118,16 @@ def conditions_parser(conditions: str) -> tuple:
         return float(''.join(x for x in values if x.isdigit()))/100
     
     def iq_parser(iq: str) -> IQ:
-        
-        if 'ANY' in iq or 'NULL' in iq:
-            return IQ.IQANY
-        else:
-            _iq = find_values(iq)
-            if 0.0 < _iq <= 0.2:
-                return IQ.IQ20
-            elif 0.2 < _iq <= 0.7:
-                return IQ.IQ70
-            elif 0.7 < _iq <= 0.85:
-                return IQ.IQ85
-            else:
-                return IQ.IQANY
+        return IQ.IQANY if 'ANY' in iq or iq == 'NULL' else IQ(float(iq))
     
     def cc_parser(cc: str) -> CC:
-        
-        if 'ANY' in cc or 'NULL' in cc:
-            return CC.CCANY
-        else:
-            _cc= find_values(cc)
-            if 0.0 < _cc <= 0.5:
-                return CC.CC50
-            elif 0.5 < _cc <= 0.7:
-                return CC.CC70
-            elif 0.7 < _cc <= 0.80:
-                return CC.CC80
-            else:
-                return CC.CCANY
+        return CC.CCANY if 'ANY' in cc or cc == 'NULL' else CC(float(cc))
 
     def sb_parser(sb: str) -> SB:
-        
-        if 'ANY' in sb or 'NULL' in sb:
-            return SB.SBANY
-        else:
-            _sb= find_values(sb)
-            if 0.0 < _sb <= 0.2:
-                return SB.SB20
-            elif 0.2 < _sb <= 0.5:
-                return SB.SB50
-            elif 0.5 < _sb <= 0.80:
-                return SB.SB80
-            else:
-                return SB.SB80
+         return SB.SBANY if 'ANY' in sb or sb == 'NULL' else SB(float(sb))
     
     def wv_parser(wv: str)-> WV:
-
-        if 'ANY' in wv or 'NULL' in wv:
-            return WV.WVANY
-        else:
-            _wv= find_values(wv)
-            if 0.0 < _wv <= 0.2:
-                return WV.WV20
-            elif 0.2 < _wv <= 0.5:
-                return WV.WV50
-            elif 0.5 < _wv <= 0.80:
-                return WV.WV80
-            else:
-                return WV.WV80
+        return WV.WVANY if 'ANY' in wv or wv == 'NULL' else WV(float(wv))
     
     str_iq, str_cc, str_sb, str_wv = conditions.split(',')
     return (parser_by_instance(str_sb, sb_parser),

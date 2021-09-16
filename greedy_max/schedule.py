@@ -10,6 +10,7 @@ from astropy.units.quantity import Quantity
 import astropy.units as u
 from collector.conditions import SkyConditions
 from collector.elevation import ElevationConstraints
+from collector.target import Target
 
 class Observation: 
     """
@@ -25,8 +26,9 @@ class Observation:
                  instrument: Instrument,
                  sky_conditions: SkyConditions,
                  elevation: ElevationConstraints,
+                 target: Target,
                  status: str,
-                 too_status: str
+                 too_status: str,
                  #acquisition: int
                  ) -> None:
         self.idx = idx
@@ -38,6 +40,7 @@ class Observation:
         self.instrument = instrument
         self.sky_conditions = sky_conditions
         self.elevation = elevation
+        self.target = target
         self.status = status #Observation status
         self.too_status = too_status
         self.visibility = None
