@@ -6,4 +6,5 @@ dependencies:
   - openpyxl
   - tabulate
   - matplotlib
-  
+  - tqdm
+  - joblib
