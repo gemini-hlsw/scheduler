@@ -394,7 +394,7 @@ class Collector:
                     instrument_name = instrument_config['name'][0]
                 
                 # ToO status
-                too_status = GetObsTooStatus(raw_observation, self.programs[program_id]['toostatus'])
+                too_status = GetObsTooStatus(raw_observation, self.programs[program_id].too_status)
                 
                 # Sky Conditions
                 conditions = GetConditions(raw_observation, label=False)
