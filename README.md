@@ -6,6 +6,11 @@ Note that you need the following libraries to run this:
 * astropy
 * matplotlib
 * openpyxl
+* pytz
+* requests
+* tabulate
+* joblib
+* tqdm
 
 ## Install
 
