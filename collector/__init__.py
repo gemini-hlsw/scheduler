@@ -29,7 +29,7 @@ from greedy_max.band import Band
 from greedy_max.schedule import Observation
 from greedy_max.category import Category
 
-from typing import List, Dict, Optional, NoReturn
+from typing import List, Dict, Optional, NoReturn, Iterable
 
 INFINITE_DURATION = 3. * 365. * 24. * u.h  # A date or duration to use for infinity (length of LP)
 INFINITE_REPEATS = 1000 # number to depict infinity for repeats in OT Timing windows calculations
@@ -37,7 +37,10 @@ MIN_NIGHT_EVENT_TIME = Time('1980-01-01 00:00:00', format='iso', scale='utc')
 MAX_NIGHT_EVENT_TIME = Time('2200-01-01 00:00:00', format='iso', scale='utc')
 
 
-def ot_timing_windows(strt, dur, rep, per, verbose=False):
+def ot_timing_windows(starts: Iterable[int],
+                      durations: Iterable[int],
+                      repeats: Iterable[int],
+                      periods: Iterable[int]):
     """
     Turn OT timing constraints into more natural units
     Inputs are lists
@@ -45,34 +48,29 @@ def ot_timing_windows(strt, dur, rep, per, verbose=False):
     """
 
     timing_windows = []
-    for (jj, (strt, dur)) in enumerate(zip(strt, dur)):
+
+    for (start, duration, repeat, period) in zip(starts, durations, repeats, periods):
 
         # The timestamps are in milliseconds
         # The start time is unix time (milliseconds from 1970-01-01 00:00:00) UTC
         # Time requires unix time in seconds
-        t0 = float(strt) * u.ms
+        t0 = float(start) * u.ms
         begin = Time(t0.to_value('s'), format='unix', scale='utc')
 
         # duration = -1 means forever
-        duration = float(dur)
-        duration = INFINITE_DURATION if duration == -1.0 else duration / 3600000. * u.h
+        duration = INFINITE_DURATION if duration == -1 else duration / 3600000. * u.h
 
-        # repeat = -1 means infinite
-        repeat = int(rep[jj])
-        if repeat == -1:
-            repeat = INFINITE_REPEATS
-        if repeat == 0:
-            repeat = 1
+        # repeat = -1 means infinite, and we require at least one repeat
+        repeat = INFINITE_REPEATS if repeat == -1 else max(1, repeat)
 
         # period between repeats
-        # period = float(values[3]) * u.ms
-        period = float(per[jj]) / 3600000. * u.h
+        period = period / 3600000. * u.h
 
-        for ii in range(repeat):
-            start = begin + float(ii) * period
-            end = start + duration
+        for i in range(repeat):
+            window_start = begin + i * period
+            window_end = window_start + duration
 
-            timing_windows.append(Time([start, end]))
+            timing_windows.append(Time([window_start, window_end]))
 
     return timing_windows
 
