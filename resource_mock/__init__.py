@@ -1,16 +1,16 @@
 import csv
-from os import getcwd
+import os
 
 from openpyxl import load_workbook
 from typing import Dict, List, NoReturn
-from greedy_max import Site
+from common.structures.site import Site, SITE_ABBREVIATION
 from datetime import datetime, timedelta
 
 from resource_mock.resources import Resources
 
 class Resource:
-    def __init__(self,path):
-        self.path = getcwd()+path
+    def __init__(self, path: str):
+        self.path = os.path.join(os.getcwd(), path)
         self.fpu = {}
         self.fpur = {}
         self.grat = {}
@@ -20,28 +20,28 @@ class Resource:
         self.lgs = {Site.GS: {}, Site.GN: {}}
         self.ifu = {Site.GS: {}, Site.GN: {}}
 
-    def _load_fpu(self, name: str, site: str) -> Dict[str,str]:
+    def _load_fpu(self, name: str, site: Site) -> tuple[dict[datetime, str], dict[datetime, list[str]]]:
         barcodes = {}
         ifu = {}
-        with open(f'{self.path}/GMOS{site.upper()}_{name}201789.txt') as f:
-            reader =  csv.reader(f, delimiter=',') 
+        with open(os.path.join(self.path, f'GMOS{SITE_ABBREVIATION[site]}_{name}201789.txt')) as f:
+            reader = csv.reader(f, delimiter=',')
             for row in reader:
-                barcodes[datetime.strptime(row[0].strip(),"%Y-%m-%d")] = [i.strip() for i in row[2:]]
-                ifu[datetime.strptime(row[0].strip(),"%Y-%m-%d")] = row[1].strip()
+                barcodes[datetime.strptime(row[0].strip(), "%Y-%m-%d")] = [i.strip() for i in row[2:]]
+                ifu[datetime.strptime(row[0].strip(), "%Y-%m-%d")] = row[1].strip()
         return ifu, barcodes
                 
-    def _load_grat(self, site: str) -> Dict[str,str]:
+    def _load_grat(self, site: Site) -> dict[datetime, list[str]]:
         out_dict = {}
-        with open(f'{self.path}/GMOS{site.upper()}_GRAT201789.txt') as f:
-            reader =  csv.reader(f, delimiter=',') 
+        with open(os.path.join(self.path, f'GMOS{SITE_ABBREVIATION[site]}_GRAT201789.txt')) as f:
+            reader = csv.reader(f, delimiter=',')
             for row in reader:
-                out_dict[datetime.strptime(row[0].strip(),"%Y-%m-%d")] = [i.strip().replace('+','') for i in row[1:]]
-                out_dict[datetime.strptime(row[0].strip(),"%Y-%m-%d")].append('MIRROR') # Add mirror for GMOS 
+                out_dict[datetime.strptime(row[0].strip(), "%Y-%m-%d")] = [i.strip().replace('+', '') for i in row[1:]]
+                out_dict[datetime.strptime(row[0].strip(), "%Y-%m-%d")].append('MIRROR')
         return out_dict
 
-    def _load_f2b(self, site: str) -> Dict[str,str]:
+    def _load_f2b(self, site: Site) -> Dict[str,str]:
         out_dict = {}
-        with open(f'{self.path}/gmos{site}_fpu_barcode.txt') as f:
+        with open(os.path.join(self.path, f'gmos{SITE_ABBREVIATION[site]}_fpu_barcode.txt')) as f:
             
             for row in f:
                 fpu, barcode = row.split()
@@ -49,7 +49,7 @@ class Resource:
         return out_dict
     
     def _to_bool(self, b: str) -> bool:
-        return b == 'Yes'
+        return b is not None and b.upper() == 'YES'
     
     def _nearest(self, items, pivot):
         return min(items, key=lambda x: abs(x - pivot))
@@ -77,6 +77,8 @@ class Resource:
                 date = row[0].value
                 self.instruments[site][date] = [c.value for c in row[3:]] 
                 self.mode[site][date] = row[1].value
+
+                # TODO: Some of these rows have None as their value. Is this right?
                 self.lgs[site][date] = self._to_bool(row[2].value)
             
         if not self.instruments or not self.mode or not self.lgs:
@@ -91,11 +93,10 @@ class Resource:
         sites = [site for site in Site]
         for site in sites:
 
-            _site = 's' if site == Site.GS else 'n'
-            self.ifu[site]['FPU'], self.fpu[site] = self._load_fpu('FPU',_site)
-            self.ifu[site]['FPUr'], self.fpur[site] = self._load_fpu('FPUr',_site)
-            self.grat[site] = self._load_grat(_site)
-            self.fpu_to_barcode[site] = self._load_f2b(_site)
+            self.ifu[site]['FPU'], self.fpu[site] = self._load_fpu('FPU', site)
+            self.ifu[site]['FPUr'], self.fpur[site] = self._load_fpu('FPUr', site)
+            self.grat[site] = self._load_grat(site)
+            self.fpu_to_barcode[site] = self._load_f2b(site)
 
         if not self.fpu or not self.fpur or not self.grat:
             raise Exception("Problems on reading files...") 

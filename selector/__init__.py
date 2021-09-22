@@ -244,7 +244,7 @@ class Selector:
 
         return cmatch
 
-    def visibility(self, site: Site, jobs=0, ephem_dir=None, overwrite=False, sbtwo= True) -> NoReturn:
+    def visibility(self, site: Site, jobs=0, ephem_path=None, overwrite=False, sbtwo= True) -> NoReturn:
         """
         Main driver to calculate the visibility for each observation 
         """
@@ -314,18 +314,18 @@ class Selector:
 
             for id in tqdm(range(len(observations))):
               
-                res.append(self._calculate_visibility(site, 
+                res.append(self._calculate_visibility(site,
                                                       observations[id].target.designation,
-                                                      observations[id].target.tag, 
+                                                      observations[id].target.tag,
                                                       observations[id].target.coordinates,
-                                                      observations[id].sky_conditions, 
+                                                      observations[id].sky_conditions,
                                                       observations[id].elevation,
-                                                      obs_windows[id], 
-                                                      self.times[period], 
-                                                      lst, sunalt, 
-                                                      moonpos, moondist, 
-                                                      moonalt, sunmoonang, 
-                                                      site_location, ephem_dir,
+                                                      obs_windows[id],
+                                                      self.times[period],
+                                                      lst, sunalt,
+                                                      moonpos, moondist,
+                                                      moonalt, sunmoonang,
+                                                      site_location, ephem_path,
                                                       sbtwo=sbtwo, overwrite=overwrite, extras=True))
                
             if period == 0:

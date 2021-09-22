@@ -69,7 +69,6 @@ def ot_timing_windows(starts: Iterable[int],
         for i in range(repeat):
             window_start = begin + i * period
             window_end = window_start + duration
-
             timing_windows.append(Time([window_start, window_end]))
 
     return timing_windows
@@ -82,11 +81,11 @@ class Collector:
                  program_types: List[str],
                  obsclasses: List[str],
                  time_range=None,
-                 dt=1.0 * u.min):
+                 dt: Time = 1.0 * u.min):
         
         self.sites = sites                   
         self.semesters = semesters
-        self.program_types =  program_types
+        self.program_types = program_types
         self.obs_classes = obsclasses
         self.time_range = time_range         # Time object, array for visibility start/stop dates
         
@@ -122,8 +121,8 @@ class Collector:
     def load(self, path: str) -> NoReturn:
         """ Main collector method. It setups the collecting process and parameters """ 
 
-        # Config file?
-        site_name = Site.GS.value  # TODO: temporary hack for just using one site
+        # TODO: temporary hack for just using one site
+        site_name = Site.GS.value
 
         xmlselect = [site_name.upper() + '-' + sem + '-' + prog_type
                      for sem in self.semesters for prog_type in self.program_types]
@@ -144,7 +143,7 @@ class Collector:
 
         # TODO: We will have to modify in order for this code to be usable by other observatories.
         zip_path = os.path.join(path, f'{(self.time_range[0] - 1.0 * u.day).strftime("%Y%m%d")}{SITE_ZIPS[site]}')
-        logging.log(logging.INFO, f'Retrieving program data from ${zip_path}.')
+        logging.info(f'Retrieving program data from ${zip_path}.')
 
         time_accounting = self._load_tas(path, site)
         self._readzip(zip_path, xmlselect, site_name, tas=time_accounting, obsclasses=self.obs_classes)

@@ -17,5 +17,8 @@ class Site(Enum):
 GEOGRAPHICAL_LOCATIONS = {Site.GS: EarthLocation.of_site('gemini_south'),
                           Site.GN: EarthLocation.of_site('gemini_north')}
 
+# Site abbreviations for FPUs, gratings, etc.
+SITE_ABBREVIATION = {Site.GS: 'S', Site.GN: 'N'}
+
 # Site zip timestamps.
 SITE_ZIPS = {Site.GS: "-0830.zip", Site.GN: "-0715.zip"}
