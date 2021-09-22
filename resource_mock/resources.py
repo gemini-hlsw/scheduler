@@ -15,7 +15,7 @@ class Resources:
     def __init__(self, 
                  fpu: Dict[Site, List[str]], 
                  fpur: Dict[Site, List[str]], 
-                 grat: Dict[Site, List[str]], 
+                 gratings: Dict[Site, List[str]],
                  instruments: Dict[Site, List[str]], 
                  lgs: Dict[Site, bool],
                  mode: Dict[Site, str],
@@ -23,7 +23,7 @@ class Resources:
                  ifus: Dict[str, str]):
         self.fpu = fpu
         self.fpur = fpur
-        self.grating = grat 
+        self.gratings = gratings
         self.instruments = instruments
         self.laser_guide = lgs
         self.mode = mode
@@ -38,20 +38,18 @@ class Resources:
         return instrument in self.instruments[site]
     
     def is_disperser_available(self, site: Site, disperser: str) -> bool:
-        return disperser in self.grating[site]
+        return disperser in self.gratings[site]
 
     def is_mask_available(self, site: Site, fpu_mask: str) -> bool:
         barcode = None
 
         if fpu_mask in self.fpu_to_barcode[site]:
             barcode = self.fpu_to_barcode[site][fpu_mask]
-            #print(barcode)
 
         elif '-' in fpu_mask:
             barcode = self._decode_mask(fpu_mask)
-            #print(barcode)
 
         if barcode:
             return barcode in self.fpur[site]
         else:
-            return False # No mask in register 
+            return False  # No mask in register

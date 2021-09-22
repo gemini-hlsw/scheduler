@@ -32,7 +32,7 @@ class Resource:
                 ifu[datetime.strptime(row[0].strip(), "%Y-%m-%d")] = row[1].strip()
         return ifu, barcodes
                 
-    def _load_grat(self, site: Site) -> dict[datetime, list[str]]:
+    def _load_gratings(self, site: Site) -> dict[datetime, list[str]]:
         out_dict = {}
         with open(os.path.join(self.path, f'GMOS{SITE_ABBREVIATION[site]}_GRAT201789.txt')) as f:
             reader = csv.reader(f, delimiter=',')
@@ -93,7 +93,7 @@ class Resource:
 
             self.ifu[site]['FPU'], self.fpu[site] = self._load_fpu('FPU', site)
             self.ifu[site]['FPUr'], self.fpur[site] = self._load_fpu('FPUr', site)
-            self.grat[site] = self._load_grat(site)
+            self.grat[site] = self._load_gratings(site)
             self.fpu_to_barcode[site] = self._load_f2b(site)
 
         if not self.fpu or not self.fpur or not self.grat:
