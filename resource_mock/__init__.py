@@ -1,4 +1,5 @@
 import csv
+import logging
 import os
 
 from openpyxl import load_workbook
@@ -125,7 +126,7 @@ class Resource:
             #     return info_types[info][nearest_date]
                 
         else:
-            print(f'No information about {info} is stored')
+            logging.warning(f'No information about {info} is stored')
             return None
 
     def night_info(self, info_name: str, sites: List[Site], night_date: str):
