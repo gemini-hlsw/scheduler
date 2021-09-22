@@ -4,7 +4,6 @@ import xml.etree.cElementTree as ElementTree
 
 import astropy.coordinates
 from astropy.coordinates import SkyCoord
-import astropy.units as u
 from astropy.table import Table, vstack
 
 import pytz
@@ -23,7 +22,6 @@ from common.structures.conditions import SkyConditions, WindConditions, conditio
 from common.structures.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
 from common.structures.site import Site, GEOGRAPHICAL_LOCATIONS, SITE_ZIPS
 from common.structures.target import TargetTag, Target
-from common.structures.time_award_units import TimeAwardUnits
 
 from common.structures.band import Band
 from common.structures.instrument import Instrument
@@ -112,7 +110,6 @@ class Collector:
         self.obsid = []
         self.obstatus = []
         self.obsclass = []
-        self.observation_num = 0
         self.band = []
         self.toostatus = []
         self.priority = []
