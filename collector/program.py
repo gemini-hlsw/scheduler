@@ -1,4 +1,4 @@
-from greedy_max.band import Band
+from common.structures.band import Band
 from typing import NoReturn, Union
 class Program:
 

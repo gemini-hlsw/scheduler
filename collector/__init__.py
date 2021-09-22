@@ -17,19 +17,19 @@ from collector.xmlutils import *
 from collector.get_tadata import get_report, get_tas, sumtas_date
 from collector.program import Program
 
+from common.constants import FUZZY_BOUNDARY, CLASSICAL_NIGHT_LEN
+from common.helpers import round_min
 from common.structures.conditions import SkyConditions, WindConditions, conditions_parser, IQ, CC, SB, WV
 from common.structures.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
-from common.structures.target import TargetTag, Target
-from common.helpers import roundMin
-from common.constants import FUZZY_BOUNDARY, CLASSICAL_NIGHT_LEN
-
-from greedy_max.instrument import Instrument
 from common.structures.site import Site, GEOGRAPHICAL_LOCATIONS, SITE_ZIPS
-from greedy_max.band import Band
+from common.structures.target import TargetTag, Target
+
+from common.structures.band import Band
+from common.structures.instrument import Instrument
 from greedy_max.schedule import Observation
 from greedy_max.category import Category
 
-from typing import List, Dict, Optional, NoReturn, Iterable
+from typing import List, Dict, Optional, NoReturn, Iterable, FrozenSet
 
 INFINITE_DURATION = 3. * 365. * 24. * u.h  # A date or duration to use for infinity (length of LP)
 INFINITE_REPEATS = 1000 # number to depict infinity for repeats in OT Timing windows calculations
@@ -76,10 +76,10 @@ def ot_timing_windows(starts: Iterable[int],
 
 class Collector:
     def __init__(self,
-                 sites: List[Site],
-                 semesters: List[str],
-                 program_types: List[str],
-                 obsclasses: List[str],
+                 sites: FrozenSet[Site],
+                 semesters: FrozenSet[str],
+                 program_types: FrozenSet[str],
+                 obsclasses: FrozenSet[str],
                  time_range=None,
                  dt: Time = 1.0 * u.min):
         
@@ -143,22 +143,19 @@ class Collector:
 
         # TODO: We will have to modify in order for this code to be usable by other observatories.
         zip_path = os.path.join(path, f'{(self.time_range[0] - 1.0 * u.day).strftime("%Y%m%d")}{SITE_ZIPS[site]}')
-        logging.info(f'Retrieving program data from ${zip_path}.')
+        logging.info(f'Retrieving program data from: {zip_path}.')
 
         time_accounting = self._load_tas(path, site)
         self._readzip(zip_path, xmlselect, site_name, tas=time_accounting, obsclasses=self.obs_classes)
-    
 
     def _calculate_time_grid(self) -> Optional[Time]:
-
         if self.time_range is not None:
             # Add one day to make the time_range inclusive since using arange
-            return Time(np.arange(self.time_range[0].jd, self.time_range[1].jd + 1.0, \
-                                            (1.0*u.day).value), format='jd')
+            return Time(np.arange(self.time_range[0].jd, self.time_range[1].jd + 1.0, (1.0 * u.day).value), format='jd')
         return None
 
     def _calculate_night_events(self) -> NoReturn:
-        """ Load night events to collector """
+        """Load night events to collector"""
 
         if self.time_grid is not None:
 
@@ -176,27 +173,30 @@ class Collector:
                                                             'sunmoonang': smangs, 'moonillum': moonillum}
 
     def _load_tas(self, path: str, site: Site) -> Dict[str,Dict[str,float]]:
-        """ Load Time Accouting Summary """
+        """ Load Time Accounting Summary."""
 
         date = self.time_range[0].strftime('%Y%m%d')
-        plandir = path + '/nightplans/' + date + '/'
-        print(plandir)    
-        if not os.path.exists(plandir):
-            os.makedirs(plandir)    
+        plan_path = os.path.join(path, 'nightplans', date)
+        if not os.path.exists(plan_path):
+            os.makedirs(plan_path)
+        logging.info(f"Using night plan directory: {plan_path}.")
+
         tas = Table()
         tadate = (self.time_range[0] - 1.0 * u.day).strftime('%Y%m%d')
         
         for sem in self.semesters:
-            tafile = 'tas_' + site.name + '_' + sem + '.txt'
-            if not os.path.exists(plandir + tafile):
-                get_report(site, tafile, plandir)
+            ta_file = f'tas_{site.name}_{sem}.txt'
+            ta_file_path = os.path.join(plan_path, ta_file)
+            if not os.path.exists(ta_file_path):
+                get_report(site, ta_file, plan_path)
                 
-            tmp = get_tas(plandir + tafile)
+            tmp = get_tas(ta_file_path)
             tas = vstack([tas, tmp])
 
         return sumtas_date(tas, tadate)
 
-    def _instrument_setup(self, configuration: Dict[str, List[str]], instrument_name: str) -> Instrument:
+    @staticmethod
+    def _instrument_setup(configuration: Dict[str, List[str]], instrument_name: str) -> Instrument:
         """ Setup instrument configurations for each observation """
         instconfig = {} 
 
@@ -210,6 +210,7 @@ class Collector:
                     if ifnd == -1:
                         ifnd = len(ulist[kk])
                 ulist[kk] = ulist[kk][0:ifnd]
+
             # Use human-readable slit names
             if 'GMOS' in instrument_name:
                 if key == 'fpu':
@@ -228,7 +229,6 @@ class Collector:
                 disperser = ulist[0]
             else:
                 instconfig[key] = ulist
-
 
         if any(inst in instrument_name.upper() for inst in ['IGRINS', 'MAROON-X']):
             disperser = 'XD'
@@ -258,9 +258,9 @@ class Collector:
    
     def _process_observation_data(self, 
                                   program, 
-                                  selection: List[str], 
-                                  obsclasses: List[str], 
-                                  tas: Dict[str,Dict[str,float]], 
+                                  selection: frozenset[str],
+                                  obsclasses: frozenset[str],
+                                  tas: Dict[str, Dict[str, float]],
                                   site: Site) -> NoReturn:
         """ Parse XML file to Observation objects and other data structures """
 
@@ -285,35 +285,30 @@ class Collector:
         semester = program_id[7]
 
         if 'FT' in program_id:
-            program_start, program_end = GetFTProgramDates(notes,semester,year, next_year) 
+            program_start, program_end = GetFTProgramDates(notes, semester, year, next_year)
             # If still undefined, use the values from the previous observation
             if program_start is None:
+                program_start = self.programs[-1].start
+                program_end = self.programs[-1].end
 
-                proglist = self.program.copy()
-                program_start = proglist[-1].start
-                program_end = proglist[-1].end
-                
         else:
-            
             beginning_semester_1 = Time(year + "-02-01 20:00:00", format='iso')
             end_semester_1 = Time(year + "-08-01 20:00:00", format='iso')
-            beginning_semester_2 =  Time(next_year + "-02-01 20:00:00", format='iso')
+            beginning_semester_2 = Time(next_year + "-02-01 20:00:00", format='iso')
             end_semester_2 = Time(next_year + "-08-01 20:00:00", format='iso')
+
             # This covers 'Q', 'LP' and 'DD' program observations
+            # Note that Band 1 non-ToO programs are persistent for the following semester
             if semester == 'A':
                 program_start = beginning_semester_1
-                # Band 1, non-ToO, programs are 'persistent' for the following semester
                 program_end = beginning_semester_2 if band == Band.Band1 else end_semester_1
-
             else:
                 program_start = end_semester_1
                 program_end = end_semester_2 if band == Band.Band1 else beginning_semester_2
 
-
         # Flexible boundaries - could be type-dependent
         program_start -= FUZZY_BOUNDARY * u.day
         program_end += FUZZY_BOUNDARY * u.day
-
 
         # Thesis program?
         thesis = GetThesis(program)
@@ -321,9 +316,7 @@ class Collector:
         # ToO status
         toostat = GetTooStatus(program)
 
-
         # Used time from Time Accounting Summary (tas) information
-    
         if tas and program_id in tas:
             used = tas[program_id]['prgtime']
         else:
@@ -418,7 +411,7 @@ class Collector:
                 if 'IGRINS' in instrument_name.upper() and total_time.total_seconds() / 3600. - obs_time > 0.0:
                     calibration_time = 10/ 60   # fractional hour
 
-                inst_config = self._instrument_setup(instrument_config,instrument_name)
+                inst_config = Collector._instrument_setup(instrument_config,instrument_name)
                 
                 start, duration, repeat, period = GetWindows(raw_observation) 
                 # This makes a list of timing windows between progstart and progend
@@ -442,7 +435,7 @@ class Collector:
                         # Timing window starts at the beginning of the sequence, the slew can be outside the window
                         # Therefore, subtract acquisition time from start of timing window
                         wstart -= self.observations[-1].acquisition()
-                        windows.append(Time([roundMin(wstart), roundMin(wend)]))
+                        windows.append(Time([round_min(wstart), round_min(wend)]))
                 self.obs_windows.append(windows)
                 
                 # Observation number in program
@@ -491,8 +484,8 @@ class Collector:
             tmin = min([MAX_NIGHT_EVENT_TIME] + [self.night_events[site]['twi_eve12'][i] for site in self.sites])
             tmax = max([MIN_NIGHT_EVENT_TIME] + [self.night_events[site]['twi_mor12'][i] for site in self.sites])
 
-            tstart = roundMin(tmin, up=True)
-            tend = roundMin(tmax, up=False)
+            tstart = round_min(tmin, up=True)
+            tend = round_min(tmax, up=False)
             n = np.int((tend.jd - tstart.jd) / self.dt.to(u.day).value + 0.5)
             times = Time(np.linspace(tstart.jd, tend.jd - self.dt.to(u.day).value, n), format='jd')
             timesarr.append(times)

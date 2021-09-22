@@ -1,9 +1,9 @@
 import numpy as np
 import re
-from greedy_max.band import Band
+from common.structures.band import Band
 from common.structures.site import Site
 from greedy_max.category import Category
-from greedy_max.instrument import Instrument
+from common.structures.instrument import Instrument
 from typing import Dict, List
 from astropy.units.quantity import Quantity
 import astropy.units as u

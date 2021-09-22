@@ -1,27 +1,27 @@
-from re import S
 from typing import Dict, Optional
+
 
 class Instrument:
     def __init__(self, 
                  name: str, 
-                 disperser:str, 
-                 configuration: Dict[str,Optional[str]]) -> None:
+                 disperser: str,
+                 configuration: Dict[str, Optional[str]]) -> None:
         self.name = name 
         self.disperser = disperser
         self.configuration = configuration
     
-    def observation_mode(self)-> str:
-
+    def observation_mode(self) -> str:
         def gmos_mode():         
             if 'MIRROR' in self.disperser:
                 return 'imaging'
-            #elif searchlist('arcsec', config['fpu']):
+            # elif searchlist('arcsec', config['fpu']):
             elif any(['arcsec' in fpu for fpu in self.configuration['fpu']]):
                 return 'longslit'
             elif any(['IFU' in fpu for fpu in self.configuration['fpu']]):
                 return 'ifu'
             elif any(['CUSTOM_MASK' in fpu for fpu in self.configuration['fpu']]):
                 return 'mos'
+
         def flamingos2_mode():
             if any(['LONGSLIT' in fpu for fpu in self.configuration['fpu']]):
                 return 'longslit'
@@ -31,24 +31,23 @@ class Instrument:
                 return 'imaging'
             else:
                 'None'
+
         def niri_mode():
-            return 'imaging' if ( 'NONE' in self.disperser 
-                                    and 'MASK_IMAGING' in self.configuration['mask']) else None
+            return 'imaging' if ('NONE' in self.disperser and 'MASK_IMAGING' in self.configuration['mask']) else None
+
         def gnirs_mode():
-            if ('ACQUISITION' in self.configuration['decker'] 
-                    and 'IN' in self.configuration['acquisitionMirror']):
+            if 'ACQUISITION' in self.configuration['decker'] and 'IN' in self.configuration['acquisitionMirror']:
                 return 'imaging'
-            #elif searchlist('XD', ):
             elif any('XD' in fpu for fpu in self.configuration['crossDispersed']):
                 return 'xd'
             else:
                 return 'longslit'
+
         def gsaoi_mode():
             return 'imaging'
+
         def nifs_mode():
             return 'ifu'
-
-        
 
         instrument_lookup = { 
                             'GMOS-S': gmos_mode,

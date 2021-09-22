@@ -2,9 +2,11 @@ import csv
 import os
 
 from openpyxl import load_workbook
-from typing import Dict, List, NoReturn
-from common.structures.site import Site, SITE_ABBREVIATION
 from datetime import datetime, timedelta
+from typing import Dict, List, NoReturn
+
+from common.structures.site import Site, SITE_ABBREVIATION
+from common.helpers import str_to_bool
 
 from resource_mock.resources import Resources
 
@@ -48,9 +50,6 @@ class Resource:
                 out_dict[fpu] = barcode
         return out_dict
     
-    def _to_bool(self, b: str) -> bool:
-        return b is not None and b.upper() == 'YES'
-    
     def _nearest(self, items, pivot):
         return min(items, key=lambda x: abs(x - pivot))
 
@@ -79,7 +78,7 @@ class Resource:
                 self.mode[site][date] = row[1].value
 
                 # TODO: Some of these rows have None as their value. Is this right?
-                self.lgs[site][date] = self._to_bool(row[2].value)
+                self.lgs[site][date] = str_to_bool(row[2].value)
             
         if not self.instruments or not self.mode or not self.lgs:
             raise Exception("Problems on reading spreadsheet...") 
