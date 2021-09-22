@@ -119,7 +119,7 @@ class Collector:
         self.obs_windows = []
 
     def load(self, path: str) -> NoReturn:
-        """ Main collector method. It setups the collecting process and parameters """ 
+        """Main collector method. It setups the collecting process and parameters"""
 
         # TODO: temporary hack for just using one site
         site_name = Site.GS.value
@@ -134,7 +134,7 @@ class Collector:
         except ValueError:
             raise RuntimeError(f'{site_name} not a valid site name.')
         except astropy.coordinates.UnknownSiteException:
-            raise RuntimeError("${site.value} not a valid geographical location.")
+            raise RuntimeError(f'{site_name} does not correspond to a valid geographical location.')
 
         self.timezones[site] = pytz.timezone(location.info.meta['timezone'])
         self.locations[site] = location
@@ -202,14 +202,15 @@ class Collector:
 
         fpuwidths = []
         disperser = 'NONE'
+
+        # TODO: I don't think this does anything since we overwrite ulist below and never use it again.
         for key in configuration.keys():
             ulist = list(dict.fromkeys(configuration[key]))
             if key in ['filter', 'disperser']:
                 for kk in range(len(ulist)):
                     ifnd = ulist[kk].find('_')
-                    if ifnd == -1:
-                        ifnd = len(ulist[kk])
-                ulist[kk] = ulist[kk][0:ifnd]
+                    if ifnd != -1:
+                        ulist[kk] = ulist[kk][0:ifnd]
 
             # Use human-readable slit names
             if 'GMOS' in instrument_name:
@@ -233,7 +234,8 @@ class Collector:
         # TODO: I expect this can be simplified.
         if any(inst in instrument_name.upper() for inst in ['IGRINS', 'MAROON-X']):
             disperser = 'XD'
-       
+
+        # TODO: instconfig type appears to be very wrong here.
         return Instrument(instrument_name, disperser, instconfig)
         
     def _readzip(self, 
