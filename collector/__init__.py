@@ -236,6 +236,8 @@ class Collector:
             disperser = 'XD'
 
         # TODO: instconfig type appears to be very wrong here.
+        # TODO: Expected type 'dict[str, Optional[str]]',
+        # TODO: got 'dict[str, Union[list, list[Union[Optional[str], Any]]]]' instead.
         return Instrument(instrument_name, disperser, instconfig)
         
     def _readzip(self, 
@@ -481,11 +483,9 @@ class Collector:
             timesarr.append(times)
 
         return timesarr
-    
-    def get_actual_conditions(self):
-        # TODO: This could be an static method but it should be some internal process or API call to ENV
-        # but right now is mostly hardcoded so the plan would be as if 
 
+    # TODO: This could be an static method but it should be some internal process or API call to ENV.
+    def get_actual_conditions(self):
         actcond = {}
         time_blocks = [Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')] #
         variants = {
@@ -498,10 +498,14 @@ class Collector:
             }
 
         selected_variant = variants['IQ70 CC50']
-        
-        actcond['sky'] = SkyConditions(selected_variant['iq'], SB.SBANY, selected_variant['cc'],
-                             selected_variant['wv'])
+
+        # TODO: We can use a dictionary here now, but it seems to me to make more sense to pack
+        # TODO: SkyConditions and WindConditions into a class, or at least access using enums instead of str.
+        actcond['sky'] = SkyConditions(SB.SBANY, selected_variant['cc'], selected_variant['iq'],
+                                       selected_variant['wv'])
+
+        # TODO: time_blocks expects float, gets List[Time] instead.
         actcond['wind'] = WindConditions( selected_variant['wsep'], selected_variant['wspd'],
-                             selected_variant['wdir'],time_blocks)
+                             selected_variant['wdir'], time_blocks)
         
         return actcond
