@@ -21,6 +21,6 @@ def round_min(time: Time, up: bool = False) -> Time:
 
 def str_to_bool(s: Optional[str]) -> bool:
     """
-    Returns true if and only if s is defined and some variant capitalization of 'yes'.
+    Returns true if and only if s is defined and some variant capitalization of 'yes' or 'true'.
     """
-    return s is not None and s.strip().upper() == 'YES'
+    return s is not None and s.strip().upper() in ['YES', 'TRUE']

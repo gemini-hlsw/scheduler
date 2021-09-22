@@ -23,6 +23,7 @@ from common.structures.conditions import SkyConditions, WindConditions, conditio
 from common.structures.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
 from common.structures.site import Site, GEOGRAPHICAL_LOCATIONS, SITE_ZIPS
 from common.structures.target import TargetTag, Target
+from common.structures.time_award_units import TimeAwardUnits
 
 from common.structures.band import Band
 from common.structures.instrument import Instrument
@@ -32,7 +33,7 @@ from greedy_max.category import Category
 from typing import List, Dict, Optional, NoReturn, Iterable, FrozenSet
 
 INFINITE_DURATION = 3. * 365. * 24. * u.h  # A date or duration to use for infinity (length of LP)
-INFINITE_REPEATS = 1000 # number to depict infinity for repeats in OT Timing windows calculations
+INFINITE_REPEATS = 1000  # number to depict infinity for repeats in OT Timing windows calculations
 MIN_NIGHT_EVENT_TIME = Time('1980-01-01 00:00:00', format='iso', scale='utc')
 MAX_NIGHT_EVENT_TIME = Time('2200-01-01 00:00:00', format='iso', scale='utc')
 
@@ -40,7 +41,7 @@ MAX_NIGHT_EVENT_TIME = Time('2200-01-01 00:00:00', format='iso', scale='utc')
 def ot_timing_windows(starts: Iterable[int],
                       durations: Iterable[int],
                       repeats: Iterable[int],
-                      periods: Iterable[int]):
+                      periods: Iterable[int]) -> List[Time]:
     """
     Turn OT timing constraints into more natural units
     Inputs are lists
@@ -75,30 +76,32 @@ def ot_timing_windows(starts: Iterable[int],
 
 
 class Collector:
+    # Counter to keep track of observations.
+    observation_num = 0
+
     def __init__(self,
                  sites: FrozenSet[Site],
                  semesters: FrozenSet[str],
                  program_types: FrozenSet[str],
-                 obsclasses: FrozenSet[str],
-                 time_range=None,
-                 dt: Time = 1.0 * u.min):
+                 obs_classes: FrozenSet[str],
+                 time_range: Time = None,
+                 delta_time: Time = 1.0 * u.min):
         
         self.sites = sites                   
         self.semesters = semesters
         self.program_types = program_types
-        self.obs_classes = obsclasses
-        self.time_range = time_range         # Time object, array for visibility start/stop dates
-        
-        self.time_grid = self._calculate_time_grid()  # Time object, array with entry for each day in time_range
-        self.dt = dt                         # time step for times
+        self.obs_classes = obs_classes
+
+        self.time_range = time_range  # Time object: array for visibility start/stop dates.
+        self.time_grid = self._calculate_time_grid()  # Time object: array with entry for each day in time_range.
+        self.delta_time = delta_time  # Length of time steps.
 
         self.observations = []
         self.programs = {}
 
         self.night_events = {}        
         self.scheduling_groups = {}
-        self.instconfig = []
-        self.nobs = 0
+        self.inst_config = []
         
         # NOTE: This are used to used the EarthLocation and Timezone objects for functions that used those kind of 
         # objects. This can either be include in the Site class if the use of this libraries is justified. 
@@ -109,7 +112,7 @@ class Collector:
         self.obsid = []
         self.obstatus = []
         self.obsclass = []
-        self.nobs = 0
+        self.observation_num = 0
         self.band = []
         self.toostatus = []
         self.priority = []
@@ -132,7 +135,7 @@ class Collector:
             site = Site(site_name)
             location = GEOGRAPHICAL_LOCATIONS[site]
         except ValueError:
-            raise RuntimeError("${site_name} must be in ${site.value for site in Site}.")
+            raise RuntimeError(f'{site_name} not a valid site name.')
         except astropy.coordinates.UnknownSiteException:
             raise RuntimeError("${site.value} not a valid geographical location.")
 
@@ -150,7 +153,7 @@ class Collector:
 
     def _calculate_time_grid(self) -> Optional[Time]:
         if self.time_range is not None:
-            # Add one day to make the time_range inclusive since using arange
+            # Add one day to make the time_range inclusive since using arange.
             return Time(np.arange(self.time_range[0].jd, self.time_range[1].jd + 1.0, (1.0 * u.day).value), format='jd')
         return None
 
@@ -165,15 +168,15 @@ class Collector:
                 mid, sset, srise, twi_eve18, twi_mor18, twi_eve12, twi_mor12, mrise, mset, smangs, moonillum = \
                     nightevents(self.time_grid, site_location, tz, verbose=False)
                 night_length = (twi_mor12 - twi_eve12).to_value('h') * u.h
-                self.night_events[site] = {'midnight': mid, 'sunset': sset, 'sunrise': srise, \
-                                                            'twi_eve18': twi_eve18, 'twi_mor18': twi_mor18, \
-                                                            'twi_eve12': twi_eve12, 'twi_mor12': twi_mor12, \
-                                                            'night_length': night_length, \
-                                                            'moonrise': mrise, 'moonset': mset, \
+                self.night_events[site] = {'midnight': mid, 'sunset': sset, 'sunrise': srise,
+                                                            'twi_eve18': twi_eve18, 'twi_mor18': twi_mor18,
+                                                            'twi_eve12': twi_eve12, 'twi_mor12': twi_mor12,
+                                                            'night_length': night_length,
+                                                            'moonrise': mrise, 'moonset': mset,
                                                             'sunmoonang': smangs, 'moonillum': moonillum}
 
-    def _load_tas(self, path: str, site: Site) -> Dict[str,Dict[str,float]]:
-        """ Load Time Accounting Summary."""
+    def _load_tas(self, path: str, site: Site) -> Dict[str, Dict[str, float]]:
+        """Load Time Accounting Summary."""
 
         date = self.time_range[0].strftime('%Y%m%d')
         plan_path = os.path.join(path, 'nightplans', date)
@@ -230,10 +233,11 @@ class Collector:
             else:
                 instconfig[key] = ulist
 
+        # TODO: I expect this can be simplified.
         if any(inst in instrument_name.upper() for inst in ['IGRINS', 'MAROON-X']):
             disperser = 'XD'
        
-        return Instrument(instrument_name,disperser,instconfig)
+        return Instrument(instrument_name, disperser, instconfig)
         
     def _readzip(self, 
                  zipfile: str, 
@@ -254,29 +258,28 @@ class Collector:
                     program = tree.find('container')
                     (active, complete) = CheckStatus(program)
                     if active and not complete:
-                        self._process_observation_data(program, selection, obsclasses, tas, site)
+                        self._process_observation_data(program, selection, obsclasses, tas)
    
-    def _process_observation_data(self, 
-                                  program, 
+    def _process_observation_data(self,
+                                  program_data,
                                   selection: frozenset[str],
                                   obsclasses: frozenset[str],
-                                  tas: Dict[str, Dict[str, float]],
-                                  site: Site) -> NoReturn:
-        """ Parse XML file to Observation objects and other data structures """
+                                  tas: Dict[str, Dict[str, float]]) -> NoReturn:
+        """Parse XML file to Observation objects and other data structures"""
 
-        program_id = GetProgramID(program)
-        notes = GetProgNotes(program)
-        program_mode = GetMode(program)
+        program_id = get_program_id(program_data)
+        notes = get_program_notes(program_data)
+        program_mode = get_program_mode(program_data)
         
-        xml_band = GetBand(program)
+        xml_band = get_program_band(program_data)
         if xml_band == 'UNKNOWN':
             band = Band(1) if program_mode == 'CLASSICAL' else Band(0)
         else:
             band = Band(int(xml_band))
 
-        award, unit = GetAwardedTime(program)
+        award, unit = get_program_awarded_time(program_data)
         if award and unit:
-            award = CLASSICAL_NIGHT_LEN * float(award) * u.hour if unit == 'nights' else float(award) * u.hour
+            award = CLASSICAL_NIGHT_LEN * float(award) * u.hour if unit == TimeAwardUnits.NIGHTS else float(award) * u.hour
         else:
             award = 0.0 * u.hour
         
@@ -311,10 +314,10 @@ class Collector:
         program_end += FUZZY_BOUNDARY * u.day
 
         # Thesis program?
-        thesis = GetThesis(program)
+        thesis = GetThesis(program_data)
 
         # ToO status
-        toostat = GetTooStatus(program)
+        toostat = get_too_status(program_data)
 
         # Used time from Time Accounting Summary (tas) information
         if tas and program_id in tas:
@@ -322,22 +325,22 @@ class Collector:
         else:
             used = 0.0 * u.hour
 
-        collected_program = Program(program_id, 
-                                            program_mode, 
-                                            band, 
-                                            thesis, 
-                                            award, 
-                                            used, 
-                                            toostat, 
-                                            program_start, 
-                                            program_end)
+        collected_program = Program(program_id,
+                                    program_mode,
+                                    band,
+                                    thesis,
+                                    award,
+                                    used,
+                                    toostat,
+                                    program_start,
+                                    program_end)
         self.programs[program_id] = collected_program
-        raw_observations, groups = GetObservationInfo(program)
+        raw_observations, groups = GetObservationInfo(program_data)
 
         if raw_observations is None:
             raise RuntimeError('Parser issue to get observation info')
 
-        for raw_observation, group in zip(raw_observations,groups):
+        for raw_observation, group in zip(raw_observations, groups):
 
             classes = list(dict.fromkeys(GetClass(raw_observation)))
             status = GetObsStatus(raw_observation)
@@ -363,16 +366,15 @@ class Collector:
                 target_tag = None
                 if targets:
                     for target in targets:
-                            try:
-                                target_name = target['group']['name']
-                                target_tag = TargetTag(target['tag']) if target_name == 'Base' else None
-                                target_designation = target['num'] if (target_tag is not TargetTag.Sidereal and 
-                                                                        target_tag is not None and 
-                                                                        target_tag is TargetTag.MajorBody) else target['des']
-                            except:
-                                pass
+                        try:
+                            target_name = target['group']['name']
+                            target_tag = TargetTag(target['tag']) if target_name == 'Base' else None
+                            target_designation = target['num'] if target_tag is not None and\
+                                                                  target_tag == TargetTag.MajorBody else target['des']
+                        except:
+                            pass
 
-                target= Target(target_name, target_tag, target_mags, target_designation, target_coords)
+                target = Target(target_name, target_tag, target_mags, target_designation, target_coords)
                 # Observation Priority
                 priority = GetPriority(raw_observation)
                 # Instrument Configuration
@@ -439,14 +441,14 @@ class Collector:
                 self.obs_windows.append(windows)
                 
                 # Observation number in program
-                collected_program.add(self.nobs)
+                collected_program.add_observation(self.observation_num)
 
 
                 # Check if group exists, add if not
                 if group['key'] not in self.scheduling_groups.keys():
                     self.scheduling_groups[group['key']] = {'name': group['name'], 'idx': []}
-                    collected_program.add(group['key'])
-                self.scheduling_groups[group['key']]['idx'].append(self.nobs)
+                    collected_program.add_group(group['key'])
+                self.scheduling_groups[group['key']]['idx'].append(Collector.observation_num)
 
                 # Get Horizons coordinates for nonsidereal targets (write file for future use)
                 #if target_tag in ['asteroid', 'comet', 'major-body']: NOTE: This does not work, and it should!
@@ -461,19 +463,19 @@ class Collector:
                 self.priority.append(priority)
                 #self.conditions.append({'iq': condf[0], 'cc': condf[1], 'bg': condf[2], 'wv': condf[3]})
 
-                self.observations.append(Observation(self.nobs,
-                                                    obs_odb_id,
-                                                    band, 
-                                                    Category(classes[0].lower()), 
-                                                    obs_time, 
-                                                    total_time.total_seconds() / 3600. + calibration_time,
-                                                    inst_config,
-                                                    sky_cond,
-                                                    elevation_constraints,
-                                                    target,
-                                                    status,
-                                                    too_status.lower()))
-                self.nobs += 1
+                self.observations.append(Observation(Collector.observation_num,
+                                                     obs_odb_id,
+                                                     band,
+                                                     Category(classes[0].lower()),
+                                                     obs_time,
+                                                     total_time.total_seconds() / 3600. + calibration_time,
+                                                     inst_config,
+                                                     sky_cond,
+                                                     elevation_constraints,
+                                                     target,
+                                                     status,
+                                                     too_status.lower()))
+                Collector.observation_num += 1
 
     def create_time_array(self):
 
@@ -486,8 +488,8 @@ class Collector:
 
             tstart = round_min(tmin, up=True)
             tend = round_min(tmax, up=False)
-            n = np.int((tend.jd - tstart.jd) / self.dt.to(u.day).value + 0.5)
-            times = Time(np.linspace(tstart.jd, tend.jd - self.dt.to(u.day).value, n), format='jd')
+            n = np.int((tend.jd - tstart.jd) / self.delta_time.to(u.day).value + 0.5)
+            times = Time(np.linspace(tstart.jd, tend.jd - self.delta_time.to(u.day).value, n), format='jd')
             timesarr.append(times)
 
         return timesarr

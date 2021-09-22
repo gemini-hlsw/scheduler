@@ -1,13 +1,14 @@
+from typing import NoReturn
 from common.structures.band import Band
-from typing import NoReturn, Union
-class Program:
 
+
+class Program:
     def __init__(self,
                  idx: str,
                  mode: str, 
                  band: Band, 
                  thesis: str, 
-                 time:str, 
+                 time: str,
                  used_time, 
                  too_status,
                  start,
@@ -23,17 +24,11 @@ class Program:
         self.end = end
         self.observations = []
         self.groups = []
-    
-    def add(self, idx: Union[str,int]) -> NoReturn:
-        if isinstance(idx,int):
-            self._add_observation(idx)
-        elif isinstance(idx,str):
-            self._add_group(idx)
-        else:
-            raise ValueError("Can't add")
-    def _add_observation(self,obs_idx: int) -> NoReturn:
-       if obs_idx not in self.observations:
+
+    def add_observation(self, obs_idx: int) -> NoReturn:
+        if obs_idx not in self.observations:
             self.observations.append(obs_idx)
-    def _add_group(self,grp_idx: str) -> NoReturn:
+
+    def add_group(self, grp_idx: str) -> NoReturn:
         if grp_idx not in self.groups:
             self.groups.append(grp_idx)

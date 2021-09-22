@@ -81,12 +81,11 @@ class Resource:
                 self.lgs[site][date] = str_to_bool(row[2].value)
             
         if not self.instruments or not self.mode or not self.lgs:
-            raise Exception("Problems on reading spreadsheet...") 
+            raise Exception("Problems reading spreadsheet.")
 
     def connect(self) -> NoReturn:
         """
         Allows the mock to load all the data locally, emulating a connection to the API.
-
         """
         print('Get Resource data...')
         sites = [site for site in Site]

@@ -5,12 +5,14 @@ from resource_mock import Resource
 import sys
 import logging
 
+# *** FILE LOGGING ***
 # logging.basicConfig(level=logging.DEBUG, filename=f'{__name__}.log', filemode='w')
 # logger = logging.getLogger(__name__)
 # stream_handler = logging.StreamHandler()
 # stream_handler.setLevel(logging.INFO)
 # logger.addHandler(stream_handler)
 
+# *** CONSOLE LOGGING ***
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
 handler = logging.StreamHandler(sys.stdout)
@@ -27,7 +29,7 @@ if __name__ == '__main__':
     obs_classes = frozenset(['SCIENCE', 'PROG_CAL', 'PARTNER_CAL'])
     prog_types = frozenset(['Q', 'LP', 'FT', 'DD'])
     sites = frozenset([Site.GS])
-    semesters = frozenset(['2018B','2019A'])
+    semesters = frozenset(['2018B', '2019A'])
 
     path = os.path.join('collector', 'data')
     collector = Collector(sites, semesters, prog_types, obs_classes, time_range=time_range)
