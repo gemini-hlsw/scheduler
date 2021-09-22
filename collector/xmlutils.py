@@ -1,12 +1,16 @@
 import datetime
 import calendar
-from astropy.time import Time
-from xml.etree import ElementTree
 from typing import List, Optional, Tuple
+from xml.etree import ElementTree
 
+from astropy.time import Time
+import astropy.units as u
+
+from common.constants import CLASSICAL_NIGHT_LEN
 from common.helpers import str_to_bool
 from common.structures.band import Band
 from common.structures.time_award_units import TimeAwardUnits
+from common.structures.too_type import ToOType
 
 WARNING_STATES = frozenset(['FOR-ACTIVATION', 'ONGOING', 'READY'])
 
@@ -63,30 +67,30 @@ def get_program_band(program_data: ElementTree) -> Band:
     return Band(band)
 
 
-def get_program_awarded_time(program_data: ElementTree) -> Tuple[float, TimeAwardUnits]:
+def get_program_awarded_time(program_data: ElementTree) -> Time:
     sciprogram = program_data.find("paramset[@name='Science Program'][@kind='dataObj']")
     # time_acct = sciprogram.find(paramset[@name='timeAcct']")
     awarded_time = sciprogram.find("param[@name='awardedTime']")
-    value = float(awarded_time.attrib.get('value'))
-    units = TimeAwardUnits(awarded_time.attrib.get('units'))
-    return value, units
+    raw_value = float(awarded_time.attrib.get('value'))
+    raw_units = TimeAwardUnits(awarded_time.attrib.get('units'))
+    return 0.0 * u.hour if raw_value is None or raw_units is None else\
+        float(raw_value) * (CLASSICAL_NIGHT_LEN if TimeAwardUnits(raw_units) == TimeAwardUnits.NIGHTS else 1) * u.hour
 
 
-def GetThesis(program_data: ElementTree) -> bool:
+def is_program_thesis(program_data: ElementTree) -> bool:
     paramset = program_data.find("paramset[@name='Science Program'][@kind='dataObj']")
     param = paramset.find("param[@name='isThesis']")
     return param is not None and str_to_bool(param.attrib.get('value'))
 
 
-def get_too_status(Program):
-    for paramset in Program.findall('paramset'):
+def get_too_status(program_data: ElementTree) -> ToOType:
+    too = ToOType.NONE
+    for paramset in program_data.findall('paramset'):
         if paramset.attrib.get('name') == 'Science Program':
             for param in paramset.findall('param'):
                 if param.attrib.get('name') == 'tooType':
                     too = param.attrib.get('value')
-
-    # print(f'ToO Status = {too}')
-    return (too)
+    return too
 
 
 def GetClass(Observation):

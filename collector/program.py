@@ -1,16 +1,19 @@
 from typing import NoReturn
-from common.structures.band import Band
 
+from astropy.time import Time
+
+from common.structures.band import Band
+from common.structures.too_type import ToOType
 
 class Program:
     def __init__(self,
                  idx: str,
                  mode: str, 
                  band: Band, 
-                 thesis: str, 
-                 time: str,
+                 thesis: bool,
+                 time: Time,
                  used_time, 
-                 too_status,
+                 too_status: ToOType,
                  start,
                  end) -> None:
         self.idx = idx

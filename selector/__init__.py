@@ -5,6 +5,7 @@ import collector.sb as sb
 from common.structures.conditions import SkyConditions, WindConditions
 from common.structures.elevation import ElevationType
 from common.structures.target import TargetTag
+from common.structures.too_type import ToOType
 
 from selector.visibility import Visibility
 from selector.ranker import Ranker
@@ -200,7 +201,7 @@ class Selector:
 
     def _match_conditions(self, visit_conditions: SkyConditions, 
                           actual_conditions: Dict[str, Union[SkyConditions,WindConditions]], 
-                          negha: bool, toostatus: str, scalar_input = False) -> float:
+                          negha: bool, toostatus: ToOType, scalar_input = False) -> float:
     
         skyiq = actual_conditions.iq.value
         skycc = actual_conditions.cc.value
@@ -232,12 +233,12 @@ class Selector:
         # Multiply weights by skyiq/iq where iq better than required and target
         # does not set soon and not a rapid ToO.
         i_better_iq = np.where(skyiq < visit_conditions.iq)[0][:]
-        if len(i_better_iq) != 0 and negha and toostatus != 'rapid':
+        if len(i_better_iq) != 0 and negha and toostatus != ToOType.RAPID:
             cmatch[i_better_iq] = cmatch[i_better_iq] * skyiq / visit_conditions.iq.value
         # cmatch[i_better_iq] = cmatch[i_better_iq] * (1.0 - (iq - skyiq))
 
         i_better_cc = np.where(skycc < visit_conditions.cc)[0][:]
-        if len(i_better_cc) != 0 and negha and toostatus != 'rapid':
+        if len(i_better_cc) != 0 and negha and toostatus != ToOType.RAPID:
             cmatch[i_better_cc] = cmatch[i_better_cc] * skycc / visit_conditions.cc.value
         if scalar_input:
             cmatch = np.squeeze(cmatch)
@@ -467,7 +468,7 @@ class Selector:
                         wind_conditions = actual_wind_conditions.get_wind_conditions(obs.visibility.azimuth[inight])
                     
                     # NOTE: first condition always going to be true. Why is needed?
-                    if too_status != 'rapid' and obs.too_status != 'none':
+                    if too_status != ToOType.RAPID and obs.too_status != ToOType.NONE:
                         too_status = obs.too_status
 
                     # Check for correct instrument configuration and check comp in other sites. 

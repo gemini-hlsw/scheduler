@@ -10,6 +10,7 @@ import astropy.units as u
 from common.structures.conditions import SkyConditions
 from common.structures.elevation import ElevationConstraints
 from common.structures.target import Target
+from common.structures.too_type import ToOType
 
 class Observation: 
     """
@@ -27,7 +28,7 @@ class Observation:
                  elevation: ElevationConstraints,
                  target: Target,
                  status: str,
-                 too_status: str,
+                 too_status: ToOType,
                  #acquisition: int
                  ) -> None:
         self.idx = idx

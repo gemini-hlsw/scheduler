@@ -4,6 +4,7 @@ from enum import Enum
 import numbers
 from typing import Callable, Union
 
+
 class ComparableEnum(Enum):
     def __gt__(self, other):
         try:
@@ -73,11 +74,13 @@ class ComparableEnum(Enum):
             pass
         return NotImplemented
 
+
 class SB(ComparableEnum):
     SB20 = 0.2
     SB50 = 0.5
     SB80 = 0.8
     SBANY = 1.0
+
 
 class CC(ComparableEnum):
     CC50 = 0.5
@@ -109,12 +112,12 @@ def conditions_parser(conditions: str) -> tuple:
                            parser: Callable[[str],Enum])-> Union[np.ndarray,Enum]:
         if isinstance(condition, np.ndarray):
             return np.array(list(map(parser,condition)))
-        elif isinstance(condition,str) or isinstance(condition,float):
+        elif isinstance(condition, str) or isinstance(condition, float):
             return parser(condition)
         else:
             raise ValueError('Must be type str, float, or np.ndarray')
     
-    def find_values(values :str) -> float:
+    def find_values(values: str) -> float:
         return float(''.join(x for x in values if x.isdigit()))/100
     
     def iq_parser(iq: str) -> IQ:
@@ -133,8 +136,7 @@ def conditions_parser(conditions: str) -> tuple:
     return (parser_by_instance(str_sb, sb_parser),
             parser_by_instance(str_cc, cc_parser),
             parser_by_instance(str_iq,iq_parser),
-            parser_by_instance(str_wv, wv_parser) 
-    )
+            parser_by_instance(str_wv, wv_parser))
 
 
 class SkyConditions:
@@ -151,13 +153,13 @@ class SkyConditions:
         self.iq = iq
         self.wv = wv
 
-    
     def __str__(self):
         return f'{str(self.sb.name)},{str(self.cc.name)},{str(self.iq.name)},{str(self.wv.name)}'
 
     def __repr__(self):
         return f'Conditions({str(self.sb)},{str(self.cc)},{str(self.iq)},{str(self.wv)})'
-      
+
+
 class WindConditions:
     """
     Wind constraints for the night
@@ -173,7 +175,6 @@ class WindConditions:
         self.time_blocks = time_blocks
 
     def get_wind_conditions(self, azimuth):
-        
         if np.asarray(self.wind_speed).ndim == 0:
             speed = np.full(len(azimuth), self.wind_speed.to(u.m / u.s).value) * u.m / u.s
         

@@ -17,7 +17,7 @@ from collector.xmlutils import *
 from collector.get_tadata import get_report, get_tas, sumtas_date
 from collector.program import Program
 
-from common.constants import FUZZY_BOUNDARY, CLASSICAL_NIGHT_LEN
+from common.constants import FUZZY_BOUNDARY
 from common.helpers import round_min
 from common.structures.conditions import SkyConditions, WindConditions, conditions_parser, IQ, CC, SB, WV
 from common.structures.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
@@ -266,22 +266,11 @@ class Collector:
                                   obsclasses: frozenset[str],
                                   tas: Dict[str, Dict[str, float]]) -> NoReturn:
         """Parse XML file to Observation objects and other data structures"""
-
         program_id = get_program_id(program_data)
         notes = get_program_notes(program_data)
         program_mode = get_program_mode(program_data)
-        
-        xml_band = get_program_band(program_data)
-        if xml_band == 'UNKNOWN':
-            band = Band(1) if program_mode == 'CLASSICAL' else Band(0)
-        else:
-            band = Band(int(xml_band))
-
-        award, unit = get_program_awarded_time(program_data)
-        if award and unit:
-            award = CLASSICAL_NIGHT_LEN * float(award) * u.hour if unit == TimeAwardUnits.NIGHTS else float(award) * u.hour
-        else:
-            award = 0.0 * u.hour
+        band = get_program_band(program_data)
+        award = get_program_awarded_time(program_data)
         
         year = program_id[3:7]
         next_year = str(int(year) + 1)
@@ -314,7 +303,7 @@ class Collector:
         program_end += FUZZY_BOUNDARY * u.day
 
         # Thesis program?
-        thesis = GetThesis(program_data)
+        thesis = is_program_thesis(program_data)
 
         # ToO status
         toostat = get_too_status(program_data)
@@ -474,7 +463,7 @@ class Collector:
                                                      elevation_constraints,
                                                      target,
                                                      status,
-                                                     too_status.lower()))
+                                                     too_status))
                 Collector.observation_num += 1
 
     def create_time_array(self):
