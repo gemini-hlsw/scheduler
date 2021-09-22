@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from greedy_max.site import Site
+from common.structures.site import Site
 import re
 
 class Resources:

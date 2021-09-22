@@ -5,7 +5,6 @@ import collector.sb as sb
 from common.structures.conditions import SkyConditions, WindConditions
 from common.structures.elevation import ElevationType
 from common.structures.target import TargetTag
-from common.constants import MAX_AIRMASS
 
 from selector.visibility import Visibility
 from selector.ranker import Ranker
@@ -13,15 +12,13 @@ import selector.horizons as hz
 
 from greedy_max.schedule import Observation, Visit
 from greedy_max.category import Category
-from greedy_max.site import Site
+from common.structures.site import Site
 
 from resource_mock.resources import Resources
 
 from astropy.coordinates import SkyCoord, Angle
 import astropy.units as u
-from astropy.time import Time
 
-from joblib import Parallel, delayed
 import multiprocessing
 import numpy as np
 from tqdm import tqdm

@@ -1,11 +1,10 @@
 import numpy as np
 import re
 from greedy_max.band import Band
-from greedy_max.site import Site
+from common.structures.site import Site
 from greedy_max.category import Category
 from greedy_max.instrument import Instrument
 from typing import Dict, List
-from dataclasses import dataclass
 from astropy.units.quantity import Quantity
 import astropy.units as u
 from common.structures.conditions import SkyConditions

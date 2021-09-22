@@ -1,14 +1,14 @@
-from time import time
+import logging
 from zipfile import ZipFile
 import xml.etree.cElementTree as ElementTree
 
-from astropy.coordinates import SkyCoord, EarthLocation
+import astropy.coordinates
+from astropy.coordinates import SkyCoord
 import astropy.units as u
 from astropy.table import Table, vstack
 
 import pytz
-import os      
-import calendar
+import os
 import numpy as np
 
 import collector.sb as sb
@@ -21,27 +21,27 @@ from common.structures.conditions import SkyConditions, WindConditions, conditio
 from common.structures.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
 from common.structures.target import TargetTag, Target
 from common.helpers import roundMin
-from common.constants import MAX_AIRMASS, FUZZY_BOUNDARY, CLASSICAL_NIGHT_LEN
+from common.constants import FUZZY_BOUNDARY, CLASSICAL_NIGHT_LEN
 
 from greedy_max.instrument import Instrument
-from greedy_max.site import Site
+from common.structures.site import Site, GEOGRAPHICAL_LOCATIONS, SITE_ZIPS
 from greedy_max.band import Band
 from greedy_max.schedule import Observation
 from greedy_max.category import Category
 
 from typing import List, Dict, Optional, NoReturn
 
-INFINITE_DURATION = 3. * 365. * 24. * u.h # A date or duration to use for infinity (length of LP)
+INFINITE_DURATION = 3. * 365. * 24. * u.h  # A date or duration to use for infinity (length of LP)
 INFINITE_REPEATS = 1000 # number to depict infinity for repeats in OT Timing windows calculations
 MIN_NIGHT_EVENT_TIME = Time('1980-01-01 00:00:00', format='iso', scale='utc')
 MAX_NIGHT_EVENT_TIME = Time('2200-01-01 00:00:00', format='iso', scale='utc')
+
 
 def ot_timing_windows(strt, dur, rep, per, verbose=False):
     """
     Turn OT timing constraints into more natural units
     Inputs are lists
     Match output from GetWindows
-
     """
 
     timing_windows = []
@@ -76,13 +76,15 @@ def ot_timing_windows(strt, dur, rep, per, verbose=False):
 
     return timing_windows
 
+
 class Collector:
-    def __init__(self, sites: List[Site], 
-                       semesters: List[str], 
-                       program_types: List[str], 
-                       obsclasses: List[str], 
-                       time_range=None, 
-                       dt=1.0*u.min) -> None:
+    def __init__(self,
+                 sites: List[Site],
+                 semesters: List[str],
+                 program_types: List[str],
+                 obsclasses: List[str],
+                 time_range=None,
+                 dt=1.0 * u.min):
         
         self.sites = sites                   
         self.semesters = semesters
@@ -122,31 +124,31 @@ class Collector:
     def load(self, path: str) -> NoReturn:
         """ Main collector method. It setups the collecting process and parameters """ 
 
-        #config fiLE?
-        site_name = Site.GS.value #NOTE: temporary hack for just using one site
+        # Config file?
+        site_name = Site.GS.value  # TODO: temporary hack for just using one site
 
-        xmlselect = [site_name.upper() + '-' + sem + '-' + prog_type for sem in self.semesters for prog_type in self.program_types]
+        xmlselect = [site_name.upper() + '-' + sem + '-' + prog_type
+                     for sem in self.semesters for prog_type in self.program_types]
 
-        # Site details
-        if site_name == 'gn':
-            site = EarthLocation.of_site('gemini_north')
-        elif site_name == 'gs':
-            site = EarthLocation.of_site('gemini_south')
-            
-        else:
-            raise RuntimeError('ERROR: site_name must be "gs" or "gn".')
-            
-        
-        self.timezones[Site(site_name)] = pytz.timezone(site.info.meta['timezone'])
-        self.locations[Site(site_name)] = site
+        # Retrieve the site details
+        try:
+            site = Site(site_name)
+            location = GEOGRAPHICAL_LOCATIONS[site]
+        except ValueError:
+            raise RuntimeError("${site_name} must be in ${site.value for site in Site}.")
+        except astropy.coordinates.UnknownSiteException:
+            raise RuntimeError("${site.value} not a valid geographical location.")
+
+        self.timezones[site] = pytz.timezone(location.info.meta['timezone'])
+        self.locations[site] = location
 
         self._calculate_night_events()
-        
-        sitezip = {'GN': '-0715.zip', 'GS': '-0830.zip'}
-        zip_path = f"{path}/{(self.time_range[0] - 1.0*u.day).strftime('%Y%m%d')}{sitezip[site_name.upper()]}"
-        print(zip_path)
 
-        time_accounting = self._load_tas(path, site_name.upper())        
+        # TODO: We will have to modify in order for this code to be usable by other observatories.
+        zip_path = os.path.join(path, f'{(self.time_range[0] - 1.0 * u.day).strftime("%Y%m%d")}{SITE_ZIPS[site]}')
+        logging.log(logging.INFO, f'Retrieving program data from ${zip_path}.')
+
+        time_accounting = self._load_tas(path, site)
         self._readzip(zip_path, xmlselect, site_name, tas=time_accounting, obsclasses=self.obs_classes)
     
 
@@ -176,8 +178,7 @@ class Collector:
                                                             'moonrise': mrise, 'moonset': mset, \
                                                             'sunmoonang': smangs, 'moonillum': moonillum}
 
-
-    def _load_tas(self, path: str, ssite: str) -> Dict[str,Dict[str,float]]:
+    def _load_tas(self, path: str, site: Site) -> Dict[str,Dict[str,float]]:
         """ Load Time Accouting Summary """
 
         date = self.time_range[0].strftime('%Y%m%d')
@@ -186,12 +187,12 @@ class Collector:
         if not os.path.exists(plandir):
             os.makedirs(plandir)    
         tas = Table()
-        tadate = (self.time_range[0] - 1.0*u.day).strftime('%Y%m%d')
+        tadate = (self.time_range[0] - 1.0 * u.day).strftime('%Y%m%d')
         
         for sem in self.semesters:
-            tafile = 'tas_' + ssite + '_' + sem + '.txt'
+            tafile = 'tas_' + site.name + '_' + sem + '.txt'
             if not os.path.exists(plandir + tafile):
-                get_report(ssite, tafile, plandir)
+                get_report(site, tafile, plandir)
                 
             tmp = get_tas(plandir + tafile)
             tas = vstack([tas, tmp])
@@ -240,9 +241,9 @@ class Collector:
     def _readzip(self, 
                  zipfile: str, 
                  xmlselect: List[str], 
-                 site: str,
-                 selection=['ONGOING', 'READY'], 
-                 obsclasses=['SCIENCE'], 
+                 site: Site,
+                 selection=frozenset(['ONGOING', 'READY']),
+                 obsclasses=frozenset(['SCIENCE']),
                  tas=None):
         """ Populate Database from the zip file of an ODB backup """
 
@@ -263,7 +264,7 @@ class Collector:
                                   selection: List[str], 
                                   obsclasses: List[str], 
                                   tas: Dict[str,Dict[str,float]], 
-                                  site: str) -> NoReturn:
+                                  site: Site) -> NoReturn:
         """ Parse XML file to Observation objects and other data structures """
 
         program_id = GetProgramID(program)
@@ -285,9 +286,6 @@ class Collector:
         year = program_id[3:7]
         next_year = str(int(year) + 1)
         semester = program_id[7]
-
-        program_start = None
-        program_end = None
 
         if 'FT' in program_id:
             program_start, program_end = GetFTProgramDates(notes,semester,year, next_year) 

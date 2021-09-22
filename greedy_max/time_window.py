@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict
 from numpy import ndarray 
-from greedy_max.site import Site
+from common.structures.site import Site
 
 @dataclass
 class TimeWindow:
