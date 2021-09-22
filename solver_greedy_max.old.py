@@ -50,15 +50,15 @@ if __name__ == '__main__':
     resource = Resource('/resource_mock/data')
     resource.connect()
     
-    fpu = resource.night_info('fpu', sites, night_date)
-    fpur = resource.night_info('fpur', sites, night_date)
-    grat = resource.night_info('grat', sites, night_date)
-    instruments = resource.night_info('instr', sites, night_date)
-    lgs = resource.night_info('LGS', sites, night_date)
-    modes = resource.night_info('mode', sites, night_date)
+    fpu = resource._night_info('fpu', sites, night_date)
+    fpur = resource._night_info('fpur', sites, night_date)
+    grat = resource._night_info('grat', sites, night_date)
+    instruments = resource._night_info('instr', sites, night_date)
+    lgs = resource._night_info('LGS', sites, night_date)
+    modes = resource._night_info('mode', sites, night_date)
     ifus = {'FPU':None, 'FPUr':None}
-    ifus['FPU'] = resource.night_info('fpu-ifu', sites, night_date)
-    ifus['FPUr'] = resource.night_info('fpur-ifu', sites, night_date)
+    ifus['FPU'] = resource._night_info('fpu-ifu', sites, night_date)
+    ifus['FPUr'] = resource._night_info('fpur-ifu', sites, night_date)
     fpu2b = resource.fpu_to_barcode
 
     # Load observation and groups

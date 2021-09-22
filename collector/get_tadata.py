@@ -1,38 +1,31 @@
-#!/usr/bin/env python
-
-# Bryan Miller
-
 from __future__ import print_function
-# from astropy.io import ascii
 from astropy.table import Table
 import astropy.units as u
-# import matplotlib.pyplot as plt
 import numpy as np
 import sys
-# from uniquelist import uniquelist
 import requests
 from xml.dom import minidom
 import os
+from logging import Logger
+
+from common.structures.site import Site
 
 
-def get_report(site, report, path, verbose=False):
+def get_report(site: Site, report, path, verbose=False):
     """
     Get report from the ODB server, must be run from inside the Gemini firewall.
 
     Parameters
-        site: 'gn' or 'gs' (str)
+        site: A Site as defined in the Site file.
         report: report name (str)
         path: directory for resulting file (str)
         verbose: verbose output? (bool)
     """
 
-    if site.lower() not in ['gn', 'gs']:
-        print("Error: site must be either 'gn' or 'gs'.")
-        return
+    outfile = os.path.join(path, report)
 
-    outfile = path + '/' + report
-
-    url = 'http://' + site.lower() + 'odb.gemini.edu:8442/batch/' + report
+    # TODO: We will need to generalize this.
+    url = 'http://' + site.value + 'odb.gemini.edu:8442/batch/' + report
 
     if verbose:
         print(site, report, path)

@@ -1,7 +1,6 @@
-import greedy_max
 from typing import List, Dict
 from greedy_max.schedule import Observation, Visit
-from greedy_max.site import Site
+from common.structures.site import Site
 from astropy.units.quantity import Quantity
 from astropy.time import Time
 from numpy import ndarray

@@ -6,7 +6,7 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
 from typing import List
-from greedy_max.site import Site
+from common.structures.site import Site
 from common.structures.target import TargetTag
 import os
 

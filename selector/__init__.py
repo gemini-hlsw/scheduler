@@ -5,7 +5,7 @@ import collector.sb as sb
 from common.structures.conditions import SkyConditions, WindConditions
 from common.structures.elevation import ElevationType
 from common.structures.target import TargetTag
-from common.constants import MAX_AIRMASS
+from common.structures.too_type import ToOType
 
 from selector.visibility import Visibility
 from selector.ranker import Ranker
@@ -13,15 +13,13 @@ import selector.horizons as hz
 
 from greedy_max.schedule import Observation, Visit
 from greedy_max.category import Category
-from greedy_max.site import Site
+from common.structures.site import Site
 
 from resource_mock.resources import Resources
 
 from astropy.coordinates import SkyCoord, Angle
 import astropy.units as u
-from astropy.time import Time
 
-from joblib import Parallel, delayed
 import multiprocessing
 import numpy as np
 from tqdm import tqdm
@@ -203,7 +201,7 @@ class Selector:
 
     def _match_conditions(self, visit_conditions: SkyConditions, 
                           actual_conditions: Dict[str, Union[SkyConditions,WindConditions]], 
-                          negha: bool, toostatus: str, scalar_input = False) -> float:
+                          negha: bool, toostatus: ToOType, scalar_input = False) -> float:
     
         skyiq = actual_conditions.iq.value
         skycc = actual_conditions.cc.value
@@ -235,19 +233,19 @@ class Selector:
         # Multiply weights by skyiq/iq where iq better than required and target
         # does not set soon and not a rapid ToO.
         i_better_iq = np.where(skyiq < visit_conditions.iq)[0][:]
-        if len(i_better_iq) != 0 and negha and toostatus != 'rapid':
+        if len(i_better_iq) != 0 and negha and toostatus != ToOType.RAPID:
             cmatch[i_better_iq] = cmatch[i_better_iq] * skyiq / visit_conditions.iq.value
         # cmatch[i_better_iq] = cmatch[i_better_iq] * (1.0 - (iq - skyiq))
 
         i_better_cc = np.where(skycc < visit_conditions.cc)[0][:]
-        if len(i_better_cc) != 0 and negha and toostatus != 'rapid':
+        if len(i_better_cc) != 0 and negha and toostatus != ToOType.RAPID:
             cmatch[i_better_cc] = cmatch[i_better_cc] * skycc / visit_conditions.cc.value
         if scalar_input:
             cmatch = np.squeeze(cmatch)
 
         return cmatch
 
-    def visibility(self, site: Site, jobs=0, ephem_dir=None, overwrite=False, sbtwo= True) -> NoReturn:
+    def visibility(self, site: Site, jobs=0, ephem_path=None, overwrite=False, sbtwo= True) -> NoReturn:
         """
         Main driver to calculate the visibility for each observation 
         """
@@ -317,18 +315,18 @@ class Selector:
 
             for id in tqdm(range(len(observations))):
               
-                res.append(self._calculate_visibility(site, 
+                res.append(self._calculate_visibility(site,
                                                       observations[id].target.designation,
-                                                      observations[id].target.tag, 
+                                                      observations[id].target.tag,
                                                       observations[id].target.coordinates,
-                                                      observations[id].sky_conditions, 
+                                                      observations[id].sky_conditions,
                                                       observations[id].elevation,
-                                                      obs_windows[id], 
-                                                      self.times[period], 
-                                                      lst, sunalt, 
-                                                      moonpos, moondist, 
-                                                      moonalt, sunmoonang, 
-                                                      site_location, ephem_dir,
+                                                      obs_windows[id],
+                                                      self.times[period],
+                                                      lst, sunalt,
+                                                      moonpos, moondist,
+                                                      moonalt, sunmoonang,
+                                                      site_location, ephem_path,
                                                       sbtwo=sbtwo, overwrite=overwrite, extras=True))
                
             if period == 0:
@@ -470,7 +468,7 @@ class Selector:
                         wind_conditions = actual_wind_conditions.get_wind_conditions(obs.visibility.azimuth[inight])
                     
                     # NOTE: first condition always going to be true. Why is needed?
-                    if too_status != 'rapid' and obs.too_status != 'none':
+                    if too_status != ToOType.RAPID and obs.too_status != ToOType.NONE:
                         too_status = obs.too_status
 
                     # Check for correct instrument configuration and check comp in other sites. 

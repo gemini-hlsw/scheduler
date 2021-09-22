@@ -1,15 +1,19 @@
-from greedy_max.band import Band
-from typing import NoReturn, Union
-class Program:
+from typing import NoReturn
 
+from astropy.time import Time
+
+from common.structures.band import Band
+from common.structures.too_type import ToOType
+
+class Program:
     def __init__(self,
                  idx: str,
                  mode: str, 
                  band: Band, 
-                 thesis: str, 
-                 time:str, 
+                 thesis: bool,
+                 time: Time,
                  used_time, 
-                 too_status,
+                 too_status: ToOType,
                  start,
                  end) -> None:
         self.idx = idx
@@ -23,17 +27,11 @@ class Program:
         self.end = end
         self.observations = []
         self.groups = []
-    
-    def add(self, idx: Union[str,int]) -> NoReturn:
-        if isinstance(idx,int):
-            self._add_observation(idx)
-        elif isinstance(idx,str):
-            self._add_group(idx)
-        else:
-            raise ValueError("Can't add")
-    def _add_observation(self,obs_idx: int) -> NoReturn:
-       if obs_idx not in self.observations:
+
+    def add_observation(self, obs_idx: int) -> NoReturn:
+        if obs_idx not in self.observations:
             self.observations.append(obs_idx)
-    def _add_group(self,grp_idx: str) -> NoReturn:
+
+    def add_group(self, grp_idx: str) -> NoReturn:
         if grp_idx not in self.groups:
             self.groups.append(grp_idx)

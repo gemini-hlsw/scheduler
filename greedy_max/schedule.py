@@ -1,16 +1,16 @@
 import numpy as np
 import re
-from greedy_max.band import Band
-from greedy_max.site import Site
+from common.structures.band import Band
+from common.structures.site import Site
 from greedy_max.category import Category
-from greedy_max.instrument import Instrument
+from common.structures.instrument import Instrument
 from typing import Dict, List
-from dataclasses import dataclass
 from astropy.units.quantity import Quantity
 import astropy.units as u
 from common.structures.conditions import SkyConditions
 from common.structures.elevation import ElevationConstraints
 from common.structures.target import Target
+from common.structures.too_type import ToOType
 
 class Observation: 
     """
@@ -28,7 +28,7 @@ class Observation:
                  elevation: ElevationConstraints,
                  target: Target,
                  status: str,
-                 too_status: str,
+                 too_status: ToOType,
                  #acquisition: int
                  ) -> None:
         self.idx = idx
