@@ -41,19 +41,21 @@ class Resource:
                 out_dict[datetime.strptime(row[0].strip(), "%Y-%m-%d")].append('MIRROR')
         return out_dict
 
-    def _load_f2b(self, site: Site) -> Dict[str,str]:
+    def _load_fpu_to_barcodes(self, site: Site) -> Dict[str, str]:
         out_dict = {}
         with open(os.path.join(self.path, f'gmos{SITE_ABBREVIATION[site]}_fpu_barcode.txt')) as f:
-            
             for row in f:
                 fpu, barcode = row.split()
                 out_dict[fpu] = barcode
         return out_dict
-    
-    def _nearest(self, items, pivot):
+
+    # TODO: Does not appear to be in use, and can be static.
+    @staticmethod
+    def _nearest(items, pivot):
         return min(items, key=lambda x: abs(x - pivot))
 
-    def _previous(self, items, pivot):
+    @staticmethod
+    def _previous(items, pivot):
         # Return date equal or previous to pivot
         tdmin = timedelta.min
         tdzero = timedelta(days=0)
@@ -63,7 +65,7 @@ class Resource:
             diff = item - pivot
             if tdzero >= diff > tdmin:
                 result = item
-                dmin = diff
+                tdmin = diff
         return result
 
     def _excel_reader(self) -> NoReturn:
@@ -94,7 +96,7 @@ class Resource:
             self.ifu[site]['FPU'], self.fpu[site] = self._load_fpu('FPU', site)
             self.ifu[site]['FPUr'], self.fpur[site] = self._load_fpu('FPUr', site)
             self.grat[site] = self._load_gratings(site)
-            self.fpu_to_barcode[site] = self._load_f2b(site)
+            self.fpu_to_barcode[site] = self._load_fpu_to_barcodes(site)
 
         if not self.fpu or not self.fpur or not self.grat:
             raise Exception("Problems on reading files...") 
@@ -115,7 +117,7 @@ class Resource:
                        'fpur-ifu': self.ifu[site]['FPUr'] }
 
         if info in info_types:
-            previous_date = self._previous(info_types[info].keys(), date)
+            previous_date = Resource._previous(info_types[info].keys(), date)
             return info_types[info][previous_date]
             # if date in info_types[info]:
             #     return info_types[info][date]
