@@ -5,7 +5,7 @@ from common.structures.site import Site
 
 
 class Resources:
-    """ Class to interact with the Resource Mock retrieved information """
+    """Class to interact with the Resource Mock retrieved information"""
 
     decoder = {'A':  '0', 'B':  '1', 'Q':  '0',
                'C':  '1', 'LP': '2', 'FT': '3',
