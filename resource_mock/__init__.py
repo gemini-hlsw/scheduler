@@ -92,7 +92,6 @@ class Resource:
         print('Get Resource data...')
         sites = [site for site in Site]
         for site in sites:
-
             self.ifu[site]['FPU'], self.fpu[site] = self._load_fpu('FPU', site)
             self.ifu[site]['FPUr'], self.fpur[site] = self._load_fpu('FPUr', site)
             self.grat[site] = self._load_gratings(site)
@@ -128,20 +127,15 @@ class Resource:
         else:
             logging.warning(f'No information about {info} is stored')
             return None
-
-    def night_info(self, info_name: str, sites: List[Site], night_date: str):
-        return {site: self._get_info(info_name, site, night_date) for site in sites }
     
     def get_night_resources(self, sites, night_date):
-        fpu = self.night_info('fpu', sites, night_date)
-        fpur = self.night_info('fpur', sites, night_date)
-        grat = self.night_info('grat', sites, night_date)
-        instruments = self.night_info('instr', sites, night_date)
-        lgs = self.night_info('LGS', sites, night_date)
-        modes = self.night_info('mode', sites, night_date)
-        ifus = {'FPU':None, 'FPUr':None}
-        ifus['FPU'] = self.night_info('fpu-ifu', sites, night_date)
-        ifus['FPUr'] = self.night_info('fpur-ifu', sites, night_date)
-        fpu2b = self.fpu_to_barcode
-
-        return Resources(fpu,fpur,grat,instruments,lgs,modes,fpu2b,ifus)
+        def night_info(info_name: str):
+            return {site: self._get_info(info_name, site, night_date) for site in sites}
+        fpu = night_info('fpu')
+        fpur = night_info('fpur')
+        gratings = night_info('grat')
+        instruments = night_info('instr')
+        lgs = night_info('LGS')
+        modes = night_info('mode')
+        ifus = {'FPU': night_info('fpu-ifu'), 'FPUr': night_info('fpur-ifu')}
+        return Resources(fpu, fpur, gratings, instruments, lgs, modes, self.fpu_to_barcode, ifus)

@@ -8,7 +8,7 @@ class Resources:
     """ Class to interact with the Resource Mock retrieved information """
 
     decoder = {'A':  '0', 'B':  '1', 'Q':  '0',
-               'C':  '1', 'LP': '2',' FT': '3',
+               'C':  '1', 'LP': '2', 'FT': '3',
                'SV': '8', 'DD': '9'}
     pattern = '|'.join(decoder.keys())
 
@@ -19,8 +19,8 @@ class Resources:
                  instruments: Dict[Site, List[str]], 
                  lgs: Dict[Site, bool],
                  mode: Dict[Site, str],
-                 fpu2b: Dict[str, str],
-                 ifus: Dict[str, str]):
+                 fpu2b: Dict[Site, Dict[str, str]],
+                 ifus: Dict[str, Dict[str, str]]):
         self.fpu = fpu
         self.fpur = fpur
         self.gratings = gratings
@@ -30,7 +30,8 @@ class Resources:
         self.fpu_to_barcode = fpu2b
         self.ifu = ifus 
 
-    def _decode_mask(self, mask_name: str ) -> str:
+    @staticmethod
+    def _decode_mask(mask_name: str) -> str:
         return '1' + re.sub(f'({Resources.pattern})',
                             lambda m: Resources.decoder[m.group()], mask_name).replace('-', '')[6:]
     
@@ -42,14 +43,9 @@ class Resources:
 
     def is_mask_available(self, site: Site, fpu_mask: str) -> bool:
         barcode = None
-
         if fpu_mask in self.fpu_to_barcode[site]:
             barcode = self.fpu_to_barcode[site][fpu_mask]
-
         elif '-' in fpu_mask:
-            barcode = self._decode_mask(fpu_mask)
+            barcode = Resources._decode_mask(fpu_mask)
+        return barcode and barcode in self.fpur[site]
 
-        if barcode:
-            return barcode in self.fpur[site]
-        else:
-            return False  # No mask in register
