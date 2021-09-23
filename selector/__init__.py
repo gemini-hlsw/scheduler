@@ -326,11 +326,11 @@ class Selector:
 
             for obs in tqdm(observations):
                 res.append(self._calculate_visibility(site,
-                                                      observations[obs.idx].target.designation,
-                                                      observations[obs.idx].target.tag,
-                                                      observations[obs.idx].target.coordinates,
-                                                      observations[obs.idx].sky_conditions,
-                                                      observations[obs.idx].elevation,
+                                                      obs.target.designation,
+                                                      obs.target.tag,
+                                                      obs.target.coordinates,
+                                                      obs.sky_conditions,
+                                                      obs.elevation,
                                                       obs_windows[obs.idx],
                                                       self.times[period],
                                                       lst, sunalt,

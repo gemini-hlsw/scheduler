@@ -131,6 +131,7 @@ class Collector:
         # Retrieve the site details
         try:
             site = Site(site_name)
+            # TODO: Possibly get rid of these members from Collector and just access them directly?
             self.locations[site] = GEOGRAPHICAL_LOCATIONS[site]
             self.timezones[site] = TIME_ZONES[site]
         except ValueError:
