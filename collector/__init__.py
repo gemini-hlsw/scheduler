@@ -339,8 +339,8 @@ class Collector:
             obs_odb_id = GetObsID(raw_observation)
 
             if any(obs_class in obsclasses for obs_class in classes) and (status in selection):
+                logging.info(f'Adding {obs_odb_id}')
 
-                print('Adding ' + obs_odb_id, end='\r')
                 total_time = GetObsTime(raw_observation)
 
                 # Target Info
@@ -398,7 +398,7 @@ class Collector:
                 obs_time = 0
                 if tas and program_id in tas and obs_odb_id in tas[program_id]:
                     obs_time = max(0, tas[program_id][obs_odb_id]['prgtime'].value)
-                    
+
                 # Total observation time
                 # for IGRINS, update tot_time to take telluric into account if there is time remaining
                 calibration_time = 0
