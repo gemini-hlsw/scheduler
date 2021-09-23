@@ -488,7 +488,7 @@ class Collector:
     # TODO: As it will need to possibly modify information in the Collector at a future point, we leave it as
     # TODO: non-static for now.
     def get_actual_conditions(self) -> Conditions:
-        time_blocks = [Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')]  #
+        time_blocks = [Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')]
 
         # TODO: Use of these keys in the dictionary is asking for typo trouble.
         # TODO: We should have concrete types, like an enum.

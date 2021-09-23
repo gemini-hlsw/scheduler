@@ -177,11 +177,11 @@ class Selector:
 
             # Select where sky brightness and elevation constraints are met
             # Evenutally want to allow some observations, e.g. calibration, in twilight
-            ix = np.where(np.logical_and(sbcond <= conditions.sb, np.logical_and(sunalt <= -12. * u.deg,
-                                                                                 np.logical_and(
-                                                                                     targprop >= elevation.min_elevation,
-                                                                                     targprop <= elevation.max_elevation))))[
-                0]
+            ix = np.where(np.logical_and(sbcond <= conditions.sb,
+                                         np.logical_and(sunalt <= -12. * u.deg,
+                                                        np.logical_and(
+                                                            targprop >= elevation.min_elevation,
+                                                            targprop <= elevation.max_elevation))))[0]
 
             # Timing window constraints
             #     iit = np.array([], dtype=int)
@@ -190,20 +190,17 @@ class Selector:
                                               times[ix] <= constraint[1]))[0]
                 ivis = np.append(ivis, ix[iit])
 
-        if extras:
-            # print(ivis, ha, targalt, targaz, targparang, airmass, sbcond)
-            return ivis, ha, targalt, targaz, targparang, airmass, sbcond
-        else:
-            return ivis
+        return ivis, ha, targalt, targaz, targparang, airmass, sbcond if extras else ivis
 
-    def _check_instrument_availability(self, resources: Resources,
-                                       site: Site, instruments_of_obs: Iterable[str]) -> bool:
+    @staticmethod
+    def _check_instrument_availability(resources: Resources,
+                                       site: Site,
+                                       instruments_of_obs: Iterable[str]) -> bool:
         return all(resources.is_instrument_available(site, instrument) for instrument in instruments_of_obs)
 
-    def _check_conditions(self,
-                          visit_sky_conditions: SkyConditions,
+    @staticmethod
+    def _check_conditions(visit_sky_conditions: SkyConditions,
                           actual_sky_conditions: SkyConditions) -> bool:
-
         return (visit_sky_conditions.iq >= actual_sky_conditions.iq and
                 visit_sky_conditions.cc >= actual_sky_conditions.cc and
                 visit_sky_conditions.wv >= actual_sky_conditions.wv)
@@ -282,8 +279,8 @@ class Selector:
             return
 
         # TODO: This is not being used due to the commented out code below.
-        # How many CPU cores?
-        jobs = multiprocessing.cpu_count() if jobs < 1 else jobs
+        # Use all available CPU cores if unspecified, but no more than the maximum.
+        jobs = min(multiprocessing.cpu_count() if jobs < 1 else jobs, multiprocessing.cpu_count())
 
         obsvishours = {site: np.zeros((len(observations), night_length))}
 
@@ -498,9 +495,9 @@ class Selector:
                 status_of_obs = dict.fromkeys(status_of_obs)
 
                 if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and
-                        self._check_instrument_availability(resources, site, instruments_in_obs) and
+                        Selector._check_instrument_availability(resources, site, instruments_in_obs) and
                         all(status in ['ONGOING', 'READY', 'OBSERVED'] for status in status_of_obs) and
-                        self._check_conditions(visit_conditions, actual_sky_conditions)):
+                        Selector._check_conditions(visit_conditions, actual_sky_conditions)):
 
                     # CHECK FOR GMOS IF COMPONENTS ARE INSTALLED
                     if any('GMOS' in instrument for instrument in instruments_in_obs):
