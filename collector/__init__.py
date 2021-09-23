@@ -217,7 +217,7 @@ class Collector:
             # Use human-readable slit names
             if 'GMOS' in instrument_name:
                 if key == 'fpu':
-                    fpulist = FpuXmlTranslator(ulist)
+                    fpulist = fpu_xml_translator(ulist)
                     fpunames = []
                     for fpu in fpulist:
                         fpunames.append(fpu['name'])
@@ -247,7 +247,7 @@ class Collector:
                  zipfile: str,
                  xmlselect: List[str],
                  site: Site,
-                 selection=frozenset(['ONGOING', 'READY']),
+                 selection=frozenset([ObservationStatus.ONGOING, ObservationStatus.READY]),
                  obsclasses=frozenset(['SCIENCE']),
                  tas=None):
         """ Populate Database from the zip file of an ODB backup """
@@ -266,20 +266,23 @@ class Collector:
 
     def _process_observation_data(self,
                                   program_data,
-                                  selection: frozenset[str],
+                                  selection: frozenset[ObservationStatus],
                                   obsclasses: frozenset[str],
                                   tas: Dict[str, Dict[str, float]]) -> NoReturn:
-        """Parse XML file to Observation objects and other data structures"""
+        """Parse XML file to Observation objects and other data structures."""
         program_id = get_program_id(program_data)
         notes = get_program_notes(program_data)
         program_mode = get_program_mode(program_data)
         band = get_program_band(program_data)
         award = get_program_awarded_time(program_data)
+        is_thesis = is_program_thesis(program_data)
+        too_status = get_too_status(program_data)
 
         year = program_id[3:7]
         next_year = str(int(year) + 1)
         semester = program_id[7]
 
+        # Determine the program start and end times.
         if 'FT' in program_id:
             program_start, program_end = GetFTProgramDates(notes, semester, year, next_year)
             # If still undefined, use the values from the previous observation
@@ -306,41 +309,27 @@ class Collector:
         program_start -= FUZZY_BOUNDARY * u.day
         program_end += FUZZY_BOUNDARY * u.day
 
-        # Thesis program?
-        thesis = is_program_thesis(program_data)
-
-        # ToO status
-        toostat = get_too_status(program_data)
-
         # Used time from Time Accounting Summary (tas) information
-        if tas and program_id in tas:
-            used = tas[program_id]['prgtime']
-        else:
-            used = 0.0 * u.hour
+        used = tas[program_id]['prgtime'] if tas and program_id in tas else 0.0 * u.hour
 
         collected_program = Program(program_id,
                                     program_mode,
                                     band,
-                                    thesis,
+                                    is_thesis,
                                     award,
                                     used,
-                                    toostat,
+                                    too_status,
                                     program_start,
                                     program_end)
         self.programs[program_id] = collected_program
-        raw_observations, groups = GetObservationInfo(program_data)
 
-        if raw_observations is None:
-            raise RuntimeError('Parser issue to get observation info')
-
-        for raw_observation, group in zip(raw_observations, groups):
-
-            classes = list(dict.fromkeys(GetClass(raw_observation)))
-            status = GetObsStatus(raw_observation)
+        for raw_observation, group in get_observation_info(program_data):
+            classes = list(dict.fromkeys(get_obs_class(raw_observation)))
+            status = get_obs_status(raw_observation)
             obs_odb_id = GetObsID(raw_observation)
 
             if any(obs_class in obsclasses for obs_class in classes) and (status in selection):
-                logging.info(f'Adding {obs_odb_id}')
+                logging.info(f'Adding {obs_odb_id}.')
 
                 total_time = GetObsTime(raw_observation)
 
@@ -451,7 +440,7 @@ class Collector:
                 # self.target_des.append(des)
                 # self.coord.append(SkyCoord(ra, dec, frame='icrs', unit=(u.deg, u.deg)))
                 # self.mags.append(target_mags)
-                self.toostatus.append(toostat.lower())
+                self.toostatus.append(too_status.lower())
                 self.priority.append(priority)
                 # self.conditions.append({'iq': condf[0], 'cc': condf[1], 'bg': condf[2], 'wv': condf[3]})
 

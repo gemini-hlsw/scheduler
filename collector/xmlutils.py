@@ -1,6 +1,7 @@
-import datetime
+from datetime import datetime, timedelta
 import calendar
-from typing import List, Optional, Tuple
+import logging
+from typing import Dict, List, Optional, Tuple, Union
 from xml.etree import ElementTree
 
 from astropy.time import Time
@@ -9,10 +10,15 @@ import astropy.units as u
 from common.constants import CLASSICAL_NIGHT_LEN
 from common.helpers import str_to_bool
 from common.structures.band import Band
+from common.structures.execution_status import ExecutionStatus
+from common.structures.observation_status import ObservationStatus
+from common.structures.phase2_status import Phase2Status
 from common.structures.time_award_units import TimeAwardUnits
 from common.structures.too_type import ToOType
 
-WARNING_STATES = frozenset(['FOR-ACTIVATION', 'ONGOING', 'READY'])
+WARNING_STATES = frozenset([ObservationStatus.FOR_ACTIVATION,
+                            ObservationStatus.ONGOING,
+                            ObservationStatus.READY])
 
 
 # ORIGINAL source: https://github.com/bryanmiller/odb
@@ -68,6 +74,7 @@ def get_program_band(program_data: ElementTree) -> Band:
 
 
 def get_program_awarded_time(program_data: ElementTree) -> Time:
+    """Get the awarded time for the program from XML."""
     sciprogram = program_data.find("paramset[@name='Science Program'][@kind='dataObj']")
     # time_acct = sciprogram.find(paramset[@name='timeAcct']")
     awarded_time = sciprogram.find("param[@name='awardedTime']")
@@ -78,12 +85,14 @@ def get_program_awarded_time(program_data: ElementTree) -> Time:
 
 
 def is_program_thesis(program_data: ElementTree) -> bool:
+    """Determine if the program is a thesis program from XML."""
     paramset = program_data.find("paramset[@name='Science Program'][@kind='dataObj']")
     param = paramset.find("param[@name='isThesis']")
     return param is not None and str_to_bool(param.attrib.get('value'))
 
 
 def get_too_status(program_data: ElementTree) -> ToOType:
+    """Get the target of opportunity status for the program from XML."""
     too = ToOType.NONE
     for paramset in program_data.findall('paramset'):
         if paramset.attrib.get('name') == 'Science Program':
@@ -93,80 +102,84 @@ def get_too_status(program_data: ElementTree) -> ToOType:
     return too
 
 
-def GetClass(Observation):
+# TODO: What are the possible observation classes?
+def get_obs_class(observation_data: ElementTree) -> List[str]:
+    """Get the observation classes from the XML."""
     obsclasses = []
-    for container in Observation.findall('.//container'):
+    for container in observation_data.findall('.//container'):
         if container.attrib.get("type") == 'Observer':
             paramset = container.find("paramset")
             for param in paramset.findall("param"):
                 if param.attrib.get("name") == "class":
                     obsclasses.append(param.attrib.get("value"))
-    return (obsclasses)
+    return obsclasses
 
 
-def GetObsStatus(Observation):
-    execstatus = 'AUTO'
-    paramset = Observation.find('paramset')
+def get_obs_status(observation_data: ElementTree) -> ObservationStatus:
+    """Get the observation status from the XML."""
+    execstatus = ExecutionStatus.AUTO
+    paramset = observation_data.find('paramset')
     for param in paramset.findall('param'):
 
         # In 2014A the Status was split into Phase-2 and Exec status
         # Here I recombine them into one as they were before 2014A:
-
         if param.attrib.get('name') == 'phase2Status':
-            phase2status = param.attrib.get('value')
+            phase2status = Phase2Status[param.attrib.get('value')]
             # logger.debug('Raw Phase 2 Status = %s', phase2status)
 
         if param.attrib.get('name') == 'execStatusOverride':
-            execstatus = param.attrib.get('value')
+            execstatus = ExecutionStatus[param.attrib.get('value')]
 
-    if execstatus == 'OBSERVED':
-        obsstatus = 'OBSERVED'
+    if execstatus == ExecutionStatus.OBSERVED:
+        obsstatus = ObservationStatus.OBSERVED
 
-    elif execstatus == 'ONGOING':
-        obsstatus = 'ONGOING'
+    elif execstatus == ExecutionStatus.ONGOING:
+        obsstatus = ObservationStatus.ONGOING
 
-    elif execstatus == 'PENDING':
-        obsstatus = 'READY'
+    elif execstatus == ExecutionStatus.PENDING:
+        obsstatus = ObservationStatus.READY
 
-    elif execstatus == 'AUTO':
-        if phase2status == 'PI_TO_COMPLETE':
-            obsstatus = 'PHASE2'
-        elif phase2status == 'NGO_TO_REVIEW':
-            obsstatus = 'FOR-REVIEW'
-        elif phase2status == 'NGO_IN_REVIEW':
-            obsstatus = 'IN-REVIEW'
-        elif phase2status == 'GEMINI_TO_ACTIVATE':
-            obsstatus = 'FOR-ACTIVATION'
-        elif phase2status == 'ON_HOLD':
-            obsstatus = 'ON-HOLD'
-        elif phase2status == 'INACTIVE':
-            obsstatus = 'INACTIVE'
-        elif phase2status == 'PHASE_2_COMPLETE':
-
-            obslog = GetObsLog(Observation)  # returns a triple: (time, event, datalabel)
-            nsteps = GetNumSteps(Observation)
-            nobs = GetNumObserved(Observation)
+    elif execstatus == ExecutionStatus.AUTO:
+        # TODO ERROR: This will not be assigned.
+        if phase2status == Phase2Status.PI_TO_COMPLETE:
+            obsstatus = ObservationStatus.PHASE2
+        elif phase2status == Phase2Status.NGO_TO_REVIEW:
+            obsstatus = ObservationStatus.FOR_REVIEW
+        elif phase2status == Phase2Status.NGO_IN_REVIEW:
+            obsstatus = ObservationStatus.IN_REVIEW
+        elif phase2status == Phase2Status.GEMINI_TO_ACTIVATE:
+            obsstatus = ObservationStatus.FOR_ACTIVATION
+        elif phase2status == Phase2Status.ON_HOLD:
+            obsstatus = ObservationStatus.ON_HOLD
+        elif phase2status == Phase2Status.INACTIVE:
+            obsstatus = ObservationStatus.INACTIVE
+        elif phase2status == Phase2Status.PHASE_2_COMPLETE:
+            obslog = get_obs_log(observation_data)  # returns a triple: (time, event, datalabel)
+            nsteps = GetNumSteps(observation_data)
+            nobs = GetNumObserved(observation_data)
 
             if nobs == 0 and len(obslog[0]) == 0:
-                obsstatus = 'READY'
+                obsstatus = ObservationStatus.READY
 
             elif nobs >= nsteps:
-                obsstatus = 'OBSERVED'
+                obsstatus = ObservationStatus.OBSERVED
 
             else:
-                obsstatus = 'ONGOING'
+                obsstatus = ObservationStatus.ONGOING
 
         else:
-            print('UNKNOWN PHASE-2 STATUS: %s', phase2status)
-    return (obsstatus)
+            logging.error(f'Unknown Phase2 status: {phase2status}')
+
+    # TODO ERROR: obsstatus may not be initialized.
+    return obsstatus
 
 
-def GetObsLog(Observation):
-    event = []
+def get_obs_log(observation_data: ElementTree) -> Tuple[List[datetime], List[str], List[str]]:
     time = []
+    event = []
     datalabel = []
 
-    for container in Observation.findall('container'):
+    for container in observation_data.findall('container'):
         if container.attrib.get('kind') == 'obsExecLog':
             for paramset in container.findall('paramset'):
                 if paramset.attrib.get('name') == 'Observation Exec Log':
@@ -179,7 +192,7 @@ def GetObsLog(Observation):
                                         label = False
                                         for param in paramset4.findall('param'):
                                             if param.attrib.get('name') == 'timestamp':
-                                                time.append(datetime.datetime.utcfromtimestamp(
+                                                time.append(datetime.utcfromtimestamp(
                                                     int(param.attrib.get('value')) / 1000.))
                                             elif param.attrib.get('name') == 'datasetLabel':
                                                 datalabel.append(param.attrib.get('value'))
@@ -194,7 +207,7 @@ def GetObsLog(Observation):
                                         if not label:
                                             datalabel.append('')
 
-    return (time, event, datalabel)
+    return time, event, datalabel
 
 
 def GetNumSteps(Observation):
@@ -584,7 +597,7 @@ def GetObsTime(Observation):
                 exptime = []
                 exptime.append(toplevelexptime)
 
-    datetime_obstime = datetime.timedelta(seconds=int(obstime))
+    datetime_obstime = timedelta(seconds=int(obstime))
     return (datetime_obstime)
 
 
@@ -600,7 +613,7 @@ def GetInstrument(Observation):
         # print('Instrument = %s', instrument)
         pass
     else:
-        status = GetObsStatus(Observation)
+        status = get_obs_status(Observation)
         if status in WARNING_STATES:
             print('%s is missing instrument [%s]', GetObsID(Observation), status)
         else:
@@ -631,7 +644,7 @@ def GetInstConfigs(Observation):
     # The subtype is the instrument name, except for GMOS-N (GMOS) and GMOS-S (GMOSSouth):
     instrumentcontainer = Observation.find("container[@kind='obsComp'][@type='Instrument']")
     if instrumentcontainer is None:
-        status = GetObsStatus(Observation)
+        status = get_obs_status(Observation)
         if status in WARNING_STATES:
             print('%s is missing instrument [%s]', GetObsID(Observation), status)
         else:
@@ -911,8 +924,8 @@ def GetTargetCoords(Observation):
     targetEnv = Observation.find(".//paramset[@name='targetEnv']")
 
     if targetEnv is None:  # No target component
-        status = GetObsStatus(Observation)
-        if status in WARNING_STATES and list(set(GetClass(Observation))) != ['DAY_CAL']:
+        status = get_obs_status(Observation)
+        if status in WARNING_STATES and list(set(get_obs_class(Observation))) != ['DAY_CAL']:
             print(f'{GetObsID(Observation)} is missing target component [{status}]')
         else:
             print(f'{GetObsID(Observation)} is missing target component [{status}]')
@@ -1032,7 +1045,7 @@ def GetTargets(Observation):
     targetEnv = Observation.find(".//paramset[@name='targetEnv']")
 
     if targetEnv is None:
-        status = GetObsStatus(Observation)
+        status = get_obs_status(Observation)
         # This was throwing warnings for every specphot:
         # if status in warnstates and list(set(GetClass(Observation))) != ['DAY_CAL']:
         #    logger.warning('%s is missing target component [%s]', GetObsID(Observation), status)
@@ -1077,7 +1090,7 @@ def GetTargets(Observation):
             base[param.attrib.get('name')] = value
 
     if base['tag'] == 'nonsidereal':
-        status = GetObsStatus(Observation)
+        status = get_obs_status(Observation)
         if status != 'OBSERVED':
             print(f"{GetObsID(Observation)} {base['name']} has no HORIZONS ID [{status}]")
 
@@ -1160,7 +1173,7 @@ def GetTargets(Observation):
                         star[param.attrib.get('name')] = value
 
                 if star['tag'] == 'nonsidereal':
-                    status = GetObsStatus(Observation)
+                    status = get_obs_status(Observation)
                     if status != 'OBSERVED':
                         print('%s %s has no HORIZONS ID [%s]', GetObsID(Observation), base['name'], status)
 
@@ -1219,7 +1232,7 @@ def GetTargets(Observation):
                     star[param.attrib.get('name')] = value
 
             if star['tag'] == 'nonsidereal':
-                status = GetObsStatus(Observation)
+                status = get_obs_status(Observation)
                 if status != 'OBSERVED':
                     print('%s %s has no HORIZONS ID [%s]', GetObsID(Observation), base['name'], status)
 
@@ -1351,9 +1364,10 @@ def GetFTProgramDates(Notes, semester, year, yp):
     return progstart, progend
 
 
-def GetObservationInfo(XMLProgram):
+# TODO: This method needs to be simplified down. Type cannot be determined.
+def get_observation_info(program_data: ElementTree): # -> Tuple[List[ElementTree], List[Dict[str, str]]]:
     raw_info, schedgrps = [], []
-    for container in XMLProgram.findall('container'):
+    for container in program_data.findall('container'):
         if container.attrib.get('type') == 'Observation':
             grpkey = container.attrib.get("key")
             grpname = 'None'
@@ -1370,7 +1384,7 @@ def GetObservationInfo(XMLProgram):
             #                        tas=tas, odbplan=odbplan)
             raw_info.append(container)
             schedgrps.append(schedgrp)
-            # return container, schedgrp
+
         elif container.attrib.get('type') == 'Group':
             grpkey = container.attrib.get("key")
             grptype = 'None'
@@ -1381,11 +1395,12 @@ def GetObservationInfo(XMLProgram):
                     grpname = param.attrib.get('value')
                 if param.attrib.get('name') == 'GroupType':
                     grptype = param.attrib.get('value')
-            # print(grptype)
+
             if grptype == 'TYPE_SCHEDULING':
                 schedgrp = {'key': grpkey, 'name': grpname}
                 # self.schedgroup[grpkey] = {'name': grpname, 'idx': []}
                 # self.programs[prgid]['groups'].append(grpkey)
+
             for subcontainer in container.findall('container'):
                 if grptype != 'TYPE_SCHEDULING':
                     grpkey = subcontainer.attrib.get("key")
@@ -1401,13 +1416,15 @@ def GetObservationInfo(XMLProgram):
                 if subcontainer.attrib.get("type") == 'Observation':
                     # return subcontainer, schedgrp
                     raw_info.append(subcontainer)
+
+                    # TODO: schedgrp may not be assigned yet.
                     schedgrps.append(schedgrp)
 
-    return raw_info, schedgrps
+    return zip(raw_info, schedgrps)
 
 
-### GMOS FILE
-def FpuXmlTranslator(xmlfpu):
+# GMOS FILE
+def fpu_xml_translator(xmlfpu: List[str]) -> List[Dict[str, Union[str, Optional[float]]]]:
     """
     Convert the ODB XML FPU name to a human-readable mask name.
     Input: list of XML FPU names

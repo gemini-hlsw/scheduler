@@ -5,6 +5,7 @@ from astropy.time import Time
 from common.structures.band import Band
 from common.structures.too_type import ToOType
 
+
 class Program:
     def __init__(self,
                  idx: str,
@@ -12,10 +13,10 @@ class Program:
                  band: Band, 
                  thesis: bool,
                  time: Time,
-                 used_time, 
+                 used_time: Time,
                  too_status: ToOType,
-                 start,
-                 end) -> None:
+                 start: Time,
+                 end: Time) -> None:
         self.idx = idx
         self.mode = mode
         self.band = band
