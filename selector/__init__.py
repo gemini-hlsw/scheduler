@@ -326,14 +326,14 @@ class Selector:
             '''
             res = []
 
-            for obs_idx in tqdm(range(len(observations))):
+            for obs in tqdm(observations):
                 res.append(self._calculate_visibility(site,
-                                                      observations[obs_idx].target.designation,
-                                                      observations[obs_idx].target.tag,
-                                                      observations[obs_idx].target.coordinates,
-                                                      observations[obs_idx].sky_conditions,
-                                                      observations[obs_idx].elevation,
-                                                      obs_windows[obs_idx],
+                                                      observations[obs.idx].target.designation,
+                                                      observations[obs.idx].target.tag,
+                                                      observations[obs.idx].target.coordinates,
+                                                      observations[obs.idx].sky_conditions,
+                                                      observations[obs.idx].elevation,
+                                                      obs_windows[obs.idx],
                                                       self.times[period],
                                                       lst, sunalt,
                                                       moonpos, moondist,
