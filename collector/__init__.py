@@ -397,8 +397,8 @@ class Collector:
                 # Used time from Time Accounting Summary (tas) information
                 obs_time = 0
                 if tas and program_id in tas and obs_odb_id in tas[program_id]:
-                    obs_time = max(0, tas[program_id][obs_odb_id]['prgtime'].value) \
- \
+                    obs_time = max(0, tas[program_id][obs_odb_id]['prgtime'].value)
+                    
                 # Total observation time
                 # for IGRINS, update tot_time to take telluric into account if there is time remaining
                 calibration_time = 0
