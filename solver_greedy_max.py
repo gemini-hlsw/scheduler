@@ -41,7 +41,7 @@ if __name__ == '__main__':
     resource.connect()
     resources = resource.get_night_resources(sites, night_date)
 
-    # ephemerides path
+    # Ephemerides path
     ephem_path = os.path.join(path, 'ephem')
     if not os.path.exists(ephem_path):
         os.makedirs(ephem_path)

@@ -1,8 +1,13 @@
-import numpy as np
-import astropy.units as u
 from enum import Enum
+from typing import Callable, List, Union
+
+from astropy.units.quantity import Quantity
+import numpy as np
+
+import astropy.units as u
+from astropy.time import Time
+
 import numbers
-from typing import Callable, Union
 
 
 class ComparableEnum(Enum):
@@ -109,16 +114,13 @@ def conditions_parser(conditions: str) -> tuple:
     Return a tuple for each condition (iq, cc, bg, wv)
     """
     def parser_by_instance(condition: str, 
-                           parser: Callable[[str],Enum])-> Union[np.ndarray,Enum]:
+                           parser: Callable[[Union[str, float]], Enum]) -> Union[np.ndarray, Enum]:
         if isinstance(condition, np.ndarray):
             return np.array(list(map(parser,condition)))
         elif isinstance(condition, str) or isinstance(condition, float):
             return parser(condition)
         else:
             raise ValueError('Must be type str, float, or np.ndarray')
-    
-    def find_values(values: str) -> float:
-        return float(''.join(x for x in values if x.isdigit()))/100
     
     def iq_parser(iq: str) -> IQ:
         return IQ.IQANY if 'ANY' in iq or iq == 'NULL' else IQ(float(iq))
@@ -127,7 +129,7 @@ def conditions_parser(conditions: str) -> tuple:
         return CC.CCANY if 'ANY' in cc or cc == 'NULL' else CC(float(cc))
 
     def sb_parser(sb: str) -> SB:
-         return SB.SBANY if 'ANY' in sb or sb == 'NULL' else SB(float(sb))
+        return SB.SBANY if 'ANY' in sb or sb == 'NULL' else SB(float(sb))
     
     def wv_parser(wv: str)-> WV:
         return WV.WVANY if 'ANY' in wv or wv == 'NULL' else WV(float(wv))
@@ -165,24 +167,38 @@ class WindConditions:
     Wind constraints for the night
     """
     def __init__(self, 
-                 wind_separation: float,
-                 wind_speed: float,
-                 wind_direction: float,
-                 time_blocks: float,):
+                 wind_separation: Quantity,
+                 wind_speed: Quantity,
+                 wind_direction: Quantity,
+                 time_blocks: List[Time]):
         self.wind_separation = wind_separation
         self.wind_speed = wind_speed
         self.wind_direction = wind_direction
         self.time_blocks = time_blocks
 
-    def get_wind_conditions(self, azimuth):
+    # TODO: This method needs to be fixed: speed is not defined unless the if condition holds.
+    def get_wind_conditions(self, azimuth) -> np.ndarray:
         if np.asarray(self.wind_speed).ndim == 0:
             speed = np.full(len(azimuth), self.wind_speed.to(u.m / u.s).value) * u.m / u.s
         
         wwind = np.ones(len(azimuth))
+
+        # TODO: Why do we do the [:] copy here on the final result? Are we planning on changing this?
         ii = np.where(np.logical_and(speed > 10 * u.m / u.s,
-                                    np.logical_or(abs(azimuth - self.wind_direction) <= self.wind_separation,
-                                                360. * u.deg - abs(azimuth - self.wind_direction) <= self.wind_separation)))[0][:]
+                                     np.logical_or(abs(azimuth - self.wind_direction) <= self.wind_separation,
+                                                   360. * u.deg - abs(azimuth - self.wind_direction)
+                                                   <= self.wind_separation)))[0][:]
+
+        # TODO: Unclear why we are doing this or what is the logic behind it.
         if len(ii) != 0:
             wwind[ii] = 0
 
         return wwind
+
+
+class Conditions:
+    def __init__(self,
+                 sky: SkyConditions,
+                 wind: WindConditions):
+        self.sky = sky
+        self.wind = wind

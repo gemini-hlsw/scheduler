@@ -1,8 +1,10 @@
+import logging
+
 from collector import Collector
 import collector.vskyutil as vs
 import collector.sb as sb
 
-from common.structures.conditions import SkyConditions, WindConditions
+from common.structures.conditions import Conditions, SkyConditions, WindConditions
 from common.structures.elevation import ElevationType
 from common.structures.target import TargetTag
 from common.structures.too_type import ToOType
@@ -26,12 +28,13 @@ from tqdm import tqdm
 
 from typing import List, NoReturn, Dict, Union
 
+
 class Selector:
 
-    def __init__(self, collector: Collector, sites=None, times=None, time_range=None, dt=1.0*u.min) -> None:
-        self.sites = sites                   # list of EarthLocation objects
-        self.time_range = time_range         # Time object, array for visibility start/stop dates
-        self.dt = dt                         # time step for times
+    def __init__(self, collector: Collector, sites=None, times=None, time_range=None, dt=1.0 * u.min) -> None:
+        self.sites = sites  # list of EarthLocation objects
+        self.time_range = time_range  # Time object, array for visibility start/stop dates
+        self.dt = dt  # time step for times
 
         self.collector = collector
         if times is not None:
@@ -110,7 +113,8 @@ class Selector:
         return ret
 
     def _calculate_visibility(self, site, des, tag, coo, conditions, elevation, obs_windows, times, lst,
-                              sunalt, moonpos, moondist, moonalt, sunmoonang, location, ephem_dir, sbtwo=True, overwrite=False, extras=True):
+                              sunalt, moonpos, moondist, moonalt, sunmoonang, location, ephem_dir, sbtwo=True,
+                              overwrite=False, extras=True):
 
         nt = len(times)
         if tag is not TargetTag.Sidereal:
@@ -129,11 +133,11 @@ class Selector:
 
                 # File name
                 ephname = usite + '_' + des.replace(' ', '').replace('/', '') + '_' + \
-                        times[0].strftime('%Y%m%d_%H%M') + '-' + times[-1].strftime('%Y%m%d_%H%M') + '.eph'
+                          times[0].strftime('%Y%m%d_%H%M') + '-' + times[-1].strftime('%Y%m%d_%H%M') + '.eph'
 
                 try:
                     time, ra, dec = horizons.Coordinates(hzname, times[0], times[-1], step='1m', \
-                                                        file=ephem_dir + '/' + ephname, overwrite=overwrite)
+                                                         file=ephem_dir + '/' + ephname, overwrite=overwrite)
                 except Exception:
                     print('Horizons query failed for ' + des)
                     coord = None
@@ -163,50 +167,58 @@ class Selector:
                 if sbtwo:
                     # New algorithm
                     skyb = sb.sb2(180. * u.deg - sunmoonang, targmoonang, moondist, 90. * u.deg - moonalt,
-                            90. * u.deg - targalt, 90. * u.deg - sunalt)
+                                  90. * u.deg - targalt, 90. * u.deg - sunalt)
                 else:
                     # Use current QPT algorithm
-                    skyb = sb.sb(180.*u.deg - sunmoonang, targmoonang, 90.*u.deg - moonalt,
-                                90.*u.deg-targalt, 90.*u.deg - sunalt)
+                    skyb = sb.sb(180. * u.deg - sunmoonang, targmoonang, 90. * u.deg - moonalt,
+                                 90. * u.deg - targalt, 90. * u.deg - sunalt)
                 sbcond = sb.sb_to_cond(skyb)
 
             # Select where sky brightness and elevation constraints are met
             # Evenutally want to allow some observations, e.g. calibration, in twilight
             ix = np.where(np.logical_and(sbcond <= conditions.sb, np.logical_and(sunalt <= -12. * u.deg,
-                          np.logical_and(targprop >= elevation.min_elevation, targprop <= elevation.max_elevation))))[0]
-            
+                                                                                 np.logical_and(
+                                                                                     targprop >= elevation.min_elevation,
+                                                                                     targprop <= elevation.max_elevation))))[
+                0]
+
             # Timing window constraints
             #     iit = np.array([], dtype=int)
             for constraint in obs_windows:
                 iit = np.where(np.logical_and(times[ix] >= constraint[0],
-                                            times[ix] <= constraint[1]))[0]
+                                              times[ix] <= constraint[1]))[0]
                 ivis = np.append(ivis, ix[iit])
 
         if extras:
-            #print(ivis, ha, targalt, targaz, targparang, airmass, sbcond)
+            # print(ivis, ha, targalt, targaz, targparang, airmass, sbcond)
             return ivis, ha, targalt, targaz, targparang, airmass, sbcond
         else:
             return ivis
 
-    def _check_instrument_availability(self, resources: Resources, 
+    def _check_instrument_availability(self, resources: Resources,
                                        site: Site, instruments_of_obs: List[str]) -> bool:
-        return all(resources.is_instrument_available(site,instrument) for instrument in instruments_of_obs)
+        return all(resources.is_instrument_available(site, instrument) for instrument in instruments_of_obs)
 
-    def _check_conditions(self, visit_conditions: SkyConditions, 
-                          actual_conditions: Dict[str, Union[SkyConditions,WindConditions]]) -> bool:
+    def _check_conditions(self,
+                          visit_sky_conditions: SkyConditions,
+                          actual_sky_conditions: SkyConditions) -> bool:
 
-        return (visit_conditions.iq >= actual_conditions.iq and 
-                    visit_conditions.cc >= actual_conditions.cc and 
-                    visit_conditions.wv >= actual_conditions.wv)
+        return (visit_sky_conditions.iq >= actual_sky_conditions.iq and
+                visit_sky_conditions.cc >= actual_sky_conditions.cc and
+                visit_sky_conditions.wv >= actual_sky_conditions.wv)
 
-    def _match_conditions(self, visit_conditions: SkyConditions, 
-                          actual_conditions: Dict[str, Union[SkyConditions,WindConditions]], 
-                          negha: bool, toostatus: ToOType, scalar_input = False) -> float:
-    
+    # TODO: Maybe we should move this out of the Selector and into the conditions file since it is really a
+    # TODO: check on SkyConditions and uses no data from the Selector.
+    @staticmethod
+    def _match_conditions(visit_conditions: SkyConditions,
+                          actual_conditions: SkyConditions,
+                          neg_ha: bool,
+                          too_status: ToOType) -> np.ndarray:
+
         skyiq = actual_conditions.iq.value
         skycc = actual_conditions.cc.value
         skywv = actual_conditions.wv.value
-        
+
         skyiq = np.asarray(skyiq)
         skycc = np.asarray(skycc)
         skywv = np.asarray(skywv)
@@ -226,78 +238,79 @@ class Selector:
         bad_cc = skycc > visit_conditions.cc
         bad_wv = skywv > visit_conditions.wv
 
-         # Multiply weights by 0 where actual conditions worse than required .
+        # Multiply weights by 0 where actual conditions worse than required.
         i_bad_cond = np.where(np.logical_or(np.logical_or(bad_iq, bad_cc), bad_wv))[0][:]
         cmatch[i_bad_cond] = 0
-        
+
         # Multiply weights by skyiq/iq where iq better than required and target
         # does not set soon and not a rapid ToO.
         i_better_iq = np.where(skyiq < visit_conditions.iq)[0][:]
-        if len(i_better_iq) != 0 and negha and toostatus != ToOType.RAPID:
+        if len(i_better_iq) != 0 and neg_ha and too_status != ToOType.RAPID:
             cmatch[i_better_iq] = cmatch[i_better_iq] * skyiq / visit_conditions.iq.value
         # cmatch[i_better_iq] = cmatch[i_better_iq] * (1.0 - (iq - skyiq))
 
         i_better_cc = np.where(skycc < visit_conditions.cc)[0][:]
-        if len(i_better_cc) != 0 and negha and toostatus != ToOType.RAPID:
+        if len(i_better_cc) != 0 and neg_ha and too_status != ToOType.RAPID:
             cmatch[i_better_cc] = cmatch[i_better_cc] * skycc / visit_conditions.cc.value
         if scalar_input:
             cmatch = np.squeeze(cmatch)
 
         return cmatch
 
-    def visibility(self, site: Site, jobs=0, ephem_path=None, overwrite=False, sbtwo= True) -> NoReturn:
+    # TODO: What is an 'sbtwo'?
+    def visibility(self, site: Site, jobs=0, ephem_path=None, overwrite=False, sbtwo=True) -> NoReturn:
         """
         Main driver to calculate the visibility for each observation 
         """
-
-
         obs_windows = self.collector.obs_windows
         timezones = self.collector.timezones
         site_location = self.collector.locations[site]
+
         # NOTE: observation set indifferent of site, this might (should?) change
         # if the query for observations is site bound, for example to manage OR groups
-        observations = self.collector.observations 
-        
+        observations = self.collector.observations
+
         night_length = len(self.times)
 
-        dt = (self.times[0][1] - self.times[0][0]).to_value('hour') * u.hr
-        if abs((dt.to(u.min) - 1.0*u.min).value) > 1.e5:
-            print('Timestep dt must be 1 min, is ', dt.to(u.min))
+        time_slot_length = (self.times[0][1] - self.times[0][0]).to_value('hour') * u.hr
+
+        # TODO: This was 1.e5. I think it should be 1e-5, so I changed it, but confirm.
+        # TODO: Also, should we raise a RunTimeException here instead of printing and returning?
+        if abs((time_slot_length.to(u.min) - 1.0 * u.min).value) > 1e-5:
+            logging.error(f'Time slot length must be 1 min, but is {time_slot_length.to(u.min)}.')
             return
 
+        # TODO: This is not being used due to the commented out code below.
         # How many CPU cores?
-        if jobs < 1:
-            jobs = multiprocessing.cpu_count()
-      
-        obsvishours = {} 
-            
-        obsvishours[site] = np.zeros((len(observations), night_length))
-        
-        visibilities = [[] for obs in observations]
-        hour_angles = [[] for obs in observations]
-        target_alts = [[] for obs in observations]
-        target_azs = [[] for obs in observations]
-        target_parangs = [[] for obs in observations]
-        airmass = [[] for obs in observations]
-        sky_brightness = [[] for obs in observations]
+        jobs = multiprocessing.cpu_count() if jobs < 1 else jobs
 
+        obsvishours = {site: np.zeros((len(observations), night_length))}
+
+        num_observations = len(observations)
+        visibilities = [[]] * num_observations
+        hour_angles = [[]] * num_observations
+        target_alts = [[]] * num_observations
+        target_azs = [[]] * num_observations
+        target_parangs = [[]] * num_observations
+        airmass = [[]] * num_observations
+        sky_brightness = [[]] * num_observations
 
         for period in range(night_length):
             sun_position = vs.lpsun(self.times[period])
             lst = vs.lpsidereal(self.times[period], site_location)
             sunalt, sunaz, sunparang = vs.altazparang(sun_position.dec, lst - sun_position.ra, site_location.lat)
-        
+
             moonpos, moondist = vs.accumoon(self.times[period], site_location)
             moonalt, moonaz, moonparang = vs.altazparang(moonpos.dec, lst - moonpos.ra, site_location.lat)
-            sunmoonang = sun_position.separation(moonpos)
+
             if sbtwo:
                 sunmoonang = sun_position.separation(moonpos)  # for sb2
             else:
-                midnight = vs.local_midnight_Time(self.times[period][0],timezones[site])
+                midnight = vs.local_midnight_Time(self.times[period][0], timezones[site])
                 moonmid, moondistmid = vs.accumoon(midnight, site)
                 sunmid = vs.lpsun(midnight)
-                sunmoonang = sunmid.separation(moonmid) # for sb
-            
+                sunmoonang = sunmid.separation(moonmid)  # for sb
+
             '''
             res = Parallel(n_jobs=jobs)(delayed(self._calculate_visibility)(site, target_des[id],
                                                     target_tag[id], coord[id],
@@ -313,215 +326,205 @@ class Selector:
             '''
             res = []
 
-            for id in tqdm(range(len(observations))):
-              
+            for obs_idx in tqdm(range(len(observations))):
                 res.append(self._calculate_visibility(site,
-                                                      observations[id].target.designation,
-                                                      observations[id].target.tag,
-                                                      observations[id].target.coordinates,
-                                                      observations[id].sky_conditions,
-                                                      observations[id].elevation,
-                                                      obs_windows[id],
+                                                      observations[obs_idx].target.designation,
+                                                      observations[obs_idx].target.tag,
+                                                      observations[obs_idx].target.coordinates,
+                                                      observations[obs_idx].sky_conditions,
+                                                      observations[obs_idx].elevation,
+                                                      obs_windows[obs_idx],
                                                       self.times[period],
                                                       lst, sunalt,
                                                       moonpos, moondist,
                                                       moonalt, sunmoonang,
                                                       site_location, ephem_path,
                                                       sbtwo=sbtwo, overwrite=overwrite, extras=True))
-               
+
             if period == 0:
                 for obs in observations:
-                    id = obs.idx
-                    
-                    obsvishours[site][id, period] = len(res[id][0]) * dt.value
-                    visibilities[id].append(res[id][0]) 
-                    hour_angles[id].append(res[id][1])
-                    target_alts[id].append(res[id][2])
-                    target_azs[id].append(res[id][3])
-                    target_parangs[id].append(res[id][4])
-                    airmass[id].append(res[id][5])
-                    sky_brightness[id].append(res[id][6])
-                    
-
+                    obsvishours[site][obs.idx, period] = len(res[obs.idx][0]) * time_slot_length.value
+                    visibilities[obs.idx].append(res[obs.idx][0])
+                    hour_angles[obs.idx].append(res[obs.idx][1])
+                    target_alts[obs.idx].append(res[obs.idx][2])
+                    target_azs[obs.idx].append(res[obs.idx][3])
+                    target_parangs[obs.idx].append(res[obs.idx][4])
+                    airmass[obs.idx].append(res[obs.idx][5])
+                    sky_brightness[obs.idx].append(res[obs.idx][6])
                 break
- 
 
         for obs in observations:
-            id = obs.idx
-            sum_obsvishr = np.sum(obsvishours[site][id, :])
-   
+            obs_id = obs.idx
+            sum_obsvishr = np.sum(obsvishours[site][obs_id, :])
+
             # visfrac needs to be calculated per night, for the current night through
             # the end of the current period
             if sum_obsvishr > 0.0:
                 visfrac = (obs.length - obs.observed) / sum_obsvishr
             else:
                 visfrac = 0.0
-           
-            obs.visibility = Visibility(visibilities[id], 
-                                        obsvishours[site][id, :],
-                                        hour_angles[id],
+
+            obs.visibility = Visibility(visibilities[obs_id],
+                                        obsvishours[site][obs_id, :],
+                                        hour_angles[obs_id],
                                         visfrac,
-                                        target_alts[id],
-                                        target_azs[id],
-                                        target_parangs[id],
-                                        airmass[id],
-                                        sky_brightness[id])
+                                        target_alts[obs_id],
+                                        target_azs[obs_id],
+                                        target_parangs[obs_id],
+                                        airmass[obs_id],
+                                        sky_brightness[obs_id])
 
-        print('Done')
+        logging.info('Done calculating observation visibility.')
 
-    def create_pool(self) -> Dict[Site,List[Visit]]:
+    def create_pool(self) -> Dict[Site, List[Visit]]:
         """
         Process to create the Visits for each site base on the information from Collector
         """
-
         collected_observations = self.collector.observations
         scheduling_groups = self.collector.scheduling_groups
-        visits = { site: [] for site in self.sites} 
+        visits = {site: [] for site in self.sites}
 
         for site in self.sites:
             ## Create Visits
             for idx, group in enumerate(scheduling_groups.values()):
-                #print(group)
+                # print(group)
                 obs_idxs = group['idx']
-            
+
                 instruments = [collected_observations[obs].instrument
-                            for obs in obs_idxs]
-                wavelengths = set([wav for inst in instruments for wav in inst.wavelength()]) 
-                
+                               for obs in obs_idxs]
+                wavelengths = set([wav for inst in instruments for wav in inst.wavelength()])
+
                 modes = [[collected_observations[obs].instrument.observation_mode()
-                            for obs in obs_idxs]]
-                
-            
-                if len(obs_idxs) > 1: #group 
-                    
+                          for obs in obs_idxs]]
+
+                if len(obs_idxs) > 1:  # group
+
                     observations = []
                     calibrations = []
-                    
+
                     for obs_idx in obs_idxs:
                         observation = collected_observations[obs_idx]
-                        if (observation.category == Category.Science 
+                        if (observation.category == Category.Science
                                 or observation.category == Category.ProgramCalibration):
                             observations.append(observation)
                         else:
                             calibrations.append(observation)
 
-                else: #single observation 
-                    observation = collected_observations[obs_idxs[0]] 
-                
-                    observations = [observation] if (observation == Category.Science 
-                                                        or Category.ProgramCalibration) else []
-                    calibrations = [observation] if observation == Category.PartnerCalibration  else []
+                else:  # single observation
+                    observation = collected_observations[obs_idxs[0]]
+
+                    observations = [observation] if (observation == Category.Science
+                                                     or Category.ProgramCalibration) else []
+                    calibrations = [observation] if observation == Category.PartnerCalibration else []
 
                 can_be_split = False if len(observations) > 1 or len(calibrations) > 0 else True
-                standard_time = self._standard_time(instruments,wavelengths,modes,len(calibrations))
-                visits[site].append(Visit(idx, site, observations, calibrations, 
-                                            can_be_split, standard_time))
+                standard_time = self._standard_time(instruments, wavelengths, modes, len(calibrations))
+                visits[site].append(Visit(idx, site, observations, calibrations,
+                                          can_be_split, standard_time))
 
         return visits
-    
-    def select(self, visits: List[Visit], 
-               inight: int, site: Site, 
-               actual_conditions: Dict[str,Union[SkyConditions,WindConditions]], 
-               resources: Resources, 
+
+    def select(self, visits: List[Visit],
+               inight: int, site: Site,
+               actual_conditions: Conditions,
+               resources: Resources,
                ephem_dir: str) -> List[Visit]:
         """
         Select the visits that are posible to be schedule under current conditions from the pool 
         Return a collection of visits for each site
         """
-        
+
         ranker = Ranker(self.sites, self.times)
 
-        ranker.score(visits, 
-                     self.collector.programs, 
-                     self.collector.locations, 
+        ranker.score(visits,
+                     self.collector.programs,
+                     self.collector.locations,
                      inight,
                      ephem_dir)
 
-        actual_sky_conditions = actual_conditions['sky'] 
-        actual_wind_conditions = actual_conditions['wind']
+        actual_sky_conditions = actual_conditions.sky
+        actual_wind_conditions = actual_conditions.wind
 
         selected = []
         for visit in visits:
-           
-            if (visit.length() - visit.observed() > 0 ):
+
+            if visit.length() - visit.observed() > 0:
                 negative_hour_angle = True
                 dispersers_in_obs = []
                 fpus_in_obs = []
                 instruments_in_obs = []
                 valid_in_obs = []
-                status_of_obs = [] 
+                status_of_obs = []
                 vishours_of_obs = []
-                too_status = 'none' 
+                too_status = 'none'
                 visit_conditions = visit.sky_conditions
-                
+
                 # Check observations can be selected for the visit
                 for obs in visit.observations:
-                    
+
                     # If HA < 0 in first time step, then we don't consider it setting at the start
                     if (negative_hour_angle and obs.category in ['science', 'prog_cal'] and
                             obs.visibility.hour_angle[0].value > 0):
                         negative_hour_angle = False
 
                     # Check wind constraints
-                    if(actual_wind_conditions.wind_direction != -1 and
-                            actual_wind_conditions.wind_speed > 0 * u.m / u.s):
+                    if actual_wind_conditions.wind_direction != -1 and actual_wind_conditions.wind_speed > 0 * u.m / u.s:
                         wind_conditions = actual_wind_conditions.get_wind_conditions(obs.visibility.azimuth[inight])
-                    
+
                     # NOTE: first condition always going to be true. Why is needed?
                     if too_status != ToOType.RAPID and obs.too_status != ToOType.NONE:
                         too_status = obs.too_status
 
                     # Check for correct instrument configuration and check comp in other sites. 
                     # NOTE: This could be done before the selecting process 
-                    comp_val, comp_instrument = self.has_complementary_mode(obs,visit.site)
+                    comp_val, comp_instrument = self.has_complementary_mode(obs, visit.site)
                     instruments_in_obs.append(comp_instrument)
                     valid_in_obs.append(comp_val)
                     vishours_of_obs.append(obs.visibility.hours[inight])
-                    if 'GMOS' in comp_instrument: 
+
+                    if 'GMOS' in comp_instrument:
                         comp_disperser = obs.instrument.disperser
                         dispersers_in_obs.append(comp_disperser)
-                        fpu =  obs.instrument.configuration['fpu']
-                        fpus =  obs.instrument.configuration['fpuCustomMask'] if 'CUSTOM_MASK' in fpu else fpu
+                        fpu = obs.instrument.configuration['fpu']
+                        fpus = obs.instrument.configuration['fpuCustomMask'] if 'CUSTOM_MASK' in fpu else fpu
                         fpus_in_obs.extend(fpus)
-                    
+
                     status_of_obs.append(obs.status)
 
                 instruments_in_obs = list(dict.fromkeys(instruments_in_obs))
                 dispersers_in_obs = list(dict.fromkeys(dispersers_in_obs))
                 fpus_in_obs = list(dict.fromkeys(fpus_in_obs))
                 status_of_obs = list(dict.fromkeys(status_of_obs))
-         
-                if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and 
-                        self._check_instrument_availability(resources, site, instruments_in_obs) and 
+
+                if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and
+                        self._check_instrument_availability(resources, site, instruments_in_obs) and
                         all(status in ['ONGOING', 'READY', 'OBSERVED'] for status in status_of_obs) and
                         self._check_conditions(visit_conditions, actual_sky_conditions)):
-                    
-                    #CHECK FOR GMOS IF COMPONENTS ARE INSTALLED
-                    if any( 'GMOS' in  instrument for instrument in instruments_in_obs):
+
+                    # CHECK FOR GMOS IF COMPONENTS ARE INSTALLED
+                    if any('GMOS' in instrument for instrument in instruments_in_obs):
                         can_be_selected = False
                         for disperser in dispersers_in_obs:
                             if resources.is_disperser_available(site, disperser):
-                                for fpu in fpus_in_obs: 
-                                    if resources.is_mask_available(site,fpu): 
-                                       
+                                for fpu in fpus_in_obs:
+                                    if resources.is_mask_available(site, fpu):
                                         can_be_selected = True
 
                         if can_be_selected:
-                            # Update the scores NOTE: This could be done by the ranker?
-
-                            match = self._match_conditions(visit_conditions, 
+                            # TODO: Update the scores. This could be done by the ranker?
+                            match = self._match_conditions(visit_conditions,
                                                            actual_sky_conditions,
-                                                           negative_hour_angle, 
+                                                           negative_hour_angle,
                                                            too_status)
-                            visit.score = wind_conditions * visit.score * match                
-                            
+                            visit.score = wind_conditions * visit.score * match
+
                     else:
                         selected.append(visit)
 
         self.selection[site] = selected
         return selected
 
-    def selection_summary(self)-> NoReturn:
+    def selection_summary(self) -> NoReturn:
         """
         Show a summary of the selection of Visits
         """
@@ -533,11 +536,11 @@ class Selector:
             for visit in self.selection[site]:
                 print(visit)
 
-    def has_complementary_mode(self, obs: Observation, site: Site) -> Union[bool,str]:
+    def has_complementary_mode(self, obs: Observation, site: Site) -> Union[bool, str]:
         """
         Determines if an observation configuration is valid for site.
         This is mainly to determine if it can be observed at an alternative site
-        """    
+        """
         go = False
         altinst = 'None'
 
@@ -555,35 +558,34 @@ class Selector:
                         go = True
                         altinst = 'NIRI'
                     elif (mode in ['longslit'] and
-                            'GCAL' not in instrument.config['title'] and  
-                            'R3000' in instrument.disperser): 
+                          'GCAL' not in instrument.config['title'] and
+                          'R3000' in instrument.disperser):
                         go = True
                         altinst = 'GNIRS'
             elif site == Site.GN:
 
-                if (instrument.name == 'GMOS-N' and 
+                if (instrument.name == 'GMOS-N' and
                         mode in ['imaging', 'longslit', 'ifu']):
                     go = True
                     altinst = 'GMOS-S'
-                elif (instrument.name == 'NIRI' and 
-                        instrument.config['camera'] == 'F6'):
+                elif (instrument.name == 'NIRI' and
+                      instrument.config['camera'] == 'F6'):
                     go = True
                     altinst = 'Flamingos2'
                     if mode in ['imaging']:
                         go = True
                         altinst = 'Flamingos2'
                     elif mode in ['longslit']:
-                        if (instrument.disperser == 'D_10' and 
-                            'SHORT' in instrument.config['camera']):
+                        if (instrument.disperser == 'D_10' and
+                                'SHORT' in instrument.config['camera']):
                             go = True
                             altinst = 'Flamingos2'
-                        elif (instrument.disperser == 'D_10' and 
-                                'LONG' in instrument.config['camera']):
+                        elif (instrument.disperser == 'D_10' and
+                              'LONG' in instrument.config['camera']):
                             go = True
                             altinst = 'Flamingos2'
         else:
             go = True
             altinst = obs.instrument.name
-
 
         return go, altinst
