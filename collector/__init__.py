@@ -83,7 +83,7 @@ class Collector:
                  program_types: FrozenSet[str],
                  obs_classes: FrozenSet[str],
                  time_range: Time = None,
-                 delta_time: Time = 1.0 * u.min):
+                 time_slot_length: Time = 1.0 * u.min):
         
         self.sites = sites                   
         self.semesters = semesters
@@ -92,7 +92,7 @@ class Collector:
 
         self.time_range = time_range  # Time object: array for visibility start/stop dates.
         self.time_grid = self._calculate_time_grid()  # Time object: array with entry for each day in time_range.
-        self.delta_time = delta_time  # Length of time steps.
+        self.time_slot_length = time_slot_length  # Length of time steps.
 
         self.observations = []
         self.programs = {}
@@ -478,8 +478,8 @@ class Collector:
 
             tstart = round_min(tmin, up=True)
             tend = round_min(tmax, up=False)
-            n = np.int((tend.jd - tstart.jd) / self.delta_time.to(u.day).value + 0.5)
-            times = Time(np.linspace(tstart.jd, tend.jd - self.delta_time.to(u.day).value, n), format='jd')
+            n = np.int((tend.jd - tstart.jd) / self.time_slot_length.to(u.day).value + 0.5)
+            times = Time(np.linspace(tstart.jd, tend.jd - self.time_slot_length.to(u.day).value, n), format='jd')
             timesarr.append(times)
 
         return timesarr
