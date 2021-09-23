@@ -4,7 +4,7 @@ from collector import Collector
 import collector.vskyutil as vs
 import collector.sb as sb
 
-from common.structures.conditions import Conditions, SkyConditions, WindConditions
+from common.structures.conditions import Conditions, SkyConditions
 from common.structures.elevation import ElevationType
 from common.structures.target import TargetTag
 from common.structures.too_type import ToOType
@@ -26,7 +26,7 @@ import multiprocessing
 import numpy as np
 from tqdm import tqdm
 
-from typing import List, NoReturn, Dict, Union
+from typing import List, NoReturn, Dict, Set, Iterable
 
 
 class Selector:
@@ -45,7 +45,8 @@ class Selector:
 
         self.selection = {}
 
-    def _standard_time(self, instruments: List[str], wavelengths: List[float], modes: List[str], cal_len: int) -> u.hr:
+    @staticmethod
+    def _standard_time(instruments: List[str], wavelengths: Set[float], modes: List[List[str]], cal_len: int) -> u.hr:
         standard_time = 0.0 * u.hr
         if cal_len > 1:
             if any(item in instruments for item in ['Flamingos2', 'GNIRS', 'NIFS', 'IGRINS']):
@@ -196,7 +197,7 @@ class Selector:
             return ivis
 
     def _check_instrument_availability(self, resources: Resources,
-                                       site: Site, instruments_of_obs: List[str]) -> bool:
+                                       site: Site, instruments_of_obs: Iterable[str]) -> bool:
         return all(resources.is_instrument_available(site, instrument) for instrument in instruments_of_obs)
 
     def _check_conditions(self,
@@ -385,20 +386,19 @@ class Selector:
         visits = {site: [] for site in self.sites}
 
         for site in self.sites:
-            ## Create Visits
+            # Create Visits
             for idx, group in enumerate(scheduling_groups.values()):
-                # print(group)
                 obs_idxs = group['idx']
 
                 instruments = [collected_observations[obs].instrument
                                for obs in obs_idxs]
+
                 wavelengths = set([wav for inst in instruments for wav in inst.wavelength()])
 
                 modes = [[collected_observations[obs].instrument.observation_mode()
                           for obs in obs_idxs]]
 
                 if len(obs_idxs) > 1:  # group
-
                     observations = []
                     calibrations = []
 
@@ -417,23 +417,24 @@ class Selector:
                                                      or Category.ProgramCalibration) else []
                     calibrations = [observation] if observation == Category.PartnerCalibration else []
 
-                can_be_split = False if len(observations) > 1 or len(calibrations) > 0 else True
-                standard_time = self._standard_time(instruments, wavelengths, modes, len(calibrations))
+                can_be_split = len(observations) <= 1 and len(calibrations) == 0
+
+                standard_time = Selector._standard_time(instruments, wavelengths, modes, len(calibrations))
                 visits[site].append(Visit(idx, site, observations, calibrations,
                                           can_be_split, standard_time))
 
         return visits
 
     def select(self, visits: List[Visit],
-               inight: int, site: Site,
+               inight: int,
+               site: Site,
                actual_conditions: Conditions,
                resources: Resources,
                ephem_dir: str) -> List[Visit]:
         """
-        Select the visits that are posible to be schedule under current conditions from the pool 
-        Return a collection of visits for each site
+        Select the visits that are possible to be scheduled under current conditions from the pool.
+        Return a collection of visits for each site.
         """
-
         ranker = Ranker(self.sites, self.times)
 
         ranker.score(visits,
@@ -477,7 +478,7 @@ class Selector:
 
                     # Check for correct instrument configuration and check comp in other sites. 
                     # NOTE: This could be done before the selecting process 
-                    comp_val, comp_instrument = self.has_complementary_mode(obs, visit.site)
+                    comp_val, comp_instrument = Selector.has_complementary_mode(obs, visit.site)
                     instruments_in_obs.append(comp_instrument)
                     valid_in_obs.append(comp_val)
                     vishours_of_obs.append(obs.visibility.hours[inight])
@@ -491,10 +492,10 @@ class Selector:
 
                     status_of_obs.append(obs.status)
 
-                instruments_in_obs = list(dict.fromkeys(instruments_in_obs))
-                dispersers_in_obs = list(dict.fromkeys(dispersers_in_obs))
-                fpus_in_obs = list(dict.fromkeys(fpus_in_obs))
-                status_of_obs = list(dict.fromkeys(status_of_obs))
+                instruments_in_obs = dict.fromkeys(instruments_in_obs)
+                dispersers_in_obs = dict.fromkeys(dispersers_in_obs)
+                fpus_in_obs = dict.fromkeys(fpus_in_obs)
+                status_of_obs = dict.fromkeys(status_of_obs)
 
                 if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and
                         self._check_instrument_availability(resources, site, instruments_in_obs) and
@@ -516,6 +517,8 @@ class Selector:
                                                            actual_sky_conditions,
                                                            negative_hour_angle,
                                                            too_status)
+
+                            # TODO: wind_conditions may not be initialized by this point.
                             visit.score = wind_conditions * visit.score * match
 
                     else:
@@ -536,7 +539,8 @@ class Selector:
             for visit in self.selection[site]:
                 print(visit)
 
-    def has_complementary_mode(self, obs: Observation, site: Site) -> Union[bool, str]:
+    @staticmethod
+    def has_complementary_mode(obs: Observation, site: Site) -> tuple[bool, str]:
         """
         Determines if an observation configuration is valid for site.
         This is mainly to determine if it can be observed at an alternative site
@@ -558,7 +562,7 @@ class Selector:
                         go = True
                         altinst = 'NIRI'
                     elif (mode in ['longslit'] and
-                          'GCAL' not in instrument.config['title'] and
+                          'GCAL' not in instrument.configuration['title'] and
                           'R3000' in instrument.disperser):
                         go = True
                         altinst = 'GNIRS'
@@ -569,7 +573,7 @@ class Selector:
                     go = True
                     altinst = 'GMOS-S'
                 elif (instrument.name == 'NIRI' and
-                      instrument.config['camera'] == 'F6'):
+                      instrument.configuration['camera'] == 'F6'):
                     go = True
                     altinst = 'Flamingos2'
                     if mode in ['imaging']:
@@ -577,11 +581,11 @@ class Selector:
                         altinst = 'Flamingos2'
                     elif mode in ['longslit']:
                         if (instrument.disperser == 'D_10' and
-                                'SHORT' in instrument.config['camera']):
+                                'SHORT' in instrument.configuration['camera']):
                             go = True
                             altinst = 'Flamingos2'
                         elif (instrument.disperser == 'D_10' and
-                              'LONG' in instrument.config['camera']):
+                              'LONG' in instrument.configuration['camera']):
                             go = True
                             altinst = 'Flamingos2'
         else:
