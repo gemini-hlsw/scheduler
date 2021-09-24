@@ -347,12 +347,13 @@ class Collector:
                 target_designation = None
                 target_tag = None
                 if targets:
-                    for target in targets:
+                    for target in targets:                        
                         try:
                             target_name = target['group']['name']
-                            target_tag = TargetTag(target['tag']) if target_name == 'Base' else None
-                            target_designation = target['num'] if target_tag is not None and \
-                                                                  target_tag == TargetTag.MajorBody else target['des']
+                            if target_name == 'Base':
+                                target_tag = TargetTag(target['tag'])
+                                if target_tag is not TargetTag.Sidereal and target_tag is not None:
+                                    target_designation = target['num'] if target_tag is TargetTag.MajorBody else target['des']
                         except:
                             pass
 
