@@ -537,6 +537,7 @@ class Selector:
             print(f'Site {site.name}')
             for visit in self.selection[site]:
                 print(visit)
+        print(f' {len(self.selection[site])} visits selected for variant.')
 
     @staticmethod
     def has_complementary_mode(obs: Observation, site: Site) -> tuple[bool, str]:

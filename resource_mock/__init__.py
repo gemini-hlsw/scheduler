@@ -70,20 +70,20 @@ class Resource:
         return result
 
     def _excel_reader(self) -> NoReturn:
+
         sites = [site for site in Site]
-        workbook = load_workbook(filename=os.path.join(self.path, '2018B-2019A Telescope Schedules.xlsx'))
+        workbook = load_workbook(filename=f'{self.path}/2018B-2019A Telescope Schedules.xlsx')
         for site in sites:
             sheet = workbook[site.name]
-            for row in sheet.iter_rows(min_row=2):
+            for row in sheet.iter_rows(min_row=2):                
                 date = row[0].value
-                self.instruments[site][date] = [c.value for c in row[3:]]
+                f2_filter = lambda x: 'Flamingos2' if x == 'F2' else x
+                self.instruments[site][date] = [f2_filter(c.value) for c in row[3:]]
                 self.mode[site][date] = row[1].value
-
-                # TODO: Some of these rows have None as their value. Is this right?
-                self.lgs[site][date] = str_to_bool(row[2].value)
+                self.lgs[site][date] = self._to_bool(row[2].value)
             
         if not self.instruments or not self.mode or not self.lgs:
-            raise Exception("Problems reading spreadsheet.")
+            raise Exception("Problems on reading spreadsheet...") 
 
     def connect(self) -> NoReturn:
         """
