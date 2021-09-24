@@ -26,10 +26,10 @@ if __name__ == '__main__':
     night_date = '2019-01-03'
 
     # The observation classes, program types, sites, and semesters to consider for the plan.
-    obs_classes = frozenset(['SCIENCE', 'PROG_CAL', 'PARTNER_CAL'])
-    prog_types = frozenset(['Q', 'LP', 'FT', 'DD'])
-    sites = frozenset([Site.GS])
-    semesters = frozenset(['2018B', '2019A'])
+    obs_classes = ['SCIENCE', 'PROG_CAL', 'PARTNER_CAL']
+    prog_types = ['Q', 'LP', 'FT', 'DD']
+    sites = [Site.GS]
+    semesters = ['2018B', '2019A']
 
     path = os.path.join('collector', 'data')
     collector = Collector(sites, semesters, prog_types, obs_classes, time_range=time_range)
