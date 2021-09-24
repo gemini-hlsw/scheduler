@@ -176,7 +176,7 @@ class WindConditions:
         self.wind_direction = wind_direction
         self.time_blocks = time_blocks
 
-    # TODO: This method needs to be fixed: speed is not defined unless the if condition holds.
+    # TODO ERROR: This method needs to be fixed: speed is not defined unless the if condition holds.
     def get_wind_conditions(self, azimuth) -> np.ndarray:
         if np.asarray(self.wind_speed).ndim == 0:
             speed = np.full(len(azimuth), self.wind_speed.to(u.m / u.s).value) * u.m / u.s
