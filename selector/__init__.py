@@ -6,6 +6,7 @@ import collector.sb as sb
 
 from common.structures.conditions import Conditions, SkyConditions
 from common.structures.elevation import ElevationType
+from common.structures.observation_status import ObservationStatus
 from common.structures.target import TargetTag
 from common.structures.too_type import ToOType
 
@@ -496,7 +497,8 @@ class Selector:
 
                 if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and
                         Selector._check_instrument_availability(resources, site, instruments_in_obs) and
-                        all(status in ['ONGOING', 'READY', 'OBSERVED'] for status in status_of_obs) and
+                        all(status in [ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED]
+                            for status in status_of_obs) and
                         Selector._check_conditions(visit_conditions, actual_sky_conditions)):
 
                     # CHECK FOR GMOS IF COMPONENTS ARE INSTALLED

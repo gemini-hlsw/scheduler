@@ -217,7 +217,7 @@ class Collector:
             # Use human-readable slit names
             if 'GMOS' in instrument_name:
                 if key == 'fpu':
-                    fpulist = FpuXmlTranslator(ulist)
+                    fpulist = fpu_xml_translator(ulist)
                     fpunames = []
                     for fpu in fpulist:
                         fpunames.append(fpu['name'])
@@ -226,7 +226,7 @@ class Collector:
                     instconfig['fpuWidth'] = fpuwidths
                 if key == 'customSlitWidth':
                     for cwidth in ulist:
-                        fpuwidths.append(CustomMaskWidth(cwidth))
+                        fpuwidths.append(custom_mask_width(cwidth))
                     instconfig['fpuWidth'] = fpuwidths
             if key == 'disperser':
                 disperser = ulist[0]
@@ -247,7 +247,7 @@ class Collector:
                  zipfile: str,
                  xmlselect: List[str],
                  site: Site,
-                 selection=frozenset(['ONGOING', 'READY']),
+                 selection=frozenset([ObservationStatus.ONGOING, ObservationStatus.READY]),
                  obsclasses=frozenset(['SCIENCE']),
                  tas=None):
         """ Populate Database from the zip file of an ODB backup """
@@ -260,28 +260,31 @@ class Collector:
                 if any(xs in name for xs in xmlselect):
                     tree = ElementTree.fromstring(zip.read(name))
                     program = tree.find('container')
-                    (active, complete) = CheckStatus(program)
+                    (active, complete) = check_status(program)
                     if active and not complete:
                         self._process_observation_data(program, selection, obsclasses, tas)
 
     def _process_observation_data(self,
                                   program_data,
-                                  selection: frozenset[str],
+                                  selection: frozenset[ObservationStatus],
                                   obsclasses: frozenset[str],
                                   tas: Dict[str, Dict[str, float]]) -> NoReturn:
-        """Parse XML file to Observation objects and other data structures"""
+        """Parse XML file to Observation objects and other data structures."""
         program_id = get_program_id(program_data)
         notes = get_program_notes(program_data)
         program_mode = get_program_mode(program_data)
         band = get_program_band(program_data)
         award = get_program_awarded_time(program_data)
+        is_thesis = is_program_thesis(program_data)
+        too_status = get_too_status(program_data)
 
         year = program_id[3:7]
         next_year = str(int(year) + 1)
         semester = program_id[7]
 
+        # Determine the program start and end times.
         if 'FT' in program_id:
-            program_start, program_end = GetFTProgramDates(notes, semester, year, next_year)
+            program_start, program_end = get_ft_program_dates(notes, semester, year, next_year)
             # If still undefined, use the values from the previous observation
             if program_start is None:
                 program_start = self.programs[-1].start
@@ -306,46 +309,32 @@ class Collector:
         program_start -= FUZZY_BOUNDARY * u.day
         program_end += FUZZY_BOUNDARY * u.day
 
-        # Thesis program?
-        thesis = is_program_thesis(program_data)
-
-        # ToO status
-        toostat = get_too_status(program_data)
-
         # Used time from Time Accounting Summary (tas) information
-        if tas and program_id in tas:
-            used = tas[program_id]['prgtime']
-        else:
-            used = 0.0 * u.hour
+        used = tas[program_id]['prgtime'] if tas and program_id in tas else 0.0 * u.hour
 
         collected_program = Program(program_id,
                                     program_mode,
                                     band,
-                                    thesis,
+                                    is_thesis,
                                     award,
                                     used,
-                                    toostat,
+                                    too_status,
                                     program_start,
                                     program_end)
         self.programs[program_id] = collected_program
-        raw_observations, groups = GetObservationInfo(program_data)
 
-        if raw_observations is None:
-            raise RuntimeError('Parser issue to get observation info')
-
-        for raw_observation, group in zip(raw_observations, groups):
-
-            classes = list(dict.fromkeys(GetClass(raw_observation)))
-            status = GetObsStatus(raw_observation)
-            obs_odb_id = GetObsID(raw_observation)
+        for raw_observation, group in get_observation_info(program_data):
+            classes = list(dict.fromkeys(get_obs_class(raw_observation)))
+            status = get_obs_status(raw_observation)
+            obs_odb_id = get_obs_id(raw_observation)
 
             if any(obs_class in obsclasses for obs_class in classes) and (status in selection):
-                logging.info(f'Adding {obs_odb_id}')
+                logging.info(f'Adding {obs_odb_id}.')
 
-                total_time = GetObsTime(raw_observation)
+                total_time = get_obs_time(raw_observation)
 
                 # Target Info
-                target_name, ra, dec = GetTargetCoords(raw_observation)
+                target_name, ra, dec = get_target_coords(raw_observation)
 
                 if target_name is None:
                     target_name = 'None'
@@ -353,8 +342,8 @@ class Collector:
                     ra = 0.0
                     dec = 0.0
                 target_coords = SkyCoord(ra, dec, frame='icrs', unit=(u.deg, u.deg))
-                target_mags = GetTargetMags(raw_observation, baseonly=True)
-                targets = GetTargets(raw_observation)
+                target_mags = get_target_magnitudes(raw_observation, baseonly=True)
+                targets = get_targets(raw_observation)
                 target_designation = None
                 target_tag = None
                 if targets:
@@ -369,18 +358,18 @@ class Collector:
 
                 target = Target(target_name, target_tag, target_mags, target_designation, target_coords)
                 # Observation Priority
-                priority = GetPriority(raw_observation)
+                priority = get_priority(raw_observation)
                 # Instrument Configuration
-                instrument_name = GetInstrument(raw_observation)
-                instrument_config = GetInstConfigs(raw_observation)
+                instrument_name = get_instrument(raw_observation)
+                instrument_config = get_inst_configs(raw_observation)
                 if 'name' in instrument_config:
                     instrument_name = instrument_config['name'][0]
 
                 # ToO status
-                too_status = GetObsTooStatus(raw_observation, self.programs[program_id].too_status)
+                too_status = get_obs_too_status(raw_observation, self.programs[program_id].too_status)
 
                 # Sky Conditions
-                conditions = GetConditions(raw_observation, label=False)
+                conditions = get_conditions(raw_observation, label=False)
 
                 if conditions or conditions is None:
                     sky_cond = SkyConditions()
@@ -389,7 +378,7 @@ class Collector:
                     sky_cond = SkyConditions(*parse_conditions)
 
                 # Elevation constraints        
-                elevation_type, min_elevation, max_elevation = GetElevation(raw_observation)
+                elevation_type, min_elevation, max_elevation = get_elevation(raw_observation)
                 elevation_type = str_to_elevation_type(elevation_type)
                 min_elevation, max_elevation = str_to_float(min_elevation), str_to_float(max_elevation)
                 elevation_constraints = ElevationConstraints(elevation_type, min_elevation, max_elevation)
@@ -408,7 +397,7 @@ class Collector:
 
                 inst_config = Collector._instrument_setup(instrument_config, instrument_name)
 
-                start, duration, repeat, period = GetWindows(raw_observation)
+                start, duration, repeat, period = get_windows(raw_observation)
                 # This makes a list of timing windows between progstart and progend
                 timing_windows = ot_timing_windows(start, duration, repeat, period)
 
@@ -451,7 +440,7 @@ class Collector:
                 # self.target_des.append(des)
                 # self.coord.append(SkyCoord(ra, dec, frame='icrs', unit=(u.deg, u.deg)))
                 # self.mags.append(target_mags)
-                self.toostatus.append(toostat.lower())
+                self.toostatus.append(too_status.lower())
                 self.priority.append(priority)
                 # self.conditions.append({'iq': condf[0], 'cc': condf[1], 'bg': condf[2], 'wv': condf[3]})
 

@@ -1,6 +1,7 @@
-import datetime
+from datetime import datetime, timedelta
 import calendar
-from typing import List, Optional, Tuple
+import logging
+from typing import Dict, List, Optional, Tuple, Union
 from xml.etree import ElementTree
 
 from astropy.time import Time
@@ -9,10 +10,15 @@ import astropy.units as u
 from common.constants import CLASSICAL_NIGHT_LEN
 from common.helpers import str_to_bool
 from common.structures.band import Band
+from common.structures.execution_status import ExecutionStatus
+from common.structures.observation_status import ObservationStatus
+from common.structures.phase2_status import Phase2Status
 from common.structures.time_award_units import TimeAwardUnits
 from common.structures.too_type import ToOType
 
-WARNING_STATES = frozenset(['FOR-ACTIVATION', 'ONGOING', 'READY'])
+WARNING_STATES = frozenset([ObservationStatus.FOR_ACTIVATION,
+                            ObservationStatus.ONGOING,
+                            ObservationStatus.READY])
 
 
 # ORIGINAL source: https://github.com/bryanmiller/odb
@@ -42,7 +48,7 @@ def get_program_notes(program_data: ElementTree) -> List[Tuple[Optional[str], Op
 
 
 # TODO: We should probably make program mode an enum.
-# TODO: Talk to BRYAN
+# TODO: Talk to BRYAN. Right now the only value is QUEUE.
 def get_program_mode(program_data: ElementTree) -> str:
     """Extract the program mode from XML."""
     mode = 'UNKNOWN'
@@ -56,7 +62,7 @@ def get_program_mode(program_data: ElementTree) -> str:
 
 
 def get_program_band(program_data: ElementTree) -> Band:
-    """Extract the band of a program from XML."""
+    """Extract the program band from XML."""
     band = 0
     for paramset in program_data.findall('paramset'):
         if paramset.attrib.get('name') == 'Science Program':
@@ -68,6 +74,7 @@ def get_program_band(program_data: ElementTree) -> Band:
 
 
 def get_program_awarded_time(program_data: ElementTree) -> Time:
+    """Extract the program awarded time from XML."""
     sciprogram = program_data.find("paramset[@name='Science Program'][@kind='dataObj']")
     # time_acct = sciprogram.find(paramset[@name='timeAcct']")
     awarded_time = sciprogram.find("param[@name='awardedTime']")
@@ -78,12 +85,14 @@ def get_program_awarded_time(program_data: ElementTree) -> Time:
 
 
 def is_program_thesis(program_data: ElementTree) -> bool:
+    """Determine if the program is a thesis program from XML."""
     paramset = program_data.find("paramset[@name='Science Program'][@kind='dataObj']")
     param = paramset.find("param[@name='isThesis']")
     return param is not None and str_to_bool(param.attrib.get('value'))
 
 
 def get_too_status(program_data: ElementTree) -> ToOType:
+    """Get the target of opportunity status for the program from XML."""
     too = ToOType.NONE
     for paramset in program_data.findall('paramset'):
         if paramset.attrib.get('name') == 'Science Program':
@@ -93,80 +102,83 @@ def get_too_status(program_data: ElementTree) -> ToOType:
     return too
 
 
-def GetClass(Observation):
+# TODO: What are the possible observation classes?
+def get_obs_class(observation_data: ElementTree) -> List[str]:
+    """Get the observation classes from the XML."""
     obsclasses = []
-    for container in Observation.findall('.//container'):
+    for container in observation_data.findall('.//container'):
         if container.attrib.get("type") == 'Observer':
             paramset = container.find("paramset")
             for param in paramset.findall("param"):
                 if param.attrib.get("name") == "class":
                     obsclasses.append(param.attrib.get("value"))
-    return (obsclasses)
+    return obsclasses
 
 
-def GetObsStatus(Observation):
-    execstatus = 'AUTO'
-    paramset = Observation.find('paramset')
+def get_obs_status(observation_data: ElementTree) -> ObservationStatus:
+    """Get the observation status from the XML."""
+    execstatus = ExecutionStatus.AUTO
+    paramset = observation_data.find('paramset')
     for param in paramset.findall('param'):
 
         # In 2014A the Status was split into Phase-2 and Exec status
         # Here I recombine them into one as they were before 2014A:
-
         if param.attrib.get('name') == 'phase2Status':
-            phase2status = param.attrib.get('value')
-            # logger.debug('Raw Phase 2 Status = %s', phase2status)
+            phase2status = Phase2Status[param.attrib.get('value')]
 
         if param.attrib.get('name') == 'execStatusOverride':
-            execstatus = param.attrib.get('value')
+            execstatus = ExecutionStatus[param.attrib.get('value')]
 
-    if execstatus == 'OBSERVED':
-        obsstatus = 'OBSERVED'
+    if execstatus == ExecutionStatus.OBSERVED:
+        obsstatus = ObservationStatus.OBSERVED
 
-    elif execstatus == 'ONGOING':
-        obsstatus = 'ONGOING'
+    elif execstatus == ExecutionStatus.ONGOING:
+        obsstatus = ObservationStatus.ONGOING
 
-    elif execstatus == 'PENDING':
-        obsstatus = 'READY'
+    elif execstatus == ExecutionStatus.PENDING:
+        obsstatus = ObservationStatus.READY
 
-    elif execstatus == 'AUTO':
-        if phase2status == 'PI_TO_COMPLETE':
-            obsstatus = 'PHASE2'
-        elif phase2status == 'NGO_TO_REVIEW':
-            obsstatus = 'FOR-REVIEW'
-        elif phase2status == 'NGO_IN_REVIEW':
-            obsstatus = 'IN-REVIEW'
-        elif phase2status == 'GEMINI_TO_ACTIVATE':
-            obsstatus = 'FOR-ACTIVATION'
-        elif phase2status == 'ON_HOLD':
-            obsstatus = 'ON-HOLD'
-        elif phase2status == 'INACTIVE':
-            obsstatus = 'INACTIVE'
-        elif phase2status == 'PHASE_2_COMPLETE':
-
-            obslog = GetObsLog(Observation)  # returns a triple: (time, event, datalabel)
-            nsteps = GetNumSteps(Observation)
-            nobs = GetNumObserved(Observation)
+    elif execstatus == ExecutionStatus.AUTO:
+        # TODO ERROR: This will not be assigned.
+        if phase2status == Phase2Status.PI_TO_COMPLETE:
+            obsstatus = ObservationStatus.PHASE2
+        elif phase2status == Phase2Status.NGO_TO_REVIEW:
+            obsstatus = ObservationStatus.FOR_REVIEW
+        elif phase2status == Phase2Status.NGO_IN_REVIEW:
+            obsstatus = ObservationStatus.IN_REVIEW
+        elif phase2status == Phase2Status.GEMINI_TO_ACTIVATE:
+            obsstatus = ObservationStatus.FOR_ACTIVATION
+        elif phase2status == Phase2Status.ON_HOLD:
+            obsstatus = ObservationStatus.ON_HOLD
+        elif phase2status == Phase2Status.INACTIVE:
+            obsstatus = ObservationStatus.INACTIVE
+        elif phase2status == Phase2Status.PHASE_2_COMPLETE:
+            obslog = get_obs_log(observation_data)  # returns a triple: (time, event, datalabel)
+            nsteps = get_num_steps(observation_data)
+            nobs = get_num_observed(observation_data)
 
             if nobs == 0 and len(obslog[0]) == 0:
-                obsstatus = 'READY'
+                obsstatus = ObservationStatus.READY
 
             elif nobs >= nsteps:
-                obsstatus = 'OBSERVED'
+                obsstatus = ObservationStatus.OBSERVED
 
             else:
-                obsstatus = 'ONGOING'
+                obsstatus = ObservationStatus.ONGOING
 
         else:
-            print('UNKNOWN PHASE-2 STATUS: %s', phase2status)
-    return (obsstatus)
+            logging.error(f'Unknown Phase2 status: {phase2status}')
+
+    # TODO ERROR: obsstatus may not be initialized.
+    return obsstatus
 
 
-def GetObsLog(Observation):
-    event = []
+def get_obs_log(observation_data: ElementTree) -> Tuple[List[datetime], List[str], List[str]]:
     time = []
+    event = []
     datalabel = []
 
-    for container in Observation.findall('container'):
+    for container in observation_data.findall('container'):
         if container.attrib.get('kind') == 'obsExecLog':
             for paramset in container.findall('paramset'):
                 if paramset.attrib.get('name') == 'Observation Exec Log':
@@ -179,7 +191,7 @@ def GetObsLog(Observation):
                                         label = False
                                         for param in paramset4.findall('param'):
                                             if param.attrib.get('name') == 'timestamp':
-                                                time.append(datetime.datetime.utcfromtimestamp(
+                                                time.append(datetime.utcfromtimestamp(
                                                     int(param.attrib.get('value')) / 1000.))
                                             elif param.attrib.get('name') == 'datasetLabel':
                                                 datalabel.append(param.attrib.get('value'))
@@ -194,11 +206,15 @@ def GetObsLog(Observation):
                                         if not label:
                                             datalabel.append('')
 
-    return (time, event, datalabel)
+    return time, event, datalabel
 
 
-def GetNumSteps(Observation):
-    def Count(tree, total, multiplier, obsid):
+def get_num_steps(observation_data: ElementTree) -> int:
+    """Get the number of steps from XML."""
+    def count(tree: ElementTree,
+              total: int,
+              multiplier: int,
+              obsid: int) -> Tuple[int, int]:
         cname = tree.attrib.get('name')
         ctype = tree.attrib.get('type')
 
@@ -213,10 +229,9 @@ def GetNumSteps(Observation):
                     nstep += 1
                 if nstep == 0:  # If the iterator only has a single step there won't be any "val" parameters
                     nstep = 1
-            # logger.debug('...instrument iterator has %i steps', nstep)
-            # logger.debug('...multiplier = %s', multiplier)
+
             if nstep is None:
-                print('%s : %s has zero steps', obsid, cname)
+                logging.warning(f'{obsid}: {cname} has zero steps')
             else:
                 multiplier *= nstep
 
@@ -226,21 +241,17 @@ def GetNumSteps(Observation):
             for param in paramset.findall('param'):
                 if param.attrib.get("name") == 'repeatCount':
                     nrepeats = int(param.attrib.get('value'))
-            # logger.debug('...repeat iterator has = %i steps', nrepeats)
+            # TODO ERROR: nrepeats may not be defined.
             multiplier *= nrepeats
-            # logger.debug('...multiplier = %s', multiplier)
 
         # If container is an Offset iterator:
         elif cname == 'Offset' or cname == 'NICI Offset':
             noffsets = 0
             paramset1 = tree.find('paramset')
             for paramset2 in paramset1.findall('paramset'):
-                for paramset3 in paramset2.findall('paramset'):
-                    noffsets += 1
-            # logger.debug('...offset iterator has %i steps', noffsets)
-            # logger.debug('...multiplier = %s', multiplier)
+                noffsets += len(paramset2.findall('paramset'))
             if noffsets == 0:
-                print('%s : Offset iterator has zero steps', obsid)
+                logging.warning(f'{obsid}: Offset iterator has zero steps')
             else:
                 multiplier *= noffsets
 
@@ -250,81 +261,75 @@ def GetNumSteps(Observation):
             for param in paramset.findall('param'):
                 if param.attrib.get("name") == 'repeatCount':
                     nobserves = int(param.attrib.get('value'))
-            # logger.debug('...nobserve = %i', nobserves)
+
+            # TODO ERROR: nobserves might not be initialized.
             total += nobserves * multiplier
-            # logger.debug('...total = %s', total)
 
         else:
-            print('Unknown container: %s', cname)
+            logging.error(f'Unknown container: {cname}')
 
-        return (total, multiplier)
+        return total, multiplier
 
     total = 0
     multiplier1 = 1
-    obsid = Observation.attrib.get('name')  # to pass for error reporting
+    obsid = observation_data.attrib.get('name')  # to pass for error reporting
 
-    for container1 in Observation.findall('container'):
-        # logger.debug('Container %s %s', container1.attrib.get("kind"), container1.attrib.get("type"))
+    for container1 in observation_data.findall('container'):
         if container1.attrib.get("name") == 'Sequence':  # top-level sequence
 
+            # TODO: All these weird assignments to multiplier# should not be necessary.
             for container2 in container1.findall("container"):
                 if container2.attrib.get("kind") == "seqComp":
-                    # logger.debug('...container2')
                     multiplier2 = multiplier1
-                    (total, multiplier2) = Count(container2, total, multiplier2, obsid)
+                    (total, multiplier2) = count(container2, total, multiplier2, obsid)
 
                     for container3 in container2.findall("container"):
                         if container3.attrib.get("kind") == "seqComp":
-                            # logger.debug('...container3')
                             multiplier3 = multiplier2
-                            (total, multiplier3) = Count(container3, total, multiplier3, obsid)
+                            (total, multiplier3) = count(container3, total, multiplier3, obsid)
 
                             for container4 in container3.findall("container"):
                                 if container4.attrib.get("kind") == "seqComp":
-                                    # logger.debug('...container4')
                                     multiplier4 = multiplier3
-                                    (total, multiplier4) = Count(container4, total, multiplier4, obsid)
+                                    (total, multiplier4) = count(container4, total, multiplier4, obsid)
 
                                     for container5 in container4.findall("container"):
                                         if container5.attrib.get("kind") == "seqComp":
-                                            # logger.debug('...container5')
                                             multiplier5 = multiplier4
-                                            (total, multiplier5) = Count(container5, total, multiplier5, obsid)
+                                            (total, multiplier5) = count(container5, total, multiplier5, obsid)
 
                                             for container6 in container5.findall("container"):
                                                 if container6.attrib.get("kind") == "seqComp":
-                                                    # logger.debug('...container6')
                                                     multiplier6 = multiplier5
-                                                    (total, multiplier6) = Count(container6, total, multiplier6, obsid)
+                                                    (total, multiplier6) = count(container6, total, multiplier6, obsid)
 
                                                     for container7 in container6.findall("container"):
                                                         if container7.attrib.get("kind") == "seqComp":
-                                                            # logger.debug('...container7')
                                                             multiplier7 = multiplier6
-                                                            (total, multiplier7) = Count(container7, total, multiplier7,
+                                                            (total, multiplier7) = count(container7, total, multiplier7,
                                                                                          obsid)
 
                                                             for container8 in container7.findall("container"):
                                                                 if container8.attrib.get("kind") == "seqComp":
-                                                                    logger.error('%s : Too many nested loops', obsid)
+                                                                    logging.error(f'{obsid}: Too many nested loops.')
 
     if total == 0:
-        print('%s has zero steps', obsid)
+        logging.warning(f'{obsid} has zero steps.')
 
-    return (total)
+    return total
 
 
-def GetNumObserved(Observation):
+def get_num_observed(observation_data: ElementTree) -> int:
+    """Get number observed from XML."""
     nsteps = 0
 
-    for container in Observation.findall('container'):
-        # logger.debug('Container %s %s', container.attrib.get("kind"), container.attrib.get("type"))
+    for container in observation_data.findall('container'):
         if container.attrib.get('type') == 'ObsLog':
-            ObsLog = container
-            ObsExecLog = ObsLog.find('paramset')
-            ObsExecRecord = ObsExecLog.find('paramset')
+            obs_log = container
+            obs_exec_log = obs_log.find('paramset')
+            obs_exec_record = obs_exec_log.find('paramset')
 
-            for paramset1 in ObsExecRecord.findall('paramset'):
+            for paramset1 in obs_exec_record.findall('paramset'):
                 if paramset1.attrib.get('name') == 'configMap':
 
                     for paramset2 in paramset1.findall('paramset'):
@@ -335,20 +340,19 @@ def GetNumObserved(Observation):
                                     if param.attrib.get('value'):  # single value
                                         nsteps += 1
                                     else:  # multiple values
-                                        for value in param.findall('value'):
-                                            nsteps += 1
+                                        nsteps += len(param.findall('value'))
 
-    # logger.debug('Number of observed steps = %s', nsteps)
-    return (nsteps)
+    return nsteps
 
 
-def GetObsID(Observation):
-    obsid = 'UNKNOWN'
-    obsid = Observation.attrib.get('name')
-    return (obsid)
+def get_obs_id(observation_data: ElementTree) -> str:
+    """Get observation ID from XML."""
+    obsid = observation_data.attrib.get('name')
+    return obsid if obsid else 'UNKNOWN'
 
 
-def GetObsTime(Observation):
+# TODO: This function is way too long.
+def get_obs_time(observation_data: ElementTree) -> timedelta:
     # TO-DO:
     # Include overhead for filter changes (specifically 50s for F2)
     # Include iterating over the read mode
@@ -360,12 +364,9 @@ def GetObsTime(Observation):
     repeat = 1
     noffsets = 1  # number of offset positions
 
-    for container in Observation.findall('container'):
-        # logger.debug('Container %s %s', container.attrib.get("kind"), container.attrib.get("type"))
-
+    for container in observation_data.findall('container'):
         if container.attrib.get('type') == 'Instrument':
             instrument = container.attrib.get('name')
-            # logger.debug('Instrument = %s', instrument)
             paramset = container.find('paramset')
 
             fwo = 0.0  # The file-write overhead, which I have only implemented for NIRI as of 2013 Jun 29
@@ -375,7 +376,8 @@ def GetObsTime(Observation):
                 for param in paramset.findall("param"):
                     if param.attrib.get("name") == 'readMode':
                         readmode = param.attrib.get('value')
-                # logger.debug('...readmode = %s', readmode)
+
+                # TODO ERROR: readmode may not be assigned.
                 if readmode == 'FAINT_OBJECT_SPEC':
                     ope = 99
                 elif readmode == 'MEDIUM_OBJECT_SPEC':
@@ -390,7 +392,7 @@ def GetObsTime(Observation):
                 for param in paramset.findall("param"):
                     if param.attrib.get("name") == 'readMode':
                         readmode = param.attrib.get('value')
-                # logger.debug('...readmode = %s', readmode)
+
                 if readmode == 'VERY_FAINT':
                     ope = 26.9
                 elif readmode == 'FAINT':
@@ -407,7 +409,7 @@ def GetObsTime(Observation):
                 for param in paramset.findall("param"):
                     if param.attrib.get("name") == 'readMode':
                         readmode = param.attrib.get('value')
-                # logger.debug('...readmode = %s', readmode)
+
                 # Assuming full-frame:
                 fwo = 2.78
                 if readmode == 'IMAG_SPEC_NB':
@@ -439,11 +441,6 @@ def GetObsTime(Observation):
                     elif param.attrib.get("name") == 'builtinROI':
                         roi = param.attrib.get('value')
 
-                # logger.debug('Disperser = %s', disperser)
-                # logger.debug('FPU = %s', fpu)
-                # logger.debug('Binning = %s x %s', xbin, ybin)
-                # logger.debug('ROI = %s', roi)
-
                 if disperser == 'MIRROR':
                     obstime = 6 * 60  # Imaging acquisition overhead (s)
                 elif 'SLIT' in fpu or 'NS' in fpu:
@@ -453,7 +450,7 @@ def GetObsTime(Observation):
                 elif fpu == 'CUSTOM_MASK':
                     obstime = 18 * 60  # MOS acquisition overhead (s)
                 else:
-                    print('Unknown acquisition overhead for %s', GetObsID(Observation))
+                    print('Unknown acquisition overhead for %s', get_obs_id(observation_data))
 
                 if roi == 'FULL_FRAME' or roi == 'CCD2':
                     if xbin == 'ONE' and ybin == 'ONE':
@@ -500,12 +497,11 @@ def GetObsTime(Observation):
 
             elif instrument == 'Flamingos2':
                 obstime = 15 * 60  # Acquisition overhead (s)
-                filterchange = 50  # filter change overhead (s)               # UNIMPLEMENTED!
+                filterchange = 50  # filter change overhead (s): UNIMPLEMENTED!
 
                 for param in paramset.findall("param"):
                     if param.attrib.get("name") == 'readMode':
                         readmode = param.attrib.get('value')
-                # logger.debug('...readmode = %s', readmode)
 
                 if readmode == 'BRIGHT_OBJECT_SPEC':
                     ope = 8.0
@@ -533,84 +529,75 @@ def GetObsTime(Observation):
                 ope = 1.  # Overhead per exposure (s)
 
             else:
-                print('Unknown acquisition overhead for %s in %s', instrument, GetObsID(Observation))
-
-            # logger.debug('Aacquisition overhead = %s', str(datetime.timedelta(seconds=obstime)))
-            # logger.debug('OPE = %s', ope)
+                logging.warning(f'Unknown acquisition overhead for {instrument} in {get_obs_id(observation_data)}.')
 
             for param in paramset.findall("param"):
                 if param.attrib.get("name") == "exposureTime":
                     toplevelexptime = float(param.attrib.get("value"))
                     exptime.append(toplevelexptime)
-                    # logger.debug('Exposure time = %s', exptime)
+
                 if param.attrib.get('name') == 'coadds':
                     coadds[0] = int(param.attrib.get('value'))
-                    # logger.debug('Coadds = %s', coadds)
 
         if container.attrib.get("name") == 'Sequence':  # top-level sequence
             for container2 in container.findall("container"):
                 if container2.attrib.get("kind") == "seqComp":
-                    (exptime, coadds, repeat, noffsets, obstime) = SumObsTime(container2, exptime, coadds, repeat,
-                                                                              noffsets, ope, fwo, obstime)
+                    (exptime, coadds, repeat, noffsets, obstime) = sum_obs_time(container2, exptime, coadds, repeat,
+                                                                                noffsets, ope, fwo, obstime)
                     for container3 in container2.findall("container"):
                         if container3.attrib.get("kind") == "seqComp":
-                            (exptime, coadds, repeat, noffsets, obstime) = SumObsTime(container3, exptime, coadds,
-                                                                                      repeat, noffsets, ope, fwo,
-                                                                                      obstime)
+                            (exptime, coadds, repeat, noffsets, obstime) = sum_obs_time(container3, exptime, coadds,
+                                                                                        repeat, noffsets, ope, fwo,
+                                                                                        obstime)
                             for container4 in container3.findall("container"):
                                 if container4.attrib.get("kind") == "seqComp":
-                                    (exptime, coadds, repeat, noffsets, obstime) = SumObsTime(container4, exptime,
-                                                                                              coadds, repeat, noffsets,
-                                                                                              ope, fwo, obstime)
+                                    (exptime, coadds, repeat, noffsets, obstime) = sum_obs_time(container4, exptime,
+                                                                                                coadds, repeat, noffsets,
+                                                                                                ope, fwo, obstime)
                                     for container5 in container4.findall("container"):
                                         if container5.attrib.get("kind") == "seqComp":
-                                            (exptime, coadds, repeat, noffsets, obstime) = SumObsTime(container5,
-                                                                                                      exptime, coadds,
-                                                                                                      repeat, noffsets,
-                                                                                                      ope, fwo, obstime)
+                                            (exptime, coadds, repeat, noffsets, obstime) = sum_obs_time(container5,
+                                                                                                        exptime, coadds,
+                                                                                                        repeat, noffsets,
+                                                                                                        ope, fwo, obstime)
 
                                         # print '...resetting exptime list 5'
-                                        exptime = []
-                                        exptime.append(toplevelexptime)
+                                        # TODO ERROR: toplevelexptime may not be assigned.
+                                        exptime = [toplevelexptime]
+
                                 # print '...resetting exptime list 4'
-                                exptime = []
-                                exptime.append(toplevelexptime)
+                                exptime = [toplevelexptime]
 
                         # print '...resetting exptime list 3'
-                        exptime = []
-                        exptime.append(toplevelexptime)
+                        exptime = [toplevelexptime]
 
                 # print '...resetting exptime list 2'
-                exptime = []
-                exptime.append(toplevelexptime)
+                exptime = [toplevelexptime]
 
-    datetime_obstime = datetime.timedelta(seconds=int(obstime))
-    return (datetime_obstime)
+    return timedelta(seconds=int(obstime))
 
 
-def GetInstrument(Observation):
-    # logger = logging.getLogger('odb.GetInstrument')
+def get_instrument(observation_data: ElementTree) -> Optional[str]:
+    """Get the observation instrument from XML."""
     instrument = None
-    for container in Observation.findall('container'):
+    for container in observation_data.findall('container'):
         if container.attrib.get("type") == 'Instrument':
             instrument = container.attrib.get("name")
             break
 
-    if instrument:
-        # print('Instrument = %s', instrument)
-        pass
-    else:
-        status = GetObsStatus(Observation)
+    if instrument is None or not instrument:
+        status = get_obs_status(observation_data)
         if status in WARNING_STATES:
-            print('%s is missing instrument [%s]', GetObsID(Observation), status)
+            logging.warning(f'{get_obs_id(observation_data)} is missing instrument [{status}]')
         else:
-            print('%s is missing instrument [%s]', GetObsID(Observation), status)
+            logging.warning(f'{get_obs_id(observation_data)} is missing instrument [{status}]')
         instrument = 'INDEF'
 
     return instrument
 
 
-def GetInstConfigs(Observation):
+# TODO: Enums desperately needed here, but as for now, I'm not touching this.
+def get_inst_configs(observation_data: ElementTree):
     """
     Get all instrument configurations
     Return a dictionary of configurations
@@ -622,24 +609,18 @@ def GetInstConfigs(Observation):
     there is another GMOS sequences which does not set the binning, it will be 1.
     """
 
-    def add(dictionary, key, value):
-        if key in dictionary:
-            dictionary[key].append(value)
-        else:
-            dictionary[key] = [value]
+    def add(dictionary, k, v):
+        dictionary.setdefault(k, [])
+        dictionary[k].append(v)
 
     # The subtype is the instrument name, except for GMOS-N (GMOS) and GMOS-S (GMOSSouth):
-    instrumentcontainer = Observation.find("container[@kind='obsComp'][@type='Instrument']")
+    instrumentcontainer = observation_data.find("container[@kind='obsComp'][@type='Instrument']")
     if instrumentcontainer is None:
-        status = GetObsStatus(Observation)
-        if status in WARNING_STATES:
-            print('%s is missing instrument [%s]', GetObsID(Observation), status)
-        else:
-            print('%s is missing instrument [%s]', GetObsID(Observation), status)
+        status = get_obs_status(observation_data)
+        logging.error(f'{get_obs_id(observation_data)} is missing instrument [{status}]')
         return None
 
     instrument = instrumentcontainer.attrib.get('name')
-    # logger.debug('Instrument = %s', instrument)
     if instrument == 'GMOS-N':
         subtype = 'GMOS'
     elif instrument == 'GMOS-S':
@@ -648,35 +629,29 @@ def GetInstConfigs(Observation):
         subtype = 'Visitor'
     else:
         subtype = instrument
-    # logger.debug('subtype = %s', subtype)
 
     config = {}
-    for container in Observation.findall(".//container[@subtype='%s']" % subtype):
-        # logger.debug('Container: type = %s, name = %s', container.attrib.get('type'), container.attrib.get('name'))
+    for container in observation_data.findall(".//container[@subtype='%s']" % subtype):
         paramset = container.find('paramset')
-        # logger.debug('Paramset: %s', paramset.attrib.get('name'))
-
         maxconfiglength = 0
         for param in paramset.findall('param'):
             name = param.attrib.get('name')
             value = param.attrib.get('value')
-            # logger.debug('Param %s = %s', name, value)
-            if value and value != None:  # catch empty string (empty iterator)
+            if value is not None and value:
                 add(config, name, value)
                 configlength = len(config[name])
-                # logger.debug('   -> Config Length = %s', configlength)
-                if configlength > maxconfiglength: maxconfiglength = configlength
+                if configlength > maxconfiglength:
+                    maxconfiglength = configlength
             else:  # multiple values
                 for val in param.findall('value'):
-                    # logger.debug('...val = %s', val.text)
                     if val.text is not None:
                         add(config, name, val.text)
                         configlength = len(config[name])
-                        # logger.debug('      -> Config Length = %s', configlength)
-                        if configlength > maxconfiglength: maxconfiglength = configlength
+                        if configlength > maxconfiglength:
+                            maxconfiglength = configlength
 
         # I'm not 100% about this, but it seems that the decker in the top-level OT component
-        # is sometimes incorrectly set to acquisition.  Here I reset the *TOP LEVEL* GNIRS
+        # is sometimes incorrectly set to acquisition. Here I reset the *TOP LEVEL* GNIRS
         # decker component based on the camera and XD, as I think it should be.
         # I think the reason this OT bug is okay is because the seqexec automatically sets the 
         # decker based on the camera and XD if it is not explicitly set.
@@ -684,11 +659,6 @@ def GetInstConfigs(Observation):
         if container.attrib.get('name') == 'GNIRS' and \
                 container.attrib.get('type') == 'Instrument' and \
                 config['decker'] == ['ACQUISITION']:
-            # logger.debug('++++++++++++++++++++++++++++++++++++')
-            # logger.debug('config[decker] = %s', config['decker'])
-            # logger.debug('config[pixelScale] = %s', config['pixelScale'])
-            # logger.debug('config[crossDispersed] = %s', config['crossDispersed'])
-
             if config['pixelScale'] == ['PS_015'] and config['crossDispersed'] == ['NO']:
                 new = ['SHORT_CAM_LONG_SLIT']
             elif config['pixelScale'] == ['PS_015'] and config['crossDispersed'] == ['SXD']:
@@ -700,51 +670,22 @@ def GetInstConfigs(Observation):
             elif config['pixelScale'] == ['PS_005'] and config['crossDispersed'] == ['SXD']:
                 new = ['SHORT_CAM_X_DISP']
             else:
-                # logger.error('%s has unknown GNIRS config: %s + %s [%s]', self.GetObsID(Observation), config['pixelScale'], config['crossDispersed'], GetObsStatus(Observation))
                 new = ['UNKNOWN']
-            # logger.debug('Fixing GNIRS decker: ACQUISITION -> %s', new)
             config['decker'] = new
-            # logger.debug('config[decker] = %s', config['decker'])
 
         # For each new configuration *all* configurations must be incremented,
-        # using the last value if a componenet is not modified.
-        # logger.debug('Updating non-modified components to have len = %d:', maxconfiglength)
+        # using the last value if a component is not modified.
         for name in list(config.keys()):
-            # logger.debug('...len(config[%s]) = %d', name, len(config[name]))
             if len(config[name]) < maxconfiglength:
-                # logger.debug('......extending %s by %d', name, maxconfiglength - len(config[name]))
                 config[name].extend([config[name][-1] for i in range(maxconfiglength - len(config[name]))])
 
-    # logger.debug('Config = %s', config)
     return config
 
-    # logger = logging.getLogger('odb.GetObsTooStatus')
 
-    if tooType == 'none':
-        too = 'None'
-
-    elif tooType == 'standard':
-        too = 'Standard'
-
-    else:
-        paramset = Observation.find('paramset')
-        for param in paramset.findall('param'):
-            if param.attrib.get('name') == 'tooOverrideRapid':
-                override = param.attrib.get('value')
-                if override == 'false':
-                    too = 'Rapid'
-                elif override == 'true':
-                    too = 'Standard'
-                else:
-                    # logger.error('Unknown TOO status: %s', too)
-                    print('Unknown TOO status: %s', too)
-
-    # logger.debug('ToO Status = %s', too)
-    return (too)
-
-
-def GetConditions(Observation, label=False):
-    container = Observation.find(".//container[@kind='obsComp'][@name='Observing Conditions']")
+# TODO: If we are going to keep this code, this should return a SkyConditions object instead of a string,
+# TODO: and the logic from the Collector should be moved here.
+def get_conditions(observation_data: ElementTree, label=False) -> Optional[str]:
+    container = observation_data.find(".//container[@kind='obsComp'][@name='Observing Conditions']")
 
     if container is None:
         return None
@@ -772,15 +713,12 @@ def GetConditions(Observation, label=False):
     else:
         conditions = iq + ',' + cc + ',' + bg + ',' + wv
 
-    # logger.debug('Conditions = %s', conditions)
-
     return conditions
 
 
-def GetElevation(Observation):
-    # logger = logging.getLogger('odb.GetElevation')
-
-    container = Observation.find(".//container[@kind='obsComp'][@name='Observing Conditions']")
+# TODO: Again, this should return an Elevation instead of a tuple of string.
+def get_elevation(observation_data: ElementTree) -> Optional[Tuple[str, str, str]]:
+    container = observation_data.find(".//container[@kind='obsComp'][@name='Observing Conditions']")
 
     if container is None:
         return None
@@ -796,17 +734,17 @@ def GetElevation(Observation):
         elif param.attrib.get('name') == 'ElevationConstraintMax':
             emax = param.attrib.get("value")
 
-    # logger.debug('Elevation = %s %s %s', etype, emin, emax)
-
     return etype, emin, emax
 
 
-def SumObsTime(tree, exptime, coadds, repeat, noffsets, ope, fwo, obstime):
-    # logger = logging.getLogger('odb.SumObsTime')
-
+# TODO: No idea what ope and fwo are?
+def sum_obs_time(tree: ElementTree,
+                 exptime: List[float],
+                 coadds: List[float],
+                 repeat: int,
+                 noffsets: int,
+                 ope, fwo, obstime) -> Tuple[List[float], List[float], int, int, float]:
     name = tree.attrib.get('name')
-    # logger.debug('NAME = %s', name)
-
     if name == 'GMOS-N Sequence' or \
             name == 'NIFS Sequence' or \
             name == 'NICI Sequence' or \
@@ -820,129 +758,94 @@ def SumObsTime(tree, exptime, coadds, repeat, noffsets, ope, fwo, obstime):
 
             if param.attrib.get("name") == 'exposureTime':
                 exptimeset = True
-                # logger.debug('...embedded exptime = %s', param.attrib.get('value'))
 
+                # TODO: Can we just say param.attrib.value(...) is not None?
                 if str(param.attrib.get('value')) != 'None' and str(param.attrib.get('value')) != '':
-                    # logger.debug('...using embedded value')
                     exptime[0] = float(param.attrib.get('value'))
 
                 else:
-                    # logger.debug('...extracting exptime from sequence')
-                    i = 0
-                    for val in param.findall('value'):
-                        # logger.debug('...exptime[%i] = %s', i, val.text)
+                    for i, val in enumerate(param.findall('value')):
                         if i == 0:
                             exptime[0] = float(val.text)
-                        elif i > 0:
+                        else:
                             exptime.append(float(val.text))
-                        i += 1
 
             elif param.attrib.get("name") == 'coadds':
-                # logger.debug('...embedded coadds = %s', param.attrib.get('value'))
+                # TODO: Again, why the str conversion?
                 if str(param.attrib.get('value')) != 'None':
-                    # logger.debug('...using embedded value')
                     coadds[0] = float(param.attrib.get('value'))
                 else:
-                    # logger.debug('...extracting coadds from sequence')
-                    i = 0
-                    for val in param.findall('value'):
-                        # logger.debug('...coadds[%i] = %s', i, val.text)
+                    for i, val in enumerate(param.findall('value')):
                         if i == 0:
                             coadds[0] = int(val.text)
                         elif i > 0:
                             coadds.append(int(val.text))
-                        i += 1
 
         if not exptimeset:
-            i = 0
             param = paramset.find('param')  # take the first since it doesn't matter which
-            for val in param.findall('value'):
-                # logger.debug('...VAL = %s', val.text)
+            # TODO: Simplify.
+            for i in range(len(param.findall('value'))):
                 if i > 0:
                     exptime.append(exptime[len(exptime) - 1])
-                i += 1
-        # logger.debug('...exptimes = %s', exptime)
 
     elif name == 'Repeat':
         paramset = tree.find('paramset')
         for param in paramset.findall('param'):
             if param.attrib.get("name") == 'repeatCount':
                 repeat = int(param.attrib.get('value'))
-                # logger.debug('...repeat = %i', repeat)
 
     elif name == 'Offset':
-        noffsets = 0
         paramset1 = tree.find('paramset')
         paramset2 = paramset1.find('paramset')
-        for paramset in paramset2.findall('paramset'):
-            noffsets += 1
-        # logger.debug('...noffsets = %i', noffsets)
+        noffsets = len(paramset2.findall('paramset'))
 
     elif name == 'Observe':
-        # logger.debug('Calculating observation time...')
         paramset = tree.find('paramset')
         for param in paramset.findall('param'):
             if param.attrib.get("name") == 'repeatCount':
                 nobserve = int(param.attrib.get('value'))
-                # logger.debug('...nobserve = %i', nobserve)
 
-        # logger.debug('...repeat = %i', repeat)
-        # logger.debug('...exptime = %s', exptime)
-        # logger.debug('...coadds = %s', coadds)
-        # logger.debug('...noffsets = %i', noffsets)
-        # logger.debug('...overhead/exposure = %f', ope)
-        # logger.debug('...nobserve = %i', nobserve)
-
-        i = 0
-        for e in exptime:
+        for i, e in enumerate(exptime):
             if len(coadds) > 1:
                 nc = coadds[i]
             else:
                 nc = coadds[0]
-            # logger.debug('...exptime = %f   coadds = %i', e, nc)
+            # TODO ERROR: nobserve may not be assigned.
             obstime = obstime + repeat * noffsets * nobserve * (fwo + nc * (e + ope)) + noffsets * 7.1
-            # logger.debug('...obstime = %f (%s)', obstime, str(datetime.timedelta(seconds=obstime)))
-            i += 1
 
-    return (exptime, coadds, repeat, noffsets, obstime)
+    return exptime, coadds, repeat, noffsets, obstime
 
 
-def GetTargetCoords(Observation):
-    targetEnv = Observation.find(".//paramset[@name='targetEnv']")
+def get_target_coords(observation_data: ElementTree) -> Tuple[str, Optional[float], Optional[float]]:
+    """Get the name, RA, and dec of a target from XML."""
+    target_env = observation_data.find(".//paramset[@name='targetEnv']")
 
-    if targetEnv is None:  # No target component
-        status = GetObsStatus(Observation)
-        if status in WARNING_STATES and list(set(GetClass(Observation))) != ['DAY_CAL']:
-            print(f'{GetObsID(Observation)} is missing target component [{status}]')
-        else:
-            print(f'{GetObsID(Observation)} is missing target component [{status}]')
+    if target_env is None:
+        status = get_obs_status(observation_data)
+        logging.warning(f'{get_obs_id(observation_data)} is missing target component [{status}]')
         name = ra = dec = None
     else:
-        asterism = targetEnv.find("paramset[@name='asterism']")
+        asterism = target_env.find("paramset[@name='asterism']")
         target = asterism.find("paramset[@name='target']")
         name = target.find("param[@name='name']").attrib.get('value')
-        # logger.debug('Name = %s', name)
         coordinates = target.find("paramset[@name='coordinates']")
+        ra, dec = None, None
         if coordinates:
             ra = float(coordinates.find("param[@name='ra']").attrib.get('value'))
             dec = float(coordinates.find("param[@name='dec']").attrib.get('value'))
             if dec > 90:
                 dec -= 360.
-        else:
-            # logger.warning('No coordinates') # non-sidereal target
-            ra = None
-            dec = None
-        # logger.debug('RA = %s', ra)
-        # logger.debug('Dec = %s', dec)
 
-    return (name, ra, dec)
+    return name, ra, dec
 
 
-def GetTargetMags(Observation, baseonly=False):
-    # logger = logging.getLogger('odb.GetTargetMags')
+# TODO: The return type of this function is so convoluted that I cannot determine it.
+# TODO: I have a lot of confusion about why certain things are being done here. See notes below.
+def get_target_magnitudes(observation_data: ElementTree,
+                          baseonly=False):
     targets = {}
 
-    for container in Observation.findall('container'):
+    for container in observation_data.findall('container'):
         if container.attrib.get('type') == 'Telescope':
             for paramset1 in container.findall('paramset'):
                 if paramset1.attrib.get('name') == 'Targets':
@@ -951,26 +854,21 @@ def GetTargetMags(Observation, baseonly=False):
 
                             # The base target is at a higher level than the guide stars and user stars,
                             # so do a search for *all* paramsets below this level:
-
                             for paramset3 in paramset2.findall('.//paramset'):
-                                # logger.debug('paramset3 = %s', paramset3.attrib.get('name'))
                                 if paramset3.attrib.get('name') == 'asterism' or \
                                         (not baseonly and paramset3.attrib.get('name') == 'guideEnv'):
+                                    # TODO: Why is name a list?
                                     name = []
                                     mags = []
 
                                     for paramset4 in paramset3.findall('paramset'):
-                                        # logger.debug('paramset4 = %s', paramset4.attrib.get('name'))
                                         if paramset4.attrib.get('name') == 'target':
 
                                             for param in paramset4.findall('param'):
                                                 if param.attrib.get('name') == 'name':
                                                     name = param.attrib.get('value')
-                                                    # logger.debug('Name = %s', name)
 
                                             for paramset5 in paramset4.findall('paramset'):
-                                                # logger.debug('paramset5 = %s', paramset5.attrib.get('name'))
-
                                                 if paramset5.attrib.get('name') == 'magnitude':
                                                     band = None
                                                     mag = None
@@ -982,33 +880,34 @@ def GetTargetMags(Observation, baseonly=False):
                                                             mag = float(param.attrib.get('value'))
                                                         elif param.attrib.get('name') == 'system':
                                                             sys = param.attrib.get('value')
-                                                    # logger.debug('Band = %s, Mag = %s, Sys = %s', band, mag, sys)
+
+                                                    # TODO: mags should not be a list of lists, but a list of tuple.
+                                                    # TODO: The fact that the information is fixed in size and type and
+                                                    # TODO: yet a list is very confusing.
                                                     mags.append([band, mag, sys])
 
                                     if name in targets:
-                                        # logger.warning('Target %s already exists; appending additional magnitudes', name)
                                         targets[name].append(mags)
                                     else:
                                         targets[name] = mags
 
-    # logger.debug('Targets = %s', targets)
     return targets
 
 
-def GetPriority(Observation):
-    # logger = logging.getLogger('odb.GetPriority')
-    paramset = Observation.find("paramset[@name='Observation'][@kind='dataObj']")
+def get_priority(observation_data: ElementTree) -> Optional[str]:
+    """Get the priority of an observation from XML."""
+    paramset = observation_data.find("paramset[@name='Observation'][@kind='dataObj']")
     try:
         param = paramset.find("param[@name='priority']")
         priority = param.attrib.get('value')
     except:
-        # logger.info('%s has no priority [%s]', GetObsID(Observation), GetObsStatus(Observation))
         priority = None
-    # logger.debug('Priority = %s', priority)
     return priority
 
 
-def GetTargets(Observation):
+# TODO: This function desperately needs refactoring, especially for magnitude extraction.
+# TODO: I'm not going to hazard a return type.
+def get_targets(observation_data: ElementTree):
     """
     Return a list of targets with a dictionary of properties:
         group (dictionary of name, tag, primary)
@@ -1018,31 +917,16 @@ def GetTargets(Observation):
         tag: {sidereal, asteroid, nonsidereal}
         type: {base, PWFS1, PWFS2, OIWFS, blindOffset, offAxis, tuning, other}
     """
-
-    # logger = logging.getLogger('odb.GetTargets')
-
-    def add(dictionary, key, value):
-        if key in dictionary:
-            dictionary[key].append(value)
-        else:
-            dictionary[key] = [value]
-
     targets = []
 
-    targetEnv = Observation.find(".//paramset[@name='targetEnv']")
+    target_env = observation_data.find(".//paramset[@name='targetEnv']")
 
-    if targetEnv is None:
-        status = GetObsStatus(Observation)
-        # This was throwing warnings for every specphot:
-        # if status in warnstates and list(set(GetClass(Observation))) != ['DAY_CAL']:
-        #    logger.warning('%s is missing target component [%s]', GetObsID(Observation), status)
-        # else:
-        # logger.info('%s is missing target component [%s]', GetObsID(Observation), status)
+    if target_env is None:
         return None
 
     # Base -----------------------------------------------------------------------------------------
 
-    asterism = targetEnv.find("paramset[@name='asterism']")
+    asterism = target_env.find("paramset[@name='asterism']")
     target = asterism.find("paramset[@name='target']")
     base = {}
     magnitudes = {}
@@ -1051,12 +935,14 @@ def GetTargets(Observation):
         base[param.attrib.get('name')] = param.attrib.get('value')
 
     for paramset in target.findall("paramset[@name='magnitude']"):
+        band, value = None, None
         for param in paramset.findall("param"):
             if param.attrib.get('name') == 'band':
                 band = param.attrib.get('value')
             elif param.attrib.get('name') == 'value':
                 value = param.attrib.get('value')
-        magnitudes[band] = value
+        if band is not None and value is not None:
+            magnitudes[band] = value
     base['magnitudes'] = magnitudes
 
     for paramset in \
@@ -1070,31 +956,27 @@ def GetTargets(Observation):
                 # If the dec is > 90 then subtract 360 to shift it into the range -90 < d < +90
                 dec = float(param.attrib.get('value'))
                 value = str(dec if dec < 90.0 else dec - 360.)
-                # logger.debug ('Dec: %s -> %s', dec, value)
             else:
                 value = param.attrib.get('value')
 
             base[param.attrib.get('name')] = value
 
     if base['tag'] == 'nonsidereal':
-        status = GetObsStatus(Observation)
+        status = get_obs_status(observation_data)
         if status != 'OBSERVED':
-            print(f"{GetObsID(Observation)} {base['name']} has no HORIZONS ID [{status}]")
+            logging.warning(f"{get_obs_id(observation_data)} {base['name']} has no HORIZONS ID [{status}]")
 
     base['type'] = 'base'
     base['group'] = {'name': 'Base'}
-    # logger.debug('base = %s', base)
     targets.append(base)
 
     # Guide Environment ----------------------------------------------------------------------------
 
-    guideEnv = targetEnv.find("paramset[@name='guideEnv']")
-
-    primary_group = int(guideEnv.find("param[@name='primary']").attrib.get('value'))
-    # logger.debug('Primary group = %s', primary_group)
+    guide_env = target_env.find("paramset[@name='guideEnv']")
+    primary_group = int(guide_env.find("param[@name='primary']").attrib.get('value'))
 
     group_number = -1
-    for guideGroup in guideEnv.findall("paramset[@name='guideGroup']"):
+    for guideGroup in guide_env.findall("paramset[@name='guideGroup']"):
         group_number += 1
         group = {}
         for param in guideGroup.findall("param"):  # name, tag (auto, manual)
@@ -1115,15 +997,12 @@ def GetTargets(Observation):
                 primary_guidestar = int(guider.find("param[@name='primary']").attrib.get('value'))
             except:
                 primary_guidestar = -1  # no active star for this guider
-            # logger.debug('Primary guide star = %s', primary_guidestar)
 
             guidestar_number = -1
-            for spTarget in guider.findall("paramset[@name='spTarget']"):
-                target = spTarget.find("paramset[@name='target']")
+            for sp_target in guider.findall("paramset[@name='spTarget']"):
+                target = sp_target.find("paramset[@name='target']")
                 guidestar_number += 1
-                star = {}
-                star['group'] = group
-                star['type'] = guidername
+                star = {'group': group, 'type': guidername}
                 if guidestar_number == primary_guidestar:
                     star['primary'] = True
                 else:
@@ -1134,12 +1013,14 @@ def GetTargets(Observation):
                     star[param.attrib.get('name')] = param.attrib.get('value')
 
                 for paramset in target.findall("paramset[@name='magnitude']"):
+                    band, value = None, None
                     for param in paramset.findall("param"):
                         if param.attrib.get('name') == 'band':
                             band = param.attrib.get('value')
                         elif param.attrib.get('name') == 'value':
                             value = param.attrib.get('value')
-                    magnitudes[band] = value
+                    if band is not None and value is not None:
+                        magnitudes[band] = value
                 star['magnitudes'] = magnitudes
 
                 for paramset in \
@@ -1153,52 +1034,45 @@ def GetTargets(Observation):
                             # If the dec is > 90 then subtract 360 to shift it into the range -90 < d < +90
                             dec = float(param.attrib.get('value'))
                             value = str(dec if dec < 90.0 else dec - 360.)
-                            # logger.debug ('Dec: %s -> %s', dec, value)
                         else:
                             value = param.attrib.get('value')
 
                         star[param.attrib.get('name')] = value
 
                 if star['tag'] == 'nonsidereal':
-                    status = GetObsStatus(Observation)
+                    status = get_obs_status(observation_data)
                     if status != 'OBSERVED':
-                        print('%s %s has no HORIZONS ID [%s]', GetObsID(Observation), base['name'], status)
-
-                # if star['type'] in ('GNIRS OIWFS', 'NIFS OIWFS', 'NIRI OIWFS'):
-                #    logger.warning('%s has a %s defined [%s]', GetObsID(Observation), star['type'], GetObsStatus(Observation))
+                        print('%s %s has no HORIZONS ID [%s]', get_obs_id(observation_data), base['name'], status)
 
                 star['magnitudes'] = magnitudes
-                # logger.debug('star = %s', star)
                 targets.append(star)
 
     # User targets ---------------------------------------------------------------------------------
 
-    userTargets = targetEnv.find("paramset[@name='userTargets']")
-
-    if userTargets is not None:
-
-        for userTarget in userTargets.findall("paramset[@name='userTarget']"):
-
-            star = {}
-            star['group'] = {'name': 'User'}
+    user_targets = target_env.find("paramset[@name='userTargets']")
+    if user_targets is not None:
+        for userTarget in user_targets.findall("paramset[@name='userTarget']"):
+            star = {'group': {'name': 'User'}}
             magnitudes = {}
 
             for param in userTarget.findall("param"):
                 star[param.attrib.get('name')] = param.attrib.get('value')
 
-            spTarget = userTarget.find("paramset[@name='spTarget']")
-            target = spTarget.find("paramset[@name='target']")
+            sp_target = userTarget.find("paramset[@name='spTarget']")
+            target = sp_target.find("paramset[@name='target']")
 
             for param in target.findall("param"):
                 star[param.attrib.get('name')] = param.attrib.get('value')
 
             for paramset in target.findall("paramset[@name='magnitude']"):
+                band, value = None, None
                 for param in paramset.findall("param"):
                     if param.attrib.get('name') == 'band':
                         band = param.attrib.get('value')
                     elif param.attrib.get('name') == 'value':
                         value = param.attrib.get('value')
-                magnitudes[band] = value
+                if band is not None and value is not None:
+                    magnitudes[band] = value
             star['magnitudes'] = magnitudes
 
             for paramset in \
@@ -1212,31 +1086,28 @@ def GetTargets(Observation):
                         # If the dec is > 90 then subtract 360 to shift it into the range -90 < d < +90
                         dec = float(param.attrib.get('value'))
                         value = str(dec if dec < 90.0 else dec - 360.)
-                        # logger.debug ('Dec: %s -> %s', dec, value)
                     else:
                         value = param.attrib.get('value')
 
                     star[param.attrib.get('name')] = value
 
             if star['tag'] == 'nonsidereal':
-                status = GetObsStatus(Observation)
+                status = get_obs_status(observation_data)
                 if status != 'OBSERVED':
-                    print('%s %s has no HORIZONS ID [%s]', GetObsID(Observation), base['name'], status)
-
-            # logger.debug('star = %s', star)
+                    logging.warning(f'{get_obs_id(observation_data)} {base["name"]} has no HORIZONS ID [{status}]')
             targets.append(star)
 
-    # logger.debug('Targets = %s', targets)
     return targets
 
 
-def GetWindows(Observation):
+def get_windows(observation_data: ElementTree) -> Tuple[List[int], List[int], List[int], List[int]]:
+    """Get timing windows for observation from XML."""
     start = []
     duration = []
     repeat = []
     period = []
 
-    for container in Observation.findall('container'):
+    for container in observation_data.findall('container'):
         if container.attrib.get('name') == 'Observing Conditions':
             observing_conditions = container.find('paramset')
             timing_window_list = observing_conditions.find('paramset')
@@ -1251,23 +1122,26 @@ def GetWindows(Observation):
                     elif param.attrib.get('name') == 'period':
                         window_period = int(param.attrib.get("value"))
 
+                # TODO ERROR: All of these values may be unassigned.
                 start.append(window_start)
                 duration.append(window_duration)
                 repeat.append(window_repeat)
                 period.append(window_period)
 
-    return (start, duration, repeat, period)
+    return start, duration, repeat, period
 
 
-def GetObsTooStatus(raw_observation: str, tooType):
-    if tooType == 'none':
+def get_obs_too_status(observation_data: ElementTree, too_type: str) -> Optional[str]:
+    too = None
+
+    if too_type == 'none':
         too = 'None'
 
-    elif tooType == 'standard':
+    elif too_type == 'standard':
         too = 'Standard'
 
     else:
-        paramset = raw_observation.find('paramset')
+        paramset = observation_data.find('paramset')
         for param in paramset.findall('param'):
             if param.attrib.get('name') == 'tooOverrideRapid':
                 override = param.attrib.get('value')
@@ -1276,42 +1150,38 @@ def GetObsTooStatus(raw_observation: str, tooType):
                 elif override == 'true':
                     too = 'Standard'
                 else:
-                    print('Unknown TOO status: %s', too)
+                    logging.error(f'Unknown TOO status.')
 
-    return (too)
+    return too
 
 
-def CheckStatus(Program):
-    paramset = Program.find('paramset')
-    for param in paramset.findall('param'):
+def check_status(program_data: ElementTree) -> Tuple[bool, bool]:
+    """Check the status of the program in XML."""
+    active, complete = False, False
+    for param in program_data.find('paramset').findall('param'):
         if param.attrib.get('name') == 'fetched':
-            if param.attrib.get('value') == 'true':
-                active = True
-            else:
-                active = False
-            # print(f'Active = {active}')
+            active = param.attrib.get('value') == 'true'
 
         if param.attrib.get('name') == 'completed':
-            if param.attrib.get('value') == 'true':
-                complete = True
-            else:
-                complete = False
-            # print(f'Complete = {complete}')
+            complete = param.attrib.get('value') == 'true'
 
     return active, complete
 
 
-#### CREATED BY ST for Gmax Protoype
-
-def GetFTProgramDates(Notes, semester, year, yp):
+# TODO: What is yp?
+def get_ft_program_dates(notes: Tuple[str, str],
+                         semester: str,
+                         year: str,
+                         yp: str) -> Tuple[Optional[Time], Optional[Time]]:
     progstart, progend = None, None
 
     def monthnum(month, months):
         month = month.lower()
         return [i for i, m in enumerate(months) if month in m].pop() + 1
 
-    months_list = list(map(lambda x: x.lower(), calendar.month_name[1:]))
-    for title, _ in Notes:
+    months_list = [x.lower() for x in calendar.month_name[1:]]
+    #months_list = list(map(lambda x: x.lower(), calendar.month_name[1:]))
+    for title, _ in notes:
         if title:
             if 'cycle' in title.lower() or 'active' in title.lower():
                 fields = title.strip().split(' ')
@@ -1324,8 +1194,8 @@ def GetFTProgramDates(Notes, semester, year, yp):
                 if len(months) == 0:
                     for field in fields:
                         f = field.lower().strip(' ,')
-                        for jj in range(len(months_list)):
-                            if f in months_list[jj]:
+                        for j in range(len(months_list)):
+                            if f in months_list[j]:
                                 months.append(f)
 
                 im1 = monthnum(months[0], months_list)
@@ -1333,27 +1203,26 @@ def GetFTProgramDates(Notes, semester, year, yp):
                 im2 = monthnum(months[-1], months_list)
                 m2 = '{:02d}'.format(im2)
                 if semester == 'B' and im1 < 6:
-
-                    progstart = Time(yp + "-" + m1 + "-01 00:00:00", format='iso')
+                    progstart = Time(f'{yp}-{m1}-01 00:00:00', format='iso')
                     d2 = '{:02d}'.format(calendar.monthrange(int(yp), im2)[1])
-                    progend = Time(yp + "-" + m2 + "-" + d2 + " 00:00:00", format='iso')
+                    progend = Time(f'{yp}-{m2}-{d2} 00:00:00', format='iso')
                 else:
-                    #                             print(y, im1, yp, im2)
-                    progstart = Time(year + "-" + m1 + "-01 00:00:00", format='iso')
+                    progstart = Time(f'{year}-{m1}-01 00:00:00', format='iso')
                     if im2 > im1:
                         d2 = '{:02d}'.format(calendar.monthrange(int(year), im2)[1])
-                        progend = Time(year + "-" + m2 + "-" + d2 + " 00:00:00", format='iso')
+                        progend = Time(f'{year}-{m2}-{d2} 00:00:00', format='iso')
                     else:
                         d2 = '{:02d}'.format(calendar.monthrange(int(yp), im2)[1])
-                        progend = Time(yp + "-" + m2 + "-" + d2 + " 00:00:00", format='iso')
+                        progend = Time(f'{yp}-{m2}-{d2} 00:00:00', format='iso')
                 break
 
     return progstart, progend
 
 
-def GetObservationInfo(XMLProgram):
+# TODO: This method needs to be simplified down. Type cannot be determined.
+def get_observation_info(program_data: ElementTree):
     raw_info, schedgrps = [], []
-    for container in XMLProgram.findall('container'):
+    for container in program_data.findall('container'):
         if container.attrib.get('type') == 'Observation':
             grpkey = container.attrib.get("key")
             grpname = 'None'
@@ -1370,7 +1239,7 @@ def GetObservationInfo(XMLProgram):
             #                        tas=tas, odbplan=odbplan)
             raw_info.append(container)
             schedgrps.append(schedgrp)
-            # return container, schedgrp
+
         elif container.attrib.get('type') == 'Group':
             grpkey = container.attrib.get("key")
             grptype = 'None'
@@ -1381,11 +1250,12 @@ def GetObservationInfo(XMLProgram):
                     grpname = param.attrib.get('value')
                 if param.attrib.get('name') == 'GroupType':
                     grptype = param.attrib.get('value')
-            # print(grptype)
+
             if grptype == 'TYPE_SCHEDULING':
                 schedgrp = {'key': grpkey, 'name': grpname}
                 # self.schedgroup[grpkey] = {'name': grpname, 'idx': []}
                 # self.programs[prgid]['groups'].append(grpkey)
+
             for subcontainer in container.findall('container'):
                 if grptype != 'TYPE_SCHEDULING':
                     grpkey = subcontainer.attrib.get("key")
@@ -1401,19 +1271,20 @@ def GetObservationInfo(XMLProgram):
                 if subcontainer.attrib.get("type") == 'Observation':
                     # return subcontainer, schedgrp
                     raw_info.append(subcontainer)
+
+                    # TODO ERROR: schedgrp may not be assigned yet.
                     schedgrps.append(schedgrp)
 
-    return raw_info, schedgrps
+    return zip(raw_info, schedgrps)
 
 
-### GMOS FILE
-def FpuXmlTranslator(xmlfpu):
+# GMOS FILE
+def fpu_xml_translator(xmlfpu: List[str]) -> List[Dict[str, Union[str, Optional[float]]]]:
     """
     Convert the ODB XML FPU name to a human-readable mask name.
     Input: list of XML FPU names
     Output: list of dictionaries of FPU names and widths
     """
-
     fpu = []
 
     for f in xmlfpu:
@@ -1459,9 +1330,10 @@ def FpuXmlTranslator(xmlfpu):
     return fpu
 
 
-def CustomMaskWidth(customwidthstring):
+def custom_mask_width(custom_width_string: str) -> Optional[float]:
+    """Parse a custom mask width from a string."""
     try:
-        width = float(customwidthstring[13:].replace('_', '.'))
-    except:
+        width = float(custom_width_string[13:].replace('_', '.'))
+    except ValueError:
         width = None
     return width
