@@ -1131,14 +1131,14 @@ def get_windows(observation_data: ElementTree) -> Tuple[List[int], List[int], Li
     return start, duration, repeat, period
 
 
-def get_obs_too_status(observation_data: ElementTree, too_type: str) -> Optional[str]:
+def get_obs_too_status(observation_data: ElementTree, too_type: str) -> Optional[ToOType]:
     too = None
 
     if too_type == 'none':
-        too = 'None'
+        too = ToOType.NONE
 
     elif too_type == 'standard':
-        too = 'Standard'
+        too = ToOType.STANDARD
 
     else:
         paramset = observation_data.find('paramset')
@@ -1146,9 +1146,9 @@ def get_obs_too_status(observation_data: ElementTree, too_type: str) -> Optional
             if param.attrib.get('name') == 'tooOverrideRapid':
                 override = param.attrib.get('value')
                 if override == 'false':
-                    too = 'Rapid'
+                    too = ToOType.RAPID
                 elif override == 'true':
-                    too = 'Standard'
+                    too = ToOType.STANDARD
                 else:
                     logging.error(f'Unknown TOO status.')
 
@@ -1169,7 +1169,7 @@ def check_status(program_data: ElementTree) -> Tuple[bool, bool]:
 
 
 # TODO: What is yp?
-def get_ft_program_dates(notes: Tuple[str, str],
+def get_ft_program_dates(notes: List[Tuple[Optional[str], Optional[str]]],
                          semester: str,
                          year: str,
                          yp: str) -> Tuple[Optional[Time], Optional[Time]]:
@@ -1182,7 +1182,7 @@ def get_ft_program_dates(notes: Tuple[str, str],
     months_list = [x.lower() for x in calendar.month_name[1:]]
     #months_list = list(map(lambda x: x.lower(), calendar.month_name[1:]))
     for title, _ in notes:
-        if title:
+        if title is not None and title:
             if 'cycle' in title.lower() or 'active' in title.lower():
                 fields = title.strip().split(' ')
                 months = []

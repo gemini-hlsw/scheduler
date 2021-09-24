@@ -79,10 +79,10 @@ class Collector:
     observation_num = 0
 
     def __init__(self,
-                 sites: FrozenSet[Site],
-                 semesters: FrozenSet[str],
-                 program_types: FrozenSet[str],
-                 obs_classes: FrozenSet[str],
+                 sites: List[Site],
+                 semesters: List[str],
+                 program_types: List[str],
+                 obs_classes: List[str],
                  time_range: Time = None,
                  time_slot_length: Time = 1.0 * u.min):
 
@@ -247,8 +247,8 @@ class Collector:
                  zipfile: str,
                  xmlselect: List[str],
                  site: Site,
-                 selection=frozenset([ObservationStatus.ONGOING, ObservationStatus.READY]),
-                 obsclasses=frozenset(['SCIENCE']),
+                 selection: List[ObservationStatus] = [ObservationStatus.ONGOING, ObservationStatus.READY],
+                 obsclasses: List[str] = ['SCIENCE'],
                  tas=None):
         """ Populate Database from the zip file of an ODB backup """
 
@@ -266,8 +266,8 @@ class Collector:
 
     def _process_observation_data(self,
                                   program_data,
-                                  selection: frozenset[ObservationStatus],
-                                  obsclasses: frozenset[str],
+                                  selection: List[ObservationStatus],
+                                  obsclasses: List[str],
                                   tas: Dict[str, Dict[str, float]]) -> NoReturn:
         """Parse XML file to Observation objects and other data structures."""
         program_id = get_program_id(program_data)
@@ -440,7 +440,7 @@ class Collector:
                 # self.target_des.append(des)
                 # self.coord.append(SkyCoord(ra, dec, frame='icrs', unit=(u.deg, u.deg)))
                 # self.mags.append(target_mags)
-                self.toostatus.append(too_status.lower())
+                self.toostatus.append(too_status)
                 self.priority.append(priority)
                 # self.conditions.append({'iq': condf[0], 'cc': condf[1], 'bg': condf[2], 'wv': condf[3]})
 
