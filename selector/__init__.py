@@ -502,26 +502,37 @@ class Selector:
                         Selector._check_conditions(visit_conditions, actual_sky_conditions)):
 
                     # CHECK FOR GMOS IF COMPONENTS ARE INSTALLED
-                    if any('GMOS' in instrument for instrument in instruments_in_obs):
+                    if any( 'GMOS' in  instrument for instrument in instruments_in_obs):
                         can_be_selected = False
+                        has_disperser = True
+                        has_fpu = True
+
                         for disperser in dispersers_in_obs:
-                            if resources.is_disperser_available(site, disperser):
-                                for fpu in fpus_in_obs:
-                                    if resources.is_mask_available(site, fpu):
-                                        can_be_selected = True
+                            if not resources.is_disperser_available(site, disperser):
+                                has_disperser = False
+                                break
+                        if has_disperser:
+                            for fpu in fpus_in_obs:
+                                if not resources.is_mask_available(site,fpu):
+                                    has_fpu = False
+                                    break
+                        if has_disperser and has_fpu:
+                            can_be_selected = True
 
                         if can_be_selected:
-                            # TODO: Update the scores. This could be done by the ranker?
-                            match = self._match_conditions(visit_conditions,
+                            # Update the scores NOTE: This could be done by the ranker?
+
+                            match = self._match_conditions(visit_conditions, 
                                                            actual_sky_conditions,
-                                                           negative_hour_angle,
+                                                           negative_hour_angle, 
                                                            too_status)
+                            visit.score = wind_conditions * visit.score * match 
 
-                            # TODO: wind_conditions may not be initialized by this point.
-                            visit.score = wind_conditions * visit.score * match
-
+                            selected.append(visit)
+                           
                     else:
                         selected.append(visit)
+                                 
 
         self.selection[site] = selected
         return selected
