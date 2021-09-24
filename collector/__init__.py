@@ -371,7 +371,7 @@ class Collector:
                 # Sky Conditions
                 conditions = get_conditions(raw_observation, label=False)
 
-                if conditions or conditions is None:
+                if not conditions or conditions is None:
                     sky_cond = SkyConditions()
                 else:
                     parse_conditions = conditions_parser(conditions)

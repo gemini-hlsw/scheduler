@@ -123,16 +123,16 @@ def conditions_parser(conditions: str) -> tuple:
             raise ValueError('Must be type str, float, or np.ndarray')
     
     def iq_parser(iq: str) -> IQ:
-        return IQ.IQANY if 'ANY' in iq or iq == 'NULL' else IQ(float(iq))
+        return IQ.IQANY if 'ANY' in iq or iq == 'NULL' else IQ(float(iq)/100)
     
     def cc_parser(cc: str) -> CC:
-        return CC.CCANY if 'ANY' in cc or cc == 'NULL' else CC(float(cc))
+        return CC.CCANY if 'ANY' in cc or cc == 'NULL' else CC(float(cc)/100)
 
     def sb_parser(sb: str) -> SB:
-        return SB.SBANY if 'ANY' in sb or sb == 'NULL' else SB(float(sb))
+         return SB.SBANY if 'ANY' in sb or sb == 'NULL' else SB(float(sb)/100)
     
     def wv_parser(wv: str)-> WV:
-        return WV.WVANY if 'ANY' in wv or wv == 'NULL' else WV(float(wv))
+        return WV.WVANY if 'ANY' in wv or wv == 'NULL' else WV(float(wv)/100)
     
     str_iq, str_cc, str_sb, str_wv = conditions.split(',')
     return (parser_by_instance(str_sb, sb_parser),
