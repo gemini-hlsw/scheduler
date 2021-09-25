@@ -50,11 +50,6 @@ class Resource:
                 out_dict[fpu] = barcode
         return out_dict
 
-    # TODO: Does not appear to be in use, and can be static.
-    @staticmethod
-    def _nearest(items, pivot):
-        return min(items, key=lambda x: abs(x - pivot))
-
     @staticmethod
     def _previous(items, pivot):
         # Return date equal or previous to pivot
@@ -118,12 +113,7 @@ class Resource:
         if info in info_types:
             previous_date = Resource._previous(info_types[info].keys(), date)
             return info_types[info][previous_date]
-            # if date in info_types[info]:
-            #     return info_types[info][date]
-            # else:
-            #     nearest_date = self._previous(info_types[info].keys(), date)
-            #     return info_types[info][nearest_date]
-                
+         
         else:
             logging.warning(f'No information about {info} is stored')
             return None
