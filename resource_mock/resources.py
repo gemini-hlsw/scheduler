@@ -22,6 +22,7 @@ class Resources:
                  fpu2b: Dict[Site, Dict[str, str]],
                  ifus: Dict[str, Dict[str, str]]):
         self.fpu = fpu
+        self.fpur = fpur
         self.fpur[Site.GS].extend(['11013104','11013107','11020601','11022001',
                                     '11023313','11023327','11023328','11023332',
                                     '11023341','11023342','10000009','10005373',

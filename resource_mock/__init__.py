@@ -80,7 +80,7 @@ class Resource:
                 f2_filter = lambda x: 'Flamingos2' if x == 'F2' else x
                 self.instruments[site][date] = [f2_filter(c.value) for c in row[3:]]
                 self.mode[site][date] = row[1].value
-                self.lgs[site][date] = self._to_bool(row[2].value)
+                self.lgs[site][date] = str_to_bool(row[2].value)
             
         if not self.instruments or not self.mode or not self.lgs:
             raise Exception("Problems on reading spreadsheet...") 

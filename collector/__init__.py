@@ -375,7 +375,7 @@ class Collector:
                 if not conditions or conditions is None:
                     sky_cond = SkyConditions()
                 else:
-                    parse_conditions = conditions_parser(conditions)
+                    parse_conditions = conditions_parser(conditions)                    
                     sky_cond = SkyConditions(*parse_conditions)
 
                 # Elevation constraints        

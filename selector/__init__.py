@@ -445,6 +445,7 @@ class Selector:
         actual_wind_conditions = actual_conditions.wind
 
         selected = []
+        vis_sel = []
         for visit in visits:
 
             if visit.length() - visit.observed() > 0:
@@ -456,8 +457,7 @@ class Selector:
                 status_of_obs = []
                 vishours_of_obs = []
                 too_status = 'none'
-                visit_conditions = visit.sky_conditions
-
+                visit_conditions = visit.sky_conditions            
                 # Check observations can be selected for the visit
                 for obs in visit.observations:
 
@@ -495,6 +495,12 @@ class Selector:
                 fpus_in_obs = dict.fromkeys(fpus_in_obs)
                 status_of_obs = dict.fromkeys(status_of_obs)
 
+                print(all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs))
+                print(Selector._check_instrument_availability(resources, site, instruments_in_obs))
+                print(all(status in [ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED]
+                            for status in status_of_obs))
+                print(Selector._check_conditions(visit_conditions, actual_sky_conditions))
+                #input()
                 if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and
                         Selector._check_instrument_availability(resources, site, instruments_in_obs) and
                         all(status in [ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED]
@@ -527,13 +533,15 @@ class Selector:
                                                            negative_hour_angle, 
                                                            too_status)
                             visit.score = wind_conditions * visit.score * match 
-
+                            vis_sel.append(visit.idx)
                             selected.append(visit)
                            
                     else:
+                        vis_sel.append(visit.idx)
                         selected.append(visit)
                                  
-
+        print(vis_sel)
+        input()
         self.selection[site] = selected
         return selected
 
