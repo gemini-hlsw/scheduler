@@ -445,7 +445,6 @@ class Selector:
         actual_wind_conditions = actual_conditions.wind
 
         selected = []
-        vis_sel = []
         for visit in visits:
 
             if visit.length() - visit.observed() > 0:
@@ -479,7 +478,14 @@ class Selector:
                     comp_val, comp_instrument = Selector.has_complementary_mode(obs, visit.site)
                     instruments_in_obs.append(comp_instrument)
                     valid_in_obs.append(comp_val)
+                    
                     vishours_of_obs.append(obs.visibility.hours[inight])
+
+                    # TODO: Calibrations should be consider? If this is not account
+                    # TODO: more visits are selected. 
+                    if visit.calibrations:
+                        for cal in visit.calibrations:
+                            vishours_of_obs.append(cal.visibility.hours[inight])
 
                     if 'GMOS' in comp_instrument:
                         comp_disperser = obs.instrument.disperser
@@ -494,16 +500,7 @@ class Selector:
                 dispersers_in_obs = dict.fromkeys(dispersers_in_obs)
                 fpus_in_obs = dict.fromkeys(fpus_in_obs)
                 status_of_obs = dict.fromkeys(status_of_obs)
-
-                
-
-                print(all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs))
-                print(Selector._check_instrument_availability(resources, site, instruments_in_obs))
-                print(all(status in [ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED]
-                            for status in status_of_obs))
-                print(Selector._check_conditions(visit_conditions, actual_sky_conditions))
-                print('')
-                
+  
                 if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and
                         Selector._check_instrument_availability(resources, site, instruments_in_obs) and
                         all(status in [ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED]
@@ -518,15 +515,11 @@ class Selector:
 
                         for disperser in dispersers_in_obs:
                             if not resources.is_disperser_available(site, disperser):
-                                print('no disperser')
-                                print(dispersers_in_obs)
-                                print(resources.gratings[Site.GS])
                                 has_disperser = False
                                 break
                         if has_disperser:
                             for fpu in fpus_in_obs:
                                 if not resources.is_mask_available(site,fpu):
-                                    print('no fpu')
                                     has_fpu = False
                                     break
                         if has_disperser and has_fpu:
@@ -540,18 +533,11 @@ class Selector:
                                                            negative_hour_angle, 
                                                            too_status)
                             visit.score = wind_conditions * visit.score * match 
-                            vis_sel.append(visit.idx)
                             selected.append(visit)
                            
                     else:
-                        vis_sel.append(visit.idx)
                         selected.append(visit)
-                
-                if visit.idx == 630:
-                   input()
-                                 
-        print(vis_sel)
-        input()
+
         self.selection[site] = selected
         return selected
 
