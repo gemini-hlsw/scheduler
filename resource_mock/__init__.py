@@ -50,11 +50,6 @@ class Resource:
                 out_dict[fpu] = barcode
         return out_dict
 
-    # TODO: Does not appear to be in use, and can be static.
-    @staticmethod
-    def _nearest(items, pivot):
-        return min(items, key=lambda x: abs(x - pivot))
-
     @staticmethod
     def _previous(items, pivot):
         # Return date equal or previous to pivot
@@ -70,20 +65,19 @@ class Resource:
         return result
 
     def _excel_reader(self) -> NoReturn:
+
         sites = [site for site in Site]
         workbook = load_workbook(filename=os.path.join(self.path, '2018B-2019A Telescope Schedules.xlsx'))
         for site in sites:
             sheet = workbook[site.name]
-            for row in sheet.iter_rows(min_row=2):
+            for row in sheet.iter_rows(min_row=2):                
                 date = row[0].value
-                self.instruments[site][date] = [c.value for c in row[3:]]
+                self.instruments[site][date] = ['Flamingos2' if c.value == 'F2' else c.value for c in row[3:]]
                 self.mode[site][date] = row[1].value
-
-                # TODO: Some of these rows have None as their value. Is this right?
                 self.lgs[site][date] = str_to_bool(row[2].value)
             
         if not self.instruments or not self.mode or not self.lgs:
-            raise Exception("Problems reading spreadsheet.")
+            raise Exception("Problems on reading spreadsheet...") 
 
     def connect(self) -> NoReturn:
         """
@@ -118,12 +112,7 @@ class Resource:
         if info in info_types:
             previous_date = Resource._previous(info_types[info].keys(), date)
             return info_types[info][previous_date]
-            # if date in info_types[info]:
-            #     return info_types[info][date]
-            # else:
-            #     nearest_date = self._previous(info_types[info].keys(), date)
-            #     return info_types[info][nearest_date]
-                
+         
         else:
             logging.warning(f'No information about {info} is stored')
             return None

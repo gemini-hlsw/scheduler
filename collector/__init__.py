@@ -347,12 +347,13 @@ class Collector:
                 target_designation = None
                 target_tag = None
                 if targets:
-                    for target in targets:
+                    for target in targets:                        
                         try:
                             target_name = target['group']['name']
-                            target_tag = TargetTag(target['tag']) if target_name == 'Base' else None
-                            target_designation = target['num'] if target_tag is not None and \
-                                                                  target_tag == TargetTag.MajorBody else target['des']
+                            if target_name == 'Base':
+                                target_tag = TargetTag(target['tag'])
+                                if target_tag is not None and target_tag != TargetTag.Sidereal:
+                                    target_designation = target['num'] if target_tag is TargetTag.MajorBody else target['des']
                         except:
                             pass
 
@@ -371,10 +372,10 @@ class Collector:
                 # Sky Conditions
                 conditions = get_conditions(raw_observation, label=False)
 
-                if conditions or conditions is None:
+                if conditions is None or not conditions:
                     sky_cond = SkyConditions()
                 else:
-                    parse_conditions = conditions_parser(conditions)
+                    parse_conditions = conditions_parser(conditions)                    
                     sky_cond = SkyConditions(*parse_conditions)
 
                 # Elevation constraints        

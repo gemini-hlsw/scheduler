@@ -456,8 +456,7 @@ class Selector:
                 status_of_obs = []
                 vishours_of_obs = []
                 too_status = 'none'
-                visit_conditions = visit.sky_conditions
-
+                visit_conditions = visit.sky_conditions            
                 # Check observations can be selected for the visit
                 for obs in visit.observations:
 
@@ -479,7 +478,14 @@ class Selector:
                     comp_val, comp_instrument = Selector.has_complementary_mode(obs, visit.site)
                     instruments_in_obs.append(comp_instrument)
                     valid_in_obs.append(comp_val)
+                    
                     vishours_of_obs.append(obs.visibility.hours[inight])
+
+                    # TODO: Calibrations should be consider? If this is not account
+                    # TODO: more visits are selected. 
+                    
+                    for cal in visit.calibrations:
+                        vishours_of_obs.append(cal.visibility.hours[inight])
 
                     if 'GMOS' in comp_instrument:
                         comp_disperser = obs.instrument.disperser
@@ -494,7 +500,7 @@ class Selector:
                 dispersers_in_obs = dict.fromkeys(dispersers_in_obs)
                 fpus_in_obs = dict.fromkeys(fpus_in_obs)
                 status_of_obs = dict.fromkeys(status_of_obs)
-
+  
                 if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and
                         Selector._check_instrument_availability(resources, site, instruments_in_obs) and
                         all(status in [ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED]
@@ -502,24 +508,33 @@ class Selector:
                         Selector._check_conditions(visit_conditions, actual_sky_conditions)):
 
                     # CHECK FOR GMOS IF COMPONENTS ARE INSTALLED
-                    if any('GMOS' in instrument for instrument in instruments_in_obs):
+                    if any( 'GMOS' in  instrument for instrument in instruments_in_obs):
                         can_be_selected = False
+                        has_disperser = True
+                        has_fpu = True
+
                         for disperser in dispersers_in_obs:
-                            if resources.is_disperser_available(site, disperser):
-                                for fpu in fpus_in_obs:
-                                    if resources.is_mask_available(site, fpu):
-                                        can_be_selected = True
+                            if not resources.is_disperser_available(site, disperser):
+                                has_disperser = False
+                                break
+                        if has_disperser:
+                            for fpu in fpus_in_obs:
+                                if not resources.is_mask_available(site,fpu):
+                                    has_fpu = False
+                                    break
+                        if has_disperser and has_fpu:
+                            can_be_selected = True
 
                         if can_be_selected:
-                            # TODO: Update the scores. This could be done by the ranker?
-                            match = self._match_conditions(visit_conditions,
+                            # Update the scores NOTE: This could be done by the ranker?
+
+                            match = self._match_conditions(visit_conditions, 
                                                            actual_sky_conditions,
-                                                           negative_hour_angle,
+                                                           negative_hour_angle, 
                                                            too_status)
-
-                            # TODO: wind_conditions may not be initialized by this point.
-                            visit.score = wind_conditions * visit.score * match
-
+                            visit.score = wind_conditions * visit.score * match 
+                            selected.append(visit)
+                           
                     else:
                         selected.append(visit)
 
@@ -537,6 +552,7 @@ class Selector:
             print(f'Site {site.name}')
             for visit in self.selection[site]:
                 print(visit)
+        print(f' {len(self.selection[site])} visits selected for variant.')
 
     @staticmethod
     def has_complementary_mode(obs: Observation, site: Site) -> tuple[bool, str]:

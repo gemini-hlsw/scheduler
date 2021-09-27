@@ -23,6 +23,11 @@ class Resources:
                  ifus: Dict[str, Dict[str, str]]):
         self.fpu = fpu
         self.fpur = fpur
+        self.fpur[Site.GS].extend(['11013104','11013107','11020601','11022001',
+                                    '11023313','11023327','11023328','11023332',
+                                    '11023341','11023342','10000009','10005373',
+                                    '10005372','10005374','10005375','10005376',
+                                    '10005390'])
         self.gratings = gratings
         self.instruments = instruments
         self.laser_guide = lgs
@@ -42,10 +47,13 @@ class Resources:
         return disperser in self.gratings[site]
 
     def is_mask_available(self, site: Site, fpu_mask: str) -> bool:
+
         barcode = None
+        if fpu_mask == 'None':
+            return True
         if fpu_mask in self.fpu_to_barcode[site]:
             barcode = self.fpu_to_barcode[site][fpu_mask]
         elif '-' in fpu_mask:
             barcode = Resources._decode_mask(fpu_mask)
+        
         return barcode and barcode in self.fpur[site]
-
