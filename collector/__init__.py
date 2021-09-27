@@ -352,7 +352,7 @@ class Collector:
                             target_name = target['group']['name']
                             if target_name == 'Base':
                                 target_tag = TargetTag(target['tag'])
-                                if target_tag is not TargetTag.Sidereal and target_tag is not None:
+                                if target_tag is not None and target_tag != TargetTag.Sidereal:
                                     target_designation = target['num'] if target_tag is TargetTag.MajorBody else target['des']
                         except:
                             pass
@@ -372,7 +372,7 @@ class Collector:
                 # Sky Conditions
                 conditions = get_conditions(raw_observation, label=False)
 
-                if not conditions or conditions is None:
+                if conditions is None or not conditions:
                     sky_cond = SkyConditions()
                 else:
                     parse_conditions = conditions_parser(conditions)                    

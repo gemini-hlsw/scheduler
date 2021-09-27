@@ -483,9 +483,9 @@ class Selector:
 
                     # TODO: Calibrations should be consider? If this is not account
                     # TODO: more visits are selected. 
-                    if visit.calibrations:
-                        for cal in visit.calibrations:
-                            vishours_of_obs.append(cal.visibility.hours[inight])
+                    
+                    for cal in visit.calibrations:
+                        vishours_of_obs.append(cal.visibility.hours[inight])
 
                     if 'GMOS' in comp_instrument:
                         comp_disperser = obs.instrument.disperser

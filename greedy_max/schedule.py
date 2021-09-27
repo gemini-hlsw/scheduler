@@ -168,7 +168,7 @@ class Visit:
         restrictive_cc = min([obs.sky_conditions.cc for obs in self.observations])
         restrictive_wv = min([obs.sky_conditions.wv for obs in self.observations])
 
-        return SkyConditions(restrictive_sb,restrictive_cc,restrictive_iq,restrictive_wv)
+        return SkyConditions(restrictive_sb, restrictive_cc, restrictive_iq, restrictive_wv)
             
 
     def __contains__(self, obs_idx:int) -> bool:

@@ -46,7 +46,7 @@ class Resources:
     def is_disperser_available(self, site: Site, disperser: str) -> bool:
         return disperser in self.gratings[site]
 
-    def is_mask_available(self,site: Site, fpu_mask: str) -> bool:
+    def is_mask_available(self, site: Site, fpu_mask: str) -> bool:
 
         barcode = None
         if fpu_mask == 'None':
@@ -54,9 +54,6 @@ class Resources:
         if fpu_mask in self.fpu_to_barcode[site]:
             barcode = self.fpu_to_barcode[site][fpu_mask]
         elif '-' in fpu_mask:
-            barcode = self._decode_mask(fpu_mask)
+            barcode = Resources._decode_mask(fpu_mask)
         
-        if barcode:
-            return barcode in self.fpur[site]
-        else:
-            return False # No mask in register 
+        return barcode and barcode in self.fpur[site]
