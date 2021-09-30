@@ -74,6 +74,25 @@ def ot_timing_windows(starts: Iterable[int],
     return timing_windows
 
 
+def select_obsclass(classes):
+    """Return the obsclass based on precedence
+
+        classes: list of observe classes from get_obs_class
+    """
+    obsclass = ''
+
+    # Precedence order for observation classes.
+    obsclass_order = ['SCIENCE', 'PROG_CAL', 'PARTNER_CAL', 'ACQ', 'ACQ_CAL']
+
+    # Set the obsclass for the entire observation based on obsclass precedence
+    for oclass in obsclass_order:
+        if oclass in classes:
+            obsclass = oclass
+            break
+
+    return obsclass
+
+
 class Collector:
     # Counter to keep track of observations.
     observation_num = 0
@@ -325,11 +344,14 @@ class Collector:
 
         for raw_observation, group in get_observation_info(program_data):
             classes = list(dict.fromkeys(get_obs_class(raw_observation)))
+            # Precedence for choosing the obsclass from the classes list
+            obsclass = select_obsclass(classes)
             status = get_obs_status(raw_observation)
             obs_odb_id = get_obs_id(raw_observation)
 
-            if any(obs_class in obsclasses for obs_class in classes) and (status in selection):
+            if (obsclass in obsclasses) and (status in selection):
                 logging.info(f'Adding {obs_odb_id}.')
+                # logging.info(f'{classes}, {obsclass}')
 
                 total_time = get_obs_time(raw_observation)
 
@@ -448,7 +470,7 @@ class Collector:
                 self.observations.append(Observation(Collector.observation_num,
                                                      obs_odb_id,
                                                      band,
-                                                     Category(classes[0].lower()),
+                                                     Category(obsclass.lower()),
                                                      obs_time,
                                                      total_time.total_seconds() / 3600. + calibration_time,
                                                      inst_config,
