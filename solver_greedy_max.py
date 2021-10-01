@@ -48,19 +48,20 @@ if __name__ == '__main__':
 
     selector = Selector(collector, sites, time_range=time_range)
 
-    #actual_conditions = collector.get_actual_conditions()
+    actual_conditions = collector.get_actual_conditions()
     
-    #visits = selector.create_pool()
+    visits = selector.create_pool()
 
-    #for site in sites:
-    #    # Check if save visibility exists: if not, calculate
-    #    selector.visibility(site, ephem_path=ephem_path)
+    for site in sites:
+        # Check if save visibility exists: if not, calculate
+        selector.visibility(site, ephem_path=ephem_path)
 
-    #night_period = 0 
-    #selection = {site: selector.select(visits[site],
-    #                                   night_period,
-    #                                   site,
-    #                                   actual_conditions,
-    #                                   resources,
-    #                                   ephem_path) for site in sites}
-    #selector.selection_summary()
+    night_period = 0 
+
+    selection = {site: selector.select(visits[site],
+                                       night_period,
+                                       site,
+                                       actual_conditions,
+                                       resources,
+                                       ephem_path) for site in sites}
+    selector.selection_summary()

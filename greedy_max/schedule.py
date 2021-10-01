@@ -163,10 +163,16 @@ class Visit:
         Create a new SkyConditions object based on the observation level objects 
         Use the most restrictive value for each condition. 
         '''
-        restrictive_iq = min([obs.sky_conditions.iq for obs in self.observations])
-        restrictive_sb = min([obs.sky_conditions.sb for obs in self.observations])
-        restrictive_cc = min([obs.sky_conditions.cc for obs in self.observations])
-        restrictive_wv = min([obs.sky_conditions.wv for obs in self.observations])
+        restrictive_sb = min([*[obs.sky_conditions.sb for obs in self.observations],
+                              *[c.sky_conditions.sb for c in self.calibrations]])
+        restrictive_cc = min([*[obs.sky_conditions.cc for obs in self.observations],
+                              *[c.sky_conditions.cc for c in self.calibrations]])
+
+        restrictive_iq = min([*[obs.sky_conditions.iq for obs in self.observations],
+                              *[c.sky_conditions.iq for c in self.calibrations]])
+
+        restrictive_wv = min([*[obs.sky_conditions.wv for obs in self.observations],
+                              *[c.sky_conditions.wv for c in self.calibrations]])
 
         return SkyConditions(restrictive_sb, restrictive_cc, restrictive_iq, restrictive_wv)
             

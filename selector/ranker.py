@@ -15,7 +15,7 @@ class Ranker:
         self.sites = sites
         self.times = times
              
-    
+    #TODO: This method is duplicated and should be replace by a better Horizons API
     def _query_coordinates(self, obs, site, night, tag, des, coords,
                            ephem_dir, site_location, overwrite=False, checkephem=False, ):
         # Query coordinates, including for nonsidereal targets from Horizons
@@ -80,7 +80,7 @@ class Ranker:
             site = visit.site
             site_location = location[site]
             visit_score = np.empty((0, len(self.times[inight])), dtype=float)
-            for obs in visit.observations:
+            for obs in [*visit.observations, *visit.calibrations]:
 
                 score = np.zeros(len(self.times[inight]))
                 program_id = obs.get_program_id()   

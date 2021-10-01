@@ -156,7 +156,7 @@ class Collector:
             time_accounting = self._load_tas(path, site)
             self._calculate_night_events(site)
             self._readzip(zip_path, xmlselect, site, tas=time_accounting)
-        
+            Collector.observation_num = 0
 
             logging.info(f'Added {len(self.observations[site])} for {len(self.programs[site].keys())} programs') 
 
@@ -343,7 +343,6 @@ class Collector:
 
             if (obsclass in obsclasses) and (status in selection):
                 logging.info(f'Adding {obs_odb_id}.')
-                # logging.info(f'{classes}, {obsclass}')
 
                 total_time = get_obs_time(raw_observation)
 
@@ -441,10 +440,10 @@ class Collector:
                 collected_program.add_observation(self.observation_num)
 
                 # Check if group exists, add if not
-                if group['key'] not in self.scheduling_groups.keys():
-                    self.scheduling_groups[group['key']] = {'name': group['name'], 'idx': []}
+                if group['key'] not in self.scheduling_groups[site].keys():
+                    self.scheduling_groups[site][group['key']] = {'name': group['name'], 'idx': []}
                     collected_program.add_group(group['key'])
-                self.scheduling_groups[group['key']]['idx'].append(Collector.observation_num)
+                self.scheduling_groups[site][group['key']]['idx'].append(Collector.observation_num)
 
                 # Get Horizons coordinates for nonsidereal targets (write file for future use)
                 # if target_tag in ['asteroid', 'comet', 'major-body']: NOTE: This does not work, and it should!
