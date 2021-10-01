@@ -453,8 +453,10 @@ class Selector:
 
         selected = []
         for visit in visits:
-
+            
             if visit.length() - visit.observed() > 0:
+                
+                
                 negative_hour_angle = True
                 dispersers_in_obs = []
                 fpus_in_obs = []
@@ -465,7 +467,7 @@ class Selector:
                 too_status = 'none'
                 visit_conditions = visit.sky_conditions            
                 # Check observations can be selected for the visit
-                for obs in visit.observations:
+                for obs in [*visit.observations, *visit.calibrations]:
 
                     # If HA < 0 in first time step, then we don't consider it setting at the start
                     if (negative_hour_angle and obs.category in ['science', 'prog_cal'] and
@@ -491,8 +493,8 @@ class Selector:
                     # TODO: Calibrations should be consider? If this is not account
                     # TODO: more visits are selected. 
                     
-                    for cal in visit.calibrations:
-                        vishours_of_obs.append(cal.visibility.hours[inight])
+                    #for cal in visit.calibrations:
+                    #    vishours_of_obs.append(cal.visibility.hours[inight])
 
                     if 'GMOS' in comp_instrument:
                         comp_disperser = obs.instrument.disperser
@@ -508,19 +510,6 @@ class Selector:
                 fpus_in_obs = dict.fromkeys(fpus_in_obs)
                 status_of_obs = dict.fromkeys(status_of_obs)
 
-
-                #if site is Site.GN:
-                    #logging.info(visit.observations)
-                    #logging.info(instruments_in_obs)
-                    #logging.info(resources.instruments)
-                    #logging.info(vishours_of_obs)
-                    #logging.debug(f'are all obs valid? {all(valid_in_obs)}')
-                    #logging.debug(f'are all obs visible? {all(hours > 0 for hours in vishours_of_obs)}')
-                    #logging.debug(f'are all instruments available? {Selector._check_instrument_availability(resources, site, instruments_in_obs)}')
-                    #logging.debug(f'are all obs in correct status? {all(status in [ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED] for status in status_of_obs)}')
-                    #logging.debug(f'there are proper conditions? {Selector._check_conditions(visit_conditions, actual_sky_conditions)}')
-                    
-                    #input()
                 if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and
                         Selector._check_instrument_availability(resources, site, instruments_in_obs) and
                         all(status in [ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED]

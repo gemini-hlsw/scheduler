@@ -74,7 +74,7 @@ def ot_timing_windows(starts: Iterable[int],
     return timing_windows
 
 
-def select_obsclass(classes):
+def select_obsclass(classes: List[str])-> str:
     """Return the obsclass based on precedence
 
         classes: list of observe classes from get_obs_class
@@ -341,7 +341,7 @@ class Collector:
             status = get_obs_status(raw_observation)
             obs_odb_id = get_obs_id(raw_observation)
 
-            if (obsclass in obsclasses) and (status in selection):
+            if (obsclass in self.obs_classes) and (status in selection):
                 logging.info(f'Adding {obs_odb_id}.')
 
                 total_time = get_obs_time(raw_observation)
