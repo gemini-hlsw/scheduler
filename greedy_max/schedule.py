@@ -5,7 +5,7 @@ from typing import Dict, List
 from astropy.units.quantity import Quantity
 import astropy.units as u
 
-from greedy_max.category import Category
+from common.structures.obs_class import ObservationClass
 from common.structures.band import Band
 from common.structures.conditions import SkyConditions
 from common.structures.elevation import ElevationConstraints
@@ -24,7 +24,7 @@ class Observation:
                  idx,
                  name: str,
                  band: Band,
-                 category: Category,
+                 obs_class: ObservationClass,
                  observed: int,  # observation time on time slots
                  length: float,  # acq+time (this need to be change)
                  instrument: Instrument,
@@ -38,7 +38,7 @@ class Observation:
         self.idx = idx
         self.name = name
         self.band = band
-        self.category = category
+        self.obs_class = obs_class
         self.observed = observed
         self.length = length
         self.instrument = instrument
@@ -163,10 +163,16 @@ class Visit:
         Create a new SkyConditions object based on the observation level objects 
         Use the most restrictive value for each condition. 
         '''
-        restrictive_iq = min([obs.sky_conditions.iq for obs in self.observations])
-        restrictive_sb = min([obs.sky_conditions.sb for obs in self.observations])
-        restrictive_cc = min([obs.sky_conditions.cc for obs in self.observations])
-        restrictive_wv = min([obs.sky_conditions.wv for obs in self.observations])
+        restrictive_sb = min([*[obs.sky_conditions.sb for obs in self.observations],
+                              *[c.sky_conditions.sb for c in self.calibrations]])
+        restrictive_cc = min([*[obs.sky_conditions.cc for obs in self.observations],
+                              *[c.sky_conditions.cc for c in self.calibrations]])
+
+        restrictive_iq = min([*[obs.sky_conditions.iq for obs in self.observations],
+                              *[c.sky_conditions.iq for c in self.calibrations]])
+
+        restrictive_wv = min([*[obs.sky_conditions.wv for obs in self.observations],
+                              *[c.sky_conditions.wv for c in self.calibrations]])
 
         return SkyConditions(restrictive_sb, restrictive_cc, restrictive_iq, restrictive_wv)
             

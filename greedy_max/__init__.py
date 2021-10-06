@@ -477,11 +477,11 @@ class GreedyMax:
                         unit = self.plan.get_visit_by_observation(site, obs_idx) # TODO: handle None case
                         name = all_obs[obs_idx].name
                         weights = np.max(abs(self.time_slots.weights[site][unit.idx][start:end+1]))
-                        category = all_obs[obs_idx].category.name
-                        output_table.append([name,obs_idx,category,start, end, weights])
+                        obs_class = all_obs[obs_idx].obs_class.name
+                        output_table.append([name,obs_idx,obs_class,start, end, weights])
                         sum_score += np.sum(abs(self.time_slots.weights[site][unit.idx][start:end+1]))
                         time_used += (end - start + 1)    
-                logger.info(tabulate(output_table, headers=['Obs', 'obs_order', 'category','start', 'end', 'Max W']))
+                logger.info(tabulate(output_table, headers=['Obs', 'obs_order', 'obs_class','start', 'end', 'Max W']))
             
             if ask_input:
                 input()

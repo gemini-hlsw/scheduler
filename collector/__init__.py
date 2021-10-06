@@ -26,8 +26,8 @@ from common.structures.target import TargetTag, Target
 
 from common.structures.band import Band
 from common.structures.instrument import Instrument
+from common.structures.obs_class import ObservationClass
 from greedy_max.schedule import Observation
-from greedy_max.category import Category
 
 from typing import List, Dict, Optional, NoReturn, Iterable, FrozenSet
 
@@ -74,7 +74,7 @@ def ot_timing_windows(starts: Iterable[int],
     return timing_windows
 
 
-def select_obsclass(classes):
+def select_obsclass(classes: List[str])-> str:
     """Return the obsclass based on precedence
 
         classes: list of observe classes from get_obs_class
@@ -114,61 +114,51 @@ class Collector:
         self.time_grid = self._calculate_time_grid()  # Time object: array with entry for each day in time_range.
         self.time_slot_length = time_slot_length  # Length of time steps.
 
-        self.observations = []
-        self.programs = {}
-
+        self.observations = { site: [] for site in self.sites}
+        self.programs = {site: {} for site in self.sites}
+        self.obs_windows = {site: [] for site in self.sites}
+        self.scheduling_groups = {site: {} for site in self.sites}
         self.night_events = {}
-        self.scheduling_groups = {}
-        self.inst_config = []
 
         # NOTE: This are used to used the EarthLocation and Timezone objects for functions that used those kind of 
         # objects. This can either be include in the Site class if the use of this libraries is justified. 
         self.timezones = {}
         self.locations = {}
 
-        self.programs = {}
-        self.obsid = []
-        self.obstatus = []
-        self.obsclass = []
-        self.band = []
-        self.toostatus = []
-        self.priority = []
-
-        self.tot_time = []  # total program time
-        self.obs_time = []  # used/scheduled time
-        self.obs_windows = []
-
     def load(self, path: str) -> NoReturn:
         """Main collector method. It sets up the collecting process and parameters."""
-        # TODO: Temporary hack for just using one site: this should be a loop over self.sites
-        # TODO: but may require other far-reaching changes (to be evaluated).
-        site_name = Site.GS.value
+        
+        
+        for site in self.sites:
+            site_name = site.value
 
-        xmlselect = [site_name.upper() + '-' + sem + '-' + prog_type
-                     for sem in self.semesters for prog_type in self.program_types]
+            xmlselect = [site_name.upper() + '-' + sem + '-' + prog_type
+                        for sem in self.semesters for prog_type in self.program_types]
 
-        # Retrieve the site details
-        try:
-            site = Site(site_name)
-            # TODO: Possibly get rid of these members from Collector and just access them directly?
-            self.locations[site] = GEOGRAPHICAL_LOCATIONS[site]
-            self.timezones[site] = TIME_ZONES[site]
-        except ValueError:
-            raise RuntimeError(f'{site_name} not a valid site name.')
-        except astropy.coordinates.UnknownSiteException:
-            raise RuntimeError(f'{site_name} does not correspond to a valid geographical location.')
-        except pytz.exceptions.UnknownTimeZoneError:
-            raise RuntimeError(f'{site_name} is not associated with a known timezone.')
+            # Retrieve the site details
+            try:
+                #site = Site(site_name)
+                # TODO: Possibly get rid of these members from Collector and just access them directly?
+                self.locations[site] = GEOGRAPHICAL_LOCATIONS[site]
+                self.timezones[site] = TIME_ZONES[site]
+            except ValueError:
+                raise RuntimeError(f'{site_name} not a valid site name.')
+            except astropy.coordinates.UnknownSiteException:
+                raise RuntimeError(f'{site_name} does not correspond to a valid geographical location.')
+            except pytz.exceptions.UnknownTimeZoneError:
+                raise RuntimeError(f'{site_name} is not associated with a known timezone.')
 
-        self._calculate_night_events()
+            # TODO: We will have to modify in order for this code to be usable by other observatories.
+            zip_path = os.path.join(path,
+                                    f'{(self.time_range[0] - 1.0 * u.day).strftime("%Y%m%d")}{SITE_ZIP_EXTENSIONS[site]}')
+            logging.info(f'Retrieving program data from: {zip_path}.')
 
-        # TODO: We will have to modify in order for this code to be usable by other observatories.
-        zip_path = os.path.join(path,
-                                f'{(self.time_range[0] - 1.0 * u.day).strftime("%Y%m%d")}{SITE_ZIP_EXTENSIONS[site]}')
-        logging.info(f'Retrieving program data from: {zip_path}.')
+            time_accounting = self._load_tas(path, site)
+            self._calculate_night_events(site)
+            self._readzip(zip_path, xmlselect, site, tas=time_accounting)
+            Collector.observation_num = 0
 
-        time_accounting = self._load_tas(path, site)
-        self._readzip(zip_path, xmlselect, site_name, tas=time_accounting, obsclasses=self.obs_classes)
+            logging.info(f'Added {len(self.observations[site])} for {len(self.programs[site].keys())} programs') 
 
     def _calculate_time_grid(self) -> Optional[Time]:
         """Create the array with an entry for each day in the time_range, provided it exists."""
@@ -177,21 +167,21 @@ class Collector:
             return Time(np.arange(self.time_range[0].jd, self.time_range[1].jd + 1.0, (1.0 * u.day).value), format='jd')
         return None
 
-    def _calculate_night_events(self) -> NoReturn:
+    def _calculate_night_events(self, site: Site) -> NoReturn:
         """Load night events to collector"""
         if self.time_grid is not None:
-            for site in self.sites:
-                tz = self.timezones[site]
-                site_location = self.locations[site]
-                mid, sset, srise, twi_eve18, twi_mor18, twi_eve12, twi_mor12, mrise, mset, smangs, moonillum = \
+            
+            tz = self.timezones[site]
+            site_location = self.locations[site]
+            mid, sset, srise, twi_eve18, twi_mor18, twi_eve12, twi_mor12, mrise, mset, smangs, moonillum = \
                     nightevents(self.time_grid, site_location, tz, verbose=False)
-                night_length = (twi_mor12 - twi_eve12).to_value('h') * u.h
-                self.night_events[site] = {'midnight': mid, 'sunset': sset, 'sunrise': srise,
-                                           'twi_eve18': twi_eve18, 'twi_mor18': twi_mor18,
-                                           'twi_eve12': twi_eve12, 'twi_mor12': twi_mor12,
-                                           'night_length': night_length,
-                                           'moonrise': mrise, 'moonset': mset,
-                                           'sunmoonang': smangs, 'moonillum': moonillum}
+            night_length = (twi_mor12 - twi_eve12).to_value('h') * u.h
+            self.night_events[site] = {'midnight': mid, 'sunset': sset, 'sunrise': srise,
+                                       'twi_eve18': twi_eve18, 'twi_mor18': twi_mor18,
+                                       'twi_eve12': twi_eve12, 'twi_mor12': twi_mor12,
+                                       'night_length': night_length,
+                                       'moonrise': mrise, 'moonset': mset,
+                                       'sunmoonang': smangs, 'moonillum': moonillum}
 
     def _load_tas(self, path: str, site: Site) -> Dict[str, Dict[str, float]]:
         """Load Time Accounting Summary."""
@@ -251,6 +241,9 @@ class Collector:
                 disperser = ulist[0]
             else:
                 instconfig[key] = ulist
+            
+            if 'Alopeke' in instrument_name:
+                instrument_name = 'Alopeke'
 
         # TODO: I expect this can be simplified. Can't we just do:
         # TODO: if instrument_name in [...]?
@@ -267,7 +260,6 @@ class Collector:
                  xmlselect: List[str],
                  site: Site,
                  selection: List[ObservationStatus] = [ObservationStatus.ONGOING, ObservationStatus.READY],
-                 obsclasses: List[str] = ['SCIENCE'],
                  tas=None):
         """ Populate Database from the zip file of an ODB backup """
 
@@ -281,12 +273,12 @@ class Collector:
                     program = tree.find('container')
                     (active, complete) = check_status(program)
                     if active and not complete:
-                        self._process_observation_data(program, selection, obsclasses, tas)
+                        self._process_observation_data(site, program, selection,tas)
 
     def _process_observation_data(self,
+                                  site: Site,
                                   program_data,
                                   selection: List[ObservationStatus],
-                                  obsclasses: List[str],
                                   tas: Dict[str, Dict[str, float]]) -> NoReturn:
         """Parse XML file to Observation objects and other data structures."""
         program_id = get_program_id(program_data)
@@ -306,8 +298,8 @@ class Collector:
             program_start, program_end = get_ft_program_dates(notes, semester, year, next_year)
             # If still undefined, use the values from the previous observation
             if program_start is None:
-                program_start = self.programs[-1].start
-                program_end = self.programs[-1].end
+                program_start = self.programs[site][-1].start
+                program_end = self.programs[site][-1].end
 
         else:
             beginning_semester_1 = Time(year + "-02-01 20:00:00", format='iso')
@@ -340,7 +332,7 @@ class Collector:
                                     too_status,
                                     program_start,
                                     program_end)
-        self.programs[program_id] = collected_program
+        self.programs[site][program_id] = collected_program
 
         for raw_observation, group in get_observation_info(program_data):
             classes = list(dict.fromkeys(get_obs_class(raw_observation)))
@@ -349,9 +341,8 @@ class Collector:
             status = get_obs_status(raw_observation)
             obs_odb_id = get_obs_id(raw_observation)
 
-            if (obsclass in obsclasses) and (status in selection):
+            if (obsclass in self.obs_classes) and (status in selection):
                 logging.info(f'Adding {obs_odb_id}.')
-                # logging.info(f'{classes}, {obsclass}')
 
                 total_time = get_obs_time(raw_observation)
 
@@ -389,7 +380,7 @@ class Collector:
                     instrument_name = instrument_config['name'][0]
 
                 # ToO status
-                too_status = get_obs_too_status(raw_observation, self.programs[program_id].too_status)
+                too_status = get_obs_too_status(raw_observation, self.programs[site][program_id].too_status)
 
                 # Sky Conditions
                 conditions = get_conditions(raw_observation, label=False)
@@ -441,36 +432,29 @@ class Collector:
                             wend = progstart
                         # Timing window starts at the beginning of the sequence, the slew can be outside the window
                         # Therefore, subtract acquisition time from start of timing window
-                        wstart -= self.observations[-1].acquisition()
+                        wstart -= self.observations[site][-1].acquisition()
                         windows.append(Time([round_min(wstart), round_min(wend)]))
-                self.obs_windows.append(windows)
+                self.obs_windows[site].append(windows)
 
                 # Observation number in program
                 collected_program.add_observation(self.observation_num)
 
                 # Check if group exists, add if not
-                if group['key'] not in self.scheduling_groups.keys():
-                    self.scheduling_groups[group['key']] = {'name': group['name'], 'idx': []}
+                if group['key'] not in self.scheduling_groups[site].keys():
+                    self.scheduling_groups[site][group['key']] = {'name': group['name'], 'idx': []}
                     collected_program.add_group(group['key'])
-                self.scheduling_groups[group['key']]['idx'].append(Collector.observation_num)
+                self.scheduling_groups[site][group['key']]['idx'].append(Collector.observation_num)
 
                 # Get Horizons coordinates for nonsidereal targets (write file for future use)
                 # if target_tag in ['asteroid', 'comet', 'major-body']: NOTE: This does not work, and it should!
 
-                self.obstatus.append(status)
-                # self.target_name.append(target_name)
-                # self.target_tag.append(target_tag)
-                # self.target_des.append(des)
-                # self.coord.append(SkyCoord(ra, dec, frame='icrs', unit=(u.deg, u.deg)))
-                # self.mags.append(target_mags)
-                self.toostatus.append(too_status)
-                self.priority.append(priority)
-                # self.conditions.append({'iq': condf[0], 'cc': condf[1], 'bg': condf[2], 'wv': condf[3]})
+                #self.priority.append(priority)
 
-                self.observations.append(Observation(Collector.observation_num,
+                #logging.debug([oc  for oc in classes if oc != 'ACQ'][0] )
+                self.observations[site].append(Observation(Collector.observation_num,
                                                      obs_odb_id,
                                                      band,
-                                                     Category(obsclass.lower()),
+                                                     ObservationClass(obsclass.lower()),
                                                      obs_time,
                                                      total_time.total_seconds() / 3600. + calibration_time,
                                                      inst_config,

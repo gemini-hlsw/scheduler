@@ -2,7 +2,7 @@ from enum import Enum, unique
 
 
 @unique
-class Category(Enum):
+class ObservationClass(Enum):
     Science = 'science'
-    PartnerCalibration = 'partner_cal'     
     ProgramCalibration = 'prog_cal'
+    PartnerCalibration = 'partner_cal'

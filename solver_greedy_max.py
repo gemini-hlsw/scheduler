@@ -23,12 +23,12 @@ root.addHandler(handler)
 
 if __name__ == '__main__':
     time_range = Time(["2019-02-02 08:00:00", "2019-05-01 08:00:00"], format='iso', scale='utc')
-    night_date = '2019-02-02'
+    night_date = '2019-02-01'
 
     # The observation classes, program types, sites, and semesters to consider for the plan.
     obs_classes = ['SCIENCE', 'PROG_CAL', 'PARTNER_CAL']
     prog_types = ['Q', 'LP', 'FT', 'DD']
-    sites = [Site.GS]
+    sites = [Site.GS, Site.GN]
     semesters = ['2018B', '2019A']
 
     path = os.path.join('collector', 'data')
@@ -57,6 +57,7 @@ if __name__ == '__main__':
         selector.visibility(site, ephem_path=ephem_path)
 
     night_period = 0 
+
     selection = {site: selector.select(visits[site],
                                        night_period,
                                        site,

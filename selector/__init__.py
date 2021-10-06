@@ -9,13 +9,13 @@ from common.structures.elevation import ElevationType
 from common.structures.observation_status import ObservationStatus
 from common.structures.target import TargetTag
 from common.structures.too_type import ToOType
+from common.structures.obs_class import ObservationClass
 
 from selector.visibility import Visibility
 from selector.ranker import Ranker
 import selector.horizons as hz
 
 from greedy_max.schedule import Observation, Visit
-from greedy_max.category import Category
 from common.structures.site import Site
 
 from resource_mock.resources import Resources
@@ -261,13 +261,13 @@ class Selector:
         """
         Main driver to calculate the visibility for each observation 
         """
-        obs_windows = self.collector.obs_windows
+        obs_windows = self.collector.obs_windows[site]
         timezones = self.collector.timezones
         site_location = self.collector.locations[site]
 
         # NOTE: observation set indifferent of site, this might (should?) change
         # if the query for observations is site bound, for example to manage OR groups
-        observations = self.collector.observations
+        observations = self.collector.observations[site]
 
         num_nights = len(self.times)
 
@@ -375,7 +375,7 @@ class Selector:
                                         airmass[obs_id],
                                         sky_brightness[obs_id])
 
-        logging.info('Done calculating observation visibility.')
+        logging.info(f'Done calculating observation visibility for site {site.value}.')
 
     def create_pool(self) -> Dict[Site, List[Visit]]:
         """
@@ -385,17 +385,18 @@ class Selector:
         scheduling_groups = self.collector.scheduling_groups
         visits = {site: [] for site in self.sites}
 
+        logging.info(self.sites)
         for site in self.sites:
             # Create Visits
-            for idx, group in enumerate(scheduling_groups.values()):
+            for idx, group in enumerate(scheduling_groups[site].values()):
                 obs_idxs = group['idx']
 
-                instruments = [collected_observations[obs].instrument
+                instruments = [collected_observations[site][obs].instrument
                                for obs in obs_idxs]
 
                 wavelengths = set([wav for inst in instruments for wav in inst.wavelength()])
 
-                modes = [[collected_observations[obs].instrument.observation_mode()
+                modes = [[collected_observations[site][obs].instrument.observation_mode()
                           for obs in obs_idxs]]
 
                 if len(obs_idxs) > 1:  # group
@@ -403,25 +404,31 @@ class Selector:
                     calibrations = []
 
                     for obs_idx in obs_idxs:
-                        observation = collected_observations[obs_idx]
-                        if (observation.category == Category.Science
-                                or observation.category == Category.ProgramCalibration):
+                        observation = collected_observations[site][obs_idx]
+                        if (observation.obs_class== ObservationClass.Science
+                                or observation.obs_class == ObservationClass.ProgramCalibration):
                             observations.append(observation)
                         else:
                             calibrations.append(observation)
 
                 else:  # single observation
-                    observation = collected_observations[obs_idxs[0]]
+                    observation = collected_observations[site][obs_idxs[0]]
 
-                    observations = [observation] if (observation == Category.Science
-                                                     or Category.ProgramCalibration) else []
-                    calibrations = [observation] if observation == Category.PartnerCalibration else []
+                    observations = [observation] if (observation == ObservationClass.Science
+                                                     or ObservationClass.ProgramCalibration) else []
+                    calibrations = [observation] if observation == ObservationClass.PartnerCalibration else []
 
                 can_be_split = len(observations) <= 1 and len(calibrations) == 0
 
                 standard_time = Selector._standard_time(instruments, wavelengths, modes, len(calibrations))
+                logging.info(f'Visit {idx}')
+                logging.info(observations)
+                logging.info(calibrations)
+                
                 visits[site].append(Visit(idx, site, observations, calibrations,
                                           can_be_split, standard_time))
+                
+            logging.info(f'{len(visits[site])} Visits created for Site {site.value} ')
 
         return visits
 
@@ -438,7 +445,7 @@ class Selector:
         ranker = Ranker(self.sites, self.times)
 
         ranker.score(visits,
-                     self.collector.programs,
+                     self.collector.programs[site],
                      self.collector.locations,
                      inight,
                      ephem_dir)
@@ -448,8 +455,10 @@ class Selector:
 
         selected = []
         for visit in visits:
-
+            
             if visit.length() - visit.observed() > 0:
+                
+                
                 negative_hour_angle = True
                 dispersers_in_obs = []
                 fpus_in_obs = []
@@ -460,10 +469,10 @@ class Selector:
                 too_status = 'none'
                 visit_conditions = visit.sky_conditions            
                 # Check observations can be selected for the visit
-                for obs in visit.observations:
+                for obs in [*visit.observations, *visit.calibrations]:
 
                     # If HA < 0 in first time step, then we don't consider it setting at the start
-                    if (negative_hour_angle and obs.category in ['science', 'prog_cal'] and
+                    if (negative_hour_angle and obs.obs_class in ['science', 'prog_cal'] and
                             obs.visibility.hour_angle[0].value > 0):
                         negative_hour_angle = False
 
@@ -486,8 +495,8 @@ class Selector:
                     # TODO: Calibrations should be consider? If this is not account
                     # TODO: more visits are selected. 
                     
-                    for cal in visit.calibrations:
-                        vishours_of_obs.append(cal.visibility.hours[inight])
+                    #for cal in visit.calibrations:
+                    #    vishours_of_obs.append(cal.visibility.hours[inight])
 
                     if 'GMOS' in comp_instrument:
                         comp_disperser = obs.instrument.disperser
@@ -502,7 +511,7 @@ class Selector:
                 dispersers_in_obs = dict.fromkeys(dispersers_in_obs)
                 fpus_in_obs = dict.fromkeys(fpus_in_obs)
                 status_of_obs = dict.fromkeys(status_of_obs)
-  
+
                 if (all(valid_in_obs) and all(hours > 0 for hours in vishours_of_obs) and
                         Selector._check_instrument_availability(resources, site, instruments_in_obs) and
                         all(status in [ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED]
@@ -552,9 +561,10 @@ class Selector:
             return
         for site in self.sites:
             print(f'Site {site.name}')
-            for visit in self.selection[site]:
-                print(visit)
-        print(f' {len(self.selection[site])} visits selected for variant.')
+            #for visit in self.selection[site]:
+            #    print(visit)
+            print([v.idx for v in self.selection[site]])
+            print(f' {len(self.selection[site])} visits selected for variant.')
 
     @staticmethod
     def has_complementary_mode(obs: Observation, site: Site) -> tuple[bool, str]:
