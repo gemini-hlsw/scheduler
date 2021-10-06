@@ -9,13 +9,13 @@ from common.structures.elevation import ElevationType
 from common.structures.observation_status import ObservationStatus
 from common.structures.target import TargetTag
 from common.structures.too_type import ToOType
+from common.structures.obs_class import ObservationClass
 
 from selector.visibility import Visibility
 from selector.ranker import Ranker
 import selector.horizons as hz
 
 from greedy_max.schedule import Observation, Visit
-from greedy_max.category import Category
 from common.structures.site import Site
 
 from resource_mock.resources import Resources
@@ -403,8 +403,8 @@ class Selector:
 
                     for obs_idx in obs_idxs:
                         observation = collected_observations[site][obs_idx]
-                        if (observation.category == Category.Science
-                                or observation.category == Category.ProgramCalibration):
+                        if (observation.obs_class== ObservationClass.Science
+                                or observation.obs_class == ObservationClass.ProgramCalibration):
                             observations.append(observation)
                         else:
                             calibrations.append(observation)
@@ -412,9 +412,9 @@ class Selector:
                 else:  # single observation
                     observation = collected_observations[site][obs_idxs[0]]
 
-                    observations = [observation] if (observation == Category.Science
-                                                     or Category.ProgramCalibration) else []
-                    calibrations = [observation] if observation == Category.PartnerCalibration else []
+                    observations = [observation] if (observation == ObservationClass.Science
+                                                     or ObservationClass.ProgramCalibration) else []
+                    calibrations = [observation] if observation == ObservationClass.PartnerCalibration else []
 
                 can_be_split = len(observations) <= 1 and len(calibrations) == 0
 
@@ -470,7 +470,7 @@ class Selector:
                 for obs in [*visit.observations, *visit.calibrations]:
 
                     # If HA < 0 in first time step, then we don't consider it setting at the start
-                    if (negative_hour_angle and obs.category in ['science', 'prog_cal'] and
+                    if (negative_hour_angle and obs.obs_class in ['science', 'prog_cal'] and
                             obs.visibility.hour_angle[0].value > 0):
                         negative_hour_angle = False
 

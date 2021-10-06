@@ -5,7 +5,7 @@ from typing import Dict, List
 from astropy.units.quantity import Quantity
 import astropy.units as u
 
-from greedy_max.category import Category
+from common.structures.obs_class import ObservationClass
 from common.structures.band import Band
 from common.structures.conditions import SkyConditions
 from common.structures.elevation import ElevationConstraints
@@ -24,7 +24,7 @@ class Observation:
                  idx,
                  name: str,
                  band: Band,
-                 category: Category,
+                 obs_class: ObservationClass,
                  observed: int,  # observation time on time slots
                  length: float,  # acq+time (this need to be change)
                  instrument: Instrument,
@@ -38,7 +38,7 @@ class Observation:
         self.idx = idx
         self.name = name
         self.band = band
-        self.category = category
+        self.obs_class = obs_class
         self.observed = observed
         self.length = length
         self.instrument = instrument

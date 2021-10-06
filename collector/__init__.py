@@ -26,8 +26,8 @@ from common.structures.target import TargetTag, Target
 
 from common.structures.band import Band
 from common.structures.instrument import Instrument
+from common.structures.obs_class import ObservationClass
 from greedy_max.schedule import Observation
-from greedy_max.category import Category
 
 from typing import List, Dict, Optional, NoReturn, Iterable, FrozenSet
 
@@ -454,7 +454,7 @@ class Collector:
                 self.observations[site].append(Observation(Collector.observation_num,
                                                      obs_odb_id,
                                                      band,
-                                                     Category(obsclass.lower()),
+                                                     ObservationClass(obsclass.lower()),
                                                      obs_time,
                                                      total_time.total_seconds() / 3600. + calibration_time,
                                                      inst_config,
