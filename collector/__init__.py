@@ -371,8 +371,8 @@ class Collector:
                 if targets:
                     for target in targets:                        
                         try:
-                            target_name = target['group']['name']
-                            if target_name == 'Base':
+                            target_group_name = target['group']['name']
+                            if target_group_name == 'Base':
                                 target_tag = TargetTag(target['tag'])
                                 if target_tag is not None and target_tag != TargetTag.Sidereal:
                                     target_designation = target['num'] if target_tag is TargetTag.MajorBody else target['des']
