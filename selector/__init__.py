@@ -294,6 +294,7 @@ class Selector:
         airmass = [[]] * num_observations
         sky_brightness = [[]] * num_observations
 
+        # Test, test.
         for period in range(night_length):
             sun_position = vs.lpsun(self.times[period])
             lst = vs.lpsidereal(self.times[period], site_location)
