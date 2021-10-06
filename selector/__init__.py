@@ -269,7 +269,7 @@ class Selector:
         # if the query for observations is site bound, for example to manage OR groups
         observations = self.collector.observations
 
-        night_length = len(self.times)
+        num_nights = len(self.times)
 
         time_slot_length = (self.times[0][1] - self.times[0][0]).to_value('hour') * u.hr
 
@@ -283,7 +283,7 @@ class Selector:
         # Use all available CPU cores if unspecified, but no more than the maximum.
         jobs = min(multiprocessing.cpu_count() if jobs < 1 else jobs, multiprocessing.cpu_count())
 
-        obsvishours = {site: np.zeros((len(observations), night_length))}
+        obsvishours = {site: np.zeros((len(observations), num_nights))}
 
         num_observations = len(observations)
         visibilities = [[]] * num_observations
@@ -294,18 +294,19 @@ class Selector:
         airmass = [[]] * num_observations
         sky_brightness = [[]] * num_observations
 
-        for period in range(night_length):
-            sun_position = vs.lpsun(self.times[period])
-            lst = vs.lpsidereal(self.times[period], site_location)
+        # TODO ERROR: We break out of this loop when time_idx == 0 below, so why do we even have it?
+        for time_idx, time in enumerate(self.times):
+            sun_position = vs.lpsun(time)
+            lst = vs.lpsidereal(time, site_location)
             sunalt, sunaz, sunparang = vs.altazparang(sun_position.dec, lst - sun_position.ra, site_location.lat)
 
-            moonpos, moondist = vs.accumoon(self.times[period], site_location)
+            moonpos, moondist = vs.accumoon(time, site_location)
             moonalt, moonaz, moonparang = vs.altazparang(moonpos.dec, lst - moonpos.ra, site_location.lat)
 
             if sbtwo:
                 sunmoonang = sun_position.separation(moonpos)  # for sb2
             else:
-                midnight = vs.local_midnight_Time(self.times[period][0], timezones[site])
+                midnight = vs.local_midnight_Time(time[0], timezones[site])
                 moonmid, moondistmid = vs.accumoon(midnight, site)
                 sunmid = vs.lpsun(midnight)
                 sunmoonang = sunmid.separation(moonmid)  # for sb
@@ -333,16 +334,17 @@ class Selector:
                                                       obs.sky_conditions,
                                                       obs.elevation,
                                                       obs_windows[obs.idx],
-                                                      self.times[period],
+                                                      time,
                                                       lst, sunalt,
                                                       moonpos, moondist,
                                                       moonalt, sunmoonang,
                                                       site_location, ephem_path,
                                                       sbtwo=sbtwo, overwrite=overwrite, extras=True))
 
-            if period == 0:
+            # TODO ERROR: Here is where we break out of the loop when time_idx is 0, so we never get to further values.
+            if time_idx == 0:
                 for obs in observations:
-                    obsvishours[site][obs.idx, period] = len(res[obs.idx][0]) * time_slot_length.value
+                    obsvishours[site][obs.idx, 0] = len(res[obs.idx][0]) * time_slot_length.value
                     visibilities[obs.idx].append(res[obs.idx][0])
                     hour_angles[obs.idx].append(res[obs.idx][1])
                     target_alts[obs.idx].append(res[obs.idx][2])
