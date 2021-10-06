@@ -383,7 +383,7 @@ class Selector:
         scheduling_groups = self.collector.scheduling_groups
         visits = {site: [] for site in self.sites}
 
-        print(self.sites)
+        logging.info(self.sites)
         for site in self.sites:
             # Create Visits
             for idx, group in enumerate(scheduling_groups[site].values()):
