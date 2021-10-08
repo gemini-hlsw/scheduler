@@ -6,12 +6,13 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
 from typing import List
-from common.structures.site import Site
+from common.structures.site import Site, GEOGRAPHICAL_LOCATIONS
 from common.structures.target import TargetTag
 import os
 
+
 class Ranker:
-    def __init__(self,  sites: List[Site], times: List[Time],) -> None:
+    def __init__(self, sites: List[Site], times: List[Time],) -> None:
         self.sites = sites
         self.times = times
              
@@ -68,17 +69,16 @@ class Ranker:
         
         return query_coords
 
-    def score(self, visits, programs, location, inight,  ephem_dir, 
+    def score(self, visits, programs, inight,  ephem_dir, 
               pow=2, metpow=1.0, vispow=1.0, whapow=1.0, remaining=None):
 
         params = self._params()
         
         combine_score = lambda x: np.array([np.max(x)]) if 0 not in x else np.array([0])   
- 
         
         for visit in visits: 
             site = visit.site
-            site_location = location[site]
+            site_location = GEOGRAPHICAL_LOCATIONS[site]
             visit_score = np.empty((0, len(self.times[inight])), dtype=float)
             for obs in [*visit.observations, *visit.calibrations]:
 
@@ -129,7 +129,7 @@ class Ranker:
 
                 score[obs.visibility.visibility[inight]] = p[obs.visibility.visibility[inight]]
 
-                obs.score = score   
+                obs.score = score
                 
                 visit_score = np.append(visit_score, np.array([score]), axis=0)
             

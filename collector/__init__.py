@@ -114,39 +114,19 @@ class Collector:
         self.time_grid = self._calculate_time_grid()  # Time object: array with entry for each day in time_range.
         self.time_slot_length = time_slot_length  # Length of time steps.
 
-        self.observations = { site: [] for site in self.sites}
+        self.observations = {site: [] for site in self.sites}
         self.programs = {site: {} for site in self.sites}
         self.obs_windows = {site: [] for site in self.sites}
         self.scheduling_groups = {site: {} for site in self.sites}
         self.night_events = {}
 
-        # NOTE: This are used to used the EarthLocation and Timezone objects for functions that used those kind of 
-        # objects. This can either be include in the Site class if the use of this libraries is justified. 
-        self.timezones = {}
-        self.locations = {}
-
     def load(self, path: str) -> NoReturn:
         """Main collector method. It sets up the collecting process and parameters."""
-        
-        
         for site in self.sites:
             site_name = site.value
 
             xmlselect = [site_name.upper() + '-' + sem + '-' + prog_type
                         for sem in self.semesters for prog_type in self.program_types]
-
-            # Retrieve the site details
-            try:
-                #site = Site(site_name)
-                # TODO: Possibly get rid of these members from Collector and just access them directly?
-                self.locations[site] = GEOGRAPHICAL_LOCATIONS[site]
-                self.timezones[site] = TIME_ZONES[site]
-            except ValueError:
-                raise RuntimeError(f'{site_name} not a valid site name.')
-            except astropy.coordinates.UnknownSiteException:
-                raise RuntimeError(f'{site_name} does not correspond to a valid geographical location.')
-            except pytz.exceptions.UnknownTimeZoneError:
-                raise RuntimeError(f'{site_name} is not associated with a known timezone.')
 
             # TODO: We will have to modify in order for this code to be usable by other observatories.
             zip_path = os.path.join(path,
@@ -171,8 +151,8 @@ class Collector:
         """Load night events to collector"""
         if self.time_grid is not None:
             
-            tz = self.timezones[site]
-            site_location = self.locations[site]
+            tz = TIME_ZONES[site]
+            site_location = GEOGRAPHICAL_LOCATIONS[site]
             mid, sset, srise, twi_eve18, twi_mor18, twi_eve12, twi_mor12, mrise, mset, smangs, moonillum = \
                     nightevents(self.time_grid, site_location, tz, verbose=False)
             night_length = (twi_mor12 - twi_eve12).to_value('h') * u.h

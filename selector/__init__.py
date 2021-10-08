@@ -10,13 +10,12 @@ from common.structures.observation_status import ObservationStatus
 from common.structures.target import TargetTag
 from common.structures.too_type import ToOType
 from common.structures.obs_class import ObservationClass
-
 from selector.visibility import Visibility
 from selector.ranker import Ranker
 import selector.horizons as hz
 
 from greedy_max.schedule import Observation, Visit
-from common.structures.site import Site
+from common.structures.site import Site, GEOGRAPHICAL_LOCATIONS, TIME_ZONES
 
 from resource_mock.resources import Resources
 
@@ -262,9 +261,6 @@ class Selector:
         Main driver to calculate the visibility for each observation 
         """
         obs_windows = self.collector.obs_windows[site]
-        timezones = self.collector.timezones
-        site_location = self.collector.locations[site]
-
         # NOTE: observation set indifferent of site, this might (should?) change
         # if the query for observations is site bound, for example to manage OR groups
         observations = self.collector.observations[site]
@@ -297,16 +293,16 @@ class Selector:
         # TODO ERROR: We break out of this loop when time_idx == 0 below, so why do we even have it?
         for time_idx, time in enumerate(self.times):
             sun_position = vs.lpsun(time)
-            lst = vs.lpsidereal(time, site_location)
-            sunalt, sunaz, sunparang = vs.altazparang(sun_position.dec, lst - sun_position.ra, site_location.lat)
+            lst = vs.lpsidereal(time, GEOGRAPHICAL_LOCATIONS[site])
+            sunalt, sunaz, sunparang = vs.altazparang(sun_position.dec, lst - sun_position.ra, GEOGRAPHICAL_LOCATIONS[site].lat)
 
-            moonpos, moondist = vs.accumoon(time, site_location)
-            moonalt, moonaz, moonparang = vs.altazparang(moonpos.dec, lst - moonpos.ra, site_location.lat)
+            moonpos, moondist = vs.accumoon(time, GEOGRAPHICAL_LOCATIONS[site])
+            moonalt, moonaz, moonparang = vs.altazparang(moonpos.dec, lst - moonpos.ra, GEOGRAPHICAL_LOCATIONS[site].lat)
 
             if sbtwo:
                 sunmoonang = sun_position.separation(moonpos)  # for sb2
             else:
-                midnight = vs.local_midnight_Time(time[0], timezones[site])
+                midnight = vs.local_midnight_Time(time[0], TIME_ZONES[site])
                 moonmid, moondistmid = vs.accumoon(midnight, site)
                 sunmid = vs.lpsun(midnight)
                 sunmoonang = sunmid.separation(moonmid)  # for sb
@@ -338,7 +334,7 @@ class Selector:
                                                       lst, sunalt,
                                                       moonpos, moondist,
                                                       moonalt, sunmoonang,
-                                                      site_location, ephem_path,
+                                                      GEOGRAPHICAL_LOCATIONS[site], ephem_path,
                                                       sbtwo=sbtwo, overwrite=overwrite, extras=True))
 
             # TODO ERROR: Here is where we break out of the loop when time_idx is 0, so we never get to further values.
@@ -405,7 +401,7 @@ class Selector:
 
                     for obs_idx in obs_idxs:
                         observation = collected_observations[site][obs_idx]
-                        if (observation.obs_class== ObservationClass.Science
+                        if (observation.obs_class == ObservationClass.Science
                                 or observation.obs_class == ObservationClass.ProgramCalibration):
                             observations.append(observation)
                         else:
@@ -446,7 +442,6 @@ class Selector:
 
         ranker.score(visits,
                      self.collector.programs[site],
-                     self.collector.locations,
                      inight,
                      ephem_dir)
 
@@ -457,8 +452,7 @@ class Selector:
         for visit in visits:
             
             if visit.length() - visit.observed() > 0:
-                
-                
+                 
                 negative_hour_angle = True
                 dispersers_in_obs = []
                 fpus_in_obs = []
@@ -467,7 +461,7 @@ class Selector:
                 status_of_obs = []
                 vishours_of_obs = []
                 too_status = 'none'
-                visit_conditions = visit.sky_conditions            
+                visit_conditions = visit.sky_conditions
                 # Check observations can be selected for the visit
                 for obs in [*visit.observations, *visit.calibrations]:
 
@@ -491,12 +485,6 @@ class Selector:
                     valid_in_obs.append(comp_val)
                     
                     vishours_of_obs.append(obs.visibility.hours[inight])
-
-                    # TODO: Calibrations should be consider? If this is not account
-                    # TODO: more visits are selected. 
-                    
-                    #for cal in visit.calibrations:
-                    #    vishours_of_obs.append(cal.visibility.hours[inight])
 
                     if 'GMOS' in comp_instrument:
                         comp_disperser = obs.instrument.disperser
