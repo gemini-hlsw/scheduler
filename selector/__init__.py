@@ -488,9 +488,9 @@ class Selector:
 
                     if 'GMOS' in comp_instrument:
                         comp_disperser = obs.instrument.disperser
-                        dispersers_in_obs.append(comp_disperser)
-                        fpu = obs.instrument.configuration['fpu']
-                        fpus = obs.instrument.configuration['fpuCustomMask'] if 'CUSTOM_MASK' in fpu else fpu
+                        dispersers_in_obs.extend(comp_disperser)
+                        fpu = obs.instrument.gmos_configuration.fpu
+                        fpus = obs.instrument.gmos_configuration.custom_mask if 'CUSTOM_MASK' in fpu else fpu
                         fpus_in_obs.extend(fpus)
 
                     status_of_obs.append(obs.status)
@@ -507,7 +507,7 @@ class Selector:
                         Selector._check_conditions(visit_conditions, actual_sky_conditions)):
 
                     # CHECK FOR GMOS IF COMPONENTS ARE INSTALLED
-                    if any( 'GMOS' in  instrument for instrument in instruments_in_obs):
+                    if any('GMOS' in instrument for instrument in instruments_in_obs):
                         can_be_selected = False
                         has_disperser = True
                         has_fpu = True
@@ -518,7 +518,7 @@ class Selector:
                                 break
                         if has_disperser:
                             for fpu in fpus_in_obs:
-                                if not resources.is_mask_available(site,fpu):
+                                if not resources.is_mask_available(site, fpu):
                                     has_fpu = False
                                     break
                         if has_disperser and has_fpu:
@@ -527,11 +527,11 @@ class Selector:
                         if can_be_selected:
                             # Update the scores NOTE: This could be done by the ranker?
 
-                            match = self._match_conditions(visit_conditions, 
+                            match = self._match_conditions(visit_conditions,
                                                            actual_sky_conditions,
-                                                           negative_hour_angle, 
+                                                           negative_hour_angle,
                                                            too_status)
-                            visit.score = wind_conditions * visit.score * match 
+                            visit.score = wind_conditions * visit.score * match
                             selected.append(visit)
                            
                     else:
@@ -577,7 +577,7 @@ class Selector:
                         go = True
                         altinst = 'NIRI'
                     elif (mode in ['longslit'] and
-                          'GCAL' not in instrument.configuration['title'] and
+                          'GCAL' not in instrument.name and
                           'R3000' in instrument.disperser):
                         go = True
                         altinst = 'GNIRS'
@@ -588,7 +588,7 @@ class Selector:
                     go = True
                     altinst = 'GMOS-S'
                 elif (instrument.name == 'NIRI' and
-                      instrument.configuration['camera'] == 'F6'):
+                      instrument.camera == 'F6'):
                     go = True
                     altinst = 'Flamingos2'
                     if mode in ['imaging']:
@@ -596,11 +596,11 @@ class Selector:
                         altinst = 'Flamingos2'
                     elif mode in ['longslit']:
                         if (instrument.disperser == 'D_10' and
-                                'SHORT' in instrument.configuration['camera']):
+                                'SHORT' in instrument.camera):
                             go = True
                             altinst = 'Flamingos2'
                         elif (instrument.disperser == 'D_10' and
-                              'LONG' in instrument.configuration['camera']):
+                              'LONG' in instrument.camera):
                             go = True
                             altinst = 'Flamingos2'
         else:
