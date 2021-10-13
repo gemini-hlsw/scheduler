@@ -22,7 +22,6 @@ from resource_mock.resources import Resources
 from astropy.coordinates import SkyCoord, Angle
 import astropy.units as u
 
-import multiprocessing
 import numpy as np
 from tqdm import tqdm
 
@@ -134,7 +133,7 @@ class Selector:
 
                 # File name
                 ephname = usite + '_' + des.replace(' ', '').replace('/', '') + '_' + \
-                          times[0].strftime('%Y%m%d_%H%M') + '-' + times[-1].strftime('%Y%m%d_%H%M') + '.eph'
+                    times[0].strftime('%Y%m%d_%H%M') + '-' + times[-1].strftime('%Y%m%d_%H%M') + '.eph'
 
                 try:
                     time, ra, dec = horizons.Coordinates(hzname, times[0], times[-1], step='1m', \
@@ -255,10 +254,9 @@ class Selector:
 
         return cmatch
 
-    # TODO: What is an 'sbtwo'?
     def visibility(self, site: Site, jobs=0, ephem_path=None, overwrite=False, sbtwo=True) -> NoReturn:
         """
-        Main driver to calculate the visibility for each observation 
+        Main driver to calculate the visibility for each observation
         """
         obs_windows = self.collector.obs_windows[site]
         # NOTE: observation set indifferent of site, this might (should?) change
@@ -269,15 +267,9 @@ class Selector:
 
         time_slot_length = (self.times[0][1] - self.times[0][0]).to_value('hour') * u.hr
 
-        # TODO: This was 1.e5. I think it should be 1e-5, so I changed it, but confirm.
-        # TODO: Also, should we raise a RunTimeException here instead of printing and returning?
         if abs((time_slot_length.to(u.min) - 1.0 * u.min).value) > 1e-5:
             logging.error(f'Time slot length must be 1 min, but is {time_slot_length.to(u.min)}.')
-            return
-
-        # TODO: This is not being used due to the commented out code below.
-        # Use all available CPU cores if unspecified, but no more than the maximum.
-        jobs = min(multiprocessing.cpu_count() if jobs < 1 else jobs, multiprocessing.cpu_count())
+            raise RuntimeError(f'Time slot length must be 1 min, but is {time_slot_length.to(u.min)}.')
 
         obsvishours = {site: np.zeros((len(observations), num_nights))}
 
@@ -290,67 +282,48 @@ class Selector:
         airmass = [[]] * num_observations
         sky_brightness = [[]] * num_observations
 
-        # TODO ERROR: We break out of this loop when time_idx == 0 below, so why do we even have it?
-        for time_idx, time in enumerate(self.times):
-            sun_position = vs.lpsun(time)
-            lst = vs.lpsidereal(time, GEOGRAPHICAL_LOCATIONS[site])
-            sunalt, sunaz, sunparang = vs.altazparang(sun_position.dec, lst - sun_position.ra, GEOGRAPHICAL_LOCATIONS[site].lat)
+        time = self.times[0]
+        sun_position = vs.lpsun(time)
+        lst = vs.lpsidereal(time, GEOGRAPHICAL_LOCATIONS[site])
+        sunalt, sunaz, sunparang = vs.altazparang(sun_position.dec, lst - sun_position.ra, GEOGRAPHICAL_LOCATIONS[site].lat)
 
-            moonpos, moondist = vs.accumoon(time, GEOGRAPHICAL_LOCATIONS[site])
-            moonalt, moonaz, moonparang = vs.altazparang(moonpos.dec, lst - moonpos.ra, GEOGRAPHICAL_LOCATIONS[site].lat)
+        moonpos, moondist = vs.accumoon(time, GEOGRAPHICAL_LOCATIONS[site])
+        moonalt, moonaz, moonparang = vs.altazparang(moonpos.dec, lst - moonpos.ra, GEOGRAPHICAL_LOCATIONS[site].lat)
 
-            if sbtwo:
-                sunmoonang = sun_position.separation(moonpos)  # for sb2
-            else:
-                midnight = vs.local_midnight_Time(time[0], TIME_ZONES[site])
-                moonmid, moondistmid = vs.accumoon(midnight, site)
-                sunmid = vs.lpsun(midnight)
-                sunmoonang = sunmid.separation(moonmid)  # for sb
+        if sbtwo:
+            sunmoonang = sun_position.separation(moonpos)  # for sb2
+        else:
+            midnight = vs.local_midnight_Time(time[0], TIME_ZONES[site])
+            moonmid, moondistmid = vs.accumoon(midnight, site)
+            sunmid = vs.lpsun(midnight)
+            sunmoonang = sunmid.separation(moonmid)  # for sb
 
-            '''
-            res = Parallel(n_jobs=jobs)(delayed(self._calculate_visibility)(site, target_des[id],
-                                                    target_tag[id], coord[id],
-                                                    conditions[id], elevation[id],
-                                                    obs_windows[id], self.times[period], 
-                                                    lst, sunalt, #times should be ii
-                                                    moonpos, moondist, 
-                                                    moonalt, sunmoonang, 
-                                                    site_location, ephem_dir,
-                                                    sbtwo=sbtwo, overwrite=overwrite, extras=True)  
-                                                    for id in tqdm(range(len(observations))))
-            
-            '''
-            res = []
+        res = []
 
-            for obs in tqdm(observations):
-                res.append(self._calculate_visibility(site,
-                                                      obs.target.designation,
-                                                      obs.target.tag,
-                                                      obs.target.coordinates,
-                                                      obs.sky_conditions,
-                                                      obs.elevation,
-                                                      obs_windows[obs.idx],
-                                                      time,
-                                                      lst, sunalt,
-                                                      moonpos, moondist,
-                                                      moonalt, sunmoonang,
-                                                      GEOGRAPHICAL_LOCATIONS[site], ephem_path,
-                                                      sbtwo=sbtwo, overwrite=overwrite, extras=True))
+        for obs in tqdm(observations):
+            res = self._calculate_visibility(site,
+                                             obs.target.designation,
+                                             obs.target.tag,
+                                             obs.target.coordinates,
+                                             obs.sky_conditions,
+                                             obs.elevation,
+                                             obs_windows[obs.idx],
+                                             time,
+                                             lst, sunalt,
+                                             moonpos, moondist,
+                                             moonalt, sunmoonang,
+                                             GEOGRAPHICAL_LOCATIONS[site], ephem_path,
+                                             sbtwo=sbtwo, overwrite=overwrite, extras=True)
 
-            # TODO ERROR: Here is where we break out of the loop when time_idx is 0, so we never get to further values.
-            if time_idx == 0:
-                for obs in observations:
-                    obsvishours[site][obs.idx, 0] = len(res[obs.idx][0]) * time_slot_length.value
-                    visibilities[obs.idx].append(res[obs.idx][0])
-                    hour_angles[obs.idx].append(res[obs.idx][1])
-                    target_alts[obs.idx].append(res[obs.idx][2])
-                    target_azs[obs.idx].append(res[obs.idx][3])
-                    target_parangs[obs.idx].append(res[obs.idx][4])
-                    airmass[obs.idx].append(res[obs.idx][5])
-                    sky_brightness[obs.idx].append(res[obs.idx][6])
-                break
+            obsvishours[site][obs.idx, 0] = len(res[0]) * time_slot_length.value
+            visibilities[obs.idx].append(res[0])
+            hour_angles[obs.idx].append(res[1])
+            target_alts[obs.idx].append(res[2])
+            target_azs[obs.idx].append(res[3])
+            target_parangs[obs.idx].append(res[4])
+            airmass[obs.idx].append(res[5])
+            sky_brightness[obs.idx].append(res[6])
 
-        for obs in observations:
             obs_id = obs.idx
             sum_obsvishr = np.sum(obsvishours[site][obs_id, :])
 
@@ -549,8 +522,6 @@ class Selector:
             return
         for site in self.sites:
             print(f'Site {site.name}')
-            #for visit in self.selection[site]:
-            #    print(visit)
             print([v.idx for v in self.selection[site]])
             print(f' {len(self.selection[site])} visits selected for variant.')
 

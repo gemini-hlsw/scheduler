@@ -16,7 +16,7 @@ class Ranker:
         self.sites = sites
         self.times = times
              
-    #TODO: This method is duplicated and should be replace by a better Horizons API
+    # TODO: This method is duplicated and should be replace by a better Horizons API
     def _query_coordinates(self, obs, site, night, tag, des, coords,
                            ephem_dir, site_location, overwrite=False, checkephem=False, ):
         # Query coordinates, including for nonsidereal targets from Horizons
