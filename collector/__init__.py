@@ -2,6 +2,7 @@ import logging
 import subprocess
 from zipfile import ZipFile
 import xml.etree.cElementTree as ElementTree
+from astropy import config
 
 import astropy.coordinates
 from astropy.coordinates import SkyCoord
@@ -25,7 +26,7 @@ from common.structures.site import Site, GEOGRAPHICAL_LOCATIONS, SITE_ZIP_EXTENS
 from common.structures.target import TargetTag, Target
 
 from common.structures.band import Band
-from common.structures.instrument import Instrument
+from common.structures.instrument import GMOSConfiguration, Instrument, WavelengthConfiguration
 from common.structures.obs_class import ObservationClass
 from greedy_max.schedule import Observation
 
@@ -114,39 +115,19 @@ class Collector:
         self.time_grid = self._calculate_time_grid()  # Time object: array with entry for each day in time_range.
         self.time_slot_length = time_slot_length  # Length of time steps.
 
-        self.observations = { site: [] for site in self.sites}
+        self.observations = {site: [] for site in self.sites}
         self.programs = {site: {} for site in self.sites}
         self.obs_windows = {site: [] for site in self.sites}
         self.scheduling_groups = {site: {} for site in self.sites}
         self.night_events = {}
 
-        # NOTE: This are used to used the EarthLocation and Timezone objects for functions that used those kind of 
-        # objects. This can either be include in the Site class if the use of this libraries is justified. 
-        self.timezones = {}
-        self.locations = {}
-
     def load(self, path: str) -> NoReturn:
         """Main collector method. It sets up the collecting process and parameters."""
-        
-        
         for site in self.sites:
             site_name = site.value
 
             xmlselect = [site_name.upper() + '-' + sem + '-' + prog_type
                         for sem in self.semesters for prog_type in self.program_types]
-
-            # Retrieve the site details
-            try:
-                #site = Site(site_name)
-                # TODO: Possibly get rid of these members from Collector and just access them directly?
-                self.locations[site] = GEOGRAPHICAL_LOCATIONS[site]
-                self.timezones[site] = TIME_ZONES[site]
-            except ValueError:
-                raise RuntimeError(f'{site_name} not a valid site name.')
-            except astropy.coordinates.UnknownSiteException:
-                raise RuntimeError(f'{site_name} does not correspond to a valid geographical location.')
-            except pytz.exceptions.UnknownTimeZoneError:
-                raise RuntimeError(f'{site_name} is not associated with a known timezone.')
 
             # TODO: We will have to modify in order for this code to be usable by other observatories.
             zip_path = os.path.join(path,
@@ -171,8 +152,8 @@ class Collector:
         """Load night events to collector"""
         if self.time_grid is not None:
             
-            tz = self.timezones[site]
-            site_location = self.locations[site]
+            tz = TIME_ZONES[site]
+            site_location = GEOGRAPHICAL_LOCATIONS[site]
             mid, sset, srise, twi_eve18, twi_mor18, twi_eve12, twi_mor12, mrise, mset, smangs, moonillum = \
                     nightevents(self.time_grid, site_location, tz, verbose=False)
             night_length = (twi_mor12 - twi_eve12).to_value('h') * u.h
@@ -209,51 +190,73 @@ class Collector:
     @staticmethod
     def _instrument_setup(configuration: Dict[str, List[str]], instrument_name: str) -> Instrument:
         """ Setup instrument configurations for each observation """
-        instconfig = {}
+        
+        disperser = None
+        camera = None
+        gmos_configuration = None
+        decker = None
+        mask = None
+        cross_disperser = None
+        acquisition_mirror = None
 
-        fpuwidths = []
-        disperser = 'NONE'
+        central_wavelength = None
+        disperser_lambda = None
+        wavelength = None
+        
+        if 'GMOS' in instrument_name:
+            fpu_names = []
+            fpu_widths = []
+            if 'fpu' in configuration:
+                fpu_list = fpu_xml_translator(configuration['fpu'])
 
-        # TODO: I don't think this does anything since we overwrite ulist below and never use it again.
-        for key in configuration.keys():
-            ulist = list(dict.fromkeys(configuration[key]))
-            if key in ['filter', 'disperser']:
-                for kk in range(len(ulist)):
-                    ifnd = ulist[kk].find('_')
-                    if ifnd != -1:
-                        ulist[kk] = ulist[kk][0:ifnd]
-
-            # Use human-readable slit names
-            if 'GMOS' in instrument_name:
-                if key == 'fpu':
-                    fpulist = fpu_xml_translator(ulist)
-                    fpunames = []
-                    for fpu in fpulist:
-                        fpunames.append(fpu['name'])
-                        fpuwidths.append(fpu['width'])
-                    ulist = fpunames
-                    instconfig['fpuWidth'] = fpuwidths
-                if key == 'customSlitWidth':
-                    for cwidth in ulist:
-                        fpuwidths.append(custom_mask_width(cwidth))
-                    instconfig['fpuWidth'] = fpuwidths
-            if key == 'disperser':
-                disperser = ulist[0]
-            else:
-                instconfig[key] = ulist
+                for fpu in fpu_list:
+                    fpu_names.append(fpu['name'])
+                    fpu_widths.append(fpu['width'])
+            if 'customSlitWidth' in configuration:
+                for custom_widths in configuration['customSlitWidth']:
+                    fpu_widths.append(custom_mask_width(custom_widths))
             
-            if 'Alopeke' in instrument_name:
-                instrument_name = 'Alopeke'
+            fpu_custom_mask = configuration['fpuCustomMask'] if 'fpuCustomMask' in configuration else None
+            
+            gmos_configuration = GMOSConfiguration(fpu_names, fpu_widths, fpu_custom_mask)
 
-        # TODO: I expect this can be simplified. Can't we just do:
-        # TODO: if instrument_name in [...]?
-        if any(inst in instrument_name.upper() for inst in ['IGRINS', 'MAROON-X']):
-            disperser = 'XD'
+        if 'disperser' in configuration:
+            disperser = [d.split('_', 1)[0] for d in configuration['disperser']]
 
-        # TODO: instconfig type appears to be very wrong here.
-        # TODO: Expected type 'dict[str, Optional[str]]',
-        # TODO: got 'dict[str, Union[list, list[Union[Optional[str], Any]]]]' instead.
-        return Instrument(instrument_name, disperser, instconfig)
+        if 'NIRI' in instrument_name:
+            camera = configuration['camera'] if 'camera' in configuration else None
+            mask = configuration['mask'] if 'mask' in configuration else None
+
+        if 'GNIRS' in instrument_name:
+            cross_disperser = configuration['crossDispersed'] if 'crossDispersed' in configuration else None
+            acquisition_mirror = configuration['acquisitionMirror'] if 'acquisitionMirror' in configuration else None
+            decker = configuration['decker'] if 'decker' in configuration else None
+
+        if instrument_name in ['IGRINS', 'MAROON-X']:
+            disperser = ['XD']
+        
+        if 'Flamingos2' in instrument_name:
+            decker = configuration['decker'] if 'decker' in configuration else None
+        
+        if 'Alopeke' in instrument_name:
+            instrument_name = 'Alopeke'
+        
+        wavelength_config = None
+        if 'centralWavelength' in configuration:
+            central_wavelength = configuration['centralWavelength']
+        if 'disperserLambda' in configuration:
+            disperser_lambda = configuration['disperserLambda']
+        if 'wavelength' in configuration:
+            wavelength = configuration['wavelength']
+
+        if central_wavelength is not None or disperser_lambda is not None or wavelength is not None:
+            wavelength_config = WavelengthConfiguration(central_wavelength, disperser_lambda, wavelength)
+        
+        return Instrument(instrument_name, disperser,
+                          gmos_configuration, camera,
+                          decker, acquisition_mirror,
+                          mask, cross_disperser,
+                          wavelength_config)
 
     def _readzip(self,
                  zipfile: str,

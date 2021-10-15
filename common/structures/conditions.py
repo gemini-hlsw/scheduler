@@ -116,7 +116,7 @@ def conditions_parser(conditions: str) -> tuple:
     def parser_by_instance(condition: str, 
                            parser: Callable[[Union[str, float]], Enum]) -> Union[np.ndarray, Enum]:
         if isinstance(condition, np.ndarray):
-            return np.array(list(map(parser,condition)))
+            return np.array(list(map(parser, condition)))
         elif isinstance(condition, str) or isinstance(condition, float):
             return parser(condition)
         else:
@@ -129,26 +129,26 @@ def conditions_parser(conditions: str) -> tuple:
         return CC.CCANY if 'ANY' in cc or cc == 'NULL' else CC(float(cc)/100)
 
     def sb_parser(sb: str) -> SB:
-         return SB.SBANY if 'ANY' in sb or sb == 'NULL' else SB(float(sb)/100)
+        return SB.SBANY if 'ANY' in sb or sb == 'NULL' else SB(float(sb)/100)
     
-    def wv_parser(wv: str)-> WV:
+    def wv_parser(wv: str) -> WV:
         return WV.WVANY if 'ANY' in wv or wv == 'NULL' else WV(float(wv)/100)
     
     str_iq, str_cc, str_sb, str_wv = conditions.split(',')
     return (parser_by_instance(str_sb, sb_parser),
             parser_by_instance(str_cc, cc_parser),
-            parser_by_instance(str_iq,iq_parser),
+            parser_by_instance(str_iq, iq_parser),
             parser_by_instance(str_wv, wv_parser))
 
 
 class SkyConditions:
     """
-    Sky constraints for an observation 
+    Sky constraints for an observation
     """
     def __init__(self, 
-                 sb: SB = SB.SBANY, 
-                 cc: CC = CC.CCANY, 
-                 iq: IQ = IQ.IQANY, 
+                 sb: SB = SB.SBANY,
+                 cc: CC = CC.CCANY,
+                 iq: IQ = IQ.IQANY,
                  wv: WV = WV.WVANY):
         self.sb = sb
         self.cc = cc
@@ -176,20 +176,14 @@ class WindConditions:
         self.wind_direction = wind_direction
         self.time_blocks = time_blocks
 
-    # TODO ERROR: This method needs to be fixed: speed is not defined unless the if condition holds.
     def get_wind_conditions(self, azimuth) -> np.ndarray:
-        if np.asarray(self.wind_speed).ndim == 0:
-            speed = np.full(len(azimuth), self.wind_speed.to(u.m / u.s).value) * u.m / u.s
-        
+     
         wwind = np.ones(len(azimuth))
 
-        # TODO: Why do we do the [:] copy here on the final result? Are we planning on changing this?
-        ii = np.where(np.logical_and(speed > 10 * u.m / u.s,
+        ii = np.where(np.logical_and(self.wind_speed > 10 * u.m / u.s,
                                      np.logical_or(abs(azimuth - self.wind_direction) <= self.wind_separation,
                                                    360. * u.deg - abs(azimuth - self.wind_direction)
-                                                   <= self.wind_separation)))[0][:]
-
-        # TODO: Unclear why we are doing this or what is the logic behind it.
+                                                   <= self.wind_separation)))[0]
         if len(ii) != 0:
             wwind[ii] = 0
 
