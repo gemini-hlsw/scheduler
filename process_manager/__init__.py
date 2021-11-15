@@ -8,7 +8,7 @@ class ProcessManager:
         
         self.bins = []
         if config is not None:
-            if config['realtime_bins'] > 2:
+            if config['realtime_bins']['amount'] > 2:
                 raise ValueError('Only one bin for realtime mode')
             
             for i in range(config['realtime_bins']['amount']):
