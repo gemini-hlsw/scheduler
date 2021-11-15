@@ -1,3 +1,4 @@
+import datetime
 import time
 import multiprocessing as mp
 from bin import SchedulingBin, RealTimeSchedulingBin, SchedulerTask
@@ -6,58 +7,80 @@ from bin import SchedulingBin, RealTimeSchedulingBin, SchedulerTask
 class ProcessManager:
     def __init__(self, config: dict = None) -> None:
         
-        self.bins = []
+        # TODO: if these are fix should we use Enum?
+        self.bins = {'realtime': [],
+                     'standard': []}
         if config is not None:
             if config['realtime_bins']['amount'] > 2:
                 raise ValueError('Only one bin for realtime mode')
             
-            for i in range(config['realtime_bins']['amount']):
-                self.bins.append(RealTimeSchedulingBin(0, 0, 0,
-                                 config['realtime_bins']['n_threads'],
-                                 config['realtime_bins']['bin_size']))
-            for i in range(config['semestral_bins']['amount']):
-                self.bins.append(SchedulingBin(0, 0, 0,
-                                 config['semestral_bins']['n_threads'],
-                                 config['semestral_bins']['bin_size']))
-            for i in range(config['week_bins']['amount']):
-                self.bins.append(SchedulingBin(0, 0, 0,
-                                 config['week_bins']['n_threads'],
-                                 config['week_bins']['bin_size']))
-            for i in range(config['custom_bins']['amount']):
-                self.bins.append(SchedulingBin(0, 0, 0,
-                                 config['custom_bins']['n_threads'],
-                                 config['custom_bins']['n_threads']))
+            for _ in range(config['realtime_bins']['amount']):
+                self.bins['realtime'].append(RealTimeSchedulingBin(config['realtime_bins']['start'],
+                                                                   config['realtime_bins']['float_after'],
+                                                                   config['weekly_bins']['length']))
+            for _ in range(config['biannual_bins']['amount']):
+                self.bins['standard'].append(SchedulingBin(config['biannual_bins']['start'],
+                                                           config['biannual_bins']['float_after'],
+                                                           config['biannual_bins']['length'],
+                                                           config['biannual_bins']['n_threads'],
+                                                           config['biannual_bins']['bin_size']))
+            for _ in range(config['weekly_bins']['amount']):
+                self.bins['standard'].append(SchedulingBin(config['weekly_bins']['start'],
+                                                           config['weekly_bins']['float_after'],
+                                                           config['weekly_bins']['length'],
+                                                           config['weekly_bins']['n_threads'],
+                                                           config['weekly_bins']['bin_size']))
+            for _ in range(config['custom_bins']['amount']):
+                self.bins['standard'].append(SchedulingBin(config['custom_bins']['start'],
+                                                           config['custom_bins']['float_after'],
+                                                           config['custom_bins']['length'],
+                                                           config['custom_bins']['n_threads'],
+                                                           config['custom_bins']['bin_size']))
 
-    def new_bin(self, start, float_after, length, number_threads, bin_size):
-        self.bins.append(SchedulingBin(start, float_after, length, number_threads, bin_size))
+    def new_bin(self,
+                bin_type: str,
+                start: datetime.datetime,
+                float_after: datetime.timedelta,
+                length: datetime.timedelta,
+                number_threads: int,
+                bin_size: int) -> None:
+        if bin_type == 'realtime':
+            if len(self.bins['realtime']) > 1:
+                raise ValueError('Only one bin for realtime mode')
+            self.bins['realtime'].append(RealTimeSchedulingBin(start, float_after, length, number_threads, bin_size))
+       
+        else:
+            if bin_type not in self.bins:
+                raise ValueError('Bin type not supported')
+            self.bins[bin_type].append(SchedulingBin(start, float_after, length, number_threads, bin_size))
     
     def add_task(self, task: SchedulerTask) -> None:
-        if task.mode == 'realtime':
-            self.bins[0].priority_queue.append(task)
+        if task.is_realtime:
+            self.bins['realtime'].priority_queue.append(task)
         
         else:
-            for bin in self.bins[1:]:
-                if bin.start <= task.start_time and bin.start + bin.length < task.finish_time:
+            for bin in self.bins['standard']:
+                if bin.start <= task.start_time and bin.start + bin.length < task.end_time:
                     bin.priority_queue.append(task)
                     break
 
     def run(self):
         while True:
-            for bin in self.bins:
+            for bin in self.bins['realtime'] + self.bins['standard']:
                 if len(bin.priority_queue) > 0:
                     for task in bin.priority_queue:
                         # check if the task need floating ""
-                        if task.start_time + task.float_after < time.time():
-                            task.start_time += task.float_after
+                        if task.start_time + bin.float_after < datetime.datetime.now():
+                            task.start_time += bin.float_after
                             # check if task still belong in the bin #
-                            if task.start_time + task.float_after > bin.start + bin.length:
+                            if task.start_time + bin.float_after > bin.start + bin.length:
                                 bin.priority_queue.remove(task)
                                 # check if task is runnning #
                                 # this needs to be done as Process()
                                 continue
                         p = mp.Process(target=task.scheduler.new_schedule, args=(task.job_id,))
                         p.start()
-                        p.join(task.timeout)
+                        p.join(task.timeout.total_seconds())
                         if p.is_alive():
                             p.terminate()
                             bin.priority_queue.remove(task)
