@@ -43,6 +43,6 @@ if __name__ == "__main__":
 
     manager = ProcessManager(config)
     scheduler = Scheduler()
-    task = SchedulerTask(datetime.datetime(2020, 1, 1, 0, 0, 0), datetime.datetime(2020, 1, 1, 1, 0, 0), 2, False,scheduler)
+    task = SchedulerTask(datetime.datetime(2020, 1, 1, 0, 0, 0), datetime.datetime(2020, 1, 1, 1, 0, 0), 2, False, scheduler)
     manager.add_task(task)
     manager.run()

@@ -20,6 +20,18 @@ class SchedulerTask:
 
     def __str__(self) -> str:
         return f'{self.job_id}'
+    
+    def __ge__(self, other: 'SchedulerTask') -> bool:
+        return self.priority >= other.priority
+    
+    def __gt__(self, other: 'SchedulerTask') -> bool:
+        return self.priority > other.priority
+    
+    def __le__(self, other: 'SchedulerTask') -> bool:
+        return self.priority <= other.priority
+    
+    def __lt__(self, other: 'SchedulerTask') -> bool:
+        return self.priority < other.priority
 
 
 class SchedulingBin:
