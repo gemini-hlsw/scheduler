@@ -61,30 +61,32 @@ class ProcessManager:
         else:
             for bin in self.bins['standard']:
                 if bin.start <= task.start_time and bin.start + bin.length < task.end_time:
-                    print(type(bin))
+                    # TODO: This assume that one task run in one thread, which
+                    if (any(task.priority > running_task.priority for running_task in bin.running_tasks) and
+                       len(bin.running_task) == bin.bin_size):
+
+                        # remove lower priority task from running #
+                        lower_priority_task = sorted(bin.priority_queue)[0]
+                        lower_priority_process = lower_priority_task.process
+                        lower_priority_process.join()
+                        if lower_priority_process.is_alive():
+                            lower_priority_process.terminate()
+                            bin.running_task.remove(lower_priority_process)
+
                     heappush(bin.priority_queue, task)
-                    break
+                    return
+            
+            raise RuntimeError('No bin to accommodate this task')
 
     def run(self) -> None:
         while True:
             for bin in self.bins['realtime'] + self.bins['standard']:
+                # TODO: Right now the collection of the output process is done after all task 
+                # are set to running. This surely be a problem when Task Management is implemented
                 while len(bin.priority_queue) > 0:
-                    
+                    # remove highest priority task from queue #
                     task = heappop(bin.priority_queue)
-                    if task.start_time + bin.float_after < datetime.datetime.now():
-                        task.start_time += bin.float_after
-                        # check if task still belong in the bin #
-                        if task.start_time + bin.float_after > bin.start + bin.length:
-                            # check if task is runnning #
-                            # this needs to be done as Process()
-                            continue
-                    p = mp.Process(target=task.scheduler.new_schedule, args=(task.job_id,))
-                    p.start()
-                    p.join(task.timeout.total_seconds())
-                    if p.is_alive():
-                        p.terminate()
-                        #heapreplace(bin.priority_queue, task)
-                        print(f'Task {task.job_id} timed out')
-                    else:
-                        #heapreplace(bin.priority_queue, task)
-                        print(f'Task {task.job_id} finished')
+                    # run process to initialize scheduling task
+                    bin.run_task(task)
+                plans = bin.wait()
+                print(plans)
