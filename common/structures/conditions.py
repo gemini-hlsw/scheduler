@@ -211,20 +211,3 @@ def random_wv():
         return WV.WVANY
 
 
-a = [random_wv() for _ in range(20)]
-wva = np.array(a)
-filtered_wva = np.where(wva <= 0.5)
-print(a)
-print(filtered_wva)
-print(isinstance(a, List))
-a = [randint(0, 3) for _ in range(20)]
-na = np.array(a)
-filtered_na = np.where(na <= 1)
-print(a)
-print(filtered_na)
-
-
-from abc import ABC
-class MyClass(ABC):
-    pass
-
