@@ -34,7 +34,7 @@ class ObservingPeriod:
     score: Optional[npt.NDArray[np.float]] = None
 
 
-class TimeAccountingCode(Enum):
+class TimeAccountingCode(str, Enum):
     AR = 'Argentina'
     AU = 'Australia'
     BR = 'Brazil'
@@ -152,7 +152,7 @@ class MagnitudeSystem(Enum):
 @dataclass
 class MagnitudeBand:
     """
-     values for center and width should be specified in nanometers.
+    Values for center and width should be specified in nanometers.
     """
     name: str
     center: float
@@ -163,7 +163,7 @@ class MagnitudeBand:
 
 class MagnitudeBands(MagnitudeBand, Enum):
     """
-    It is unconventional to use undercase characters in an enum, but to differentiate
+    It is unconventional to use lowercase characters in an enum, but to differentiate
     them from the uppercase magnitude bands, we must.
     """
     u = MagnitudeBand('u', 356, 46, MagnitudeSystem.AB, 'UV')
