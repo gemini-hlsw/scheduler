@@ -196,18 +196,3 @@ class Conditions:
                  wind: WindConditions):
         self.sky = sky
         self.wind = wind
-
-
-from random import randint
-def random_wv():
-    value = randint(0, 3)
-    if value == 0:
-        return WV.WV20
-    if value == 1:
-        return WV.WV50
-    if value == 2:
-        return WV.WV80
-    if value == 3:
-        return WV.WVANY
-
-
