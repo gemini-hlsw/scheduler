@@ -449,11 +449,11 @@ class Program:
     band: Band
     thesis: bool
     mode: ProgramMode
-    too_type: Optional[TooType]
     start_time: datetime
     end_time: datetime
     allocated_time: Set[TimeAllocation]
     root_group: Group
+    too_type: Optional[TooType] = None
 
     def program_awarded(self) -> timedelta:
         return sum(t.program_awarded for t in self.allocated_time)
