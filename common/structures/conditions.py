@@ -196,3 +196,4 @@ class Conditions:
                  wind: WindConditions):
         self.sky = sky
         self.wind = wind
+        
