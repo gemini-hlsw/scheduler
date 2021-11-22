@@ -20,7 +20,7 @@ class Site(str, Enum):
     GS = 'Gemini South'
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class ObservingPeriod:
     """
     This class represents a period under observation and contains visibility
@@ -79,7 +79,7 @@ class TimeAllocation:
         return self.program_used + self.partner_used
 
 
-@dataclass
+@dataclass(frozen=True)
 class TimingWindow:
     """
     Representation of timing windows in the mini-model.
@@ -136,7 +136,7 @@ class ElevationType(IntEnum):
     AIRMASS = auto()
 
 
-@dataclass
+@dataclass(frozen=True)
 class Constraints:
     cc: CloudCover
     iq: ImageQuality
@@ -157,7 +157,7 @@ class MagnitudeSystem(Enum):
     JY = auto()
 
 
-@dataclass
+@dataclass(frozen=True)
 class MagnitudeBand:
     """
     Values for center and width are specified in microns.
@@ -196,7 +196,7 @@ class MagnitudeBands(MagnitudeBand, Enum):
     AP = MagnitudeBand('AP', 0.550, 0.085, MagnitudeSystem.VEGA, 'apparent')
 
 
-@dataclass
+@dataclass(frozen=True)
 class Magnitude:
     band: MagnitudeBands
     value: float
@@ -225,6 +225,7 @@ class TargetTag(Enum):
     MAJOR_BODY = auto()
 
 
+# TODO: Should this be frozen? If so, subclasses must be frozen.
 @dataclass
 class Target(ABC):
     """
@@ -277,7 +278,7 @@ class NonsiderealTarget(Target):
         super().__post_init__()
 
 
-@dataclass
+@dataclass(unsafe_hash=True, frozen=True)
 class Resource:
     id: str
     name: str
@@ -488,3 +489,19 @@ class Program:
 
     def total_used(self) -> timedelta:
         return sum(t.total_used() for t in self.allocated_time)
+
+
+@dataclass(frozen=True)
+class Visit:
+    start_time: datetime
+    end_time: datetime
+    observation_id: str
+    first_atom_id: str
+    last_atom_id: str
+    comment: str
+    setuptime_type: SetupTimeType
+
+
+@dataclass
+class Plan:
+    scheduled_atoms: Mapping[Site, Mapping[ObservingPeriod, List[Visit]]]
