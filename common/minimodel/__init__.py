@@ -12,6 +12,10 @@ from typing import List, Mapping, Optional, Set, Union
 
 
 class Site(str, Enum):
+    """
+    This will have to be customized by a given observatory if used independently
+    of Gemini.
+    """
     GN = 'Gemini North'
     GS = 'Gemini South'
 
@@ -35,6 +39,10 @@ class ObservingPeriod:
 
 
 class TimeAccountingCode(str, Enum):
+    """
+    This will have to be customized for a given observatory if used independently
+    of Gemini.
+    """
     AR = 'Argentina'
     AU = 'Australia'
     BR = 'Brazil'
@@ -152,7 +160,7 @@ class MagnitudeSystem(Enum):
 @dataclass
 class MagnitudeBand:
     """
-    Values for center and width should be specified in nanometers.
+    Values for center and width are specified in microns.
     """
     name: str
     center: float
@@ -166,26 +174,26 @@ class MagnitudeBands(MagnitudeBand, Enum):
     It is unconventional to use lowercase characters in an enum, but to differentiate
     them from the uppercase magnitude bands, we must.
     """
-    u = MagnitudeBand('u', 356, 46, MagnitudeSystem.AB, 'UV')
-    g = MagnitudeBand('g', 483, 99, MagnitudeSystem.AB, 'green')
-    r = MagnitudeBand('r', 626, 96, MagnitudeSystem.AB, 'red')
-    i = MagnitudeBand('i', 767, 106, MagnitudeSystem.AB, 'far red')
-    z = MagnitudeBand('z', 910, 125, MagnitudeSystem.AB, 'near-infrared')
-    U = MagnitudeBand('U', 360, 75, description='ultraviolet')
-    B = MagnitudeBand('B', 440, 90, description='blue')
-    V = MagnitudeBand('V', 550, 85, description='visual')
-    UC = MagnitudeBand('UC', 610, 63, description='UCAC')
-    R = MagnitudeBand('R', 670, 100, description='red')
-    I = MagnitudeBand('I', 870, 100, description='infrared')
-    Y = MagnitudeBand('Y', 1020, 120)
-    J = MagnitudeBand('J', 1250, 240)
-    H = MagnitudeBand('H', 1650, 300)
-    K = MagnitudeBand('K', 2200, 410)
-    L = MagnitudeBand('L', 3760, 700)
-    M = MagnitudeBand('M', 4770, 240)
-    N = MagnitudeBand('N', 10470, 5230)
-    Q = MagnitudeBand('Q', 20130, 1650)
-    AP = MagnitudeBand('AP', 550, 85, MagnitudeSystem.VEGA, 'apparent')
+    u = MagnitudeBand('u', 0.356, 0.046, MagnitudeSystem.AB, 'UV')
+    g = MagnitudeBand('g', 0.483, 0.099, MagnitudeSystem.AB, 'green')
+    r = MagnitudeBand('r', 0.626, 0.096, MagnitudeSystem.AB, 'red')
+    i = MagnitudeBand('i', 0.767, 0.106, MagnitudeSystem.AB, 'far red')
+    z = MagnitudeBand('z', 0.910, 0.125, MagnitudeSystem.AB, 'near-infrared')
+    U = MagnitudeBand('U', 0.360, 0.075, description='ultraviolet')
+    B = MagnitudeBand('B', 0.440, 0.090, description='blue')
+    V = MagnitudeBand('V', 0.550, 0.085, description='visual')
+    UC = MagnitudeBand('UC', 0.610, 0.063, description='UCAC')
+    R = MagnitudeBand('R', 0.670, 0.100, description='red')
+    I = MagnitudeBand('I', 0.870, 0.100, description='infrared')
+    Y = MagnitudeBand('Y', 1.020, 0.120)
+    J = MagnitudeBand('J', 1.250, 0.240)
+    H = MagnitudeBand('H', 1.650, 0.300)
+    K = MagnitudeBand('K', 2.200, 0.410)
+    L = MagnitudeBand('L', 3.760, 0.700)
+    M = MagnitudeBand('M', 4.770, 0.240)
+    N = MagnitudeBand('N', 10.470, 5.230)
+    Q = MagnitudeBand('Q', 20.130, 1.650)
+    AP = MagnitudeBand('AP', 0.550, 0.085, MagnitudeSystem.VEGA, 'apparent')
 
 
 @dataclass
@@ -223,8 +231,6 @@ class Target(ABC):
     RA and Dec should be specified in decimal degrees.
     """
     name: str
-    ra: float
-    dec: float
     magnitudes: Set[Magnitude]
     type: TargetType
 
@@ -241,9 +247,14 @@ class Target(ABC):
 @dataclass
 class SiderealTarget(Target):
     """
+    For a SiderealTarget, we have an RA and Dec and then proper motion information
+    to calculate the exact position.
+
     Proper motion must be specified in milliarcseconds / year.
     Epoch must be the decimal year.
     """
+    ra: float
+    dec: float
     pm_ra: float
     pm_dec: float
     epoch: float
@@ -254,8 +265,13 @@ class SiderealTarget(Target):
 
 @dataclass
 class NonsiderealTarget(Target):
+    """
+    For a NonsiderealTarget, we have arrays of ephemerides to specify the position.
+    """
     des: str
     tag: TargetTag
+    ra: npt.NDArray[np.float]
+    dec: npt.NDArray[np.float]
 
     def __post_init__(self):
         super().__post_init__()
@@ -278,7 +294,7 @@ class QAState(Enum):
 @dataclass
 class Atom:
     """
-    The wavelength must be specified in nanometers.
+    The wavelength must be specified in microns.
     """
     id: str
     exec_time: timedelta
