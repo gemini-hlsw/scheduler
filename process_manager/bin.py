@@ -83,6 +83,18 @@ class SchedulingBin:
 
         return results
 
+    def float_bin(self):
+        self.start += self.float_after
+        # check if task are still on bounds #
+        total_time = self.start + self.length
+
+        for task in self.priority_queue:
+            if task.start_time + task.end_time > total_time:
+                # remove from queue
+                pass
+        for task in self.running_tasks:
+            if task.start_time + task.end_time > total_time:
+                task.process.terminate()
 
 class RealTimeSchedulingBin(SchedulingBin):
     def __init__(self, start, float_after, length) -> None:

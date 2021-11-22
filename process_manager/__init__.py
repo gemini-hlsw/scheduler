@@ -80,13 +80,19 @@ class ProcessManager:
 
     def run(self) -> None:
         while True:
+            # TODO: This process need to be asyncronous and done by bi
             for bin in self.bins['realtime'] + self.bins['standard']:
-                # TODO: Right now the collection of the output process is done after all task 
+                # TODO: Right now the collection of the output process is done after all task
                 # are set to running. This surely be a problem when Task Management is implemented
                 while len(bin.priority_queue) > 0:
                     # remove highest priority task from queue #
                     task = heappop(bin.priority_queue)
                     # run process to initialize scheduling task
                     bin.run_task(task)
+                
+                # Add floating condition: This is done one time but should be done periodically?
+                if datetime.now() > bin.start_time + bin.float_after:
+                    bin.float_bin()
+                     
                 plans = bin.wait()
                 print(plans)

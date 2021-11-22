@@ -1,8 +1,18 @@
 from __init__ import ProcessManager
 import datetime
+import logging
 
 from bin import SchedulerTask
 from scheduler import Scheduler
+
+def set_logging():
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    fmt = logging.Formatter("%(asctime)s: %(message)s")
+    handler.setFormatter(fmt)
+    logger.addHandler(handler)
 
 if __name__ == "__main__":
     
@@ -41,6 +51,7 @@ if __name__ == "__main__":
         
     }
 
+    set_logging()
     manager = ProcessManager(config)
     scheduler = Scheduler()
     task = SchedulerTask(datetime.datetime(2020, 1, 1, 0, 0, 0), datetime.datetime(2020, 1, 1, 1, 0, 0), 2, False, scheduler)
