@@ -1,12 +1,14 @@
-import datetime
+from datetime import datetime, timedelta
 from scheduler import Scheduler
 from multiprocessing import Process, Queue
+from enum import Enum
+from dataclasses import dataclass
 
 
 class SchedulerTask:
     def __init__(self,
-                 start_time: datetime.datetime,
-                 end_time: datetime.datetime,
+                 start_time: datetime,
+                 end_time: datetime,
                  priority: int,
                  is_realtime: bool,
                  scheduler: Scheduler) -> None:
@@ -16,7 +18,7 @@ class SchedulerTask:
         self.priority = priority
         self.is_realtime = is_realtime
         self.job_id = hash((self.start_time, self.end_time))
-        self.timeout = datetime.timedelta(seconds=10)
+        self.timeout = timedelta(seconds=10)
         self.scheduler = scheduler
         self.process = None
 
@@ -36,11 +38,26 @@ class SchedulerTask:
         return self.priority < other.priority
 
 
+class BinType(Enum):
+    REALTIME = 'realtime'
+    STANDARD = 'standard'
+
+
+@dataclass
+class BinConfig:
+    bin_type: BinType
+    start: datetime
+    float_after: timedelta
+    length: timedelta
+    number_threads: int = 2
+    bin_size: int = 5
+
+
 class SchedulingBin:
     def __init__(self,
-                 start: datetime.datetime,
-                 float_after: datetime.timedelta,
-                 length: datetime.timedelta,
+                 start: datetime,
+                 float_after: timedelta,
+                 length: timedelta,
                  number_threads: int,
                  bin_size: int) -> None:
         
@@ -89,15 +106,14 @@ class SchedulingBin:
         total_time = self.start + self.length
 
         for task in self.priority_queue:
-            if task.start_time + task.end_time > total_time:
+            if task.end_time > total_time:
                 # remove from queue
                 pass
         for task in self.running_tasks:
-            if task.start_time + task.end_time > total_time:
+            if task.end_time  > total_time:
                 task.process.terminate()
+
 
 class RealTimeSchedulingBin(SchedulingBin):
     def __init__(self, start, float_after, length) -> None:
         super().__init__(start, float_after, length, 1, 1)
-        self.priority_queue = []
-        self.running_tasks = []
