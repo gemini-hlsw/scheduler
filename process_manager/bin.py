@@ -1,9 +1,16 @@
 from datetime import datetime, timedelta
 from scheduler import Scheduler
+from runner import PriorityRunner
 from multiprocessing import Process, Queue
 from enum import Enum
 from dataclasses import dataclass
+from heapq import heappop
+import logging
+import asyncio
+import signal
 
+class NoTaskError(Exception):
+    pass
 
 class SchedulerTask:
     def __init__(self,
@@ -11,15 +18,16 @@ class SchedulerTask:
                  end_time: datetime,
                  priority: int,
                  is_realtime: bool,
-                 scheduler: Scheduler) -> None:
+                 target: callable,
+                 timeout: int = 10) -> None:
 
         self.start_time = start_time
         self.end_time = end_time
         self.priority = priority
         self.is_realtime = is_realtime
         self.job_id = hash((self.start_time, self.end_time))
-        self.timeout = timedelta(seconds=10)
-        self.scheduler = scheduler
+        self.timeout = timeout
+        self.target = target
         self.process = None
 
     def __str__(self) -> str:
@@ -36,6 +44,9 @@ class SchedulerTask:
     
     def __lt__(self, other: 'SchedulerTask') -> bool:
         return self.priority < other.priority
+    
+    def __repr__(self):
+        return f"{self.target} <- {{prio={self.priority}, timeout={self.timeout}}}"
 
 
 class BinType(Enum):
@@ -66,39 +77,14 @@ class SchedulingBin:
         self.length = length
         self.number_threads = number_threads
         self.bin_size = bin_size
+        prun = PriorityRunner(self.bin_size)
+        prun.add_done_callback(self._schedule_pending)
+        self.runner = prun
+        self.pending_tasks = []
+        self.queue = asyncio.Queue()
+        self.accepting = True
         self.priority_queue = []
-        self.running_tasks = []
-        self.process_queue = Queue()
-        
-    
-    @staticmethod
-    def _wrapper(func, queue, args):
-        ret = func(args)
-        queue.put(ret)
-
-    def run_task(self, task: SchedulerTask) -> None:
-        process_args = (task.scheduler.new_schedule, self.process_queue, task.job_id)
-        process = Process(target=self._wrapper, args=process_args)
-        process.start()
-        self.running_tasks.append(task)
-        task.process = process
-
-    def wait(self):
-        results = []
-        for _ in self.running_tasks:
-            res = self.process_queue.get()
-            results.append(res)
-        for task in self.running_tasks:
-            process = task.process
-            process.join(task.timeout.total_seconds())
-            if process.is_alive():
-                process.terminate()
-                print(f'Task {task.job_id} timed out')
-            else:
-
-                print(f'Task {task.job_id} finished')
-
-        return results
+        self.running_tasks = []        
 
     def float_bin(self):
         self.start += self.float_after
@@ -110,9 +96,57 @@ class SchedulingBin:
                 # remove from queue
                 pass
         for task in self.running_tasks:
-            if task.end_time  > total_time:
+            if task.end_time > total_time:
                 task.process.terminate()
+    
+    def _schedule_with_runner(self, task):
+        return self.runner.schedule(Process(target=task.target),
+                                    task.priority, task.timeout)
+    
+    def _schedule_pending(self):
+        """
+        Schedules the highest priority pending task.
 
+        Only for internal use, and meant to be a callback for the runner, which
+        ensures there will be an available slot. DO NOT invoke this method
+        directly, at the risk of silently losing task.
+        """
+        if self.pending_tasks:
+            task = heappop(self.pending_tasks)
+            logging.debug(f"  - Scheduling pending: {task}, {len(self.pending_tasks)} left")
+            self._schedule_with_runner(task)
+
+    def _execute_task(self, task: SchedulerTask) -> None:
+
+        return self.runner.schedule(Process(target=task.target),
+                                    task.priority, task.timeout)
+
+    def shutdown(self):
+        """
+        Attempt to "gracefully" terminate all running tasks.
+        """
+        self.accepting = False
+        self.runner.terminate_all()
+
+    async def run(self, period):
+        
+        done = asyncio.Event()
+
+        def shutdown():
+            done.set()
+            SchedulingBin.shutdown()
+            asyncio.get_event_loop().stop()
+        
+        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, shutdown)
+        
+        while not done.is_set():
+            if len(self.priority_queue) > 0:
+                task = heappop(self.priority_queue)
+                logging.info(f"Scheduling a job for {task}")
+                self._execute_task(task)
+                await asyncio.sleep(period)
+            else:
+                raise NoTaskError("No task in queue!")
 
 class RealTimeSchedulingBin(SchedulingBin):
     def __init__(self, start, float_after, length) -> None:

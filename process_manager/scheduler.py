@@ -1,9 +1,14 @@
 import time
-from random import randrange
+import logging
+import signal
 
 
 class Scheduler():
+    def __init__(self, runtime):
+        self.runtime = runtime
 
-    def new_schedule(self, name):
-        time.sleep(randrange(10))
-        return(f'schedule {name}')
+    def __call__(self):
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        logging.info(f'Sleeping for {self.runtime}s')
+        time.sleep(self.runtime)
+    
