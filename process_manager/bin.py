@@ -1,16 +1,18 @@
 from datetime import datetime, timedelta
-from scheduler import Scheduler
+
 from runner import PriorityRunner
-from multiprocessing import Process, Queue
+from multiprocessing import Process
 from enum import Enum
 from dataclasses import dataclass
-from heapq import heappop
+from heapq import heappop, heappush
 import logging
 import asyncio
 import signal
 
+
 class NoTaskError(Exception):
     pass
+
 
 class SchedulerTask:
     def __init__(self,
@@ -29,21 +31,6 @@ class SchedulerTask:
         self.timeout = timeout
         self.target = target
         self.process = None
-
-    def __str__(self) -> str:
-        return f'{self.job_id}'
-    
-    def __ge__(self, other: 'SchedulerTask') -> bool:
-        return self.priority >= other.priority
-    
-    def __gt__(self, other: 'SchedulerTask') -> bool:
-        return self.priority > other.priority
-    
-    def __le__(self, other: 'SchedulerTask') -> bool:
-        return self.priority <= other.priority
-    
-    def __lt__(self, other: 'SchedulerTask') -> bool:
-        return self.priority < other.priority
     
     def __repr__(self):
         return f"{self.target} <- {{prio={self.priority}, timeout={self.timeout}}}"
@@ -81,23 +68,24 @@ class SchedulingBin:
         prun.add_done_callback(self._schedule_pending)
         self.runner = prun
         self.pending_tasks = []
-        self.queue = asyncio.Queue()
         self.accepting = True
         self.priority_queue = []
-        self.running_tasks = []        
+        self.running_tasks = []
 
     def float_bin(self):
         self.start += self.float_after
         # check if task are still on bounds #
         total_time = self.start + self.length
 
-        for task in self.priority_queue:
+        # check on pending tasks #
+        for task in self.pending_tasks:
             if task.end_time > total_time:
-                # remove from queue
+                # remove from queue 
                 pass
+        # check on running tasks #
         for task in self.running_tasks:
             if task.end_time > total_time:
-                task.process.terminate()
+                self.runner.terminate(task.process)
     
     def _schedule_with_runner(self, task):
         return self.runner.schedule(Process(target=task.target),
@@ -115,11 +103,18 @@ class SchedulingBin:
             task = heappop(self.pending_tasks)
             logging.debug(f"  - Scheduling pending: {task}, {len(self.pending_tasks)} left")
             self._schedule_with_runner(task)
+            self.running_tasks.append(task)
 
-    def _execute_task(self, task: SchedulerTask) -> None:
+    def execute_task(self, task):
+        """
+        Attempts scheduling a task. In case it's not possible right now,
+        because other higher priority tasks are holding all the available
+        slots, the task will be queued for later scheduling.
+        """
+        if not self._schedule_with_runner(task):
+            logging.debug("  - Had to queue the task, because it can't be scheduled")
+            heappush(self.pending_tasks, task)
 
-        return self.runner.schedule(Process(target=task.target),
-                                    task.priority, task.timeout)
 
     def shutdown(self):
         """
@@ -127,26 +122,7 @@ class SchedulingBin:
         """
         self.accepting = False
         self.runner.terminate_all()
-
-    async def run(self, period):
-        
-        done = asyncio.Event()
-
-        def shutdown():
-            done.set()
-            SchedulingBin.shutdown()
-            asyncio.get_event_loop().stop()
-        
-        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, shutdown)
-        
-        while not done.is_set():
-            if len(self.priority_queue) > 0:
-                task = heappop(self.priority_queue)
-                logging.info(f"Scheduling a job for {task}")
-                self._execute_task(task)
-                await asyncio.sleep(period)
-            else:
-                raise NoTaskError("No task in queue!")
+        self.running_tasks = []
 
 class RealTimeSchedulingBin(SchedulingBin):
     def __init__(self, start, float_after, length) -> None:

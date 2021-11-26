@@ -104,6 +104,17 @@ class PriorityRunner:
             # No jobs...
             ...
 
+    def terminate(self, task):
+        """
+        Terminates a task from the queue.
+        """
+        try:
+            job = self.jobs[self.jobs.index(task)]
+            job.process.terminate()
+            del self.jobs[self.jobs.index(task)]
+        except ValueError:
+            logging.warning(f"  - Task {task} was not in the heap any longer!")
+
     def schedule(self, process, priority, timeout):
         """
         Attempts scheduling a new job.
