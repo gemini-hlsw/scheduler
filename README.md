@@ -1,6 +1,6 @@
-# GreedyMaxScheduler
+Scheduler
 
-The prototype greedy-max scheduler for Gemini Observatory.
+The automated Scheduler for Gemini Observatory.
 
 Note that you need the following libraries to run this:
 * astropy
@@ -11,6 +11,7 @@ Note that you need the following libraries to run this:
 * tabulate
 * joblib
 * tqdm
+* numpy >= 1.21.4 (for numpy typing)
 
 ## Install
 
