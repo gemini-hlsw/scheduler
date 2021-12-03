@@ -5,6 +5,7 @@ import logging
 from itertools import count
 
 from process import ProcessTask, Result
+from multiprocessing import Process
 
 job_counter = count()
 
@@ -17,22 +18,26 @@ class Job:
     def __repr__(self):
         return f"Job-{self.sequence}"
 
-
+# TODO: An abstract class might be needed here, but right now RealtimeRunner can be done
+# with just the same Runner as Standard.
 class StandardRunner:
+    """
+    Main runner to handle Process objects and their associated tasks.
+    """
     def __init__(self, size, timeout=None):
         self.max_jobs = size
         self.jobs = []
         self.callbacks = []
         self.timeout = timeout
     
-    def add_done_callback(self, callback):
+    def add_done_callback(self, callback: callable) -> None:
         """
         Adds a callback that will be invoked when a job is finished. Useful
         to control the scheduling of new jobs.
         """
         self.callbacks.append(callback)
 
-    async def terminated_job(self, job, ptask):
+    async def terminated_job(self, job: Job, ptask: ProcessTask) -> None:
         """
         Called when a job has finished.
 
@@ -58,7 +63,7 @@ class StandardRunner:
             for callback in self.callbacks:
                 callback()
             
-    def _run_job(self, proc, timeout):
+    def _run_job(self, proc: Process, timeout: int) -> Job:
         """
         Prepares a job and starts its associated process.
 
@@ -72,23 +77,7 @@ class StandardRunner:
 
         return job
     
-    def maybe_evict(self, priority):
-        """
-        Evict and kill the lowest priority job if the specified
-        priority is higher.
-        """
-        try:
-            # Assume that lower priority number means higher priority
-            lowest = max(self.jobs)
-            if lowest.priority > priority:
-                logging.debug(f"  - Evicting job {lowest}")
-                lowest.process.terminate()
-                del self.jobs[self.jobs.index(lowest)]
-        except ValueError:
-            # No jobs...
-            ...
-    
-    def evict(self):
+    def evict(self) -> None:
         """
         Kill the latest job
         """
@@ -99,7 +88,7 @@ class StandardRunner:
         except ValueError:
             logging.warning(f"  - No jobs to evict!")
 
-    def terminate(self, task):
+    def terminate(self, task: ProcessTask):
         """
         Terminates a task from the queue.
         """
@@ -110,7 +99,7 @@ class StandardRunner:
         except ValueError:
             logging.warning(f"  - Task {task} was not in the heap any longer!")
     
-    def schedule(self, process, timeout):
+    def schedule(self, process: Process, timeout: int) -> bool:
         """
         Attempts scheduling a new job.
 
@@ -125,7 +114,7 @@ class StandardRunner:
         else:
             return False
     
-    def terminate_all(self):
+    def terminate_all(self) -> None:
         """
         Ends all running processes.
         """

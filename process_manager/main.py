@@ -9,10 +9,7 @@ from task import DEFAULT_PERIOD, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT, SchedulerTa
 from scheduler import Scheduler
 from manager import ProcessManager
 
-DEFAULT_PERIOD = 5
-DEFAULT_POOL_SIZE = 10
-DEFAULT_TIMEOUT = 10
-
+# To mock dates
 START_DATE = datetime(2020, 1, 1, 0, 0)
 END_DATE = datetime(2021, 1, 1, 0, 0)
 
@@ -33,7 +30,9 @@ def parse_cmdline():
 
     return parser.parse_args()
 
-def get_new_task(timeout):
+# TODO: Period value in the args should be a random value between min and max if we want 
+# to mimic a subscription scenerio 
+def get_new_task(timeout: int):
     random_date = random() * (END_DATE - START_DATE) + START_DATE
     return SchedulerTask(random_date,
                          random_date + timedelta(days=1),
