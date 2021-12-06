@@ -1,6 +1,6 @@
 from runner import StandardRunner
 from multiprocessing import Process
-from task import SchedulerTask
+from task import SchedulerTask, TaskType
 
 
 class ProcessManager:
@@ -11,18 +11,18 @@ class ProcessManager:
         self.realtime_runner = StandardRunner(1, timeout)
         self.standard_runner = StandardRunner(size, timeout)
 
-    def schedule_with_runner(self, task: SchedulerTask, mode: str):
+    def schedule_with_runner(self, task: SchedulerTask, mode: TaskType):
         """
         Schedule a task with the corresponding runner for the given mode.
         """
         # TODO: Probably good for enums but right now the original input is a string
         # so it seems unnecessary to use enums?
-        if mode == 'realtime':
+        if mode == TaskType.REALTIME:
             return self.realtime_runner.schedule(Process(target=task.target), task.timeout)
-        elif mode == 'standard':
+        elif mode == TaskType.STANDARD:
             return self.standard_runner.schedule(Process(target=task.target), task.timeout)
         else:
-            raise Exception(f'Invalid mode {mode}')
+            raise ValueError(f'Invalid mode {mode}')
     
     def shutdown(self):
         """

@@ -6,6 +6,7 @@ from itertools import count
 
 from process import ProcessTask, Result
 from multiprocessing import Process
+from typing import NoReturn
 
 job_counter = count()
 
@@ -30,14 +31,14 @@ class StandardRunner:
         self.callbacks = []
         self.timeout = timeout
     
-    def add_done_callback(self, callback: callable) -> None:
+    def add_done_callback(self, callback: callable) -> NoReturn:
         """
         Adds a callback that will be invoked when a job is finished. Useful
         to control the scheduling of new jobs.
         """
         self.callbacks.append(callback)
 
-    async def terminated_job(self, job: Job, ptask: ProcessTask) -> None:
+    async def terminated_job(self, job: Job, ptask: ProcessTask) -> NoReturn:
         """
         Called when a job has finished.
 
@@ -77,7 +78,7 @@ class StandardRunner:
 
         return job
     
-    def evict(self) -> None:
+    def evict(self) -> NoReturn:
         """
         Kill the latest job
         """
@@ -85,10 +86,11 @@ class StandardRunner:
             job = self.jobs[-1]
             job.process.terminate()
             del self.jobs[-1]
+            logging.info(f"  - Task {job} was evicted")
         except ValueError:
             logging.warning(f"  - No jobs to evict!")
 
-    def terminate(self, task: ProcessTask):
+    def terminate(self, task: ProcessTask) -> NoReturn:
         """
         Terminates a task from the queue.
         """
@@ -114,7 +116,7 @@ class StandardRunner:
         else:
             return False
     
-    def terminate_all(self) -> None:
+    def terminate_all(self) -> NoReturn:
         """
         Ends all running processes.
         """

@@ -5,13 +5,16 @@ import asyncio
 import signal
 from datetime import datetime, timedelta
 from random import random, randint
-from task import DEFAULT_PERIOD, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT, SchedulerTask
+from task import DEFAULT_TIMEOUT, SchedulerTask, TaskType
 from scheduler import Scheduler
 from manager import ProcessManager
 
 # To mock dates
 START_DATE = datetime(2020, 1, 1, 0, 0)
 END_DATE = datetime(2021, 1, 1, 0, 0)
+
+DEFAULT_PERIOD = 5
+DEFAULT_POOL_SIZE = 10
 
 def set_logging():
     logging.basicConfig(level=logging.INFO,
@@ -30,8 +33,8 @@ def parse_cmdline():
 
     return parser.parse_args()
 
-# TODO: Period value in the args should be a random value between min and max if we want 
-# to mimic a subscription scenerio 
+# TODO: Period value in the args should be a random value between min and max if we want
+# to mimic a subscription scenerio
 def get_new_task(timeout: int):
     random_date = random() * (END_DATE - START_DATE) + START_DATE
     return SchedulerTask(random_date,
@@ -53,8 +56,12 @@ async def main(args):
     while not done.is_set():
         task = get_new_task(args.timeout)
         logging.info(f"Scheduling a job for {task}")
-        manager.schedule_with_runner(task, args.mode)
-        await asyncio.sleep(args.period)
+        manager.schedule_with_runner(task, TaskType(args.mode))
+        if args.period == 0:
+            # random case #
+            await asyncio.sleep(randint(1, 10))
+        else:
+            await asyncio.sleep(args.period)
 
 if __name__ == '__main__':
     set_logging()

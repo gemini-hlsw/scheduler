@@ -1,16 +1,26 @@
 from datetime import datetime
+from enum import Enum
 
 DEFAULT_TIMEOUT = 10
-DEFAULT_PERIOD = 5
-DEFAULT_POOL_SIZE = 10
+
+class TaskType(Enum):
+    """
+    Enum for task types
+    """
+    STANDARD = 'standard'
+    REALTIME = 'realtime'
 
 
 class SchedulerTask:
+    """
+    A scheduler task that describes scheduling times and the instance of the scheduler to be used (target)
+
+    """
     def __init__(self,
                  start_time: datetime,
                  end_time: datetime,
                  target: callable,
-                 timeout: int = 10) -> None:
+                 timeout: int = DEFAULT_TIMEOUT) -> None:
 
         self.start_time = start_time
         self.end_time = end_time
