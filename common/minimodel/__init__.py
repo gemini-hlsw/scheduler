@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
-import numpy as np
 import numpy.typing as npt
 from typing import List, Mapping, Optional, Set, Union
 
@@ -28,14 +27,14 @@ class ObservingPeriod:
     """
     start: datetime
     vishours: float
-    airmass: npt.NDArray[np.float]
-    hour_angle: npt.NDArray[np.float]
-    alt: npt.NDArray[np.float]
-    az: npt.NDArray[np.float]
-    parallactic_angle: npt.NDArray[np.float]
-    sbcond: npt.NDArray[np.float]
-    visfrac: npt.NDArray[np.float]
-    score: Optional[npt.NDArray[np.float]] = None
+    airmass: npt.NDArray[float]
+    hour_angle: npt.NDArray[float]
+    alt: npt.NDArray[float]
+    az: npt.NDArray[float]
+    parallactic_angle: npt.NDArray[float]
+    sbcond: npt.NDArray[float]
+    visfrac: npt.NDArray[float]
+    score: Optional[npt.NDArray[float]] = None
 
 
 class TimeAccountingCode(str, Enum):
@@ -169,7 +168,7 @@ class MagnitudeBand:
     description: Optional[str] = None
 
 
-class MagnitudeBands(MagnitudeBand, Enum):
+class MagnitudeBands(Enum):
     """
     It is unconventional to use lowercase characters in an enum, but to differentiate
     them from the uppercase magnitude bands, we must.
@@ -193,7 +192,7 @@ class MagnitudeBands(MagnitudeBand, Enum):
     M = MagnitudeBand('M', 4.770, 0.240)
     N = MagnitudeBand('N', 10.470, 5.230)
     Q = MagnitudeBand('Q', 20.130, 1.650)
-    AP = MagnitudeBand('AP', 0.550, 0.085, MagnitudeSystem.VEGA, 'apparent')
+    AP = MagnitudeBand('AP', 0.550, 0.085, description='apparent')
 
 
 @dataclass(frozen=True)
@@ -271,8 +270,8 @@ class NonsiderealTarget(Target):
     """
     des: str
     tag: TargetTag
-    ra: npt.NDArray[np.float]
-    dec: npt.NDArray[np.float]
+    ra: npt.NDArray[float]
+    dec: npt.NDArray[float]
 
     def __post_init__(self):
         super().__post_init__()
@@ -360,10 +359,10 @@ class Observation:
     exec_time: timedelta
     program_used: timedelta
     partner_used: timedelta
-    constraints: Constraints
     targets: List[Target]
     guide_stars: Mapping[Resource, Target]
     sequence: List[Atom]
+    constraints: Constraints
     too_type: Optional[TooType] = None
 
     def total_used(self) -> timedelta:
@@ -408,10 +407,12 @@ class Group(ABC):
 # And then a group that contains children.
 @dataclass
 class NodeGroup(Group, ABC):
-    children: List[Union[Group, Observation]]
+    children: Union[List[Group], Observation]
 
     def __post_init__(self):
         super().__post_init__()
+        if self.number_to_observe < 0 or self.number_to_observe > len(self.children):
+            raise ValueError(f'Group {self.group_name} has {len(self.children)}, requires {self.number_to_observe}.')
 
     def required_resources(self) -> Set[Resource]:
         return {r for c in self.children for r in c.required_resources()}
@@ -421,6 +422,9 @@ class NodeGroup(Group, ABC):
 
     def constraints(self) -> Set[Constraints]:
         return {cs for c in self.children for cs in c.constraints()}
+
+    def __len__(self):
+        return 1 if isinstance(self.children, Observation) else len(self.children)
 
 
 class AndOption(Enum):
@@ -434,7 +438,7 @@ class AndOption(Enum):
 @dataclass
 class AndGroup(NodeGroup):
     group_option: AndOption
-    previous: Optional[int] = None
+    previous: Optional[int]
 
     def __post_init__(self):
         super().__post_init__()
