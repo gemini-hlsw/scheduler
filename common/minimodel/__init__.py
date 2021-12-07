@@ -438,7 +438,7 @@ class AndOption(Enum):
 @dataclass
 class AndGroup(NodeGroup):
     group_option: AndOption
-    previous: Optional[int]
+    previous: Optional[int] = None
 
     def __post_init__(self):
         super().__post_init__()
