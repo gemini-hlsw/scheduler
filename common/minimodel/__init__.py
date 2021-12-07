@@ -96,20 +96,23 @@ class NightEvents:
     site: Site
     time_grid: Time
 
-    __NIGHT_EVENT_CACHE: ClassVar[Mapping[Tuple[Site, Time]]] = {}
+    # __NIGHT_EVENT_CACHE: ClassVar[Mapping[Tuple[Site, Time], NightEvents]] = {}
+    __NIGHT_EVENT_CACHE: ClassVar[dict]
 
     @classmethod
     def get_night_events(cls, site, time_grid):
         """
         Create a cached instance of this class.
         This is to avoid creating multiple instances should they not be necessary.
+        TODO: The time_grid contains one entry per night, so we should not be caching for
+        TODO: the whole time grid, but for each entry in the time_grid.
         """
         if (site, time_grid) not in NightEvents.__NIGHT_EVENT_CACHE:
             NightEvents.__NIGHT_EVENT_CACHE[(site, time_grid)] = cls(site, time_grid)
         return NightEvents.__NIGHT_EVENT_CACHE[(site, time_grid)]
 
     # Logic unfortunately has to go here as otherwise we have a circular import situation.
-    def __calculate_night_events(self):
+    def _calculate_night_events(self):
         """
         """
         local_timezone = self.site.value.time_zone
@@ -128,7 +131,7 @@ class NightEvents:
             moonillum = nightevents(self.time_grid, location, local_timezone, verbose=False)
         self.night_length = (self.twi_mor12 - self.twi_eve12).to_value('h') * u.h
 
-    def __local_midnight_time(self, a_time: Time):
+    def _local_midnight_time(self, a_time: Time):
         """
         Find the nearest local midnight (UT).
 
@@ -160,7 +163,7 @@ class NightEvents:
                                                                  0, 0, 0)))
             return Time(date_time_midnight[0]) if scalar_input else Time(date_time_midnight)
 
-    def __lp_sidereal(self, a_time: Time):
+    def _lp_sidereal(self, a_time: Time):
         """
         Moderate precision (one second) local sidereal time.
 
