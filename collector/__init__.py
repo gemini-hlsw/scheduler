@@ -217,9 +217,9 @@ class Collector(SchedulerComponent):
                         logging.warning(f'Site {site.name} contains a repeated program with id {program.id}.')
                     self.programs[site][program.id] = program
 
-                # TODO: Can we make this less generic? Specify which exceptions to include?
-                except:
+                except ValueError as e:
                     bad_program_count += 1
+                    logging.warning(f'Could not parse program: {e}')
 
                 if bad_program_count:
                     logging.error(f'For site {site.name}, could not parse {bad_program_count} programs.')
