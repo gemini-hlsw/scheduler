@@ -8,11 +8,9 @@ from astropy.time import Time, TimeDelta
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
-import numpy as np
 import numpy.typing as npt
 from pytz import timezone, UnknownTimeZoneError
 from typing import ClassVar, List, Mapping, Optional, Set, Tuple, Union
-from common.vskyutil import nightevents
 
 
 class SiteInformation:
@@ -81,98 +79,6 @@ class Semester:
     """
     year: int
     half: SemesterHalf
-
-
-@dataclass
-class NightEvents:
-    """
-    Represents night events for a given site for the period under consideration as represented
-    by the time grid, which is an array of times uniformly separated by a timedelta, as initialized
-    in the Collector. This is a reference to that array and thus should not be changed.
-
-    The information is stored in numpy arrays of the same size as the time_grid, and we cache this information
-    to avoid having to calculate it repeatedly.
-    """
-    site: Site
-    time_grid: Time
-
-    # __NIGHT_EVENT_CACHE: ClassVar[Mapping[Tuple[Site, Time], NightEvents]] = {}
-    __NIGHT_EVENT_CACHE: ClassVar[dict]
-
-    @classmethod
-    def get_night_events(cls, site, time_grid):
-        """
-        Create a cached instance of this class.
-        This is to avoid creating multiple instances should they not be necessary.
-        TODO: The time_grid contains one entry per night, so we should not be caching for
-        TODO: the whole time grid, but for each entry in the time_grid.
-        """
-        if (site, time_grid) not in NightEvents.__NIGHT_EVENT_CACHE:
-            NightEvents.__NIGHT_EVENT_CACHE[(site, time_grid)] = cls(site, time_grid)
-        return NightEvents.__NIGHT_EVENT_CACHE[(site, time_grid)]
-
-    # Logic unfortunately has to go here as otherwise we have a circular import situation.
-    def _calculate_night_events(self):
-        """
-        """
-        local_timezone = self.site.value.time_zone
-        location = self.site.value.location
-
-        self.midnight,\
-            self.sunset,\
-            self.sunrise,\
-            self.twi_eve18,\
-            self.twi_mor18,\
-            self.twi_eve12,\
-            self.twi_mor12,\
-            self.moonrise,\
-            self.moonset,\
-            self.sun_moon_angs,\
-            moonillum = nightevents(self.time_grid, location, local_timezone, verbose=False)
-        self.night_length = (self.twi_mor12 - self.twi_eve12).to_value('h') * u.h
-
-    def _local_midnight_time(self, a_time: Time):
-        """
-        Find the nearest local midnight (UT).
-
-        If it is before noon in the local time, return previous midnight.
-        If it is after noon, return the next midnight.
-
-        This returns an astropy Time object, which is not zone-aware, but should
-        be correct.
-        """
-        timezone = self.site.value.time_zone
-        a_time = Time(np.asarray(a_time.iso), format='iso')
-        scalar_input = False
-
-        # Make 1D if necessary.
-        if a_time.ndim == 0:
-            a_time = a_time[None]
-            scalar_input = True
-
-        # Faster if we do a loop comprehension, but due to the complexity, we
-        # use append.
-        date_time_midnight = []
-        for time in a_time:
-            date_time = time.to_datetime(timezone=timezone)
-
-            if date_time.hour >= 12:
-                date_time = date_time + timedelta(hours=12)
-
-            date_time_midnight.append(timezone.localize(datetime(date_time.year, date_time.month, date_time.day,
-                                                                 0, 0, 0)))
-            return Time(date_time_midnight[0]) if scalar_input else Time(date_time_midnight)
-
-    def _lp_sidereal(self, a_time: Time):
-        """
-        Moderate precision (one second) local sidereal time.
-
-        Adopted with minimal changes from the skycalc routine.
-        Native astropy routines are unnecessarily precise for our purposes and slow.
-
-        Returns the Angle (sidereal time is the hour angle of the equinox.)
-        """
-    ...
 
 
 @dataclass(unsafe_hash=True)
