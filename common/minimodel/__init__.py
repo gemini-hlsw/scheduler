@@ -1,22 +1,67 @@
+# NOTE: In order to use numpy.typing, this file requires the 1.21 numpy package to be installed via:
+# pip install numpy==1.21.4
+
+import logging
 from abc import ABC, abstractmethod
+from astropy.coordinates import EarthLocation, UnknownSiteException
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
 import numpy.typing as npt
-from typing import List, Mapping, Optional, Set, Union
+from pytz import timezone, UnknownTimeZoneError
+from typing import ClassVar, List, Mapping, Optional, Set, Tuple, Union
 
 
-# NOTE: In order to use numpy.typing, this file requires the 1.21 numpy package to be installed via:
-# pip install numpy==1.21.4
+class SiteInformation:
+    def __init__(self,
+                 name: str,
+                 astropy_lookup: str = None):
+        """
+        AstroPy location lookups for Gemini North and South are of the form:
+        * gemini_north
+        * gemini_south
+        This conversion will happen automatically if astropy_lookup is None.
+
+        If necessary, other observatories should provide hard astropy_lookup values.
+
+        Time zone information for a site is also included here.
+        """
+        if astropy_lookup is None:
+            astropy_lookup = name.lower().replace(' ', '_')
+
+        self.name = name
+
+        try:
+            self.location = EarthLocation.of_site(astropy_lookup)
+        except UnknownSiteException:
+            logging.error(f'Unknown site lookup: {astropy_lookup}')
+
+        timezone_info = self.location.info.meta['timezone']
+        try:
+            self.time_zone = timezone(timezone_info)
+        except UnknownTimeZoneError:
+            logging.error(f'Unknown time zone lookup: {timezone_info}')
 
 
-class Site(str, Enum):
+class Site(Enum):
     """
     This will have to be customized by a given observatory if used independently
     of Gemini.
     """
-    GN = 'Gemini North'
-    GS = 'Gemini South'
+    GN = SiteInformation('Gemini North')
+    GS = SiteInformation('Gemini South')
+
+
+@dataclass
+class SemesterHalf(Enum):
+    A = 'A'
+    B = 'B'
+
+
+@dataclass
+class Semester:
+    year: int
+    half: SemesterHalf
 
 
 @dataclass(unsafe_hash=True)
@@ -24,8 +69,13 @@ class ObservingPeriod:
     """
     This class represents a period under observation and contains visibility
     and scoring calculations for a night.
+
+    It contains the constants:
+    * MAX_AIRMASS: the maximum possible value for airmass.
+    * CLASSICAL_NIGHT_LENGTH: the timedelta length for a classical observing night.
     """
     start: datetime
+    length: timedelta
     vishours: float
     airmass: npt.NDArray[float]
     hour_angle: npt.NDArray[float]
@@ -35,6 +85,9 @@ class ObservingPeriod:
     sbcond: npt.NDArray[float]
     visfrac: npt.NDArray[float]
     score: Optional[npt.NDArray[float]] = None
+
+    MAX_AIRMASS: ClassVar[float] = 2.3
+    CLASSICAL_NIGHT_LENGTH: ClassVar[timedelta] = timedelta(hours=10)
 
 
 class TimeAccountingCode(str, Enum):
@@ -91,6 +144,11 @@ class TimingWindow:
     duration: timedelta
     repeat: int
     period: Optional[timedelta]
+
+    INFINITE_DURATION: ClassVar[int] = timedelta.max
+    FOREVER_REPEATING: ClassVar[int] = -1
+    NON_REPEATING: ClassVar[int] = 0
+    NO_PERIOD: ClassVar[Optional[timedelta]] = None
 
 
 class SkyBackground(float, Enum):
@@ -458,23 +516,58 @@ class Band(IntEnum):
 
 
 class ProgramMode(Enum):
+    """
+    Main operational mode, which is one of:
+    * Queue
+    * Classical
+    * Priority Visitor (hybrid mode between queue and classical)
+    """
     QUEUE = auto()
     CLASSICAL = auto()
     PV = auto()
 
 
-@dataclass
+@dataclass(frozen=True)
+class ProgramType:
+    abbreviation: str
+    name: str
+    isScience: bool = True
+
+
+# TODO: Is this extraneous with ProgramMode?
+class ProgramTypes(Enum):
+    C = ProgramType('C', 'Classical')
+    CAL = ProgramType('CAL', 'Calibration', False)
+    DD = ProgramType('DD', "Director's Time")
+    DS = ProgramType('DS', 'Demo Science')
+    ENG = ProgramType('ENG', 'Engineering', False)
+    FT = ProgramType('FT', 'Fast Turnaround')
+    LP = ProgramType('LP', 'Large Program')
+    Q = ProgramType('Q', 'Queue')
+    SV = ProgramType('SV', 'System Verification')
+
+
+@dataclass(unsafe_hash=True)
 class Program:
+    """
+    Representation of a program.
+
+    The FUZZY_BOUNDARY is a constant that allows for a fuzzy boundary for a program's
+    start and end times.
+    """
     id: str
     internal_id: str
     band: Band
     thesis: bool
     mode: ProgramMode
+    type: ProgramTypes
     start_time: datetime
     end_time: datetime
     allocated_time: Set[TimeAllocation]
     root_group: Group
     too_type: Optional[TooType] = None
+
+    FUZZY_BOUNDARY: ClassVar[timedelta] = timedelta(days=14)
 
     def program_awarded(self) -> timedelta:
         return sum(t.program_awarded for t in self.allocated_time)
