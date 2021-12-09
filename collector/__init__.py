@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 import numpy as np
 import numpy.typing as npt
-from typing import ClassVar, FrozenSet, Iterable, List, Mapping, Tuple
+from typing import ClassVar, FrozenSet, Iterable, List, Mapping, NoReturn, Set, Tuple
 
 from common.minimodel import ObservationClass, Program, ProgramTypes, Semester, Site
 from common.api import ProgramProvider
@@ -160,75 +160,14 @@ class NightEvents:
     moonrise: Time
     moonset: Time
     sun_moon_ang: Angle
-    moon_illum: float
+    moon_illum: npt.NDArray[float]
 
     def __post_init__(self):
         """
-        Initialize any members depending on the parameters
+        Initialize any members depending on the parameters.
         """
-        self.night_length = (self.twi_mor12 - self.twi_eve12).to_value('h') * u.h
+        self.night_length: Time = (self.twi_mor12 - self.twi_eve12).to_value('h') * u.h
 
-    def _calculate_night_events(self):
-        """
-        """
-        local_timezone = self.site.value.time_zone
-        location = self.site.value.location
-
-        self.midnight,\
-            self.sunset,\
-            self.sunrise,\
-            self.twi_eve18,\
-            self.twi_mor18,\
-            self.twi_eve12,\
-            self.twi_mor12,\
-            self.moonrise,\
-            self.moonset,\
-            self.sun_moon_angs,\
-            self.moonillum = vskyutil.nightevents(self.time_grid, location, local_timezone, verbose=False)
-        self.night_length = (self.twi_mor12 - self.twi_eve12).to_value('h') * u.h
-
-    def _local_midnight_time(self, a_time: Time):
-        """
-        Find the nearest local midnight (UT).
-
-        If it is before noon in the local time, return previous midnight.
-        If it is after noon, return the next midnight.
-
-        This returns an astropy Time object, which is not zone-aware, but should
-        be correct.
-        """
-        timezone = self.site.value.time_zone
-        a_time = Time(np.asarray(a_time.iso), format='iso')
-        scalar_input = False
-
-        # Make 1D if necessary.
-        if a_time.ndim == 0:
-            a_time = a_time[None]
-            scalar_input = True
-
-        # Faster if we do a loop comprehension, but due to the complexity, we
-        # use append.
-        date_time_midnight = []
-        for time in a_time:
-            date_time = time.to_datetime(timezone=timezone)
-
-            if date_time.hour >= 12:
-                date_time = date_time + timedelta(hours=12)
-
-            date_time_midnight.append(timezone.localize(datetime(date_time.year, date_time.month, date_time.day,
-                                                                 0, 0, 0)))
-            return Time(date_time_midnight[0]) if scalar_input else Time(date_time_midnight)
-
-    def _lp_sidereal(self, a_time: Time):
-        """
-        Moderate precision (one second) local sidereal time.
-
-        Adopted with minimal changes from the skycalc routine.
-        Native astropy routines are unnecessarily precise for our purposes and slow.
-
-        Returns the Angle (sidereal time is the hour angle of the equinox.)
-        """
-    ...
 
 @dataclass
 class NightEventCache:
@@ -237,36 +176,108 @@ class NightEventCache:
     We cache as these are expensive computations and we wish to avoid repeated
     calculations.
     """
-    cache_size = 100
+    # By default, just allow the equivalent of a year's worth of data for each site.
+    cache_size = 365 * len(Site)
 
     def __post_init__(self):
         """
-        Initialize the cache, which is FIFO (for now).
+        Initialize the caches, which are FIFO (for now).
         """
-        self._cache: ClassVar[dict[Tuple[Site, Time], NightEvents]] = {}
-        self._fifo_list: ClassVar[List[Tuple[Site, Time]]] = []
+        self._midnight_cache: dict[Tuple[Site, Time], Time] = {}
+        self._sunset_cache: dict[Tuple[Site, Time], Time] = {}
+        self._sunrise_cache: dict[Tuple[Site, Time], Time] = {}
+        self._twi_eve18_cache: dict[Tuple[Site, Time], Time] = {}
+        self._twi_mor18_cache: dict[Tuple[Site, Time], Time] = {}
+        self._twi_eve12_cache: dict[Tuple[Site, Time], Time] = {}
+        self._twi_mor12_cache: dict[Tuple[Site, Time], Time] = {}
+        self._moonrise_cache: dict[Tuple[Site, Time], Time] = {}
+        self._moonset_cache: dict[Tuple[Site, Time], Time] = {}
+        self._sun_moon_ang_cache: dict[Tuple[Site, Time], Angle] = {}
+        self._moon_illum_cache: dict[Tuple[Site, Time], npt.NDArray[float]] = {}
+        self.caches = {}
+
+        self._fifo_entries: Set[Tuple[Site, Time]] = set()
+        self._fifo_list: List[Tuple[Site, Time]] = []
 
     def fetch_night_events(self, site: Site, time_grid: Time) -> NightEvents:
-        
+        """
+        Fetch a NightEvents object that contains information for all of the nights in
+        the time_grid.
 
-    def _fetch_night_event(self, site: Site, time: Time) -> NightEvents:
+        If the cache is too small to hold the time_grid, it will be resized, so theoretically,
+        this method should always succeed. If for some reason, it fails on a cache key lookup,
+        it will fail with a RuntimeError.
+        """
+        # If the time_grid is too big that it overwhelms the cache, resize the cache.
+        if len(time_grid) > self.cache_size:
+            old_size = self.cache_size
+            self.cache_size = len(time_grid) * len(Site)
+            logging.info(f'Resizing the NightEventsCache from {old_size} to {self.cache_size}.')
+
+        # Make sure that everything is calculated and cached.
+        for time in time_grid:
+            self._store_night_event(site, time)
+
+        try:
+            midnight = Time(self._midnight_cache[(site, day)] for day in time_grid)
+            sunset = Time(self._sunset_cache[(site, day)] for day in time_grid)
+            sunrise = Time(self._sunrise_cache[(site, day)] for day in time_grid)
+            twi_eve18 = Time(self._twi_eve18_cache[(site, day)] for day in time_grid)
+            twi_mor18 = Time(self._twi_mor18_cache[(site, day)] for day in time_grid)
+            twi_eve12 = Time(self._twi_eve12_cache[(site, day)] for day in time_grid)
+            twi_mor12 = Time(self._twi_mor12_cache[(site, day)] for day in time_grid)
+            moonrise = Time(self._moonrise_cache[(site, day)] for day in time_grid)
+            moonset = Time(self._moonset_cache[(site, day)] for day in time_grid)
+            sun_moon_ang = Angle(self._sun_moon_ang_cache[(site, day)] for day in time_grid)
+            moon_illum = np.ndarray(self._moon_illum_cache[(site, day)] for day in time_grid)
+            return NightEvents(midnight, sunset, sunrise, twi_eve18, twi_mor18, twi_eve12, twi_mor12, moonrise, moonset,
+                               sun_moon_ang, moon_illum)
+
+        except KeyError as e:
+            msg = f'Could not locate the night events for: {e}'
+            logging.error(msg)
+            raise RuntimeError(msg)
+
+    def _store_night_event(self, site: Site, time: Time) -> NoReturn:
         """
         Calculate the NightEvents for the night specified in the AstroPy Time object.
         This creates the cache entry and maintains the size of the cache.
         """
-        if (site, time) not in self._cache.keys():
+        if (site, time) not in self._fifo_entries:
+            local_timezone = site.value.time_zone
+            location = site.value.location
+
             # See if we need to bump something from the cache.
             if len(self._fifo_list) == self.cache_size:
                 # Chop off the first entry.
                 data = self._fifo_list.pop(0)
-                del[self._cache[data]]
-                self._cache[(site, time)] = NightEventCache._calculate_night_event(site, time)
-                self._fifo_list.append((site, time))
+                self._fifo_entries.remove(data)
+                del[self._midnight_cache[data]]
+                del[self._sunset_cache[data]]
+                del[self._sunrise_cache[data]]
+                del[self._twi_eve18_cache[data]]
+                del[self._twi_mor18_cache[data]]
+                del[self._twi_eve12_cache[data]]
+                del[self._twi_mor12_cache[data]]
+                del[self._moonrise_cache[data]]
+                del[self._sun_moon_ang_cache[data]]
+                del[self._moon_illum_cache[data]]
 
-        return self._cache[(site, time)]
+            # Calculate the new values and insert them into the caches.
+            midnight, sunset, sunrise, twi_eve18, twi_mor18, twi_eve12, twi_mor12,\
+                moonrise, sun_moon_ang, moon_illum = vskyutil.nightevents(time, location, local_timezone, verbose=False)
 
-    @staticmethod
-    def _calculate_night_event(site: Site, time: Time) -> NightEvents:
-        local_timezone = site.value.time_zone
-        location = site.value.location
-        return NightEvents(**vskyutil.nightevents(time, location, local_timezone, verbose=False))
+            key = site, time
+            self._midnight_cache[key] = midnight
+            self._sunset_cache[key] = sunset
+            self._sunrise_cache[key] = sunrise
+            self._twi_eve18_cache[key] = twi_eve18
+            self._twi_mor18_cache[key] = twi_mor18
+            self._twi_eve12_cache[key] = twi_eve12
+            self._twi_mor12_cache[key] = twi_mor12
+            self._moonrise_cache[key] = moonrise
+            self._moon_illum_cache[key] = moon_illum
+
+            # Record
+            self._fifo_entries.add(key)
+            self._fifo_list.append(key)
