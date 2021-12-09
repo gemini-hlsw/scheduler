@@ -12,6 +12,8 @@ class ProgramProvider(ABC):
 
     The values of the entries in these pairs will be int, float, or str, so we
     leave them as generic dict.
+
+    Methods should raise ValueError if the data is not parseable.
     """
     @staticmethod
     @abstractmethod
