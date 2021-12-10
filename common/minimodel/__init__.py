@@ -535,9 +535,9 @@ class ProgramMode(Enum):
     * Classical
     * Priority Visitor (hybrid mode between queue and classical)
     """
-    QUEUE = auto()
-    CLASSICAL = auto()
-    PV = auto()
+    QUEUE = 'Queue'
+    CLASSICAL = 'Classical'
+    PV = 'PV'
 
 
 @dataclass(frozen=True)
