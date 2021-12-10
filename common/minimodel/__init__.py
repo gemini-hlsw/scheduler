@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
 import numpy.typing as npt
 from pytz import timezone, UnknownTimeZoneError
-from typing import ClassVar, List, Mapping, Optional, Set, Tuple, Union
+from typing import ClassVar, List, Mapping, Optional, Set, Union
 
 
 class SiteInformation:
@@ -469,11 +469,13 @@ class NodeGroup(Group, ABC):
 
     def __post_init__(self):
         super().__post_init__()
-        if self.number_to_observe < 0 or self.number_to_observe > len(self.children):
-            raise ValueError(f'Group {self.group_name} has {len(self.children)}, requires {self.number_to_observe}.')
+        if self.number_to_observe <= 0:
+            msg = f'Group {self.group_name} specifies non-positive {self.number_to_observe} children to be observed.'
+            logging.error(msg)
+            raise ValueError(msg)
 
     def required_resources(self) -> Set[Resource]:
-        return {r for c in self.children for r in c.required_resources()}
+        return {r for c in self.children for r in c.reqfsssuired_resources()}
 
     def wavelengths(self) -> Set[float]:
         return {w for c in self.children for w in c.wavelengths()}
@@ -490,6 +492,7 @@ class AndOption(Enum):
     CONSEC_ANYORDER = auto()
     NIGHT_ORDERED = auto()
     NIGHT_ANYORDER = auto()
+    ANYORDER = auto()
     CUSTOM = auto()
 
 
@@ -500,12 +503,22 @@ class AndGroup(NodeGroup):
 
     def __post_init__(self):
         super().__post_init__()
+        if self.number_to_observe != len(self.children):
+            msg = f'AND group {self.group_name} specifies {self.number_to_observe} children to be observed but has '\
+                  f'{len(self.children)} children.'
+            logging.error(msg)
+            raise ValueError(msg)
 
 
 @dataclass
 class OrGroup(NodeGroup):
     def __post_init__(self):
         super().__post_init__()
+        if self.number_to_observe >= len(self.children):
+            msg = f'OR group {self.group_name} specifies {self.number_to_observe} children to be observed but has '\
+                  f'{len(self.children)} children.'
+            logging.error(msg)
+            raise ValueError(msg)
 
 
 class Band(IntEnum):
