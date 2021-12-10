@@ -99,20 +99,17 @@ class JsonProvider(ProgramProvider):
         obs.guide_stars = ...
         obs.sequence = [JsonProvider.parse_atom(seq) for seq in json['sequence']]
         find_constraints = [json[key] for key in json.keys() if key.startswith('SCHEDULING_CONDITIONSt')]
-        obs.constraints = JsonProvider    .parse_constraints(find_constraints[0])
+        obs.constraints = JsonProvider.parse_constraints(find_constraints[0])
         obs.too_type = ...
     
     @staticmethod
     def parse_time_allocation(json: dict) -> TimeAllocation:
-        ta = TimeAllocation()
-        ta.category = TimeAccountingCode(json['timeAccountAllocationCategories']['category'])
-
-        ta.program_awarded = timedelta(milliseconds=json['awardedTime'])
-        ta.partner_awarded = timedelta(milliseconds=0)
-       
-        ta.program_used = timedelta(milliseconds=json['timeAccountAllocationCategories']['programTime'])
-        ta.partner_used = timedelta(milliseconds=json['timeAccountAllocationCategories']['partnerTime'])
-        print(ta.program_used)
+        print(json['timeAccountAllocationCategories'])
+        ta = TimeAllocation(TimeAccountingCode(json['timeAccountAllocationCategories'][0]['category']),
+                            timedelta(milliseconds=json['awardedTime']),
+                            timedelta(milliseconds=0),
+                            timedelta(milliseconds=json['timeAccountAllocationCategories'][0]['programTime']),
+                            timedelta(milliseconds=json['timeAccountAllocationCategories'][0]['partnerTime']))
         return ta
 
 
@@ -126,15 +123,19 @@ class JsonProvider(ProgramProvider):
 
     @staticmethod
     def parse_program(json: dict) -> Program:
-        print(json.keys())
+
+        ta = JsonProvider.parse_time_allocation(json)
+        root_group = None
         program = Program(json['programId'],
                           json['key'],
-                          Band(json['queueBand']),
+                          Band(int(json['queueBand'])),
                           bool(json['isThesis']),
-                          ProgramMode(json['programMode'],
+                          ProgramMode(json['programMode']),
                           None,
                           None,
-                          TooType(json['tooType']) if json['tooType'] != 'None' else None))
+                          ta,
+                          root_group,
+                          TooType(json['tooType']) if json['tooType'] != 'None' else None)
 
         print(program.band)
         print(program.mode)
@@ -146,5 +147,3 @@ if __name__ == '__main__':
     json = provider.load_program('./data/GN-2018B-Q-101.json')
 
     program = provider.parse_program(json['PROGRAM_BASIC'])
-    time_allocation = provider.parse_time_allocation(json['PROGRAM_BASIC'])
-    program.time_allocation = time_allocation
