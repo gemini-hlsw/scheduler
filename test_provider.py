@@ -13,8 +13,17 @@ class JsonProvider(ProgramProvider):
             return json.loads(f.read())
     
     @staticmethod
+    def sort_observations(obs: List[Observation]) -> List[Observation]:
+        return sorted(obs, key=lambda x: x.order)
+
+    @staticmethod
     def parse_magnitude(json: dict) -> Magnitude:
-        ...
+        band = MagnitudeBand(json['name'])
+        value = json['value']
+        error = ...
+        mag = Magnitude(band, value, error)
+
+        return mag
 
     def parse_timing_window(json: dict) -> TimingWindow:
         tw_arr = []
@@ -64,6 +73,8 @@ class JsonProvider(ProgramProvider):
         sidereal.pm_ra = json['base']['deltara']
         sidereal.pm_dec = json['base']['deltadec']
         sidereal.epoch = json['base']['epoch']
+
+        magnitudes = [JsonProvider.parse_magnitude(mag) for mag in json['magnitudes']]
         return sidereal
 
     @staticmethod
@@ -77,11 +88,12 @@ class JsonProvider(ProgramProvider):
         return nonsidereal
 
     @staticmethod
-    def parse_observation(json: dict) -> Observation:
+    def parse_observation(json: dict, name: str ) -> Observation:
         obs = Observation()
 
         obs.id = json['observationId']
         obs.internal_id = json['key']
+        obs.order = int(name.split('-')[1])
         obs.title = json['title']
         obs.site = ...
         obs.status = json['obsStatus']
@@ -101,6 +113,8 @@ class JsonProvider(ProgramProvider):
         find_constraints = [json[key] for key in json.keys() if key.startswith('SCHEDULING_CONDITIONSt')]
         obs.constraints = JsonProvider.parse_constraints(find_constraints[0])
         obs.too_type = ...
+
+        return obs
     
     @staticmethod
     def parse_time_allocation(json: dict) -> TimeAllocation:
@@ -112,10 +126,29 @@ class JsonProvider(ProgramProvider):
                             timedelta(milliseconds=json['timeAccountAllocationCategories'][0]['partnerTime']))
         return ta
 
-
     @staticmethod
     def parse_or_group(json: dict) -> OrGroup:
+        
+        # Find nested OR groups/AND groups
+        # TODO: is this correct if there are not nested groups in OCS natively
+        observations = [JsonProvider.parse_observation(json[key], key) for key in json.keys() if key.startwith('OBSERVATION_BASIC')]
+
+        number_to_observe = len(observations)
+        delay_max, delay_min = 0, 0 # TODO: What are these?
+        or_group = OrGroup(json['key'], json['name'], number_to_observe, delay_min, delay_max, observations)
+        return or_group
+
+    @staticmethod
+    def parse_guide_star(json: dict) -> GuideStar:
         ...
+    
+    @staticmethod
+    def parse_root_group(json: dict) -> OrGroup:
+        # Find nested OR groups/AND groups
+        groups = [JsonProvider.parse_or_group(key) for key in json.keys() if key.startswith('GROUP_GROUP_SCHEDULING')]
+        num_to_observe = len(groups)
+        root_group = OrGroup(None, None, num_to_observe, 0, 0, groups)
+        return root_group
 
     @staticmethod
     def parse_and_group(json: dict) -> AndGroup:
@@ -125,7 +158,7 @@ class JsonProvider(ProgramProvider):
     def parse_program(json: dict) -> Program:
 
         ta = JsonProvider.parse_time_allocation(json)
-        root_group = None
+        root_group = JsonProvider.parse_root_group(json)
         program = Program(json['programId'],
                           json['key'],
                           Band(int(json['queueBand'])),

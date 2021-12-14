@@ -406,6 +406,7 @@ class ObservationClass(Enum):
 class Observation:
     id: str
     internal_id: str
+    order: int
     title: str
     site: Site
     status: ObservationStatus
