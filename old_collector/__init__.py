@@ -41,56 +41,59 @@ def ot_timing_windows(starts: Iterable[int],
                       durations: Iterable[int],
                       repeats: Iterable[int],
                       periods: Iterable[int]) -> List[Time]:
-    """
-    Turn OT timing constraints into more natural units
-    Inputs are lists
-    Match output from GetWindows
-    """
+    ...
+    # """
+    # Turn OT timing constraints into more natural units
+    # Inputs are lists
+    # Match output from GetWindows
+    # """
+    #
+    # timing_windows = []
+    #
+    # for (start, duration, repeat, period) in zip(starts, durations, repeats, periods):
+    #
+    #     # The timestamps are in milliseconds
+    #     # The start time is unix time (milliseconds from 1970-01-01 00:00:00) UTC
+    #     # Time requires unix time in seconds
+    #     t0 = float(start) * u.ms
+    #     begin = Time(t0.to_value('s'), format='unix', scale='utc')
+    #
+    #     # duration = -1 means forever
+    #     duration = INFINITE_DURATION if duration == -1 else duration / 3600000. * u.h
+    #
+    #     # repeat = -1 means infinite, and we require at least one repeat
+    #     repeat = INFINITE_REPEATS if repeat == -1 else max(1, repeat)
+    #
+    #     # period between repeats
+    #     period = period / 3600000. * u.h
+    #
+    #     for i in range(repeat):
+    #         window_start = begin + i * period
+    #         window_end = window_start + duration
+    #         timing_windows.append(Time([window_start, window_end]))
+    #
+    # return timing_windows
 
-    timing_windows = []
 
-    for (start, duration, repeat, period) in zip(starts, durations, repeats, periods):
-
-        # The timestamps are in milliseconds
-        # The start time is unix time (milliseconds from 1970-01-01 00:00:00) UTC
-        # Time requires unix time in seconds
-        t0 = float(start) * u.ms
-        begin = Time(t0.to_value('s'), format='unix', scale='utc')
-
-        # duration = -1 means forever
-        duration = INFINITE_DURATION if duration == -1 else duration / 3600000. * u.h
-
-        # repeat = -1 means infinite, and we require at least one repeat
-        repeat = INFINITE_REPEATS if repeat == -1 else max(1, repeat)
-
-        # period between repeats
-        period = period / 3600000. * u.h
-
-        for i in range(repeat):
-            window_start = begin + i * period
-            window_end = window_start + duration
-            timing_windows.append(Time([window_start, window_end]))
-
-    return timing_windows
-
-
-def select_obsclass(classes: List[str])-> str:
-    """Return the obsclass based on precedence
-
-        classes: list of observe classes from get_obs_class
-    """
-    obsclass = ''
-
-    # Precedence order for observation classes.
-    obsclass_order = ['SCIENCE', 'PROG_CAL', 'PARTNER_CAL', 'ACQ', 'ACQ_CAL']
-
-    # Set the obsclass for the entire observation based on obsclass precedence
-    for oclass in obsclass_order:
-        if oclass in classes:
-            obsclass = oclass
-            break
-
-    return obsclass
+def select_obsclass(classes: List[str]) d-> str:
+    ...
+    # """Return the obsclass based on precedence
+    #
+    #     classes: list of observe classes from get_obs_class
+    # """
+    # obsclass = ''
+    #
+    # # Precedence order for observation classes.
+    # # NOTE: This is now handled be the Enum indexing.
+    # obsclass_order = ['SCIENCE', 'PROG_CAL', 'PARTNER_CAL', 'ACQ', 'ACQ_CAL']
+    #
+    # # Set the obsclass for the entire observation based on obsclass precedence
+    # for oclass in obsclass_order:
+    #     if oclass in classes:
+    #         obsclass = oclass
+    #         break
+    #
+    # return obsclass
 
 
 class Collector:
@@ -467,21 +470,21 @@ class Collector:
                                                      too_status))
                 Collector.observation_num += 1
 
-    def create_time_array(self):
-
-        timesarr = []
-
-        for i in range(len(self.time_grid)):
-            tmin = min([MAX_NIGHT_EVENT_TIME] + [self.night_events[site]['twi_eve12'][i] for site in self.sites])
-            tmax = max([MIN_NIGHT_EVENT_TIME] + [self.night_events[site]['twi_mor12'][i] for site in self.sites])
-
-            tstart = round_min(tmin, up=True)
-            tend = round_min(tmax, up=False)
-            n = np.int((tend.jd - tstart.jd) / self.time_slot_length.to(u.day).value + 0.5)
-            times = Time(np.linspace(tstart.jd, tend.jd - self.time_slot_length.to(u.day).value, n), format='jd')
-            timesarr.append(times)
-
-        return timesarr
+    # def create_time_array(self):
+    #
+    #     timesarr = []
+    #
+    #     for i in range(len(self.time_grid)):
+    #         tmin = min([MAX_NIGHT_EVENT_TIME] + [self.night_events[site]['twi_eve12'][i] for site in self.sites])
+    #         tmax = max([MIN_NIGHT_EVENT_TIME] + [self.night_events[site]['twi_mor12'][i] for site in self.sites])
+    #
+    #         tstart = round_min(tmin, up=True)
+    #         tend = round_min(tmax, up=False)
+    #         n = np.int((tend.jd - tstart.jd) / self.time_slot_length.to(u.day).value + 0.5)
+    #         times = Time(np.linspace(tstart.jd, tend.jd - self.time_slot_length.to(u.day).value, n), format='jd')
+    #         timesarr.append(times)
+    #
+    #     return timesarr
 
     # TODO: This could be an static method but it should be some internal process or API call to ENV.
     # TODO: As it will need to possibly modify information in the Collector at a future point, we leave it as

@@ -618,6 +618,7 @@ class Observation:
 
     # Some observations do not have constraints, e.g. GN-208A-FT-103-6.
     constraints: Optional[Constraints]
+
     too_type: Optional[TooType] = None
 
     def total_used(self) -> timedelta:
@@ -668,22 +669,8 @@ class Observation:
         highest precedence in the ObservationClasses enum, i.e. has the lowest index.
 
         This will be used when examining the sequence for atoms.
-
-        TODO: Move this to the ODB program extractor as the logic is used there.
-        TODO: Remove from Bryan's atomizer.
         """
-        return min(classes, default=None)
-
-    @staticmethod
-    def _select_qastate(qastates: List[QAState]) -> Optional[QAState]:
-        """
-        Given a list of non-empty QAStates, determine which occurs with
-        highest precedence in the QAStates enum, i.e. has the lowest index.
-
-        TODO: Move this to the ODB program extractor as the logic is used there.
-        TODO: Remove from Bryan's atomizer.
-        """
-        return min(qastates, default=None)
+        return None if not classes else min(classes)
 
     def __len__(self):
         """

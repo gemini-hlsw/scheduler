@@ -5,11 +5,10 @@ from astropy.time import Time, TimeDelta
 import astropy.units as u
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 from enum import IntEnum
 import numpy as np
 import numpy.typing as npt
-from typing import ClassVar, FrozenSet, Iterable, List, Mapping, NoReturn, Set, Tuple
+from typing import ClassVar, FrozenSet, Iterable, List, Mapping, NoReturn, Optional, Set, Tuple
 
 from common.minimodel import ObservationClass, Program, ProgramTypes, Semester, Site
 from common.api import ProgramProvider
@@ -159,6 +158,10 @@ class Collector(SchedulerComponent):
     # The default timeslot length currently used.
     DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min
 
+    # These are exclusive to the create_time_array.
+    _MIN_NIGHT_EVENT_TIME = ClassVar[Time('1980-01-01 00:00:00', format='iso', scale='utc')]
+    _MAX_NIGHT_EVENT_TIME = ClassVar[Time('2200-01-01 00:00:00', format='iso', scale='utc')]
+
     def __post_init__(self):
         """
         Initializes the internal data structures for the Collector and populates them.
@@ -178,10 +181,22 @@ class Collector(SchedulerComponent):
         self.night_events = {site: self._NIGHT_EVENTS_CACHE.fetch_night_events(site, self.time_grid)
                              for site in self.sites}
 
-    # TODO: These are exclusive to the create_time_array, which is found in the Selector.
-    # TODO: They should probably be moved there.
-    _MIN_NIGHT_EVENT_TIME = ClassVar[Time('1980-01-01 00:00:00', format='iso', scale='utc')]
-    _MAX_NIGHT_EVENT_TIME = ClassVar[Time('2200-01-01 00:00:00', format='iso', scale='utc')]
+        # Create the time array, which is an array that represents the minimum starting
+        # time to the maximum starting time, divided into segments of length time_slot_length.
+        # We want one entry per time slot grid, i.e. per night.
+        self.times = []
+        for i in range(len(self.time_grid)):
+            time_min = min([self._MAX_NIGHT_EVENT_TIME] + [self.night_events[site].twi_eve12[i] for site in self.sites])
+            time_max = max([self._MIN_NIGHT_EVENT_TIME] + [self.night_events[site].twi_mor12[i] for site in self.sites])
+            time_start = self._round_minute(time_min, up=True)
+            time_end = self._round_minute(time_max, up=False)
+
+            time_slot_length_days = self.time_slot_length.to(u.day).value
+            n = np.int((time_end.jd - time_start.jd) / time_slot_length_days * 0.5)
+            self.times.append(Time(np.linspace(time_start.jd, time_end.jd - time_slot_length_days, n), format='jd'))
+
+        # We begin with zero observations.
+        self.num_observations = 0
 
     def load_programs(self, program_provider: ProgramProvider, json_data: Mapping[Site, Iterable[dict]]) -> NoReturn:
         """
@@ -217,6 +232,9 @@ class Collector(SchedulerComponent):
                         logging.warning(f'Site {site.name} contains a repeated program with id {program.id}.')
                     self.programs[site][program.id] = program
 
+                    # Now extract the observation and target information from the program.
+                    # TODO
+
                 except ValueError as e:
                     bad_program_count += 1
                     logging.warning(f'Could not parse program: {e}')
@@ -224,26 +242,19 @@ class Collector(SchedulerComponent):
                 if bad_program_count:
                     logging.error(f'For site {site.name}, could not parse {bad_program_count} programs.')
 
-    def create_time_array(self):
+    @staticmethod
+    def _select_obsclass(classes: List[ObservationClass]) -> Optional[ObservationClass]:
         """
-        This is used by the Selector and should probably be moved there.
-        It is only called if the times parameter to the Selector is None.
-        TODO: Do we need to use astropy units at this point? I don't see how not.
+        Return the observation class based on precedence.
+        classes is the list of observe classes from get_obs_class.
         """
-        times_array = []
-        slot_length_value = self.time_slot_length.to(u.day).value
+        obsclass = None
 
-        for idx in range(len(self.time_grid)):
-            twi_min = min([Collector._MAX_NIGHT_EVENT_TIME] + [self.night_events[site].twi_eve12[idx]
-                                                               for site in self.sites])
-            twi_max = min([Collector._MIN_NIGHT_EVENT_TIME] + [self.night_events[site].twi_mor12[idx]
-                                                               for site in self.sites])
-            twi_start = Collector._round_minute(twi_min, up=True)
-            twi_end = Collector._round_minute(twi_max, up=False)
-            num = np.int((twi_end.jd - twi_start.jd) / slot_length_value + 0.5)
-            times_array.append(Time(np.linspace(twi_start.jd, twi_end.jd - slot_length_value, num), format='jd'))
-
-        return times_array
+        for oclass in ObservationClass:
+            if oclass in classes:
+                obsclass = oclass
+                break
+        return obsclass
 
     @staticmethod
     def _round_minute(time: Time, up: bool) -> Time:
