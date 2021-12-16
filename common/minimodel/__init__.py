@@ -277,7 +277,15 @@ class Constraints:
     elevation_max: float
     timing_windows: List[TimingWindow]
     # clearance_windows: Optional[List[ClearanceWindow]] = None
+<<<<<<< HEAD
     strehl: Optional[Strehl] = None
+=======
+    strehl: Optional[Stehl] = None
+
+    # For performance increase to avoid repeated computation.
+    # Divide a time in milliseconds by this to get the quantity in hours.
+    _MS_TO_H: ClassVar[int] = u.h.to('ms') * u.h
+>>>>>>> SCHED-75: Mini model logic fixing.
 
     def __post_init__(self):
         """
@@ -296,11 +304,20 @@ class Constraints:
         repeats = (tw.repeat for tw in self.timing_windows)
         periods = (tw.period for tw in self.timing_windows)
 
+<<<<<<< HEAD
         for (s, d, r, p) in zip(starts, durations, repeats, periods):
             start = Time(s)
             duration = TimeDelta.max if d == -1 else TimeDelta(d)
             repeat = TimingWindow.OCS_INFINITE_REPEATS if r == TimingWindow.FOREVER_REPEATING else max(1, r)
             period = None if p is None else TimeDelta(p)
+=======
+        for (start, duration, repeat, period) in zip(starts, durations, repeats, periods):
+            t0 = float(start) * u.ms
+            begin = Time(t0.to_value('s'), format='unix', scale='utc')
+            duration = TimingWindow.INFINITE_DURATION if duration == -1 else duration / Constraints._MS_TO_H
+            repeat = TimingWindow.ocs_infinite_repeats if repeat == TimingWindow.FOREVER_REPEATING else max(1, repeat)
+            period = period / Constraints._MS_TO_H
+>>>>>>> SCHED-75: Mini model logic fixing.
 
             for i in range(repeat):
                 window_start = start if period is None else start + i * period
