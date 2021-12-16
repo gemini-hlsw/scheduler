@@ -475,7 +475,7 @@ class NodeGroup(Group, ABC):
             raise ValueError(msg)
 
     def required_resources(self) -> Set[Resource]:
-        return {r for c in self.children for r in c.reqfsssuired_resources()}
+        return {r for c in self.children for r in c.required_resources()}
 
     def wavelengths(self) -> Set[float]:
         return {w for c in self.children for w in c.wavelengths()}
