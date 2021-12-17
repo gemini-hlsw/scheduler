@@ -8,6 +8,7 @@
 import os
 import json
 import gzip
+import numpy as np
 
 from openpyxl import Workbook
 from openpyxl import load_workbook
@@ -16,96 +17,246 @@ from openpyxl import load_workbook
 fpuinst = {'GNIRS': 'instrument:slitWidth', 'GMOS-N': 'instrument:fpu'}
 
 
-def findatoms(sequence):
-    
-    qoffsets = []
+def select_qastate(states):
+    """Return the qastate based on precedence
+
+        states: list of observe states from the ODB extractor obsLog
+    """
+    qastate = ''
+
+    # Precedence order for observation classes.
+    qastate_order = ['NONE', 'UNDEFINED', 'FAIL', 'USABLE', 'PASS']
+
+    # Set the qastate for the entire observation based on precedence
+    for state in qastate_order:
+        if state in states:
+            qastate = state
+            break
+
+    return qastate
+
+# --------------
+
+
+def select_obsclass(classes):
+    """Return the obsclass based on precedence
+
+        classes: list of observe classes from the ODB extractor
+    """
+    obsclass = ''
+
+    # Precedence order for observation classes.
+    obsclass_order = ['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL']
+
+    # Set the obsclass for the entire observation based on obsclass precedence
+    for oclass in obsclass_order:
+        if oclass in classes:
+            obsclass = oclass
+            break
+
+    return obsclass
+
+# --------------
+
+
+def findatoms(observation):
+    '''Analyze a json observing sequence from the ODB and define atoms.'''
+
+    classes = []
+    qastates = []
     atoms = []
     natom = 0
     nabba = 0
-    
+
+    # Make dictionary out of obslog to get QA state
+    obslog = {}
+    for log_entry in observation['obsLog']:
+        obslog[log_entry['label']] = {'qaState': log_entry['qaState'], 'filename': log_entry['filename']}
+    datalabels = list(obslog.keys())
+
+    # Sequence analysis
+    sequence = observation['sequence']
     nsteps = len(sequence)
-    
+
     for ii, step in enumerate(sequence):
         nextatom = False
-        keys = list(step.keys())
+        qoffsets = False
 
         datalab = step['observe:dataLabel']
+        if datalab in datalabels:
+            qastate = obslog[datalab]['qaState']
+        else:
+            qastate = 'NONE'
+        qastates.append(qastate.upper())
+
         observe_class = step['observe:class']
+        classes.append(observe_class.upper())
+
         exptime = float(step['observe:exposureTime'])
         inst = step['instrument:instrument']
-    #     print(inst, fpuinst[inst])
+        #     print(inst, fpuinst[inst])
         fpu = step[fpuinst[inst]]
-        if 'instrument:filter' in keys:
-            filter_name = step["instrument:filter"]
+        if 'instrument:filter' in step.keys():
+            filter = step["instrument:filter"]
         else:
-            filter_name = 'None'
+            filter = 'None'
         wavelength = float(step['instrument:observingWavelength'])
-        step_time = step['totalTime']/1000.
-        
+        step_time = step['totalTime'] / 1000.
+
         if 'GMOS' in inst:
             coadds = 1
         else:
             coadds = int(step['observe:coadds'])
 
         disperser = step['instrument:disperser']
-
-        # Offsets
-        if 'telescope:p' in keys:
+        if 'telescope:p' in step.keys():
             p = float(step['telescope:p'])
         else:
             p = 0.0
-        if 'telescope:q' in keys:
+        if 'telescope:q' in step.keys():
             q = float(step['telescope:q'])
+            qoffsets = True
         else:
             q = 0.0
-        qoffsets.append(q)
 
-        # Guiding
-        guiding = 'park'
-        for key in keys:
-            if 'guideWith' in key:
-                if step[key] != 'park':
-                    guiding = step[key]
-                    break
-
-        # Any wavelength/filter_name change is a new atom
-        if ii == 0 or (ii > 0 and wavelength != float(sequence[ii-1]['instrument:observingWavelength'])):
+            # Any wavelength/filter change is a new atom
+        if ii == 0 or (ii > 0 and wavelength != float(sequence[ii - 1]['instrument:observingWavelength'])):
             nextatom = True
             print('Atom for wavelength')
-                
-#         if observe_class == 'science':
-            
+
+        #         if observe_class == 'science':
+
         # AB
         # ABBA
-        if nsteps >= 4 and nsteps - ii > 3 and nabba == 0:
-            # print(q, sequence[ii+1]['telescope:q'], sequence[ii+2]['telescope:q'], sequence[ii+3]['telescope:q'])
-            if q == float(sequence[ii+3]['telescope:q']) and q != float(sequence[ii+1]['telescope:q']) and                float(sequence[ii+1]['telescope:q']) == float(sequence[ii+2]['telescope:q']):
-                    nabba = 3
-                    nextatom = True
-                    print('Atom for ABBA')
+        if qoffsets and nsteps >= 4 and nsteps - ii > 3 and nabba == 0:
+            #             print(q, sequence[ii+1]['telescope:q'], sequence[ii+2]['telescope:q'], sequence[ii+3]['telescope:q'])
+            if q == float(sequence[ii + 3]['telescope:q']) and q != float(sequence[ii + 1]['telescope:q']) and float(
+                    sequence[ii + 1]['telescope:q']) == float(sequence[ii + 2]['telescope:q']):
+                nabba = 3
+                nextatom = True
+                print('Atom for ABBA')
         else:
             nabba -= 1
-        
+
         if nextatom:
+            # Get class and qastate for previous atom
+            if natom > 0:
+                print(qastates)
+                atoms[-1]['qastate'] = select_qastate(qastates)
+                print(classes)
+                atoms[-1]['class'] = select_obsclass(classes)
+
+            # New atom
             natom += 1
-            atoms.append({'id': natom, 'exec_time': 0.0, 'prog_time': 0.0, 'part_time': 0.0, 'filter': filter_name,
-                          'fpu': fpu, 'disperser': disperser, 'wavelength': wavelength, 'guiding': guiding})
+            atoms.append({'id': natom, 'exec_time': 0.0, 'prog_time': 0.0, 'part_time': 0.0,
+                          'class': 'NONE', 'qastate': 'NONE'})
+            classes = []
 
         atoms[-1]['exec_time'] += step_time
-        
+
         atomlabel = natom
-        if 'partnerCal' in observe_class:        
+        if 'partnerCal' in observe_class:
             atomlabel *= 10
             atoms[-1]['part_time'] += step_time
         else:
             atoms[-1]['prog_time'] += step_time
-            
-#         atoms[-1]['id'] = atomlabel
-            
+
         print('{:22} {:12} {:7.2f} {:3d} {:10} {:15} {:12} {:12} {:7.4f} {:5.2f} {:5.2f} {:3d}'.format(datalab,
-               observe_class, exptime, coadds, inst, fpu, filter_name, disperser, wavelength, p, q, atomlabel))
+                                                                                                       observe_class,
+                                                                                                       exptime, coadds,
+                                                                                                       inst, fpu,
+                                                                                                       filter,
+                                                                                                       disperser,
+                                                                                                       wavelength, p, q,
+                                                                                                       atomlabel))
+    #     print(atoms)
+    # Get class/state for last atom
+    if natom > 0:
+        print(qastates)
+        atoms[-1]['qastate'] = select_qastate(qastates)
+        print(classes)
+        atoms[-1]['class'] = select_obsclass(classes)
 
     return atoms
+
+
+def group_proc(group):
+    '''Process observations within groups'''
+
+    obsnum = []
+    for item in list(group.keys()):
+        obsid = ''
+        if 'OBSERVATION' in item:
+    #         obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
+            obsid = group[item]['observationId']
+            obsnum.append(int(item.split('-')[1]))
+    #             print(f" \t {item, obsnum[-1], obsid}")
+    #         else:
+    #             print(item, group[item])
+
+    if len(obsnum) > 0:
+        isrt = np.argsort(obsnum)
+        for ii in isrt:
+            item = 'OBSERVATION_BASIC-' + str(obsnum[ii])
+            #     obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
+            obsid = group[item]['observationId']
+            print(f" \t {obsnum[ii], obsid}")
+            # Atoms in each sequence
+            atoms = findatoms(group[item])
+            # Summary of atoms
+            classes = []
+            qastates = []
+            for atom in atoms:
+                print('Atom ', atom['id'])
+                for key in atom.keys():
+                    print(f" \t {key}: {atom[key]}")
+                    if key == 'class':
+                        classes.append(atom[key])
+                    if key == 'qastate':
+                        qastates.append(atom[key])
+            obsclass = select_obsclass(classes)
+            print(f"Obsclass: {obsclass}")
+            obs_qastate = select_qastate(qastates)
+            print(f"QAstate (atoms): {obs_qastate}")
+            print(f"qaState (ODB): {group[item]['qaState']}")
+            print()
+
+    return
+
+
+def prog_proc(program):
+    '''Process top-level of program'''
+
+    grpnum = []
+    grplist = []
+    for prog in list(program.keys()):
+        #     print(list(program[prog].keys()))
+
+        # Any observations at the root level?
+        group_proc(program[prog])
+
+        # First pass to count and record groups
+        for item in list(program[prog].keys()):
+            if 'GROUP' in item:
+                #                 print(item, program[prog][item]['name'])
+                #         print(program[prog][item])
+                grpnum.append(int(item.split('-')[1]))
+                grplist.append(item.split('-')[0])
+
+        #         gmax = np.max(grpnum)
+
+        if len(grpnum) > 0:
+            # Second pass to put the groups in the same order as in the program
+            print(grplist)
+            print(grpnum)
+            isrt = np.argsort(grpnum)
+            #     print(grpnum)
+            for ii in isrt:
+                group = grplist[ii] + '-' + str(grpnum[ii])
+                print(group, program[prog][group]['name'])
+                group_proc(program[prog][group])
+
+    return
 
 
 def printseq(sequence, comment='', csv=False, path=''):
@@ -332,7 +483,7 @@ if __name__ == '__main__':
     for item in list(program[prog][group].keys()):
         obsid = ''
         if 'OBSERVATION' in item:
-    #         obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
+#         obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
             obsid = program[prog][group][item]['observationId']
             obsnum.append(item.split('-')[1])
             print(item, obsnum[-1], obsid)
@@ -379,12 +530,16 @@ if __name__ == '__main__':
     # printseq(program[prog][group][obs]['sequence'])
 
     print('Sequence Atoms')
-    atoms = findatoms(program[prog][group][obs]['sequence'])
+    atoms = findatoms(program[prog][group][obs])
     # Summary of atoms
     for atom in atoms:
         print('Atom ', atom['id'])
         for key in atom.keys():
             print(f" \t {key}: {atom[key]}")
+    print()
+
+    print('Process program to define atoms')
+    prog_proc(program)
     print()
 
     targenv = 'TELESCOPE_TARGETENV-2'
@@ -499,7 +654,7 @@ if __name__ == '__main__':
     # printseq(program[prog][group][obs]['sequence'])
 
     print('Sequence Atoms')
-    atoms = findatoms(program[prog][group][obs]['sequence'])
+    atoms = findatoms(program[prog][group][obs])
     # Summary of atoms
     for atom in atoms:
         print('Atom ', atom['id'])
