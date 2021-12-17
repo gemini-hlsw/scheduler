@@ -343,11 +343,11 @@ class Resource:
 
 
 class QAState(Enum):
-    UNKNOWN = 'UNKNOWN'
-    UNDEFINED = 'UNDEFINED'
-    USABLE = 'USABLE'
-    PASS = 'PASS'
-    FAIL = 'FAIL'
+    UNKNOWN = auto()
+    UNDEFINED = auto()
+    USABLE = auto()
+    PASS = auto()
+    FAIL = auto()
 
 
 @dataclass
@@ -375,6 +375,7 @@ class ObservationStatus(Enum):
     READY = 'READY'
     ONGOING = 'ONGOING'
     OBSERVED = 'OBSERVED'
+    INACTIVE = 'INACTIVE'
 
 class Priority(IntEnum):
     LOW = auto()
