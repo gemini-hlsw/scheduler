@@ -13,7 +13,12 @@ class JsonProvider(ProgramProvider):
                    'science': ObservationClass.SCIENCE,
                    'programCal': ObservationClass.PROG_CAL,
                    'acq': ObservationClass.ACQ,
-                   'acqCal': ObservationClass.ACQ_CAL}
+                   'acqCal': ObservationClass.ACQ_CAL,
+                   'dayCal': None}
+    qa_states = {'Pass': QAState.PASS,
+                'Fail': QAState.FAIL,
+                'Usable': QAState.USABLE,
+                'Undefined': QAState.UNDEFINED}
 
     def __init__(self, path):
         self.path = path
@@ -106,7 +111,7 @@ class JsonProvider(ProgramProvider):
         return nonsidereal
     
     @staticmethod
-    def parse_atoms(sequence: List[dict]) -> List[Atom]:
+    def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
        
         n_steps = len(sequence)
         n_abba = 0
@@ -121,8 +126,8 @@ class JsonProvider(ProgramProvider):
             step_time = timedelta(milliseconds=step['totalTime']/1000)
             
             #OFFSETS
-            p = float(step['telescope:p']) if 'telescope:p' in step.keys() else 0
-            q = float(step['telescope:q']) if 'telescope:q' in step.keys() else 0
+            p = float(step['telescope:p']) if 'telescope:p' in step.keys() else None
+            q = float(step['telescope:q']) if 'telescope:q' in step.keys() else None
 
 
             # Any wavelength/filter_name change is a new atom
@@ -131,14 +136,14 @@ class JsonProvider(ProgramProvider):
 
             # AB
             # ABBA
-            if n_steps >= 4 and n_steps - id > 3 and n_abba == 0:
+            if q is not None and n_steps >= 4 and n_steps - id > 3 and n_abba == 0:
                 print(sequence[id + 3].keys())
                 if (q == float(sequence[id + 3]['telescope:q']) and
                     q != float(sequence[id + 1]['telescope:q']) and
                     float(sequence[id + 1]['telescope:q']) == float(sequence[id + 2]['telescope:q'])):
                         n_abba = 3
                         next_atom = True
-            else:            
+            else:
                 n_abba -= 1
             
             if next_atom:
@@ -159,7 +164,13 @@ class JsonProvider(ProgramProvider):
                 atoms[-1].part_time += step_time
             else:
                 atoms[-1].prog_time += step_time
-        
+
+            if n_atom > 0 and qa_states:
+                if id < len(qa_states):
+                    atoms[-1].qa_state = qa_states[id-1]
+                else:
+                    atoms[-1].qa_state = qa_states[-1]
+
         return atoms
            
     @staticmethod
@@ -183,15 +194,14 @@ class JsonProvider(ProgramProvider):
         
         find_constraints = [json[key] for key in json.keys() if key.startswith('SCHEDULING_CONDITIONS')]
         constraints = JsonProvider.parse_constraints(find_constraints[0]) if len(find_constraints) > 0 else None
-        
-        # TODO: QA state is at observation level not atom
-        qa_state =  QAState(json['qaState'])
+                
+        qa_states = [QAState(JsonProvider.qa_states[log_entry['qaState']]) for log_entry in json['obsLog']]
 
         site = Site.GN if json['observationId'].split('-')[0] == 'GN' else Site.GS
         status = ObservationStatus(json['obsStatus'])
         priority = Priority.HIGH if json['priority'] == 'HIGH' else (Priority.LOW if json['priority'] == 'LOW' else Priority.MEDIUM)
         print('observationId: ', json['observationId'])
-        atoms = JsonProvider.parse_atoms(json['sequence'])
+        atoms = JsonProvider.parse_atoms(json['sequence'], qa_states)
 
         obs = Observation(json['observationId'],
                           json['key'],
@@ -258,14 +268,19 @@ class JsonProvider(ProgramProvider):
     @staticmethod
     def parse_root_group(json: dict) -> OrGroup:
         # Find nested OR groups/AND groups
-        groups = [JsonProvider.parse_or_group(json[key]) for key in json.keys() if key.startswith('GROUP_GROUP_SCHEDULING')]
+        groups = [JsonProvider.parse_and_group(json[key]) for key in json.keys() if key.startswith('GROUP_GROUP_SCHEDULING')]
         num_to_observe = len(groups)
-        root_group = OrGroup(None, None, num_to_observe, 0, 0, groups)
+        root_group = AndGroup(None, None, num_to_observe, 0, 0, groups, AndOption.ANYORDER)
         return root_group
 
     @staticmethod
     def parse_and_group(json: dict) -> AndGroup:
-        ...
+        observations = [JsonProvider.parse_observation(json[key], key) for key in json.keys() if key.startswith('OBSERVATION_BASIC')]
+
+        number_to_observe = len(observations)
+        delay_max, delay_min = 0, 0 # TODO: What are these?
+        # or_group = AndGroup(json['key'], json['name'], number_to_observe, delay_min, delay_max, observations, AndOption.ANYORDER)
+        return AndGroup(json['key'], json['name'], number_to_observe, delay_min, delay_max, observations, AndOption.ANYORDER)
 
     @staticmethod
     def parse_program(json: dict) -> Program:
