@@ -5,6 +5,16 @@ from common.minimodel import *
 
 
 class JsonProvider(ProgramProvider):
+
+    # TODO: To handle Enum it could be done this way or changing the Enum to accept the 
+    # string value and just use the constructor. Let me know which is better.
+
+    obs_classes = {'partnerCal': ObservationClass.PARTNER_CAL,
+                   'science': ObservationClass.SCIENCE,
+                   'programCal': ObservationClass.PROG_CAL,
+                   'acq': ObservationClass.ACQ,
+                   'acqCal': ObservationClass.ACQ_CAL}
+
     def __init__(self, path):
         self.path = path
 
@@ -18,9 +28,9 @@ class JsonProvider(ProgramProvider):
 
     @staticmethod
     def parse_magnitude(json: dict) -> Magnitude:
-        band = MagnitudeBand(json['name'])
+        band = MagnitudeBand(json['name'], None, None)
         value = json['value']
-        error = ...
+        error = None
         mag = Magnitude(band, value, error)
 
         return mag
@@ -38,43 +48,51 @@ class JsonProvider(ProgramProvider):
     
     @staticmethod
     def parse_constraints(json: dict) -> Constraints:
-        constraints = Constraints()
-        
-        constraints.cc = json['cc']
-        constraints.iq = json['iq']
-        constraints.sb = json['sb']
-        constraints.wv = json['wv']
-        constraints.elevation_type = json['elevationConstraintType']
-        constraints.elevation_min = json['elevationConstraintMin']
-        constraints.elevation_max = json['elevationConstraintMax']
-        constraints.timing_windows = JsonProvider.parse_timing_window(json['timingWindows']) # this would need parsing 
-        constraints.strehl = ...
+        return Constraints(json['cc'],
+                           json['iq'],
+                           json['sb'],
+                           json['wv'],
+                           json['elevationConstraintType'],
+                           json['elevationConstraintMin'],
+                           json['elevationConstraintMax'],
+                           JsonProvider.parse_timing_window(json),
+                           None)
     
     @staticmethod
-    def parse_atom(json: dict) -> Observation:
+    def parse_atom(json: dict, id: int, qa_state: QAState) -> Observation:
         atom = Atom()
 
-        atom.id = ...
-        atom.exec_time = ...
+        atom.id = id
+        step_time = json['totalTime']/1000
+        observe_class = json['observe:class']
+        part_time = 0
+        prog_time = 0
+        if observe_class ==  'partnerCal':
+            part_time += step_time
+        else:
+            prog_time += step_time
+        atom.exec_time = step_time
         atom.prog_time = ...
         atom.part_time = ...
         atom.observed = json['metadata:complete']
-        atom.qa_state = ...
-        atom.guide_state = ...
-        atom.required_resources = ...
-        atom.wavelength = ...
+        atom.qa_state = qa_state
+        atom.guide_state = ... # missing defaultGuideOption on the atom information
+        atom.required_resources = [Resource('None', json['instrument:instrument'])] 
+        atom.wavelength = float(json['instrument:observingWavelength'])
         return atom
 
     @staticmethod
     def parse_sidereal_target(json: dict) -> SiderealTarget:
-        sidereal = SiderealTarget()
-        sidereal.ra = json['ra'] # this might need transformation
-        sidereal.dec = json['dec'] # this might need transformation
-        sidereal.pm_ra = json['base']['deltara']
-        sidereal.pm_dec = json['base']['deltadec']
-        sidereal.epoch = json['base']['epoch']
-
-        magnitudes = [JsonProvider.parse_magnitude(mag) for mag in json['magnitudes']]
+        magnitudes = [JsonProvider.parse_magnitude(mag) for mag in json['base']['magnitudes']] if 'magnitudes' in json['base'] else []
+        sidereal = SiderealTarget(json['base']['name'],
+                                  magnitudes,
+                                  json['base']['type'],
+                                  json['base']['ra'],
+                                  json['base']['dec'],
+                                  json['base']['deltara'] if 'deltara' in json['base'] else None,
+                                  json['base']['deltadec'] if 'deltadec' in json['base'] else None,
+                                  json['base']['epoch'] if 'epoch' in json['base'] else None)
+       
         return sidereal
 
     @staticmethod
@@ -82,43 +100,134 @@ class JsonProvider(ProgramProvider):
         nonsidereal = NonsiderealTarget()
         nonsidereal.des = json['base']['des']
         nonsidereal.tag = json['base']['tag']
-        nonsidereal.ra = ...
-        nonsidereal.dec = ...
+        nonsidereal.ra = None
+        nonsidereal.dec = None
 
         return nonsidereal
+    
+    @staticmethod
+    def parse_atoms(sequence: List[dict]) -> List[Atom]:
+       
+        n_steps = len(sequence)
+        n_abba = 0
+        n_atom = 0
+        atoms = []
+        for id, step in enumerate(sequence):
+            next_atom = False
+            obs_class = step['observe:class']
+            instrument = Resource(step['instrument:instrument'], step['instrument:instrument'])
+            wavelength = float(step['instrument:observingWavelength'])
+            observed = step['metadata:complete']
+            step_time = timedelta(milliseconds=step['totalTime']/1000)
+            
+            #OFFSETS
+            p = float(step['telescope:p']) if 'telescope:p' in step.keys() else 0
+            q = float(step['telescope:q']) if 'telescope:q' in step.keys() else 0
 
+
+            # Any wavelength/filter_name change is a new atom
+            if id == 0 or (id > 0 and wavelength != float(sequence[id-1]['instrument:observingWavelength'])):
+                next_atom = True
+
+            # AB
+            # ABBA
+            if n_steps >= 4 and n_steps - id > 3 and n_abba == 0:
+                print(sequence[id + 3].keys())
+                if (q == float(sequence[id + 3]['telescope:q']) and
+                    q != float(sequence[id + 1]['telescope:q']) and
+                    float(sequence[id + 1]['telescope:q']) == float(sequence[id + 2]['telescope:q'])):
+                        n_abba = 3
+                        next_atom = True
+            else:            
+                n_abba -= 1
+            
+            if next_atom:
+                n_atom += 1
+                atoms.append(Atom(n_atom,
+                                  timedelta(milliseconds=0),
+                                  timedelta(milliseconds=0),
+                                  timedelta(milliseconds=0),
+                                  observed,
+                                  None,
+                                  None,
+                                  instrument,
+                                  wavelength))
+            
+            atoms[-1].exec_time += step_time
+
+            if 'partnerCal' in obs_class:
+                atoms[-1].part_time += step_time
+            else:
+                atoms[-1].prog_time += step_time
+        
+        return atoms
+           
     @staticmethod
     def parse_observation(json: dict, name: str ) -> Observation:
-        obs = Observation()
 
-        obs.id = json['observationId']
-        obs.internal_id = json['key']
-        obs.order = int(name.split('-')[1])
-        obs.title = json['title']
-        obs.site = ...
-        obs.status = json['obsStatus']
-        obs.active = ...
-        obs.priority = json['priority']
-        obs.setuptime_type = SetupTimeType(json['setupTimeType'])
-        obs.acq_overhead = ...
-        obs.obs_class = ObservationClass(json['obsClass'])
-        obs.exec_time = ...
-        obs.program_used = ...
-        obs.partner_used = ...
-        targets_in_json = [json[key] for key in json.keys() if key.startswith('TELESCOPE_TARGETENV')]
-        targets = [JsonProvider.parse_sidereal_target(target) if target['base']['tag'] == 'sidereal' else JsonProvider.parse_sidereal_target(target) for target in targets_in_json]
-        obs.targets = targets
-        obs.guide_stars = ...
-        obs.sequence = [JsonProvider.parse_atom(seq) for seq in json['sequence']]
-        find_constraints = [json[key] for key in json.keys() if key.startswith('SCHEDULING_CONDITIONSt')]
-        obs.constraints = JsonProvider.parse_constraints(find_constraints[0])
-        obs.too_type = ...
+        targets = []
+        guide_stars = {}
+        for key in json.keys():
+            if key.startswith('TELESCOPE_TARGETENV'):
+                target = None
+                if json[key]['base']['tag'] == 'sidereal':
+                    target = JsonProvider.parse_sidereal_target(json[key])
+                else:
+                    target = JsonProvider.parse_sidereal_target(json[key])
+                targets.append(target)
+
+                for guide_group in json[key]['guideGroups']:
+                    
+                    if type(guide_group[1]) == dict:
+                        guide_stars[target.name] = JsonProvider.parse_guide_star(guide_group[1])
+        
+        find_constraints = [json[key] for key in json.keys() if key.startswith('SCHEDULING_CONDITIONS')]
+        constraints = JsonProvider.parse_constraints(find_constraints[0]) if len(find_constraints) > 0 else None
+        
+        # TODO: QA state is at observation level not atom
+        qa_state =  QAState(json['qaState'])
+
+        site = Site.GN if json['observationId'].split('-')[0] == 'GN' else Site.GS
+        status = ObservationStatus(json['obsStatus'])
+        priority = Priority.HIGH if json['priority'] == 'HIGH' else (Priority.LOW if json['priority'] == 'LOW' else Priority.MEDIUM)
+        print('observationId: ', json['observationId'])
+        atoms = JsonProvider.parse_atoms(json['sequence'])
+
+        obs = Observation(json['observationId'],
+                          json['key'],
+                          int(name.split('-')[1]),
+                          json['title'],
+                          site,
+                          status,
+                          None,
+                          priority,
+                          SetupTimeType(json['setupTimeType']),
+                          timedelta(milliseconds=json['setupTime']),
+                          JsonProvider.obs_classes[json['obsClass']],
+                          None,
+                          None,
+                          None,
+                          targets,
+                          guide_stars,
+                          atoms,
+                          constraints,
+                          None
+                          )
+
+
+        # obs.active = ...
+
+        # obs.exec_time = ... # Total time sequence  + overhead
+        # obs.program_used = ...
+        # obs.partner_used = ...
+       
+        # obs.too_type = ... # TODO: at program level
 
         return obs
     
     @staticmethod
     def parse_time_allocation(json: dict) -> TimeAllocation:
-        print(json['timeAccountAllocationCategories'])
+        #print(json['timeAccountAllocationCategories'])
         ta = TimeAllocation(TimeAccountingCode(json['timeAccountAllocationCategories'][0]['category']),
                             timedelta(milliseconds=json['awardedTime']),
                             timedelta(milliseconds=0),
@@ -131,7 +240,8 @@ class JsonProvider(ProgramProvider):
         
         # Find nested OR groups/AND groups
         # TODO: is this correct if there are not nested groups in OCS natively
-        observations = [JsonProvider.parse_observation(json[key], key) for key in json.keys() if key.startwith('OBSERVATION_BASIC')]
+
+        observations = [JsonProvider.parse_observation(json[key], key) for key in json.keys() if key.startswith('OBSERVATION_BASIC')]
 
         number_to_observe = len(observations)
         delay_max, delay_min = 0, 0 # TODO: What are these?
@@ -139,13 +249,16 @@ class JsonProvider(ProgramProvider):
         return or_group
 
     @staticmethod
-    def parse_guide_star(json: dict) -> GuideStar:
-        ...
+    def parse_guide_star(json: dict) -> Resource:
+
+        # TODO: Maybe a GuideStart class should be in place to handle this better
+        res = Resource(json['name'], json['tag'])
+        return res
     
     @staticmethod
     def parse_root_group(json: dict) -> OrGroup:
         # Find nested OR groups/AND groups
-        groups = [JsonProvider.parse_or_group(key) for key in json.keys() if key.startswith('GROUP_GROUP_SCHEDULING')]
+        groups = [JsonProvider.parse_or_group(json[key]) for key in json.keys() if key.startswith('GROUP_GROUP_SCHEDULING')]
         num_to_observe = len(groups)
         root_group = OrGroup(None, None, num_to_observe, 0, 0, groups)
         return root_group
