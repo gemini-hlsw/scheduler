@@ -423,6 +423,7 @@ class ObservationStatus(Enum):
     READY = 'READY'
     ONGOING = 'ONGOING'
     OBSERVED = 'OBSERVED'
+    INACTIVE = 'INACTIVE'
 
 class Priority(IntEnum):
     LOW = auto()
