@@ -415,15 +415,14 @@ class Atom:
 
 
 class ObservationStatus(Enum):
-    NEW = auto()
-    INCLUDED = auto()
-    PROPOSED = auto()
-    APPROVED = auto()
-    FOR_REVIEW = auto()
-    READY = auto()
-    ONGOING = auto()
-    OBSERVED = auto()
-
+    NEW = 'NEW'
+    INCLUDED = 'INCLUDED'
+    PROPOSED = 'PROPOSED'
+    APPROVED = 'APPROVED'
+    FOR_REVIEW = 'FOR_REVIEW'
+    READY = 'READY'
+    ONGOING = 'ONGOING'
+    OBSERVED = 'OBSERVED'
 
 class Priority(IntEnum):
     LOW = auto()
@@ -438,9 +437,9 @@ class TooType(IntEnum):
 
 
 class SetupTimeType(Enum):
-    FULL = auto()
-    REACQ = auto()
-    NONE = auto()
+    FULL = 'FULL'
+    REACQ = 'REACQ'
+    NONE = 'NONE'
 
 
 class ObservationClass(IntEnum):
