@@ -6,37 +6,12 @@ from common.minimodel import *
 
 class JsonProvider(ProgramProvider):
 
-    # TODO: To handle Enum it could be done this way or changing the Enum to accept the 
-    # string value and just use the constructor. Let me know which is better.
-
     obs_classes = {'partnerCal': ObservationClass.PARTNER_CAL,
                    'science': ObservationClass.SCIENCE,
                    'programCal': ObservationClass.PROG_CAL,
                    'acq': ObservationClass.ACQ,
                    'acqCal': ObservationClass.ACQ_CAL,
                    'dayCal': None}
-    qa_states = {'Pass': QAState.PASS,
-                'Fail': QAState.FAIL,
-                'Usable': QAState.USABLE,
-                'Undefined': QAState.UNDEFINED}
-    
-    obs_status = {'NEW': ObservationStatus.NEW,
-                  'INCLUDED': ObservationStatus.INCLUDED,
-                  'PROPOSED': ObservationStatus.PROPOSED,
-                  'APPROVED': ObservationStatus.APPROVED,
-                  'FOR_REVIEW': ObservationStatus.FOR_REVIEW,
-                  'READY': ObservationStatus.READY,
-                  'ONGOING': ObservationStatus.ONGOING,
-                  'OBSERVED': ObservationStatus.OBSERVED,
-                  'INACTIVE': ObservationStatus.INACTIVE}
-    
-    setuptime_types = {'FULL': SetupTimeType.FULL,
-                       'REACQ': SetupTimeType.REACQ,
-                       'NONE': SetupTimeType.NONE}
-    
-    program_modes = {'Queue': ProgramMode.QUEUE,
-                     'Classical': ProgramMode.CLASSICAL,
-                     'PV': ProgramMode.PV}
 
     def __init__(self, path):
         self.path = path
@@ -155,7 +130,6 @@ class JsonProvider(ProgramProvider):
             # AB
             # ABBA
             if q is not None and n_steps >= 4 and n_steps - id > 3 and n_abba == 0:
-                print(sequence[id + 3].keys())
                 if (q == float(sequence[id + 3]['telescope:q']) and
                     q != float(sequence[id + 1]['telescope:q']) and
                     float(sequence[id + 1]['telescope:q']) == float(sequence[id + 2]['telescope:q'])):
@@ -218,7 +192,7 @@ class JsonProvider(ProgramProvider):
         site = Site.GN if json['observationId'].split('-')[0] == 'GN' else Site.GS
         status = ObservationStatus[json['obsStatus']]
         priority = Priority.HIGH if json['priority'] == 'HIGH' else (Priority.LOW if json['priority'] == 'LOW' else Priority.MEDIUM)
-        print('observationId: ', json['observationId'])
+        #print('observationId: ', json['observationId'])
         atoms = JsonProvider.parse_atoms(json['sequence'], qa_states)
 
         obs = Observation(json['observationId'],
@@ -284,7 +258,7 @@ class JsonProvider(ProgramProvider):
         return res
     
     @staticmethod
-    def parse_root_group(json: dict) -> OrGroup:
+    def parse_root_group(json: dict) -> AndGroup:
         # Find nested OR groups/AND groups
         groups = [JsonProvider.parse_and_group(json[key]) for key in json.keys() if key.startswith('GROUP_GROUP_SCHEDULING')]
         num_to_observe = len(groups)
@@ -312,12 +286,18 @@ class JsonProvider(ProgramProvider):
                           ProgramMode[json['programMode'].upper()],
                           None,
                           None,
+                          None,
                           ta,
                           root_group,
                           TooType(json['tooType']) if json['tooType'] != 'None' else None)
+          
 
-        print(program.band)
-        print(program.mode)
+
+
+
+
+        #print(program.band)
+        #print(program.mode)
         return program
 
 if __name__ == '__main__':
@@ -326,3 +306,12 @@ if __name__ == '__main__':
     json = provider.load_program('./data/GN-2018B-Q-101.json')
 
     program = provider.parse_program(json['PROGRAM_BASIC'])
+
+    print(f'Program: {program.id}')
+
+    for group in program.root_group.children:
+        print(f'----- Group: {group.id}')
+        for obs in group.children:
+            print(f'----- ----- Observation: {obs.id}')
+            for atom in obs.sequence:
+                print(f'----- ----- ----- {atom}')
