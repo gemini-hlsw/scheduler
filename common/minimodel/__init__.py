@@ -414,16 +414,16 @@ class Atom:
     wavelength: float
 
 
-class ObservationStatus(Enum):
-    NEW = 'NEW'
-    INCLUDED = 'INCLUDED'
-    PROPOSED = 'PROPOSED'
-    APPROVED = 'APPROVED'
-    FOR_REVIEW = 'FOR_REVIEW'
-    READY = 'READY'
-    ONGOING = 'ONGOING'
-    OBSERVED = 'OBSERVED'
-    INACTIVE = 'INACTIVE'
+class ObservationStatus(IntEnum):
+    NEW = auto()
+    INCLUDED = auto()
+    PROPOSED = auto()
+    APPROVED = auto()
+    FOR_REVIEW = auto()
+    READY = auto()
+    ONGOING = auto()
+    OBSERVED = auto()
+    INACTIVE = auto()
 
 class Priority(IntEnum):
     LOW = auto()
@@ -437,10 +437,10 @@ class TooType(IntEnum):
     STANDARD = auto()
 
 
-class SetupTimeType(Enum):
-    FULL = 'FULL'
-    REACQ = 'REACQ'
-    NONE = 'NONE'
+class SetupTimeType(IntEnum):
+    FULL = auto()
+    REACQ = auto()
+    NONE = auto()
 
 
 class ObservationClass(IntEnum):
@@ -623,16 +623,16 @@ class Band(IntEnum):
     BAND4 = 4
 
 
-class ProgramMode(Enum):
+class ProgramMode(IntEnum):
     """
     Main operational mode, which is one of:
     * Queue
     * Classical
     * Priority Visitor (hybrid mode between queue and classical)
     """
-    QUEUE = 'Queue'
-    CLASSICAL = 'Classical'
-    PV = 'PV'
+    QUEUE = auto()
+    CLASSICAL = auto()
+    PV = auto()
 
 
 @dataclass(frozen=True)
