@@ -2,16 +2,17 @@ import logging
 
 from astropy.coordinates import Angle
 from astropy.time import Time, TimeDelta
-import astropy.units as u
+from astropy import units as u
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import IntEnum
 import numpy as np
 import numpy.typing as npt
-from typing import ClassVar, FrozenSet, Iterable, List, Mapping, NoReturn, Optional, Set, Tuple
+from typing import ClassVar, Dict, FrozenSet, Iterable, List, Mapping, NoReturn, Set, Tuple
 
-from common.minimodel import ObservationClass, Program, ProgramTypes, Semester, Site
 from common.api import ProgramProvider
+import common.helpers as helpers
+from common.minimodel import ObservationClass, Program, ProgramTypes, Semester, Site
 from common.scheduler import SchedulerComponent
 import common.vskyutil as vskyutil
 
@@ -150,7 +151,7 @@ class Collector(SchedulerComponent):
 
     # This should not be populated, but we put it here instead of in __post_init__
     # to eliminate warnings.
-    programs: dict[Site, dict[str, Program]] = field(default_factory=lambda: defaultdict(dict[str, Program]))
+    programs: Dict[Site, Dict[str, Program]] = field(default_factory=lambda: defaultdict(Dict[str, Program]))
 
     # The NightEventsCache to be used with this collector.
     _NIGHT_EVENTS_CACHE: ClassVar[NightEventsCache] = NightEventsCache()
@@ -159,8 +160,11 @@ class Collector(SchedulerComponent):
     DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min
 
     # These are exclusive to the create_time_array.
-    _MIN_NIGHT_EVENT_TIME = ClassVar[Time('1980-01-01 00:00:00', format='iso', scale='utc')]
-    _MAX_NIGHT_EVENT_TIME = ClassVar[Time('2200-01-01 00:00:00', format='iso', scale='utc')]
+    _MIN_NIGHT_EVENT_TIME: ClassVar[Time] = Time('1980-01-01 00:00:00', format='iso', scale='utc')
+
+    # NOTE: This logs an ErfaWarning about dubious year. This is due to using a future date and not knowing
+    # how many leap seconds have happened: https://github.com/astropy/astropy/issues/5809
+    _MAX_NIGHT_EVENT_TIME: ClassVar[Time] = Time('2100-01-01 00:00:00', format='iso', scale='utc')
 
     def __post_init__(self):
         """
@@ -188,8 +192,8 @@ class Collector(SchedulerComponent):
         for i in range(len(self.time_grid)):
             time_min = min([self._MAX_NIGHT_EVENT_TIME] + [self.night_events[site].twi_eve12[i] for site in self.sites])
             time_max = max([self._MIN_NIGHT_EVENT_TIME] + [self.night_events[site].twi_mor12[i] for site in self.sites])
-            time_start = self._round_minute(time_min, up=True)
-            time_end = self._round_minute(time_max, up=False)
+            time_start = helpers.round_minute(time_min, up=True)
+            time_end = helpers.round_minute(time_max, up=False)
 
             time_slot_length_days = self.time_slot_length.to(u.day).value
             n = np.int((time_end.jd - time_start.jd) / time_slot_length_days * 0.5)
@@ -241,34 +245,3 @@ class Collector(SchedulerComponent):
 
                 if bad_program_count:
                     logging.error(f'For site {site.name}, could not parse {bad_program_count} programs.')
-
-    @staticmethod
-    def _select_obsclass(classes: List[ObservationClass]) -> Optional[ObservationClass]:
-        """
-        Return the observation class based on precedence.
-        classes is the list of observe classes from get_obs_class.
-        """
-        obsclass = None
-
-        for oclass in ObservationClass:
-            if oclass in classes:
-                obsclass = oclass
-                break
-        return obsclass
-
-    @staticmethod
-    def _round_minute(time: Time, up: bool) -> Time:
-        """
-        Round a time down (truncate) or up to the nearest minute
-
-        time: an astropy.Time
-        up: bool indicating whether to round up
-        """
-        t = time.copy()
-        t.format = 'iso'
-        t.out_subfmt = 'date_hm'
-        if up:
-            sec = int(t.strftime('%S'))
-            if sec:
-                t += 1.0 * u.min
-        return Time(t.iso, format='iso', scale='utc')
