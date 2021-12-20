@@ -4,6 +4,8 @@
 import logging
 from abc import ABC, abstractmethod
 from astropy.coordinates import EarthLocation, UnknownSiteException
+from astropy.time import Time
+from astropy import units as u
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
@@ -150,6 +152,15 @@ class TimingWindow:
     NON_REPEATING: ClassVar[int] = 0
     NO_PERIOD: ClassVar[Optional[timedelta]] = None
 
+    # A number to be used by the Scheduler to represent infinite repeats from the
+    # perspective of the OCS: if FOREVER_REPEATING is selected, then it is converted
+    # into this for calculation purposes.
+    _OCS_INFINITE_REPEATS: ClassVar[int] = 1000
+
+    @property
+    def ocs_infinite_repeats(self):
+        return self._OCS_INFINITE_REPEATS
+
 
 class SkyBackground(float, Enum):
     SB20 = 0.2
@@ -193,7 +204,7 @@ class ElevationType(IntEnum):
     AIRMASS = auto()
 
 
-@dataclass(frozen=True)
+@dataclass
 class Constraints:
     cc: CloudCover
     iq: ImageQuality
@@ -207,6 +218,38 @@ class Constraints:
     # clearance_windows: Optional[List[ClearanceWindow]] = None
     strehl: Optional[Stehl] = None
 
+    # For performance increase to avoid repeated computation.
+    # Divide a time in milliseconds by this to get the quantity in hours.]
+    _MS_TO_H: ClassVar[int] = u.hour.to('ms') * u.hour
+
+    def __post_init__(self):
+
+        """
+        Convert the timing window information to more natural units, i.e. a list of
+         Time, which is for more convenient processing.
+
+         This creates a property on the Constraints called ot_timing_windows.
+        """
+        self.ot_timing_windows = []
+
+        # Collect the timing window information as arrays from the TimingWindow list.
+        starts = (tw.start.timestamp() for tw in self.timing_windows)
+        durations = (tw.duration.total_seconds() for tw in self.timing_windows)
+        repeats = (tw.repeat for tw in self.timing_windows)
+        periods = (tw.period for tw in self.timing_windows)
+
+        for (start, duration, repeat, period) in zip(starts, durations, repeats, periods):
+            t0 = float(start) * u.ms
+            begin = Time(t0.to_value('s'), format='unix', scale='utc')
+            duration = TimingWindow.INFINITE_DURATION if duration == -1 else duration / Constraints._MS_TO_H
+            repeat = TimingWindow.ocs_infinite_repeats if repeat == TimingWindow.FOREVER_REPEATING else max(1, repeat)
+            period = period / Constraints._MS_TO_H
+
+            for i in range(repeat):
+                window_start = begin + i * period
+                window_end = window_start + duration
+                self.timing_windows.append(Time[window_start, window_end])
+
 
 class MagnitudeSystem(Enum):
     VEGA = auto()
@@ -218,6 +261,8 @@ class MagnitudeSystem(Enum):
 class MagnitudeBand:
     """
     Values for center and width are specified in microns.
+    These should NOT be created: they are fully enumerated in MagnitudeBands, so
+    they should be looked up by name there.
     """
     name: str
     center: float
@@ -230,6 +275,9 @@ class MagnitudeBands(Enum):
     """
     It is unconventional to use lowercase characters in an enum, but to differentiate
     them from the uppercase magnitude bands, we must.
+
+    Look up the MagnitudeBand from this Enum as follows:
+    MagnitudeBands[name]
     """
     u = MagnitudeBand('u', 0.356, 0.046, MagnitudeSystem.AB, 'UV')
     g = MagnitudeBand('g', 0.483, 0.099, MagnitudeSystem.AB, 'green')
@@ -342,11 +390,12 @@ class Resource:
     description: Optional[str] = None
 
 
-class QAState(Enum):
-    UNKNOWN = auto()
+class QAState(IntEnum):
+    NONE = auto()
+    UNDEFINED = auto()
+    FAIL = auto()
     USABLE = auto()
     PASS = auto()
-    FAIL = auto()
 
 
 @dataclass
@@ -394,12 +443,22 @@ class SetupTimeType(Enum):
     NONE = auto()
 
 
-class ObservationClass(Enum):
+class ObservationClass(IntEnum):
+    """
+    Note that the order of these is specific and deliberate: they are listed in
+    preference order for observation classes, and hence, should not be rearranged.
+    """
     SCIENCE = auto()
     PROG_CAL = auto()
     PARTNER_CAL = auto()
     ACQ = auto()
     ACQ_CAL = auto()
+
+
+@dataclass(frozen=True)
+class InstrumentConfiguration:
+    name: str
+    resources: Set[Resource]
 
 
 @dataclass
@@ -411,12 +470,23 @@ class Observation:
     status: ObservationStatus
     active: bool
     priority: Priority
+    instrument_configuration: InstrumentConfiguration
     setuptime_type: SetupTimeType
     acq_overhead: timedelta
-    obs_class: ObservationClass
     exec_time: timedelta
     program_used: timedelta
     partner_used: timedelta
+
+    # TODO: This will be handled differently between OCS and GPP.
+    # TODO: 1. In OCS, when the sequence is examined, the ObservationClasses of the
+    # TODO:    individual observes (sequence steps) will be analyzed and the highest
+    # TODO:    precedence one will be set for the observation (based on the earliest
+    # TODO:    ObservationClass in the enum).
+    # TODO: 2. In GPP, this information will be handled automatically and require no
+    # TODO:    special processing.
+    # TODO: Should this be Optional?
+    obs_class: ObservationClass
+
     targets: List[Target]
     guide_stars: Mapping[Resource, Target]
     sequence: List[Atom]
@@ -434,6 +504,30 @@ class Observation:
 
     def constraints(self) -> Set[Constraints]:
         return {self.constraints}
+
+    @staticmethod
+    def _select_obsclass(classes: List[ObservationClass]) -> Optional[ObservationClass]:
+        """
+        Given a list of non-empty ObservationClasses, determine which occurs with
+        highest precedence in the ObservationClasses enum, i.e. has the lowest index.
+
+        This will be used when examining the sequence for atoms.
+
+        TODO: Move this to the ODB program extractor as the logic is used there.
+        TODO: Remove from Bryan's atomizer.
+        """
+        return min(classes, default=None)
+
+    @staticmethod
+    def _select_qastate(qastates: List[QAState]) -> Optional[QAState]:
+        """
+        Given a list of non-empty QAStates, determine which occurs with
+        highest precedence in the QAStates enum, i.e. has the lowest index.
+
+        TODO: Move this to the ODB program extractor as the logic is used there.
+        TODO: Remove from Bryan's atomizer.
+        """
+        return min(qastates, default=None)
 
 
 # Since Python doesn't allow classes to self-reference, we have to make a basic group
@@ -547,7 +641,6 @@ class ProgramType:
     isScience: bool = True
 
 
-# TODO: Is this extraneous with ProgramMode?
 class ProgramTypes(Enum):
     C = ProgramType('C', 'Classical')
     CAL = ProgramType('CAL', 'Calibration', False)
