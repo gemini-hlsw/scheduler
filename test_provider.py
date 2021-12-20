@@ -19,6 +19,24 @@ class JsonProvider(ProgramProvider):
                 'Fail': QAState.FAIL,
                 'Usable': QAState.USABLE,
                 'Undefined': QAState.UNDEFINED}
+    
+    obs_status = {'NEW': ObservationStatus.NEW,
+                  'INCLUDED': ObservationStatus.INCLUDED,
+                  'PROPOSED': ObservationStatus.PROPOSED,
+                  'APPROVED': ObservationStatus.APPROVED,
+                  'FOR_REVIEW': ObservationStatus.FOR_REVIEW,
+                  'READY': ObservationStatus.READY,
+                  'ONGOING': ObservationStatus.ONGOING,
+                  'OBSERVED': ObservationStatus.OBSERVED,
+                  'INACTIVE': ObservationStatus.INACTIVE}
+    
+    setuptime_types = {'FULL': SetupTimeType.FULL,
+                       'REACQ': SetupTimeType.REACQ,
+                       'NONE': SetupTimeType.NONE}
+    
+    program_modes = {'Queue': ProgramMode.QUEUE,
+                     'Classical': ProgramMode.CLASSICAL,
+                     'PV': ProgramMode.PV}
 
     def __init__(self, path):
         self.path = path
@@ -33,7 +51,7 @@ class JsonProvider(ProgramProvider):
 
     @staticmethod
     def parse_magnitude(json: dict) -> Magnitude:
-        band = MagnitudeBand(json['name'], None, None)
+        band = MagnitudeBands[json['name']]
         value = json['value']
         error = None
         mag = Magnitude(band, value, error)
@@ -195,10 +213,10 @@ class JsonProvider(ProgramProvider):
         find_constraints = [json[key] for key in json.keys() if key.startswith('SCHEDULING_CONDITIONS')]
         constraints = JsonProvider.parse_constraints(find_constraints[0]) if len(find_constraints) > 0 else None
                 
-        qa_states = [QAState(JsonProvider.qa_states[log_entry['qaState']]) for log_entry in json['obsLog']]
+        qa_states = [QAState[log_entry['qaState'].upper()] for log_entry in json['obsLog']]
 
         site = Site.GN if json['observationId'].split('-')[0] == 'GN' else Site.GS
-        status = ObservationStatus(json['obsStatus'])
+        status = ObservationStatus[json['obsStatus']]
         priority = Priority.HIGH if json['priority'] == 'HIGH' else (Priority.LOW if json['priority'] == 'LOW' else Priority.MEDIUM)
         print('observationId: ', json['observationId'])
         atoms = JsonProvider.parse_atoms(json['sequence'], qa_states)
@@ -211,7 +229,7 @@ class JsonProvider(ProgramProvider):
                           status,
                           None,
                           priority,
-                          SetupTimeType(json['setupTimeType']),
+                          SetupTimeType[json['setupTimeType']],
                           timedelta(milliseconds=json['setupTime']),
                           JsonProvider.obs_classes[json['obsClass']],
                           None,
@@ -291,7 +309,7 @@ class JsonProvider(ProgramProvider):
                           json['key'],
                           Band(int(json['queueBand'])),
                           bool(json['isThesis']),
-                          ProgramMode(json['programMode']),
+                          ProgramMode[json['programMode'].upper()],
                           None,
                           None,
                           ta,
