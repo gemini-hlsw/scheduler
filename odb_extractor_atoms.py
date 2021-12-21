@@ -17,6 +17,18 @@ from openpyxl import load_workbook
 fpuinst = {'GNIRS': 'instrument:slitWidth', 'GMOS-N': 'instrument:fpu'}
 
 
+def guide_state(step):
+    """Determine if guiding is on/off for a sequence step"""
+    # One could also extract the guider used if needed
+    guiding = False
+    for key in list(step.keys()):
+        if 'guideWith' in key:
+            if step[key] == 'guide':
+                guiding = True
+                break
+    return guiding
+
+
 def select_qastate(states):
     """Return the qastate based on precedence
 
@@ -64,15 +76,18 @@ def findatoms(observation):
 
     classes = []
     qastates = []
+    guiding = []
     atoms = []
     natom = 0
     nabba = 0
 
     # Make dictionary out of obslog to get QA state
     obslog = {}
-    for log_entry in observation['obsLog']:
-        obslog[log_entry['label']] = {'qaState': log_entry['qaState'], 'filename': log_entry['filename']}
-    datalabels = list(obslog.keys())
+    datalabels = []
+    if 'obsLog' in observation.keys():
+        for log_entry in observation['obsLog']:
+            obslog[log_entry['label']] = {'qaState': log_entry['qaState'], 'filename': log_entry['filename']}
+        datalabels = list(obslog.keys())
 
     # Sequence analysis
     sequence = observation['sequence']
@@ -91,6 +106,8 @@ def findatoms(observation):
 
         observe_class = step['observe:class']
         classes.append(observe_class.upper())
+
+        guiding.append(guide_state(step))
 
         exptime = float(step['observe:exposureTime'])
         inst = step['instrument:instrument']
@@ -145,12 +162,15 @@ def findatoms(observation):
                 atoms[-1]['qastate'] = select_qastate(qastates)
                 print(classes)
                 atoms[-1]['class'] = select_obsclass(classes)
+                print(guiding)
+                atoms[-1]['guiding'] = any(guiding)
 
             # New atom
             natom += 1
             atoms.append({'id': natom, 'exec_time': 0.0, 'prog_time': 0.0, 'part_time': 0.0,
-                          'class': 'NONE', 'qastate': 'NONE'})
+                          'class': 'NONE', 'qastate': 'NONE', 'guiding': False})
             classes = []
+            guiding = []
 
         atoms[-1]['exec_time'] += step_time
 
@@ -176,6 +196,8 @@ def findatoms(observation):
         atoms[-1]['qastate'] = select_qastate(qastates)
         print(classes)
         atoms[-1]['class'] = select_obsclass(classes)
+        print(guiding)
+        atoms[-1]['guiding'] = any(guiding)
 
     return atoms
 
@@ -187,7 +209,7 @@ def group_proc(group):
     for item in list(group.keys()):
         obsid = ''
         if 'OBSERVATION' in item:
-    #         obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
+            #         obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
             obsid = group[item]['observationId']
             obsnum.append(int(item.split('-')[1]))
     #             print(f" \t {item, obsnum[-1], obsid}")
@@ -197,6 +219,8 @@ def group_proc(group):
     if len(obsnum) > 0:
         isrt = np.argsort(obsnum)
         for ii in isrt:
+            obs_program_used = 0.0
+            obs_partner_used = 0.0
             item = 'OBSERVATION_BASIC-' + str(obsnum[ii])
             #     obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
             obsid = group[item]['observationId']
@@ -214,11 +238,23 @@ def group_proc(group):
                         classes.append(atom[key])
                     if key == 'qastate':
                         qastates.append(atom[key])
+                        if atom[key].upper() == 'PASS':
+                            obs_program_used += atom['prog_time']
+                            obs_partner_used += atom['part_time']
             obsclass = select_obsclass(classes)
             print(f"Obsclass: {obsclass}")
             obs_qastate = select_qastate(qastates)
             print(f"QAstate (atoms): {obs_qastate}")
             print(f"qaState (ODB): {group[item]['qaState']}")
+            if group[item]['qaState'].upper() == 'PASS':
+                if group[item]['obsClass'] in ['science', 'progCal']:
+                    obs_program_used += float(group[item]['setupTime']) / 1000.
+                elif group[item]['obsClass'] in ['partnerCal']:
+                    obs_partner_used += float(group[item]['setupTime']) / 1000.
+
+            print(f"program_used: {obs_program_used}")
+            print(f"partner_used: {obs_partner_used}")
+
             print()
 
     return
