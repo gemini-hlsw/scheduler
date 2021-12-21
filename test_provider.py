@@ -33,6 +33,7 @@ class JsonProvider(ProgramProvider):
     
     class _GroupsKeys(Enum):
         KEY = 'GROUP_GROUP_SCHEDULING'
+        ORGANIZATIONAL_FOLDER = 'ORGANIZATIONAL_FOLDER'
     
     class _ObsKeys(Enum):
         KEY = 'OBSERVATION_BASIC'
@@ -303,6 +304,10 @@ class JsonProvider(ProgramProvider):
     def parse_root_group(json: dict) -> AndGroup:
         # Find nested OR groups/AND groups
         groups = [JsonProvider.parse_and_group(json[key]) for key in json.keys() if key.startswith(JsonProvider._GroupsKeys.KEY.value)]
+        if any(key.startswith(JsonProvider._GroupsKeys.ORGANIZATIONAL_FOLDER.value) for key in json.keys()):
+            for key in json.keys():
+                if key.startswith(JsonProvider._GroupsKeys.ORGANIZATIONAL_FOLDER.value):
+                    groups.append(JsonProvider.parse_or_group(json[key]))
         num_to_observe = len(groups)
         root_group = AndGroup(None, None, num_to_observe, 0, 0, groups, AndOption.ANYORDER)
         return root_group
