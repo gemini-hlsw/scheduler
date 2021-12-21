@@ -26,8 +26,6 @@ class NightEvents:
     midnight: Time
     sunset: Time
     sunrise: Time
-    twi_eve18: Time
-    twi_mor18: Time
     twi_eve12: Time
     twi_mor12: Time
     moonrise: Time
@@ -59,14 +57,12 @@ class NightEventsCache:
         MIDNIGHT = 0
         SUNSET = 1
         SUNRISE = 2
-        TWI_EVE18 = 3
-        TWI_MOR18 = 4
-        TWI_EVE12 = 5
-        TWI_MOR12 = 6
-        MOONRISE = 7
-        MOONSET = 8
-        SUN_MOON_ANG = 9
-        MOON_ILLUM = 10
+        TWI_EVE12 = 3
+        TWI_MOR12 = 4
+        MOONRISE = 5
+        MOONSET = 6
+        SUN_MOON_ANG = 7
+        MOON_ILLUM = 8
 
     def __post_init__(self):
         """

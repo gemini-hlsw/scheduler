@@ -1792,13 +1792,11 @@ def nightevents(aTime, location, localtzone, verbose=True):
     # print(horiz)
     setalt = Angle(horiz * np.ones(nt), unit=u.deg)  # zd = 90 deg 50 arcmin
     risealt = Angle(horiz * np.ones(nt), unit=u.deg)  # zd = 90 deg 50 arcmin
-    twialt18 = Angle(-18. * np.ones(nt), unit=u.deg)  # 18 degree astronomical twilight
     twialt12 = Angle(-12. * np.ones(nt), unit=u.deg)  # 12 degree nautical twilight
 
     # print(sunmid.dec, setalt)
     sunsetha = ha_alt(sunmid.dec, location.lat, setalt)  # corresponding hr angles
     sunriseha = Angle(2. * np.pi, unit=u.rad) - ha_alt(sunmid.dec, location.lat, risealt)  # corresponding hr angles
-    twilightha18 = ha_alt(sunmid.dec, location.lat, twialt18)
     twilightha12 = ha_alt(sunmid.dec, location.lat, twialt12)
 
     hasunmid = (lstmid - sunmid.ra).wrap_at(24. * u.hour)
@@ -1807,8 +1805,6 @@ def nightevents(aTime, location, localtzone, verbose=True):
 
     sunsetguess = hasunmid - sunsetha  # angles away from midnight
     sunriseguess = sunriseha - hasunmid
-    evetwiguess18 = hasunmid - twilightha18
-    morntwiguess18 = Angle(2. * np.pi, unit=u.rad) - twilightha18 - hasunmid
     evetwiguess12 = hasunmid - twilightha12
     morntwiguess12 = Angle(2. * np.pi, unit=u.rad) - twilightha12 - hasunmid
 
@@ -1818,33 +1814,25 @@ def nightevents(aTime, location, localtzone, verbose=True):
     # convert to time deltas
     TDsunset = TimeDelta(sunsetguess.hour / 24., format='jd')
     TDsunrise = TimeDelta(sunriseguess.hour / 24., format='jd')
-    TDevetwi18 = TimeDelta(evetwiguess18.hour / 24., format='jd')
-    TDmorntwi18 = TimeDelta(morntwiguess18.hour / 24., format='jd')
     TDevetwi12 = TimeDelta(evetwiguess12.hour / 24., format='jd')
     TDmorntwi12 = TimeDelta(morntwiguess12.hour / 24., format='jd')
-    # form into times and iterate to accurate answer.
 
+    # form into times and iterate to accurate answer.
     tsunset = midnight - TDsunset  # first approx
     tsunset = jd_sun_alt(setalt, tsunset, location)
 
     tsunrise = midnight + TDsunrise  # first approx
     tsunrise = jd_sun_alt(risealt, tsunrise, location)
 
-    tevetwi18 = midnight - TDevetwi18
-    tevetwi18 = jd_sun_alt(twialt18, tevetwi18, location)
     tevetwi12 = midnight - TDevetwi12
     tevetwi12 = jd_sun_alt(twialt12, tevetwi12, location)
 
-    tmorntwi18 = midnight + TDmorntwi18
-    tmorntwi18 = jd_sun_alt(twialt18, tmorntwi18, location)
     tmorntwi12 = midnight + TDmorntwi12
     tmorntwi12 = jd_sun_alt(twialt12, tmorntwi12, location)
 
     if verbose:
         print("sunset: ", tsunset)
         print("sunrise: ", tsunrise)
-        print("eve twi18: ", tevetwi18)
-        print("morn twi18:", tmorntwi18)
         print("eve twi12: ", tevetwi12)
         print("morn twi12:", tmorntwi12)
     # Moon
@@ -1908,8 +1896,6 @@ def nightevents(aTime, location, localtzone, verbose=True):
     if scalar_input:
         tsunset = np.squeeze(tsunset)
         tsunrise = np.squeeze(tsunrise)
-        tevetwi18 = np.squeeze(tevetwi18)
-        tmorntwi18 = np.squeeze(tmorntwi18)
         tevetwi12 = np.squeeze(tevetwi12)
         tmorntwi12 = np.squeeze(tmorntwi12)
         tmoonrise = np.squeeze(tmoonrise)
@@ -1917,8 +1903,7 @@ def nightevents(aTime, location, localtzone, verbose=True):
         sunmoonang = np.squeeze(sunmoonang)
         moonillumfrac = np.squeeze(moonillumfrac)
 
-    return midnight, tsunset, tsunrise, tevetwi18, tmorntwi18, tevetwi12, tmorntwi12, \
-           tmoonrise, tmoonset, sunmoonang, moonillumfrac
+    return midnight, tsunset, tsunrise, tevetwi12, tmorntwi12, tmoonrise, tmoonset, sunmoonang, moonillumfrac
 
 
 def xair(zd):
