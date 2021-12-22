@@ -5,6 +5,7 @@ from astropy.coordinates.baseframe import _representation_deprecation
 from common.api import ProgramProvider
 from common.minimodel import *
 from enum import Enum
+from typing import NoReturn
 
     
 class JsonProvider(ProgramProvider):
@@ -15,6 +16,18 @@ class JsonProvider(ProgramProvider):
                    'acq': ObservationClass.ACQ,
                    'acqCal': ObservationClass.ACQ_CAL,
                    'dayCal': None}
+
+    program_types = {'C': ProgramTypes.C,
+                     'CAL': ProgramTypes.CAL,
+                     'DD': ProgramTypes.DD,
+                     'DS': ProgramTypes.DS,
+                     'ENG': ProgramTypes.ENG,
+                     'FT': ProgramTypes.FT,
+                     'LP': ProgramTypes.LP,
+                     'Q': ProgramTypes.Q,
+                     'SV': ProgramTypes.SV,
+
+    }
 
     class _ProgramKeys(Enum):
         ID = 'programId'
@@ -48,6 +61,7 @@ class JsonProvider(ProgramProvider):
         SETUPTIME_TYPE = 'setupTimeType'
         SETUPTIME = 'setupTime'
         OBS_CLASS = 'obsClass'
+        PHASE2 = 'phase2Status'
 
     class _TargetKeys(Enum):
         KEY = 'TELESCOPE_TARGETENV'
@@ -257,7 +271,7 @@ class JsonProvider(ProgramProvider):
                           json[JsonProvider._ObsKeys.TITLE.value],
                           site,
                           status,
-                          None,
+                          True if json[JsonProvider._ObsKeys.PHASE2.value] != 'Inactive' else False,
                           priority,
                           None,
                           SetupTimeType[json[JsonProvider._ObsKeys.SETUPTIME_TYPE.value]],
@@ -271,6 +285,8 @@ class JsonProvider(ProgramProvider):
                           atoms,
                           constraints,
                           None)
+        obs.exec_time = sum([atom.exec_time for atom in atoms], timedelta()) + obs.acq_overhead
+
         return obs
     
     @staticmethod
@@ -323,20 +339,34 @@ class JsonProvider(ProgramProvider):
 
     @staticmethod
     def parse_program(json: dict) -> Program:
-
+        
+        too_type = TooType(json[JsonProvider._ProgramKeys.ToO.value]) if json[JsonProvider._ProgramKeys.ToO.value] != 'None' else None
         ta = JsonProvider.parse_time_allocation(json)
         root_group = JsonProvider.parse_root_group(json)
-        return Program(json[JsonProvider._ProgramKeys.ID.value],
+        id = json[JsonProvider._ProgramKeys.ID.value]
+        program_type =  JsonProvider.program_types[id.split('-')[2]]
+
+        return Program(id,
                        json[JsonProvider._ProgramKeys.INTERNAL_ID.value],
                        Band(int(json[JsonProvider._ProgramKeys.BAND.value])),
                        bool(json[JsonProvider._ProgramKeys.THESIS.value]),
                        ProgramMode[json[JsonProvider._ProgramKeys.MODE.value].upper()],
-                       None,
+                       program_type,
                        None,
                        None,
                        ta,
                        root_group,
-                       TooType(json[JsonProvider._ProgramKeys.ToO.value]) if json[JsonProvider._ProgramKeys.ToO.value] != 'None' else None)
+                       too_type)
+    
+    @staticmethod
+    def too_type_for_obs(program: Program) -> NoReturn:
+
+        for group in program.root_group.children:
+            for obs in group.children:
+                if program.too_type is TooType.STANDARD:
+                    obs.too_type = TooType.STANDARD
+                elif program.too_type is TooType.RAPID:
+                    obs.too_type = TooType.RAPID if json['tooOverrideRapid'] else TooType.STANDARD
 
 if __name__ == '__main__':
     provider = JsonProvider('../data/programs.json')
@@ -344,7 +374,7 @@ if __name__ == '__main__':
     json = provider.load_program('./data/GN-2018B-Q-101.json')
 
     program = provider.parse_program(json['PROGRAM_BASIC'])
-
+    provider.too_type_for_obs(program)    
     print(f'Program: {program.id}')
 
     for group in program.root_group.children:
