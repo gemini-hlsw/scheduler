@@ -25,9 +25,33 @@ class JsonProvider(ProgramProvider):
                      'FT': ProgramTypes.FT,
                      'LP': ProgramTypes.LP,
                      'Q': ProgramTypes.Q,
-                     'SV': ProgramTypes.SV,
+                     'SV': ProgramTypes.SV}
 
-    }
+    elevation_types = {
+        'None': None,
+        'Airmass': ElevationType.AIRMASS,
+        'Hour Angle': ElevationType.HOUR_ANGLE}
+
+    sb = {'20': SkyBackground.SB20,
+          '50': SkyBackground.SB50,
+          '80': SkyBackground.SB80,
+          'Any': SkyBackground.SBANY}
+
+    cc = {'50': CloudCover.CC50,
+          '70': CloudCover.CC70,
+          '80': CloudCover.CC80,
+          'Any': CloudCover.CCANY}
+    
+    wv = {'20': WaterVapor.WV20,
+          '50': WaterVapor.WV50,
+          '80': WaterVapor.WV80, 
+          'Any': WaterVapor.WVANY}
+
+    iq = {'20': ImageQuality.IQ20,
+          '70': ImageQuality.IQ70,
+          '85': ImageQuality.IQ85,
+          'Any': ImageQuality.IQANY}
+
 
     class _ProgramKeys(Enum):
         ID = 'programId'
@@ -36,6 +60,7 @@ class JsonProvider(ProgramProvider):
         THESIS = 'isThesis'
         MODE = 'programMode'
         ToO = 'tooType'
+        NOTES = 'INFO_SCHEDNOTE'
 
     class _TAKeys(Enum):
         CATEGORIES = 'timeAccountAllocationCategories'
@@ -115,6 +140,10 @@ class JsonProvider(ProgramProvider):
     @staticmethod
     def sort_observations(obs: List[Observation]) -> List[Observation]:
         return sorted(obs, key=lambda x: x.order)
+    
+    @staticmethod
+    def strip_constraints(constraint: str):
+        return constraint.split('/')[0].split('%')[0]
 
     @staticmethod
     def parse_magnitude(json: dict) -> Magnitude:
@@ -123,28 +152,27 @@ class JsonProvider(ProgramProvider):
         error = None
         return Magnitude(band, value, error)
 
-    def parse_timing_window(json: dict) -> TimingWindow:
+    def parse_timing_window(self, json: dict) -> TimingWindow:
         tw_arr = []
         for timing_window in json[JsonProvider._TimingWindowsKeys.TIMING_WINDOWS.value]:
             tw = TimingWindow()
             repeat = JsonProvider._TimingWindowsKeys.REPEAT.value
-            tw.start = datetime.fromtimestamp(timing_window[JsonProvider._TimingWindowsKeys.START.value]/1000.0)
+            tw.start = datetime.fromtimestamp(timing_window[JsonProvider._TimingWindowsKeys.START.value]/1000)
             tw.duration = timedelta(milliseconds=timing_window[JsonProvider._TimingWindowsKeys.DURATION.value])
             tw.repeat = timing_window[repeat]
-            tw.period = timedelta(milliseconds=timing_window[repeat]) if timing_window[repeat] > 0 else None 
+            tw.period = timedelta(milliseconds=timing_window[repeat]) if timing_window[repeat] > 0 else None
             tw_arr.append(tw)
         return tw_arr
     
-    @staticmethod
-    def parse_constraints(json: dict) -> Constraints:
-        return Constraints(json[JsonProvider._ConstraintsKeys.CC.value],
-                           json[JsonProvider._ConstraintsKeys.IQ.value],
-                           json[JsonProvider._ConstraintsKeys.SB.value],
-                           json[JsonProvider._ConstraintsKeys.WV.value],
-                           json[JsonProvider._ConstraintsKeys.ELEVATION_TYPE.value],
-                           json[JsonProvider._ConstraintsKeys.ELEVATION_MIN.value],
-                           json[JsonProvider._ConstraintsKeys.ELEVATION_MAX.value],
-                           JsonProvider.parse_timing_window(json),
+    def parse_constraints(self, json: dict) -> Constraints:
+        return Constraints(self.cc[self.strip_constraints(json[self._ConstraintsKeys.CC.value])],
+                           self.iq[self.strip_constraints(json[self._ConstraintsKeys.IQ.value])],
+                           self.sb[self.strip_constraints(json[self._ConstraintsKeys.SB.value])],
+                           self.wv[self.strip_constraints(json[self._ConstraintsKeys.WV.value])],
+                           self.elevation_types[json[self._ConstraintsKeys.ELEVATION_TYPE.value]],
+                           json[self._ConstraintsKeys.ELEVATION_MIN.value],
+                           json[self._ConstraintsKeys.ELEVATION_MAX.value],
+                           self.parse_timing_window(json),
                            None)
     
     @staticmethod
@@ -236,50 +264,50 @@ class JsonProvider(ProgramProvider):
 
         return atoms
            
-    @staticmethod
-    def parse_observation(json: dict, name: str) -> Observation:
+ 
+    def parse_observation(self, json: dict, name: str) -> Observation:
 
         targets = []
         guide_stars = {}
         for key in json.keys():
-            if key.startswith(JsonProvider._TargetKeys.KEY.value):
+            if key.startswith(self._TargetKeys.KEY.value):
                 target = None
-                if json[key][JsonProvider._TargetKeys.BASE.value][JsonProvider._TargetKeys.TAG.value] == 'sidereal':
-                    target = JsonProvider.parse_sidereal_target(json[key])
+                if json[key][self._TargetKeys.BASE.value][self._TargetKeys.TAG.value] == 'sidereal':
+                    target = self.parse_sidereal_target(json[key])
                 else:
-                    target = JsonProvider.parse_sidereal_target(json[key])
+                    target = self.parse_sidereal_target(json[key])
                 targets.append(target)
 
                 for guide_group in json[key]['guideGroups']:
                     
                     if type(guide_group[1]) == dict:
-                        guide_stars[target.name] = JsonProvider.parse_guide_star(guide_group[1])
+                        guide_stars[target.name] = self.parse_guide_star(guide_group[1])
         
-        find_constraints = [json[key] for key in json.keys() if key.startswith(JsonProvider._ConstraintsKeys.KEY.value)]
-        constraints = JsonProvider.parse_constraints(find_constraints[0]) if len(find_constraints) > 0 else None
+        find_constraints = [json[key] for key in json.keys() if key.startswith(self._ConstraintsKeys.KEY.value)]
+        constraints = self.parse_constraints(find_constraints[0]) if len(find_constraints) > 0 else None
                 
-        qa_states = [QAState[log_entry[JsonProvider._ObsKeys.QASTATE.value].upper()] for log_entry in json[JsonProvider._ObsKeys.LOG.value]]
+        qa_states = [QAState[log_entry[self._ObsKeys.QASTATE.value].upper()] for log_entry in json[self._ObsKeys.LOG.value]]
 
-        site = Site.GN if json[JsonProvider._ObsKeys.ID.value].split('-')[0] == 'GN' else Site.GS
-        status = ObservationStatus[json[JsonProvider._ObsKeys.STATUS.value]]
-        priority = Priority.HIGH if json[JsonProvider._ObsKeys.PRIORITY.value] == 'HIGH' else (Priority.LOW if json[JsonProvider._ObsKeys.PRIORITY.value] == 'LOW' else Priority.MEDIUM)
-        atoms = JsonProvider.parse_atoms(json[JsonProvider._ObsKeys.SEQUENCE.value], qa_states)
+        site = Site.GN if json[self._ObsKeys.ID.value].split('-')[0] == 'GN' else Site.GS
+        status = ObservationStatus[json[self._ObsKeys.STATUS.value]]
+        priority = Priority.HIGH if json[self._ObsKeys.PRIORITY.value] == 'HIGH' else (Priority.LOW if json[self._ObsKeys.PRIORITY.value] == 'LOW' else Priority.MEDIUM)
+        atoms = self.parse_atoms(json[self._ObsKeys.SEQUENCE.value], qa_states)
  
-        obs = Observation(json[JsonProvider._ObsKeys.ID.value],
-                          json[JsonProvider._ObsKeys.INTERNAL_ID.value],
+        obs = Observation(json[self._ObsKeys.ID.value],
+                          json[self._ObsKeys.INTERNAL_ID.value],
                           int(name.split('-')[1]),
-                          json[JsonProvider._ObsKeys.TITLE.value],
+                          json[self._ObsKeys.TITLE.value],
                           site,
                           status,
-                          True if json[JsonProvider._ObsKeys.PHASE2.value] != 'Inactive' else False,
+                          True if json[self._ObsKeys.PHASE2.value] != 'Inactive' else False,
                           priority,
                           None,
-                          SetupTimeType[json[JsonProvider._ObsKeys.SETUPTIME_TYPE.value]],
-                          timedelta(milliseconds=json[JsonProvider._ObsKeys.SETUPTIME.value]),
+                          SetupTimeType[json[self._ObsKeys.SETUPTIME_TYPE.value]],
+                          timedelta(milliseconds=json[self._ObsKeys.SETUPTIME.value]),
                           None,
                           None,
                           None,
-                          JsonProvider.obs_classes[json[JsonProvider._ObsKeys.OBS_CLASS.value]],
+                          self.obs_classes[json[self._ObsKeys.OBS_CLASS.value]],
                           targets,
                           guide_stars,
                           atoms,
@@ -297,13 +325,12 @@ class JsonProvider(ProgramProvider):
                               timedelta(milliseconds=json['timeAccountAllocationCategories'][0]['programTime']),
                               timedelta(milliseconds=json['timeAccountAllocationCategories'][0]['partnerTime']))
 
-    @staticmethod
-    def parse_or_group(json: dict) -> OrGroup:
+    def parse_or_group(self, json: dict) -> OrGroup:
         
         # Find nested OR groups/AND groups
         # TODO: is this correct if there are not nested groups in OCS natively
 
-        observations = [JsonProvider.parse_observation(json[key], key) for key in json.keys() if key.startswith('OBSERVATION_BASIC')]
+        observations = [self.parse_observation(json[key], key) for key in json.keys() if key.startswith('OBSERVATION_BASIC')]
 
         number_to_observe = len(observations)
         delay_max, delay_min = 0, 0 # TODO: What are these?
@@ -317,43 +344,80 @@ class JsonProvider(ProgramProvider):
         res = Resource(json['name'], json['tag'])
         return res
     
-    @staticmethod
-    def parse_root_group(json: dict) -> AndGroup:
+    def parse_root_group(self, json: dict) -> AndGroup:
         # Find nested OR groups/AND groups
-        groups = [JsonProvider.parse_and_group(json[key]) for key in json.keys() if key.startswith(JsonProvider._GroupsKeys.KEY.value)]
-        if any(key.startswith(JsonProvider._GroupsKeys.ORGANIZATIONAL_FOLDER.value) for key in json.keys()):
+        groups = [self.parse_and_group(json[key]) for key in json.keys() if key.startswith(self._GroupsKeys.KEY.value)]
+        if any(key.startswith(self._GroupsKeys.ORGANIZATIONAL_FOLDER.value) for key in json.keys()):
             for key in json.keys():
-                if key.startswith(JsonProvider._GroupsKeys.ORGANIZATIONAL_FOLDER.value):
-                    groups.append(JsonProvider.parse_or_group(json[key]))
+                if key.startswith(self._GroupsKeys.ORGANIZATIONAL_FOLDER.value):
+                    groups.append(self.parse_or_group(json[key]))
         num_to_observe = len(groups)
         root_group = AndGroup(None, None, num_to_observe, 0, 0, groups, AndOption.ANYORDER)
         return root_group
 
-    @staticmethod
-    def parse_and_group(json: dict) -> AndGroup:
-        observations = [JsonProvider.parse_observation(json[key], key) for key in json.keys() if key.startswith(JsonProvider._ObsKeys.KEY.value)]
+    def parse_and_group(self, json: dict) -> AndGroup:
+        observations = [self.parse_observation(json[key], key) for key in json.keys() if key.startswith(self._ObsKeys.KEY.value)]
 
         number_to_observe = len(observations)
         delay_max, delay_min = 0, 0 # TODO: What are these?
         return AndGroup(json['key'], json['name'], number_to_observe, delay_min, delay_max, observations, AndOption.ANYORDER)
 
-    @staticmethod
-    def parse_program(json: dict) -> Program:
+    def parse_program(self, json: dict) -> Program:
         
-        too_type = TooType(json[JsonProvider._ProgramKeys.ToO.value]) if json[JsonProvider._ProgramKeys.ToO.value] != 'None' else None
-        ta = JsonProvider.parse_time_allocation(json)
-        root_group = JsonProvider.parse_root_group(json)
-        id = json[JsonProvider._ProgramKeys.ID.value]
-        program_type =  JsonProvider.program_types[id.split('-')[2]]
+        too_type = TooType(json[self._ProgramKeys.ToO.value]) if json[self._ProgramKeys.ToO.value] != 'None' else None
+        ta = self.parse_time_allocation(json)
+        root_group = self.parse_root_group(json)
+        id = json[self._ProgramKeys.ID.value]
+        program_type =  self.program_types[id.split('-')[2]]
 
+        notes = [json[key] for key in json.keys() if key.startswith(self._ProgramKeys.NOTES.value)]
+
+        start = end = None
+        year = int(id[3:7])
+        next_year = year + 1
+        semester = id[7]
+        if program_type is ProgramTypes.FT:
+
+            for note in notes:
+                if 'title' in note.keys():
+                    title = note['title'].lower()
+                    if 'cycle' in title or 'active' in title:
+                        fields = title.strip().split(' ')
+                        months = []
+                        for field in fields:
+                            if '-' in field:
+                                months = field.split('-')
+                                if len(months) == 3:
+                                    break
+                        if len(months) == 0:
+                            for field in fields:
+                                f = field.lower().strip(' ,')
+                                if f in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']:
+                                    months.append(f)
+                        im1 = months[0]
+                        im2 = months[-1]
+                        if semester == 'B' and im1 < 6:
+                            start = datetime(next_year, im1, 1)
+                            end = datetime(next_year, im2, 1)
+                        else:
+                            start = datetime(year, im1, 1)
+                            end = datetime(year, im2, 1) if im2 > im1 else datetime(next_year, im2, 1)
+                        break
+        else:
+            if semester == 'A':
+                start = datetime(int(year), 2, 1)
+                end = datetime(int(year), 7, 31)
+            else:
+                start = datetime(int(year), 8, 1)
+                end = datetime(int(next_year), 1, 31)
         return Program(id,
-                       json[JsonProvider._ProgramKeys.INTERNAL_ID.value],
-                       Band(int(json[JsonProvider._ProgramKeys.BAND.value])),
-                       bool(json[JsonProvider._ProgramKeys.THESIS.value]),
-                       ProgramMode[json[JsonProvider._ProgramKeys.MODE.value].upper()],
+                       json[self._ProgramKeys.INTERNAL_ID.value],
+                       Band(int(json[self._ProgramKeys.BAND.value])),
+                       bool(json[self._ProgramKeys.THESIS.value]),
+                       ProgramMode[json[self._ProgramKeys.MODE.value].upper()],
                        program_type,
-                       None,
-                       None,
+                       start,
+                       end,
                        ta,
                        root_group,
                        too_type)
