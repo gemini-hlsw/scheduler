@@ -5,7 +5,7 @@ from astropy.coordinates.baseframe import _representation_deprecation
 from common.api import ProgramProvider
 from common.minimodel import *
 from enum import Enum
-from typing import NoReturn
+from typing import NoReturn, Tuple
 
     
 class JsonProvider(ProgramProvider):
@@ -151,6 +151,48 @@ class JsonProvider(ProgramProvider):
         value = json['value']
         error = None
         return Magnitude(band, value, error)
+    
+    @staticmethod
+    def get_program_dates(program_type: ProgramTypes, id: str, notes: list) -> Tuple[datetime, datetime]:
+        start = end = None
+        year = int(id[3:7])
+        next_year = year + 1
+        semester = id[7]
+        if program_type is ProgramTypes.FT:
+
+            for note in notes:
+                if 'title' in note.keys():
+                    title = note['title'].lower()
+                    if 'cycle' in title or 'active' in title:
+                        fields = title.strip().split(' ')
+                        months = []
+                        for field in fields:
+                            if '-' in field:
+                                months = field.split('-')
+                                if len(months) == 3:
+                                    break
+                        if len(months) == 0:
+                            for field in fields:
+                                f = field.lower().strip(' ,')
+                                if f in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']:
+                                    months.append(f)
+                        im1 = months[0]
+                        im2 = months[-1]
+                        if semester == 'B' and im1 < 6:
+                            start = datetime(next_year, im1, 1)
+                            end = datetime(next_year, im2, 1)
+                        else:
+                            start = datetime(year, im1, 1)
+                            end = datetime(year, im2, 1) if im2 > im1 else datetime(next_year, im2, 1)
+                        break
+        else:
+            if semester == 'A':
+                start = datetime(int(year), 2, 1)
+                end = datetime(int(year), 7, 31)
+            else:
+                start = datetime(int(year), 8, 1)
+                end = datetime(int(next_year), 1, 31)
+        return start, end
 
     def parse_timing_window(self, json: dict) -> TimingWindow:
         tw_arr = []
@@ -317,13 +359,12 @@ class JsonProvider(ProgramProvider):
 
         return obs
     
-    @staticmethod
-    def parse_time_allocation(json: dict) -> TimeAllocation:
-        return TimeAllocation(TimeAccountingCode(json['timeAccountAllocationCategories'][0]['category']),
-                              timedelta(milliseconds=json['awardedTime']),
+    def parse_time_allocation(self, json: dict) -> TimeAllocation:
+        return TimeAllocation(TimeAccountingCode(json[self._TAKeys.CATEGORIES.value][0][self._TAKeys.CATEGORY.value]),
+                              timedelta(milliseconds=json[self._TAKeys.AWARDED_TIME.value]),
                               timedelta(milliseconds=0),
-                              timedelta(milliseconds=json['timeAccountAllocationCategories'][0]['programTime']),
-                              timedelta(milliseconds=json['timeAccountAllocationCategories'][0]['partnerTime']))
+                              timedelta(milliseconds=json[self._TAKeys.CATEGORIES.value][0][self._TAKeys.PROGRAM_TIME.value]),
+                              timedelta(milliseconds=json[self._TAKeys.CATEGORIES.value][0][self._TAKeys.PARTNER_TIME.value]))
 
     def parse_or_group(self, json: dict) -> OrGroup:
         
@@ -372,44 +413,8 @@ class JsonProvider(ProgramProvider):
 
         notes = [json[key] for key in json.keys() if key.startswith(self._ProgramKeys.NOTES.value)]
 
-        start = end = None
-        year = int(id[3:7])
-        next_year = year + 1
-        semester = id[7]
-        if program_type is ProgramTypes.FT:
-
-            for note in notes:
-                if 'title' in note.keys():
-                    title = note['title'].lower()
-                    if 'cycle' in title or 'active' in title:
-                        fields = title.strip().split(' ')
-                        months = []
-                        for field in fields:
-                            if '-' in field:
-                                months = field.split('-')
-                                if len(months) == 3:
-                                    break
-                        if len(months) == 0:
-                            for field in fields:
-                                f = field.lower().strip(' ,')
-                                if f in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']:
-                                    months.append(f)
-                        im1 = months[0]
-                        im2 = months[-1]
-                        if semester == 'B' and im1 < 6:
-                            start = datetime(next_year, im1, 1)
-                            end = datetime(next_year, im2, 1)
-                        else:
-                            start = datetime(year, im1, 1)
-                            end = datetime(year, im2, 1) if im2 > im1 else datetime(next_year, im2, 1)
-                        break
-        else:
-            if semester == 'A':
-                start = datetime(int(year), 2, 1)
-                end = datetime(int(year), 7, 31)
-            else:
-                start = datetime(int(year), 8, 1)
-                end = datetime(int(next_year), 1, 31)
+        start, end = self.get_program_dates(program_type, id, notes)
+        
         return Program(id,
                        json[self._ProgramKeys.INTERNAL_ID.value],
                        Band(int(json[self._ProgramKeys.BAND.value])),
