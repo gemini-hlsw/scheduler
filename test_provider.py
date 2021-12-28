@@ -1,7 +1,5 @@
 import json
-from datetime import datetime, timedelta
 
-from astropy.coordinates.baseframe import _representation_deprecation
 from common.api import ProgramProvider
 from common.minimodel import *
 from enum import Enum
