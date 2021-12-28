@@ -113,7 +113,7 @@ def time_rounded_to_minute(tm, sep=' ', incl_date=False, incl_day=False,
 
 def currentgeocentframe(time):
     """Returns a PrecessedGeocentric frame for the equinox
-    spcified by the time.
+    specified by the time.
 
     Parameters
     ----------
@@ -491,7 +491,7 @@ def lpsidereal(time, location):
 # In order to avoid having the altaz transformation look up
 # the USNO database, we need our own altaz transformation.
 
-def altazparang(dec, ha, lat):
+
     """Compute altitude above horizon, azimuth, and parallactic angle.
 
     The parallactic angle is the position angle of the arc between the
@@ -1651,7 +1651,7 @@ def jd_moon_alt(alt, tguess, location):
     return Time(tguess, format='iso')
 
 
-def local_midnight_Time(aTime, localtzone):
+def local_midnight_time(aTime, localtzone):
     """find nearest local midnight (UT).
 
     If it's before noon local time, returns previous midnight;
@@ -1779,7 +1779,7 @@ def nightevents(aTime, location, localtzone, verbose=True):
 
     nt = len(aTime)
 
-    midnight = local_midnight_Time(aTime, localtzone)  # nearest clock-time midnight (UT)
+    midnight = local_midnight_time(aTime, localtzone)  # nearest clock-time midnight (UT)
     # print("midnight:", midnight)
     lstmid = lpsidereal(midnight, location)
 

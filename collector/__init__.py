@@ -1,6 +1,6 @@
 import logging
 
-from astropy.coordinates import Angle
+from astropy.coordinates import AltAz, Angle
 from astropy.time import Time, TimeDelta
 from astropy import units as u
 from collections import defaultdict
@@ -183,17 +183,42 @@ class Collector(SchedulerComponent):
 
         # Create the time array, which is an array that represents the minimum starting
         # time to the maximum starting time, divided into segments of length time_slot_length.
-        # We want one entry per time slot grid, i.e. per night.
-        self.times = []
+        # We want one entry per time slot grid, i.e. per night, measured in UTC, local, and local sidereal.
+        self.utc_times = []
+        self.local_times = {}
+        self.local_sidereal_times = {}
         for i in range(len(self.time_grid)):
             time_min = min([self._MAX_NIGHT_EVENT_TIME] + [self.night_events[site].twi_eve12[i] for site in self.sites])
             time_max = max([self._MIN_NIGHT_EVENT_TIME] + [self.night_events[site].twi_mor12[i] for site in self.sites])
             time_start = helpers.round_minute(time_min, up=True)
             time_end = helpers.round_minute(time_max, up=False)
-
             time_slot_length_days = self.time_slot_length.to(u.day).value
             n = np.int((time_end.jd - time_start.jd) / time_slot_length_days * 0.5)
-            self.times.append(Time(np.linspace(time_start.jd, time_end.jd - time_slot_length_days, n), format='jd'))
+
+            # TODO: Verify that this is all correct.
+            time = Time(np.linspace(time_start.jd, time_end.jd - time_slot_length_days, n), format='jd')
+            self.utc_times.append(time.to_datetime('utc'))
+            for site in Site:
+                self.local_times[site].append(time.to_datetime(site.value.timezone))
+                self.local_sidereal_times[site].append(vskyutil.lpsidereal(time, site.value.location))
+
+        # Create lists / dicts corresponding to the time grid with an AstroPy SkyCoord array giving
+        # the sun or moon position at each time step. Can access via ra and dec members.
+        # We also need to convert to alt-az for each site. This all works nicely with AstroPy Time objects.
+        # TODO: Local time or UTC?
+        aa_converters = {site: AltAz(location=site.location, obstime=time)
+                         for site in Site for time in self.local_times}
+
+        # Sun position in RA / Dec and then for each site in Alt / Az.
+        self.sun_position_radec = [vskyutil.lpsun(time) for time in self.utc_times]
+        self.sun_position_altaz = {site: coo  rd.transform_to(aa_converters[site])
+                                   for site in Site for coord in self.sun_position_radec}
+
+        # Moon position in RA / Dec and then for each site in Alt / Az.
+        self.moon_position_radec = {site: vskyutil.lpmoon(time, site.value.location)
+                                    for site in Site for time in self.local_times}
+        self.moon_position_altaz = {site: coord.transform_to(aa_converters[site])
+                                    for site in Site for coord in self.moon_position_radec}
 
         # We begin with zero observations.
         self.num_observations = 0

@@ -45,7 +45,7 @@ class SiteInformation:
 
         timezone_info = self.location.info.meta['timezone']
         try:
-            self.time_zone = timezone(timezone_info)
+            self.timezone = timezone(timezone_info)
         except UnknownTimeZoneError:
             logging.error(f'Unknown time zone lookup: {timezone_info}')
 
