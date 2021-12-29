@@ -1,4 +1,4 @@
-from ..minimodel import *
+from common.minimodel import *
 
 
 class ProgramProvider(ABC):

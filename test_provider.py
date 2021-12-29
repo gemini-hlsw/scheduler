@@ -3,7 +3,7 @@ import json
 import os
 from typing import NoReturn, Tuple
 
-from common.api import ProgramProvider
+from api import ProgramProvider
 from common.minimodel import *
 
 
