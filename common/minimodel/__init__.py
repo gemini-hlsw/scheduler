@@ -54,7 +54,6 @@ class Site(Enum):
     GS = SiteInformation('Gemini South')
 
 
-@dataclass
 class SemesterHalf(Enum):
     A = 'A'
     B = 'B'
@@ -200,6 +199,7 @@ class Stehl(float, Enum):
 
 
 class ElevationType(IntEnum):
+    NONE = auto()
     HOUR_ANGLE = auto()
     AIRMASS = auto()
 
@@ -305,7 +305,7 @@ class MagnitudeBands(Enum):
 class Magnitude:
     band: MagnitudeBands
     value: float
-    error: float
+    error: Optional[float]
 
 
 class TargetType(Enum):
@@ -403,7 +403,7 @@ class Atom:
     """
     The wavelength must be specified in microns.
     """
-    id: str
+    id: int
     exec_time: timedelta
     prog_time: timedelta
     part_time: timedelta
@@ -414,7 +414,7 @@ class Atom:
     wavelength: float
 
 
-class ObservationStatus(Enum):
+class ObservationStatus(IntEnum):
     NEW = auto()
     INCLUDED = auto()
     PROPOSED = auto()
@@ -423,6 +423,7 @@ class ObservationStatus(Enum):
     READY = auto()
     ONGOING = auto()
     OBSERVED = auto()
+    INACTIVE = auto()
 
 
 class Priority(IntEnum):
@@ -432,12 +433,21 @@ class Priority(IntEnum):
 
 
 class TooType(IntEnum):
-    INTERRUPT = auto()
-    RAPID = auto()
+    """
+    These are ordered specifically so that we can compare them.
+    The INTERRUPT is considered the highest level of TooType, followed by RAPID, and then STANDARD.
+
+    Thus, a Program with a RAPID type, for example, can contain RAPID and STANDARD Observations,
+    but not INTERRUPT ones.
+
+    The values and ordering on them should NOT be changed as this will break functionality.
+    """
     STANDARD = auto()
+    RAPID = auto()
+    INTERRUPT = auto()
 
 
-class SetupTimeType(Enum):
+class SetupTimeType(IntEnum):
     FULL = auto()
     REACQ = auto()
     NONE = auto()
@@ -465,6 +475,7 @@ class InstrumentConfiguration:
 class Observation:
     id: str
     internal_id: str
+    order: int
     title: str
     site: Site
     status: ObservationStatus
@@ -622,7 +633,7 @@ class Band(IntEnum):
     BAND4 = 4
 
 
-class ProgramMode(Enum):
+class ProgramMode(IntEnum):
     """
     Main operational mode, which is one of:
     * Queue
@@ -670,7 +681,7 @@ class Program:
     start_time: datetime
     end_time: datetime
     allocated_time: Set[TimeAllocation]
-    root_group: Group
+    root_group: AndGroup
     too_type: Optional[TooType] = None
 
     FUZZY_BOUNDARY: ClassVar[timedelta] = timedelta(days=14)

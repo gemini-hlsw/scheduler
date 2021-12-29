@@ -160,7 +160,9 @@ def findatoms(observation):
             atoms[-1]['part_time'] += step_time
         else:
             atoms[-1]['prog_time'] += step_time
-
+            
+#         atoms[-1]['id'] = atomlabel
+            
         print('{:22} {:12} {:7.2f} {:3d} {:10} {:15} {:12} {:12} {:7.4f} {:5.2f} {:5.2f} {:3d}'.format(datalab,
                                                                                                        observe_class,
                                                                                                        exptime, coadds,
@@ -286,7 +288,7 @@ def printseq(sequence, comment='', csv=False, path=''):
         if 'GMOS' in inst:
             coadds = '1'
             # convert wavelength to microns
-#             wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
+        #     wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
         else:
             coadds = step['observe:coadds']
         disperser = step['instrument:disperser']
@@ -331,9 +333,9 @@ def seqxlsx(sequence, comment='', path=''):
         _ = ws.cell(column=ii+1, row=row, value="{0}".format(col))
     row += 1
         
-#     print('{},{}'.format('comment', comment), file=f)
-#     print('{},{},{},{},{},{},{},{},{},{},{}'.format('datalab', 'class', 'exptime', 'coadds', 'inst', 'fpu', 
-#                                                            'disperser', 'wavelength', 'p', 'q', 'atom'), file=f)
+    #     print('{},{}'.format('comment', comment), file=f)
+    #     print('{},{},{},{},{},{},{},{},{},{},{}'.format('datalab', 'class', 'exptime', 'coadds', 'inst', 'fpu', 
+    #                                                            'disperser', 'wavelength', 'p', 'q', 'atom'), file=f)
 
     for step in list(sequence):
         data = []
@@ -346,7 +348,7 @@ def seqxlsx(sequence, comment='', path=''):
         if 'GMOS' in inst:
             coadds = '1'
             # convert wavelength to microns
-#             wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
+    #             wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
         else:
             coadds = step['observe:coadds']
         data.append(int(coadds))
@@ -390,7 +392,7 @@ def readseq(file, path):
     # Read and parse csv file: first line is a comment, second has column headings
     nline = 0
     for line in f:
-#         line = line.rstrip('\n')
+    #         line = line.rstrip('\n')
         values = line.rstrip('\n').split(',')
         if nline == 0:
             sequence['comment'] = values[1]
@@ -433,7 +435,7 @@ def xlsxseq(file, path):
         else:
             break
     row += 1
-#     print(columns)
+    #     print(columns)
 
     while ws.cell(column=1, row=row).value is not None:
         for jj, col in enumerate(columns):

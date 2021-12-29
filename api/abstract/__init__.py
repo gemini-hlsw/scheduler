@@ -1,6 +1,4 @@
-from abc import ABC, abstractmethod
-from typing import Mapping
-from ..minimodel import *
+from common.minimodel import *
 
 
 class ProgramProvider(ABC):
@@ -13,59 +11,61 @@ class ProgramProvider(ABC):
     The values of the entries in these pairs will be int, float, or str, so we
     leave them as generic dict.
 
-    Methods should raise ValueError if the data is not parseable.
+    Methods can and should only should raise:
+    * ValueError if the data is parseable but not of the correct type
+    * TypeError if the data is of the wrong type
     """
     @staticmethod
     @abstractmethod
-    def parse_program(json: dict) -> Program:
+    def parse_program(data: dict) -> Program:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_or_group(json: dict) -> OrGroup:
+    def parse_or_group(data: dict) -> OrGroup:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_and_group(json: dict) -> AndGroup:
+    def parse_and_group(data: dict) -> AndGroup:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_observation(json: dict) -> Program:
+    def parse_observation(data: dict) -> Program:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_atom(json: dict) -> Observation:
+    def parse_atom(data: dict, atom_id: int, qa_state: QAState) -> Atom:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_sidereal_target(json: dict) -> SiderealTarget:
+    def parse_sidereal_target(data: dict) -> SiderealTarget:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_nonsidereal_target(json: dict) -> NonsiderealTarget:
+    def parse_nonsidereal_target(data: dict) -> NonsiderealTarget:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_magnitude(json: dict) -> Magnitude:
+    def parse_magnitude(data: dict) -> Magnitude:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_constraints(json: dict) -> Constraints:
+    def parse_constraints(data: dict) -> Constraints:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_timing_window(json: dict) -> TimingWindow:
+    def parse_timing_window(data: dict) -> TimingWindow:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_time_allocation(json: dict) -> TimeAllocation:
+    def parse_time_allocation(data: dict) -> TimeAllocation:
         ...
