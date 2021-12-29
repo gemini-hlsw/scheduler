@@ -1,13 +1,17 @@
+import calendar
 import json
+import os
+from typing import NoReturn, Tuple
 
 from common.api import ProgramProvider
 from common.minimodel import *
-from enum import Enum
-from typing import NoReturn, Tuple
 
-    
+
 class JsonProvider(ProgramProvider):
-
+    """
+    A ProgramProvider that parses programs from JSON extracted from the OCS
+    Observing Database.
+    """
     obs_classes = {'partnerCal': ObservationClass.PARTNER_CAL,
                    'science': ObservationClass.SCIENCE,
                    'programCal': ObservationClass.PROG_CAL,
@@ -50,15 +54,19 @@ class JsonProvider(ProgramProvider):
           '85': ImageQuality.IQ85,
           'Any': ImageQuality.IQANY}
 
-
     class _ProgramKeys(Enum):
         ID = 'programId'
         INTERNAL_ID = 'key'
         BAND = 'queueBand'
         THESIS = 'isThesis'
         MODE = 'programMode'
-        ToO = 'tooType'
-        NOTES = 'INFO_SCHEDNOTE'
+        TOO_TYPE = 'tooType'
+        NOTE = 'INFO_SCHEDNOTE'
+
+    class _NoteKeys(Enum):
+        TITLE = 'title'
+        TEXT = 'text'
+        KEY = 'key'
 
     class _TAKeys(Enum):
         CATEGORIES = 'timeAccountAllocationCategories'
@@ -85,6 +93,7 @@ class JsonProvider(ProgramProvider):
         SETUPTIME = 'setupTime'
         OBS_CLASS = 'obsClass'
         PHASE2 = 'phase2Status'
+        TOO_OVERRIDE_RAPID = 'tooOverrideRapid'
 
     class _TargetKeys(Enum):
         KEY = 'TELESCOPE_TARGETENV'
@@ -95,6 +104,7 @@ class JsonProvider(ProgramProvider):
         DELTARA = 'deltara'
         DELTADEC = 'deltadec'
         EPOCH = 'epoch'
+        DES = 'des'
         TAG = 'tag'
         MAGNITUDES = 'magnitudes'
         NAME = 'name'
@@ -108,6 +118,7 @@ class JsonProvider(ProgramProvider):
         ELEVATION_TYPE = 'elevationConstraintType'
         ELEVATION_MIN = 'elevationConstraintMin'
         ELEVATION_MAX = 'elevationConstraintMax'
+        TIMING_WINDOWS = 'timingWindows'
     
     class _AtomKeys(Enum):
         OBS_CLASS = 'observe:class'
@@ -123,7 +134,8 @@ class JsonProvider(ProgramProvider):
         START = 'start'
         DURATION = 'duration'
         REPEAT = 'repeat'
-    
+        PERIOD = 'period'
+
     class _MagnitudeKeys(Enum):
         NAME = 'name'
         VALUE = 'value'
@@ -131,149 +143,228 @@ class JsonProvider(ProgramProvider):
     def __init__(self, path):
         self.path = path
 
-    def load_program(self, path: str) -> dict:
+    @staticmethod
+    def load_program(path: str) -> dict:
+        """
+        Parse the program file at the given path into JSON and return it.
+        TODO: Why do we have this method?
+        """
         with open(path, 'r') as f:
             return json.loads(f.read())
-    
-    @staticmethod
-    def sort_observations(obs: List[Observation]) -> List[Observation]:
-        return sorted(obs, key=lambda x: x.order)
-    
-    @staticmethod
-    def strip_constraints(constraint: str):
-        return constraint.split('/')[0].split('%')[0]
 
     @staticmethod
-    def parse_magnitude(json: dict) -> Magnitude:
-        band = MagnitudeBands[json['name']]
-        value = json['value']
-        error = None
-        return Magnitude(band, value, error)
-    
+    def parse_magnitude(data: dict) -> Magnitude:
+        band = MagnitudeBands[data[JsonProvider._MagnitudeKeys.NAME.value]]
+        value = data[JsonProvider._MagnitudeKeys.VALUE.value]
+        return Magnitude(band, value, None)
+
     @staticmethod
-    def get_program_dates(program_type: ProgramTypes, id: str, notes: list) -> Tuple[datetime, datetime]:
-        start = end = None
-        year = int(id[3:7])
+    def _get_program_dates(prog_type: ProgramTypes, prog_id: str, note_titles: List[str]) -> Tuple[datetime, datetime]:
+        """
+        Find the start and end dates of a program.
+        This requires special handling for FT programs, which must contain a note with the information
+        at the program level with key INFO_SCHEDNOTE, INFO_PROGRAMNOTE, or INFO_NOTE.
+        """
+        try:
+            year = int(prog_id[3:7])
+        except ValueError as e:
+            msg = f'Illegal year specified for program {prog_id}: {prog_id[3:7]}.'
+            logging.error(msg)
+            raise ValueError(msg, e)
+        except TypeError as e:
+            msg = f'Illegal type data specified for program {prog_id}: {prog_id[3:7]}.'
+            logging.error(msg)
+            raise TypeError(msg, e)
         next_year = year + 1
-        semester = id[7]
-        if program_type is ProgramTypes.FT:
 
-            for note in notes:
-                if 'title' in note.keys():
-                    title = note['title'].lower()
-                    if 'cycle' in title or 'active' in title:
-                        fields = title.strip().split(' ')
-                        months = []
-                        for field in fields:
-                            if '-' in field:
-                                months = field.split('-')
-                                if len(months) == 3:
-                                    break
-                        if len(months) == 0:
-                            for field in fields:
-                                f = field.lower().strip(' ,')
-                                if f in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']:
-                                    months.append(f)
-                        im1 = months[0]
-                        im2 = months[-1]
-                        if semester == 'B' and im1 < 6:
-                            start = datetime(next_year, im1, 1)
-                            end = datetime(next_year, im2, 1)
-                        else:
-                            start = datetime(year, im1, 1)
-                            end = datetime(year, im2, 1) if im2 > im1 else datetime(next_year, im2, 1)
-                        break
+        # Make sure the actual year is in the valid range.
+        if year < 2000 or year > 2100:
+            msg = f'Illegal year specified for program {prog_id}: {prog_id[3:7]}.'
+            logging.error(msg)
+            raise ValueError(msg)
+
+        try:
+            semester = SemesterHalf(prog_id[7])
+        except ValueError as e:
+            msg = f'Illegal semester specified for program {prog_id}: {prog_id[7]}'
+            logging.error(msg)
+            raise ValueError(msg, e)
+
+        # Special handling for FT programs.
+        if prog_type is ProgramTypes.FT:
+            months_list = [x.lower() for x in calendar.month_name[1:]]
+
+            def is_ft_note(curr_note_title: str) -> bool:
+                """
+                Determine if the note is a note with title information for a FT program.
+                """
+                if curr_note_title is None:
+                    return False
+                curr_note_title = curr_note_title.lower()
+                return 'cycle' in curr_note_title or 'active' in curr_note_title
+
+            def month_number(month: str, months: List[str]) -> int:
+                month = month.lower()
+                return [i for i, m in enumerate(months) if month in m].pop() + 1
+
+            def parse_dates(curr_note_title: str) -> Optional[Tuple[datetime, datetime]]:
+                """
+                Using the information in a note title, try to determine the start and end dates
+                for a FT program.
+
+                The month information in the note title can be of the forms:
+                * MON-MON-MON
+                * Month, Month, and Month
+                and have additional data / spacing following.
+
+                Raises an IndexError if there are any issues in getting the months.
+                """
+                # Convert month data as above to a list of months.
+                curr_note_months = curr_note_title.strip().replace('and ', ' ').replace('  ', ' ').replace(', ', '-').\
+                    split(' ')[-1].lower()
+                month_list = [month for month in curr_note_months.split('-') if month in months_list]
+                m1 = month_number(month_list[0], months_list)
+                m2 = month_number(month_list[-1], months_list)
+
+                if semester == SemesterHalf.B and m1 < 6:
+                    program_start = datetime(next_year, m1, 1)
+                    program_end = datetime(next_year, m2, calendar.monthrange(next_year, m2)[1])
+                else:
+                    program_start = datetime(year, m1, 1)
+                    if m2 > m1:
+                        program_end = datetime(year, m2, calendar.monthrange(year, m2)[1])
+                    else:
+                        program_end = datetime(next_year, m2, calendar.monthrange(next_year, m2)[1])
+                return program_start, program_end
+
+            # Find the note (if any) that contains the information.
+            note_title = next(filter(is_ft_note, note_titles), None)
+            if note_title is None:
+                msg = f'Fast turnaround program {id} has no note containing start / end date information.'
+                logging.error(msg)
+                raise ValueError(msg)
+
+            # Parse the month information.
+            try:
+                date_info = parse_dates(note_title)
+
+            except IndexError as e:
+                msg = f'Fast turnaround program {id} note title has improper form: {note_title}.'
+                logging.error(msg)
+                raise ValueError(msg, e)
+
+            start_date, end_date = date_info
+
         else:
-            if semester == 'A':
-                start = datetime(int(year), 2, 1)
-                end = datetime(int(year), 7, 31)
-            else:
-                start = datetime(int(year), 8, 1)
-                end = datetime(int(next_year), 1, 31)
-        return start, end
+            # Not a FT program, so handle normally.
+            start_date = datetime(year, 8, 1)
+            end_date = datetime(next_year, 1, 31)
 
-    def parse_timing_window(self, json: dict) -> TimingWindow:
-        tw_arr = []
-        for timing_window in json[JsonProvider._TimingWindowsKeys.TIMING_WINDOWS.value]:
-            tw = TimingWindow()
-            repeat = JsonProvider._TimingWindowsKeys.REPEAT.value
-            tw.start = datetime.fromtimestamp(timing_window[JsonProvider._TimingWindowsKeys.START.value]/1000)
-            tw.duration = timedelta(milliseconds=timing_window[JsonProvider._TimingWindowsKeys.DURATION.value])
-            tw.repeat = timing_window[repeat]
-            tw.period = timedelta(milliseconds=timing_window[repeat]) if timing_window[repeat] > 0 else None
-            tw_arr.append(tw)
-        return tw_arr
-    
-    def parse_constraints(self, json: dict) -> Constraints:
-        return Constraints(self.cc[self.strip_constraints(json[self._ConstraintsKeys.CC.value])],
-                           self.iq[self.strip_constraints(json[self._ConstraintsKeys.IQ.value])],
-                           self.sb[self.strip_constraints(json[self._ConstraintsKeys.SB.value])],
-                           self.wv[self.strip_constraints(json[self._ConstraintsKeys.WV.value])],
-                           self.elevation_types[json[self._ConstraintsKeys.ELEVATION_TYPE.value]],
-                           json[self._ConstraintsKeys.ELEVATION_MIN.value],
-                           json[self._ConstraintsKeys.ELEVATION_MAX.value],
-                           self.parse_timing_window(json),
-                           None)
+        return start_date, end_date
+
+    @staticmethod
+    def parse_timing_window(data: dict) -> TimingWindow:
+        start = datetime.fromtimestamp(data[JsonProvider._TimingWindowsKeys.START.value]/1000)
+        duration = timedelta(milliseconds=data[JsonProvider._TimingWindowsKeys.DURATION.value])
+        repeat = data[JsonProvider._TimingWindowsKeys.REPEAT.value]
+        period = timedelta(milliseconds=data[JsonProvider._TimingWindowsKeys.PERIOD.value]) \
+            if repeat != TimingWindow.NON_REPEATING else None
+        return TimingWindow(start, duration, repeat, period)
+
+    @staticmethod
+    def parse_constraints(data: dict) -> Constraints:
+        # Parse the timing windows.
+        timing_windows = [JsonProvider.parse_timing_window(tw_data)
+                          for tw_data in data[JsonProvider._ConstraintsKeys.TIMING_WINDOWS.value]]
+
+        # Parse the conditions.
+        def strip_constraint(constraint: str) -> str:
+            return constraint.split('/')[0].split('%')[0]
+        conditions = [lookup[strip_constraint(data[key.value])] for lookup, key in
+                      [(JsonProvider.cc, JsonProvider._ConstraintsKeys.CC),
+                       (JsonProvider.iq, JsonProvider._ConstraintsKeys.IQ),
+                       (JsonProvider.sb, JsonProvider._ConstraintsKeys.SB),
+                       (JsonProvider.wv, JsonProvider._ConstraintsKeys.WV)]]
+
+        # Get the elevation data.
+        elevation_type = JsonProvider.elevation_types[data[JsonProvider._ConstraintsKeys.ELEVATION_TYPE.value]]
+        elevation_min = data[JsonProvider._ConstraintsKeys.ELEVATION_MIN.value]
+        elevation_max = data[JsonProvider._ConstraintsKeys.ELEVATION_MAX.value]
+
+        return Constraints(*conditions,
+                           elevation_type=elevation_type,
+                           elevation_min=elevation_min,
+                           elevation_max=elevation_max,
+                           timing_windows=timing_windows,
+                           strehl=None)
     
     @staticmethod
-    def parse_atom(json: dict, id: int, qa_state: QAState) -> Observation:
+    def parse_atom(data: dict, atom_id: int, qa_state: QAState) -> Atom:
         ...
 
     @staticmethod
-    def parse_sidereal_target(json: dict) -> SiderealTarget:
+    def parse_sidereal_target(data: dict) -> SiderealTarget:
         base = JsonProvider._TargetKeys.BASE.value
-        magnitudes = [JsonProvider.parse_magnitude(mag) for mag in json[base][JsonProvider._TargetKeys.MAGNITUDES.value]] if 'magnitudes' in json[base] else []
-        return SiderealTarget(json[base][JsonProvider._TargetKeys.NAME.value],
-                              magnitudes,
-                              json[base][JsonProvider._TargetKeys.TYPE.value],
-                              json[base][JsonProvider._TargetKeys.RA.value],
-                              json[base][JsonProvider._TargetKeys.DEC.value],
-                              json[base][JsonProvider._TargetKeys.DELTARA.value] if 'deltara' in json[base] else None,
-                              json[base][JsonProvider._TargetKeys.DELTADEC.value] if 'deltadec' in json[base] else None,
-                              json[base][JsonProvider._TargetKeys.EPOCH.value] if 'epoch' in json[base] else None)
+        magnitudes = []
+        if 'magnitudes' in data[base]:
+            magnitudes = [JsonProvider.parse_magnitude(m) for m in data[base][JsonProvider._TargetKeys.MAGNITUDES.value]]
+        return SiderealTarget(data[base][JsonProvider._TargetKeys.NAME.value],
+                              set(magnitudes),
+                              data[base][JsonProvider._TargetKeys.TYPE.value],
+                              data[base][JsonProvider._TargetKeys.RA.value],
+                              data[base][JsonProvider._TargetKeys.DEC.value],
+                              data[base][JsonProvider._TargetKeys.DELTARA.value] if 'deltara' in data[base] else None,
+                              data[base][JsonProvider._TargetKeys.DELTADEC.value] if 'deltadec' in data[base] else None,
+                              data[base][JsonProvider._TargetKeys.EPOCH.value] if 'epoch' in data[base] else None)
 
     @staticmethod
-    def parse_nonsidereal_target(json: dict) -> NonsiderealTarget:
+    def parse_nonsidereal_target(data: dict) -> NonsiderealTarget:
+        """
+        TODO: Retrieve the Ephemeris data.
+        """
         base = JsonProvider._TargetKeys.BASE.value
-        return NonsiderealTarget(json[base][JsonProvider._TargetKeys.DES.value],
-                                 json[base][JsonProvider._TargetKeys.TAG.value],
-                                 None,
-                                 None)
+        return NonsiderealTarget(data[base][JsonProvider._TargetKeys.DES.value],
+                                 data[base][JsonProvider._TargetKeys.TAG.value],
+                                 ra=None,
+                                 dec=None)
     
     @staticmethod
     def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
-       
         n_steps = len(sequence)
         n_abba = 0
         n_atom = 0
         atoms = []
-        for id, step in enumerate(sequence):
+        for atom_id, step in enumerate(sequence):
             next_atom = False
             obs_class = step[JsonProvider._AtomKeys.OBS_CLASS.value]
-            instrument = Resource(step[JsonProvider._AtomKeys.INSTRUMENT.value], step[JsonProvider._AtomKeys.INSTRUMENT.value])
+            instrument = Resource(step[JsonProvider._AtomKeys.INSTRUMENT.value],
+                                  step[JsonProvider._AtomKeys.INSTRUMENT.value])
+
+            # TODO: Check if this is the right wavelength.
             wavelength = float(step[JsonProvider._AtomKeys.WAVELENGTH.value])
             observed = step[JsonProvider._AtomKeys.OBSERVED.value]
             step_time = timedelta(milliseconds=step[JsonProvider._AtomKeys.TOTAL_TIME.value]/1000)
             
-            #OFFSETS
+            # Offset information
             offset_p = JsonProvider._AtomKeys.OFFSET_P.value
             offset_q = JsonProvider._AtomKeys.OFFSET_Q.value
             p = float(step[offset_p]) if offset_p in step.keys() else None
             q = float(step[offset_q]) if offset_q in step.keys() else None
 
-
             # Any wavelength/filter_name change is a new atom
-            if id == 0 or (id > 0 and wavelength != float(sequence[id - 1][JsonProvider._AtomKeys.WAVELENGTH.value])):
+            if atom_id == 0 or (atom_id > 0 and
+                                wavelength != float(sequence[atom_id - 1][JsonProvider._AtomKeys.WAVELENGTH.value])):
                 next_atom = True
 
+            # Patterns:
             # AB
             # ABBA
-            if q is not None and n_steps >= 4 and n_steps - id > 3 and n_abba == 0:
-                if (q == float(sequence[id + 3][offset_q]) and
-                    q != float(sequence[id + 1][offset_q]) and
-                    float(sequence[id + 1][offset_q]) == float(sequence[id + 2][offset_q])):
-                        n_abba = 3
-                        next_atom = True
+            if q is not None and n_steps >= 4 and n_steps - atom_id > 3 and n_abba == 0:
+                if (q == float(sequence[atom_id + 3][offset_q]) and
+                        q != float(sequence[atom_id + 1][offset_q]) and
+                        float(sequence[atom_id + 1][offset_q]) == float(sequence[atom_id + 2][offset_q])):
+                    n_abba = 3
+                    next_atom = True
             else:
                 n_abba -= 1
             
@@ -284,10 +375,10 @@ class JsonProvider(ProgramProvider):
                                   timedelta(milliseconds=0),
                                   timedelta(milliseconds=0),
                                   observed,
-                                  None,
-                                  None,
-                                  instrument,
-                                  wavelength))
+                                  qa_state=QAState.NONE,
+                                  guide_state=False,
+                                  required_resources={instrument},
+                                  wavelength=wavelength))
             
             atoms[-1].exec_time += step_time
 
@@ -297,57 +388,56 @@ class JsonProvider(ProgramProvider):
                 atoms[-1].prog_time += step_time
 
             if n_atom > 0 and qa_states:
-                if id < len(qa_states):
-                    atoms[-1].qa_state = qa_states[id-1]
+                if atom_id < len(qa_states):
+                    atoms[-1].qa_state = qa_states[atom_id - 1]
                 else:
                     atoms[-1].qa_state = qa_states[-1]
 
         return atoms
            
- 
-    def parse_observation(self, json: dict, name: str) -> Observation:
-
+    @staticmethod
+    def parse_observation(data: dict, name: str) -> Observation:
         targets = []
         guide_stars = {}
-        for key in json.keys():
+        for key in data.keys():
             if key.startswith(self._TargetKeys.KEY.value):
                 target = None
-                if json[key][self._TargetKeys.BASE.value][self._TargetKeys.TAG.value] == 'sidereal':
-                    target = self.parse_sidereal_target(json[key])
+                if data[key][self._TargetKeys.BASE.value][self._TargetKeys.TAG.value] == 'sidereal':
+                    target = self.parse_sidereal_target(data[key])
                 else:
-                    target = self.parse_sidereal_target(json[key])
+                    target = self.parse_sidereal_target(data[key])
                 targets.append(target)
 
-                for guide_group in json[key]['guideGroups']:
+                for guide_group in data[key]['guideGroups']:
                     
                     if type(guide_group[1]) == dict:
                         guide_stars[target.name] = self.parse_guide_star(guide_group[1])
         
-        find_constraints = [json[key] for key in json.keys() if key.startswith(self._ConstraintsKeys.KEY.value)]
+        find_constraints = [data[key] for key in data.keys() if key.startswith(self._ConstraintsKeys.KEY.value)]
         constraints = self.parse_constraints(find_constraints[0]) if len(find_constraints) > 0 else None
                 
-        qa_states = [QAState[log_entry[self._ObsKeys.QASTATE.value].upper()] for log_entry in json[self._ObsKeys.LOG.value]]
+        qa_states = [QAState[log_entry[self._ObsKeys.QASTATE.value].upper()] for log_entry in data[self._ObsKeys.LOG.value]]
 
-        site = Site.GN if json[self._ObsKeys.ID.value].split('-')[0] == 'GN' else Site.GS
-        status = ObservationStatus[json[self._ObsKeys.STATUS.value]]
-        priority = Priority.HIGH if json[self._ObsKeys.PRIORITY.value] == 'HIGH' else (Priority.LOW if json[self._ObsKeys.PRIORITY.value] == 'LOW' else Priority.MEDIUM)
-        atoms = self.parse_atoms(json[self._ObsKeys.SEQUENCE.value], qa_states)
+        site = Site.GN if data[self._ObsKeys.ID.value].split('-')[0] == 'GN' else Site.GS
+        status = ObservationStatus[data[self._ObsKeys.STATUS.value]]
+        priority = Priority.HIGH if data[self._ObsKeys.PRIORITY.value] == 'HIGH' else (Priority.LOW if data[self._ObsKeys.PRIORITY.value] == 'LOW' else Priority.MEDIUM)
+        atoms = self.parse_atoms(data[self._ObsKeys.SEQUENCE.value], qa_states)
  
-        obs = Observation(json[self._ObsKeys.ID.value],
-                          json[self._ObsKeys.INTERNAL_ID.value],
+        obs = Observation(data[self._ObsKeys.ID.value],
+                          data[self._ObsKeys.INTERNAL_ID.value],
                           int(name.split('-')[1]),
-                          json[self._ObsKeys.TITLE.value],
+                          data[self._ObsKeys.TITLE.value],
                           site,
                           status,
-                          True if json[self._ObsKeys.PHASE2.value] != 'Inactive' else False,
+                          True if data[self._ObsKeys.PHASE2.value] != 'Inactive' else False,
                           priority,
                           None,
-                          SetupTimeType[json[self._ObsKeys.SETUPTIME_TYPE.value]],
-                          timedelta(milliseconds=json[self._ObsKeys.SETUPTIME.value]),
+                          SetupTimeType[data[self._ObsKeys.SETUPTIME_TYPE.value]],
+                          timedelta(milliseconds=data[self._ObsKeys.SETUPTIME.value]),
                           None,
                           None,
                           None,
-                          self.obs_classes[json[self._ObsKeys.OBS_CLASS.value]],
+                          self.obs_classes[data[self._ObsKeys.OBS_CLASS.value]],
                           targets,
                           guide_stars,
                           atoms,
@@ -402,16 +492,15 @@ class JsonProvider(ProgramProvider):
         return AndGroup(json['key'], json['name'], number_to_observe, delay_min, delay_max, observations, AndOption.ANYORDER)
 
     def parse_program(self, json: dict) -> Program:
-        
-        too_type = TooType(json[self._ProgramKeys.ToO.value]) if json[self._ProgramKeys.ToO.value] != 'None' else None
+        too_type = TooType(json[self._ProgramKeys.TOO_TYPE.value]) if json[self._ProgramKeys.TOO_TYPE.value] != 'None' else None
         ta = self.parse_time_allocation(json)
         root_group = self.parse_root_group(json)
         id = json[self._ProgramKeys.ID.value]
-        program_type =  self.program_types[id.split('-')[2]]
+        program_type = ProgramTypes[id.split('-')[2]]
 
-        notes = [json[key] for key in json.keys() if key.startswith(self._ProgramKeys.NOTES.value)]
+        notes = [json[key] for key in json.keys() if key.startswith(self._ProgramKeys.NOTE.value)]
 
-        start, end = self.get_program_dates(program_type, id, notes)
+        start, end = self._get_program_dates(program_type, id, notes)
         
         return Program(id,
                        json[self._ProgramKeys.INTERNAL_ID.value],
@@ -426,22 +515,63 @@ class JsonProvider(ProgramProvider):
                        too_type)
     
     @staticmethod
-    def too_type_for_obs(program: Program) -> NoReturn:
+    def _calculate_too_type_for_obs(program: Program) -> NoReturn:
+        """
+        Determine the TooTypes of the Observations in a Program.
 
-        for group in program.root_group.children:
-            for obs in group.children:
-                if program.too_type is TooType.STANDARD:
-                    obs.too_type = TooType.STANDARD
-                elif program.too_type is TooType.RAPID:
-                    obs.too_type = TooType.RAPID if json['tooOverrideRapid'] else TooType.STANDARD
+        A Program with a TooType that is not None will have Observations that are the same TooType
+        as the Program, unless their tooRapidOverride is set to True (in which case, the Program will
+        need to have a TooType of at least RAPID).
+
+        A Program with a TooType that is None should have all Observations with their
+        tooRapidOverride set to False.
+
+        In the context of OCS, we do not have TooTypes of INTERRUPT.
+        """
+        if program.too_type == TooType.INTERRUPT:
+            msg = f'OCS program {program.id} has a ToO type of INTERRUPT.'
+            logging.error(msg)
+            raise ValueError(msg)
+
+        def compatible(too_type: Optional[TooType]) -> bool:
+            """
+            Determine if the TooType passed into this method is compatible with
+            the TooType for the program.
+
+            If the Program is not set up with a TooType, then none of its Observations can be.
+
+            If the Program is set up with a TooType, then its Observations can either not be, or have a
+            type that is as stringent or less than the Program's.
+            """
+            if program.too_type is None:
+                return too_type is not None
+            return too_type is None or too_type <= program.too_type
+
+        def process_group(group: NodeGroup):
+            """
+            Traverse down through the group, processing Observations and subgroups.
+            """
+            if isinstance(group.children, Observation):
+                observation: Observation = group.children
+                too_type = TooType.RAPID if json[JsonProvider._ObsKeys.TOO_OVERRIDE_RAPID.value] else program.too_type
+                if not compatible(too_type):
+                    msg = f'Observation {observation.id} has illegal ToO type for its program.'
+                    logging.error(msg)
+                    raise ValueError(msg)
+                observation.too_type = too_type
+            else:
+                for subgroup in group.children:
+                    if isinstance(subgroup, NodeGroup):
+                        node_subgroup: NodeGroup = subgroup
+                        process_group(node_subgroup)
+
 
 if __name__ == '__main__':
-    provider = JsonProvider('../data/programs.json')
-
-    json = provider.load_program('./data/GN-2018B-Q-101.json')
+    provider = JsonProvider(os.path.join('..', 'data', 'programs.json'))
+    json = provider.load_program(os.path.join('data', 'GN-2018B-Q-101.json'))
 
     program = provider.parse_program(json['PROGRAM_BASIC'])
-    provider.too_type_for_obs(program)    
+    provider._calculate_too_type_for_obs(program)
     print(f'Program: {program.id}')
 
     for group in program.root_group.children:
