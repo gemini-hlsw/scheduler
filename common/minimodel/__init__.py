@@ -501,7 +501,9 @@ class Observation:
     targets: List[Target]
     guide_stars: Mapping[Resource, Target]
     sequence: List[Atom]
-    constraints: Constraints
+
+    # Some observations do not have constraints, e.g. GN-208A-FT-103-6.
+    constraints: Optional[Constraints]
     too_type: Optional[TooType] = None
 
     def total_used(self) -> timedelta:

@@ -32,12 +32,12 @@ class ProgramProvider(ABC):
 
     @staticmethod
     @abstractmethod
-    def parse_observation(data: dict) -> Program:
+    def parse_observation(data: dict, num: int) -> Program:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_atom(data: dict, atom_id: int, qa_state: QAState) -> Atom:
+    def parse_target(data: dict) -> Target:
         ...
 
     @staticmethod
@@ -68,4 +68,9 @@ class ProgramProvider(ABC):
     @staticmethod
     @abstractmethod
     def parse_time_allocation(data: dict) -> TimeAllocation:
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
         ...
