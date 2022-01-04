@@ -14,11 +14,6 @@ class OcsProgramProvider(ProgramProvider):
     A ProgramProvider that parses programs from JSON extracted from the OCS
     Observing Database.
     """
-    elevation_types = {
-        'None': None,
-        'Airmass': ElevationType.AIRMASS,
-        'Hour Angle': ElevationType.HOUR_ANGLE}
-
     class _ProgramKeys:
         ID = 'programId'
         INTERNAL_ID = 'key'
@@ -116,6 +111,7 @@ class OcsProgramProvider(ProgramProvider):
         NAME = 'name'
         VALUE = 'value'
 
+    # TODO: ??? Why is this here???
     def __init__(self, path):
         OcsProgramProvider.path = path
 
@@ -273,7 +269,8 @@ class OcsProgramProvider(ProgramProvider):
                        (WaterVapor, OcsProgramProvider._ConstraintKeys.WV)]]
 
         # Get the elevation data.
-        elevation_type = OcsProgramProvider.elevation_types[data[OcsProgramProvider._ConstraintKeys.ELEVATION_TYPE]]
+        elevation_type_data = data[OcsProgramProvider._ConstraintKeys.ELEVATION_TYPE].replace(' ', '_').upper()
+        elevation_type = ElevationType(elevation_type_data)
         elevation_min = data[OcsProgramProvider._ConstraintKeys.ELEVATION_MIN]
         elevation_max = data[OcsProgramProvider._ConstraintKeys.ELEVATION_MAX]
 
