@@ -14,6 +14,7 @@ class ProgramProvider(ABC):
     Methods can and should only should raise:
     * ValueError if the data is parseable but not of the correct type
     * TypeError if the data is of the wrong type
+    * KeyError if a lookup fails in an enum
     """
     @staticmethod
     @abstractmethod
