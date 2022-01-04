@@ -15,6 +15,7 @@ class ProgramProvider(ABC):
     * ValueError if the data is parseable but not of the correct type
     * TypeError if the data is of the wrong type
     * KeyError if a lookup fails in an enum
+    * NotImplementedError if the feature is not offered in this provider
     """
     @staticmethod
     @abstractmethod

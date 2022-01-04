@@ -27,7 +27,8 @@ class OcsProgramProvider(ProgramProvider):
         MODE = 'programMode'
         TOO_TYPE = 'tooType'
         TIME_ACCOUNT_ALLOCATION = 'timeAccountAllocationCategories'
-        NOTE = 'INFO_SCHEDNOTE'
+        SCHED_NOTE = 'INFO_SCHEDNOTE'
+        PROGRAM_NOTE = 'INFO_PROGRAMNOTE'
 
     class _NoteKeys:
         TITLE = 'title'
@@ -562,7 +563,7 @@ class OcsProgramProvider(ProgramProvider):
         """
         There are no OR groups in the OCS.
         """
-        ...
+        raise NotImplementedError('OCS does not support OR groups.')
         # # Find nested AND / OR groups
         # # TODO: is this correct if there are not nested groups in OCS natively
         #
@@ -575,19 +576,6 @@ class OcsProgramProvider(ProgramProvider):
         # delay_max, delay_min = 0, 0  # TODO: What are these?
         # or_group = OrGroup(data['key'], data['name'], number_to_observe, delay_min, delay_max, observations)
         # return or_group
-
-    @staticmethod
-    def parse_root_group(data: dict) -> AndGroup:
-        # Find nested OR groups/AND groups
-        groups = [OcsProgramProvider.parse_and_group(data[key]) for key in data.keys() if
-                  key.startswith(OcsProgramProvider._GroupKeys.KEY)]
-        if any(key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER) for key in data.keys()):
-            for key in data.keys():
-                if key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER):
-                    groups.append(OcsProgramProvider.parse_or_group(data[key]))
-        num_to_observe = len(groups)
-        root_group = AndGroup(None, None, num_to_observe, 0, 0, groups, AndOption.ANYORDER)
-        return root_group
 
     @staticmethod
     def parse_and_group(data: dict) -> AndGroup:
@@ -603,32 +591,51 @@ class OcsProgramProvider(ProgramProvider):
                         AndOption.ANYORDER)
 
     @staticmethod
+    def parse_root_group(data: dict) -> AndGroup:
+        # Find nested OR groups/AND groups
+        groups = [OcsProgramProvider.parse_and_group(data[key]) for key in data.keys() if
+                  key.startswith(OcsProgramProvider._GroupKeys.KEY)]
+        if any(key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER) for key in data.keys()):
+            for key in data.keys():
+                if key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER):
+                    groups.append(OcsProgramProvider.parse_or_group(data[key]))
+        num_to_observe = len(groups)
+        root_group = AndGroup(None, None, num_to_observe, 0, 0, groups, AndOption.ANYORDER)
+        return root_group
+
+    @staticmethod
     def parse_program(data: dict) -> Program:
-        too_type = TooType(data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()) if \
-            data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
+        root_group = OcsProgramProvider.parse_root_group(data)
+        program_id = data[OcsProgramProvider._ProgramKeys.ID]
+        internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
+        band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
+        thesis = data[OcsProgramProvider._ProgramKeys.THESIS]
+        program_mode = ProgramMode[data[OcsProgramProvider._ProgramKeys.MODE].upper()]
+        program_type = ProgramTypes[program_id.split('-')[2]]
+
+        # Get all the SCHEDNOTE and PROGRAMNOTE titles as they may contain FT data.
+        note_titles = [data[key][OcsProgramProvider._NoteKeys.TITLE] for key in data.keys()
+                       if key.startswith(OcsProgramProvider._ProgramKeys.SCHED_NOTE)
+                       or key.startswith(OcsProgramProvider._ProgramKeys.PROGRAM_NOTE)]
+        start_date, end_date = OcsProgramProvider._get_program_dates(program_type, program_id, note_titles)
 
         # Parse the time accounting allocation data.
         time_act_alloc_data = data[OcsProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
         time_act_alloc = set(OcsProgramProvider.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
 
-        root_group = OcsProgramProvider.parse_root_group(data)
-        id = data[OcsProgramProvider._ProgramKeys.ID]
-        program_type = ProgramTypes[id.split('-')[2]]
-
-        notes = [data[key] for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
-
-        start, end = OcsProgramProvider._get_program_dates(program_type, id, notes)
+        too_type = TooType(data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()) if \
+            data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
 
         return Program(
-            id,
-            data[OcsProgramProvider._ProgramKeys.INTERNAL_ID],
-            Band(int(data[OcsProgramProvider._ProgramKeys.BAND])),
-            bool(data[OcsProgramProvider._ProgramKeys.THESIS]),
-            ProgramMode[data[OcsProgramProvider._ProgramKeys.MODE].upper()],
+            program_id,
+            internal_id,
+            band,
+            thesis,
+            program_mode,
             program_type,
-            start,
-            end,
-            ta,
+            start_date,
+            end_date,
+            time_act_alloc,
             root_group,
             too_type)
 
