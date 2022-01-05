@@ -111,10 +111,6 @@ class OcsProgramProvider(ProgramProvider):
         NAME = 'name'
         VALUE = 'value'
 
-    # TODO: ??? Why is this here???
-    def __init__(self, path):
-        OcsProgramProvider.path = path
-
     @staticmethod
     def load_program(path: str) -> dict:
         """
