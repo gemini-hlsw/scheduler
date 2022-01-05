@@ -37,7 +37,7 @@ class OcsProgramProvider(ProgramProvider):
         USED_PART_TIME = 'usedPartnerTime'
 
     class _GroupKeys:
-        KEY = 'GROUP_GROUP_SCHEDULING'
+        SCHEDULING_GROUP = 'GROUP_GROUP_SCHEDULING'
         ORGANIZATIONAL_FOLDER = 'ORGANIZATIONAL_FOLDER'
 
     class _ObsKeys:
@@ -520,6 +520,13 @@ class OcsProgramProvider(ProgramProvider):
             user_target = OcsProgramProvider.parse_target(user_target_data)
             targets.append(user_target)
 
+        # If the ToO override rapid setting is in place, set to RAPID.
+        # Otherwise set as None and we will propagate down from the groups.
+        if OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data:
+            too_type = TooType.RAPID
+        else:
+            too_type = None
+
         return Observation(
             obs_id,
             internal_id,
@@ -538,7 +545,7 @@ class OcsProgramProvider(ProgramProvider):
             guiding,
             atoms,
             constraints,
-            None)
+            too_type)
 
     @staticmethod
     def parse_time_allocation(data: dict) -> TimeAllocation:
@@ -561,48 +568,75 @@ class OcsProgramProvider(ProgramProvider):
         There are no OR groups in the OCS.
         """
         raise NotImplementedError('OCS does not support OR groups.')
-        # # Find nested AND / OR groups
-        # # TODO: is this correct if there are not nested groups in OCS natively
-        #
-        # observations = []
-        # for observation_key in [key for key in data.keys() if key.startswith(OcsProgramProvider._ObsKeys.KEY)]:
-        #     num = int(observation_key.split('-')[1])
-        #     observations.append(OcsProgramProvider.parse_observation(data[observation_key], num))
-        #
-        # number_to_observe = len(observations)
-        # delay_max, delay_min = 0, 0  # TODO: What are these?
-        # or_group = OrGroup(data['key'], data['name'], number_to_observe, delay_min, delay_max, observations)
-        # return or_group
 
     @staticmethod
-    def parse_and_group(data: dict) -> AndGroup:
+    def parse_and_group(data: dict, group_id: str, group_name: str) -> AndGroup:
         """
-        In the OCS, a SchedulingFolder or an OrganizationalGroup are AND groups.
+        In the OCS, a SchedulingFolder or a program are AND groups.
+        We do not allow nested groups in OCS, so this is relatively easy.
+
+        This method expects the data from a SchedulingFolder or from the program.
+        Organizational folders are ignored, so we retrieve all of the observations
+        here that are in organizational folders and simply stick them in this level.
         """
-        observations = [OcsProgramProvider.parse_observation(data[key], key) for key in data.keys() if
-                        key.startswith(OcsProgramProvider._ObsKeys.KEY)]
+        delay_min = timedelta.min
+        delay_max = timedelta.max
 
-        number_to_observe = len(observations)
-        delay_max, delay_min = 0, 0  # TODO: What are these?
-        return AndGroup(data['key'], data['name'], number_to_observe, delay_min, delay_max, observations,
-                        AndOption.ANYORDER)
+        # Parse out the scheduling groups recursively.
+        scheduling_group_keys = sorted(key for key in data.keys()
+                                       if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
+        children = [OcsProgramProvider.parse_and_group(data[key], key, 'Scheduling') for key in scheduling_group_keys]
 
-    @staticmethod
-    def parse_root_group(data: dict) -> AndGroup:
-        # Find nested OR groups/AND groups
-        groups = [OcsProgramProvider.parse_and_group(data[key]) for key in data.keys() if
-                  key.startswith(OcsProgramProvider._GroupKeys.KEY)]
-        if any(key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER) for key in data.keys()):
-            for key in data.keys():
-                if key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER):
-                    groups.append(OcsProgramProvider.parse_or_group(data[key]))
-        num_to_observe = len(groups)
-        root_group = AndGroup(None, None, num_to_observe, 0, 0, groups, AndOption.ANYORDER)
-        return root_group
+        # Now get all the observations in this data block and any organizational folders
+        # that are in this block.
+        obs_data_blocks = [data] + [data[key] for key in data.keys()
+                                    if key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER)]
+
+        for obs_data_block in obs_data_blocks:
+            # We must sort on the key since this is the correct order of the observations.
+            sorted_obs_keys = sorted(key for key in obs_data_block.keys()
+                                     if key.startswith(OcsProgramProvider._ObsKeys.KEY))
+            observations = [OcsProgramProvider.parse_observation(data[key], key) for key in sorted_obs_keys]
+
+            # Put all of the observations in trivial AND groups.
+            trivial_groups = [AndGroup(
+                obs.id,
+                obs.title,
+                1,
+                delay_min,
+                delay_max,
+                obs,
+                AndOption.ANYORDER,
+                None
+            ) for obs in observations]
+            children.extend(trivial_groups)
+
+        number_to_observe = len(children)
+
+        # Put all of the observations in the one big AND group and return it.
+        return AndGroup(
+            group_id,
+            group_name,
+            number_to_observe,
+            delay_min,
+            delay_max,
+            children,
+            AndOption.ANYORDER,
+            None
+        )
 
     @staticmethod
     def parse_program(data: dict) -> Program:
-        root_group = OcsProgramProvider.parse_root_group(data)
+        """
+        Parse the program-level details from the JSON data.
+
+        1. The root group is always an AND group with any order.
+        TODO: verify point 2 here.
+        2. The scheduling groups are AND groups with any order.
+        3. The organizational folders are folders with any order.
+        4. Each observation goes in its own AND group of size 1 as per discussion.
+        """
+        # root_group = OcsProgramProvider.parse_root_group(data)
         program_id = data[OcsProgramProvider._ProgramKeys.ID]
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
         band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
@@ -620,8 +654,19 @@ class OcsProgramProvider(ProgramProvider):
         time_act_alloc_data = data[OcsProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
         time_act_alloc = set(OcsProgramProvider.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
 
+        # Now we parse the groups. For this, we need:
+        # 1. A list of Observations at the root level.
+        # 2. A list of Observations for each Scheduling Group.
+        # 3. A list of Observations for each Organizational Folder.
+        # We can treat (1) the same as (2) and (3) by simply passing all of the JSON
+        # data to the parse_and_group method.
+        root_group = OcsProgramProvider.parse_and_group(data, "Root", "Root")
+
         too_type = TooType(data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()) if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
+
+        # Propagate the ToO type down through the root group to get to the observation.
+        OcsProgramProvider._propagate_too_type(program_id, too_type, root_group)
 
         return Program(
             program_id,
@@ -637,7 +682,7 @@ class OcsProgramProvider(ProgramProvider):
             too_type)
 
     @staticmethod
-    def _calculate_too_type_for_obs(program: Program) -> NoReturn:
+    def _propagate_too_type(program_id: str, too_type: TooType, group: NodeGroup) -> NoReturn:
         """
         Determine the TooTypes of the Observations in a Program.
 
@@ -650,12 +695,12 @@ class OcsProgramProvider(ProgramProvider):
 
         In the context of OCS, we do not have TooTypes of INTERRUPT.
         """
-        if program.too_type == TooType.INTERRUPT:
-            msg = f'OCS program {program.id} has a ToO type of INTERRUPT.'
+        if too_type == TooType.INTERRUPT:
+            msg = f'OCS program {program_id} has a ToO type of INTERRUPT.'
             logging.error(msg)
             raise ValueError(msg)
 
-        def compatible(too_type: Optional[TooType]) -> bool:
+        def compatible(sub_too_type: Optional[TooType]) -> bool:
             """
             Determine if the TooType passed into this method is compatible with
             the TooType for the program.
@@ -665,9 +710,9 @@ class OcsProgramProvider(ProgramProvider):
             If the Program is set up with a TooType, then its Observations can either not be, or have a
             type that is as stringent or less than the Program's.
             """
-            if program.too_type is None:
-                return too_type is not None
-            return too_type is None or too_type <= program.too_type
+            if too_type is None:
+                return sub_too_type is not None
+            return sub_too_type is None or sub_too_type <= too_type
 
         def process_group(group: NodeGroup):
             """
@@ -675,7 +720,12 @@ class OcsProgramProvider(ProgramProvider):
             """
             if isinstance(group.children, Observation):
                 observation: Observation = group.children
-                too_type = TooType.RAPID if json[OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID] else program.too_type
+
+                # If the observation's ToO type is None, we set it from the program.
+                if observation.too_type is None:
+                    observation.too_type = too_type
+
+                # Check compatibility between the observation's ToO type and the program's ToO type.
                 if not compatible(too_type):
                     nc_msg = f'Observation {observation.id} has illegal ToO type for its program.'
                     logging.error(nc_msg)

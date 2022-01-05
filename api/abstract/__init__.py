@@ -29,7 +29,7 @@ class ProgramProvider(ABC):
 
     @staticmethod
     @abstractmethod
-    def parse_and_group(data: dict) -> AndGroup:
+    def parse_and_group(data: dict, group_id: str, group_name: str) -> AndGroup:
         ...
 
     @staticmethod
