@@ -70,7 +70,7 @@ class HorizonsClient:
 
     def __init__(self,
                  site: Site,
-                 path: str = 'data',
+                 path: str = 'horizons/data',
                  start: datetime = None,
                  end: datetime = None):
         self.path = path
@@ -146,7 +146,7 @@ class HorizonsClient:
         Returns the ephemeris file name
         """
         start, end = self._time_bounds()
-        return os.path.join(self.path, f"{self.site}_{name.replace(' ', '').replace('/', '')}_{start}-{end}.eph")
+        return os.path.join(self.path, f"{self.site.name}_{name.replace(' ', '').replace('/', '')}_{start}-{end}.eph")
     
     def query(self,
               target: str,
@@ -270,7 +270,12 @@ class HorizonsClient:
         Interpolate ephemeris to a given time.
         """
         a, b = HorizonsClient._bracket(ephemeris.time, time)
+        # Find indexes for each bound
         i_a, i_b = np.where(ephemeris.time == a)[0][0], np.where(ephemeris.time == b)[0][0]
         factor = (time - a / b - a).timestamp() * 1000
-        ra, dec = HorizonsClient.interpolate(ephemeris.ra[i_a], ephemeris.dec[i_a], ephemeris.ra[i_b], ephemeris.dec[i_b], factor)
+        ra, dec = HorizonsClient.interpolate(ephemeris.ra[i_a], 
+                                             ephemeris.dec[i_a], 
+                                             ephemeris.ra[i_b], 
+                                             ephemeris.dec[i_b], 
+                                             factor)
         return ra, dec
