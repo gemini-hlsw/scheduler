@@ -415,7 +415,7 @@ class OcsProgramProvider(ProgramProvider):
         if tag == 'sidereal':
             return OcsProgramProvider.parse_sidereal_target(data)
         elif tag == 'nonsidereal':
-            return OcsProgramProvider.parse_sidereal_target(data)
+            return OcsProgramProvider.parse_nonsidereal_target(data)
         else:
             msg = f'Illegal target tag type: {tag}'
             logging.error(msg)
