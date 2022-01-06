@@ -14,6 +14,8 @@ class ProgramProvider(ABC):
     Methods can and should only should raise:
     * ValueError if the data is parseable but not of the correct type
     * TypeError if the data is of the wrong type
+    * KeyError if a lookup fails in an enum
+    * NotImplementedError if the feature is not offered in this provider
     """
     @staticmethod
     @abstractmethod
@@ -27,17 +29,17 @@ class ProgramProvider(ABC):
 
     @staticmethod
     @abstractmethod
-    def parse_and_group(data: dict) -> AndGroup:
+    def parse_and_group(data: dict, group_id: str, group_name: str) -> AndGroup:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_observation(data: dict) -> Program:
+    def parse_observation(data: dict, num: int) -> Program:
         ...
 
     @staticmethod
     @abstractmethod
-    def parse_atom(data: dict, atom_id: int, qa_state: QAState) -> Atom:
+    def parse_target(data: dict) -> Target:
         ...
 
     @staticmethod
@@ -68,4 +70,9 @@ class ProgramProvider(ABC):
     @staticmethod
     @abstractmethod
     def parse_time_allocation(data: dict) -> TimeAllocation:
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
         ...
