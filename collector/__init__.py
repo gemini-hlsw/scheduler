@@ -1,16 +1,10 @@
-import logging
-import subprocess
 from zipfile import ZipFile
 import xml.etree.cElementTree as ElementTree
-from astropy import config
 
-import astropy.coordinates
 from astropy.coordinates import SkyCoord
 from astropy.table import Table, vstack
 
-import pytz
 import os
-import numpy as np
 
 import collector.sb as sb
 from collector.vskyutil import nightevents
@@ -19,7 +13,7 @@ from collector.get_tadata import get_report, get_tas, sumtas_date
 from collector.program import Program
 
 from common.constants import FUZZY_BOUNDARY
-from common.helpers import round_min
+from common.helpers.helpers import round_min
 from common.structures.conditions import *
 from common.structures.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
 from common.structures.site import Site, GEOGRAPHICAL_LOCATIONS, SITE_ZIP_EXTENSIONS, TIME_ZONES
@@ -30,7 +24,7 @@ from common.structures.instrument import GMOSConfiguration, Instrument, Waveleng
 from common.structures.obs_class import ObservationClass
 from greedy_max.schedule import Observation
 
-from typing import List, Dict, Optional, NoReturn, Iterable, FrozenSet
+from typing import List, Dict, Optional, NoReturn, Iterable
 
 INFINITE_DURATION = 3. * 365. * 24. * u.h  # A date or duration to use for infinity (length of LP)
 INFINITE_REPEATS = 1000  # number to depict infinity for repeats in OT Timing windows calculations

@@ -117,7 +117,7 @@ class TimeAccountingCode(str, Enum):
     XCHK = 'Keck Exchange'
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class TimeAllocation:
     category: TimeAccountingCode
     program_awarded: timedelta
@@ -314,7 +314,7 @@ class TargetType(Enum):
     BLIND_OFFSET = auto()
     OFF_AXIS = auto()
     TUNING_STAR = auto()
-    GUIDING = auto()
+    GUIDESTAR = auto()
     OTHER = auto()
 
 
@@ -562,6 +562,11 @@ class Observation:
         """
         return min(qastates, default=None)
 
+    def __len__(self):
+        """
+        This is to treat observations the same as groups.
+        """
+        return 1
 
 # Since Python doesn't allow classes to self-reference, we have to make a basic group
 # from which to subclass.

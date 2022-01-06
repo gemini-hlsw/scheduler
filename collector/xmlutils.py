@@ -8,7 +8,7 @@ from astropy.time import Time
 import astropy.units as u
 
 from common.constants import CLASSICAL_NIGHT_LEN
-from common.helpers import str_to_bool
+from common.helpers.helpers import str_to_bool
 from common.structures.band import Band
 from common.structures.execution_status import ExecutionStatus
 from common.structures.observation_status import ObservationStatus

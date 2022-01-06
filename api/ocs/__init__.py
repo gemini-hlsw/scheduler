@@ -2,11 +2,11 @@ import calendar
 import json
 from typing import NoReturn, Tuple
 
-from astropy.coordinates import SkyCoord
 import numpy as np
 
 from api.abstract import ProgramProvider
 from common.minimodel import *
+from common.timeutils import sex2dec
 
 
 class OcsProgramProvider(ProgramProvider):
@@ -123,7 +123,7 @@ class OcsProgramProvider(ProgramProvider):
     @staticmethod
     def parse_magnitude(data: dict) -> Magnitude:
         band = MagnitudeBands[data[OcsProgramProvider._MagnitudeKeys.NAME]]
-        value = data[OcsProgramProvider._MagnitudeKeys]
+        value = data[OcsProgramProvider._MagnitudeKeys.VALUE]
         return Magnitude(band, value, None)
 
     @staticmethod
@@ -251,14 +251,14 @@ class OcsProgramProvider(ProgramProvider):
             """
             value = cond.split('/')[0].split('%')[0]
             try:
-                return 1.0 if value == 'Any' else float(value)
+                return 1.0 if value == 'Any' else float(value) / 100
             except (ValueError, TypeError) as e:
                 # Either of these will just be a ValueError.
                 msg = f'Illegal value for constraint: {value}'
                 logging.error(msg)
                 raise ValueError(msg, e)
 
-        conditions = [lookup[to_value(data[key])] for lookup, key in
+        conditions = [lookup(to_value(data[key])) for lookup, key in
                       [(CloudCover, OcsProgramProvider._ConstraintKeys.CC),
                        (ImageQuality, OcsProgramProvider._ConstraintKeys.IQ),
                        (SkyBackground, OcsProgramProvider._ConstraintKeys.SB),
@@ -266,7 +266,7 @@ class OcsProgramProvider(ProgramProvider):
 
         # Get the elevation data.
         elevation_type_data = data[OcsProgramProvider._ConstraintKeys.ELEVATION_TYPE].replace(' ', '_').upper()
-        elevation_type = ElevationType(elevation_type_data)
+        elevation_type = ElevationType[elevation_type_data]
         elevation_min = data[OcsProgramProvider._ConstraintKeys.ELEVATION_MIN]
         elevation_max = data[OcsProgramProvider._ConstraintKeys.ELEVATION_MAX]
 
@@ -288,7 +288,7 @@ class OcsProgramProvider(ProgramProvider):
 
         target_type_data = data[OcsProgramProvider._TargetKeys.TYPE].replace('-', '_').replace(' ', '_').upper()
         try:
-            target_type = TargetType(target_type_data)
+            target_type = TargetType[target_type_data]
         except KeyError as e:
             msg = f'Target {name} has illegal type {target_type_data}'
             logging.error(msg)
@@ -301,7 +301,14 @@ class OcsProgramProvider(ProgramProvider):
         name, magnitudes, target_type = OcsProgramProvider._parse_target_header(data)
         ra_hhmmss = data[OcsProgramProvider._TargetKeys.RA]
         dec_ddmmss = data[OcsProgramProvider._TargetKeys.DEC]
-        coords = SkyCoord(ra_hhmmss, dec_ddmmss)
+
+        # coords = SkyCoord(ra_hhmmss, dec_ddmmss, frame='icrs')#unit=(u.hourangle, u.hourangle))
+        # ra = coords.ra
+        # dec = coords.dec
+
+        ra = sex2dec(ra_hhmmss, todegree=True)
+        dec = sex2dec(dec_ddmmss, todegree=True)
+
         pm_ra = data.setdefault(OcsProgramProvider._TargetKeys.DELTARA, 0.0)
         pm_dec = data.setdefault(OcsProgramProvider._TargetKeys.DELTADEC, 0.0)
         epoch = data.setdefault(OcsProgramProvider._TargetKeys.EPOCH, 2000)
@@ -310,8 +317,8 @@ class OcsProgramProvider(ProgramProvider):
             name,
             magnitudes,
             target_type,
-            coords.ra,
-            coords.dec,
+            ra,
+            dec,
             pm_ra,
             pm_dec,
             epoch)
@@ -435,7 +442,7 @@ class OcsProgramProvider(ProgramProvider):
         site = Site[data[OcsProgramProvider._ObsKeys.ID].split('-')[0]]
         status = ObservationStatus[data[OcsProgramProvider._ObsKeys.STATUS]]
         active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
-        priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY]]
+        priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY].upper()]
 
         # TODO: Instrument configuration?
         instrument_configuration = None
@@ -511,7 +518,7 @@ class OcsProgramProvider(ProgramProvider):
             pass
 
         # Process the user targets.
-        user_targets_data = data.setdefault(target_env[OcsProgramProvider._TargetEnvKeys.USER_TARGETS], [])
+        user_targets_data = target_env.setdefault(OcsProgramProvider._TargetEnvKeys.USER_TARGETS, [])
         for user_target_data in user_targets_data:
             user_target = OcsProgramProvider.parse_target(user_target_data)
             targets.append(user_target)
