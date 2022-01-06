@@ -30,6 +30,8 @@ class HorizonsClient:
     bodies = {'mercury': '199', 'venus': '299', 'mars': '499', 'jupiter': '599', 'saturn': '699',
                'uranus': '799', 'neptune': '899', 'pluto': '999', 'io': '501'}
 
+    FILE_DATE_FORMAT = '%Y%m%d_%H%M'
+
     def __init__(self,
                  site: Site,
                  path: str = os.path.join('horizons', 'data'),
@@ -65,18 +67,14 @@ class HorizonsClient:
             return ra1, dec1
         else:
 
-            φ1 = dec1
-            φ2 = dec2
-            λ1 = ra1
-            λ2 = ra2
             a = np.sin((1 - f) * delta) / np.sin(delta)
             b = np.sin(f * delta) / np.sin(delta)
-            x = a * np.cos(φ1) * np.cos(λ1) + b * np.cos(φ2) * np.cos(λ2)
-            y = a * np.cos(φ1) * np.sin(λ1) + b * np.cos(φ2) * np.sin(λ2)
-            z = a * np.sin(φ1) + b * np.sin(φ2)
+            x = a * np.cos(dec1) * np.cos(ra1) + b * np.cos(dec2) * np.cos(ra2)
+            y = a * np.cos(dec1) * np.sin(ra1) + b * np.cos(dec2) * np.sin(ra2)
+            z = a * np.sin(dec1) + b * np.sin(dec2)
             φi = np.arctan2(z, np.sqrt(x * x + y * y))
             λi = np.arctan2(y, x)
-            return λi, φi # there is a transformation here
+            return λi, φi
     
     @staticmethod
     def _bracket(times: np.array, time: datetime) -> Tuple[datetime, datetime]:
@@ -107,7 +105,7 @@ class HorizonsClient:
         """
         Returns the start and end times based on the given date
         """
-        return self.start.strftime('%Y%m%d_%H%M'), self.end.strftime('%Y%m%d_%H%M')
+        return self.start.strftime(HorizonsClient.FILE_DATE_FORMAT), self.end.strftime(HorizonsClient.FILE_DATE_FORMAT)
     
     def _form_horizons_name(self, tag: TargetTag, designation: str) -> str:
         """
@@ -199,8 +197,6 @@ class HorizonsClient:
 
     def get_ephemerides(self,
                         target: Target,
-                        start: datetime,
-                        end: datetime,
                         overwrite: bool = False) -> EphemerisCoordinates:
  
         horizons_name = self._form_horizons_name(target.tag, target.des)
@@ -252,7 +248,6 @@ class HorizonsClient:
 
 @contextlib.contextmanager
 def horizons_session(site, start, end, airmass):
-    print(airmass)
     client = HorizonsClient(site, start=start, end=end, airmass=airmass)
     try:
         yield client
