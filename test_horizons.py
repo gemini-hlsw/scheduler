@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
 
     with horizons_session(site, today-timedelta(days=1), today, 300) as session:
-        eph = session.get_ephemerides(target, start=today-timedelta(days=1), end=today)
+        eph = session.get_ephemerides(target)
         target.ra = eph.ra
         target.dec = eph.dec
         print(target)
