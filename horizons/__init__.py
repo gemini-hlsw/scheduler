@@ -2,13 +2,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 import dateutil.parser
 from common.minimodel import Target, TargetTag, Site
-from common.helpers import dms2rad, hms2rad, angular_distance
+from common.helpers.helpers import dms2rad, hms2rad, angular_distance
 import numpy as np
 import numpy.typing as npt
 import requests
 from typing import Tuple, Union
 import logging
-
+import contextlib
 import os
 
 @dataclass
@@ -102,12 +102,12 @@ class HorizonsClient:
                                              factor)
         return ra, dec
     
-    @staticmethod
-    def _time_bounds(start: datetime, end: datetime) -> Tuple[str, str]:
+
+    def _time_bounds(self) -> Tuple[str, str]:
         """
         Returns the start and end times based on the given date
         """
-        return start.strftime('%Y%m%d_%H%M'), end.strftime('%Y%m%d_%H%M')
+        return self.start.strftime('%Y%m%d_%H%M'), self.end.strftime('%Y%m%d_%H%M')
     
     def _form_horizons_name(self, tag: TargetTag, designation: str) -> str:
         """
@@ -121,17 +121,15 @@ class HorizonsClient:
             name = self.generate_horizons_id(designation)
         return name
 
-    def _get_ephemeris_file(self, name: str, start: datetime, end: datetime) -> str:
+    def _get_ephemeris_file(self, name: str) -> str:
         """
         Returns the ephemeris file name
         """
-        start, end = HorizonsClient._time_bounds(start, end)
+        start, end = self._time_bounds()
         return os.path.join(self.path, f"{self.site.name}_{name.replace(' ', '').replace('/', '')}_{start}-{end}.eph")
     
     def query(self,
               target: str,
-              start: datetime,
-              end: datetime,
               step: str = '1m',
               make_ephem: str = 'YES',
               cal_format: str = 'CAL',
@@ -161,8 +159,8 @@ class HorizonsClient:
         
         # print(self.start.strftime("'%Y-%b-%d %H:%M'"))
         # print(self.end.strftime("'%Y-%b-%d %H:%M'"))
-        params['START_TIME'] = start.strftime("'%Y-%b-%d %H:%M'")      # Ephemeris start time YYYY-MMM-DD {HH:MM} {UT/TT}
-        params['STOP_TIME']  = end.strftime("'%Y-%b-%d %H:%M'")        # Ephemeris stop time YYYY-MMM-DD {HH:MM}
+        params['START_TIME'] = self.start.strftime("'%Y-%b-%d %H:%M'")      # Ephemeris start time YYYY-MMM-DD {HH:MM} {UT/TT}
+        params['STOP_TIME']  = self.end.strftime("'%Y-%b-%d %H:%M'")        # Ephemeris stop time YYYY-MMM-DD {HH:MM}
         params['STEP_SIZE']  = "'" + step + "'" # Ephemeris step: integer# {units} {mode}
         params['TLIST']      = None            # Ephemeris time list
 
@@ -207,7 +205,7 @@ class HorizonsClient:
  
         horizons_name = self._form_horizons_name(target.tag, target.des)
         logging.info(f'{target.des}')
-        file = self._get_ephemeris_file(target.des, start, end)
+        file = self._get_ephemeris_file(target.des)
 
         if not overwrite and os.path.exists(file):
             logging.info(f'Saving ephemerides file for {target.des}')
@@ -216,7 +214,7 @@ class HorizonsClient:
         
         else:
             logging.info(f'Querying JPL/Horizons for {horizons_name}')
-            res = self.query(horizons_name, start, end)
+            res = self.query(horizons_name)
             lines = res.text.splitlines()
             if file != None:
                 with open(file, 'w') as f:
@@ -251,3 +249,13 @@ class HorizonsClient:
             raise e
         
         return EphemerisCoordinates(ra, dec, time)
+
+@contextlib.contextmanager
+def horizons_session(site, start, end, airmass):
+    print(airmass)
+    client = HorizonsClient(site, start=start, end=end, airmass=airmass)
+    try:
+        yield client
+    finally:
+        del client
+    return
