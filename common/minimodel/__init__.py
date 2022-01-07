@@ -17,6 +17,7 @@ from typing import ClassVar, List, Mapping, Optional, Set, Union
 class SiteInformation:
     def __init__(self,
                  name: str,
+                 coordinate_center: str,
                  astropy_lookup: str = None):
         """
         AstroPy location lookups for Gemini North and South are of the form:
@@ -26,12 +27,15 @@ class SiteInformation:
 
         If necessary, other observatories should provide hard astropy_lookup values.
 
-        Time zone information for a site is also included here.
+        The following is also included here:
+        * Time zone information
+        * Coordinate center for Ephemeris lookups
         """
         if astropy_lookup is None:
             astropy_lookup = name.lower().replace(' ', '_')
 
         self.name = name
+        self.coordinate_center = coordinate_center
 
         try:
             self.location = EarthLocation.of_site(astropy_lookup)
@@ -50,8 +54,8 @@ class Site(Enum):
     This will have to be customized by a given observatory if used independently
     of Gemini.
     """
-    GN = SiteInformation('Gemini North')
-    GS = SiteInformation('Gemini South')
+    GN = SiteInformation('Gemini North', '568@399')
+    GS = SiteInformation('Gemini South', 'I11@399')
 
 
 class SemesterHalf(Enum):
