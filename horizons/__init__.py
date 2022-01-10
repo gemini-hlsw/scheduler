@@ -143,7 +143,8 @@ class HorizonsClient:
         # Note that spaces should be converted to '%20'
         
         skip_day = 'NO' if daytime else 'YES'
-        center = '568@399' if self.site is Site.GN else 'I11@399'
+
+        center = self.site.value.coordinate_center
 
         params = {'batch':1}
         params['COMMAND']    = "'" + target + "'"
