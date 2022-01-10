@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Mapping, NoReturn, Set, Tuple
 
-from common.api import ProgramProvider
+from api.abstract import ProgramProvider
 import common.helpers as helpers
 from common.minimodel import ObservationClass, Program, ProgramTypes, Semester, Site
 from common.scheduler import SchedulerComponent
@@ -211,7 +211,7 @@ class Collector(SchedulerComponent):
 
         # Sun position in RA / Dec and then for each site in Alt / Az.
         self.sun_position_radec = [vskyutil.lpsun(time) for time in self.utc_times]
-        self.sun_position_altaz = {site: coo  rd.transform_to(aa_converters[site])
+        self.sun_position_altaz = {site: coord.transform_to(aa_converters[site])
                                    for site in Site for coord in self.sun_position_radec}
 
         # Moon position in RA / Dec and then for each site in Alt / Az.
