@@ -91,8 +91,8 @@ class HorizonsClient:
         a, b = HorizonsClient._bracket(ephemeris.time, time)
         # Find indexes for each bound
         i_a, i_b = np.where(ephemeris.time == a)[0][0], np.where(ephemeris.time == b)[0][0]
-        factor = (time - a / b - a).timestamp() * 1000
-        logging.info()
+        factor = (time.timestamp() - a.timestamp() / b.timestamp() - a.timestamp()) * 1000
+        logging.info(f'Interpolating by factor: {factor}')
         ra, dec = HorizonsClient.interpolate(ephemeris.ra[i_a],
                                              ephemeris.dec[i_a],
                                              ephemeris.ra[i_b],
@@ -201,7 +201,10 @@ class HorizonsClient:
  
         horizons_name = self._form_horizons_name(target.tag, target.des)
         logging.info(f'{target.des}')
-        file = self._get_ephemeris_file(target.des)
+
+        
+        file = self._get_ephemeris_file(target.des) if target.tag is not TargetTag.MAJOR_BODY else self._get_ephemeris_file(horizons_name) 
+        
 
         if not overwrite and os.path.exists(file):
             logging.info(f'Saving ephemerides file for {target.des}')
