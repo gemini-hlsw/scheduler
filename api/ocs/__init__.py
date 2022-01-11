@@ -1,8 +1,6 @@
 import calendar
-import json
-from typing import NoReturn, Tuple
-
 import numpy as np
+from typing import NoReturn, Tuple
 
 from api.abstract import ProgramProvider
 from common.minimodel import *
@@ -14,6 +12,9 @@ class OcsProgramProvider(ProgramProvider):
     A ProgramProvider that parses programs from JSON extracted from the OCS
     Observing Database.
     """
+
+    # We contain private classes with static members for the keys in the associative
+    # arrays in order to have this information defined at the top-level once.
     class _ProgramKeys:
         ID = 'programId'
         INTERNAL_ID = 'key'
@@ -110,15 +111,6 @@ class OcsProgramProvider(ProgramProvider):
     class _MagnitudeKeys:
         NAME = 'name'
         VALUE = 'value'
-
-    @staticmethod
-    def load_program(path: str) -> dict:
-        """
-        Parse the program file at the given path into JSON and return it.
-        TODO: Why do we have this method?
-        """
-        with open(path, 'r') as f:
-            return json.loads(f.read())
 
     @staticmethod
     def parse_magnitude(data: dict) -> Magnitude:
@@ -302,10 +294,7 @@ class OcsProgramProvider(ProgramProvider):
         ra_hhmmss = data[OcsProgramProvider._TargetKeys.RA]
         dec_ddmmss = data[OcsProgramProvider._TargetKeys.DEC]
 
-        # coords = SkyCoord(ra_hhmmss, dec_ddmmss, frame='icrs')#unit=(u.hourangle, u.hourangle))
-        # ra = coords.ra
-        # dec = coords.dec
-
+        # TODO: Is this the proper way to handle conversions from hms and dms?
         ra = sex2dec(ra_hhmmss, todegree=True)
         dec = sex2dec(dec_ddmmss, todegree=True)
 
@@ -345,6 +334,11 @@ class OcsProgramProvider(ProgramProvider):
 
     @staticmethod
     def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
+        """
+        Atom handling logic.
+
+        TODO: Update this with Bryan's newer code.
+        """
         n_steps = len(sequence)
         n_abba = 0
         n_atom = 0
@@ -444,7 +438,7 @@ class OcsProgramProvider(ProgramProvider):
         active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
         priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY].upper()]
 
-        # TODO: Instrument configuration?
+        # TODO: Instrument configuration? This depends on the design decision for Resource.
         instrument_configuration = None
 
         setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
@@ -525,7 +519,8 @@ class OcsProgramProvider(ProgramProvider):
 
         # If the ToO override rapid setting is in place, set to RAPID.
         # Otherwise set as None and we will propagate down from the groups.
-        if OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data:
+        if OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and \
+                data[OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]:
             too_type = TooType.RAPID
         else:
             too_type = None
@@ -566,9 +561,10 @@ class OcsProgramProvider(ProgramProvider):
             partner_used)
 
     @staticmethod
-    def parse_or_group(data: dict) -> OrGroup:
+    def parse_or_group(data: dict, group_id: str, group_name: str) -> OrGroup:
         """
-        There are no OR groups in the OCS.
+        There are no OR groups in the OCS, so this method simply throws a
+        NotImplementedError if it is called.
         """
         raise NotImplementedError('OCS does not support OR groups.')
 
@@ -579,8 +575,10 @@ class OcsProgramProvider(ProgramProvider):
         We do not allow nested groups in OCS, so this is relatively easy.
 
         This method expects the data from a SchedulingFolder or from the program.
-        Organizational folders are ignored, so we retrieve all of the observations
-        here that are in organizational folders and simply stick them in this level.
+
+        Organizational folders are ignored, so they require some special handling:
+        we retrieve all the observations here that are in organizational folders and
+        simply stick them in this level.
         """
         delay_min = timedelta.min
         delay_max = timedelta.max
@@ -601,7 +599,7 @@ class OcsProgramProvider(ProgramProvider):
                                      if key.startswith(OcsProgramProvider._ObsKeys.KEY))
             observations = [OcsProgramProvider.parse_observation(data[key], key) for key in sorted_obs_keys]
 
-            # Put all of the observations in trivial AND groups.
+            # Put all the observations in trivial AND groups.
             trivial_groups = [AndGroup(
                 obs.id,
                 obs.title,
@@ -616,7 +614,7 @@ class OcsProgramProvider(ProgramProvider):
 
         number_to_observe = len(children)
 
-        # Put all of the observations in the one big AND group and return it.
+        # Put all the observations in the one big AND group and return it.
         return AndGroup(
             group_id,
             group_name,
@@ -634,12 +632,10 @@ class OcsProgramProvider(ProgramProvider):
         Parse the program-level details from the JSON data.
 
         1. The root group is always an AND group with any order.
-        TODO: verify point 2 here.
         2. The scheduling groups are AND groups with any order.
-        3. The organizational folders are folders with any order.
+        3. The organizational folders are ignored and their observations are considered top-level.
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
-        # root_group = OcsProgramProvider.parse_root_group(data)
         program_id = data[OcsProgramProvider._ProgramKeys.ID]
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
         band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
@@ -669,7 +665,7 @@ class OcsProgramProvider(ProgramProvider):
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
 
         # Propagate the ToO type down through the root group to get to the observation.
-        OcsProgramProvider._propagate_too_type(program_id, too_type, root_group)
+        OcsProgramProvider._check_too_type(program_id, too_type, root_group)
 
         return Program(
             program_id,
@@ -685,9 +681,9 @@ class OcsProgramProvider(ProgramProvider):
             too_type)
 
     @staticmethod
-    def _propagate_too_type(program_id: str, too_type: TooType, group: NodeGroup) -> NoReturn:
+    def _check_too_type(program_id: str, too_type: TooType, group: NodeGroup) -> NoReturn:
         """
-        Determine the TooTypes of the Observations in a Program.
+        Determine the validity of the TooTypes of the Observations in a Program.
 
         A Program with a TooType that is not None will have Observations that are the same TooType
         as the Program, unless their tooRapidOverride is set to True (in which case, the Program will
@@ -697,6 +693,9 @@ class OcsProgramProvider(ProgramProvider):
         tooRapidOverride set to False.
 
         In the context of OCS, we do not have TooTypes of INTERRUPT.
+
+        TODO: This logic can probably be extracted from this class and moved to a general-purpose
+        TODO: method as it will apply to all implementations of the API.
         """
         if too_type == TooType.INTERRUPT:
             msg = f'OCS program {program_id} has a ToO type of INTERRUPT.'
@@ -714,15 +713,15 @@ class OcsProgramProvider(ProgramProvider):
             type that is as stringent or less than the Program's.
             """
             if too_type is None:
-                return sub_too_type is not None
+                return sub_too_type is None
             return sub_too_type is None or sub_too_type <= too_type
 
-        def process_group(group: NodeGroup):
+        def process_group(node_group: NodeGroup):
             """
             Traverse down through the group, processing Observations and subgroups.
             """
-            if isinstance(group.children, Observation):
-                observation: Observation = group.children
+            if isinstance(node_group.children, Observation):
+                observation: Observation = node_group.children
 
                 # If the observation's ToO type is None, we set it from the program.
                 if observation.too_type is None:
@@ -735,7 +734,9 @@ class OcsProgramProvider(ProgramProvider):
                     raise ValueError(nc_msg)
                 observation.too_type = too_type
             else:
-                for subgroup in group.children:
+                for subgroup in node_group.children:
                     if isinstance(subgroup, NodeGroup):
                         node_subgroup: NodeGroup = subgroup
                         process_group(node_subgroup)
+
+        process_group(group)
