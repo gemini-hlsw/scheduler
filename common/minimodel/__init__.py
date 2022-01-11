@@ -28,8 +28,10 @@ class SiteInformation:
         If necessary, other observatories should provide hard astropy_lookup values.
 
         The following is also included here:
-        * Time zone information
-        * Coordinate center for Ephemeris lookups
+        * name: the name of the site in human-readable format
+        * timezone: time zone information
+        * location: the AstroPy location lookup (astropy.coordinates.earth) of the site
+        * coordinate_center: coordinate center for Ephemeris lookups
         """
         if astropy_lookup is None:
             astropy_lookup = name.lower().replace(' ', '_')
@@ -51,6 +53,8 @@ class SiteInformation:
 
 class Site(Enum):
     """
+    The sites belonging to the observatory using the Scheduler.
+
     This will have to be customized by a given observatory if used independently
     of Gemini.
     """
@@ -59,12 +63,21 @@ class Site(Enum):
 
 
 class SemesterHalf(Enum):
+    """
+    Gemini typically schedules programs for two semesters per year, namely A and B.
+    For other observatories, this logic might have to be substantially changed.
+    """
     A = 'A'
     B = 'B'
 
 
 @dataclass
 class Semester:
+    """
+    A semester is a period for which programs may be submitted to Gemini and consists of:
+    * A four digit year
+    * Two semesters during each year, indicated by the SemesterHalf
+    """
     year: int
     half: SemesterHalf
 
@@ -97,6 +110,9 @@ class ObservingPeriod:
 
 class TimeAccountingCode(str, Enum):
     """
+    The time accounting codes for the possible partner submissions or internal program
+    types used at Gemini, also known as categories.
+
     This will have to be customized for a given observatory if used independently
     of Gemini.
     """
@@ -123,6 +139,14 @@ class TimeAccountingCode(str, Enum):
 
 @dataclass(unsafe_hash=True)
 class TimeAllocation:
+    """
+    Time allocation information for a given category for a program.
+    Programs may be sponsored by multiple categories with different amounts
+    of time awarded. This class maintains information about the time awarded
+    and the time that has been used, divided between program time and partner
+    calibration time. The time used is calculated as a ratio of the awarded time
+    for this category to the total time awarded to the program.
+    """
     category: TimeAccountingCode
     program_awarded: timedelta
     partner_awarded: timedelta
@@ -166,6 +190,9 @@ class TimingWindow:
 
 
 class SkyBackground(float, Enum):
+    """
+    Bins for observation sky background requirements or current conditions.
+    """
     SB20 = 0.2
     SB50 = 0.5
     SB80 = 0.8
@@ -173,6 +200,9 @@ class SkyBackground(float, Enum):
 
 
 class CloudCover(float, Enum):
+    """
+    Bins for observation cloud cover requirements or current conditions.
+    """
     CC50 = 0.5
     CC70 = 0.7
     CC80 = 0.8
@@ -180,6 +210,9 @@ class CloudCover(float, Enum):
 
 
 class ImageQuality(float, Enum):
+    """
+    Bins for observation image quality requirements or current conditions.
+    """
     IQ20 = 0.2
     IQ70 = 0.7
     IQ85 = 0.85
@@ -187,13 +220,22 @@ class ImageQuality(float, Enum):
 
 
 class WaterVapor(float, Enum):
+    """
+    Bins for observation water vapor requirements or current conditions.
+    """
     WV20 = 0.2
     WV50 = 0.5
     WV80 = 0.8
     WVANY = 1.0
 
 
-class Stehl(float, Enum):
+class Strehl(float, Enum):
+    """
+    The Strehl ratio is a measure of the quality of optical image formation.
+    Used variously in situations where optical resolution is compromised due to lens aberrations or due to imaging
+    through the turbulent atmosphere, the Strehl ratio has a value between 0 and 1, with a hypothetical, perfectly
+    unaberrated optical system having a Strehl ratio of 1. (Source: Wikipedia.)
+    """
     S00 = 0.0
     S02 = 0.2
     S04 = 0.4
@@ -203,6 +245,9 @@ class Stehl(float, Enum):
 
 
 class ElevationType(IntEnum):
+    """
+    The type of elevation constraints in the observing conditions.
+    """
     NONE = auto()
     HOUR_ANGLE = auto()
     AIRMASS = auto()
@@ -210,6 +255,9 @@ class ElevationType(IntEnum):
 
 @dataclass
 class Constraints:
+    """
+    The constraints required for an observation to be performed.
+    """
     cc: CloudCover
     iq: ImageQuality
     sb: SkyBackground
@@ -220,19 +268,18 @@ class Constraints:
     elevation_max: float
     timing_windows: List[TimingWindow]
     # clearance_windows: Optional[List[ClearanceWindow]] = None
-    strehl: Optional[Stehl] = None
+    strehl: Optional[Strehl] = None
 
     # For performance increase to avoid repeated computation.
     # Divide a time in milliseconds by this to get the quantity in hours.]
     _MS_TO_H: ClassVar[int] = u.hour.to('ms') * u.hour
 
     def __post_init__(self):
-
         """
         Convert the timing window information to more natural units, i.e. a list of
-         Time, which is for more convenient processing.
+        AstroPy Time, which is for more convenient processing.
 
-         This creates a property on the Constraints called ot_timing_windows.
+        This creates a property on the Constraints called ot_timing_windows.
         """
         self.ot_timing_windows = []
 
@@ -252,10 +299,17 @@ class Constraints:
             for i in range(repeat):
                 window_start = begin + i * period
                 window_end = window_start + duration
+
+                # TODO: This does not seem correct.
+                # TODO: We should be inserting TimingWindow into this list, and not these
+                # TODO: AstroPy Time objects, which are unexpected and cannot be indexed.
                 self.timing_windows.append(Time[window_start, window_end])
 
 
 class MagnitudeSystem(Enum):
+    """
+    List of magnitude systems associated with magnitude bands.
+    """
     VEGA = auto()
     AB = auto()
     JY = auto()
@@ -264,9 +318,10 @@ class MagnitudeSystem(Enum):
 @dataclass(frozen=True)
 class MagnitudeBand:
     """
+    THIS CLASS SHOULD NOT BE INSTANTIATED.
+    They are fully enumerated in MagnitudeBands, so they should be looked up by name there.
+
     Values for center and width are specified in microns.
-    These should NOT be created: they are fully enumerated in MagnitudeBands, so
-    they should be looked up by name there.
     """
     name: str
     center: float
@@ -307,12 +362,18 @@ class MagnitudeBands(Enum):
 
 @dataclass(frozen=True)
 class Magnitude:
+    """
+    A magnitude value in a particular band.
+    """
     band: MagnitudeBands
     value: float
     error: Optional[float]
 
 
 class TargetType(Enum):
+    """
+    The type associated with a target in an observation.
+    """
     BASE = auto()
     USER = auto()
     BLIND_OFFSET = auto()
@@ -323,22 +384,27 @@ class TargetType(Enum):
 
 
 class GuideSpeed(IntEnum):
+    """
+    How quickly a guider can guide on a guide star.
+    """
     SLOW = auto()
     MEDIUM = auto()
     FAST = auto()
 
 
 class TargetTag(Enum):
+    """
+    A tag used by nonsidereal targets to indicate their type.
+    """
     COMET = auto()
     ASTEROID = auto()
     MAJOR_BODY = auto()
 
 
-# TODO: Should this be frozen? If so, subclasses must be frozen.
 @dataclass
 class Target(ABC):
     """
-    RA and Dec should be specified in decimal degrees.
+    Basic target information.
     """
     name: str
     magnitudes: Set[Magnitude]
@@ -351,7 +417,7 @@ class Target(ABC):
         """
         Calculate the guide speed for this target.
         """
-        pass
+        ...
 
 
 @dataclass
@@ -360,6 +426,7 @@ class SiderealTarget(Target):
     For a SiderealTarget, we have an RA and Dec and then proper motion information
     to calculate the exact position.
 
+    RA and Dec should be specified in decimal degrees.
     Proper motion must be specified in milliarcseconds / year.
     Epoch must be the decimal year.
     """
@@ -376,7 +443,9 @@ class SiderealTarget(Target):
 @dataclass
 class NonsiderealTarget(Target):
     """
-    For a NonsiderealTarget, we have arrays of ephemerides to specify the position.
+    For a NonsiderealTarget, we have a HORIZONS designation to indicate the lookup
+    information, a tag to determine the type of target, and arrays of ephemerides
+    to specify the position.
     """
     des: str
     tag: TargetTag
@@ -389,15 +458,25 @@ class NonsiderealTarget(Target):
 
 @dataclass(unsafe_hash=True, frozen=True)
 class Resource:
+    """
+    This is a general observatory resource.
+    It can consist of a guider, an instrument, or a part of an instrument,
+    or even a personnel and is used to determine what observations can be
+    performed at a given time based on the resource availability.
+    """
     id: str
     name: str
     description: Optional[str] = None
+
+    def __eq__(self, other):
+        return isinstance(other, Resource) and self.id == other.id
 
 
 class QAState(IntEnum):
     """
     These correspond to the QA States in the OCS for Observations.
-    Entries in the obs log should be made upper for lookups.
+    Entries in the obs log should be made uppercase for lookups into
+    this enum.
     """
     NONE = auto()
     UNDEFINED = auto()
@@ -409,6 +488,8 @@ class QAState(IntEnum):
 @dataclass
 class Atom:
     """
+    Atom information, where an atom is the smallest schedulable set of steps
+    such that useful science can be obtained from performing them.
     The wavelength must be specified in microns.
     """
     id: int
@@ -423,6 +504,9 @@ class Atom:
 
 
 class ObservationStatus(IntEnum):
+    """
+    The status of an observation as indicated in the Observing Tool / ODB.
+    """
     NEW = auto()
     INCLUDED = auto()
     PROPOSED = auto()
@@ -435,6 +519,10 @@ class ObservationStatus(IntEnum):
 
 
 class Priority(IntEnum):
+    """
+    An observation's priority.
+    Note that these are ordered specifically so that we can compare them.
+    """
     LOW = auto()
     MEDIUM = auto()
     HIGH = auto()
@@ -442,7 +530,9 @@ class Priority(IntEnum):
 
 class TooType(IntEnum):
     """
+    The target-of-opportunity type for a program and for an observation.
     These are ordered specifically so that we can compare them.
+
     The INTERRUPT is considered the highest level of TooType, followed by RAPID, and then STANDARD.
 
     Thus, a Program with a RAPID type, for example, can contain RAPID and STANDARD Observations,
@@ -456,6 +546,9 @@ class TooType(IntEnum):
 
 
 class SetupTimeType(IntEnum):
+    """
+    The setup time type for an observation.
+    """
     FULL = auto()
     REACQ = auto()
     NONE = auto()
@@ -463,6 +556,8 @@ class SetupTimeType(IntEnum):
 
 class ObservationClass(IntEnum):
     """
+    The class of an observation.
+
     Note that the order of these is specific and deliberate: they are listed in
     preference order for observation classes, and hence, should not be rearranged.
     These correspond to the values in the OCS when made uppercase.
@@ -477,12 +572,26 @@ class ObservationClass(IntEnum):
 
 @dataclass(frozen=True)
 class InstrumentConfiguration:
+    """
+    An instrument's required configuration for an observation.
+    TODO: This can probably just be replaced by Resource and eliminated completely.
+    """
     name: str
     resources: Set[Resource]
 
 
 @dataclass
 class Observation:
+    """
+    Representation of an observation.
+    Non-obvious fields are documented below.
+    * id should represent the observation's ID, e.g. GN-2018B-Q-101-123.
+    * internal_id is the key associated with the observation
+    * order refers to the order of the observation in either its group or the program
+    * targets should contain a complete list of all targets associated with the observation,
+      with the base being in the first position
+    * guiding is a map between guide probe resources and their targets
+    """
     id: str
     internal_id: str
     order: int
@@ -491,7 +600,12 @@ class Observation:
     status: ObservationStatus
     active: bool
     priority: Priority
+
+    # TODO: Propose we eliminate this and make it a set of Resource since
+    # TODO: instruments and their configurable components will be viewed
+    # TODO: as Resources.
     instrument_configuration: InstrumentConfiguration
+
     setuptime_type: SetupTimeType
     acq_overhead: timedelta
     exec_time: timedelta
@@ -515,22 +629,37 @@ class Observation:
     too_type: Optional[TooType] = None
 
     def total_used(self) -> timedelta:
+        """
+        Total program time used: includes program time and partner time.
+        """
         return self.program_used() + self.partner_used()
 
     def required_resources(self) -> Set[Resource]:
+        """
+        The required resources for an observation based on the sequence's needs.
+
+        TODO: Include the instrument configuration resources in here.
+        """
         return {r for a in self.sequence for r in a.required_resources}
 
     def wavelengths(self) -> Set[float]:
+        """
+        The set of wavelengths included in the sequence.
+        """
         return {c.wavelength for c in self.sequence}
 
     def constraints(self) -> Set[Constraints]:
-        return {self.constraints}
+        """
+        A set of the constraints required by the observation.
+        In the case of an observation, this is just the (optional) constraints.
+        """
+        return {self.constraints} if self.constraints is not None else {}
 
     def program_used(self) -> timedelta:
         """
         We roll this information up from the atoms as it will be calculated
         during the GreedyMax algorithm. Note that it is also available directly
-        from the OCS.
+        from the OCS, which is used to populate the time allocation.
         """
         return sum(atom.prog_time for atom in self.sequence)
 
@@ -538,7 +667,7 @@ class Observation:
         """
         We roll this information up from the atoms as it will be calculated
         during the GreedyMax algorithm. Note that it is also available directly
-        from the OCS.
+        from the OCS, which is used to populate the time allocation.
         """
         return sum(atom.part_time for atom in self.sequence)
 
@@ -568,14 +697,29 @@ class Observation:
 
     def __len__(self):
         """
-        This is to treat observations the same as groups.
+        This is to treat observations the same as groups and is a bit of a hack.
+        Observations are to be placed in AND Groups of size 1 for scheduling purposes.
         """
         return 1
+
 
 # Since Python doesn't allow classes to self-reference, we have to make a basic group
 # from which to subclass.
 @dataclass
 class Group(ABC):
+    """
+    This is the base implementation of AND / OR Groups.
+    Python does not allow classes to self-reference unless in static contexts,
+    so we make a very simple base class to self-reference from subclasses since
+    we need this functionality to allow for group nesting.
+
+    * id: the identification of the group
+    * group_name: a human-readable name of the group
+    * number_to_observe: the number of children in the group that must be observed for the
+      group to be considered complete
+    * delay_min: used in cadences
+    * delay_max: used in cadences
+    """
     id: str
     group_name: str
     number_to_observe: int
@@ -587,20 +731,41 @@ class Group(ABC):
 
     @abstractmethod
     def required_resources(self) -> Set[Resource]:
-        pass
+        """
+        This method should be implemented to return all the Resources required by
+        this group and its descendents.
+        """
+        ...
 
     @abstractmethod
     def wavelengths(self) -> Set[float]:
-        pass
+        """
+        This method should be implemented to return all the wavelengths used by
+        this group and its descendents.
+        """
+        ...
 
     @abstractmethod
     def constraints(self) -> Set[Constraints]:
-        pass
+        """
+        This method should be used to return all the sets of Conditions required by
+        this group and its descendents.
+        """
+        ...
 
 
-# And then a group that contains children.
 @dataclass
 class NodeGroup(Group, ABC):
+    """
+    A NodeGroup is the fundamental implementation of a group, i.e. a group that
+    contains children, which can either be:
+    1. A single observation (in which case, the group should be an AND group); or
+    2. A list of other groups (in which case, the group can be either an AND or OR group).
+    Note that it is still abstract and cannot be instantiated.
+
+    The distinction between Group and NodeGroup is made so that NodeGroup can
+    reference Group in its members, since Python classes cannot be self-referential.
+    """
     children: Union[List[Group], Observation]
 
     def __post_init__(self):
@@ -624,6 +789,10 @@ class NodeGroup(Group, ABC):
 
 
 class AndOption(Enum):
+    """
+    Different options available for ordering AND group children.
+    CUSTOM is used for cadences.
+    """
     CONSEC_ORDERED = auto()
     CONSEC_ANYORDER = auto()
     NIGHT_ORDERED = auto()
@@ -634,6 +803,13 @@ class AndOption(Enum):
 
 @dataclass
 class AndGroup(NodeGroup):
+    """
+    The concrete implementation of an AND group.
+    It requires an AndOption to specify how its observations should be handled,
+    and a previous (which should be an index into the group's children to indicate
+    the previously observed child, or None if none of the children have yet been
+    observed).
+    """
     group_option: AndOption
     previous: Optional[int] = None
 
@@ -644,10 +820,20 @@ class AndGroup(NodeGroup):
                   f'{len(self.children)} children.'
             logging.error(msg)
             raise ValueError(msg)
+        if self.previous is not None and (self.previous < 0 or self.previous >= len(self.children)):
+            msg = f'AND group {self.group_name} has {len(self.children)} children and an illegal previous value of '\
+                  f'{self.previous}'
+            logging.error(msg)
+            raise ValueError(msg)
 
 
 @dataclass
 class OrGroup(NodeGroup):
+    """
+    The concrete implementation of an OR group.
+    The restrictions on an OR group is that it must explicitly require not all
+    of its children to be observed.
+    """
     def __post_init__(self):
         super().__post_init__()
         if self.number_to_observe >= len(self.children):
@@ -658,6 +844,9 @@ class OrGroup(NodeGroup):
 
 
 class Band(IntEnum):
+    """
+    Program band.
+    """
     BAND1 = 1
     BAND2 = 2
     BAND3 = 3
@@ -678,12 +867,28 @@ class ProgramMode(IntEnum):
 
 @dataclass(frozen=True)
 class ProgramType:
+    """
+    Represents the information encompassing the type of program.
+    * abbreviation: the code used by the program type (e.g. Q, C, FT, LP)
+    * name: user readable representation of the program type
+    * is_science: indicates if this program type is a science program
+
+    NOTE that ProgramType instances should NEVER be explicitly created.
+    All of the valid ProgramType instances are contained in the ProgramTypes enum
+    and should be accessed from there.
+    """
     abbreviation: str
     name: str
-    isScience: bool = True
+    is_science: bool = True
 
 
 class ProgramTypes(Enum):
+    """
+    A complete list of the ProgramType instances used by Gemini.
+    As mentioned in ProgramType, ProgramType should never be instantiated
+    outside of this enum: instead, ProgramType instances should be retrieved
+    from here.
+    """
     C = ProgramType('C', 'Classical')
     CAL = ProgramType('CAL', 'Calibration', False)
     DD = ProgramType('DD', "Director's Time")
@@ -738,6 +943,12 @@ class Program:
 
 @dataclass(frozen=True)
 class Visit:
+    """
+    A visit is a scheduled piece of an observation.
+    It can be no less than a single atom.
+
+    TODO: This will probably require some refinement as we progress.
+    """
     start_time: datetime
     end_time: datetime
     observation_id: str
@@ -749,4 +960,10 @@ class Visit:
 
 @dataclass
 class Plan:
+    """
+    A complete plan for each site, mapping an observation period to the list
+    of visits to be performed during that period.
+
+    TODO: This will probably require some refinement as we progress.
+    """
     scheduled_atoms: Mapping[Site, Mapping[ObservingPeriod, List[Visit]]]

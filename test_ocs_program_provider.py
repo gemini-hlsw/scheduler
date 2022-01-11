@@ -1,12 +1,16 @@
 import os
+import json
+from typing import NoReturn
+
 from api.ocs import OcsProgramProvider
 from common.minimodel import NodeGroup, Observation
 
-from typing import NoReturn
-
 if __name__ == '__main__':
     provider = OcsProgramProvider
-    data = provider.load_program(os.path.join('data', 'GN-2018B-Q-101.json'))
+    # data = provider.load_program(os.path.join('data', 'GN-2018B-Q-101.json'))
+    path = os.path.join('data', 'GN-2018B-Q-101.json')
+    with open(path, 'r') as f:
+        data = json.loads(f.read())
 
     program = OcsProgramProvider.parse_program(data['PROGRAM_BASIC'])
     print(f'Program: {program.id}')
