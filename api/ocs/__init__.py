@@ -519,7 +519,8 @@ class OcsProgramProvider(ProgramProvider):
 
         # If the ToO override rapid setting is in place, set to RAPID.
         # Otherwise set as None and we will propagate down from the groups.
-        if OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data:
+        if OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and \
+                data[OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]:
             too_type = TooType.RAPID
         else:
             too_type = None
@@ -664,7 +665,7 @@ class OcsProgramProvider(ProgramProvider):
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
 
         # Propagate the ToO type down through the root group to get to the observation.
-        OcsProgramProvider._propagate_too_type(program_id, too_type, root_group)
+        OcsProgramProvider._check_too_type(program_id, too_type, root_group)
 
         return Program(
             program_id,
@@ -680,9 +681,9 @@ class OcsProgramProvider(ProgramProvider):
             too_type)
 
     @staticmethod
-    def _propagate_too_type(program_id: str, too_type: TooType, group: NodeGroup) -> NoReturn:
+    def _check_too_type(program_id: str, too_type: TooType, group: NodeGroup) -> NoReturn:
         """
-        Determine the TooTypes of the Observations in a Program.
+        Determine the validity of the TooTypes of the Observations in a Program.
 
         A Program with a TooType that is not None will have Observations that are the same TooType
         as the Program, unless their tooRapidOverride is set to True (in which case, the Program will
@@ -692,6 +693,9 @@ class OcsProgramProvider(ProgramProvider):
         tooRapidOverride set to False.
 
         In the context of OCS, we do not have TooTypes of INTERRUPT.
+
+        TODO: This logic can probably be extracted from this class and moved to a general-purpose
+        TODO: method as it will apply to all implementations of the API.
         """
         if too_type == TooType.INTERRUPT:
             msg = f'OCS program {program_id} has a ToO type of INTERRUPT.'
@@ -709,15 +713,15 @@ class OcsProgramProvider(ProgramProvider):
             type that is as stringent or less than the Program's.
             """
             if too_type is None:
-                return sub_too_type is not None
+                return sub_too_type is None
             return sub_too_type is None or sub_too_type <= too_type
 
-        def process_group(group: NodeGroup):
+        def process_group(node_group: NodeGroup):
             """
             Traverse down through the group, processing Observations and subgroups.
             """
-            if isinstance(group.children, Observation):
-                observation: Observation = group.children
+            if isinstance(node_group.children, Observation):
+                observation: Observation = node_group.children
 
                 # If the observation's ToO type is None, we set it from the program.
                 if observation.too_type is None:
@@ -730,7 +734,9 @@ class OcsProgramProvider(ProgramProvider):
                     raise ValueError(nc_msg)
                 observation.too_type = too_type
             else:
-                for subgroup in group.children:
+                for subgroup in node_group.children:
                     if isinstance(subgroup, NodeGroup):
                         node_subgroup: NodeGroup = subgroup
                         process_group(node_subgroup)
+
+        process_group(group)
