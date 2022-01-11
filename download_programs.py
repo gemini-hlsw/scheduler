@@ -11,9 +11,8 @@ from zipfile import ZipFile
 
 from common.minimodel import ProgramTypes, Site, SemesterHalf
 
-# Add levels to the logger for more informative logging.
+# Add level to the logger for more informative logging.
 EXTRACT = logging.WARN
-ADD = logging.WARN
 
 
 @dataclass(frozen=True)
@@ -138,6 +137,5 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
 if __name__ == '__main__':
     # Uncomment to turn on the info logging.
     # logging.basicConfig(level=logging.INFO)
-    logging.addLevelName(ADD, "adding")
     logging.addLevelName(EXTRACT, "extract")
     download_programs()
