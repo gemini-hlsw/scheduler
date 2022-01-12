@@ -434,7 +434,7 @@ class OcsProgramProvider(ProgramProvider):
         internal_id = data[OcsProgramProvider._ObsKeys.INTERNAL_ID]
         title = data[OcsProgramProvider._ObsKeys.TITLE]
         site = Site[data[OcsProgramProvider._ObsKeys.ID].split('-')[0]]
-        status = ObservationStatus[data[OcsProgramProvider._ObsKeys.STATUS]]
+        status = ObservationStatus[data[OcsProgramProvider._ObsKeys.STATUS].upper()]
         active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
         priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY].upper()]
 
@@ -661,7 +661,7 @@ class OcsProgramProvider(ProgramProvider):
         # data to the parse_and_group method.
         root_group = OcsProgramProvider.parse_and_group(data, "Root", "Root")
 
-        too_type = TooType(data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()) if \
+        too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
 
         # Propagate the ToO type down through the root group to get to the observation.
