@@ -1,13 +1,11 @@
 #!/usr/bin/python3
 import logging
-import os
-import zipfile
-
 from dataclasses import dataclass
+import os
 import requests
 import telnetlib
 from typing import Mapping, NoReturn, FrozenSet
-from zipfile import ZipFile
+import zipfile
 
 from common.minimodel import ProgramTypes, Site, SemesterHalf
 
@@ -126,7 +124,7 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
         if os.path.isfile(zip_file):
             os.unlink(zip_file)
 
-        with ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as zf:
             for program_file in downloaded_programs:
                 zf.write(program_file)
 

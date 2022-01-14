@@ -1,11 +1,41 @@
 import calendar
 import numpy as np
 from typing import NoReturn, Tuple
+import zipfile
+import json
 
 from api.abstract import ProgramProvider
 from common.helpers.helpers import str_to_bool
 from common.minimodel import *
 from common.timeutils import sex2dec
+
+
+def read_ocs_zipfile(zip_file: str) -> Mapping[Site, List[dict]]:
+    """
+    Since for OCS we will use a collection of extracted ODB data, this is a
+    convenience method to sort that data into the requisite map from site to
+    a list of the JSON program data.
+    """
+    programs: dict[Site, List[dict]] = {}
+
+    with zipfile.ZipFile(zip_file, 'r') as zf:
+        filenames = zf.namelist()
+        for filename in filenames:
+            filename_parts = filename.split('-')
+            if filename_parts:
+                try:
+                    site = Site(filename_parts[0])
+                except KeyError:
+                    msg = f'Cannot extract site information from {filename}: ignoring.'
+                    logging.warning(msg)
+
+            filedata = zf.read(filename)
+            with json.loads(filedata) as data:
+                programs.setdefault(site, [])
+                programs[site].append(data)
+                logging.info(f'Added program {filename}.')
+
+    return programs
 
 
 class OcsProgramProvider(ProgramProvider):
