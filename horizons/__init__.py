@@ -2,14 +2,92 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 import dateutil.parser
 from common.minimodel import Target, TargetTag, Site
-from common.helpers.helpers import dms2rad, hms2rad, angular_distance
+from common.helpers.helpers import dms2rad, hms2rad
 import numpy as np
 import numpy.typing as npt
 import requests
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 import logging
 import contextlib
 import os
+
+
+@dataclass
+class Angle:
+    """
+    Angle in radians.
+    """
+    µasPerDegree: float = 60 * 60 * 1000 * 1000
+
+    @staticmethod
+    def signed_microarcseconds(angle: float) -> float:
+        """
+        Convert an angle in radians to a signed microarcsecond angle.
+        """
+        degrees = Angle.to_degrees(angle)
+        if degrees > 180:
+            degrees -= 360
+        return degrees * Angle.µasPerDegree
+ 
+    def to_degrees(angle: float) -> float:
+        """
+        Convert an angle in radians to a signed degree angle.
+        """
+        return angle * 180.0 / np.pi
+
+    @staticmethod
+    def to_microarcseconds(angle: float) -> float:
+        """
+        Convert an angle in radians to a signed microarcsecond angle.
+        """
+        return Angle.to_degrees(angle) * Angle.µasPerDegree
+
+
+
+class Coordinates:
+    """
+    Both ra and dec are in radians.
+
+    """
+    def __init__(self, ra: float, dec: float) -> None:
+        
+        self.ra = ra
+        self.dec = dec
+
+    def angular_distance(self, other: 'Coordinates') -> float:
+        """
+        Calculate the angular distance between two points on the sky.
+        based on 
+        https://github.com/gemini-hlsw/lucuma-core/blob/master/modules/core/shared/src/main/scala/lucuma/core/math/Coordinates.scala#L52
+        """
+        φ1 = self.dec # to angle to radians
+        φ2 = other.dec # to angle to radians
+        delta_φ = other.dec - self.dec
+        delta_λ = other.ra - self.ra
+        a = np.sin(delta_φ / 2)**2 + np.cos(φ1) * np.cos(φ2) * np.sin(delta_λ / 2)**2
+        return 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+ 
+    def interpolate(self, other: 'Coordinates', f: float) -> 'Coordinates':
+        """
+        Interpolate between two Coordinates objects.
+        """
+
+        delta = self.angular_distance(other)
+        if delta == 0:
+            return self # not self, new object?
+        else:
+            a = np.sin((1 - f) * delta) / np.sin(delta)
+            b = np.sin(f * delta) / np.sin(delta)
+            x = a * np.cos(self.dec) * np.cos(self.ra) + b * np.cos(other.dec) * np.cos(other.ra)
+            y = a * np.cos(self.dec) * np.sin(self.ra) + b * np.cos(other.dec) * np.sin(other.ra)
+            z = a * np.sin(self.dec) + b * np.sin(other.dec)
+            φi = np.arctan2(z, np.sqrt(x * x + y * y))
+            λi = np.arctan2(y, x)
+            return Coordinates(λi, φi)
+    
+    def __repr__(self) -> str:
+        return f'Coordinates(ra={self.ra}, dec={self.dec})'
+
 
 @dataclass
 class EphemerisCoordinates:
@@ -17,9 +95,27 @@ class EphemerisCoordinates:
     Both ra and dec are in radians.
 
     """
-    ra: npt.NDArray[float]
-    dec: npt.NDArray[float]
-    time: npt.NDArray[float]
+    coordinates: List[Coordinates]
+    times: npt.NDArray[float]
+
+    def _bracket(self, time: datetime) -> Tuple[datetime, datetime]:
+        """
+        Return both lower and upper of the given time: i.e., the closest elements on either side. 
+        """
+        return self.times[self.times > time].min(), self.times[self.times < time].max()
+
+    def interpolate(self, time: datetime) ->  Coordinates:
+        """
+        Interpolate ephemeris to a given time.
+        """
+        a, b = self._bracket(time)
+        # Find indexes for each bound
+        i_a, i_b = np.where(self.time == a)[0][0], np.where(self.time == b)[0][0]
+        factor = (time.timestamp() - a.timestamp() / b.timestamp() - a.timestamp()) * 1000
+        logging.info(f'Interpolating by factor: {factor}')
+
+        return self.coordinates[i_a].interpolate(self.coordinates[i_b], factor)
+
 
 class HorizonsClient:
     """
@@ -50,56 +146,6 @@ class HorizonsClient:
     def generate_horizons_id(designation: str) -> str:
         des = designation.lower()
         return HorizonsClient.bodies[des] if des in HorizonsClient.bodies else designation
-
-    @staticmethod
-    def interpolate(ra1: Union[npt.NDArray[float], float],
-                    dec1: Union[npt.NDArray[float], float],
-                    ra2: Union[npt.NDArray[float], float],
-                    dec2: Union[npt.NDArray[float], float],
-                    f: Union[npt.NDArray[float], float]) -> float:
-        """
-        Interpolate between two coordinates.
-        based on https://github.com/gemini-hlsw/lucuma-core/blob/master/modules/core/shared/src/main/scala/lucuma/core/math/Coordinates.scala#L63-L89
-        """
-        # calculate angular distance to radians
-        delta = angular_distance(ra1, dec1, ra2, dec2)
-        if delta == 0:
-            return ra1, dec1
-        else:
-
-            a = np.sin((1 - f) * delta) / np.sin(delta)
-            b = np.sin(f * delta) / np.sin(delta)
-            x = a * np.cos(dec1) * np.cos(ra1) + b * np.cos(dec2) * np.cos(ra2)
-            y = a * np.cos(dec1) * np.sin(ra1) + b * np.cos(dec2) * np.sin(ra2)
-            z = a * np.sin(dec1) + b * np.sin(dec2)
-            φi = np.arctan2(z, np.sqrt(x * x + y * y))
-            λi = np.arctan2(y, x)
-            return λi, φi
-    
-    @staticmethod
-    def _bracket(times: np.array, time: datetime) -> Tuple[datetime, datetime]:
-        """
-        Return both lower and upper of the given time: i.e., the closest elements on either side. 
-        """
-        return times[times > time].min(), times[times < time].max()
-
-    @staticmethod
-    def interpolate_ephemeris(ephemeris: EphemerisCoordinates, time: datetime) -> Tuple[float, float]:
-        """
-        Interpolate ephemeris to a given time.
-        """
-        a, b = HorizonsClient._bracket(ephemeris.time, time)
-        # Find indexes for each bound
-        i_a, i_b = np.where(ephemeris.time == a)[0][0], np.where(ephemeris.time == b)[0][0]
-        factor = (time.timestamp() - a.timestamp() / b.timestamp() - a.timestamp()) * 1000
-        logging.info(f'Interpolating by factor: {factor}')
-        ra, dec = HorizonsClient.interpolate(ephemeris.ra[i_a],
-                                             ephemeris.dec[i_a],
-                                             ephemeris.ra[i_b],
-                                             ephemeris.dec[i_b],
-                                             factor)
-        return ra, dec
-    
 
     def _time_bounds(self) -> Tuple[str, str]:
         """
@@ -206,7 +252,6 @@ class HorizonsClient:
         
         file = self._get_ephemeris_file(target.des) if target.tag is not TargetTag.MAJOR_BODY else self._get_ephemeris_file(horizons_name) 
         
-
         if not overwrite and os.path.exists(file):
             logging.info(f'Saving ephemerides file for {target.des}')
             with open(file, 'r') as f:
@@ -223,6 +268,8 @@ class HorizonsClient:
         time = np.array([])
         ra = np.array([])
         dec = np.array([])
+
+        coords = []
 
         try:
             firstline = lines.index('$$SOE') + 1
@@ -241,14 +288,16 @@ class HorizonsClient:
                     decs = float(values[-1])
 
                     time = np.append(time, dateutil.parser.parse(line[1:18]))
-                    ra = np.append(ra, hms2rad([rah, ram, ras]))
-                    dec = np.append(dec, dms2rad([decd, decm, decs, decg]))
+                    
+                    #ra = np.append(ra, hms2rad([rah, ram, ras]))
+                    coords.append(Coordinates(hms2rad([rah, ram, ras]), dms2rad([decd, decm, decs, decg])))
+                    #dec = np.append(dec, dms2rad([decd, decm, decs, decg]))
         except ValueError as e:
             logging.error(f'Error parsing ephemerides file for {target.des}')
             logging.error(e)
             raise e
         
-        return EphemerisCoordinates(ra, dec, time)
+        return EphemerisCoordinates(coords, time)
 
 @contextlib.contextmanager
 def horizons_session(site, start, end, airmass):

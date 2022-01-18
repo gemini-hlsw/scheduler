@@ -25,7 +25,6 @@ def str_to_bool(s: Optional[str]) -> bool:
     """
     return s is not None and s.strip().upper() in ['YES', 'TRUE']
 
-
   
 def dms2deg(dms):
 
