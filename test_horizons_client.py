@@ -1,8 +1,18 @@
-from hypothesis.strategies._internal.core import composite
 import pytest
 from hypothesis import given, strategies as st
 
-from horizons import Coordinates, Angle, horizons_session, HorizonsClient
+from horizons import Coordinates, Angle, horizons_session
+from common.minimodel import Site, NonsiderealTarget, TargetTag, TargetType
+from datetime import datetime
+
+@pytest.fixture
+def target():
+    return NonsiderealTarget('Jupiter', None, type=TargetType.BASE,
+                             tag=TargetTag.MAJOR_BODY, des='jupiter', ra=None, dec=None)
+
+@pytest.fixture
+def session_parameters():
+    return (Site.GS, datetime(2019, 2, 1), datetime(2019, 2, 1, 23, 59, 59), 300)
 
 @given(st.lists(st.integers(min_value=0), min_size=4, max_size=4))
 def test_angular_distace_between_values(integer_list):
@@ -63,3 +73,14 @@ def test_interpolation_by_fractional_angular_separation(integer_list):
         deltas.append(abs(step_sep - frac_sep2))
     
     assert all(d > 20 for d in deltas)
+
+def test_horizons_client_query(target, session_parameters):
+    """
+    HorizonsClient.query should return a list of Coordinates
+    """
+    with horizons_session(*session_parameters) as session:
+        eph = session.get_ephemerides(target)
+        assert isinstance(eph.coordinates, list)
+        assert isinstance(eph.coordinates[0], Coordinates)
+        assert  eph.coordinates[0].ra == 4.476586331426079
+        assert  eph.coordinates[0].dec == -0.3880237049946405
