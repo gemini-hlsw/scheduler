@@ -22,11 +22,11 @@ if __name__ == '__main__':
             if date.month >= program_start.month and date.month <= (program_end+fuzzy_boundary).month:
                 
                 with horizons_session(site, date, date+timedelta(days=1), 300) as session:
-                    eph = session.get_ephemerides(target, date)
-                    target.ra = eph.ra
-                    target.dec = eph.dec
+                    eph = session.get_ephemerides(target)
+                    target.ra = [c.ra for c in eph.coordinates]
+                    target.dec = [c.dec for c in eph.coordinates]
                     print(target)
 
-                    ra, dec = HorizonsClient.interpolate_ephemeris(eph, datetime(2019, 2, 1, 10, 10, 10, 10))
-                    print(ra)
+                    #ra, dec = HorizonsClient.interpolate_ephemeris(eph, datetime(2019, 2, 1, 10, 10, 10, 10))
+                    #print(ra)
                     input() # remove input to test the whole semester

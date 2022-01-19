@@ -252,10 +252,16 @@ class HorizonsClient:
         
         file = self._get_ephemeris_file(target.des) if target.tag is not TargetTag.MAJOR_BODY else self._get_ephemeris_file(horizons_name) 
         
+        print(file)
+        print(os.path.exists(file))
+        print(overwrite)
         if not overwrite and os.path.exists(file):
             logging.info(f'Saving ephemerides file for {target.des}')
+            print('AAAAAAAAA')
             with open(file, 'r') as f:
-                lines = f.readlines()
+                lines = list(map(lambda x: x.strip('\n'), f.readlines()))
+                print(lines)
+                input()
         
         else:
             logging.info(f'Querying JPL/Horizons for {horizons_name}')
@@ -266,8 +272,8 @@ class HorizonsClient:
                     f.write(res.text)
 
         time = np.array([])
-        ra = np.array([])
-        dec = np.array([])
+        #ra = np.array([])
+        #dec = np.array([])
 
         coords = []
 
