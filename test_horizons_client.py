@@ -14,55 +14,94 @@ def target():
 def session_parameters():
     return (Site.GS, datetime(2019, 2, 1), datetime(2019, 2, 1, 23, 59, 59), 300)
 
-@given(st.lists(st.integers(min_value=0), min_size=4, max_size=4))
-def test_angular_distace_between_values(integer_list):
+
+@given(
+    st.lists(
+        st.floats(allow_infinity=False, allow_nan=False),
+        min_size=4,
+        max_size=4,
+    )
+)
+def test_angular_distace_between_values(values):
     """
     Angular Distance must be in [0, 180°]
     """
-    a, b, c, d = integer_list
+    a, b, c, d = values
     assert Coordinates(a, b).angular_distance(Coordinates(c, d)) <= 180
-        
-@given(st.lists(st.integers(), min_size=2, max_size=2))
-def test_angular_distace_between_any_point_and_itself(integer_list):
+
+
+
+@given(
+    st.lists(
+        st.floats(allow_infinity=False, allow_nan=False),
+        min_size=2,
+        max_size=2,
+    )
+)
+def test_angular_distace_between_any_point_and_itself(values):
     """
     Angular Distance must be zero between any point and itself
     """
-    a, b = integer_list
+    a, b = values
     assert Coordinates(a, b).angular_distance(Coordinates(a, b)) == 0
 
-@given(st.lists(st.integers(), min_size=4, max_size=4))
-def test_angular_distace_symmetry(integer_list):
+@given(
+    st.lists(
+        st.floats(allow_infinity=False, allow_nan=False),
+        min_size=4,
+        max_size=4,
+    )
+)
+def test_angular_distace_symmetry(values):
     """
     Angular Distance must be symmetric to within 1µas
     """
-    a, b, c, d = integer_list
+    a, b, c, d = values
     delta = Coordinates(a, b).angular_distance(Coordinates(c, d)) - Coordinates(c, d).angular_distance(Coordinates(a, b))
     assert Angle.to_signed_microarcseconds(delta) <= 1
 
-@given(st.lists(st.integers(), min_size=4, max_size=4))
-def test_interpolation_by_angular_distance_for_factor_zero(integer_list):
+@given(
+    st.lists(
+        st.floats(allow_infinity=False, allow_nan=False),
+        min_size=4,
+        max_size=4,
+    )
+)
+def test_interpolation_by_angular_distance_for_factor_zero(values):
     """
     Interpolate should result in angular distance of 0° from `a` for factor 0.0, within 1µsec (15µas)
     """
-    a, b, c, d = integer_list
+    a, b, c, d = values
     delta = Coordinates(a, b).angular_distance(Coordinates(a, b).interpolate(Coordinates(c, d), 0.0))
     assert abs(Angle.to_signed_microarcseconds(delta)) <= 15
 
-@given(st.lists(st.integers(), min_size=4, max_size=4))
-def test_interpolation_by_angular_distance_for_factor_one(integer_list):
+@given(
+    st.lists(
+        st.floats(allow_infinity=False, allow_nan=False),
+        min_size=4,
+        max_size=4,
+    )
+)
+def test_interpolation_by_angular_distance_for_factor_one(values):
     """
     Interpolate should result in angular distance of 0° from `b` for factor 1.0, within 1µsec (15µas)
     """
-    a, b, c, d = integer_list
+    a, b, c, d = values
     delta = Coordinates(c, d).angular_distance(Coordinates(a, b).interpolate(Coordinates(c, d), 1.0))
     assert abs(Angle.to_signed_microarcseconds(delta)) <= 15
 
-@given(st.lists(st.integers(), min_size=4, max_size=4))
-def test_interpolation_by_fractional_angular_separation(integer_list):
+@given(
+    st.lists(
+        st.floats(allow_infinity=False, allow_nan=False),
+        min_size=4,
+        max_size=4,
+    )
+)
+def test_interpolation_by_fractional_angular_separation(values):
     """
     Interpolate should be consistent with fractional angular separation, to within 20 µas
     """
-    a, b, c, d = integer_list
+    a, b, c, d = values
     sep = Angle.to_microarcseconds(Coordinates(a, b).angular_distance(Coordinates(c, d)))
     deltas = []
 
@@ -82,5 +121,5 @@ def test_horizons_client_query(target, session_parameters):
         eph = session.get_ephemerides(target)
         assert isinstance(eph.coordinates, list)
         assert isinstance(eph.coordinates[0], Coordinates)
-        assert  eph.coordinates[0].ra == 4.476586331426079
-        assert  eph.coordinates[0].dec == -0.3880237049946405
+        assert eph.coordinates[0].ra == 4.476586331426079
+        assert eph.coordinates[0].dec == -0.3880237049946405

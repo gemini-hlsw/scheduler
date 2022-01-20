@@ -20,7 +20,7 @@ class Angle:
     µasPerDegree: float = 60 * 60 * 1000 * 1000
 
     @staticmethod
-    def signed_microarcseconds(angle: float) -> float:
+    def to_signed_microarcseconds(angle: float) -> float:
         """
         Convert an angle in radians to a signed microarcsecond angle.
         """
@@ -41,8 +41,6 @@ class Angle:
         Convert an angle in radians to a signed microarcsecond angle.
         """
         return Angle.to_degrees(angle) * Angle.µasPerDegree
-
-
 
 class Coordinates:
     """
@@ -65,7 +63,11 @@ class Coordinates:
         delta_φ = other.dec - self.dec
         delta_λ = other.ra - self.ra
         a = np.sin(delta_φ / 2)**2 + np.cos(φ1) * np.cos(φ2) * np.sin(delta_λ / 2)**2
-        return 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+        if a >= 0 and a <= 1:
+            return 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+        else:
+            return 0.0 # TODO: Temporary bypass for negative values in sqrt 
  
     def interpolate(self, other: 'Coordinates', f: float) -> 'Coordinates':
         """
@@ -73,6 +75,7 @@ class Coordinates:
         """
 
         delta = self.angular_distance(other)
+        #print(delta)
         if delta == 0:
             return self # not self, new object?
         else:
@@ -252,17 +255,11 @@ class HorizonsClient:
         
         file = self._get_ephemeris_file(target.des) if target.tag is not TargetTag.MAJOR_BODY else self._get_ephemeris_file(horizons_name) 
         
-        print(file)
-        print(os.path.exists(file))
-        print(overwrite)
         if not overwrite and os.path.exists(file):
             logging.info(f'Saving ephemerides file for {target.des}')
             print('AAAAAAAAA')
             with open(file, 'r') as f:
                 lines = list(map(lambda x: x.strip('\n'), f.readlines()))
-                print(lines)
-                input()
-        
         else:
             logging.info(f'Querying JPL/Horizons for {horizons_name}')
             res = self.query(horizons_name)
@@ -272,9 +269,6 @@ class HorizonsClient:
                     f.write(res.text)
 
         time = np.array([])
-        #ra = np.array([])
-        #dec = np.array([])
-
         coords = []
 
         try:
@@ -293,11 +287,9 @@ class HorizonsClient:
                     decm = int(values[-2])
                     decs = float(values[-1])
 
-                    time = np.append(time, dateutil.parser.parse(line[1:18]))
-                    
-                    #ra = np.append(ra, hms2rad([rah, ram, ras]))
+                    time = np.append(time, dateutil.parser.parse(line[1:18]))                    
                     coords.append(Coordinates(hms2rad([rah, ram, ras]), dms2rad([decd, decm, decs, decg])))
-                    #dec = np.append(dec, dms2rad([decd, decm, decs, decg]))
+
         except ValueError as e:
             logging.error(f'Error parsing ephemerides file for {target.des}')
             logging.error(e)
