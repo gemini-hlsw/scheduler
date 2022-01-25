@@ -116,7 +116,10 @@ class OcsProgramProvider(ProgramProvider):
     def parse_magnitude(data: dict) -> Magnitude:
         band = MagnitudeBands[data[OcsProgramProvider._MagnitudeKeys.NAME]]
         value = data[OcsProgramProvider._MagnitudeKeys.VALUE]
-        return Magnitude(band, value, None)
+        return Magnitude(
+            band=band,
+            value=value,
+            error=None)
 
     @staticmethod
     def _get_program_dates(prog_type: ProgramTypes, prog_id: str, note_titles: List[str]) -> Tuple[datetime, datetime]:
@@ -229,7 +232,11 @@ class OcsProgramProvider(ProgramProvider):
         repeat = data[OcsProgramProvider._TimingWindowKeys.REPEAT]
         period = timedelta(milliseconds=data[OcsProgramProvider._TimingWindowKeys.PERIOD]) \
             if repeat != TimingWindow.NON_REPEATING else None
-        return TimingWindow(start, duration, repeat, period)
+        return TimingWindow(
+            start=start,
+            duration=duration,
+            repeat=repeat,
+            period=period)
 
     @staticmethod
     def parse_constraints(data: dict) -> Constraints:
@@ -303,14 +310,14 @@ class OcsProgramProvider(ProgramProvider):
         epoch = data.setdefault(OcsProgramProvider._TargetKeys.EPOCH, 2000)
 
         return SiderealTarget(
-            name,
-            magnitudes,
-            target_type,
-            ra,
-            dec,
-            pm_ra,
-            pm_dec,
-            epoch)
+            name=name,
+            magnitudes=magnitudes,
+            type=target_type,
+            ra=ra,
+            dec=dec,
+            pm_ra=pm_ra,
+            pm_dec=pm_dec,
+            epoch=epoch)
 
     @staticmethod
     def parse_nonsidereal_target(data: dict) -> NonsiderealTarget:
@@ -324,13 +331,13 @@ class OcsProgramProvider(ProgramProvider):
 
         # TODO: ra and dec are last two parameters. Fill here or elsewhere?
         return NonsiderealTarget(
-            name,
-            magnitudes,
-            target_type,
-            des,
-            tag,
-            np.empty([]),
-            np.empty([]))
+            name=name,
+            magnitudes=magnitudes,
+            type=target_type,
+            des=des,
+            tag=tag,
+            ra=np.empty([]),
+            dec=np.empty([]))
 
     @staticmethod
     def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
@@ -389,7 +396,7 @@ class OcsProgramProvider(ProgramProvider):
                     observed=observed,
                     qa_state=QAState.NONE,
                     guide_state=False,
-                    required_resources={instrument},
+                    resources={instrument},
                     wavelength=wavelength))
 
             atoms[-1].exec_time += step_time
@@ -438,8 +445,8 @@ class OcsProgramProvider(ProgramProvider):
         active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
         priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY].upper()]
 
-        # TODO: Instrument configuration? This depends on the design decision for Resource.
-        instrument_configuration = None
+        # TODO: We need to populate this with the resources needed by the observation.
+        resources = set()
 
         setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
         acq_overhead = timedelta(milliseconds=data[OcsProgramProvider._ObsKeys.SETUPTIME])
@@ -526,24 +533,24 @@ class OcsProgramProvider(ProgramProvider):
             too_type = None
 
         return Observation(
-            obs_id,
-            internal_id,
-            num,
-            title,
-            site,
-            status,
-            active,
-            priority,
-            instrument_configuration,
-            setuptime_type,
-            acq_overhead,
-            exec_time,
-            obs_class,
-            targets,
-            guiding,
-            atoms,
-            constraints,
-            too_type)
+            id=obs_id,
+            internal_id=internal_id,
+            order=num,
+            title=title,
+            site=site,
+            status=status,
+            active=active,
+            priority=priority,
+            resources=resources,
+            setuptime_type=setuptime_type,
+            acq_overhead=acq_overhead,
+            exec_time=exec_time,
+            obs_class=obs_class,
+            targets=targets,
+            guiding=guiding,
+            sequence=atoms,
+            constraints=constraints,
+            too_type=too_type)
 
     @staticmethod
     def parse_time_allocation(data: dict) -> TimeAllocation:
@@ -554,11 +561,11 @@ class OcsProgramProvider(ProgramProvider):
         partner_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PART_TIME])
 
         return TimeAllocation(
-            category,
-            program_awarded,
-            partner_awarded,
-            program_used,
-            partner_used)
+            category=category,
+            program_awarded=program_awarded,
+            partner_awarded=partner_awarded,
+            program_used=program_used,
+            partner_used=partner_used)
 
     @staticmethod
     def parse_or_group(data: dict, group_id: str, group_name: str) -> OrGroup:
@@ -600,31 +607,29 @@ class OcsProgramProvider(ProgramProvider):
             observations = [OcsProgramProvider.parse_observation(data[key], key) for key in sorted_obs_keys]
 
             # Put all the observations in trivial AND groups.
-            trivial_groups = [AndGroup(
-                obs.id,
-                obs.title,
-                1,
-                delay_min,
-                delay_max,
-                obs,
-                AndOption.ANYORDER,
-                None
-            ) for obs in observations]
+            trivial_groups = [
+                AndGroup(
+                    id=obs.id,
+                    group_name=obs.title,
+                    number_to_observe=1,
+                    delay_min=delay_min,
+                    delay_max=delay_max,
+                    children=obs,
+                    group_option=AndOption.ANYORDER)
+                for obs in observations]
             children.extend(trivial_groups)
 
         number_to_observe = len(children)
 
         # Put all the observations in the one big AND group and return it.
         return AndGroup(
-            group_id,
-            group_name,
-            number_to_observe,
-            delay_min,
-            delay_max,
-            children,
-            AndOption.ANYORDER,
-            None
-        )
+            id=group_id,
+            group_name=group_name,
+            number_to_observe=number_to_observe,
+            delay_min=delay_min,
+            delay_max=delay_max,
+            children=children,
+            group_option=AndOption.ANYORDER)
 
     @staticmethod
     def parse_program(data: dict) -> Program:
@@ -668,17 +673,17 @@ class OcsProgramProvider(ProgramProvider):
         OcsProgramProvider._check_too_type(program_id, too_type, root_group)
 
         return Program(
-            program_id,
-            internal_id,
-            band,
-            thesis,
-            program_mode,
-            program_type,
-            start_date,
-            end_date,
-            time_act_alloc,
-            root_group,
-            too_type)
+            id=program_id,
+            internal_id=internal_id,
+            band=band,
+            thesis=thesis,
+            mode=program_mode,
+            type=program_type,
+            start_time=start_date,
+            end_time=end_date,
+            allocated_time=time_act_alloc,
+            root_group=root_group,
+            too_type=too_type)
 
     @staticmethod
     def _check_too_type(program_id: str, too_type: TooType, group: NodeGroup) -> NoReturn:
