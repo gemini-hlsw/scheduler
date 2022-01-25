@@ -91,7 +91,7 @@ def create_minimodel_program() -> Program:
         status=ObservationStatus.PHASE2,
         active=True,
         priority=Priority.LOW,
-        instrument_configuration=None,
+        resources=set(),
         setuptime_type=SetupTimeType.FULL,
         acq_overhead=timedelta(milliseconds=360000),
         exec_time=timedelta(),  # This is based on the atoms, which we have none.
@@ -188,7 +188,7 @@ def create_minimodel_program() -> Program:
         status=ObservationStatus.READY,
         active=True,
         priority=Priority.HIGH,
-        instrument_configuration=None,
+        resources=set(),
         setuptime_type=SetupTimeType.FULL,
         acq_overhead=timedelta(milliseconds=90000),
         exec_time=timedelta(),  # This is based on the atoms, which we have none.
