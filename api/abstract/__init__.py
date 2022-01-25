@@ -152,6 +152,17 @@ class ProgramProvider(ABC):
 
     @staticmethod
     @abstractmethod
+    def parse_conditions(data: dict) -> Conditions:
+        """
+        Given an associative array that contains conditions data, retrieve the data and
+        populate a Conditions object.
+        This should likely be called from the parse_constraints method, but may have other
+        applications in handling weather information when it arrives.
+        """
+        ...
+
+    @staticmethod
+    @abstractmethod
     def parse_timing_window(data: dict) -> TimingWindow:
         """
         Given an associative array that contains the data for a single timing window,

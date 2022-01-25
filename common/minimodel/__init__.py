@@ -252,15 +252,29 @@ class ElevationType(IntEnum):
     AIRMASS = auto()
 
 
-@dataclass
-class Constraints:
+@dataclass(eq=True, order=True)
+class Conditions:
     """
-    The constraints required for an observation to be performed.
+    A set of conditions.
+
+    Note that we make this dataclass eq and ordered so that we can compare one
+    set of conditions with another to see if one satisfies the other.
+
+    This should be done via:
+    current_conditions <= required_conditions.
     """
     cc: CloudCover
     iq: ImageQuality
     sb: SkyBackground
     wv: WaterVapor
+
+
+@dataclass
+class Constraints:
+    """
+    The constraints required for an observation to be performed.
+    """
+    conditions: Conditions
     # constrast: Constrast
     elevation_type: ElevationType
     elevation_min: float
