@@ -26,11 +26,15 @@ def create_minimodel_program() -> Program:
     Note that we do not have to worry about atoms as we have no obslog data.
     """
     # *** CREATE THE GMOSN-2 OBSERVATION ***
-    gmosn2constraints = Constraints(
+    gmosn2conditions = Conditions(
         cc=CloudCover.CCANY,
         iq=ImageQuality.IQANY,
         sb=SkyBackground.SBANY,
         wv=WaterVapor.WVANY,
+    )
+
+    gmosn2constraints = Constraints(
+        conditions=gmosn2conditions,
         elevation_type=ElevationType.AIRMASS,
         elevation_min=1.1,
         elevation_max=2.1,
@@ -75,7 +79,7 @@ def create_minimodel_program() -> Program:
 
     gmosn2_targets = [gmosn2_target_1, gmosn2_target_2]
     gmosn2_guiding = {
-        Resource(id='GMOS OIWFS', name='GMOS OIWFS') : gmosn2_target_2
+        Resource(id='GMOS OIWFS', name='GMOS OIWFS'): gmosn2_target_2
     }
 
     gmosn2 = Observation(
@@ -111,11 +115,15 @@ def create_minimodel_program() -> Program:
     )
 
     # *** CREATE THE GNIRS-2 OBSERVATION ***
-    gnirs2constraints = Constraints(
+    gnirs2conditions = Conditions(
         cc=CloudCover.CCANY,
         iq=ImageQuality.IQANY,
         sb=SkyBackground.SB20,
-        wv=WaterVapor.WVANY,
+        wv=WaterVapor.WVANY
+    )
+
+    gnirs2constraints = Constraints(
+        conditions=gnirs2conditions,
         elevation_type=ElevationType.NONE,
         elevation_min=1.0,
         elevation_max=2.0,
@@ -168,7 +176,7 @@ def create_minimodel_program() -> Program:
 
     gnirs2_targets = [gnirs2_target_1, gnirs2_target_2]
     gnirs2_guiding = {
-        Resource('PWFS2', 'PWFS2') : gnirs2_target_2
+        Resource('PWFS2', 'PWFS2'): gnirs2_target_2
     }
 
     gnirs2 = Observation(

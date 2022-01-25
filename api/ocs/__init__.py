@@ -239,11 +239,7 @@ class OcsProgramProvider(ProgramProvider):
             period=period)
 
     @staticmethod
-    def parse_constraints(data: dict) -> Constraints:
-        # Parse the timing windows.
-        timing_windows = [OcsProgramProvider.parse_timing_window(tw_data)
-                          for tw_data in data[OcsProgramProvider._ConstraintKeys.TIMING_WINDOWS]]
-
+    def parse_conditions(data: dict) -> Conditions:
         def to_value(cond: str) -> float:
             """
             Parse the conditions value as a float out of the string passed by the OCS program extractor.
@@ -257,11 +253,21 @@ class OcsProgramProvider(ProgramProvider):
                 logging.error(msg)
                 raise ValueError(msg, e)
 
-        conditions = [lookup(to_value(data[key])) for lookup, key in
-                      [(CloudCover, OcsProgramProvider._ConstraintKeys.CC),
-                       (ImageQuality, OcsProgramProvider._ConstraintKeys.IQ),
-                       (SkyBackground, OcsProgramProvider._ConstraintKeys.SB),
-                       (WaterVapor, OcsProgramProvider._ConstraintKeys.WV)]]
+        return Conditions(
+            *[lookup(to_value(data[key])) for lookup, key in
+              [(CloudCover, OcsProgramProvider._ConstraintKeys.CC),
+               (ImageQuality, OcsProgramProvider._ConstraintKeys.IQ),
+               (SkyBackground, OcsProgramProvider._ConstraintKeys.SB),
+               (WaterVapor, OcsProgramProvider._ConstraintKeys.WV)]])
+
+    @staticmethod
+    def parse_constraints(data: dict) -> Constraints:
+        # Get the conditions
+        conditions = OcsProgramProvider.parse_conditions(data)
+
+        # Parse the timing windows.
+        timing_windows = [OcsProgramProvider.parse_timing_window(tw_data)
+                          for tw_data in data[OcsProgramProvider._ConstraintKeys.TIMING_WINDOWS]]
 
         # Get the elevation data.
         elevation_type_data = data[OcsProgramProvider._ConstraintKeys.ELEVATION_TYPE].replace(' ', '_').upper()
@@ -269,12 +275,13 @@ class OcsProgramProvider(ProgramProvider):
         elevation_min = data[OcsProgramProvider._ConstraintKeys.ELEVATION_MIN]
         elevation_max = data[OcsProgramProvider._ConstraintKeys.ELEVATION_MAX]
 
-        return Constraints(*conditions,
-                           elevation_type=elevation_type,
-                           elevation_min=elevation_min,
-                           elevation_max=elevation_max,
-                           timing_windows=timing_windows,
-                           strehl=None)
+        return Constraints(
+            conditions=conditions,
+            elevation_type=elevation_type,
+            elevation_min=elevation_min,
+            elevation_max=elevation_max,
+            timing_windows=timing_windows,
+            strehl=None)
 
     @staticmethod
     def _parse_target_header(data: dict) -> Tuple[str, set[Magnitude], TargetType]:
