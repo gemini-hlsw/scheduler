@@ -495,7 +495,7 @@ class Atom:
     observed: bool
     qa_state: QAState
     guide_state: bool
-    required_resources: Set[Resource]
+    resources: Set[Resource]
     wavelength: float
 
 
@@ -567,16 +567,6 @@ class ObservationClass(IntEnum):
     DAYCAL = auto()
 
 
-@dataclass(frozen=True)
-class InstrumentConfiguration:
-    """
-    An instrument's required configuration for an observation.
-    TODO: This can probably just be replaced by Resource and eliminated completely.
-    """
-    name: str
-    resources: Set[Resource]
-
-
 @dataclass
 class Observation:
     """
@@ -597,12 +587,7 @@ class Observation:
     status: ObservationStatus
     active: bool
     priority: Priority
-
-    # TODO: Propose we eliminate this and make it a set of Resource since
-    # TODO: instruments and their configurable components will be viewed
-    # TODO: as Resources.
-    instrument_configuration: Optional[InstrumentConfiguration]
-
+    resources: Set[Resource]
     setuptime_type: SetupTimeType
     acq_overhead: timedelta
     exec_time: timedelta
@@ -634,10 +619,8 @@ class Observation:
     def required_resources(self) -> Set[Resource]:
         """
         The required resources for an observation based on the sequence's needs.
-
-        TODO: Include the instrument configuration resources in here.
         """
-        return {r for a in self.sequence for r in a.required_resources}
+        return self.resources | {r for a in self.sequence for r in a.resources}
 
     def wavelengths(self) -> Set[float]:
         """
