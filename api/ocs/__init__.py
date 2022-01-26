@@ -3,6 +3,7 @@ import numpy as np
 from typing import NoReturn, Tuple
 
 from api.abstract import ProgramProvider
+from common.helpers.helpers import str_to_bool
 from common.minimodel import *
 from common.timeutils import sex2dec
 
@@ -39,7 +40,8 @@ class OcsProgramProvider(ProgramProvider):
 
     class _GroupKeys:
         SCHEDULING_GROUP = 'GROUP_GROUP_SCHEDULING'
-        ORGANIZATIONAL_FOLDER = 'ORGANIZATIONAL_FOLDER'
+        ORGANIZATIONAL_FOLDER = 'GROUP_GROUP_FOLDER'
+        GROUP_NAME = 'name'
 
     class _ObsKeys:
         KEY = 'OBSERVATION_BASIC'
@@ -367,7 +369,7 @@ class OcsProgramProvider(ProgramProvider):
 
             # TODO: Check if this is the right wavelength.
             wavelength = float(step[OcsProgramProvider._AtomKeys.WAVELENGTH])
-            observed = step[OcsProgramProvider._AtomKeys.OBSERVED]
+            observed = str_to_bool(step[OcsProgramProvider._AtomKeys.OBSERVED])
             step_time = timedelta(milliseconds=step[OcsProgramProvider._AtomKeys.TOTAL_TIME] / 1000)
 
             # Offset information
@@ -575,7 +577,7 @@ class OcsProgramProvider(ProgramProvider):
             partner_used=partner_used)
 
     @staticmethod
-    def parse_or_group(data: dict, group_id: str, group_name: str) -> OrGroup:
+    def parse_or_group(data: dict, group_id: str) -> OrGroup:
         """
         There are no OR groups in the OCS, so this method simply throws a
         NotImplementedError if it is called.
@@ -583,7 +585,7 @@ class OcsProgramProvider(ProgramProvider):
         raise NotImplementedError('OCS does not support OR groups.')
 
     @staticmethod
-    def parse_and_group(data: dict, group_id: str, group_name: str) -> AndGroup:
+    def parse_and_group(data: dict, group_id: str) -> AndGroup:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -597,21 +599,31 @@ class OcsProgramProvider(ProgramProvider):
         delay_min = timedelta.min
         delay_max = timedelta.max
 
+        # Get the group name: Root if the root group and otherwise the name.
+        if OcsProgramProvider._GroupKeys.GROUP_NAME in data:
+            group_name = data[OcsProgramProvider._GroupKeys.GROUP_NAME]
+        else:
+            group_name = 'Root'
+
         # Parse out the scheduling groups recursively.
         scheduling_group_keys = sorted(key for key in data.keys()
                                        if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
-        children = [OcsProgramProvider.parse_and_group(data[key], key, 'Scheduling') for key in scheduling_group_keys]
+        children = [OcsProgramProvider.parse_and_group(data[key], key.split('-')[-1]) for key in scheduling_group_keys]
 
         # Now get all the observations in this data block and any organizational folders
         # that are in this block.
+        # print([data[key] for key in data.keys() if key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER)])
         obs_data_blocks = [data] + [data[key] for key in data.keys()
                                     if key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER)]
-
+        # print(obs_data_blocks)
         for obs_data_block in obs_data_blocks:
+            print(obs_data_block)
             # We must sort on the key since this is the correct order of the observations.
             sorted_obs_keys = sorted(key for key in obs_data_block.keys()
                                      if key.startswith(OcsProgramProvider._ObsKeys.KEY))
-            observations = [OcsProgramProvider.parse_observation(data[key], key) for key in sorted_obs_keys]
+            observations = [OcsProgramProvider.parse_observation(data[key], int(key.split('-')[-1]))
+                            for key in sorted_obs_keys]
+            print(f'Parsed {len(observations)}: {[obs.title for obs in observations]}\n\n')
 
             # Put all the observations in trivial AND groups.
             trivial_groups = [
@@ -671,7 +683,7 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all of the JSON
         # data to the parse_and_group method.
-        root_group = OcsProgramProvider.parse_and_group(data, "Root", "Root")
+        root_group = OcsProgramProvider.parse_and_group(data, 'Root')
 
         too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
