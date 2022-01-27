@@ -295,15 +295,15 @@ def create_minimodel_program() -> Program:
     gnirs1_target_2 = SiderealTarget(
         name='430-067087',
         magnitudes={
-            Magnitude(MagnitudeBands.J, value=9.628),
-            Magnitude(MagnitudeBands.K, value=8.916),
-            Magnitude(MagnitudeBands.B, value=12.927),
-            Magnitude(MagnitudeBands.H, value=9.082),
-            Magnitude(MagnitudeBands.g, value=12.321),
             Magnitude(MagnitudeBands.V, value=11.78),
-            Magnitude(MagnitudeBands.r, value=11.389),
+            Magnitude(MagnitudeBands.K, value=8.916),
+            Magnitude(MagnitudeBands.i, value=11.04),
             Magnitude(MagnitudeBands.UC, value=11.637),
-            Magnitude(MagnitudeBands.i, value=11.04)
+            Magnitude(MagnitudeBands.g, value=12.321),
+            Magnitude(MagnitudeBands.B, value=12.927),
+            Magnitude(MagnitudeBands.r, value=11.389),
+            Magnitude(MagnitudeBands.H, value=9.082),
+            Magnitude(MagnitudeBands.J, value=9.628)
         },
         type=TargetType.GUIDESTAR,
         ra=254.3009583333333,
@@ -451,14 +451,14 @@ def create_minimodel_program() -> Program:
     gmosn1_target_3 = SiderealTarget(
         name='512-132390',
         magnitudes={
-            Magnitude(MagnitudeBands.H, value=13.997),
-            Magnitude(MagnitudeBands.UC, value=16.017),
-            Magnitude(MagnitudeBands.J, value=14.455),
-            Magnitude(MagnitudeBands.V, value=16.062),
+            Magnitude(MagnitudeBands.g, value=16.335),
             Magnitude(MagnitudeBands.B, value=16.708),
+            Magnitude(MagnitudeBands.H, value=13.997),
+            Magnitude(MagnitudeBands.V, value=16.062),
+            Magnitude(MagnitudeBands.UC, value=16.017),
             Magnitude(MagnitudeBands.K, value=13.845),
             Magnitude(MagnitudeBands.r, value=15.77),
-            Magnitude(MagnitudeBands.g, value=16.335),
+            Magnitude(MagnitudeBands.J, value=14.455)
         },
         type=TargetType.TUNING_STAR,
         ra=322.4453041666667,
@@ -588,7 +588,7 @@ def create_minimodel_program() -> Program:
     )
 
 
-def ocs_api():
+def test_ocs_api():
     """
     Test the OCS API's ability to populate the mini-model.
     This involves two steps:

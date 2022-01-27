@@ -248,7 +248,7 @@ class ElevationType(IntEnum):
     AIRMASS = auto()
 
 
-@dataclass(eq=True, order=True)
+@dataclass(order=True)
 class Conditions:
     """
     A set of conditions.
@@ -366,7 +366,7 @@ class MagnitudeBands(Enum):
     AP = MagnitudeBand('AP', 0.550, 0.085, description='apparent')
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass(frozen=True)
 class Magnitude:
     """
     A magnitude value in a particular band.
