@@ -5,7 +5,7 @@ import zipfile
 import json
 
 from api.abstract import ProgramProvider
-from common.helpers.helpers import str_to_bool
+from common.helpers import str_to_bool
 from common.minimodel import *
 from common.timeutils import sex2dec
 

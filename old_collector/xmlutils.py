@@ -7,14 +7,15 @@ from xml.etree import ElementTree
 from astropy.time import Time
 import astropy.units as u
 
-from common.constants import CLASSICAL_NIGHT_LEN
-from common.helpers.helpers import str_to_bool
+from common.helpers import str_to_bool
 from common.structures.band import Band
 from common.structures.execution_status import ExecutionStatus
 from common.structures.observation_status import ObservationStatus
 from common.structures.phase2_status import Phase2Status
 from common.structures.time_award_units import TimeAwardUnits
 from common.structures.too_type import ToOType
+
+CLASSICAL_NIGHT_LEN = 10
 
 WARNING_STATES = frozenset([ObservationStatus.FOR_ACTIVATION,
                             ObservationStatus.ONGOING,
