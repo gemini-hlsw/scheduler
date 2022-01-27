@@ -181,11 +181,7 @@ class TimingWindow:
     # A number to be used by the Scheduler to represent infinite repeats from the
     # perspective of the OCS: if FOREVER_REPEATING is selected, then it is converted
     # into this for calculation purposes.
-    _OCS_INFINITE_REPEATS: ClassVar[int] = 1000
-
-    @property
-    def ocs_infinite_repeats(self):
-        return self._OCS_INFINITE_REPEATS
+    OCS_INFINITE_REPEATS: ClassVar[int] = 1000
 
 
 class SkyBackground(float, Enum):
@@ -303,7 +299,7 @@ class Constraints:
         for (s, d, r, p) in zip(starts, durations, repeats, periods):
             start = Time(s)
             duration = TimeDelta.max if d == -1 else TimeDelta(d)
-            repeat = TimingWindow.ocs_infinite_repeats if r == TimingWindow.FOREVER_REPEATING else max(1, r)
+            repeat = TimingWindow.OCS_INFINITE_REPEATS if r == TimingWindow.FOREVER_REPEATING else max(1, r)
             period = None if p is None else TimeDelta(p)
 
             for i in range(repeat):
@@ -370,7 +366,7 @@ class MagnitudeBands(Enum):
     AP = MagnitudeBand('AP', 0.550, 0.085, description='apparent')
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class Magnitude:
     """
     A magnitude value in a particular band.
@@ -561,7 +557,7 @@ class SetupTimeType(IntEnum):
     The setup time type for an observation.
     """
     FULL = auto()
-    REACQ = auto()
+    REACQUISITION = auto()
     NONE = auto()
 
 

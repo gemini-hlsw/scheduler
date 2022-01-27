@@ -25,7 +25,14 @@ def create_minimodel_program() -> Program:
 
     Note that we do not have to worry about atoms as we have no obslog data.
     """
-    # *** GMOSN2 OBSERVATION ***
+    # *** SHARED RESOURCES ***
+    gmosn = Resource(id='GMOS-N', name='GMOS-N')
+    gmos_oiwfs = Resource(id='GMOS OIWFS', name='GMOS OIWFS')
+
+    gnirs = Resource(id='GNIRS', name='GNIRS')
+    pwfs2 = Resource(id='PWFS2', name='PWFS2')
+
+    # *** GMOSN-2 OBSERVATION ***
     gmosn2_conditions = Conditions(
         cc=CloudCover.CCANY,
         iq=ImageQuality.IQANY,
@@ -74,12 +81,12 @@ def create_minimodel_program() -> Program:
         dec=sex2dec('353:44:28.68', todegree=True),
         pm_ra=-0.6,
         pm_dec=-7.4,
-        epoch=2000
+        epoch=2000.0
     )
 
     gmosn2_targets = [gmosn2_target_1, gmosn2_target_2]
     gmosn2_guiding = {
-        Resource(id='GMOS OIWFS', name='GMOS OIWFS'): gmosn2_target_2
+        gmos_oiwfs: gmosn2_target_2
     }
 
     gmosn2_sequence = [
@@ -91,7 +98,7 @@ def create_minimodel_program() -> Program:
             observed=False,
             qa_state=QAState.NONE,
             guide_state=False,
-            resources={Resource(id='GMOS-N', name='GMOS-N')},
+            resources={gmosn},
             wavelength=0.475
         )
     ]
@@ -107,7 +114,7 @@ def create_minimodel_program() -> Program:
         priority=Priority.LOW,
         resources=set(),
         setuptime_type=SetupTimeType.FULL,
-        acq_overhead=timedelta(milliseconds=360000),
+        acq_overhead=timedelta(minutes=6),
         # TODO: Check this. This is based on the atoms calculation.
         exec_time=timedelta(seconds=360, microseconds=84300),
         obs_class=ObservationClass.SCIENCE,
@@ -118,7 +125,7 @@ def create_minimodel_program() -> Program:
         too_type=TooType.RAPID
     )
 
-    # Create the trivial AND group containing the gmosn2 observation.
+    # Create the trivial AND group containing the GMOSN-2 observation.
     gmosn2_group = AndGroup(
         id=gmosn2.id,
         group_name=gmosn2.title,
@@ -144,10 +151,10 @@ def create_minimodel_program() -> Program:
         elevation_max=2.0,
         timing_windows=[
             TimingWindow(
-                start=datetime.fromtimestamp(1641946051128),
-                duration=timedelta(milliseconds=86400000),
-                repeat=0,
-                period=None
+                start=datetime(2022, 1, 11, 14, 7, 31, 128000),
+                duration=timedelta(days=1),
+                repeat=TimingWindow.NON_REPEATING,
+                period=TimingWindow.NO_PERIOD
             )
         ],
         strehl=None
@@ -190,8 +197,9 @@ def create_minimodel_program() -> Program:
     )
 
     gnirs2_targets = [gnirs2_target_1, gnirs2_target_2]
+
     gnirs2_guiding = {
-        Resource('PWFS2', 'PWFS2'): gnirs2_target_2
+        pwfs2: gnirs2_target_2
     }
 
     gnirs2_sequence = [
@@ -203,7 +211,7 @@ def create_minimodel_program() -> Program:
             observed=False,
             qa_state=QAState.NONE,
             guide_state=False,
-            resources={Resource(id='GNIRS', name='GNIRS')},
+            resources={gnirs},
             wavelength=2.2
         )
     ]
@@ -219,7 +227,7 @@ def create_minimodel_program() -> Program:
         priority=Priority.HIGH,
         resources=set(),
         setuptime_type=SetupTimeType.FULL,
-        acq_overhead=timedelta(milliseconds=90000),
+        acq_overhead=timedelta(minutes=15),
         # TODO: Check this. This is based on the atoms calculation.
         exec_time=timedelta(seconds=900, microseconds=26190),
         obs_class=ObservationClass.SCIENCE,
@@ -230,7 +238,7 @@ def create_minimodel_program() -> Program:
         too_type=TooType.RAPID
     )
 
-    # Create the trivial AND group containing the gnirs2 observation.
+    # Create the trivial AND group containing the GNIRS-2 observation.
     gnirs2_group = AndGroup(
         id=gnirs2.id,
         group_name=gnirs2.title,
@@ -241,7 +249,7 @@ def create_minimodel_program() -> Program:
         group_option=AndOption.ANYORDER
     )
 
-    # *** AND GROUP CONTAINING THE GMOSN2 AND GNIRS2 GROUPS ***
+    # *** AND GROUP CONTAINING THE GMOSN-2 AND GNIRS-2 GROUPS ***
     sched_group = AndGroup(
         id='2',
         group_name='TestGroup',
@@ -272,9 +280,9 @@ def create_minimodel_program() -> Program:
     gnirs1_target_1 = SiderealTarget(
         name='M10',
         magnitudes={
-            Magnitude(MagnitudeBands.K, value=3.6),
             Magnitude(MagnitudeBands.g, value=6.842),
-            Magnitude(MagnitudeBands.V, value=4.98)
+            Magnitude(MagnitudeBands.V, value=4.98),
+            Magnitude(MagnitudeBands.K, value=3.6)
         },
         type=TargetType.BASE,
         ra=254.2877083333333,
@@ -287,15 +295,15 @@ def create_minimodel_program() -> Program:
     gnirs1_target_2 = SiderealTarget(
         name='430-067087',
         magnitudes={
-            Magnitude(MagnitudeBands.H, value=9.082),
-            Magnitude(MagnitudeBands.J, value=9.682),
-            Magnitude(MagnitudeBands.i, value=11.04),
-            Magnitude(MagnitudeBands.V, value=11.78),
+            Magnitude(MagnitudeBands.J, value=9.628),
             Magnitude(MagnitudeBands.K, value=8.916),
-            Magnitude(MagnitudeBands.UC, value=11.637),
             Magnitude(MagnitudeBands.B, value=12.927),
+            Magnitude(MagnitudeBands.H, value=9.082),
+            Magnitude(MagnitudeBands.g, value=12.321),
+            Magnitude(MagnitudeBands.V, value=11.78),
             Magnitude(MagnitudeBands.r, value=11.389),
-            Magnitude(MagnitudeBands.g, value=12.321)
+            Magnitude(MagnitudeBands.UC, value=11.637),
+            Magnitude(MagnitudeBands.i, value=11.04)
         },
         type=TargetType.GUIDESTAR,
         ra=254.3009583333333,
@@ -305,8 +313,10 @@ def create_minimodel_program() -> Program:
         epoch=2000.0
     )
 
+    gnirs1_targets = [gnirs1_target_1, gnirs1_target_2]
+
     gnirs1_guiding = {
-        Resource(id='PWFS2', name='PWFS2'): gnirs2_target_2
+        pwfs2: gnirs1_target_2
     }
 
     gnirs1_sequence = [
@@ -318,7 +328,7 @@ def create_minimodel_program() -> Program:
             observed=False,
             qa_state=QAState.NONE,
             guide_state=False,
-            resources={Resource(id='GNIRS', name='GNIRS')},
+            resources={gnirs},
             wavelength=2.2
         )
     ]
@@ -337,12 +347,16 @@ def create_minimodel_program() -> Program:
         acq_overhead=timedelta(minutes=15),
         exec_time=timedelta(seconds=900, microseconds=26190),
         obs_class=ObservationClass.SCIENCE,
+        targets=gnirs1_targets,
+        guiding=gnirs1_guiding,
+        sequence=gnirs1_sequence,
+        constraints=gnirs1_constraints,
         too_type=TooType.RAPID
     )
 
     # Create the trivial AND group containing the gnirs1 observation.
     gnirs1_group = AndGroup(
-        id = gnirs1_observation.id,
+        id=gnirs1_observation.id,
         group_name='GNIRS-1',
         number_to_observe=1,
         delay_min=timedelta.min,
@@ -350,22 +364,193 @@ def create_minimodel_program() -> Program:
         children=gnirs1_observation,
         group_option=AndOption.ANYORDER
     )
-    # Continue on, creating the gnirs1 observation and the gmosn1 observation.
-    # Put these in trivial AndGroups.
-    # Connect all the AndGroups in an AndGroup, which is the root group of the Program.
-    # Finally, create the Program and return it.
+
+    # *** GMOSN-1 OBSERVATION ***
+    gmosn1_conditions = Conditions(
+        cc=CloudCover.CC70,
+        iq=ImageQuality.IQ20,
+        sb=SkyBackground.SB50,
+        wv=WaterVapor.WVANY
+    )
+
+    gmosn1_timing_windows = [
+        TimingWindow(
+            start=datetime(2022, 1, 11, 12, 27, 30, 498000),
+            duration=timedelta(hours=24),
+            repeat=TimingWindow.NON_REPEATING,
+            period=TimingWindow.NO_PERIOD
+        ),
+        # TODO: ??? -0.1 second duration???
+        TimingWindow(
+            start=datetime(2022, 1, 12, 12, 28, 42),
+            duration=timedelta(microseconds=-1000),
+            repeat=TimingWindow.NON_REPEATING,
+            period=TimingWindow.NO_PERIOD
+        ),
+        TimingWindow(
+            start=datetime(2022, 1, 13, 12, 29, 37),
+            duration=timedelta(hours=12),
+            repeat=TimingWindow.FOREVER_REPEATING,
+            period=timedelta(hours=36)
+        ),
+        TimingWindow(
+            start=datetime(2022, 1, 14, 12, 32, 31),
+            duration=timedelta(days=1),
+            repeat=10,
+            period=timedelta(days=2)
+        )
+    ]
+
+    gmosn1_constraints = Constraints(
+        conditions=gmosn1_conditions,
+        elevation_type=ElevationType.HOUR_ANGLE,
+        elevation_min=-4.0,
+        elevation_max=4.0,
+        timing_windows=gmosn1_timing_windows,
+        strehl=None
+    )
+
+    gmosn1_target_1 = SiderealTarget(
+        name='M15',
+        magnitudes={
+            Magnitude(MagnitudeBands.z, value=6.288),
+            Magnitude(MagnitudeBands.r, value=6.692),
+            Magnitude(MagnitudeBands.B, value=3.0),
+            Magnitude(MagnitudeBands.i, value=6.439),
+            Magnitude(MagnitudeBands.g, value=7.101)
+        },
+        type=TargetType.BASE,
+        ra=322.49304166666667,
+        dec=182.505,
+        pm_ra=-0.63,
+        pm_dec=-3.8,
+        epoch=2000.0
+    )
+
+    gmosn1_target_2 = SiderealTarget(
+        name='512-132424',
+        magnitudes={
+            Magnitude(MagnitudeBands.i, value=11.833),
+            Magnitude(MagnitudeBands.J, value=10.455),
+            Magnitude(MagnitudeBands.H, value=9.796),
+            Magnitude(MagnitudeBands.r, value=12.37),
+            Magnitude(MagnitudeBands.UC, value=12.388),
+            Magnitude(MagnitudeBands.B, value=14.185),
+            Magnitude(MagnitudeBands.K, value=9.695),
+            Magnitude(MagnitudeBands.g, value=13.473),
+            Magnitude(MagnitudeBands.V, value=12.834)
+        },
+        type=TargetType.GUIDESTAR,
+        ra=322.47885,
+        dec=183.343625,
+        pm_ra=-7.2,
+        pm_dec=-6.8,
+        epoch=2000.0
+    )
+
+    gmosn1_target_3 = SiderealTarget(
+        name='512-132390',
+        magnitudes={
+            Magnitude(MagnitudeBands.H, value=13.997),
+            Magnitude(MagnitudeBands.UC, value=16.017),
+            Magnitude(MagnitudeBands.J, value=14.455),
+            Magnitude(MagnitudeBands.V, value=16.062),
+            Magnitude(MagnitudeBands.B, value=16.708),
+            Magnitude(MagnitudeBands.K, value=13.845),
+            Magnitude(MagnitudeBands.r, value=15.77),
+            Magnitude(MagnitudeBands.g, value=16.335),
+        },
+        type=TargetType.TUNING_STAR,
+        ra=322.4453041666667,
+        dec=183.24004166666666,
+        pm_ra=4.9,
+        pm_dec=0.9,
+        epoch=2000.0
+    )
+
+    gmosn1_target_4 = SiderealTarget(
+        name='511-136970',
+        magnitudes={
+            Magnitude(MagnitudeBands.H, 13.003),
+            Magnitude(MagnitudeBands.K, 12.884),
+            Magnitude(MagnitudeBands.UC, 14.91),
+            Magnitude(MagnitudeBands.J, 13.504)
+        },
+        type=TargetType.BLIND_OFFSET,
+        ra=322.4290291666667,
+        dec=182.47258333333335,
+        pm_ra=-21.0,
+        pm_dec=-12.9,
+        epoch=2000.0
+    )
+
+    gmosn1_targets = [gmosn1_target_1,
+                      gmosn1_target_2,
+                      gmosn1_target_3,
+                      gmosn1_target_4]
+
+    gmonsn1_guiding = {
+        gmos_oiwfs: gmosn1_target_2
+    }
+
+    gmosn1_sequence = [
+        Atom(
+            id=1,
+            exec_time=timedelta(microseconds=392500),
+            prog_time=timedelta(microseconds=392500),
+            part_time=timedelta(),
+            observed=False,
+            qa_state=QAState.NONE,
+            guide_state=False,
+            resources={gmosn},
+            wavelength=0.475
+        )
+    ]
+
+    gmosn1_observation = Observation(
+        id='GN-2022A-Q-999-1',
+        internal_id='acc39a30-97a8-42de-98a6-5e77cc95d3ec',
+        order=0,
+        title='GMOSN-1',
+        site=Site.GN,
+        status=ObservationStatus.ONGOING,
+        active=True,
+        priority=Priority.LOW,
+        resources=set(),
+        setuptime_type=SetupTimeType.REACQUISITION,
+        acq_overhead=timedelta(minutes=5),
+        exec_time=timedelta(seconds=300, microseconds=392500),
+        obs_class=ObservationClass.SCIENCE,
+        targets=gmosn1_targets,
+        guiding=gmonsn1_guiding,
+        sequence=gmosn1_sequence,
+        constraints=gmosn1_constraints,
+        too_type=TooType.RAPID
+    )
+
+    # Create the trivial AND group containing the gnirs1 observation.
+    gmosn1_group = AndGroup(
+        id=gmosn1_observation.id,
+        group_name='GMOSN-1',
+        number_to_observe=1,
+        delay_min=timedelta.min,
+        delay_max=timedelta.max,
+        children=gmosn1_observation,
+        group_option=AndOption.ANYORDER
+    )
 
     # *** ROOT GROUP ***
-    root_children = [sched_group, gnirs1_group]
+    root_children = [sched_group, gnirs1_group, gmosn1_group]
+    # root_children = [sched_group, gmosn1_group, gnirs1_group]
 
     root_group = AndGroup(
         id='Root',
         group_name='Root',
-        number_to_observe=2,
+        number_to_observe=3,
         delay_min=timedelta.min,
         delay_max=timedelta.max,
         children=root_children,
-        group_option=AndOption.ANYORDER
+        group_option=AndOption.CONSEC_ORDERED
     )
 
     # *** TIME ALLOCATION ***
@@ -389,7 +574,7 @@ def create_minimodel_program() -> Program:
 
     # *** PROGRAM ***
     return Program(
-        id='GN-2022A-Q-99',
+        id='GN-2022A-Q-999',
         internal_id='c396b9c9-9bdd-4eec-be83-81162090d032',
         band=Band.BAND2,
         thesis=True,
@@ -403,7 +588,7 @@ def create_minimodel_program() -> Program:
     )
 
 
-def test_ocs_api():
+def ocs_api():
     """
     Test the OCS API's ability to populate the mini-model.
     This involves two steps:
@@ -417,3 +602,4 @@ def test_ocs_api():
     program1 = get_api_program()
     program2 = create_minimodel_program()
     assert program1 == program2
+
