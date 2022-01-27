@@ -3,6 +3,7 @@ import numpy as np
 from typing import NoReturn, Tuple
 
 from api.abstract import ProgramProvider
+from common.helpers.helpers import str_to_bool
 from common.minimodel import *
 from common.timeutils import sex2dec
 
@@ -39,7 +40,8 @@ class OcsProgramProvider(ProgramProvider):
 
     class _GroupKeys:
         SCHEDULING_GROUP = 'GROUP_GROUP_SCHEDULING'
-        ORGANIZATIONAL_FOLDER = 'ORGANIZATIONAL_FOLDER'
+        ORGANIZATIONAL_FOLDER = 'GROUP_GROUP_FOLDER'
+        GROUP_NAME = 'name'
 
     class _ObsKeys:
         KEY = 'OBSERVATION_BASIC'
@@ -367,7 +369,7 @@ class OcsProgramProvider(ProgramProvider):
 
             # TODO: Check if this is the right wavelength.
             wavelength = float(step[OcsProgramProvider._AtomKeys.WAVELENGTH])
-            observed = step[OcsProgramProvider._AtomKeys.OBSERVED]
+            observed = str_to_bool(step[OcsProgramProvider._AtomKeys.OBSERVED])
             step_time = timedelta(milliseconds=step[OcsProgramProvider._AtomKeys.TOTAL_TIME] / 1000)
 
             # Offset information
@@ -561,7 +563,7 @@ class OcsProgramProvider(ProgramProvider):
 
     @staticmethod
     def parse_time_allocation(data: dict) -> TimeAllocation:
-        category = data[OcsProgramProvider._TAKeys.CATEGORY]
+        category = TimeAccountingCode(data[OcsProgramProvider._TAKeys.CATEGORY])
         program_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PROG_TIME])
         partner_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PART_TIME])
         program_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PROG_TIME])
@@ -575,7 +577,7 @@ class OcsProgramProvider(ProgramProvider):
             partner_used=partner_used)
 
     @staticmethod
-    def parse_or_group(data: dict, group_id: str, group_name: str) -> OrGroup:
+    def parse_or_group(data: dict, group_id: str) -> OrGroup:
         """
         There are no OR groups in the OCS, so this method simply throws a
         NotImplementedError if it is called.
@@ -583,7 +585,7 @@ class OcsProgramProvider(ProgramProvider):
         raise NotImplementedError('OCS does not support OR groups.')
 
     @staticmethod
-    def parse_and_group(data: dict, group_id: str, group_name: str) -> AndGroup:
+    def parse_and_group(data: dict, group_id: str) -> AndGroup:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -597,34 +599,47 @@ class OcsProgramProvider(ProgramProvider):
         delay_min = timedelta.min
         delay_max = timedelta.max
 
+        # Get the group name: Root if the root group and otherwise the name.
+        if OcsProgramProvider._GroupKeys.GROUP_NAME in data:
+            group_name = data[OcsProgramProvider._GroupKeys.GROUP_NAME]
+        else:
+            group_name = 'Root'
+
         # Parse out the scheduling groups recursively.
-        scheduling_group_keys = sorted(key for key in data.keys()
+        scheduling_group_keys = sorted(key for key in data
                                        if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
-        children = [OcsProgramProvider.parse_and_group(data[key], key, 'Scheduling') for key in scheduling_group_keys]
+        children = [OcsProgramProvider.parse_and_group(data[key], key.split('-')[-1]) for key in scheduling_group_keys]
 
-        # Now get all the observations in this data block and any organizational folders
-        # that are in this block.
-        obs_data_blocks = [data] + [data[key] for key in data.keys()
-                                    if key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER)]
+        # Grab the observation data from the complete data.
+        top_level_obsdata = [(key, data[key]) for key in data
+                             if key.startswith(OcsProgramProvider._ObsKeys.KEY)]
 
-        for obs_data_block in obs_data_blocks:
-            # We must sort on the key since this is the correct order of the observations.
-            sorted_obs_keys = sorted(key for key in obs_data_block.keys()
-                                     if key.startswith(OcsProgramProvider._ObsKeys.KEY))
-            observations = [OcsProgramProvider.parse_observation(data[key], key) for key in sorted_obs_keys]
+        # Grab the observation data from any organizational folders.
+        org_folders = [data[key] for key in data
+                       if key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER)]
+        org_folders_obsdata = [(key, of[key]) for of in org_folders
+                               for key in of if key.startswith(OcsProgramProvider._ObsKeys.KEY)]
 
-            # Put all the observations in trivial AND groups.
-            trivial_groups = [
-                AndGroup(
-                    id=obs.id,
-                    group_name=obs.title,
-                    number_to_observe=1,
-                    delay_min=delay_min,
-                    delay_max=delay_max,
-                    children=obs,
-                    group_option=AndOption.ANYORDER)
-                for obs in observations]
-            children.extend(trivial_groups)
+        # TODO: How do we sort the observations at the top level and in organizational
+        # TODO: folders correctly? The numbering overlaps and we don't want them to intermingle.
+        obs_data_blocks = top_level_obsdata + org_folders_obsdata
+
+        # Parse out all the top level observations in this group.
+        observations = [OcsProgramProvider.parse_observation(obs_data, int(obs_key.split('-')[-1]))
+                        for obs_key, obs_data in obs_data_blocks]
+
+        # Put all the observations in trivial AND groups.
+        trivial_groups = [
+            AndGroup(
+                id=obs.id,
+                group_name=obs.title,
+                number_to_observe=1,
+                delay_min=delay_min,
+                delay_max=delay_max,
+                children=obs,
+                group_option=AndOption.ANYORDER)
+            for obs in observations]
+        children.extend(trivial_groups)
 
         number_to_observe = len(children)
 
@@ -636,7 +651,8 @@ class OcsProgramProvider(ProgramProvider):
             delay_min=delay_min,
             delay_max=delay_max,
             children=children,
-            group_option=AndOption.ANYORDER)
+            # TODO: Should this be ANYORDER OR CONSEC_ORDERED?
+            group_option=AndOption.CONSEC_ORDERED)
 
     @staticmethod
     def parse_program(data: dict) -> Program:
@@ -671,7 +687,7 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all of the JSON
         # data to the parse_and_group method.
-        root_group = OcsProgramProvider.parse_and_group(data, "Root", "Root")
+        root_group = OcsProgramProvider.parse_and_group(data, 'Root')
 
         too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None

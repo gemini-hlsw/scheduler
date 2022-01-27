@@ -34,7 +34,7 @@ class ProgramProvider(ABC):
 
     @staticmethod
     @abstractmethod
-    def parse_or_group(data: dict, group_id: str, group_name: str) -> OrGroup:
+    def parse_or_group(data: dict, group_id: str) -> OrGroup:
         """
         Given an associative array that contains the data needed for an OR group,
         retrieve the data and populate the OrGroup.
@@ -53,7 +53,7 @@ class ProgramProvider(ABC):
 
     @staticmethod
     @abstractmethod
-    def parse_and_group(data: dict, group_id: str, group_name: str) -> AndGroup:
+    def parse_and_group(data: dict, group_id: str) -> AndGroup:
         """
         Given an associative array that contains the data needed for an AND group,
         retrieve the data and populate the AndGroup.
