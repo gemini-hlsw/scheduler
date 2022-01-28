@@ -905,8 +905,8 @@ class Program:
     thesis: bool
     mode: ProgramMode
     type: ProgramTypes
-    start_time: datetime
-    end_time: datetime
+    start: datetime
+    end: datetime
     allocated_time: Set[TimeAllocation]
     root_group: AndGroup
     too_type: Optional[TooType] = None

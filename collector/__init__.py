@@ -1,11 +1,9 @@
-import logging
-
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy import units as u
 from collections import defaultdict
 from dataclasses import field
 import numpy as np
-from typing import Dict, FrozenSet, Iterable, NoReturn, Tuple
+from typing import Dict, FrozenSet, Iterable, NoReturn
 from marshmallow_dataclass import add_schema
 
 from api.abstract import ProgramProvider
@@ -39,21 +37,6 @@ class NightEvents:
     sun_moon_angle: Angle
     moon_illumination_fraction: npt.NDArray[float]
 
-    # *** CONSTANTS ***
-    # These are exclusive to the create_time_array.
-    _MIN_NIGHT_EVENT_TIME: ClassVar[Time] = Time('1980-01-01 00:00:00', format='iso', scale='utc')
-
-    # NOTE: This logs an ErfaWarning about dubious year. This is due to using a future date and not knowing
-    # how many leap seconds have happened: https://github.com/astropy/astropy/issues/5809
-    _MAX_NIGHT_EVENT_TIME: ClassVar[Time] = Time('2100-01-01 00:00:00', format='iso', scale='utc')
-
-    # The number of milliarcsecs in a degree, for proper motion calculation.
-    _MILLIARCSECS_PER_DEGREE: ClassVar[int] = 1296000000
-
-    # Information for Julian years.
-    _JULIAN_BASIS: ClassVar[float] = 2451545.0
-    _JULIAN_YEAR_LENGTH: ClassVar[float] = 365.25
-
     def __post_init__(self):
         """
         Initialize remaining members that depend on the parameters.
@@ -61,16 +44,9 @@ class NightEvents:
         # Calculate the length of each night per site, i.e. time between twilights.
         self.night_length = (self.twilight_morning_12 - self.twilight_evening_12).to_value('h') * u.h
 
-        # Create the time arrays, which are arrays that represent the minimum starting
-        # time to the maximum starting time, divided into segments of length time_slot_length.
+        # Create the time arrays, which are arrays that represent the earliest starting
+        # time to the latest ending time, divided into segments of length time_slot_length.
         # We want one entry per time slot grid, i.e. per night, measured in UTC, local, and local sidereal.
-        tgz = len(self.time_grid)
-        self.utc_times = np.empty(tgz)
-        self.local_times = np.empty(tgz)
-        self.local_sidereal_times = np.empty(tgz)
-
-        # TODO: This is across all sites. Do we want this, or should it be site-specific between
-        # TODO: sunset and sunrise?
         time_slot_length_days = self.time_slot_length.to(u.day).value
         time_starts = helpers.round_minute(self.twilight_evening_12, up=True)
         time_ends = helpers.round_minute(self.twilight_morning_12, up=True)
@@ -87,23 +63,18 @@ class NightEvents:
 
         # Create lists / dicts corresponding to the time grid with an AstroPy SkyCoord array giving
         # the sun or moon position at each time step. Can access via ra and dec members.
-        # We also need to convert to alt-az for each site. This all works nicely with AstroPy Time objects.
-        # aa_converters = {site: AltAz(location=site.location, obstime=time)
-        #                  for site in Site for time in self.local_times}
-        # TODO: Using a Time containing an array for obstime in altaz_converters will cause errors if we
-        # TODO: use it in conjunction with a SkyCoord containing an array.
-        # TODO: We can use EITHER a Time array OR a SkyCoord array, but not both.
-        # TODO: We may need to take two approaches to mix them.
-        altaz_converter = AltAz(location=self.site.value.location, obstime=self.local_times)
-
-        # Sun positions in RA / Dec and then for each site in Alt / Az.
+        # Sun / moon positions in RA / Dec and then for each site in AltAz and parallactic angle.
+        # Alt-Az and parallactic angle are of type Angle.
         self.sun_position_radec = vskyutil.lpsun(self.utc_times)
-        self.sun_position_altaz = self.sun_position_radec.transform_to(altaz_converter)
-
-        # Lunar position in RA / Dec and then for each site in Alt / Az.
-        # This will flag a warning because lpmoon requests a float but Bryan has vectorized it.
+        self.sun_position_alt, self.sun_position_az, self.sun_parallactic_angle = \
+            vskyutil.altazparang(self.sun_position_radec.dec,
+                                 self.local_sidereal_times - self.sun_position_radec.ra,
+                                 self.site.value.location.lat)
         self.moon_position_radec = vskyutil.lpmoon(self.times, self.site.value.location)
-        self.moon_position_altaz = self.moon_position_radec.transform_to(self.altaz_converter)
+        self.moon_position_alt, self.moon_position_az, self.moon_position_parallactic_angle = \
+            vskyutil.altazparang(self.moon_position_radec.dec,
+                                 self.local_sidereal_times - self.moon_position_radec.ra,
+                                 self.site.value.location.lat)
 
         # Lunar distance and altitude.
         # This is a tuple (SkyCoord, distance) for the site at the given time array.
@@ -185,6 +156,33 @@ class Collector(SchedulerComponent):
     _JULIAN_BASIS: ClassVar[float] = 2451545.0
     _JULIAN_YEAR_LENGTH: ClassVar[float] = 365.25
 
+    def __post_init__(self):
+        """
+        Initializes the internal data structures for the Collector and populates them.
+        """
+        # TODO: How to handle the time range?
+        # TODO: 1. Originally: Time, assume size 2
+        # TODO: 2. start Time and end Time, force size 1
+        # Check that the times are valid.
+        if self.start_time >= self.end_time:
+            msg = f'Start time ({self.start_time}) must be earlier than end time ({self.end_time}).'
+            logging.error(msg)
+            raise ValueError(msg)
+
+        # Set up the time grid for the period under consideration: this is an astropy Time
+        # object from start_time to end_time inclusive, with one entry per day.
+        # Note that the format is in jdate.
+        self.time_grid = Time(np.arange(self.start_time.jd, self.end_time.jd + 1.0, (1.0 * u.day).value), format='jd')
+
+        # Create the night events, which contain the data for all given nights by site.
+        # This may retrigger a calculation of the night events for one or more sites.
+        self.night_events = {
+            site: self._night_events_manager.get_night_events(self.time_grid, self.time_slot_length, site)
+            for site in self.sites
+        }
+
+    # TODO: This should also be precomputed: it is not clear how it will change if
+    # TODO: we get a mutation notification.
     def load_programs(self, program_provider: ProgramProvider, data: Mapping[Site, Iterable[dict]]) -> NoReturn:
         """
         Load the programs provided as JSON into the Collector.
@@ -197,7 +195,7 @@ class Collector(SchedulerComponent):
         in memory at once.
         """
         # Purge the old programs.
-        self.programs = {}
+        self._programs = {}
 
         # As we read in the programs, collect the targets for the site.
         # TODO: For nonsidereal targets (not currently handled), we need ephemeris data.
@@ -213,7 +211,7 @@ class Collector(SchedulerComponent):
 
             # Read in the programs for the site.
             # We do this using a loop instead of a for comprehension because we want the IDs.
-            self.programs[site] = {}
+            self._programs[site] = {}
 
             for json_program in data[site]:
                 # Count the number of parse failures.
@@ -229,9 +227,9 @@ class Collector(SchedulerComponent):
                     label, data = list(json_program.items())[0]
 
                     program = program_provider.parse_program(data)
-                    if program.id in self.programs[site].keys():
+                    if program.id in self._programs[site].keys():
                         logging.warning(f'Site {site.name} contains a repeated program with id {program.id}.')
-                    self.programs[site][program.id] = program
+                    self._programs[site][program.id] = program
 
                     def collect_targets(node_group: NodeGroup) -> NoReturn:
                         """
@@ -284,20 +282,21 @@ class Collector(SchedulerComponent):
                     time_offsets = target.epoch + (time - Collector._JULIAN_BASIS) / Collector._JULIAN_YEAR_LENGTH
 
                     # Calculate the ra and dec for each target.
-                    sidereal_target_ra = target.ra + pm_ra * time_offsets
-                    sidereal_target_dec = target.dec + pm_dec * time_offsets
-                    sidereal_target_coords = SkyCoord(sidereal_target_ra * u.deg, sidereal_target_dec * u.deg)
+                    target_ra = target.ra + pm_ra * time_offsets
+                    target_dec = target.dec + pm_dec * time_offsets
+                    target_coords = SkyCoord(target_ra * u.deg, target_dec * u.deg)
 
                     # Convert to Alt-Az.
-                    sidereal_target_altaz = sidereal_target_coords.transform_to(self.altaz_converters[site])
+                    altaz_converter = AltAz(location=site.value.location, obstime=night_events.local_times)
+                    target_altaz = target_coords.transform_to(altaz_converter)
 
                     # Calculate the hour angles.
-                    sidereal_target_hrangle = vskyutil.ha_alt(sidereal_target_dec,
-                                                              sidereal_target_coords.lat,
-                                                              sidereal_target_altaz.alt)
+                    target_hourangle = vskyutil.ha_alt(target_dec,
+                                                       target_coords.lat,
+                                                       target_altaz.alt)
 
                     # Calculate the airmasses.
-                    sidereal_target_airmass = vskyutil.true_airmass(sidereal_target_altaz.alt)
+                    sidereal_target_airmass = vskyutil.true_airmass(target_altaz.alt)
 
     def available_resources(self) -> Set[Resource]:
         """

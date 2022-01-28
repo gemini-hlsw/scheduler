@@ -1650,7 +1650,7 @@ def jd_moon_alt(alt, tguess, location):
     return Time(tguess, format='iso')
 
 
-def local_midnight_Time(aTime, localtzone):
+def local_midnight_time(aTime, localtzone):
     """find nearest local midnight (UT).
 
     If it's before noon local time, returns previous midnight;
@@ -1779,7 +1779,7 @@ def nightevents(aTime, location, localtzone, verbose=True):
 
     nt = len(aTime)
 
-    midnight = local_midnight_Time(aTime, localtzone) # nearest clock-time midnight (UT)
+    midnight = local_midnight_time(aTime, localtzone) # nearest clock-time midnight (UT)
     # print("midnight:", midnight)
     lstmid = lpsidereal(midnight, location)
 

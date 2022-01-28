@@ -175,7 +175,7 @@ class Selector:
                 sbcond = sb.sb_to_cond(skyb)
 
             # Select where sky brightness and elevation constraints are met
-            # Evenutally want to allow some observations, e.g. calibration, in twilight
+            # Eventually want to allow some observations, e.g. calibration, in twilight
             ix = np.where(np.logical_and(sbcond <= conditions.sb,
                                          np.logical_and(sunalt <= -12. * u.deg,
                                                         np.logical_and(
@@ -293,7 +293,7 @@ class Selector:
         if sbtwo:
             sunmoonang = sun_position.separation(moonpos)  # for sb2
         else:
-            midnight = vs.local_midnight_Time(time[0], TIME_ZONES[site])
+            midnight = vs.local_midnight_time(time[0], TIME_ZONES[site])
             moonmid, moondistmid = vs.accumoon(midnight, site)
             sunmid = vs.lpsun(midnight)
             sunmoonang = sunmid.separation(moonmid)  # for sb

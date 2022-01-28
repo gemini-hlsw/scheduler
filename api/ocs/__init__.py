@@ -255,7 +255,8 @@ class OcsProgramProvider(ProgramProvider):
             start_date = datetime(year, 8, 1)
             end_date = datetime(next_year, 1, 31)
 
-        return start_date, end_date
+        # Account for the flexible boundary on programs.
+        return start_date - Program.FUZZY_BOUNDARY, end_date + Program.FUZZY_BOUNDARY
 
     @staticmethod
     def parse_timing_window(data: dict) -> TimingWindow:
@@ -732,8 +733,8 @@ class OcsProgramProvider(ProgramProvider):
             thesis=thesis,
             mode=program_mode,
             type=program_type,
-            start_time=start_date,
-            end_time=end_date,
+            start=start_date,
+            end=end_date,
             allocated_time=time_act_alloc,
             root_group=root_group,
             too_type=too_type)
