@@ -71,28 +71,30 @@ class NightEvents:
                       for start, end, i in zip(time_starts, time_ends, n)]
 
         # Pre-calculate the different times.
-        self.utc_times = self.times.to_datetime('utc')
-        self.local_times = self.times.to_datetime(self.site.value.timezone)
-        self.local_sidereal_times = vskyutil.lpsidereal(self.times, self.site.value.location)
+        self.utc_times = [t.to_datetime('utc') for t in self.times]
+        self.local_times = [t.to_datetime(self.site.value.timezone) for t in self.times]
+        self.local_sidereal_times = [vskyutil.lpsidereal(t, self.site.value.location) for t in self.times]
 
         # Create lists / dicts corresponding to the time grid with an AstroPy SkyCoord array giving
         # the sun or moon position at each time step. Can access via ra and dec members.
         # Sun / moon positions in RA / Dec and then for each site in AltAz and parallactic angle.
         # Alt-Az and parallactic angle are of type Angle.
-        self.sun_position_radec = vskyutil.lpsun(self.utc_times)
-        self.sun_position_alt, self.sun_position_az, self.sun_parallactic_angle = \
-            vskyutil.altazparang(self.sun_position_radec.dec,
-                                 self.local_sidereal_times - self.sun_position_radec.ra,
-                                 self.site.value.location.lat)
-        self.moon_position_radec = vskyutil.lpmoon(self.times, self.site.value.location)
-        self.moon_position_alt, self.moon_position_az, self.moon_position_parallactic_angle = \
-            vskyutil.altazparang(self.moon_position_radec.dec,
-                                 self.local_sidereal_times - self.moon_position_radec.ra,
-                                 self.site.value.location.lat)
+
+        # TODO: Which time array should we be using here?
+        self.sun_pos_radec = [vskyutil.lpsun(t) for t in self.utc_times]
+        self.sun_pos_alt, self.sun_pos_az, self.sun_par_angle = \
+            [vskyutil.altazparang(sun_pos.dec, lst - sun_pos.ra, self.site.value.location.lat)
+             for sun_pos, lst in zip(self.sun_pos_radec, self.local_sidereal_times)]
+
+        # TODO: Which time array should we be using here?
+        self.moon_pos_radec = [vskyutil.lpmoon(t, self.site.value.location) for t in self.times]
+        self.moon_pos_alt, self.moon_pos_az, self.moon_par_ang = \
+            [vskyutil.altazparang(moon_pos.dec, lst - moon_pos.ra, self.site.value.location.lat)
+             for moon_pos, lst in zip(self.moon_pos_radec, self.local_sidereal_times)]
 
         # Lunar distance and altitude.
         # This is a tuple (SkyCoord, distance) for the site at the given time array.
-        self.moon_location_and_distance = vskyutil.accumoon(self.local_times, self.site.value.location)
+        self.moon_loc_and_dist = [vskyutil.accumoon(t, self.site.value.location) for t in self.local_times]
 
 
 class NightEventsManager:
