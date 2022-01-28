@@ -81,7 +81,7 @@ class NightEvents:
         # Alt-Az and parallactic angle are of type Angle.
 
         # TODO: Which time array should we be using here?
-        self.sun_pos_radec = [vskyutil.lpsun(t) for t in self.utc_times]
+        self.sun_pos_radec = [vskyutil.lpsun(t) for t in self.times]
         self.sun_pos_alt, self.sun_pos_az, self.sun_par_angle = \
             [vskyutil.altazparang(sun_pos.dec, lst - sun_pos.ra, self.site.value.location.lat)
              for sun_pos, lst in zip(self.sun_pos_radec, self.local_sidereal_times)]
