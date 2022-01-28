@@ -1087,7 +1087,7 @@ def lpmoon(time, obs):
 
     Parameters
     ----------
-    time : float
+    time : Time
         Time expressed as a Julian Date
     obs :  EarthLocation
         location of observatory.

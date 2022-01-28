@@ -1,21 +1,32 @@
 from astropy.time import Time
+import astropy.units as u
+import numpy as np
 from typing import Optional
 
 
 def round_minute(time: Time, up: bool = False) -> Time:
     """
-    Round a time down (truncate) or up to the nearest minute
-    time: an astropy.Time
+    Round time down (truncate) or up to the nearest minute
+    time: an astropy.Time object (can be an array)
     up: bool indicating whether to round up
     """
     t = time.copy()
     t.format = 'iso'
     t.out_subfmt = 'date_hm'
+
+    arr = np.asarray(t)
+    scalar_input = False
+    if arr.ndim == 0:
+        arr = arr[None]
+        scalar_input = True
+
     if up:
-        sec = int(t.strftime('%S'))
-        if sec:
-            t += 1.0 * u.min
-    return Time(t.iso, format='iso', scale='utc')
+        minute = 1.0 * u.min
+        arr = [tm + minute if int(tm.strftime('%S')) else tm for tm in arr]
+
+    if scalar_input:
+        arr = np.squeeze(arr)
+    return Time(arr.iso, format='iso', scale='utc')
 
 
 def str_to_bool(s: Optional[str]) -> bool:
