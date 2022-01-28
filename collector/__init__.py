@@ -1,9 +1,12 @@
+import logging
+
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy import units as u
 from collections import defaultdict
 from dataclasses import field
 import numpy as np
 from typing import Dict, FrozenSet, Iterable, NoReturn, Tuple
+from marshmallow_dataclass import add_schema
 
 from api.abstract import ProgramProvider
 import common.helpers as helpers
@@ -12,116 +15,141 @@ from common.scheduler import SchedulerComponent
 import common.vskyutil as vskyutil
 
 
+# NOTE: this is an unfortunate workaround needed to get rid of warnings in PyCharm.
+@add_schema
 @dataclass
 class NightEvents:
     """
-    Represents night events for the period under consideration as represented
-    by the time. NightEvents should be managed by NightEventsCache for efficiency.
+    Represents night events for the period under consideration.
+
+    This data is maintained unless the time_grid or sites are no longer
+    compatible (i.e. a subset) of the original data.
     """
-    midnight: Time
-    sunset: Time
-    sunrise: Time
-    twi_eve12: Time
-    twi_mor12: Time
-    moonrise: Time
-    moonset: Time
-    sun_moon_ang: Angle
-    moon_illum: npt.NDArray[float]
+    time_grid: Time
+    time_slot_length: TimeDelta
+    sites: Set[Site]
+    midnight: Mapping[Site, Time]
+    sunset: Mapping[Site, Time]
+    sunrise: Mapping[Site, Time]
+    twilight_evening_12: Mapping[Site, Time]
+    twilight_morning_12: Mapping[Site, Time]
+    moonrise: Mapping[Site, Time]
+    moonset: Mapping[Site, Time]
+    sun_moon_angle: Mapping[Site, Angle]
+    moon_illumination_fraction: Mapping[Site, npt.NDArray[float]]
+
+    # *** CONSTANTS ***
+    # These are exclusive to the create_time_array.
+    _MIN_NIGHT_EVENT_TIME: ClassVar[Time] = Time('1980-01-01 00:00:00', format='iso', scale='utc')
+
+    # NOTE: This logs an ErfaWarning about dubious year. This is due to using a future date and not knowing
+    # how many leap seconds have happened: https://github.com/astropy/astropy/issues/5809
+    _MAX_NIGHT_EVENT_TIME: ClassVar[Time] = Time('2100-01-01 00:00:00', format='iso', scale='utc')
+
+    # The number of milliarcsecs in a degree, for proper motion calculation.
+    _MILLIARCSECS_PER_DEGREE: ClassVar[int] = 1296000000
+
+    # Information for Julian years.
+    _JULIAN_BASIS: ClassVar[float] = 2451545.0
+    _JULIAN_YEAR_LENGTH: ClassVar[float] = 365.25
 
     def __post_init__(self):
         """
-        Initialize any members depending on the parameters.
+        Initialize remaining members that depend on the parameters.
         """
-        self.night_length: Time = (self.twi_mor12 - self.twi_eve12).to_value('h') * u.h
+        # Calculate the length of each night per site, i.e. time between twilights.
+        self.night_length: Mapping[Site, Time] = {
+            site: (self.twilight_morning_12[site] - self.twilight_evening_12[site]).to_value('h') * u.h
+            for site in self.sites
+        }
+
+        # Create the time arrays, which are arrays that represent the minimum starting
+        # time to the maximum starting time, divided into segments of length time_slot_length.
+        # We want one entry per time slot grid, i.e. per night, measured in UTC, local, and local sidereal.
+        tgz = len(self.time_grid)
+        self.utc_times = np.empty(tgz)
+        self.local_times = {site: np.empty(tgz) for site in self.sites}
+        self.local_sidereal_times = {site: np.empty(tgz) for site in self.sites}
+
+        # TODO: This is across all sites. Do we want this, or should it be site-specific between
+        # TODO: sunset and sunrise?
+        time_slot_length_days = self.time_slot_length.to(u.day).value
+        for i, _ in enumerate(self.time_grid):
+            time_min = min([self._MAX_NIGHT_EVENT_TIME] + [self.twilight_evening_12[site][i] for site in self.sites])
+            time_max = max([self._MIN_NIGHT_EVENT_TIME] + [self.twilight_morning_12[site][i] for site in self.sites])
+            time_start = helpers.round_minute(time_min, up=True)
+            time_end = helpers.round_minute(time_max, up=False)
+            n = np.int((time_end.jd - time_start.jd) / time_slot_length_days + 0.5)
+
+            # TODO: Verify that this is all correct.
+            # TODO: We are mixing and matching Time and datetime here.
+            time = Time(np.linspace(time_start.jd, time_end.jd - time_slot_length_days, n), format='jd')
+            self.utc_times = np.append(self.utc_times, time.to_datetime('utc'))
+            for site in Site:
+                self.local_times[site] = np.append(self.local_times[site], time.to_datetime(site.value.timezone))
+                self.local_sidereal_times[site] = np.append(self.local_sidereal_times[site],
+                                                            vskyutil.lpsidereal(time, site.value.location))
 
 
-@dataclass
-class NightEventsCache:
+class NightEventsManager:
     """
-    A cache of NightEvents for a given night.
-    We cache as these are expensive computations and we wish to avoid repeated
-    calculations.
+    Manages pre-calculation of NightEvents.
+    We only maintain one set of NightEvents at any given time.
     """
-    # By default, just allow the equivalent of a year's worth of data for each site.
-    cache_size = 365 * len(Site)
+    _night_events: ClassVar[Optional[NightEvents]] = None
 
-    class CacheKeys(IntEnum):
+    @staticmethod
+    def _calculate_night_events(time_grid: Time,
+                                time_slot_length: TimeDelta,
+                                sites: FrozenSet[Site]) -> NoReturn:
+        midnight = {}
+        sunset = {}
+        sunrise = {}
+        twilight_evening_12 = {}
+        twilight_morning_12 = {}
+        moonrise = {}
+        moonset = {}
+        sun_moon_angle = {}
+        moon_illumination_fraction = {}
+
+        for site in sites:
+            result = vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
+            midnight[site], sunset[site], sunrise[site], twilight_evening_12[site], twilight_morning_12[site], \
+                moonrise[site], moonset[site], sun_moon_angle[site], moon_illumination_fraction[site] = result
+
+        NightEventsManager._night_events = NightEvents(
+            time_grid=time_grid,
+            time_slot_length=time_slot_length,
+            sites=sites,
+            midnight=midnight,
+            sunset=sunset,
+            sunrise=sunrise,
+            twilight_evening_12=twilight_evening_12,
+            twilight_morning_12=twilight_morning_12,
+            moonrise=moonrise,
+            moonset=moonset,
+            sun_moon_angle=sun_moon_angle,
+            moon_illumination_fraction=moon_illumination_fraction
+        )
+
+    @staticmethod
+    def get_night_events(time_grid: Time,
+                         time_slot_length: TimeDelta,
+                         sites: FrozenSet[Site]) -> NightEvents:
         """
-        Probably not necessary, but an index into the collection of caches in case it is needed.
+        Retrieve NightEvents. These may contain more information than requested,
+        but never less.
         """
-        MIDNIGHT = 0
-        SUNSET = 1
-        SUNRISE = 2
-        TWI_EVE12 = 3
-        TWI_MOR12 = 4
-        MOONRISE = 5
-        MOONSET = 6
-        SUN_MOON_ANG = 7
-        MOON_ILLUM = 8
+        ne = NightEventsManager._night_events
 
-    def __post_init__(self):
-        """
-        Initialize the caches, which are FIFO (for now).
-        """
-        self.caches = [{} for _ in range(len(self.CacheKeys))]
-        self._fifo_entries: Set[Tuple[Site, Time]] = set()
-        self._fifo_list: List[Tuple[Site, Time]] = []
-
-    def fetch_night_events(self, site: Site, time_grid: Time) -> NightEvents:
-        """
-        Fetch a NightEvents object that contains information for all the nights in
-        the time_grid.
-
-        If the cache is too small to hold the time_grid, it will be resized, so theoretically,
-        this method should always succeed. If for some reason, it fails on a cache key lookup,
-        it will fail with a RuntimeError.
-        """
-        # If the time_grid is too big that it overwhelms the cache, resize the cache.
-        if len(time_grid) > self.cache_size:
-            old_size = self.cache_size
-            self.cache_size = len(time_grid) * len(Site)
-            logging.info(f'Resizing the NightEventsCache from {old_size} to {self.cache_size}.')
-
-        # Make sure that everything is calculated and cached.
-        for day in time_grid:
-            self._store_night_event(site, day)
-
-        try:
-            data = [[cache[(site, time)] for time in time_grid] for cache in self.caches]
-            return NightEvents(*data)
-
-        except KeyError as e:
-            msg = f'Could not locate the night events for: {e}'
-            logging.error(msg)
-            raise RuntimeError(msg)
-
-    def _store_night_event(self, site: Site, time: Time) -> NoReturn:
-        """
-        Calculate the NightEvents for the night specified in the AstroPy Time object.
-        This creates the cache entry and maintains the size of the cache.
-        """
-        if (site, time) not in self._fifo_entries:
-            local_timezone = site.value.time_zone
-            location = site.value.location
-
-            # See if we need to bump something from the cache.
-            if len(self._fifo_list) == self.cache_size:
-                # Chop off the first entry.
-                key = self._fifo_list.pop(0)
-                self._fifo_entries.remove(key)
-                for cache in self.caches:
-                    del [cache[key]]
-
-            # Calculate the new values and insert them into the caches.
-            results = vskyutil.nightevents(time, location, local_timezone, verbose=False)
-
-            key = site, time
-            for cache_idx, cache in enumerate(self.caches):
-                cache[key] = results[cache_idx]
-
-            # Record
-            self._fifo_entries.add(key)
-            self._fifo_list.append(key)
+        # Determine if we need to recalculate.
+        if ne is None or \
+                time_slot_length != ne.time_slot_length or \
+                not ne.sites.issuperset(sites) or \
+                (len(ne.time_grid) == 1 and ne.time_grid[0] != time_grid[0]) or \
+                (len(ne.time_grid) > 1 and (time_grid[0] < ne.time_grid[0] or time_grid[-1] > ne.time_grid[1])):
+            NightEventsManager._calculate_night_events(time_grid, sites)
+        return NightEventsManager._night_events
 
 
 @dataclass
@@ -132,20 +160,23 @@ class Collector(SchedulerComponent):
     so that the Scheduler relies on regular Python datetime and timedelta
     objects instead.
     """
+    start_time: Time
+    end_time: Time
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
-    start_time: Time
-    end_time: Time
     time_slot_length: TimeDelta
 
     # This should not be populated, but we put it here instead of in __post_init__
     # to eliminate warnings.
-    programs: Dict[Site, Dict[str, Program]] = field(default_factory=lambda: defaultdict(Dict[str, Program]))
+    # This is a list of the programs as read in.
+    # We only want to read these in once unless the program_types change.
+    _programs: ClassVar[Dict[Site, Dict[str, Program]]] = field(default_factory=lambda: defaultdict(Dict[str, Program]))
 
-    # The NightEventsCache to be used with this collector.
-    _NIGHT_EVENTS_CACHE: ClassVar[NightEventsCache] = NightEventsCache()
+    # We manage the NightEvents with a NightEventsManager to avoid unnecessary
+    # recalculations.
+    _night_events_manager: ClassVar[Optional[NightEventsManager]] = None
 
     # The default timeslot length currently used.
     DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min

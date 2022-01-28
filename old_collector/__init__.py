@@ -75,7 +75,7 @@ def ot_timing_windows(starts: Iterable[int],
     # return timing_windows
 
 
-def select_obsclass(classes: List[str]) d-> str:
+def select_obsclass(classes: List[str]) -> str:
     ...
     # """Return the obsclass based on precedence
     #
