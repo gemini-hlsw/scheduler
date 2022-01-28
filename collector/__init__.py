@@ -1,7 +1,5 @@
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy import units as u
-from collections import defaultdict
-from dataclasses import field
 import numpy as np
 from typing import Dict, FrozenSet, Iterable, NoReturn
 from marshmallow_dataclass import add_schema
@@ -41,7 +39,7 @@ class NightEvents:
         """
         Initialize remaining members that depend on the parameters.
         """
-        # Calculate the length of each night per site, i.e. time between twilights.
+        # Calculate the length of each night at this site, i.e. time between twilights.
         self.night_length = (self.twilight_morning_12 - self.twilight_evening_12).to_value('h') * u.h
 
         # Create the time arrays, which are arrays that represent the earliest starting
@@ -50,11 +48,27 @@ class NightEvents:
         time_slot_length_days = self.time_slot_length.to(u.day).value
         time_starts = helpers.round_minute(self.twilight_evening_12, up=True)
         time_ends = helpers.round_minute(self.twilight_morning_12, up=True)
+
+        # n in an array with the number of time slots in a night.
         n = ((time_ends.jd - time_starts.jd) / time_slot_length_days + 0.5).astype(int)
 
         # Most general times: can convert into others.
-        self.times = Time([np.linspace(start.jd, end.jd - time_slot_length_days, i)
-                           for start, end, i in zip(time_starts, time_ends, n)], format='jd')
+        # TODO: This does not work as currently done:
+        # starts = Time(['2000-01-01', '2000-01-02'])
+        # ends = Time(['2000-01-01 12:00', '2000-01-02 12:00'])
+        # n = [3, 4]
+        # ts = [np.linspace(start.jd, end.jd, i) for start, end, i in zip(starts, ends, n)]
+        # -> [array([2451544.5 , 2451544.75, 2451545]), array([2451545.5, 2451545.66666667, 2451545.83333333, 2451546])]
+        # Time(ts, format='jd') generates exceptions.
+        # We can do:
+        # self.times = [Time(t, format='jd') for t in ts]
+        # This will give us arrays per night of the times.
+        # We can then wrap all of this in a Time object to get an array, but it seems
+        # more advantageous to keep them separate so we can do nightly lookups?
+        # self.times = Time(self.times)
+        # -> <Time object: scale='utc' format='jd' value=[array ts above in 1D]>
+        self.times = [Time(np.linspace(start.jd, end.jd - time_slot_length_days, i), format='jd')
+                      for start, end, i in zip(time_starts, time_ends, n)]
 
         # Pre-calculate the different times.
         self.utc_times = self.times.to_datetime('utc')
@@ -123,21 +137,30 @@ class Collector(SchedulerComponent):
     """
     start_time: Time
     end_time: Time
+    time_slot_length: TimeDelta
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
-    time_slot_length: TimeDelta
 
-    # This should not be populated, but we put it here instead of in __post_init__
-    # to eliminate warnings.
+    # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
     # This is a list of the programs as read in.
     # We only want to read these in once unless the program_types change.
-    _programs: ClassVar[Dict[Site, Dict[str, Program]]] = field(default_factory=lambda: defaultdict(Dict[str, Program]))
+    _programs: ClassVar[Dict[str, Program]] = {}
+
+    # The observations associated with the above programs, which we store by site.
+    _observations: ClassVar[Dict[Site, List[Observation]]] = {}
+
+    # Calculate RA and dec with proper motion from sunset to sunrise for each day
+    # a program is valid.
+    # TODO: Since nights will not be the same length, we index by night. Is this right?
+    # TODO: Since we calculate per site, this is not ideal as there will be overlap.
+    sidereal_target_ra: ClassVar[Dict[(Site, str, int), npt.NDArray[float]]] = {}
+    sidereal_target_dec: ClassVar[Dict[(Site, str, int), npt.NDArray[float]]] = {}
 
     # We manage the NightEvents with a NightEventsManager to avoid unnecessary
     # recalculations.
-    _night_events_manager: ClassVar[Optional[NightEventsManager]] = None
+    _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
 
     # The default timeslot length currently used.
     DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min
@@ -183,7 +206,7 @@ class Collector(SchedulerComponent):
 
     # TODO: This should also be precomputed: it is not clear how it will change if
     # TODO: we get a mutation notification.
-    def load_programs(self, program_provider: ProgramProvider, data: Mapping[Site, Iterable[dict]]) -> NoReturn:
+    def load_programs(self, program_provider: ProgramProvider, data: Iterable[dict]) -> NoReturn:
         """
         Load the programs provided as JSON into the Collector.
 
@@ -194,71 +217,70 @@ class Collector(SchedulerComponent):
         since the amount of data here might be enormous, and we do not want to store it all
         in memory at once.
         """
-        # Purge the old programs.
+        # Purge the old programs and observations.
         self._programs = {}
 
-        # As we read in the programs, collect the targets for the site.
-        # TODO: For nonsidereal targets (not currently handled), we need ephemeris data.
-        # For sidereal targets, we have to interpolate over the time period under consideration.
-        sidereal_targets: dict[Site, Set[SiderealTarget]] = {}
+        # Keep track of the sidereal targets to calculate proper motion.
+        # TODO: This is not ideal as this data will be repeated for any Site night overlaps,
+        # TODO: and it is not different from site to site during these overlaps.
+        # TODO: How will this be handled in GPP? This may not be the place to put this.
+        sidereal_targets: Mapping[Site, Set[SiderealTarget]] = {}
 
-        for site in data.keys():
-            if site not in self.sites:
-                # Count the iterable, which consumes it.
-                length = sum(1 for _ in data[site])
-                logging.warning(f'JSON data contained ignored site {site.name}: {length} programs dropped.')
-                continue
+        # As we read, keep track of the observations per site.
+        observations: Dict[Site, List[Observation]] = {site: [] for site in self.sites}
 
-            # Read in the programs for the site.
-            # We do this using a loop instead of a for comprehension because we want the IDs.
-            self._programs[site] = {}
+        # Read in the programs.
+        # Count the number of parse failures.
+        bad_program_count = 0
+        for json_program in data:
+            try:
+                if len(json_program.keys()) != 1:
+                    msg = f'JSON programs should only have one top-level key: {" ".join(json_program.keys())}'
+                    logging.error(msg)
+                    raise ValueError(msg)
 
-            for json_program in data[site]:
-                # Count the number of parse failures.
-                bad_program_count = 0
+                # Extract the data from the JSON program. We do not need the top label.
+                data = list(json_program.values())[0]
+                program = program_provider.parse_program(data)
 
-                try:
-                    if len(json_program.keys()) > 1:
-                        msg = f'JSON programs should only have one top-level key: {" ".join(json_program.keys())}'
-                        logging.error(msg)
-                        raise ValueError(msg)
+                # If program not in specified semester, then stop processing.
+                if program.semester is None or program.semester not in self.semesters:
+                    logging.warning(f'Program {program.id} not in a specified semester (skipping).')
+                    continue
 
-                    # Extract the data from the JSON program.
-                    label, data = list(json_program.items())[0]
+                if program.id in self._programs.keys():
+                    logging.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
+                self._programs[program.id] = program
 
-                    program = program_provider.parse_program(data)
-                    if program.id in self._programs[site].keys():
-                        logging.warning(f'Site {site.name} contains a repeated program with id {program.id}.')
-                    self._programs[site][program.id] = program
+                # Collect the observations in the program and sort them by site.
+                for obs in program.observations():
+                    # TODO: Confirm this is the proper place to do this.
+                    # TODO: Since we are passing obs_classes to the Collector, assume it must be.
+                    if obs.obs_class in self.obs_classes:
+                        observations[obs.site].append(obs)
+                        obs_sidereal_targets = [t for t in obs.targets if isinstance(t, SiderealTarget)]
+                        sidereal_targets[obs.site].update(obs_sidereal_targets)
+                    else:
+                        logging.warning(f'Observation {obs.id} not in a specified class (skipping).')
 
-                    def collect_targets(node_group: NodeGroup) -> NoReturn:
-                        """
-                        Pull up the information about all targets scheduled at each site.
-                        """
-                        if isinstance(node_group.children, SiderealTarget):
-                            sidereal_targets.setdefault(site, set())
-                            sidereal_targets[site].add(node_group.children)
-                        elif isinstance(node_group.children, NonsiderealTarget):
-                            # TODO: Fill this in.
-                            ...
-                        else:
-                            for subgroup in node_group.children:
-                                collect_targets(subgroup)
+            except ValueError as e:
+                bad_program_count += 1
+                logging.warning(f'Could not parse program: {e}')
 
-                    collect_targets(program.root_group)
-
-                except ValueError as e:
-                    bad_program_count += 1
-                    logging.warning(f'Could not parse program: {e}')
-
-                if bad_program_count:
-                    logging.error(f'For site {site.name}, could not parse {bad_program_count} programs.')
+        if bad_program_count:
+            logging.error(f'Could not parse {bad_program_count} programs.')
 
         # Now we process the targets per site to get the necessary information.
         # Indexed by site and target name, result is an array of nights with each
         # entry an array of coordinates, either RA or Dec.
-        sidereal_target_ra: dict[(Site, str), npt.NDArray[npt.NDArray[float]]] = {}
-        sidereal_target_dec: dict[(Site, str), npt.NDArray[npt.NDArray[float]]] = {}
+
+        # TODO: progress bar with tqdm?
+        num_nights = len(self.time_grid)
+        num_observations = len(observations.items())
+        obs_visibility_hours = {site: np.zeros((len(observations[site]), num_nights)) for site in self.sites}
+
+        for site, site_observations in observations.items():
+            visibility = ...
 
         for site, targets in sidereal_targets.items():
             # For each time step under each night under consideration, we want to calculate:
@@ -272,6 +294,7 @@ class Collector(SchedulerComponent):
                 # TODO: Also seems wrong to hard-code Epoch?
                 for night in self.time_grid:
                     night_events = self.night_events[site][night]
+
                     sunset = helpers.round_minute(night_events.sunset, up=True)
                     sunrise = helpers.round_minute(night_events.sunrise, up=True)
                     time_slot_length_days = self.time_slot_length.to(u.day).value

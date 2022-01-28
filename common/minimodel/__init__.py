@@ -744,6 +744,12 @@ class Group(ABC):
         """
         ...
 
+    @abstractmethod
+    def observations(self) -> List[Observation]:
+        """
+        This method should be used to return all the sets of Observations contained
+        in this group and its descendents.
+        """
 
 @dataclass
 class NodeGroup(Group, ABC):
@@ -774,6 +780,9 @@ class NodeGroup(Group, ABC):
 
     def constraints(self) -> Set[Constraints]:
         return {cs for c in self.children for cs in c.constraints()}
+
+    def observations(self) -> List[Observation]:
+        return [self.children] if isinstance(self.children, Observation) else []
 
     def __len__(self):
         return 1 if isinstance(self.children, Observation) else len(self.children)
@@ -901,10 +910,12 @@ class Program:
     """
     id: str
     internal_id: str
+    # Some programs do not have a typical name and thus cannot be associated with a semester.
+    semester: Optional[Semester]
     band: Band
     thesis: bool
     mode: ProgramMode
-    type: ProgramTypes
+    type: Optional[ProgramTypes]
     start: datetime
     end: datetime
     allocated_time: Set[TimeAllocation]
@@ -930,6 +941,9 @@ class Program:
 
     def total_used(self) -> timedelta:
         return sum(t.total_used() for t in self.allocated_time)
+
+    def observations(self) -> List[Observation]:
+        return self.root_group.observations()
 
 
 @dataclass(frozen=True)

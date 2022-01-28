@@ -697,15 +697,31 @@ class OcsProgramProvider(ProgramProvider):
         """
         program_id = data[OcsProgramProvider._ProgramKeys.ID]
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
+
+        # Extract the semester and program type, if it can be inferred from the filename.
+        # TODO: The program type may be obtainable via the ODB. Should we extract it?
+        semester = None
+        program_type = None
+        try:
+            id_split = program_id.split('-')
+            semester_year = int(id_split[1][:4])
+            semester_half = SemesterHalf[id_split[1][4]]
+            semester = Semester(year=semester_year, half=semester_half)
+            program_type = ProgramTypes[id_split[2]]
+        except (IndexError, ValueError) as e:
+            logging.warning(f'Program ID {program_id} cannot be parsed.')
+
         band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
         thesis = data[OcsProgramProvider._ProgramKeys.THESIS]
         program_mode = ProgramMode[data[OcsProgramProvider._ProgramKeys.MODE].upper()]
-        program_type = ProgramTypes[program_id.split('-')[2]]
 
         # Get all the SCHEDNOTE and PROGRAMNOTE titles as they may contain FT data.
         note_titles = [data[key][OcsProgramProvider._NoteKeys.TITLE] for key in data.keys()
                        if key.startswith(OcsProgramProvider._ProgramKeys.SCHED_NOTE)
                        or key.startswith(OcsProgramProvider._ProgramKeys.PROGRAM_NOTE)]
+
+        # Determine the start and end date of the program.
+        # NOTE that this includes the fuzzy boundaries.
         start_date, end_date = OcsProgramProvider._get_program_dates(program_type, program_id, note_titles)
 
         # Parse the time accounting allocation data.
@@ -729,6 +745,7 @@ class OcsProgramProvider(ProgramProvider):
         return Program(
             id=program_id,
             internal_id=internal_id,
+            semester=semester,
             band=band,
             thesis=thesis,
             mode=program_mode,
