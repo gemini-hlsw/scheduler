@@ -26,8 +26,10 @@ def str_to_bool(s: Optional[str]) -> bool:
     return s is not None and s.strip().upper() in ['YES', 'TRUE']
 
   
-def dms2deg(dms):
-
+def dms2deg(dms: str) -> float:
+    """
+    Convert a string of the form 'dd:mm:ss.ss' to a decimal degree.
+    """
     if dms is None:
         return None
 
@@ -42,8 +44,10 @@ def dms2deg(dms):
 
     return dd
 
-
-def dms2rad(dms):
+def dms2rad(dms: str) -> float:
+    """
+    Convert a string of the form 'dd:mm:ss.ss' to radians.
+    """
     if dms is None:
         return None
     
@@ -52,7 +56,10 @@ def dms2rad(dms):
     return rad
 
 
-def hms2rad(hms):
+def hms2rad(hms: str) -> float:
+    """
+    Convert a string of the form 'hh:mm:ss.ss' to radians.
+    """
     if hms is None:
         return None
 

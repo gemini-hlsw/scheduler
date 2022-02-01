@@ -75,7 +75,6 @@ class Coordinates:
         """
 
         delta = self.angular_distance(other)
-        #print(delta)
         if delta == 0:
             return self # not self, new object?
         else:
@@ -251,13 +250,11 @@ class HorizonsClient:
  
         horizons_name = self._form_horizons_name(target.tag, target.des)
         logging.info(f'{target.des}')
-
         
         file = self._get_ephemeris_file(target.des) if target.tag is not TargetTag.MAJOR_BODY else self._get_ephemeris_file(horizons_name) 
         
         if not overwrite and os.path.exists(file):
             logging.info(f'Saving ephemerides file for {target.des}')
-            print('AAAAAAAAA')
             with open(file, 'r') as f:
                 lines = list(map(lambda x: x.strip('\n'), f.readlines()))
         else:
