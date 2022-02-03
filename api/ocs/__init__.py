@@ -117,6 +117,11 @@ class OcsProgramProvider(ProgramProvider):
         TOTAL_TIME = 'totalTime'
         OFFSET_P = 'telescope:p'
         OFFSET_Q = 'telescope:q'
+        EXPOSURE_TIME = 'observe:exposureTime'
+        DATA_LABEL = 'observe:dataLabel'
+        COADDS = 'observe:coadds'
+        FILTER = 'instrument:filter'
+        DISPERSER = 'instrument:disperser'
 
     class _TimingWindowKeys:
         TIMING_WINDOWS = 'timingWindows'
@@ -128,6 +133,10 @@ class OcsProgramProvider(ProgramProvider):
     class _MagnitudeKeys:
         NAME = 'name'
         VALUE = 'value'
+
+    class _FPUKeys:
+        GNIRS = 'instrument:slitWidth'
+        GMOSN = 'instrument:fpu'
 
     @staticmethod
     def parse_magnitude(data: dict) -> Magnitude:
@@ -383,22 +392,35 @@ class OcsProgramProvider(ProgramProvider):
         n_abba = 0
         n_atom = 0
         atoms = []
+
+        # Sequence analysis
         for atom_id, step in enumerate(sequence):
             next_atom = False
-            obs_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
+            
+            observe_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
 
-            instrument = Resource(step[OcsProgramProvider._AtomKeys.INSTRUMENT])
+            # TODO: Calculated by Bryan but not used in the mini-model.
+            exposure_time = step[OcsProgramProvider._AtomKeys.EXPOSURE_TIME]
 
-            # TODO: Check if this is the right wavelength.
+            #Instrument configuration aka Resource
+            instrument = step[OcsProgramProvider._AtomKeys.INSTRUMENT]
+            if instrument in {'GMOS-N', 'GNIRS'}:
+                fpu = step[OcsProgramProvider._FPUKeys.GMOSN] if instrument == 'GMOS-N' else step[OcsProgramProvider._FPUKeys.GNIRS]
+            
+            filter = step[OcsProgramProvider._AtomKeys.FILTER] if OcsProgramProvider._AtomKeys.FILTER in step.keys() else None
+            coadds = 1 if 'GMOS' in instrument else int(step[OcsProgramProvider._AtomKeys.COADDS])
+            disperser = step[OcsProgramProvider._AtomKeys.DISPERSER]
+
             wavelength = float(step[OcsProgramProvider._AtomKeys.WAVELENGTH])
             observed = str_to_bool(step[OcsProgramProvider._AtomKeys.OBSERVED])
             step_time = timedelta(milliseconds=step[OcsProgramProvider._AtomKeys.TOTAL_TIME] / 1000)
 
+
             # Offset information
             offset_p = OcsProgramProvider._AtomKeys.OFFSET_P
             offset_q = OcsProgramProvider._AtomKeys.OFFSET_Q
-            p = float(step[offset_p]) if offset_p in step.keys() else None
-            q = float(step[offset_q]) if offset_q in step.keys() else None
+            p = float(step[offset_p]) if offset_p in step.keys() else 0.0
+            q = float(step[offset_q]) if offset_q in step.keys() else 0.0
 
             # Any wavelength/filter_name change is a new atom
             if atom_id == 0 or (atom_id > 0 and
@@ -408,7 +430,7 @@ class OcsProgramProvider(ProgramProvider):
             # Patterns:
             # AB
             # ABBA
-            if q is not None and n_steps >= 4 and n_steps - atom_id > 3 and n_abba == 0:
+            if q > 0 and n_steps >= 4 and n_steps - atom_id > 3 and n_abba == 0:
                 if (q == float(sequence[atom_id + 3][offset_q]) and
                         q != float(sequence[atom_id + 1][offset_q]) and
                         float(sequence[atom_id + 1][offset_q]) == float(sequence[atom_id + 2][offset_q])):
@@ -418,6 +440,7 @@ class OcsProgramProvider(ProgramProvider):
                 n_abba -= 1
 
             if next_atom:
+
                 n_atom += 1
                 atoms.append(Atom(
                     id=n_atom,
@@ -433,16 +456,16 @@ class OcsProgramProvider(ProgramProvider):
 
             atoms[-1].exec_time += step_time
 
-            if 'partnerCal' in obs_class:
+            if 'partnerCal' in observe_class:
                 atoms[-1].part_time += step_time
             else:
                 atoms[-1].prog_time += step_time
 
-            if n_atom > 0 and qa_states:
-                if atom_id < len(qa_states):
-                    atoms[-1].qa_state = qa_states[atom_id - 1]
-                else:
-                    atoms[-1].qa_state = qa_states[-1]
+        if n_atom > 0 and qa_states:
+            if atom_id < len(qa_states):
+                atoms[-1].qa_state = qa_states[atom_id - 1]
+            else:
+                atoms[-1].qa_state = qa_states[-1]
 
         return atoms
 
@@ -492,6 +515,7 @@ class OcsProgramProvider(ProgramProvider):
         qa_states = [QAState[log_entry[OcsProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
                      data[OcsProgramProvider._ObsKeys.LOG]]
 
+        
         atoms = OcsProgramProvider.parse_atoms(data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
 
         # TODO: Should this be a list of all targets for the observation?
