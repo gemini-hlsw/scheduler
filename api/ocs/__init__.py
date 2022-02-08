@@ -4,6 +4,7 @@ import json
 import numpy as np
 from scipy.signal import find_peaks
 from typing import NoReturn, Tuple
+from enum import Enum
 from typing import Iterable, NoReturn, Tuple
 import zipfile
 
@@ -11,13 +12,24 @@ from api.abstract import ProgramProvider
 from common.helpers import str_to_bool, hmsstr2deg, dmsstr2deg
 from common.minimodel import *
 
-#  TODO: MOVE TO COMMON/MINIMODEL
+
+#  TODO: MOVE TO COMMON/MINIMODEL ?
 @dataclass
 class InstrumentConfig:
     fpu: str
     disperser: str
     filter: str
     wavelength: float
+
+class ObservationMode(str, Enum):
+    UNKNOWN = 'unknown'
+    IMAGING = 'imaging'
+    LONGSLIT = 'longslit'
+    IFU = 'ifu'
+    MOS = 'mos'
+    XD = 'xd'
+    CORON = 'coron'
+    NRM = 'nrm'
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
     """
@@ -37,7 +49,6 @@ class OcsProgramProvider(ProgramProvider):
     A ProgramProvider that parses programs from JSON extracted from the OCS
     Observing Database.
     """
-
 
     GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
     NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
@@ -163,6 +174,59 @@ class OcsProgramProvider(ProgramProvider):
         DECKER = 'instrument:acquisitionMirror'
         ACQ_MIRROR = 'instrument:acquisitionMirror'
         CROSS_DISPERSED = 'instrument:crossDispersed'
+
+    @staticmethod
+    def _get_mode(inst: str, config: InstrumentConfig) -> ObservationMode:
+        """Determine the observation mode (e.g. imaging, longslit, mos, ifu,..."""
+
+        def searchlist(val, alist):
+            return any(val in elem for elem in alist)
+
+        mode = ObservationMode.UNKNOWN
+        if searchlist('GMOS', inst):
+            if 'MIRROR' in config['disperser']:
+                mode = ObservationMode.IMAGING
+            elif searchlist('arcsec', config.fpu):
+                mode = ObservationMode.LONGSLIT
+            elif searchlist('IFU', config.fpu):
+                mode = ObservationMode.IFU
+            elif 'CUSTOM_MASK' in config.fpu:
+                mode = ObservationMode.MOS
+        elif inst in ["GSAOI", "'Alopeke", "Zorro"]:
+            mode = ObservationMode.IMAGING
+        elif inst in ['IGRINS', 'MAROON-X']:
+            mode = ObservationMode.LONGSLIT
+        elif inst in ['GHOST', 'MAROON-X', 'GRACES', 'Phoenix']:
+            mode = ObservationMode.XD
+        elif inst == 'Flamingos2':
+            if searchlist('LONGSLIT', config.fpu):
+                mode = ObservationMode.LONGSLIT
+            if (searchlist('FPU_NONE', config.fpu) and
+                searchlist('IMAGING', config.disperser)):
+                mode = ObservationMode.IMAGING
+        elif config['inst'] == 'NIRI':
+            if searchlist('NONE', config.disperser) and searchlist('MASK_IMAGING', config.fpu):
+                mode = ObservationMode.IMAGING
+        elif config['inst'] == 'NIFS':
+            mode = ObservationMode.IFU
+        elif config['inst'] == 'GNIRS':
+            if searchlist('mirror', config.disperser):
+                mode = ObservationMode.IMAGING
+            elif searchlist('XD', config.disperser):
+                mode = ObservationMode.XD
+            else:
+                mode = ObservationMode.LONGSLIT
+        elif config['inst'] == 'GPI':
+            if searchlist('CORON', config.fpu):
+                mode = ObservationMode.CORON
+            elif searchlist('NRM', config.fpu):
+                mode = ObservationMode.NRM
+            elif searchlist('DIRECT', config.fpu):
+                mode = ObservationMode.IMAGING
+            else:
+                mode = ObservationMode.IFU
+
+        return mode
 
     @staticmethod
     def parse_magnitude(data: dict) -> Magnitude:
@@ -537,6 +601,11 @@ class OcsProgramProvider(ProgramProvider):
 
         def guide_state(step: dict) -> bool:
             return any('guideWith' in key and guide == 'guide' for key, guide in step.items())
+        
+        def select_qastate(states: List[QAState]) -> QAState:
+            # Precedence order for observation classes.
+            qastate_order = [QAState.NONE, QAState.UNDEFINED, QAState.FAIL, QAState.USABLE, QAState.PASS]
+            return next((s for s in qastate_order if s in states), QAState.NONE)
 
         # n_steps = len(sequence)
         # n_abba = 0
@@ -550,7 +619,7 @@ class OcsProgramProvider(ProgramProvider):
         coadds = []
         wavelengths = []
 
-        # can I pass the instrument as a parameter?  and mode  
+        instrument = sequence[0][OcsProgramProvider._AtomKeys.INSTRUMENT] # all atoms must have the same instrument
         offset_lag = OcsProgramProvider._parse_offsets(sequence, 'GPI')
 
         # Sequence analysis
@@ -566,8 +635,9 @@ class OcsProgramProvider(ProgramProvider):
             observed = str_to_bool(step[OcsProgramProvider._AtomKeys.OBSERVED])
 
             #Instrument configuration aka Resource
-            instrument = step[OcsProgramProvider._AtomKeys.INSTRUMENT]
+            # instrument = step[OcsProgramProvider._AtomKeys.INSTRUMENT]
             instrument_config = OcsProgramProvider._parse_instrument_configuration(step, instrument)
+            mode = OcsProgramProvider._get_mode(instrument, instrument_config)
             wavelengths.append(instrument_config.wavelength)
 
             coadds.append(int(step[OcsProgramProvider._AtomKeys.COADDS]) if OcsProgramProvider._AtomKeys.COADDS in step else 1)
@@ -576,20 +646,20 @@ class OcsProgramProvider(ProgramProvider):
             # Any wavelength/filter change is a new atom
             if atom_id == 0 or (atom_id > 0 and wavelengths[atom_id] != wavelengths[prev]):
                 next_atom = True
-                logging.info(f'Atom for wavelength')
+                logging.info('Atom for wavelength')
 
             if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in ['FLAT', 'ARC', 'DARK', 'BIAS']:
                 if observe_class.upper() == 'SCIENCE' and (atom_id > 0 and
                                                            exposure_times[atom_id] != exposure_times[prev] or
                                                            coadds[atom_id] != coadds[prev]):
                     next_atom = True
-                    logging.info(f'Atom for exposure time change')
+                    logging.info('Atom for exposure time change')
 
                 # Offsets - a new offset pattern is a new atom
                 if offset_lag == 0 and not exptime_groups:
                     # For NIR imaging, need to have at least two offset positions if no repeating pattern
                     # New atom after every 2nd offset (noffsets is odd)
-                    if mode == 'imaging' and offset_lag == 0 and all(w > 1.0 for w in wavelengths):
+                    if mode is ObservationMode.IMAGING and offset_lag == 0 and all(w > 1.0 for w in wavelengths):
                         if atom_id == 0:
                             n_offsets += 1
                         else:
@@ -597,12 +667,12 @@ class OcsProgramProvider(ProgramProvider):
                                 n_offsets += 1
                         if n_offsets % 2 == 1:
                             next_atom = True
-                            logging.info(f'Atom for offset pattern')
+                            logging.info('Atom for offset pattern')
                     else:
                         n_pattern -= 1
                         if n_pattern < 0:
                             next_atom = True
-                            logging.info(f'Atom for offset pattern')
+                            logging.info('Atom for offset pattern')
                             n_pattern = offset_lag - 1
                 prev = atom_id
             
@@ -628,7 +698,7 @@ class OcsProgramProvider(ProgramProvider):
                                   program_time,
                                   partner_time,
                                   observed,
-                                  qa_states[atom_id],
+                                  select_qastate(qa_states),
                                   guide_state(step),
                                   resources,
                                   instrument_config.wavelength))
@@ -683,6 +753,10 @@ class OcsProgramProvider(ProgramProvider):
 
         
         atoms = OcsProgramProvider.parse_atoms(data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
+        #print(f'OBSERVATION_BASIC-{num}')
+        #print(atoms)
+        #input()
+        exec_time = sum([atom.exec_time for atom in atoms], timedelta()) + acq_overhead
 
         # TODO: Should this be a list of all targets for the observation?
         targets = []
