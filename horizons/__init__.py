@@ -17,7 +17,7 @@ class Angle:
     """
     Angle in radians.
     """
-    µasPerDegree: float = 60 * 60 * 1000 * 1000
+    µasPerDegree: float =  60 * 1000
 
     @staticmethod
     def to_signed_microarcseconds(angle: float) -> float:
@@ -55,11 +55,11 @@ class Coordinates:
     def angular_distance(self, other: 'Coordinates') -> float:
         """
         Calculate the angular distance between two points on the sky.
-        based on 
+        based on
         https://github.com/gemini-hlsw/lucuma-core/blob/master/modules/core/shared/src/main/scala/lucuma/core/math/Coordinates.scala#L52
         """
-        φ1 = self.dec # to angle to radians
-        φ2 = other.dec # to angle to radians
+        φ1 = self.dec
+        φ2 = other.dec
         delta_φ = other.dec - self.dec
         delta_λ = other.ra - self.ra
         a = np.sin(delta_φ / 2)**2 + np.cos(φ1) * np.cos(φ2) * np.sin(delta_λ / 2)**2
@@ -76,7 +76,7 @@ class Coordinates:
 
         delta = self.angular_distance(other)
         if delta == 0:
-            return self # not self, new object?
+            return Coordinates(self.ra, self.dec)
         else:
             a = np.sin((1 - f) * delta) / np.sin(delta)
             b = np.sin(f * delta) / np.sin(delta)
@@ -261,7 +261,7 @@ class HorizonsClient:
             logging.info(f'Querying JPL/Horizons for {horizons_name}')
             res = self.query(horizons_name)
             lines = res.text.splitlines()
-            if file != None:
+            if file is not None:
                 with open(file, 'w') as f:
                     f.write(res.text)
 

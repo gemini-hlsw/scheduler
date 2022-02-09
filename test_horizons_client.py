@@ -4,6 +4,7 @@ from hypothesis import given, strategies as st
 from horizons import Coordinates, Angle, horizons_session
 from common.minimodel import Site, NonsiderealTarget, TargetTag, TargetType
 from datetime import datetime
+import numpy as np
 
 @pytest.fixture
 def target():
@@ -28,8 +29,6 @@ def test_angular_distace_between_values(values):
     """
     a, b, c, d = values
     assert Coordinates(a, b).angular_distance(Coordinates(c, d)) <= 180
-
-
 
 @given(
     st.lists(
@@ -62,7 +61,7 @@ def test_angular_distace_symmetry(values):
 
 @given(
     st.lists(
-        st.floats(allow_infinity=False, allow_nan=False),
+        st.floats(allow_infinity=False, allow_nan=False, max_value=4.71239, min_value=1.5708),
         min_size=4,
         max_size=4,
     )
@@ -77,7 +76,7 @@ def test_interpolation_by_angular_distance_for_factor_zero(values):
 
 @given(
     st.lists(
-        st.floats(allow_infinity=False, allow_nan=False),
+        st.floats(allow_infinity=False, allow_nan=False, max_value=4.71239, min_value=1.5708),
         min_size=4,
         max_size=4,
     )
@@ -92,7 +91,7 @@ def test_interpolation_by_angular_distance_for_factor_one(values):
 
 @given(
     st.lists(
-        st.floats(allow_infinity=False, allow_nan=False),
+        st.floats(allow_infinity=False, allow_nan=False, max_value=4.71239, min_value=1.5708),
         min_size=4,
         max_size=4,
     )
@@ -102,16 +101,18 @@ def test_interpolation_by_fractional_angular_separation(values):
     Interpolate should be consistent with fractional angular separation, to within 20 µas
     """
     a, b, c, d = values
+    µas180 = Angle.to_signed_microarcseconds(3.14159)
+    µas360 = µas180 * 2
     sep = Angle.to_microarcseconds(Coordinates(a, b).angular_distance(Coordinates(c, d)))
     deltas = []
 
-    for f in range(-1, 2):
-        step_sep = Angle.to_microarcseconds(Coordinates(a, b).angular_distance(Coordinates(a, b).interpolate(Coordinates(c, d), f / 10.0)))
-        frac_sep = sep * abs(f / 10.0)
-        frac_sep2 = frac_sep if frac_sep <= 180 else 360 - frac_sep
+    for f in np.arange(-1.0, 2.0, 0.1):
+        step_sep = Angle.to_microarcseconds(Coordinates(a, b).angular_distance(Coordinates(a, b).interpolate(Coordinates(c, d), f)))
+        frac_sep = sep * abs(f)
+        frac_sep2 = frac_sep if frac_sep <= µas180 else µas360 - frac_sep
         deltas.append(abs(step_sep - frac_sep2))
     
-    assert all(d > 20 for d in deltas)
+    assert all(d < 20 for d in deltas)
 
 def test_horizons_client_query(target, session_parameters):
     """
