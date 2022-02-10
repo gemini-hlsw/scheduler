@@ -17,7 +17,7 @@ class Angle:
     """
     Angle in radians.
     """
-    µasPerDegree: float =  60 * 1000
+    µasPerDegree: float =  60 * 60 * 1000 * 1000
 
     @staticmethod
     def to_signed_microarcseconds(angle: float) -> float:
@@ -62,8 +62,7 @@ class Coordinates:
         φ2 = other.dec
         delta_φ = other.dec - self.dec
         delta_λ = other.ra - self.ra
-        a = np.sin(delta_φ / 2)**2 + np.cos(φ1) * np.cos(φ2) * np.sin(delta_λ / 2)**2
-
+        a = np.around(np.sin(delta_φ / 2)**2, decimals=10) + np.around(np.cos(φ1) * np.cos(φ2) * np.sin(delta_λ / 2)**2, decimals=10) 
         if a >= 0 and a <= 1:
             return 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
         else:
