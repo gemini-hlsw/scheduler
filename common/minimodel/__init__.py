@@ -471,7 +471,6 @@ class Resource:
     performed at a given time based on the resource availability.
     """
     id: str
-    name: str
     description: Optional[str] = None
 
     def __eq__(self, other):

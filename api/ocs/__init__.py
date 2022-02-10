@@ -394,9 +394,7 @@ class OcsProgramProvider(ProgramProvider):
             next_atom = False
             obs_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
 
-            # TODO: Should the resource ID and name be the same?
-            instrument = Resource(step[OcsProgramProvider._AtomKeys.INSTRUMENT],
-                                  step[OcsProgramProvider._AtomKeys.INSTRUMENT])
+            instrument = Resource(step[OcsProgramProvider._AtomKeys.INSTRUMENT])
 
             # TODO: Check if this is the right wavelength.
             wavelength = float(step[OcsProgramProvider._AtomKeys.WAVELENGTH])
@@ -550,7 +548,7 @@ class OcsProgramProvider(ProgramProvider):
             if guide_group is not None:
                 for guide_data in guide_group[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE]:
                     guider = guide_data[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE_KEY]
-                    resource = Resource(guider, guider, None)
+                    resource = Resource(id=guider)
                     target = OcsProgramProvider.parse_target(guide_data[OcsProgramProvider._TargetEnvKeys.TARGET])
                     guiding[resource] = target
                     targets.append(target)

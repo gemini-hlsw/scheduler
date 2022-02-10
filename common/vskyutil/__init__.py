@@ -1756,7 +1756,8 @@ def ztwilight(alt):
 
 
 def nightevents(aTime, location, localtzone, verbose=True):
-    """Compute phenomena for a given night.
+    """
+    Compute phenomena for a given night.
 
     This is mostly a testbed that prints results directly.
 

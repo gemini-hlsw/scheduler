@@ -120,6 +120,8 @@ class NightEventsManager:
                 (len(ne[site].time_grid) == 1 and ne[site].time_grid[0] != time_grid[0]) or
                 (len(ne[site].time_grid) > 1 and
                  (time_grid[0] < ne[site].time_grid[0] or time_grid[-1] > ne[site].time_grid[1]))):
+            # TODO: I am not convinced that this is the correct way to calculate the night events.
+            # TODO: This is how it is done in the old collector, so it should work? Needs testing.
             NightEventsManager._night_events[site] = NightEvents(
                 time_grid=time_grid,
                 time_slot_length=time_slot_length,
@@ -329,10 +331,10 @@ class Collector(SchedulerComponent):
         """
         # TODO: Add more.
         return {
-            Resource('PWFS1', 'PWFS1', None),
-            Resource('PWFS2', 'PWFS2', None),
-            Resource('GMOS OIWFS', 'GMOS OIWFS', None),
-            Resource('GMOSN', 'GMOSN', None)
+            Resource(id='PWFS1'),
+            Resource(id='PWFS2'),
+            Resource(id='GMOS OIWFS'),
+            Resource(id='GMOSN')
         }
 
     def conditions(self) -> Conditions:
