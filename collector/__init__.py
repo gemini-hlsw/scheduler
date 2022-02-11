@@ -394,8 +394,6 @@ class Collector(SchedulerComponent):
                 # TODO: Guide star availability for moving targets and parallactic angle modes.
                 # TODO: Unsure of how to calculate this.
 
-                # TODO: Resource availability... assume this should be done in Selector?
-
                 Collector._target_info[(target, obs.id, idx)] = TargetInfo(
                     coords=coords,
                     alt=alt,
