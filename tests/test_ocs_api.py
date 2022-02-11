@@ -383,14 +383,14 @@ def create_minimodel_program() -> Program:
         # TODO: ??? -0.1 second duration???
         TimingWindow(
             start=datetime(2022, 1, 12, 12, 28, 42),
-            duration=timedelta(microseconds=-1000),
+            duration=TimingWindow.INFINITE_DURATION,
             repeat=TimingWindow.NON_REPEATING,
             period=TimingWindow.NO_PERIOD
         ),
         TimingWindow(
             start=datetime(2022, 1, 13, 12, 29, 37),
             duration=timedelta(hours=12),
-            repeat=TimingWindow.FOREVER_REPEATING,
+            repeat=TimingWindow.OCS_INFINITE_REPEATS,
             period=timedelta(hours=36)
         ),
         TimingWindow(

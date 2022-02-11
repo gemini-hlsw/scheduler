@@ -373,7 +373,7 @@ class Collector(SchedulerComponent):
 
                     sb = sky_brightness.convert_to_sky_background(brightness)
 
-                # ivis
+                # TODO: ivis... what is this, exactly? Not used in old selector code.
                 ivis = np.array([], dtype=int)
 
                 # Select where sky brightness and elevation constraints are met.
@@ -394,7 +394,7 @@ class Collector(SchedulerComponent):
                 # TODO: Guide star availability for moving targets and parallactic angle modes.
                 # TODO: Unsure of how to calculate this.
 
-                # TODO: Resource availability.
+                # TODO: Resource availability... assume this should be done in Selector?
 
                 Collector._target_info[(target, obs.id, idx)] = TargetInfo(
                     coords=coords,
