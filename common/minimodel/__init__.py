@@ -173,6 +173,7 @@ class TimingWindow:
     repeat: int
     period: Optional[timedelta]
 
+    INFINITE_DURATION_FLAG: ClassVar[int] = -1
     INFINITE_DURATION: ClassVar[int] = timedelta.max
     FOREVER_REPEATING: ClassVar[int] = -1
     NON_REPEATING: ClassVar[int] = 0
@@ -407,12 +408,16 @@ class TargetTag(Enum):
     MAJOR_BODY = auto()
 
 
+# Type alias for a target name.
+TargetName = str
+
+
 @dataclass
 class Target(ABC):
     """
     Basic target information.
     """
-    name: str
+    name: TargetName
     magnitudes: Set[Magnitude]
     type: TargetType
 
@@ -576,6 +581,10 @@ class ObservationClass(IntEnum):
     DAYCAL = auto()
 
 
+# Alias for observation identifier.
+ObservationID = str
+
+
 @dataclass
 class Observation:
     """
@@ -588,7 +597,7 @@ class Observation:
       with the base being in the first position
     * guiding is a map between guide probe resources and their targets
     """
-    id: str
+    id: ObservationID
     internal_id: str
     order: int
     title: str
@@ -750,6 +759,7 @@ class Group(ABC):
         in this group and its descendents.
         """
 
+
 @dataclass
 class NodeGroup(Group, ABC):
     """
@@ -899,6 +909,10 @@ class ProgramTypes(Enum):
     SV = ProgramType('SV', 'System Verification')
 
 
+# Type alias for program ID.
+ProgramID = str
+
+
 @dataclass(unsafe_hash=True)
 class Program:
     """
@@ -907,7 +921,7 @@ class Program:
     The FUZZY_BOUNDARY is a constant that allows for a fuzzy boundary for a program's
     start and end times.
     """
-    id: str
+    id: ProgramID
     internal_id: str
     # Some programs do not have a typical name and thus cannot be associated with a semester.
     semester: Optional[Semester]

@@ -1100,7 +1100,7 @@ def lpmoon(time, obs):
     # hands back topocentric RA, dec (radians) and distance
     # (earth radii).
 
-    #  Implements "low precision" moon algorithms from
+    #  Implements "low precision" moon sky_brightness from
     #  Astronomical Almanac (p. D46 in 1992 version).  Does
 
     jd = np.asarray(time.jd)

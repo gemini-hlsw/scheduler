@@ -260,11 +260,25 @@ class OcsProgramProvider(ProgramProvider):
 
     @staticmethod
     def parse_timing_window(data: dict) -> TimingWindow:
-        start = datetime.fromtimestamp(data[OcsProgramProvider._TimingWindowKeys.START] / 1000)
-        duration = timedelta(milliseconds=data[OcsProgramProvider._TimingWindowKeys.DURATION])
-        repeat = data[OcsProgramProvider._TimingWindowKeys.REPEAT]
-        period = timedelta(milliseconds=data[OcsProgramProvider._TimingWindowKeys.PERIOD]) \
-            if repeat != TimingWindow.NON_REPEATING else None
+        start = datetime.fromtimestamp(data[OcsProgramProvider._TimingWindowKeys.START] / 1000.0)
+
+        duration_info = data[OcsProgramProvider._TimingWindowKeys.DURATION]
+        if duration_info == TimingWindow.INFINITE_DURATION_FLAG:
+            duration = TimingWindow.INFINITE_DURATION
+        else:
+            duration = timedelta(milliseconds=duration_info)
+
+        repeat_info = data[OcsProgramProvider._TimingWindowKeys.REPEAT]
+        if repeat_info == TimingWindow.FOREVER_REPEATING:
+            repeat = TimingWindow.OCS_INFINITE_REPEATS
+        else:
+            repeat = repeat_info
+
+        if repeat == TimingWindow.NON_REPEATING:
+            period = None
+        else:
+            period = timedelta(milliseconds=data[OcsProgramProvider._TimingWindowKeys.PERIOD])
+
         return TimingWindow(
             start=start,
             duration=duration,

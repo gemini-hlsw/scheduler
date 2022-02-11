@@ -1,5 +1,7 @@
 import logging
 
+import astropy.units.quantity
+
 from old_collector import Collector
 import old_collector.vskyutil as vs
 import old_collector.sb as sb
@@ -166,6 +168,7 @@ class Selector:
                 targmoonang = coord.separation(moonpos)
                 if sbtwo:
                     # New algorithm
+                    abc: astropy.units.quantity.Quantity = 180. * u.deg - sunmoonang
                     skyb = sb.sb2(180. * u.deg - sunmoonang, targmoonang, moondist, 90. * u.deg - moonalt,
                                   90. * u.deg - targalt, 90. * u.deg - sunalt)
                 else:
