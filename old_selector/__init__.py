@@ -186,7 +186,6 @@ class Selector:
                                                             targprop <= elevation.max_elevation))))[0]
 
             # Timing window constraints
-            #     iit = np.array([], dtype=int)
             for constraint in obs_windows:
                 iit = np.where(np.logical_and(times[ix] >= constraint[0],
                                               times[ix] <= constraint[1]))[0]
