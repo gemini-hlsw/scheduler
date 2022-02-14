@@ -3,6 +3,7 @@ from astropy.units.quantity import Quantity
 from astropy import units as u
 import numpy as np
 import time
+from tqdm import tqdm
 from typing import Dict, FrozenSet, Iterable, NoReturn
 
 from api.abstract import ProgramProvider
@@ -168,9 +169,13 @@ class TargetInfo:
     For a NonsiderealTarget, we have to account for ephemeris data, which is handled in
     the mini-model and is simply brought over by reference.
 
-    All the values here except visibility_time are numpy arrays for each time step at the site for the night.
+    All the values here except:
+    * visibility_time
+    * rem_visibility_time
+    * rem_visibility_frac
+    are numpy arrays for each time step at the site for the night.
 
-    Note that visibilities consists of the indices into the night split into time_slot_length
+    Note that visibilities consists of the indices into the night split into time_slot_lengths
     where the necessary conditions for visibility are met, i.e.
     1. The sky brightness constraints are met.
     2. The sun altitude is below -12 degrees.
@@ -179,6 +184,12 @@ class TargetInfo:
 
     visibility_time is the time_slot_length multiplied by the size of the visibilities array,
     giving the amount of time during the night that the target is visible for the observation.
+
+    rem_visibility_time is the remaining visibility time for the target for the observation across
+    the rest of the time period.
+
+    TODO: We also need a rem_visibility_frac, but I am not sure how to calculate the information
+    TODO: for the numerator of this fraction.
     """
     coord: SkyCoord
     alt: Angle
@@ -187,8 +198,10 @@ class TargetInfo:
     hourangle: Angle
     airmass: npt.NDArray[float]
     sky_brightness: npt.NDArray[SkyBackground]
-    visibilities: npt.NDArray[int]
+    visibility: npt.NDArray[int]
     visibility_time: TimeDelta
+    rem_visibility_time: TimeDelta
+    rem_visibility_frac: float = 0.0
 
 
 @dataclass
@@ -309,7 +322,8 @@ class Collector(SchedulerComponent):
 
         Finally, this method can calculate the total amount of time that, for the observation,
         the target is visible, and the visibility fraction for the target as a ratio of the amount of
-        time remaining for the observation to the total visibility time for the target.
+        time remaining for the observation to the total visibility time for the target from a night through
+        to the end of the period.
         """
         night_events = Collector._night_events_manager.get_night_events(self.time_grid, self.time_slot_length, obs.site)
 
@@ -317,7 +331,14 @@ class Collector(SchedulerComponent):
         # for the target for the given day at the given site.
         # If so, we skip.
         # If not, we execute the calculations and store.
-        for idx, jday in enumerate(self.time_grid):
+        # In order to properly calculate the:
+        # * rem_visibility_time: total time a target is visible from the current night to the end of the period
+        # * rem_visibility_frac: fraction of remaining observation length to rem_visibility_time
+        # we want to process the nights BACKWARDS so that we can sum up the visibility time.
+        rem_visibility_time = 0.0 * u.h
+        for ridx, jday in enumerate(reversed(self.time_grid)):
+            # Convert to the actual
+            idx = len(self.time_grid) - ridx - 1
             if (target, obs.id, idx) not in Collector._target_info:
                 if isinstance(target, SiderealTarget):
                     pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
@@ -325,7 +346,8 @@ class Collector(SchedulerComponent):
 
                     # Calculate the new coordinates for the night.
                     # For each entry in time, we want to calculate the offset in epoch-years.
-                    time_offsets = np.array([target.epoch + (t - Collector._JULIAN_BASIS) / Collector._JULIAN_YEAR_LENGTH
+                    time_offsets = np.array([target.epoch +
+                                             (t - Collector._JULIAN_BASIS) / Collector._JULIAN_YEAR_LENGTH
                                              for t in night_events.times[idx]])
 
                     # Calculate the ra and dec for each target and convert to decimal degrees.
@@ -386,8 +408,8 @@ class Collector(SchedulerComponent):
 
                     sb = sky_brightness.convert_to_sky_background(brightness)
 
-                # TODO: ivis... what is this, exactly? Not used in old selector code.
-                ivis = np.array([], dtype=int)
+                # Calculate the time slots for the night in which there is visibility.
+                visibility = np.array([], dtype=int)
 
                 # Select where sky brightness and elevation constraints are met.
                 # np.where used here acts as np.asarray(condition).nonzero(), i.e. it returns the indices
@@ -405,10 +427,19 @@ class Collector(SchedulerComponent):
                 for timing in self._timing_windows[obs.id]:
                     itw = np.where(np.logical_and(night_events.times[isb] >= timing[0],
                                                   night_events.times[isb] <= timing[1]))[0]
-                    ivis = np.append(ivis, isb[itw])
+                    visibility = np.append(visibility, isb[itw])
 
                 # TODO: Guide star availability for moving targets anhelp(d parallactic angle modes.
                 # TODO: Unsure of how to calculate this.
+
+                # Calculate the visibility time, the ongoing summed remaining visibility time, and
+                # the remaining visibility fraction.
+                visibility_time = len(visibility) * self.time_slot_length
+                rem_visibility_time += visibility_time
+
+                # TODO: Unsure of how to calculate the visibility fraction.
+                # TODO: Where do we get the observation time information for the numerator?
+                # TODO: Leave this out for now until we know.
 
                 Collector._target_info[(target.name, obs.id, idx)] = TargetInfo(
                     coords=coords,
@@ -418,22 +449,12 @@ class Collector(SchedulerComponent):
                     hourangle=hourangle,
                     airmass=airmass,
                     sky_brightness=sb,
-                    visibilities=ivis,
-                    visibility_time=len(ivis) * self.time_slot_length
+                    visibility=visibility,
+                    visibility_time=visibility_time,
+                    rem_visibility_time=rem_visibility_time
                 )
 
-        # We want to calculate the visibility fraction per night, which is the ratio of the
-        # observation's remaining time to the remaining visibility of the target for the period.
-        
-        # remaining visibility for the target through the period
-        # Now we calculate the remaining visibility information for the target, which is not
-        # night-specific. This includes the total time the target is visibile across the nights
-        # in the time grid:
-        total_visibility_time = np.sum(ti.visibility_time
-                                       for idx in enumerate(self.time_grid)
-                                       for ti in Collector._target_info[(target.name, obs.id, idx)])
-
-        # This allows us to calculate the visibility fraction (TODO: per night???)
+                logging.info(f'Done calculating visibility for observation {obs.id}.')
 
     # TODO: This should also be precomputed: it is not clear how it will change if
     # TODO: we get a mutation notification from GPP, which may happen with execution time or
@@ -459,7 +480,7 @@ class Collector(SchedulerComponent):
         # Read in the programs.
         # Count the number of parse failures.
         bad_program_count = 0
-        for json_program in data:
+        for json_program in tqdm(data):
             try:
                 if len(json_program.keys()) != 1:
                     msg = f'JSON programs should only have one top-level key: {" ".join(json_program.keys())}'
@@ -489,20 +510,15 @@ class Collector(SchedulerComponent):
                         logging.warning(f'Observation {obs.id} not in a specified observation class (skipping).')
                         continue
 
-                # Process the timing window information per observation.
-                for site in self.sites:
-                    for obs in observations[site]:
-                        self._process_timing_windows(program, obs)
+                for site, obs in tqdm(((s, o) for s in self.sites for o in observations[s]), leave=False):
+                    # Process the timing window information per observation.
+                    self._process_timing_windows(program, obs)
 
-                # Process the targets over observations to calculate the target information, which contains
-                # visibility information that will be used in the remaining visibility calculations.
-                for site in self.sites:
-                    for obs in observations[site]:
-                        # For the base, calculate the target information per night for the observation.
-                        base = next(filter(lambda t: t.type == TargetType.BASE, obs.targets), None)
-                        if base is not None:
-                            self._calculate_target_info(obs, base)
-
+                    # Process the base over observations to calculate the target information and
+                    # target visibility information.
+                    base = next(filter(lambda t: t.type == TargetType.BASE, obs.targets), None)
+                    if base is not None:
+                        self._calculate_target_info(obs, base)
 
             except ValueError as e:
                 bad_program_count += 1
@@ -510,16 +526,6 @@ class Collector(SchedulerComponent):
 
         if bad_program_count:
             logging.error(f'Could not parse {bad_program_count} programs.')
-
-        # Calculate the total visibility time for each target across the entire time grid.
-        # Right now this information is stored per night
-        # TODO: progress bar with tqdm?
-        num_nights = len(self.time_grid)
-        num_observations = len(observations.items())
-        obs_visibility_hours = {site: np.zeros((len(observations[site]), num_nights)) for site in self.sites}
-
-        for site, site_observations in observations.items():
-            visibility = ...
 
     def available_resources(self) -> Set[Resource]:
         """

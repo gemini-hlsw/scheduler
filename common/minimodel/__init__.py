@@ -758,6 +758,7 @@ class Group(ABC):
         This method should be used to return all the sets of Observations contained
         in this group and its descendents.
         """
+        ...
 
 
 @dataclass
