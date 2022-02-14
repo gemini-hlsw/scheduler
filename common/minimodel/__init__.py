@@ -4,7 +4,7 @@
 import logging
 from abc import ABC, abstractmethod
 from astropy.coordinates import EarthLocation, UnknownSiteException
-from astropy.time import Time, TimeDelta
+from astropy.time import Time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
