@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 """A numpy vectorized version of thorskyutil.py -- utility and miscellaneous time and the sky
-   routines built mostly on astropy.  
+   routines built mostly on astropy.
 """
 
 # Copyright John Thorstensen, 2018; offered under the GNU Public License 3.0
@@ -22,44 +22,45 @@ class thorconsts:
     The planet-coefs are for series expansions for the phase functions
     of the planets, used in predicting apparent magnitude.  See code."""
 
-    PI              =  3.14159265358979
-    TWOPI           =  6.28318530717959
-    PI_OVER_2       =  1.57079632679490  # /* From Abramowitz & Stegun */
-    ARCSEC_IN_RADIAN=  206264.8062471
-    DEG_IN_RADIAN   =  57.2957795130823
-    HRS_IN_RADIAN   =  3.819718634205
-    KMS_AUDAY       =  1731.45683633  #  /* km per sec in 1 AU/day */
-    SPEED_OF_LIGHT  =  299792.458     #  /* in km per sec ... exact. */
-    SS_MASS         =  1.00134198     #  /* solar system mass in solar units */
-    J2000           =  2451545.       #  /* Julian date at standard epoch */
-    J2000_Time      =  Time(2451545.,format='jd') # J2000 rendered as a Time
-    SEC_IN_DAY      =  86400.
-    FLATTEN         =  0.003352813  #  /* flattening of earth, 1/298.257 */
-    EQUAT_RAD       =  6378137. * u.m    # /* equatorial radius of earth, meters */
-    EARTHRAD_IN_AU  =  23454.7910556298 #  /* number of earth rad in 1 au */
-    ASTRO_UNIT      =  1.4959787066e11 # /* 1 AU in meters */
-    RSUN            =  6.96000e8  # /* IAU 1976 recom. solar radius, meters */
-    RMOON           =  1.738e6    # /* IAU 1976 recom. lunar radius, meters */
-    PLANET_TOL      =  3.         #  /* flag if nearer than 3 degrees
-    KZEN            = 0.172       # V-band zenith extinction for sky-brightness
+    PI = 3.14159265358979
+    TWOPI = 6.28318530717959
+    PI_OVER_2 = 1.57079632679490  # /* From Abramowitz & Stegun */
+    ARCSEC_IN_RADIAN = 206264.8062471
+    DEG_IN_RADIAN = 57.2957795130823
+    HRS_IN_RADIAN = 3.819718634205
+    KMS_AUDAY = 1731.45683633  # /* km per sec in 1 AU/day */
+    SPEED_OF_LIGHT = 299792.458  # /* in km per sec ... exact. */
+    SS_MASS = 1.00134198  # /* solar system mass in solar units */
+    J2000 = 2451545.  # /* Julian date at standard epoch */
+    J2000_Time = Time(2451545., format='jd')  # J2000 rendered as a Time
+    SEC_IN_DAY = 86400.
+    FLATTEN = 0.003352813  # /* flattening of earth, 1/298.257 */
+    EQUAT_RAD = 6378137. * u.m  # /* equatorial radius of earth, meters */
+    EARTHRAD_IN_AU = 23454.7910556298  # /* number of earth rad in 1 au */
+    ASTRO_UNIT = 1.4959787066e11  # /* 1 AU in meters */
+    RSUN = 6.96000e8  # /* IAU 1976 recom. solar radius, meters */
+    RMOON = 1.738e6  # /* IAU 1976 recom. lunar radius, meters */
+    PLANET_TOL = 3.  # /* flag if nearer than 3 degrees
+    KZEN = 0.172  # V-band zenith extinction for sky-brightness
 
-    ALT15           = 41.7291 * u.deg # altitude at which true airm = 1.5
-    ALT20           = 29.8796 * u.deg # same for 2.0
-    ALT30           = 19.278  * u.deg # and 3.0
+    ALT15 = 41.7291 * u.deg  # altitude at which true airm = 1.5
+    ALT20 = 29.8796 * u.deg  # same for 2.0
+    ALT30 = 19.278 * u.deg  # and 3.0
 
-    SIDRATE         = 1.0027379093  # ratio of sidereal to solar rate
-    SIDDAY          = TimeDelta(1., format='jd') / 1.0027379093
-    ZERO_TIMEDELTA  = TimeDelta(0., format='jd')
+    SIDRATE = 1.0027379093  # ratio of sidereal to solar rate
+    SIDDAY = TimeDelta(1., format='jd') / 1.0027379093
+    ZERO_TIMEDELTA = TimeDelta(0., format='jd')
 
     # list planets so dictionary entries can be called up in order.
-    PLANETNAMES     = ['mercury','venus','mars','jupiter','saturn','uranus','neptune']
+    PLANETNAMES = ['mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']
     # Phase brightness coefficients for the inner planets.
-    PLANETPHASECOEFS  = {'mercury' : (0.013363763741181076, -0.2480840022313796,
-             1.6325515091649714, -4.9390499605838665, 7.718379797341275, -6.131445146202686,
-             3.7914559630732065, -0.616),
-             'venus' : (0.09632276402543158, -0.5292390263170846, 1.2103116107350298, -0.05981450198047742, -4.38394),
-             'mars' : (-0.4274213867715291, 1.2988953215615762, -1.601),
-             'jupiter' : (-9.40), 'saturn' : (-9.22), 'uranus' : (-7.19), 'neptune' : (-6.87)}
+    PLANETPHASECOEFS = {'mercury': (0.013363763741181076, -0.2480840022313796,
+                                    1.6325515091649714, -4.9390499605838665, 7.718379797341275, -6.131445146202686,
+                                    3.7914559630732065, -0.616),
+                        'venus': (
+                        0.09632276402543158, -0.5292390263170846, 1.2103116107350298, -0.05981450198047742, -4.38394),
+                        'mars': (-0.4274213867715291, 1.2988953215615762, -1.601),
+                        'jupiter': (-9.40), 'saturn': (-9.22), 'uranus': (-7.19), 'neptune': (-6.87)}
     # These are adapted (converted to radian argument) from expressions given
     # by Mallama, A. Wang, D., and Howard, R. A., Icarus 155, 253 (2002) for Mercury,
     # Mallama, A. Wang, D., and Howard, R. A. Icarus 182, 10 (2005) for Venus, and
@@ -70,8 +71,8 @@ class thorconsts:
 
 
 def time_rounded_to_minute(tm, sep=' ', incl_date=False, incl_day=False,
-         named_month=False, incl_year=True):
-    """Takes a datetime and returns a string giving the date correctly rounded to 
+                           named_month=False, incl_year=True):
+    """Takes a datetime and returns a string giving the date correctly rounded to
     nearest minute.  Calls strftime.
 
     Parameters
@@ -88,8 +89,8 @@ def time_rounded_to_minute(tm, sep=' ', incl_date=False, incl_day=False,
     incl_year : boolean, default = False
          include year in output string
     """
-    
-    # To get nearest minute, simply add half a minute to the time 
+
+    # To get nearest minute, simply add half a minute to the time
     # and then format -- this works perfectly in edge cases (e.g.,
     # 2018-12-31  23:59:31  rounded to nearest minute gives 2019-01-01 00:00)
 
@@ -129,7 +130,7 @@ def currentgeocentframe(time):
         time_ep = time_ep[None]  # Makes 1D
     eq = Time("J{:7.2f}".format(time_ep[0]))
     # print(eq)
-    return PrecessedGeocentric(equinox = eq)
+    return PrecessedGeocentric(equinox=eq)
 
 
 def currentFK5frame(time):
@@ -148,7 +149,7 @@ def currentFK5frame(time):
     eq = Time("J{:7.2f}".format(time_ep[0]))
 
     #   print eq
-    return FK5(equinox = eq)
+    return FK5(equinox=eq)
 
 
 def min_max_alt(lat, dec):
@@ -233,9 +234,9 @@ def ha_alt(dec, lat, alt):
         alt = alt[None]
 
     if len(dec) == 1 and len(alt) > 1:
-        dec = dec*np.ones(len(alt))
+        dec = dec * np.ones(len(alt))
     elif len(dec) > 1 and len(alt) == 1:
-        alt = alt*np.ones(len(dec))
+        alt = alt * np.ones(len(dec))
     elif len(dec) != len(alt):
         print('Error: dec and alt have incompatible lengths')
         return
@@ -244,7 +245,7 @@ def ha_alt(dec, lat, alt):
     codec = np.zeros(len(dec))
     zdist = np.zeros(len(dec))
 
-    minalt, maxalt =  min_max_alt(lat, dec)
+    minalt, maxalt = min_max_alt(lat, dec)
     ii = np.where(alt < minalt)[0][:]
     if len(ii) != 0:
         x[ii] = -1000.
@@ -255,7 +256,7 @@ def ha_alt(dec, lat, alt):
 
     kk = np.where(np.logical_and(alt >= minalt, alt <= maxalt))[0][:]
     if len(kk) != 0:
-        rightang = Angle(np.pi / 2, unit = u.rad)
+        rightang = Angle(np.pi / 2, unit=u.rad)
         codec[kk] = rightang - dec[kk]
         colat = rightang - lat
         zdist[kk] = rightang - alt[kk]
@@ -263,9 +264,10 @@ def ha_alt(dec, lat, alt):
         x[kk] = np.arccos(x[kk])
 
     if scalar_input:
-       # return (Angle(np.squeeze(x), unit = u.rad))
+        # return (Angle(np.squeeze(x), unit = u.rad))
         x = np.squeeze(x)
     return Angle(x, unit=u.rad)
+
 
 # A direct translation of the original, but the subsequent function is simpler
 # def hrs_up(timeup, timedown, evening, morning) :
@@ -435,7 +437,8 @@ def hrs_up(timeup, timedown, evening, morning):
         hrsup = np.squeeze(hrsup)
     return hrsup
 
-def lpsidereal(time, location) :
+
+def lpsidereal(time, location):
     """moderate-precision (1 sec) local sidereal time
 
     Adapted with minimal changes from skycalc routine. Native
@@ -466,9 +469,9 @@ def lpsidereal(time, location) :
         jdmid[ii] = jdint[ii] - 0.5
         ut[ii] = jdfrac[ii] + 0.5  # as fraction of a day.
 
-    t = (jdmid - thorconsts.J2000 ) / 36525.
+    t = (jdmid - thorconsts.J2000) / 36525.
 
-    sid = (24110.54841 + 8640184.812866 * t + 0.093104 * t**2 - 6.2e-6 * t**3 ) / 86400.
+    sid = (24110.54841 + 8640184.812866 * t + 0.093104 * t ** 2 - 6.2e-6 * t ** 3) / 86400.
     # at Greenwich
     sid_int = sid.astype(np.int)
     sid = sid - sid_int
@@ -477,14 +480,15 @@ def lpsidereal(time, location) :
     sid_int = sid.astype(np.int)
     sid = (sid - sid_int) * 24.
     # if(sid < 0.) : sid = sid + 24.
-    sidout = Angle(sid, unit = u.hour)
+    sidout = Angle(sid, unit=u.hour)
     sidout.wrap_at(24. * u.hour, inplace=True)
 
     if scalar_input:
         return np.squeeze(sidout)
     return sidout
 
-# In order to avoid having the altaz transformation look up 
+
+# In order to avoid having the altaz transformation look up
 # the USNO database, we need our own altaz transformation.
 
 def altazparang(dec, ha, lat):
@@ -537,9 +541,9 @@ def altazparang(dec, ha, lat):
         ha = ha[None]
 
     if len(dec) == 1 and len(ha) > 1:
-        dec = dec*np.ones(len(ha))
+        dec = dec * np.ones(len(ha))
     elif len(dec) > 1 and len(ha) == 1:
-        ha = ha*np.ones(len(dec))
+        ha = ha * np.ones(len(dec))
     elif len(dec) != len(ha):
         print('Error: dec and ha have incompatible lengths')
         return
@@ -551,9 +555,9 @@ def altazparang(dec, ha, lat):
     coslat = np.cos(lat)
     sinlat = np.sin(lat)
 
-    altit = Angle(np.arcsin(cosdec * cosha * coslat + sindec * sinlat),unit=u.radian)
+    altit = Angle(np.arcsin(cosdec * cosha * coslat + sindec * sinlat), unit=u.radian)
 
-    y = sindec * coslat - cosdec * cosha * sinlat # due north component
+    y = sindec * coslat - cosdec * cosha * sinlat  # due north component
     z = -1. * cosdec * sinha  # due east component
     az = Longitude(np.arctan2(z, y), unit=u.radian)
 
@@ -562,16 +566,16 @@ def altazparang(dec, ha, lat):
     parang = np.zeros(len(dec))
     ii = np.where(cosdec != 0.0)[0][:]
     if len(ii) != 0:
-      sinp = -1. * np.sin(az[ii]) * coslat / cosdec[ii]
+        sinp = -1. * np.sin(az[ii]) * coslat / cosdec[ii]
         # spherical law of sines .. note cosdec = sin of codec,
         # coslat = sin of colat ....
-      cosp = -1. * np.cos(az[ii]) * cosha[ii] - np.sin(az[ii]) * sinha[ii] * sinlat
+        cosp = -1. * np.cos(az[ii]) * cosha[ii] - np.sin(az[ii]) * sinha[ii] * sinlat
         # spherical law of cosines ... also expressed in
         # already computed variables.
-      parang[ii] = np.arctan2(sinp, cosp)
-    jj = np.where(cosdec == 0.0)[0][:]   # you're on the pole
+        parang[ii] = np.arctan2(sinp, cosp)
+    jj = np.where(cosdec == 0.0)[0][:]  # you're on the pole
     if len(jj) != 0:
-      parang[jj] = np.pi
+        parang[jj] = np.pi
 
     if scalar_input:
         altit = np.squeeze(altit)
@@ -588,14 +592,14 @@ def angle_between(a, b):
     nra = a / np.sqrt(a.x ** 2 + a.y ** 2 + a.z ** 2)
     nrb = b / np.sqrt(b.x ** 2 + b.y ** 2 + b.z ** 2)
     # the clip function avoids roundoffs outside of arccos domain.
-    return np.arccos(np.clip(nra.x * nrb.x + nra.y * nrb.y + nra.z * nrb.z,-1.,1.))
+    return np.arccos(np.clip(nra.x * nrb.x + nra.y * nrb.y + nra.z * nrb.z, -1., 1.))
 
 
 def true_airmass(altit):
     """true airmass for an altitude.
- 
+
     Based on a fit to Kitt Peak airmass tables, C. M. Snell & A. M. Heiser, 1968,
-    PASP, 80, 336.  Valid to about airmass 12, and beyond that just returns 
+    PASP, 80, 336.  Valid to about airmass 12, and beyond that just returns
     secz minus 1.5, which won't be quite right.
 
     Parameters
@@ -603,29 +607,29 @@ def true_airmass(altit):
 
     altit : Angle, float or numpy array
         Altitude above horizon.
-    
+
     Returns : float
     """
-  # takes an Angle and return the true airmass, based on 
-# 	 a tabulation of the mean KPNO 
-#            atmosphere given by C. M. Snell & A. M. Heiser, 1968,
-# 	   PASP, 80, 336.  They tabulated the airmass at 5 degr 
-#            intervals from z = 60 to 85 degrees; I fit the data with 
-#            a fourth order poly for (secz - airmass) as a function of
-#            (secz - 1) using the IRAF curfit routine, then adjusted the
-#            zeroth order term to force (secz - airmass) to zero at
-#            z = 0.  The poly fit is very close to the tabulated points
-# 	   (largest difference is 3.2e-4) and appears smooth.  
-#            This 85-degree point is at secz = 11.47, so for secz > 12
-#            I just return secz - 1.5 ... about the largest offset 
-#            properly determined. */
- 
-#    coefs = [2.879465E-3,  3.033104E-3, 1.351167E-3, -4.716679E-5]
+    # takes an Angle and return the true airmass, based on
+    # 	 a tabulation of the mean KPNO
+    #            atmosphere given by C. M. Snell & A. M. Heiser, 1968,
+    # 	   PASP, 80, 336.  They tabulated the airmass at 5 degr
+    #            intervals from z = 60 to 85 degrees; I fit the data with
+    #            a fourth order poly for (secz - airmass) as a function of
+    #            (secz - 1) using the IRAF curfit routine, then adjusted the
+    #            zeroth order term to force (secz - airmass) to zero at
+    #            z = 0.  The poly fit is very close to the tabulated points
+    # 	   (largest difference is 3.2e-4) and appears smooth.
+    #            This 85-degree point is at secz = 11.47, so for secz > 12
+    #            I just return secz - 1.5 ... about the largest offset
+    #            properly determined. */
+
+    #    coefs = [2.879465E-3,  3.033104E-3, 1.351167E-3, -4.716679E-5]
 
     altit = np.asarray(altit.to_value(u.rad).data)
     scalar_input = False
     if altit.ndim == 0:
-        altit = altit[None] # Makes 1D
+        altit = altit[None]  # Makes 1D
         scalar_input = True
 
     ret = np.full(len(altit), -1.)
@@ -671,7 +675,6 @@ def geocent(geolong, geolat, height):
         are distances.
     """
 
-
     # computes the geocentric coordinates from the geodetic
     # (standard map-type) longitude, latitude, and height.
     # Notation generally follows 1992 Astr Almanac, p. K11 */
@@ -683,7 +686,7 @@ def geocent(geolong, geolat, height):
     # a triplet of explicit Distances.
 
     denom = (1. - thorconsts.FLATTEN) * np.sin(geolat)
-    denom = np.cos(geolat) * np.cos(geolat) + denom*denom
+    denom = np.cos(geolat) * np.cos(geolat) + denom * denom
     C_geo = 1. / np.sqrt(denom)
     S_geo = (1. - thorconsts.FLATTEN) * (1. - thorconsts.FLATTEN) * C_geo
     C_geo = C_geo + height / thorconsts.EQUAT_RAD
@@ -718,18 +721,18 @@ def precessmatrix(t1, t2):
     # t2.  For fast precession of the background stars in display; the astropy
     # routines should be fast for everything else.
 
-    #print "t1.jd, thorconsts.J2000",t1.jd,thorconsts.J2000
+    # print "t1.jd, thorconsts.J2000",t1.jd,thorconsts.J2000
 
-    ti = (t1.jd - thorconsts.J2000) / 36525. # * u.d)
+    ti = (t1.jd - thorconsts.J2000) / 36525.  # * u.d)
     #    print "ti",ti
-    tf = (t2.jd - thorconsts.J2000) / 36525. - ti # * u.d)
+    tf = (t2.jd - thorconsts.J2000) / 36525. - ti  # * u.d)
     #    print "tf",tf
 
     zeta = (2306.2181 + 1.39656 * ti + 0.000139 * ti ** 2) * tf + \
-      (0.30188 - 0.000344 * ti) * tf ** 2 + 0.017998 * tf ** 3
-    z = zeta + (0.79280 + 0.000410 * ti) * tf**2 + 0.000205 * tf * 3
+           (0.30188 - 0.000344 * ti) * tf ** 2 + 0.017998 * tf ** 3
+    z = zeta + (0.79280 + 0.000410 * ti) * tf ** 2 + 0.000205 * tf * 3
     theta = (2004.3109 - 0.8533 * ti - 0.000217 * ti ** 2) * tf \
-     - (0.42665 + 0.000217 * ti) * tf ** 2 - 0.041833 * tf ** 3
+            - (0.42665 + 0.000217 * ti) * tf ** 2 - 0.041833 * tf ** 3
 
     #    print "zeta, z, theta",zeta,z,theta
 
@@ -751,7 +754,7 @@ def precessmatrix(t1, t2):
     #      here as *from* standard epoch *to* input jd.
     # build a list and then reshape into an array.
 
-    prow1  = [coszeta * cosz * costheta - sinzeta * sinz]
+    prow1 = [coszeta * cosz * costheta - sinzeta * sinz]
     prow1.append(-1. * sinzeta * cosz * costheta - coszeta * sinz)
     prow1.append(-1. * cosz * sintheta)
 
@@ -773,16 +776,16 @@ def cel2localmatrix(lst, lat):
     """compute matrix to take celestial cartesian coordinates to topocentric
     (local observer centered) coordinates.
 
-    Celestial coordinates are :assumed to already be in 
+    Celestial coordinates are :assumed to already be in
     equinox of date and have the standard definitions
 
-  
+
     * X toward ra=0, dec=0
     * Y toward ra = 6 hr or 90 degrees, dec = 0
-    * Z toward the north celestial pole;  
+    * Z toward the north celestial pole;
 
     Topocentric coordinates are a little unusual:
-   
+
     * X toward due west
     * Y toward due south
     * Z toward the zenith.
@@ -798,7 +801,7 @@ def cel2localmatrix(lst, lat):
     Returns: numpy 3x3 array.
     """
     # Generates the matrix to take celestial cartesian coordinates --
-    # assumed to be a vector with 
+    # assumed to be a vector with
     # x toward (ra=0,dec=0),
     # y toward (ra = 6h, dec = 0),
     # z toward north celestial pole
@@ -809,7 +812,7 @@ def cel2localmatrix(lst, lat):
     # lst and lat are Angles - local sidereal time and latitude.
 
     coslst = np.cos(lst)
-    sinlst = np.sin(lst) 
+    sinlst = np.sin(lst)
 
     coscolat = np.sin(lat)
     sincolat = np.cos(lat)
@@ -817,9 +820,9 @@ def cel2localmatrix(lst, lat):
     # rotates around polar axis so x axis points to merdian
     mat1 = np.array([[coslst, sinlst, 0.], [-1. * sinlst, coslst, 0.], [0., 0., 1.]])
 
-    # rotates around east-west axis to rotate z axis to zenith 
-    mat2 = np.array([[coscolat, 0., -1.*sincolat], [0., 1., 0.], [sincolat, 0., coscolat]])
-   
+    # rotates around east-west axis to rotate z axis to zenith
+    mat2 = np.array([[coscolat, 0., -1. * sincolat], [0., 1., 0.], [sincolat, 0., coscolat]])
+
     return mat2.dot(mat1)
 
 
@@ -830,13 +833,13 @@ def cel2xyz(coord):
     ----------
     coord : SkyCoord
 
-    Returns: 
+    Returns:
     numpy array of length three.
     """
-  # Returns direction cosines of a SkyCoord.  Weirdly, this does not seem
-  # to be included in the SkyCoord class.
-  # As is standard, X is toward ra,dec = 0,0; Y toward ra = 6h, dec=0; 
-  # and Z toward the north celestial pole.
+    # Returns direction cosines of a SkyCoord.  Weirdly, this does not seem
+    # to be included in the SkyCoord class.
+    # As is standard, X is toward ra,dec = 0,0; Y toward ra = 6h, dec=0;
+    # and Z toward the north celestial pole.
 
     cosalpha = np.cos(coord.ra)
     cosdec = np.cos(coord.dec)
@@ -850,38 +853,38 @@ def skyproject(rotmat, cartesian):
     """Rotate an array of cartesian coordinates and do a stereographic projection
     around the resulting Z-axis.
 
-    Used to figure out where to plot the bright stars on a map of the sky 
+    Used to figure out where to plot the bright stars on a map of the sky
     above you at a given moment.  The rotation matrix is meant to transform
     from the input ICRS coordinates of the stars directly to the topocentric
     coordinates; the stereographic projection can then be done using array
     arithmetic without trig functions.  Use of numpy array operations makes this
     ridiculously fast.
 
-    Parameters 
+    Parameters
     ----------
 
     rotmat : numpy 3x3 array
        the rotation matrix, usually from ICRS directly to topocentric XYZ
-    cartesian : numpy array 3 x N (or is it N x 3?) 
+    cartesian : numpy array 3 x N (or is it N x 3?)
        array of cartesian (usually ICRS) coordinates to be transformed and projected.
 
-    Returns 
+    Returns
 
     tuple of numpy array of x coordinates, and numpy array of y coordinates
-       projected onto a plane.  I believe x = 0, y = 1 is the north horizon point, 
+       projected onto a plane.  I believe x = 0, y = 1 is the north horizon point,
        x = 1 and y = 0 is the east horizon point.
-   
+
     """
-   
-   # rotmat is a rotation matrix -- possibly including precession --
-   # to transform cartesian unit vector(s) to topocentric frame.
-   # cartesian is one or more column vectors in an np array.
-   # Does the rotation, and then the stereographic projection for 
-   # plotting.
 
-    topocentric = rotmat.dot(cartesian)   # rotate into place
+    # rotmat is a rotation matrix -- possibly including precession --
+    # to transform cartesian unit vector(s) to topocentric frame.
+    # cartesian is one or more column vectors in an np array.
+    # Does the rotation, and then the stereographic projection for
+    # plotting.
 
-    projectedx = -1. * topocentric[1] / (1 + topocentric[2])   # stereographic projection
+    topocentric = rotmat.dot(cartesian)  # rotate into place
+
+    projectedx = -1. * topocentric[1] / (1 + topocentric[2])  # stereographic projection
     projectedy = -1. * topocentric[0] / (1 + topocentric[2])
 
     return (projectedx, projectedy)
@@ -889,50 +892,49 @@ def skyproject(rotmat, cartesian):
 
 def getbrightest():
     """Internal package routine to read the provided bright-star list for use
-    in displays.  
+    in displays.
 
     The bright star list is an ascii list with one line per star.  It includes
-    the J2000 coordinates as Cartesian triplets, which is useful later, the 
+    the J2000 coordinates as Cartesian triplets, which is useful later, the
     V magnitude, the name, and a hexadecimal string that encodes an RGB color
     used to render the star.  This was crudely computed from the spectral type
     listed in the bright star catalog.
     """
 
-
     # read brightest star info from a fixed-name file included in the package.
     # modified from a routine that took a file path as the argument.
-    
+
     # positions are stored as Cartesian unit vectors.  Build
     # arrays of each coord to make into a big numpy array.
 
-    X = []   
+    X = []
     Y = []
     Z = []
 
-    mags = []      # V magnitudes.
-    colors = []    # RGB strings for rending, precomputed.
+    mags = []  # V magnitudes.
+    colors = []  # RGB strings for rending, precomputed.
     names = []
 
     bytestr = pkgutil.get_data(__name__, 'cartesian_bright.dat')
     inf = bytestr.decode('ASCII').splitlines()  # this reads similarly to a file.
-    
+
     # inf = open(path,"r")
-    for l in inf : 
+    for l in inf:
         x = l.split('\t')
-        X.append(float(x[0]))       
-        Y.append(float(x[1]))       
-        Z.append(float(x[2]))       
+        X.append(float(x[0]))
+        Y.append(float(x[1]))
+        Z.append(float(x[2]))
         mags.append(float(x[3]))
         colors.append(x[4])
         names.append(x[5])
 
-    positions = np.array([X,Y,Z])
+    positions = np.array([X, Y, Z])
     # print positions.shape
     # print positions
 
     return positions, mags, colors, names
 
- 
+
 def flmoon(n, nph):
     """Compute the julian day at which moon phase nph occurs in lunation n
 
@@ -958,9 +960,9 @@ def flmoon(n, nph):
     lun = float(n) + float(nph) / 4.
     T = lun / 1236.85
     jd = 2415020.75933 + 29.53058868 * lun \
-           + 0.0001178 * T * T  \
-           - 0.000000155 * T * T * T  \
-           + 0.00033 * np.sin(np.deg2rad(166.56 + 132.87 * T - 0.009173 * T * T))
+         + 0.0001178 * T * T \
+         - 0.000000155 * T * T * T \
+         + 0.00033 * np.sin(np.deg2rad(166.56 + 132.87 * T - 0.009173 * T * T))
     M = 359.2242 + 29.10535608 * lun - 0.0000333 * T * T - 0.00000347 * T * T * T
     M = np.deg2rad(M)
     Mpr = 306.0253 + 385.81691806 * lun + 0.0107306 * T * T + 0.00001236 * T * T * T
@@ -968,43 +970,43 @@ def flmoon(n, nph):
     F = 21.2964 + 390.67050646 * lun - 0.0016528 * T * T - 0.00000239 * T * T * T
     F = np.deg2rad(F)
     if (nph == 0) or (nph == 2):  # /* new or full */
-        cor =   (0.1734 - 0.000393*T) * np.sin(M) \
-                   + 0.0021 * np.sin(2*M) \
-                   - 0.4068 * np.sin(Mpr) \
-                  + 0.0161 * np.sin(2*Mpr) \
-                   - 0.0004 * np.sin(3*Mpr) \
-                   + 0.0104 * np.sin(2*F) \
-                   - 0.0051 * np.sin(M + Mpr) \
-                   - 0.0074 * np.sin(M - Mpr) \
-                   + 0.0004 * np.sin(2*F+M) \
-                   - 0.0004 * np.sin(2*F-M) \
-                   - 0.0006 * np.sin(2*F+Mpr) \
-                   + 0.0010 * np.sin(2*F-Mpr) \
-                   + 0.0005 * np.sin(M+2*Mpr)
+        cor = (0.1734 - 0.000393 * T) * np.sin(M) \
+              + 0.0021 * np.sin(2 * M) \
+              - 0.4068 * np.sin(Mpr) \
+              + 0.0161 * np.sin(2 * Mpr) \
+              - 0.0004 * np.sin(3 * Mpr) \
+              + 0.0104 * np.sin(2 * F) \
+              - 0.0051 * np.sin(M + Mpr) \
+              - 0.0074 * np.sin(M - Mpr) \
+              + 0.0004 * np.sin(2 * F + M) \
+              - 0.0004 * np.sin(2 * F - M) \
+              - 0.0006 * np.sin(2 * F + Mpr) \
+              + 0.0010 * np.sin(2 * F - Mpr) \
+              + 0.0005 * np.sin(M + 2 * Mpr)
         jd = jd + cor
 
     else:
-        cor = (0.1721 - 0.0004*T) * np.sin(M) \
-                   + 0.0021 * np.sin(2 * M) \
-                   - 0.6280 * np.sin(Mpr) \
-                   + 0.0089 * np.sin(2 * Mpr) \
-                   - 0.0004 * np.sin(3 * Mpr) \
-                   + 0.0079 * np.sin(2*F) \
-                   - 0.0119 * np.sin(M + Mpr) \
-                   - 0.0047 * np.sin(M - Mpr) \
-                   + 0.0003 * np.sin(2 * F + M) \
-                   - 0.0004 * np.sin(2 * F - M) \
-                   - 0.0006 * np.sin(2 * F + Mpr) \
-                   + 0.0021 * np.sin(2 * F - Mpr) \
-                   + 0.0003 * np.sin(M + 2 * Mpr) \
-                   + 0.0004 * np.sin(M - 2 * Mpr) \
-                   - 0.0003 * np.sin(2*M + Mpr)
+        cor = (0.1721 - 0.0004 * T) * np.sin(M) \
+              + 0.0021 * np.sin(2 * M) \
+              - 0.6280 * np.sin(Mpr) \
+              + 0.0089 * np.sin(2 * Mpr) \
+              - 0.0004 * np.sin(3 * Mpr) \
+              + 0.0079 * np.sin(2 * F) \
+              - 0.0119 * np.sin(M + Mpr) \
+              - 0.0047 * np.sin(M - Mpr) \
+              + 0.0003 * np.sin(2 * F + M) \
+              - 0.0004 * np.sin(2 * F - M) \
+              - 0.0006 * np.sin(2 * F + Mpr) \
+              + 0.0021 * np.sin(2 * F - Mpr) \
+              + 0.0003 * np.sin(M + 2 * Mpr) \
+              + 0.0004 * np.sin(M - 2 * Mpr) \
+              - 0.0003 * np.sin(2 * M + Mpr)
         if nph == 1:
             cor = cor + 0.0028 - \
-                           0.0004 * np.cos(M) + 0.0003 * np.cos(Mpr)
+                  0.0004 * np.cos(M) + 0.0003 * np.cos(Mpr)
         if nph == 3:
             cor = cor - 0.0028 + \
-                           0.0004 * np.cos(M) - 0.0003 * np.cos(Mpr)
+                  0.0004 * np.cos(M) - 0.0003 * np.cos(Mpr)
         jd = jd + cor
 
     return jd
@@ -1013,7 +1015,7 @@ def flmoon(n, nph):
 def phase_descr(jd):
     """a human-readable string describing the phase of the moon.
 
-    Given an input julian date, this determines interval to nearest 
+    Given an input julian date, this determines interval to nearest
     moon phase and writes a description.
 
     Parameters
@@ -1026,57 +1028,57 @@ def phase_descr(jd):
 
     """
 
-    nlast = int((jd - 2415020.5) / 29.5307 - 1.) #  /* find current lunation */
+    nlast = int((jd - 2415020.5) / 29.5307 - 1.)  # /* find current lunation */
 
-#    print "nlast = ",nlast
+    #    print "nlast = ",nlast
 
-    lastnewjd = flmoon(nlast,0)
+    lastnewjd = flmoon(nlast, 0)
     newjd = flmoon(nlast + 1, 0)
-    kount = 0  
+    kount = 0
     # count up to find appropriate lunation
     while newjd < jd and kount < 40:
-       lastnewjd = newjd
-       nlast = nlast + 1
-       newjd = flmoon(nlast,0)
-       kount = kount + 1
-    if kount > 35:   # /* oops ... didn't find it ... */
+        lastnewjd = newjd
+        nlast = nlast + 1
+        newjd = flmoon(nlast, 0)
+        kount = kount + 1
+    if kount > 35:  # /* oops ... didn't find it ... */
         return "Didn't find phase in print_phase!"
     else:
         x = jd - lastnewjd
-        lunage = x  
+        lunage = x
         nlast = nlast - 1
         lunation = nlast
-        noctiles = int(x / 3.69134) #  3.69134 = 1/8 month; truncate. 
+        noctiles = int(x / 3.69134)  # 3.69134 = 1/8 month; truncate.
         if noctiles == 0:
             return "{:3.1f} days since new moon".format(x), lunage, lunation
-        elif noctiles <= 2: # /* nearest first quarter */
+        elif noctiles <= 2:  # /* nearest first quarter */
             fqjd = flmoon(nlast, 1)
             x = jd - fqjd
             if (x < 0.):
-                return "{:3.1f} days before first quarter".format(-1.*x), lunage, lunation
+                return "{:3.1f} days before first quarter".format(-1. * x), lunage, lunation
             else:
                 return "{:3.1f} days since first quarter".format(x), lunage, lunation
-        elif noctiles <= 4: #   /* nearest full */
+        elif noctiles <= 4:  # /* nearest full */
             fljd = flmoon(nlast, 2)
             x = jd - fljd
-            if(x < 0.):
-                return "{:3.1f} days until full moon".format(-1.*x), lunage, lunation
+            if (x < 0.):
+                return "{:3.1f} days until full moon".format(-1. * x), lunage, lunation
             else:
                 return "{:3.1f} days after full moon".format(x), lunage, lunation
-             
+
         elif (noctiles <= 6):
             lqjd = flmoon(nlast, 3)
             x = jd - lqjd
-            if(x < 0.):
-                return "{:3.1f} days before last quarter".format(-1.*x), lunage, lunation
+            if (x < 0.):
+                return "{:3.1f} days before last quarter".format(-1. * x), lunage, lunation
             else:
                 return "{:3.1f} days after last quarter".format(x), lunage, lunation
-           
+
         else:
             return "{:3.1f} days before new moon".format(newjd - jd), lunage, lunation
 
 
-# def lpmoon(time,lat,sid) : 
+# def lpmoon(time,lat,sid) :
 def lpmoon(time, obs):
     """low-precision moon position.
 
@@ -1085,7 +1087,7 @@ def lpmoon(time, obs):
 
     Parameters
     ----------
-    time : float
+    time : Time
         Time expressed as a Julian Date
     obs :  EarthLocation
         location of observatory.
@@ -1100,7 +1102,7 @@ def lpmoon(time, obs):
     # hands back topocentric RA, dec (radians) and distance
     # (earth radii).
 
-    #  Implements "low precision" moon algorithms from
+    #  Implements "low precision" moon sky_brightness from
     #  Astronomical Almanac (p. D46 in 1992 version).  Does
 
     jd = np.asarray(time.jd)
@@ -1115,22 +1117,22 @@ def lpmoon(time, obs):
     lat = obs.lat
 
     lambd = 218.32 + 481267.883 * T \
-       + 6.29 * np.sin(np.deg2rad(134.9 + 477198.85 * T)) \
-       - 1.27 * np.sin(np.deg2rad(259.2 - 413335.38 * T)) \
-       + 0.66 * np.sin(np.deg2rad(235.7 + 890534.23 * T)) \
-       + 0.21 * np.sin(np.deg2rad(269.9 + 954397.70 * T)) \
-       - 0.19 * np.sin(np.deg2rad(357.5 + 35999.05 * T)) \
-       - 0.11 * np.sin(np.deg2rad(186.6 + 966404.05 * T))
+            + 6.29 * np.sin(np.deg2rad(134.9 + 477198.85 * T)) \
+            - 1.27 * np.sin(np.deg2rad(259.2 - 413335.38 * T)) \
+            + 0.66 * np.sin(np.deg2rad(235.7 + 890534.23 * T)) \
+            + 0.21 * np.sin(np.deg2rad(269.9 + 954397.70 * T)) \
+            - 0.19 * np.sin(np.deg2rad(357.5 + 35999.05 * T)) \
+            - 0.11 * np.sin(np.deg2rad(186.6 + 966404.05 * T))
     lambd = np.deg2rad(lambd)
     beta = 5.13 * np.sin(np.deg2rad(93.3 + 483202.03 * T)) \
-       + 0.28 * np.sin(np.deg2rad(228.2 + 960400.87 * T)) \
-       - 0.28 * np.sin(np.deg2rad(318.3 + 6003.18 * T)) \
-       - 0.17 * np.sin(np.deg2rad(217.6 - 407332.20 * T))
+           + 0.28 * np.sin(np.deg2rad(228.2 + 960400.87 * T)) \
+           - 0.28 * np.sin(np.deg2rad(318.3 + 6003.18 * T)) \
+           - 0.17 * np.sin(np.deg2rad(217.6 - 407332.20 * T))
     beta = np.deg2rad(beta)
     pie = 0.9508 + 0.0518 * np.cos(np.deg2rad(134.9 + 477198.85 * T)) \
-       + 0.0095 * np.cos(np.deg2rad(259.2 - 413335.38 * T)) \
-       + 0.0078 * np.cos(np.deg2rad(235.7 + 890534.23 * T)) \
-       + 0.0028 * np.cos(np.deg2rad(269.9 + 954397.70 * T))
+          + 0.0095 * np.cos(np.deg2rad(259.2 - 413335.38 * T)) \
+          + 0.0078 * np.cos(np.deg2rad(235.7 + 890534.23 * T)) \
+          + 0.0028 * np.cos(np.deg2rad(269.9 + 954397.70 * T))
     pie = np.deg2rad(pie)
     distance = 1. / np.sin(pie)
 
@@ -1156,7 +1158,7 @@ def lpmoon(time, obs):
 
     alpha = np.arctan2(m, l)
     delta = np.arcsin(n)
-    distancemultiplier = Distance(thorconsts.EQUAT_RAD, unit = u.m)
+    distancemultiplier = Distance(thorconsts.EQUAT_RAD, unit=u.m)
 
     fr = currentgeocentframe(time)
 
@@ -1167,8 +1169,8 @@ def lpmoon(time, obs):
     return SkyCoord(alpha, delta, topo_dist * distancemultiplier, frame=fr)
 
 
-# 
-def accumoon(time, obs): # ,geolat,lst) :
+#
+def accumoon(time, obs):  # ,geolat,lst) :
     """compute topocentric location and distance of moon to better accuracy.
 
     This is good to about 0.01 degrees
@@ -1199,19 +1201,19 @@ def accumoon(time, obs): # ,geolat,lst) :
     time_ttjd = np.asarray(time.tt.jd)  # important to use correct time argument for this!!
     scalar_input = False
     if time_ttjd.ndim == 0:
-        time_ttjd = time_ttjd[None] # Makes 1D
+        time_ttjd = time_ttjd[None]  # Makes 1D
         scalar_input = True
 
-    T = (time_ttjd - 2415020.) / 36525. #    this based around 1900 ... */
+    T = (time_ttjd - 2415020.) / 36525.  # this based around 1900 ... */
     Tsq = T * T
     Tcb = Tsq * T
 
     Lpr = 270.434164 + 481267.8831 * T - 0.001133 * Tsq + 0.0000019 * Tcb
-    M = 358.475833 + 35999.0498*T - 0.000150*Tsq - 0.0000033*Tcb
-    Mpr = 296.104608 + 477198.8491*T + 0.009192*Tsq + 0.0000144*Tcb
-    D = 350.737486 + 445267.1142*T - 0.001436 * Tsq + 0.0000019*Tcb
-    F = 11.250889 + 483202.0251*T -0.003211 * Tsq - 0.0000003*Tcb
-    Om = 259.183275 - 1934.1420*T + 0.002078*Tsq + 0.0000022*Tcb
+    M = 358.475833 + 35999.0498 * T - 0.000150 * Tsq - 0.0000033 * Tcb
+    Mpr = 296.104608 + 477198.8491 * T + 0.009192 * Tsq + 0.0000144 * Tcb
+    D = 350.737486 + 445267.1142 * T - 0.001436 * Tsq + 0.0000019 * Tcb
+    F = 11.250889 + 483202.0251 * T - 0.003211 * Tsq - 0.0000003 * Tcb
+    Om = 259.183275 - 1934.1420 * T + 0.002078 * Tsq + 0.0000022 * Tcb
 
     Lpr = Lpr % 360.
     Mpr = Mpr % 360.
@@ -1220,13 +1222,13 @@ def accumoon(time, obs): # ,geolat,lst) :
     F = F % 360.
     Om = Om % 360.
 
-    sinx =  np.sin(np.deg2rad(51.2 + 20.2 * T))
+    sinx = np.sin(np.deg2rad(51.2 + 20.2 * T))
     Lpr = Lpr + 0.000233 * sinx
     M = M - 0.001778 * sinx
     Mpr = Mpr + 0.000817 * sinx
     D = D + 0.002011 * sinx
 
-    sinx = 0.003964 * np.sin(np.deg2rad(346.560 + 132.870*T - 0.0091731*Tsq))
+    sinx = 0.003964 * np.sin(np.deg2rad(346.560 + 132.870 * T - 0.0091731 * Tsq))
 
     Lpr = Lpr + sinx
     Mpr = Mpr + sinx
@@ -1238,7 +1240,7 @@ def accumoon(time, obs): # ,geolat,lst) :
     Mpr = Mpr + 0.002541 * sinx
     D = D + 0.001964 * sinx
     F = F - 0.024691 * sinx
-    F = F - 0.004328 * np.sin(np.deg2rad(Om + 275.05 - 2.30*T))
+    F = F - 0.004328 * np.sin(np.deg2rad(Om + 275.05 - 2.30 * T))
 
     e = 1 - 0.002495 * T - 0.00000752 * Tsq
 
@@ -1248,142 +1250,141 @@ def accumoon(time, obs): # ,geolat,lst) :
     F = np.deg2rad(F)
 
     lambd = Lpr + 6.288750 * np.sin(Mpr) \
-            + 1.274018 * np.sin(2*D - Mpr) \
-            + 0.658309 * np.sin(2*D) \
-            + 0.213616 * np.sin(2*Mpr) \
-            - e * 0.185596 * np.sin(M)  \
-            - 0.114336 * np.sin(2*F) \
-            + 0.058793 * np.sin(2*D - 2*Mpr) \
-            + e * 0.057212 * np.sin(2*D - M - Mpr) \
-            + 0.053320 * np.sin(2*D + Mpr) \
-            + e * 0.045874 * np.sin(2*D - M) \
+            + 1.274018 * np.sin(2 * D - Mpr) \
+            + 0.658309 * np.sin(2 * D) \
+            + 0.213616 * np.sin(2 * Mpr) \
+            - e * 0.185596 * np.sin(M) \
+            - 0.114336 * np.sin(2 * F) \
+            + 0.058793 * np.sin(2 * D - 2 * Mpr) \
+            + e * 0.057212 * np.sin(2 * D - M - Mpr) \
+            + 0.053320 * np.sin(2 * D + Mpr) \
+            + e * 0.045874 * np.sin(2 * D - M) \
             + e * 0.041024 * np.sin(Mpr - M) \
             - 0.034718 * np.sin(D) \
-            - e * 0.030465 * np.sin(M+Mpr) \
-            + 0.015326 * np.sin(2*D - 2*F) \
-            - 0.012528 * np.sin(2*F + Mpr) \
-            - 0.010980 * np.sin(2*F - Mpr) \
-            + 0.010674 * np.sin(4*D - Mpr) \
-            + 0.010034 * np.sin(3*Mpr) \
-            + 0.008548 * np.sin(4*D - 2*Mpr) \
-            - e * 0.007910 * np.sin(M - Mpr + 2*D) \
-            - e * 0.006783 * np.sin(2*D + M) \
+            - e * 0.030465 * np.sin(M + Mpr) \
+            + 0.015326 * np.sin(2 * D - 2 * F) \
+            - 0.012528 * np.sin(2 * F + Mpr) \
+            - 0.010980 * np.sin(2 * F - Mpr) \
+            + 0.010674 * np.sin(4 * D - Mpr) \
+            + 0.010034 * np.sin(3 * Mpr) \
+            + 0.008548 * np.sin(4 * D - 2 * Mpr) \
+            - e * 0.007910 * np.sin(M - Mpr + 2 * D) \
+            - e * 0.006783 * np.sin(2 * D + M) \
             + 0.005162 * np.sin(Mpr - D)
 
     #       /* And furthermore.....*/
 
     lambd = lambd + e * 0.005000 * np.sin(M + D) \
-            + e * 0.004049 * np.sin(Mpr - M + 2*D) \
-            + 0.003996 * np.sin(2*Mpr + 2*D) \
-            + 0.003862 * np.sin(4*D) \
-            + 0.003665 * np.sin(2*D - 3*Mpr) \
-            + e * 0.002695 * np.sin(2*Mpr - M) \
-            + 0.002602 * np.sin(Mpr - 2*F - 2*D) \
-            + e * 0.002396 * np.sin(2*D - M - 2*Mpr) \
+            + e * 0.004049 * np.sin(Mpr - M + 2 * D) \
+            + 0.003996 * np.sin(2 * Mpr + 2 * D) \
+            + 0.003862 * np.sin(4 * D) \
+            + 0.003665 * np.sin(2 * D - 3 * Mpr) \
+            + e * 0.002695 * np.sin(2 * Mpr - M) \
+            + 0.002602 * np.sin(Mpr - 2 * F - 2 * D) \
+            + e * 0.002396 * np.sin(2 * D - M - 2 * Mpr) \
             - 0.002349 * np.sin(Mpr + D) \
-            + e * e * 0.002249 * np.sin(2*D - 2*M) \
-            - e * 0.002125 * np.sin(2*Mpr + M) \
-            - e * e * 0.002079 * np.sin(2*M) \
-            + e * e * 0.002059 * np.sin(2*D - Mpr - 2*M) \
-            - 0.001773 * np.sin(Mpr + 2*D - 2*F) \
-            - 0.001595 * np.sin(2*F + 2*D) \
-            + e * 0.001220 * np.sin(4*D - M - Mpr) \
-            - 0.001110 * np.sin(2*Mpr + 2*F) \
-            + 0.000892 * np.sin(Mpr - 3*D) \
-            - e * 0.000811 * np.sin(M + Mpr + 2*D) \
-            + e * 0.000761 * np.sin(4*D - M - 2*Mpr) \
-            + e * e * 0.000717 * np.sin(Mpr - 2*M) \
-            + e * e * 0.000704 * np.sin(Mpr - 2 * M - 2*D) \
-            + e * 0.000693 * np.sin(M - 2*Mpr + 2*D) \
-            + e * 0.000598 * np.sin(2*D - M - 2*F) \
-            + 0.000550 * np.sin(Mpr + 4*D) \
-            + 0.000538 * np.sin(4*Mpr) \
-            + e * 0.000521 * np.sin(4*D - M) \
-            + 0.000486 * np.sin(2*Mpr - D)
+            + e * e * 0.002249 * np.sin(2 * D - 2 * M) \
+            - e * 0.002125 * np.sin(2 * Mpr + M) \
+            - e * e * 0.002079 * np.sin(2 * M) \
+            + e * e * 0.002059 * np.sin(2 * D - Mpr - 2 * M) \
+            - 0.001773 * np.sin(Mpr + 2 * D - 2 * F) \
+            - 0.001595 * np.sin(2 * F + 2 * D) \
+            + e * 0.001220 * np.sin(4 * D - M - Mpr) \
+            - 0.001110 * np.sin(2 * Mpr + 2 * F) \
+            + 0.000892 * np.sin(Mpr - 3 * D) \
+            - e * 0.000811 * np.sin(M + Mpr + 2 * D) \
+            + e * 0.000761 * np.sin(4 * D - M - 2 * Mpr) \
+            + e * e * 0.000717 * np.sin(Mpr - 2 * M) \
+            + e * e * 0.000704 * np.sin(Mpr - 2 * M - 2 * D) \
+            + e * 0.000693 * np.sin(M - 2 * Mpr + 2 * D) \
+            + e * 0.000598 * np.sin(2 * D - M - 2 * F) \
+            + 0.000550 * np.sin(Mpr + 4 * D) \
+            + 0.000538 * np.sin(4 * Mpr) \
+            + e * 0.000521 * np.sin(4 * D - M) \
+            + 0.000486 * np.sin(2 * Mpr - D)
 
     B = 5.128189 * np.sin(F) \
-            + 0.280606 * np.sin(Mpr + F) \
-            + 0.277693 * np.sin(Mpr - F) \
-            + 0.173238 * np.sin(2*D - F) \
-            + 0.055413 * np.sin(2*D + F - Mpr) \
-            + 0.046272 * np.sin(2*D - F - Mpr) \
-            + 0.032573 * np.sin(2*D + F) \
-            + 0.017198 * np.sin(2*Mpr + F) \
-            + 0.009267 * np.sin(2*D + Mpr - F) \
-            + 0.008823 * np.sin(2*Mpr - F) \
-            + e * 0.008247 * np.sin(2*D - M - F)  \
-            + 0.004323 * np.sin(2*D - F - 2*Mpr) \
-            + 0.004200 * np.sin(2*D + F + Mpr) \
-            + e * 0.003372 * np.sin(F - M - 2*D) \
-            + 0.002472 * np.sin(2*D + F - M - Mpr) \
-            + e * 0.002222 * np.sin(2*D + F - M) \
-            + e * 0.002072 * np.sin(2*D - F - M - Mpr) \
-            + e * 0.001877 * np.sin(F - M + Mpr) \
-            + 0.001828 * np.sin(4*D - F - Mpr) \
-            - e * 0.001803 * np.sin(F + M) \
-            - 0.001750 * np.sin(3*F) \
-            + e * 0.001570 * np.sin(Mpr - M - F) \
-            - 0.001487 * np.sin(F + D) \
-            - e * 0.001481 * np.sin(F + M + Mpr) \
-            + e * 0.001417 * np.sin(F - M - Mpr) \
-            + e * 0.001350 * np.sin(F - M) \
-            + 0.001330 * np.sin(F - D) \
-            + 0.001106 * np.sin(F + 3*Mpr) \
-            + 0.001020 * np.sin(4*D - F) \
-            + 0.000833 * np.sin(F + 4*D - Mpr)
+        + 0.280606 * np.sin(Mpr + F) \
+        + 0.277693 * np.sin(Mpr - F) \
+        + 0.173238 * np.sin(2 * D - F) \
+        + 0.055413 * np.sin(2 * D + F - Mpr) \
+        + 0.046272 * np.sin(2 * D - F - Mpr) \
+        + 0.032573 * np.sin(2 * D + F) \
+        + 0.017198 * np.sin(2 * Mpr + F) \
+        + 0.009267 * np.sin(2 * D + Mpr - F) \
+        + 0.008823 * np.sin(2 * Mpr - F) \
+        + e * 0.008247 * np.sin(2 * D - M - F) \
+        + 0.004323 * np.sin(2 * D - F - 2 * Mpr) \
+        + 0.004200 * np.sin(2 * D + F + Mpr) \
+        + e * 0.003372 * np.sin(F - M - 2 * D) \
+        + 0.002472 * np.sin(2 * D + F - M - Mpr) \
+        + e * 0.002222 * np.sin(2 * D + F - M) \
+        + e * 0.002072 * np.sin(2 * D - F - M - Mpr) \
+        + e * 0.001877 * np.sin(F - M + Mpr) \
+        + 0.001828 * np.sin(4 * D - F - Mpr) \
+        - e * 0.001803 * np.sin(F + M) \
+        - 0.001750 * np.sin(3 * F) \
+        + e * 0.001570 * np.sin(Mpr - M - F) \
+        - 0.001487 * np.sin(F + D) \
+        - e * 0.001481 * np.sin(F + M + Mpr) \
+        + e * 0.001417 * np.sin(F - M - Mpr) \
+        + e * 0.001350 * np.sin(F - M) \
+        + 0.001330 * np.sin(F - D) \
+        + 0.001106 * np.sin(F + 3 * Mpr) \
+        + 0.001020 * np.sin(4 * D - F) \
+        + 0.000833 * np.sin(F + 4 * D - Mpr)
     #     /* not only that, but */
-    B = B + 0.000781 * np.sin(Mpr - 3*F) \
-            + 0.000670 * np.sin(F + 4*D - 2*Mpr) \
-            + 0.000606 * np.sin(2*D - 3*F) \
-            + 0.000597 * np.sin(2*D + 2*Mpr - F) \
-            + e * 0.000492 * np.sin(2*D + Mpr - M - F) \
-            + 0.000450 * np.sin(2*Mpr - F - 2*D) \
-            + 0.000439 * np.sin(3*Mpr - F) \
-            + 0.000423 * np.sin(F + 2*D + 2*Mpr) \
-            + 0.000422 * np.sin(2*D - F - 3*Mpr) \
-            - e * 0.000367 * np.sin(M + F + 2*D - Mpr) \
-            - e * 0.000353 * np.sin(M + F + 2*D) \
-            + 0.000331 * np.sin(F + 4*D) \
-            + e * 0.000317 * np.sin(2*D + F - M + Mpr) \
-            + e * e * 0.000306 * np.sin(2*D - 2*M - F) \
-            - 0.000283 * np.sin(Mpr + 3*F)
-
+    B = B + 0.000781 * np.sin(Mpr - 3 * F) \
+        + 0.000670 * np.sin(F + 4 * D - 2 * Mpr) \
+        + 0.000606 * np.sin(2 * D - 3 * F) \
+        + 0.000597 * np.sin(2 * D + 2 * Mpr - F) \
+        + e * 0.000492 * np.sin(2 * D + Mpr - M - F) \
+        + 0.000450 * np.sin(2 * Mpr - F - 2 * D) \
+        + 0.000439 * np.sin(3 * Mpr - F) \
+        + 0.000423 * np.sin(F + 2 * D + 2 * Mpr) \
+        + 0.000422 * np.sin(2 * D - F - 3 * Mpr) \
+        - e * 0.000367 * np.sin(M + F + 2 * D - Mpr) \
+        - e * 0.000353 * np.sin(M + F + 2 * D) \
+        + 0.000331 * np.sin(F + 4 * D) \
+        + e * 0.000317 * np.sin(2 * D + F - M + Mpr) \
+        + e * e * 0.000306 * np.sin(2 * D - 2 * M - F) \
+        - 0.000283 * np.sin(Mpr + 3 * F)
 
     om1 = 0.0004664 * np.cos(np.deg2rad(Om))
-    om2 = 0.0000754 * np.cos(np.deg2rad(Om + 275.05 - 2.30*T))
+    om2 = 0.0000754 * np.cos(np.deg2rad(Om + 275.05 - 2.30 * T))
 
     beta = B * (1. - om1 - om2)
 
     pie = 0.950724 + 0.051818 * np.cos(Mpr) \
-            + 0.009531 * np.cos(2*D - Mpr) \
-            + 0.007843 * np.cos(2*D) \
-            + 0.002824 * np.cos(2*Mpr) \
-            + 0.000857 * np.cos(2*D + Mpr) \
-            + e * 0.000533 * np.cos(2*D - M) \
-            + e * 0.000401 * np.cos(2*D - M - Mpr) \
-            + e * 0.000320 * np.cos(Mpr - M) \
-            - 0.000271 * np.cos(D) \
-            - e * 0.000264 * np.cos(M + Mpr) \
-            - 0.000198 * np.cos(2*F - Mpr) \
-            + 0.000173 * np.cos(3*Mpr) \
-            + 0.000167 * np.cos(4*D - Mpr) \
-            - e * 0.000111 * np.cos(M) \
-            + 0.000103 * np.cos(4*D - 2*Mpr) \
-            - 0.000084 * np.cos(2*Mpr - 2*D) \
-            - e * 0.000083 * np.cos(2*D + M) \
-            + 0.000079 * np.cos(2*D + 2*Mpr) \
-            + 0.000072 * np.cos(4*D) \
-            + e * 0.000064 * np.cos(2*D - M + Mpr) \
-            - e * 0.000063 * np.cos(2*D + M - Mpr) \
-            + e * 0.000041 * np.cos(M + D) \
-            + e * 0.000035 * np.cos(2*Mpr - M) \
-            - 0.000033 * np.cos(3*Mpr - 2*D) \
-            - 0.000030 * np.cos(Mpr + D) \
-            - 0.000029 * np.cos(2*F - 2*D) \
-            - e * 0.000029 * np.cos(2*Mpr + M) \
-            + e * e * 0.000026 * np.cos(2*D - 2*M) \
-            - 0.000023 * np.cos(2*F - 2*D + Mpr) \
-            + e * 0.000019 * np.cos(4*D - M - Mpr);
+          + 0.009531 * np.cos(2 * D - Mpr) \
+          + 0.007843 * np.cos(2 * D) \
+          + 0.002824 * np.cos(2 * Mpr) \
+          + 0.000857 * np.cos(2 * D + Mpr) \
+          + e * 0.000533 * np.cos(2 * D - M) \
+          + e * 0.000401 * np.cos(2 * D - M - Mpr) \
+          + e * 0.000320 * np.cos(Mpr - M) \
+          - 0.000271 * np.cos(D) \
+          - e * 0.000264 * np.cos(M + Mpr) \
+          - 0.000198 * np.cos(2 * F - Mpr) \
+          + 0.000173 * np.cos(3 * Mpr) \
+          + 0.000167 * np.cos(4 * D - Mpr) \
+          - e * 0.000111 * np.cos(M) \
+          + 0.000103 * np.cos(4 * D - 2 * Mpr) \
+          - 0.000084 * np.cos(2 * Mpr - 2 * D) \
+          - e * 0.000083 * np.cos(2 * D + M) \
+          + 0.000079 * np.cos(2 * D + 2 * Mpr) \
+          + 0.000072 * np.cos(4 * D) \
+          + e * 0.000064 * np.cos(2 * D - M + Mpr) \
+          - e * 0.000063 * np.cos(2 * D + M - Mpr) \
+          + e * 0.000041 * np.cos(M + D) \
+          + e * 0.000035 * np.cos(2 * Mpr - M) \
+          - 0.000033 * np.cos(3 * Mpr - 2 * D) \
+          - 0.000030 * np.cos(Mpr + D) \
+          - 0.000029 * np.cos(2 * F - 2 * D) \
+          - e * 0.000029 * np.cos(2 * Mpr + M) \
+          + e * e * 0.000026 * np.cos(2 * D - 2 * M) \
+          - 0.000023 * np.cos(2 * F - 2 * D + Mpr) \
+          + e * 0.000019 * np.cos(4 * D - M - Mpr);
 
     beta = Angle(np.deg2rad(beta), unit=u.rad)
     lambd = Angle(np.deg2rad(lambd), unit=u.rad)
@@ -1395,7 +1396,7 @@ def accumoon(time, obs): # ,geolat,lst) :
 
     eq = 'J{:7.2f}'.format(2000. + (time_ttjd[0] - thorconsts.J2000) / 365.25)
     fr = GeocentricTrueEcliptic(equinox=eq)
-    inecl = SkyCoord(lon = Angle(lambd, unit=u.rad), lat = Angle(beta,unit=u.rad), frame=fr)
+    inecl = SkyCoord(lon=Angle(lambd, unit=u.rad), lat=Angle(beta, unit=u.rad), frame=fr)
 
     # Transform into geocentric equatorial.
 
@@ -1423,9 +1424,9 @@ def accumoon(time, obs): # ,geolat,lst) :
 
     # form the toposcentric ra and dec and bundle them into a skycoord of epoch of date.
 
-    topodist = np.sqrt(x**2 + y**2 + z**2)
+    topodist = np.sqrt(x ** 2 + y ** 2 + z ** 2)
 
-    raout = np.arctan2(y,x)
+    raout = np.arctan2(y, x)
     decout = np.arcsin(z / topodist)
     # topocen = SkyCoord(raout, decout, unit = u.rad, frame = currentgeocentframe(time))
 
@@ -1433,7 +1434,7 @@ def accumoon(time, obs): # ,geolat,lst) :
         raout = np.squeeze(raout)
         decout = np.squeeze(decout)
         topodist = np.squeeze(topodist)
-    return SkyCoord(raout, decout, unit = u.rad, frame = currentgeocentframe(time)), topodist
+    return SkyCoord(raout, decout, unit=u.rad, frame=currentgeocentframe(time)), topodist
 
 
 def lpsun(time):
@@ -1461,7 +1462,7 @@ def lpsun(time):
         jd = jd[None]
         scalar_input = True
 
-    n = jd - thorconsts.J2000    # referred to J2000
+    n = jd - thorconsts.J2000  # referred to J2000
     L = 280.460 + 0.9856474 * n
     g = np.deg2rad(357.528 + 0.9856003 * n)
     lambd = np.deg2rad(L + 1.915 * np.sin(g) + 0.020 * np.sin(2. * g))
@@ -1471,7 +1472,7 @@ def lpsun(time):
     y = np.cos(epsilon) * np.sin(lambd)
     z = np.sin(epsilon) * np.sin(lambd)
 
-    ra = np.arctan2(y,x)
+    ra = np.arctan2(y, x)
     dec = np.arcsin(z)
 
     fr = currentgeocentframe(time)
@@ -1519,39 +1520,39 @@ def jd_sun_alt(alt, tguess, location):
     if tguess.ndim == 0 and alt.ndim == 0:
         scalar_input = True
     if tguess.ndim == 0:
-        tguess = tguess[None] # Makes 1D
+        tguess = tguess[None]  # Makes 1D
     if alt.ndim == 0:
         alt = alt[None]
 
     if len(tguess) == 1 and len(alt) > 1:
-        tguess = Time(tguess.jd*np.ones(len(alt)), format='jd')
+        tguess = Time(tguess.jd * np.ones(len(alt)), format='jd')
     elif len(tguess) > 1 and len(alt) == 1:
-        alt = alt*np.ones(len(tguess))
+        alt = alt * np.ones(len(tguess))
     elif len(tguess) != len(alt):
         print('Error: alt and tguess have incompatible lengths')
         return
 
     sunpos = lpsun(tguess)
-    #print "sunpos entering",sunpos
-    #print "tguess.jd, longit:",tguess.jd, location.lon.hour
+    # print "sunpos entering",sunpos
+    # print "tguess.jd, longit:",tguess.jd, location.lon.hour
     tolerance = Angle(1.0e-4, unit=u.rad)
 
-    delt = TimeDelta(0.002, format='jd')   # timestep
-    #print "sidereal: ",lpsidereal(tguess, location)
-    #print "sunpos.ra: ",sunpos.ra
+    delt = TimeDelta(0.002, format='jd')  # timestep
+    # print "sidereal: ",lpsidereal(tguess, location)
+    # print "sunpos.ra: ",sunpos.ra
 
     ha = lpsidereal(tguess, location) - sunpos.ra
-    #print "ha entering",ha
+    # print "ha entering",ha
     alt2, az, parang = altazparang(sunpos.dec, Angle(ha, unit=u.hourangle), location.lat)
-    #print "alt2",alt2
+    # print "alt2",alt2
     tguess = tguess + delt
     sunpos = lpsun(tguess)
-    #print "sunpos with delt",sunpos
+    # print "sunpos with delt",sunpos
     alt3, az, parang = altazparang(sunpos.dec, lpsidereal(tguess, location) - sunpos.ra, location.lat)
     err = alt3 - alt
-    #print "alt3, alt, err",alt3,alt,err
+    # print "alt3, alt, err",alt3,alt,err
     deriv = (alt3 - alt2) / delt
-    #print "deriv",deriv
+    # print "deriv",deriv
     kount = np.zeros(len(tguess), dtype=int)
     kk = np.where(np.logical_and(abs(err) > tolerance, kount < 10))[0][:]
     while (len(kk) != 0):
@@ -1607,26 +1608,26 @@ def jd_moon_alt(alt, tguess, location):
         return
 
     moonpos, topodist = accumoon(tguess, location)
-    #print "npos entering",moonpos
-    #print "tguess.jd, longit:",tguess.jd, location.lon.hour
+    # print "npos entering",moonpos
+    # print "tguess.jd, longit:",tguess.jd, location.lon.hour
     tolerance = Angle(1.0e-4, unit=u.rad)
 
-    delt = TimeDelta(0.002, format = 'jd')   # timestep
-    #print "sidereal: ",lpsidereal(tguess, location)
-    #print "moonpos.ra: ",moonpos.ra
+    delt = TimeDelta(0.002, format='jd')  # timestep
+    # print "sidereal: ",lpsidereal(tguess, location)
+    # print "moonpos.ra: ",moonpos.ra
 
     ha = lpsidereal(tguess, location) - moonpos.ra
-    #print "ha entering",ha
+    # print "ha entering",ha
     alt2, az, parang = altazparang(moonpos.dec, Angle(ha, unit=u.hourangle), location.lat)
-    #print "alt2",alt2
+    # print "alt2",alt2
     tguess = tguess + delt
     moonpos, topodist = accumoon(tguess, location)
-    #print "moonpos with delt",moonpos
+    # print "moonpos with delt",moonpos
     alt3, az, parang = altazparang(moonpos.dec, lpsidereal(tguess, location) - moonpos.ra, location.lat)
     err = alt3 - alt
-    #print "alt3, alt, err",alt3,alt,err
+    # print "alt3, alt, err",alt3,alt,err
     deriv = (alt3 - alt2) / delt
-    #print "deriv",deriv
+    # print "deriv",deriv
     kount = np.zeros(len(tguess), dtype=int)
     kk = np.where(np.logical_and(abs(err) > tolerance, kount < 10))[0][:]
     while (len(kk) != 0):
@@ -1644,7 +1645,7 @@ def jd_moon_alt(alt, tguess, location):
             return None
         kk = np.where(np.logical_and(abs(err) > tolerance, kount < 10))[0][:]
 
-    #print "out, err = ",err
+    # print "out, err = ",err
     if scalar_input:
         tguess = np.squeeze(tguess)
     return Time(tguess, format='iso')
@@ -1680,15 +1681,14 @@ def local_midnight_Time(aTime, localtzone):
 
     datetmid = []
     for time in aTime:
-        datet = time.to_datetime(timezone = localtzone)
+        datet = time.to_datetime(timezone=localtzone)
         # print(datet)
 
         # if before midnight, add 12 hours
         if datet.hour >= 12:
-            datet = datet + timedelta(hours = 12.)
+            datet = datet + timedelta(hours=12.)
 
         datetmid.append(localtzone.localize(datetime(datet.year, datet.month, datet.day, 0, 0, 0)))
-
 
     if scalar_input:
         result = Time(datetmid[0])
@@ -1699,9 +1699,9 @@ def local_midnight_Time(aTime, localtzone):
 
 def ztwilight(alt):
     """Estimate twilight contribution to zenith sky brightness, in magnitudes
-    per square arcsecond.  
+    per square arcsecond.
 
-    Evaluates a polynomial approximation to observational data (see source for 
+    Evaluates a polynomial approximation to observational data (see source for
     reference) of zenith sky brightness (blue) as a function of the sun's elevation
     from -0.9 degrees to -18 degrees.  For reference, 3 mag is roughly Nautical
     twilight and looks 'pretty dark'; something like 10 mag is about the maximum
@@ -1710,9 +1710,9 @@ def ztwilight(alt):
     Parameters
     ----------
     alt : Angle
-        Sun's elevation.  Meaningful range is -0.9 to -18 degrees.    
+        Sun's elevation.  Meaningful range is -0.9 to -18 degrees.
 
-    Returns 
+    Returns
         float.  If the sun is up, returns 20; if the sun below -18, returns 0.
 
     """
@@ -1748,7 +1748,7 @@ def ztwilight(alt):
     kk = np.where(np.logical_and(alt.deg >= -18., alt.deg <= -0.9))[0][:]
     if len(kk) != 0:
         y = (-1. * alt[kk].deg - 9.0) / 9.0  # my polynomial's argument
-        twisb[kk] = ((2.0635175 * y + 1.246602) * y - 9.4084495)*y + 6.132725
+        twisb[kk] = ((2.0635175 * y + 1.246602) * y - 9.4084495) * y + 6.132725
 
     if scalar_input:
         twisb = np.squeeze(twisb)
@@ -1756,10 +1756,11 @@ def ztwilight(alt):
 
 
 def nightevents(aTime, location, localtzone, verbose=True):
-    """Compute phenomena for a given night.
-    
+    """
+    Compute phenomena for a given night.
+
     This is mostly a testbed that prints results directly.
-    
+
     Parameters
     ----------
     aTime : astropy Time, single or array
@@ -1779,7 +1780,7 @@ def nightevents(aTime, location, localtzone, verbose=True):
 
     nt = len(aTime)
 
-    midnight = local_midnight_Time(aTime, localtzone) # nearest clock-time midnight (UT)
+    midnight = local_midnight_Time(aTime, localtzone)  # nearest clock-time midnight (UT)
     # print("midnight:", midnight)
     lstmid = lpsidereal(midnight, location)
 
@@ -1790,36 +1791,30 @@ def nightevents(aTime, location, localtzone, verbose=True):
     # allow separate rise and set altitudes for horizon effects
     horiz = (-0.883 - np.sqrt(2. * location.height / thorconsts.EQUAT_RAD) * (180. / np.pi)) * u.deg
     # print(horiz)
-    setalt = Angle(horiz*np.ones(nt), unit=u.deg)  # zd = 90 deg 50 arcmin
-    risealt = Angle(horiz*np.ones(nt), unit=u.deg)  # zd = 90 deg 50 arcmin
-    twialt18 = Angle(-18.*np.ones(nt), unit=u.deg)     # 18 degree astronomical twilight
-    twialt12 = Angle(-12.*np.ones(nt), unit=u.deg)     # 12 degree nautical twilight
+    setalt = Angle(horiz * np.ones(nt), unit=u.deg)  # zd = 90 deg 50 arcmin
+    risealt = Angle(horiz * np.ones(nt), unit=u.deg)  # zd = 90 deg 50 arcmin
+    twialt12 = Angle(-12. * np.ones(nt), unit=u.deg)  # 12 degree nautical twilight
 
     # print(sunmid.dec, setalt)
     sunsetha = ha_alt(sunmid.dec, location.lat, setalt)  # corresponding hr angles
     sunriseha = Angle(2. * np.pi, unit=u.rad) - ha_alt(sunmid.dec, location.lat, risealt)  # corresponding hr angles
-    twilightha18 = ha_alt(sunmid.dec, location.lat, twialt18)
     twilightha12 = ha_alt(sunmid.dec, location.lat, twialt12)
 
     hasunmid = (lstmid - sunmid.ra).wrap_at(24. * u.hour)
-    nightcenter = midnight - TimeDelta(hasunmid.hour / 24. - 0.5, format='jd')
+    # nightcenter = midnight - TimeDelta(hasunmid.hour / 24. - 0.5, format='jd')
     # print "nightcenter", nightcenter
 
-    sunsetguess = hasunmid - sunsetha     # angles away from midnight
+    sunsetguess = hasunmid - sunsetha  # angles away from midnight
     sunriseguess = sunriseha - hasunmid
-    evetwiguess18 = hasunmid - twilightha18
-    morntwiguess18 = Angle(2.*np.pi, unit=u.rad) - twilightha18 - hasunmid
     evetwiguess12 = hasunmid - twilightha12
-    morntwiguess12 = Angle(2.*np.pi, unit=u.rad) - twilightha12 - hasunmid
+    morntwiguess12 = Angle(2. * np.pi, unit=u.rad) - twilightha12 - hasunmid
 
-    #print "setguess: ",setguess
-    #print "twiguess: ", twiguess
+    # print "setguess: ",setguess
+    # print "twiguess: ", twiguess
 
     # convert to time deltas
     TDsunset = TimeDelta(sunsetguess.hour / 24., format='jd')
     TDsunrise = TimeDelta(sunriseguess.hour / 24., format='jd')
-    TDevetwi18 = TimeDelta(evetwiguess18.hour / 24., format='jd')
-    TDmorntwi18 = TimeDelta(morntwiguess18.hour / 24., format='jd')
     TDevetwi12 = TimeDelta(evetwiguess12.hour / 24., format='jd')
     TDmorntwi12 = TimeDelta(morntwiguess12.hour / 24., format='jd')
     # form into times and iterate to accurate answer.
@@ -1830,21 +1825,15 @@ def nightevents(aTime, location, localtzone, verbose=True):
     tsunrise = midnight + TDsunrise  # first approx
     tsunrise = jd_sun_alt(risealt, tsunrise, location)
 
-    tevetwi18 = midnight - TDevetwi18
-    tevetwi18 = jd_sun_alt(twialt18, tevetwi18, location)
     tevetwi12 = midnight - TDevetwi12
     tevetwi12 = jd_sun_alt(twialt12, tevetwi12, location)
 
-    tmorntwi18 = midnight + TDmorntwi18
-    tmorntwi18 = jd_sun_alt(twialt18, tmorntwi18, location)
     tmorntwi12 = midnight + TDmorntwi12
     tmorntwi12 = jd_sun_alt(twialt12, tmorntwi12, location)
 
     if verbose:
         print("sunset: ", tsunset)
         print("sunrise: ", tsunrise)
-        print("eve twi18: ", tevetwi18)
-        print("morn twi18:", tmorntwi18)
         print("eve twi12: ", tevetwi12)
         print("morn twi12:", tmorntwi12)
     # Moon
@@ -1872,14 +1861,14 @@ def nightevents(aTime, location, localtzone, verbose=True):
     if len(jj) != 0:
         moonsetdiff[jj] = moonsetdiff[jj] + Angle(24. * u.hour)
 
-    TDmoonset = TimeDelta(moonsetdiff.hour / 24., format = 'jd')
+    TDmoonset = TimeDelta(moonsetdiff.hour / 24., format='jd')
     tmoonset = midnight + TDmoonset
     if verbose: print("moonset first approx:", tmoonset)
     tmoonset = jd_moon_alt(setalt, tmoonset, location)
     # if verbose: print("moonset: ", tmoonset)
     if verbose: print("moonset: ", tmoonset)
 
-    moonriseha = -1. * ha_alt(moonmid.dec, location.lat, risealt) # signed
+    moonriseha = -1. * ha_alt(moonmid.dec, location.lat, risealt)  # signed
     moonrisediff = moonriseha - hamoonmid  # how far from riseting point at midn.
     # find nearest riseting point
     # if moonrisediff.hour >= 12.: moonrisediff = moonrisediff - Angle(24. * u.hour)
@@ -1891,7 +1880,7 @@ def nightevents(aTime, location, localtzone, verbose=True):
     if len(jj) != 0:
         moonrisediff[jj] = moonrisediff[jj] + Angle(24. * u.hour)
 
-    TDmoonrise = TimeDelta(moonrisediff.hour / 24., format = 'jd')
+    TDmoonrise = TimeDelta(moonrisediff.hour / 24., format='jd')
     tmoonrise = midnight + TDmoonrise
     if verbose: print("moonrise first approx:", tmoonrise)
     tmoonrise = jd_moon_alt(risealt, tmoonrise, location)
@@ -1908,8 +1897,6 @@ def nightevents(aTime, location, localtzone, verbose=True):
     if scalar_input:
         tsunset = np.squeeze(tsunset)
         tsunrise = np.squeeze(tsunrise)
-        tevetwi18 = np.squeeze(tevetwi18)
-        tmorntwi18 = np.squeeze(tmorntwi18)
         tevetwi12 = np.squeeze(tevetwi12)
         tmorntwi12 = np.squeeze(tmorntwi12)
         tmoonrise = np.squeeze(tmoonrise)
@@ -1917,7 +1904,7 @@ def nightevents(aTime, location, localtzone, verbose=True):
         sunmoonang = np.squeeze(sunmoonang)
         moonillumfrac = np.squeeze(moonillumfrac)
 
-    return midnight, tsunset, tsunrise, tevetwi18, tmorntwi18, tevetwi12, tmorntwi12, \
+    return midnight, tsunset, tsunrise, tevetwi12, tmorntwi12, \
            tmoonrise, tmoonset, sunmoonang, moonillumfrac
 
 
@@ -1933,7 +1920,7 @@ def xair(zd):
     https://stackoverflow.com/questions/29318459/python-function-that-handles-scalar-or-arrays
     """
 
-    zd = np.asarray(zd.to_value(u.rad).data)*u.rad
+    zd = np.asarray(zd.to_value(u.rad).data) * u.rad
     scalar_input = False
     if zd.ndim == 0:
         zd = zd[None]  # Makes 1D
@@ -1942,12 +1929,12 @@ def xair(zd):
     x = np.zeros(len(zd))
 
     # below the horizon
-    kk = np.where(zd > 90.*u.deg)[0][:]
+    kk = np.where(zd > 90. * u.deg)[0][:]
     if len(kk) != 0:
         x[kk] = 10.
 
     # above the horizon
-    ik = np.where(zd <= 90.*u.deg)[0][:]
+    ik = np.where(zd <= 90. * u.deg)[0][:]
     if len(ik) != 0:
         v = np.sqrt(1.0 - 0.96 * np.sin(zd[ik]) ** 2)
         ii = np.where(v != 0.0)[0][:]
@@ -2008,7 +1995,7 @@ def lunskybright(alpha, rho, kzen, altmoon, alt, moondist, sunalt):
     #
     #  all the angles are Angles.
 
-     # def lunskybright(alpha, rho, kzen, altmoon, alt, moondist, sunalt):
+    # def lunskybright(alpha, rho, kzen, altmoon, alt, moondist, sunalt):
 
     alpha = Angle(np.asarray(alpha.deg), unit=u.deg)
     rho = Angle(np.asarray(rho.deg), unit=u.deg)
@@ -2032,61 +2019,61 @@ def lunskybright(alpha, rho, kzen, altmoon, alt, moondist, sunalt):
     # return nonsense values if
     # if altmoon < 0. : return 99.
     # moon is down
-    ii = np.where(altmoon < 0.*u.deg)[0][:]
+    ii = np.where(altmoon < 0. * u.deg)[0][:]
     if len(ii) != 0:
         skybright[ii] = 99.
 
     # if alt < 0. : return 99.
     # object is down
-    ii = np.where(alt < 0.*u.deg)[0][:]
+    ii = np.where(alt < 0. * u.deg)[0][:]
     if len(ii) != 0:
         skybright[ii] = 99.
 
     # if sunalt > -10. * u.deg : return 99.
     # bright twilight or daylight.
-    ii = np.where(sunalt > -10.*u.deg)[0][:]
+    ii = np.where(sunalt > -10. * u.deg)[0][:]
     if len(ii) != 0:
         skybright[ii] = 99.
 
-    im = np.where(np.logical_and(altmoon >= 0.*u.deg,
-                                 np.logical_and(alt > 0.*u.deg, sunalt <= -10*u.deg)))[0][:]
+    im = np.where(np.logical_and(altmoon >= 0. * u.deg,
+                                 np.logical_and(alt > 0. * u.deg, sunalt <= -10 * u.deg)))[0][:]
     if len(im) != 0:
         Bmoon = np.zeros(len(im))
         alpham = Angle(180. * u.deg) - alpha[im]
         Zmoon = Angle(90. * u.deg) - altmoon[im]
         Z = Angle(90. * u.deg) - alt[im]
-        norm_moondist = moondist[im]/(60.27 * thorconsts.EQUAT_RAD)   # divide by mean distance
+        norm_moondist = moondist[im] / (60.27 * thorconsts.EQUAT_RAD)  # divide by mean distance
 
-        istar = -0.4*(3.84 + 0.026*abs(alpham.deg) + 4.0e-9*alpham.deg ** 4)  # eqn 20
+        istar = -0.4 * (3.84 + 0.026 * abs(alpham.deg) + 4.0e-9 * alpham.deg ** 4)  # eqn 20
         #     print "istar",istar, "norm_moondist",norm_moondist
-        istar =  (10. ** istar) / (norm_moondist ** 2.)
-    #     print "istar post exp",istar,"alpha_deg",alpha.deg
-    #     if abs(alpha.deg) < 7. :
+        istar = (10. ** istar) / (norm_moondist ** 2.)
+        #     print "istar post exp",istar,"alpha_deg",alpha.deg
+        #     if abs(alpha.deg) < 7. :
         # crude accounting for opposition effect
         hh = np.where(abs(alpham) < 7. * u.deg)[0][:]
         if len(hh) != 0:
             istar[hh] = istar[hh] * (1.35 - 0.05 * abs(alpham[hh].deg))
-         # istar = istar * (1.35 - 0.05 * abs(istar)) # original, bug
-    # 35 per cent brighter at full, effect tapering linearly to
-    #   zero at 7 degrees away from full. mentioned peripherally in
-    #   Krisciunas and Scheafer, p. 1035. */
+        # istar = istar * (1.35 - 0.05 * abs(istar)) # original, bug
+        # 35 per cent brighter at full, effect tapering linearly to
+        #   zero at 7 degrees away from full. mentioned peripherally in
+        #   Krisciunas and Scheafer, p. 1035. */
 
-     # print "rho, cos(rho)",rho.rad,np.cos(rho)
+        # print "rho, cos(rho)",rho.rad,np.cos(rho)
 
         fofrho = 229087. * (1.06 + np.cos(rho[im]) ** 2.)
         # if abs(rho.deg) > 10.:
-        ii = np.where(rho[im] > 10.*u.deg)[0][:]
+        ii = np.where(rho[im] > 10. * u.deg)[0][:]
         if len(ii) != 0:
-            fofrho[ii] = fofrho[ii] + 10. ** (6.15 - rho[im[ii]].deg/40.) #            /* eqn 21 */\
+            fofrho[ii] = fofrho[ii] + 10. ** (6.15 - rho[im[ii]].deg / 40.)  # /* eqn 21 */\
 
         jj = np.where(np.logical_and(abs(rho[im]) > 0.25 * u.deg,
-                                        abs(rho[im]) <= 10. * u.deg))[0][:]
+                                     abs(rho[im]) <= 10. * u.deg))[0][:]
         if len(jj) != 0:
             fofrho[jj] = fofrho[jj] + 6.2e7 / (rho[im[jj]].deg ** 2)  # eq 19
 
         kk = np.where(abs(rho[im]) <= 0.25 * u.deg)[0][:]
         if len(kk) != 0:
-            fofrho[kk] = fofrho[kk] + 9.9e8 # for 1/4 degree -- radius of moon! */
+            fofrho[kk] = fofrho[kk] + 9.9e8  # for 1/4 degree -- radius of moon! */
 
         # print "fofrho",fofrho
 
@@ -2096,15 +2083,15 @@ def lunskybright(alpha, rho, kzen, altmoon, alt, moondist, sunalt):
         Xo = xair(Z)
         # print "Xo",Xo
 
-        Bmoon = fofrho * istar * 10. ** (-0.4*kzen*Xzm)  \
-                * (1. - 10. ** (-0.4*kzen*Xo)) #   /* nanoLamberts */
+        Bmoon = fofrho * istar * 10. ** (-0.4 * kzen * Xzm) \
+                * (1. - 10. ** (-0.4 * kzen * Xo))  # /* nanoLamberts */
 
         # print "Bmoon",Bmoon
 
         # if Bmoon > 0.001:
         ij = np.where(Bmoon > 0.001)[0][:]
         if len(ij) != 0:
-            skybright[im[ij]] = 22.50 - 1.08574 * np.log(Bmoon[ij]/34.08) # /* V mag per sq arcs-eqn 1 */
+            skybright[im[ij]] = 22.50 - 1.08574 * np.log(Bmoon[ij] / 34.08)  # /* V mag per sq arcs-eqn 1 */
 
         ik = np.where(Bmoon <= 0.001)[0][:]
         if len(ik) != 0:
@@ -2113,15 +2100,6 @@ def lunskybright(alpha, rho, kzen, altmoon, alt, moondist, sunalt):
     if scalar_input:
         return np.squeeze(skybright)
     return skybright
-   
-if __name__ == "__main__" :
 
-    jd = 2458297.75694
-    print(jd, phase_descr(jd))
-
-    time = Time(jd,format='jd')
-    accumoontest = accumoon(time)
-    
-    print("accumoon gives:", accumoontest.to_string('hmsdms'))
 
 

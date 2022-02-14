@@ -26,11 +26,11 @@ def create_minimodel_program() -> Program:
     Note that we do not have to worry about atoms as we have no obslog data.
     """
     # *** SHARED RESOURCES ***
-    gmosn = Resource(id='GMOS-N', name='GMOS-N')
-    gmos_oiwfs = Resource(id='GMOS OIWFS', name='GMOS OIWFS')
+    gmosn = Resource(id='GMOS-N')
+    gmos_oiwfs = Resource(id='GMOS OIWFS')
 
-    gnirs = Resource(id='GNIRS', name='GNIRS')
-    pwfs2 = Resource(id='PWFS2', name='PWFS2')
+    gnirs = Resource(id='GNIRS')
+    pwfs2 = Resource(id='PWFS2')
 
     # *** GMOSN-2 OBSERVATION ***
     gmosn2_conditions = Conditions(
@@ -383,14 +383,14 @@ def create_minimodel_program() -> Program:
         # TODO: ??? -0.1 second duration???
         TimingWindow(
             start=datetime(2022, 1, 12, 12, 28, 42),
-            duration=timedelta(microseconds=-1000),
+            duration=TimingWindow.INFINITE_DURATION,
             repeat=TimingWindow.NON_REPEATING,
             period=TimingWindow.NO_PERIOD
         ),
         TimingWindow(
             start=datetime(2022, 1, 13, 12, 29, 37),
             duration=timedelta(hours=12),
-            repeat=TimingWindow.FOREVER_REPEATING,
+            repeat=TimingWindow.OCS_INFINITE_REPEATS,
             period=timedelta(hours=36)
         ),
         TimingWindow(
@@ -576,12 +576,13 @@ def create_minimodel_program() -> Program:
     return Program(
         id='GN-2022A-Q-999',
         internal_id='c396b9c9-9bdd-4eec-be83-81162090d032',
+        semester=Semester(year=2022, half=SemesterHalf.A),
         band=Band.BAND2,
         thesis=True,
         mode=ProgramMode.QUEUE,
         type=ProgramTypes.Q,
-        start_time=datetime(2022, 8, 1, 0, 0),
-        end_time=datetime(2023, 1, 31, 0, 0),
+        start=datetime(2022, 8, 1, 0, 0) - Program.FUZZY_BOUNDARY,
+        end=datetime(2023, 1, 31, 0, 0) + Program.FUZZY_BOUNDARY,
         allocated_time=time_allocation,
         root_group=root_group,
         too_type=TooType.RAPID

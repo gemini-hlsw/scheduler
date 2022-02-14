@@ -1,504 +1,550 @@
-from zipfile import ZipFile
-import xml.etree.cElementTree as ElementTree
+from astropy.coordinates import Angle, SkyCoord
+from astropy.units.quantity import Quantity
+from astropy import units as u
+import numpy as np
+import time
+from tqdm import tqdm
+from typing import Dict, FrozenSet, Iterable, NoReturn
 
-from astropy.coordinates import SkyCoord
-from astropy.table import Table, vstack
+from api.abstract import ProgramProvider
+from common import sky_brightness
+import common.helpers as helpers
+from common.minimodel import *
+from common.scheduler import SchedulerComponent
+import common.vskyutil as vskyutil
 
-import os
-
-import collector.sb as sb
-from collector.vskyutil import nightevents
-from collector.xmlutils import *
-from collector.get_tadata import get_report, get_tas, sumtas_date
-from collector.program import Program
-
-from common.constants import FUZZY_BOUNDARY
-from common.helpers.helpers import round_min
-from common.structures.conditions import *
-from common.structures.elevation import ElevationConstraints, str_to_elevation_type, str_to_float
-from common.structures.site import Site, GEOGRAPHICAL_LOCATIONS, SITE_ZIP_EXTENSIONS, TIME_ZONES
-from common.structures.target import TargetTag, Target
-
-from common.structures.band import Band
-from common.structures.instrument import GMOSConfiguration, Instrument, WavelengthConfiguration
-from common.structures.obs_class import ObservationClass
-from greedy_max.schedule import Observation
-
-from typing import List, Dict, Optional, NoReturn, Iterable
-
-INFINITE_DURATION = 3. * 365. * 24. * u.h  # A date or duration to use for infinity (length of LP)
-INFINITE_REPEATS = 1000  # number to depict infinity for repeats in OT Timing windows calculations
-MIN_NIGHT_EVENT_TIME = Time('1980-01-01 00:00:00', format='iso', scale='utc')
-MAX_NIGHT_EVENT_TIME = Time('2200-01-01 00:00:00', format='iso', scale='utc')
+# The package marshmallow-dataclass extends the dataclasses.dataclass decorator by adding schema information.
+# We need this as a PyCharm warning workaround for dataclasses here.
+# Otherwise, we get that dataclass parameters are unexpected.
+from marshmallow_dataclass import add_schema
 
 
-def ot_timing_windows(starts: Iterable[int],
-                      durations: Iterable[int],
-                      repeats: Iterable[int],
-                      periods: Iterable[int]) -> List[Time]:
+# Type aliases for convenience.
+NightIndex = int
+
+
+# NOTE: this is an unfortunate workaround needed to get rid of warnings in PyCharm.
+@add_schema
+@dataclass
+class NightEvents:
     """
-    Turn OT timing constraints into more natural units
-    Inputs are lists
-    Match output from GetWindows
+    Represents night events for a given site for the period under consideration
+    with the specified time slot length granularity.
+
+    This data is maintained unless the time_grid or granularity are no longer
+    compatible with the original data.
     """
+    time_grid: Time
+    time_slot_length: TimeDelta
+    site: Site
+    midnight: Time
+    sunset: Time
+    sunrise: Time
+    twilight_evening_12: Time
+    twilight_morning_12: Time
+    moonrise: Time
+    moonset: Time
+    sun_moon_ang: Angle
+    moon_illumination_fraction: npt.NDArray[float]
 
-    timing_windows = []
+    def __post_init__(self):
+        """
+        Initialize remaining members that depend on the parameters.
+        """
+        # Calculate the length of each night at this site, i.e. time between twilights.
+        self.night_length = (self.twilight_morning_12 - self.twilight_evening_12).to_value('h') * u.h
 
-    for (start, duration, repeat, period) in zip(starts, durations, repeats, periods):
+        # Create the time arrays, which are arrays that represent the earliest starting
+        # time to the latest ending time, divided into segments of length time_slot_length.
+        # We want one entry per time slot grid, i.e. per night, measured in UTC, local, and local sidereal.
+        time_slot_length_days = self.time_slot_length.to(u.day).value
+        time_starts = helpers.round_minute(self.twilight_evening_12, up=True)
+        time_ends = helpers.round_minute(self.twilight_morning_12, up=True)
 
-        # The timestamps are in milliseconds
-        # The start time is unix time (milliseconds from 1970-01-01 00:00:00) UTC
-        # Time requires unix time in seconds
-        t0 = float(start) * u.ms
-        begin = Time(t0.to_value('s'), format='unix', scale='utc')
+        # n in an array with the number of time slots in a night.
+        n = ((time_ends.jd - time_starts.jd) / time_slot_length_days + 0.5).astype(int)
 
-        # duration = -1 means forever
-        duration = INFINITE_DURATION if duration == -1 else duration / 3600000. * u.h
+        # Most general times: can convert into others.
+        # TODO: This does not work as currently done:
+        # starts = Time(['2000-01-01', '2000-01-02'])
+        # ends = Time(['2000-01-01 12:00', '2000-01-02 12:00'])
+        # n = [3, 4]
+        # ts = [np.linspace(start.jd, end.jd, i) for start, end, i in zip(starts, ends, n)]
+        # -> [array([2451544.5 , 2451544.75, 2451545]), array([2451545.5, 2451545.66666667, 2451545.83333333, 2451546])]
+        # Time(ts, format='jd') generates exceptions.
+        # We can do:
+        # self.times = [Time(t, format='jd') for t in ts]
+        # This will give us arrays per night of the times.
+        # We can then wrap all of this in a Time object to get an array, but it seems
+        # more advantageous to keep them separate so we can do nightly lookups?
+        # self.times = Time(self.times)
+        # -> <Time object: scale='utc' format='jd' value=[array ts above in 1D]>
 
-        # repeat = -1 means infinite, and we require at least one repeat
-        repeat = INFINITE_REPEATS if repeat == -1 else max(1, repeat)
+        # NOTE: We want this as a Python list because the entries will have different lengths!
+        self.times = [Time(np.linspace(start.jd, end.jd - time_slot_length_days, i), format='jd')
+                      for start, end, i in zip(time_starts, time_ends, n)]
 
-        # period between repeats
-        period = period / 3600000. * u.h
+        # Pre-calculate the different times.
+        # We want these as Python lists because the entries will have different lengths.
+        # TODO: Thus, the np.vectorize approach will not work here, but we keep it here as documentation.
+        # self.utc_times = np.vectorize(lambda t: t.to_datetime('utc'))(self.times)
+        self.utc_times = [t.to_datetime('utc') for t in self.times]
+        self.local_times = [t.to_datetime(self.site.value.timezone) for t in self.times]
+        self.local_sidereal_times = [vskyutil.lpsidereal(t, self.site.value.location) for t in self.times]
 
-        for i in range(repeat):
-            window_start = begin + i * period
-            window_end = window_start + duration
-            timing_windows.append(Time([window_start, window_end]))
+        def altazparang(pos: SkyCoord):
+            """
+            Common code to invoke vskyutil.altazparang for a number of positions and then properly
+            combine the results into three numpy arrays, representing, indexed by time:
+            1. altitude
+            2. azimuth
+            3. parallactic angle
+            """
+            alt, az, par_ang = zip(
+                *[vskyutil.altazparang(p.dec, lst - p.ra, self.site.value.location.lat)
+                  for p, lst in zip(pos, self.local_sidereal_times)]
+            )
+            return np.array(alt), np.array(az), np.array(par_ang)
 
-    return timing_windows
+        # Calculate the parameters for the sun, joining together the positions.
+        self.sun_pos = SkyCoord([vskyutil.lpsun(t) for t in self.times])
+        self.sun_alt, self.sun_az, self.sun_par_ang = altazparang(self.sun_pos)
+
+        # TODO: Do we need both pos and dist? Depends on which sb algorithm we are using.
+        # TODO: lpmoon is faster than accumoon so it is preferable, and just produces a SkyCoord.
+        # TODO: If we need dist as well, we must use accumoon instead.
+        # self.moon_pos = [vskyutil.lpmoon(t, self.site.value.location) for t in self.times]
+
+        # accumoon produces a tuple, (SkyCoord, ndarray) indicating position and distance.
+        # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
+        # collect the SkyCoords into one tuple, and the ndarrays into another.
+        moon_pos, moon_dist = zip(*[vskyutil.accumoon(t, self.site.value.location) for t in self.times])
+        self.moon_pos = SkyCoord(moon_pos)
+        self.moon_dist = Quantity(moon_dist)
+        self.moon_alt, self.moon_az, self.moon_par_ang = altazparang(self.moon_pos)
 
 
-def select_obsclass(classes: List[str])-> str:
-    """Return the obsclass based on precedence
-
-        classes: list of observe classes from get_obs_class
+class NightEventsManager:
     """
-    obsclass = ''
-
-    # Precedence order for observation classes.
-    obsclass_order = ['SCIENCE', 'PROG_CAL', 'PARTNER_CAL', 'ACQ', 'ACQ_CAL']
-
-    # Set the obsclass for the entire observation based on obsclass precedence
-    for oclass in obsclass_order:
-        if oclass in classes:
-            obsclass = oclass
-            break
-
-    return obsclass
-
-
-class Collector:
-    # Counter to keep track of observations.
-    observation_num = 0
-
-    def __init__(self,
-                 sites: List[Site],
-                 semesters: List[str],
-                 program_types: List[str],
-                 obs_classes: List[str],
-                 time_range: Time = None,
-                 time_slot_length: Time = 1.0 * u.min):
-
-        self.sites = sites
-        self.semesters = semesters
-        self.program_types = program_types
-        self.obs_classes = obs_classes
-
-        self.time_range = time_range  # Time object: array for visibility start/stop dates.
-        self.time_grid = self._calculate_time_grid()  # Time object: array with entry for each day in time_range.
-        self.time_slot_length = time_slot_length  # Length of time steps.
-
-        self.observations = {site: [] for site in self.sites}
-        self.programs = {site: {} for site in self.sites}
-        self.obs_windows = {site: [] for site in self.sites}
-        self.scheduling_groups = {site: {} for site in self.sites}
-        self.night_events = {}
-
-    def load(self, path: str) -> NoReturn:
-        """Main collector method. It sets up the collecting process and parameters."""
-        for site in self.sites:
-            site_name = site.value
-
-            xmlselect = [site_name.upper() + '-' + sem + '-' + prog_type
-                        for sem in self.semesters for prog_type in self.program_types]
-
-            # TODO: We will have to modify in order for this code to be usable by other observatories.
-            zip_path = os.path.join(path,
-                                    f'{(self.time_range[0] - 1.0 * u.day).strftime("%Y%m%d")}{SITE_ZIP_EXTENSIONS[site]}')
-            logging.info(f'Retrieving program data from: {zip_path}.')
-
-            time_accounting = self._load_tas(path, site)
-            self._calculate_night_events(site)
-            self._readzip(zip_path, xmlselect, site, tas=time_accounting)
-            Collector.observation_num = 0
-
-            logging.info(f'Added {len(self.observations[site])} for {len(self.programs[site].keys())} programs') 
-
-    def _calculate_time_grid(self) -> Optional[Time]:
-        """Create the array with an entry for each day in the time_range, provided it exists."""
-        if self.time_range is not None:
-            # Add one day to make the time_range inclusive since using arange.
-            return Time(np.arange(self.time_range[0].jd, self.time_range[1].jd + 1.0, (1.0 * u.day).value), format='jd')
-        return None
-
-    def _calculate_night_events(self, site: Site) -> NoReturn:
-        """Load night events to collector"""
-        if self.time_grid is not None:
-            
-            tz = TIME_ZONES[site]
-            site_location = GEOGRAPHICAL_LOCATIONS[site]
-            mid, sset, srise, twi_eve18, twi_mor18, twi_eve12, twi_mor12, mrise, mset, smangs, moonillum = \
-                    nightevents(self.time_grid, site_location, tz, verbose=False)
-            night_length = (twi_mor12 - twi_eve12).to_value('h') * u.h
-            self.night_events[site] = {'midnight': mid, 'sunset': sset, 'sunrise': srise,
-                                       'twi_eve18': twi_eve18, 'twi_mor18': twi_mor18,
-                                       'twi_eve12': twi_eve12, 'twi_mor12': twi_mor12,
-                                       'night_length': night_length,
-                                       'moonrise': mrise, 'moonset': mset,
-                                       'sunmoonang': smangs, 'moonillum': moonillum}
-
-    def _load_tas(self, path: str, site: Site) -> Dict[str, Dict[str, float]]:
-        """Load Time Accounting Summary."""
-
-        date = self.time_range[0].strftime('%Y%m%d')
-        plan_path = os.path.join(path, 'nightplans', date)
-        if not os.path.exists(plan_path):
-            os.makedirs(plan_path)
-        logging.info(f"Using night plan directory: {plan_path}.")
-
-        tas = Table()
-        tadate = (self.time_range[0] - 1.0 * u.day).strftime('%Y%m%d')
-
-        for sem in self.semesters:
-            ta_file = f'tas_{site.name}_{sem}.txt'
-            ta_file_path = os.path.join(plan_path, ta_file)
-            if not os.path.exists(ta_file_path):
-                get_report(site, ta_file, plan_path)
-
-            tmp = get_tas(ta_file_path)
-            tas = vstack([tas, tmp])
-
-        return sumtas_date(tas, tadate)
+    Manages pre-calculation of NightEvents.
+    We only maintain one set of NightEvents for a site at any given time.
+    """
+    _night_events: ClassVar[Mapping[Site, NightEvents]]
 
     @staticmethod
-    def _instrument_setup(configuration: Dict[str, List[str]], instrument_name: str) -> Instrument:
-        """ Setup instrument configurations for each observation """
-        
-        disperser = None
-        camera = None
-        gmos_configuration = None
-        decker = None
-        mask = None
-        cross_disperser = None
-        acquisition_mirror = None
+    def get_night_events(time_grid: Time,
+                         time_slot_length: TimeDelta,
+                         site: Site) -> NightEvents:
+        """
+        Retrieve NightEvents. These may contain more information than requested,
+        but never less.
+        """
+        ne = NightEventsManager._night_events
 
-        central_wavelength = None
-        disperser_lambda = None
-        wavelength = None
-        
-        if 'GMOS' in instrument_name:
-            fpu_names = []
-            fpu_widths = []
-            if 'fpu' in configuration:
-                fpu_list = fpu_xml_translator(configuration['fpu'])
+        # Recalculate if we are not compatible.
+        if (site not in ne or
+                time_slot_length != ne[site].time_slot_length or
+                (len(ne[site].time_grid) == 1 and ne[site].time_grid[0] != time_grid[0]) or
+                (len(ne[site].time_grid) > 1 and
+                 (time_grid[0] < ne[site].time_grid[0] or time_grid[-1] > ne[site].time_grid[1]))):
+            # TODO: I am not convinced that this is the correct way to calculate the night events.
+            # TODO: This is how it is done in the old collector, so it should work? Needs more testing.
+            NightEventsManager._night_events[site] = NightEvents(
+                time_grid=time_grid,
+                time_slot_length=time_slot_length,
+                *vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
+            )
 
-                for fpu in fpu_list:
-                    fpu_names.append(fpu['name'])
-                    fpu_widths.append(fpu['width'])
-            if 'customSlitWidth' in configuration:
-                for custom_widths in configuration['customSlitWidth']:
-                    fpu_widths.append(custom_mask_width(custom_widths))
-            
-            fpu_custom_mask = configuration['fpuCustomMask'] if 'fpuCustomMask' in configuration else None
-            
-            gmos_configuration = GMOSConfiguration(fpu_names, fpu_widths, fpu_custom_mask)
+        return NightEventsManager._night_events[site]
 
-        if 'disperser' in configuration:
-            disperser = [d.split('_', 1)[0] for d in configuration['disperser']]
 
-        if 'NIRI' in instrument_name:
-            camera = configuration['camera'] if 'camera' in configuration else None
-            mask = configuration['mask'] if 'mask' in configuration else None
+@add_schema
+@dataclass
+class TargetInfo:
+    """
+    Target information for a given target at a given site for a given night.
 
-        if 'GNIRS' in instrument_name:
-            cross_disperser = configuration['crossDispersed'] if 'crossDispersed' in configuration else None
-            acquisition_mirror = configuration['acquisitionMirror'] if 'acquisitionMirror' in configuration else None
-            decker = configuration['decker'] if 'decker' in configuration else None
+    For a SiderealTarget, we have to account for proper motion, which is handled below.
 
-        if instrument_name in ['IGRINS', 'MAROON-X']:
-            disperser = ['XD']
-        
-        if 'Flamingos2' in instrument_name:
-            decker = configuration['decker'] if 'decker' in configuration else None
-        
-        if 'Alopeke' in instrument_name:
-            instrument_name = 'Alopeke'
-        
-        wavelength_config = None
-        if 'centralWavelength' in configuration:
-            central_wavelength = configuration['centralWavelength']
-        if 'disperserLambda' in configuration:
-            disperser_lambda = configuration['disperserLambda']
-        if 'wavelength' in configuration:
-            wavelength = configuration['wavelength']
+    For a NonsiderealTarget, we have to account for ephemeris data, which is handled in
+    the mini-model and is simply brought over by reference.
 
-        if central_wavelength is not None or disperser_lambda is not None or wavelength is not None:
-            wavelength_config = WavelengthConfiguration(central_wavelength, disperser_lambda, wavelength)
-        
-        return Instrument(instrument_name, disperser,
-                          gmos_configuration, camera,
-                          decker, acquisition_mirror,
-                          mask, cross_disperser,
-                          wavelength_config)
+    All the values here except:
+    * visibility_time
+    * rem_visibility_time
+    * rem_visibility_frac
+    are numpy arrays for each time step at the site for the night.
 
-    def _readzip(self,
-                 zipfile: str,
-                 xmlselect: List[str],
-                 site: Site,
-                 selection: List[ObservationStatus] = [ObservationStatus.ONGOING, ObservationStatus.READY],
-                 tas=None):
-        """ Populate Database from the zip file of an ODB backup """
+    Note that visibilities consists of the indices into the night split into time_slot_lengths
+    where the necessary conditions for visibility are met, i.e.
+    1. The sky brightness constraints are met.
+    2. The sun altitude is below -12 degrees.
+    3. The elevation constraints are met.
+    4. There is an available timing window.
 
-        with ZipFile(zipfile, 'r') as zip:
-            names = zip.namelist()
-            names.sort()
+    visibility_time is the time_slot_length multiplied by the size of the visibilities array,
+    giving the amount of time during the night that the target is visible for the observation.
 
-            for name in names:
-                if any(xs in name for xs in xmlselect):
-                    tree = ElementTree.fromstring(zip.read(name))
-                    program = tree.find('container')
-                    (active, complete) = check_status(program)
-                    if active and not complete:
-                        self._process_observation_data(site, program, selection,tas)
+    rem_visibility_time is the remaining visibility time for the target for the observation across
+    the rest of the time period.
 
-    def _process_observation_data(self,
-                                  site: Site,
-                                  program_data,
-                                  selection: List[ObservationStatus],
-                                  tas: Dict[str, Dict[str, float]]) -> NoReturn:
-        """Parse XML file to Observation objects and other data structures."""
-        program_id = get_program_id(program_data)
-        notes = get_program_notes(program_data)
-        program_mode = get_program_mode(program_data)
-        band = get_program_band(program_data)
-        award = get_program_awarded_time(program_data)
-        is_thesis = is_program_thesis(program_data)
-        too_status = get_too_status(program_data)
+    TODO: We also need a rem_visibility_frac, but I am not sure how to calculate the information
+    TODO: for the numerator of this fraction.
+    """
+    coord: SkyCoord
+    alt: Angle
+    az: Angle
+    par_ang: Angle
+    hourangle: Angle
+    airmass: npt.NDArray[float]
+    sky_brightness: npt.NDArray[SkyBackground]
+    visibility: npt.NDArray[int]
+    visibility_time: TimeDelta
+    rem_visibility_time: TimeDelta
+    rem_visibility_frac: float = 0.0
 
-        year = program_id[3:7]
-        next_year = str(int(year) + 1)
-        semester = program_id[7]
 
-        # Determine the program start and end times.
-        if 'FT' in program_id:
-            program_start, program_end = get_ft_program_dates(notes, semester, year, next_year)
-            # If still undefined, use the values from the previous observation
-            if program_start is None:
-                program_start = self.programs[site][-1].start
-                program_end = self.programs[site][-1].end
+@dataclass
+class Collector(SchedulerComponent):
+    """
+    At this point, we still work with AstroPy Time for efficiency.
+    We will switch do datetime and timedelta by the end of the Collector
+    so that the Scheduler relies on regular Python datetime and timedelta
+    objects instead.
+    """
+    start_time: Time
+    end_time: Time
+    time_slot_length: TimeDelta
+    sites: FrozenSet[Site]
+    semesters: FrozenSet[Semester]
+    program_types: FrozenSet[ProgramTypes]
+    obs_classes: FrozenSet[ObservationClass]
 
-        else:
-            beginning_semester_1 = Time(year + "-02-01 20:00:00", format='iso')
-            end_semester_1 = Time(year + "-08-01 20:00:00", format='iso')
-            beginning_semester_2 = Time(next_year + "-02-01 20:00:00", format='iso')
-            end_semester_2 = Time(next_year + "-08-01 20:00:00", format='iso')
+    # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
+    _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
 
-            # This covers 'Q', 'LP' and 'DD' program observations
-            # Note that Band 1 non-ToO programs are persistent for the following semester
-            if semester == 'A':
-                program_start = beginning_semester_1
-                program_end = beginning_semester_2 if band == Band.Band1 else end_semester_1
-            else:
-                program_start = end_semester_1
-                program_end = end_semester_2 if band == Band.Band1 else beginning_semester_2
+    # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
+    # This is a list of the programs as read in.
+    # We only want to read these in once unless the program_types change, which they should not.
+    _programs: ClassVar[Dict[ProgramID, Program]] = {}
 
-        # Flexible boundaries - could be type-dependent
-        program_start -= FUZZY_BOUNDARY * u.day
-        program_end += FUZZY_BOUNDARY * u.day
+    # The observations associated with the above programs, which we store by site.
+    _observations: ClassVar[Dict[Site, List[Observation]]] = {}
 
-        # Used time from Time Accounting Summary (tas) information
-        used = tas[program_id]['prgtime'] if tas and program_id in tas else 0.0 * u.hour
+    # Observation timing windows in an easier to use format.
+    # We look up timing window information by observation id.
+    _timing_windows: ClassVar[Dict[ObservationID, List[Time]]]
 
-        collected_program = Program(program_id,
-                                    program_mode,
-                                    band,
-                                    is_thesis,
-                                    award,
-                                    used,
-                                    too_status,
-                                    program_start,
-                                    program_end)
-        self.programs[site][program_id] = collected_program
+    # The target information is dependent on the:
+    # 1. TargetName
+    # 2. ObservationID (for the associated constraints and site)
+    # 4. NightIndex of interest
+    _target_info: ClassVar[Dict[(TargetName, ObservationID, NightIndex)], TargetInfo] = {}
 
-        for raw_observation, group in get_observation_info(program_data):
-            classes = list(dict.fromkeys(get_obs_class(raw_observation)))
-            # Precedence for choosing the obsclass from the classes list
-            obsclass = select_obsclass(classes)
-            status = get_obs_status(raw_observation)
-            obs_odb_id = get_obs_id(raw_observation)
+    # The default timeslot length currently used.
+    DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min
 
-            if (obsclass in self.obs_classes) and (status in selection):
-                logging.info(f'Adding {obs_odb_id}.')
+    # These are exclusive to the create_time_array.
+    _MIN_NIGHT_EVENT_TIME: ClassVar[Time] = Time('1980-01-01 00:00:00', format='iso', scale='utc')
 
-                total_time = get_obs_time(raw_observation)
+    # NOTE: This logs an ErfaWarning about dubious year. This is due to using a future date and not knowing
+    # how many leap seconds have happened: https://github.com/astropy/astropy/issues/5809
+    _MAX_NIGHT_EVENT_TIME: ClassVar[Time] = Time('2100-01-01 00:00:00', format='iso', scale='utc')
 
-                # Target Info
-                target_name, ra, dec = get_target_coords(raw_observation)
+    # The number of milliarcsecs in a degree, for proper motion calculation.
+    _MILLIARCSECS_PER_DEGREE: ClassVar[int] = 1296000000
 
-                if target_name is None:
-                    target_name = 'None'
-                if ra is None and dec is None:
-                    ra = 0.0
-                    dec = 0.0
-                target_coords = SkyCoord(ra, dec, frame='icrs', unit=(u.deg, u.deg))
-                target_mags = get_target_magnitudes(raw_observation, baseonly=True)
-                targets = get_targets(raw_observation)
-                target_designation = None
-                target_tag = None
-                if targets:
-                    for target in targets:                        
-                        try:
-                            target_group_name = target['group']['name']
-                            if target_group_name == 'Base':
-                                target_tag = TargetTag(target['tag'])
-                                if target_tag is not None and target_tag != TargetTag.Sidereal:
-                                    target_designation = target['num'] if target_tag is TargetTag.MajorBody else target['des']
-                        except:
-                            pass
+    # Information for Julian years.
+    _JULIAN_BASIS: ClassVar[float] = 2451545.0
+    _JULIAN_YEAR_LENGTH: ClassVar[float] = 365.25
 
-                target = Target(target_name, target_tag, target_mags, target_designation, target_coords)
-                # Observation Priority
-                priority = get_priority(raw_observation)
-                # Instrument Configuration
-                instrument_name = get_instrument(raw_observation)
-                instrument_config = get_inst_configs(raw_observation)
-                if 'name' in instrument_config:
-                    instrument_name = instrument_config['name'][0]
+    def __post_init__(self):
+        """
+        Initializes the internal data structures for the Collector and populates them.
+        """
+        # TODO: How to handle the time range?
+        # TODO: 1. Originally: Time, assume size 2
+        # TODO: 2. start Time and end Time, force size 1
+        # Check that the times are valid.
+        if self.start_time >= self.end_time:
+            msg = f'Start time ({self.start_time}) must be earlier than end time ({self.end_time}).'
+            logging.error(msg)
+            raise ValueError(msg)
 
-                # ToO status
-                too_status = get_obs_too_status(raw_observation, self.programs[site][program_id].too_status)
+        # Set up the time grid for the period under consideration: this is an astropy Time
+        # object from start_time to end_time inclusive, with one entry per day.
+        # Note that the format is in jdate.
+        self.time_grid = Time(np.arange(self.start_time.jd, self.end_time.jd + 1.0, (1.0 * u.day).value), format='jd')
 
-                # Sky Conditions
-                conditions = get_conditions(raw_observation, label=False)
-
-                if conditions is None or not conditions:
-                    sky_cond = SkyConditions()
-                else:
-                    parse_conditions = conditions_parser(conditions)                    
-                    sky_cond = SkyConditions(*parse_conditions)
-
-                # Elevation constraints        
-                elevation_type, min_elevation, max_elevation = get_elevation(raw_observation)
-                elevation_type = str_to_elevation_type(elevation_type)
-                min_elevation, max_elevation = str_to_float(min_elevation), str_to_float(max_elevation)
-                elevation_constraints = ElevationConstraints(elevation_type, min_elevation, max_elevation)
-
-                # Charged observation time
-                # Used time from Time Accounting Summary (tas) information
-                obs_time = 0
-                if tas and program_id in tas and obs_odb_id in tas[program_id]:
-                    obs_time = max(0, tas[program_id][obs_odb_id]['prgtime'].value)
-
-                # Total observation time
-                # for IGRINS, update tot_time to take telluric into account if there is time remaining
-                calibration_time = 0
-                if 'IGRINS' in instrument_name.upper() and total_time.total_seconds() / 3600. - obs_time > 0.0:
-                    calibration_time = 10 / 60  # fractional hour
-
-                inst_config = Collector._instrument_setup(instrument_config, instrument_name)
-
-                start, duration, repeat, period = get_windows(raw_observation)
-                # This makes a list of timing windows between progstart and progend
-                timing_windows = ot_timing_windows(start, duration, repeat, period)
-
-                progstart = collected_program.start
-                progend = collected_program.end
-
-                windows = []
-                if len(timing_windows) == 0:
-                    windows.append(Time([progstart, progend]))
-                else:
-                    for ii in range(len(timing_windows)):
-                        if (timing_windows[ii][0] <= progend) and \
-                                (timing_windows[ii][1] >= progstart):
-                            wstart = max(progstart, timing_windows[ii][0])
-                            wend = min(progend, timing_windows[ii][1])
-                        else:
-                            wstart = progstart
-                            wend = progstart
-                        # Timing window starts at the beginning of the sequence, the slew can be outside the window
-                        # Therefore, subtract acquisition time from start of timing window
-                        wstart -= self.observations[site][-1].acquisition()
-                        windows.append(Time([round_min(wstart), round_min(wend)]))
-                self.obs_windows[site].append(windows)
-
-                # Observation number in program
-                collected_program.add_observation(self.observation_num)
-
-                # Check if group exists, add if not
-                if group['key'] not in self.scheduling_groups[site].keys():
-                    self.scheduling_groups[site][group['key']] = {'name': group['name'], 'idx': []}
-                    collected_program.add_group(group['key'])
-                self.scheduling_groups[site][group['key']]['idx'].append(Collector.observation_num)
-
-                # Get Horizons coordinates for nonsidereal targets (write file for future use)
-                # if target_tag in ['asteroid', 'comet', 'major-body']: NOTE: This does not work, and it should!
-
-                #self.priority.append(priority)
-
-                #logging.debug([oc  for oc in classes if oc != 'ACQ'][0] )
-                self.observations[site].append(Observation(Collector.observation_num,
-                                                     obs_odb_id,
-                                                     band,
-                                                     ObservationClass(obsclass.lower()),
-                                                     obs_time,
-                                                     total_time.total_seconds() / 3600. + calibration_time,
-                                                     inst_config,
-                                                     sky_cond,
-                                                     elevation_constraints,
-                                                     target,
-                                                     status,
-                                                     too_status))
-                Collector.observation_num += 1
-
-    def create_time_array(self):
-
-        timesarr = []
-
-        for i in range(len(self.time_grid)):
-            tmin = min([MAX_NIGHT_EVENT_TIME] + [self.night_events[site]['twi_eve12'][i] for site in self.sites])
-            tmax = max([MIN_NIGHT_EVENT_TIME] + [self.night_events[site]['twi_mor12'][i] for site in self.sites])
-
-            tstart = round_min(tmin, up=True)
-            tend = round_min(tmax, up=False)
-            n = np.int((tend.jd - tstart.jd) / self.time_slot_length.to(u.day).value + 0.5)
-            times = Time(np.linspace(tstart.jd, tend.jd - self.time_slot_length.to(u.day).value, n), format='jd')
-            timesarr.append(times)
-
-        return timesarr
-
-    # TODO: This could be an static method but it should be some internal process or API call to ENV.
-    # TODO: As it will need to possibly modify information in the Collector at a future point, we leave it as
-    # TODO: non-static for now.
-    def get_actual_conditions(self) -> Conditions:
-        time_blocks = [Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')]
-
-        # TODO: Use of these keys in the dictionary is asking for typo trouble.
-        # TODO: We should have concrete types, like an enum.
-        # TODO: Since this is limited to here, I'm not going to change this yet.
-        variants = {
-            # 'IQ20 CC50': {'iq': IQ.IQ20, 'cc': CC.CC50, 'wv': WV.WVANY, 'wdir': -1, 'ws': -1},
-            'IQ70 CC50': {'iq': IQ.IQ70, 'cc': CC.CC50, 'wv': WV.WVANY, 'wdir': 330. * u.deg, 'wsep': 40. * u.deg,
-                          'wspd': 5.0 * u.m / u.s, 'tb': time_blocks},
-            # 'IQ70 CC70': {'iq': IQ.IQ70, 'cc': CC.CC70, 'wv': WV.WVANY, 'wdir': -1, 'wsep': 30.*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': time_blocks},
-            # 'IQ85 CC50': {'iq': IQ.IQ85, 'cc': CC.CC50, 'wv': WV.WVANY, 'wdir': -1, 'wsep': 30.0*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': time_blocks},
-            # 'IQ85 CC70': {'iq': IQ.IQ85, 'cc': CC.CC70, 'wv': WV.WVANY, 'wdir': -1, 'wsep': 30.0*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': time_blocks},
-            # 'IQ85 CC80': {'iq': IQ.IQANY, 'cc': CC.CC80, 'wv': WV.WVANY, 'wdir': -1, 'wsep': 30.0*u.deg, 'wspd': 0.0*u.m/u.s, 'tb': []}
+        # Create the night events, which contain the data for all given nights by site.
+        # This may retrigger a calculation of the night events for one or more sites.
+        self.night_events = {
+            site: self._night_events_manager.get_night_events(self.time_grid, self.time_slot_length, site)
+            for site in self.sites
         }
 
-        selected_variant = variants['IQ70 CC50']
+    def _process_timing_windows(self, prog: Program, obs: Observation) -> NoReturn:
+        """
+        Given an Observation, convert the TimingWindow information in it to a simpler format
+        to verify by converting each TimingWindow representation to a collection of Time frames
+        based on the start, duration, repeat, and period.
 
-        sky = SkyConditions(SB.SBANY, selected_variant['cc'], selected_variant['iq'], selected_variant['wv'])
-        wind = WindConditions(selected_variant['wsep'], selected_variant['wspd'], selected_variant['wdir'], time_blocks)
-        return Conditions(sky, wind)
+        If no timing windows are given, then create one large timing window for the entire program.
+
+        TODO: It would be easy to convert this from astropy to simply use datetime.
+        TODO: How would this affect efficiency?
+        """
+        if len(obs.constraints.timing_windows) == 0:
+            # Create a timing window for the entirety of the program.
+            windows = [Time([prog.start, prog.end])]
+        else:
+            windows = []
+            for tw in obs.constraints.timing_windows:
+                t0 = time.mktime(tw.start.utctimetuple()) * 1000 * u.ms
+                begin = Time(t0.to_value('s'), format='unix', scale='utc')
+                duration = tw.duration / 3600000.0 * u.h
+                repeat = max(1, tw.repeat)
+                period = tw.period.total_seconds() / 3600.0 * u.h if tw.period is not None else 0.0 * u.h
+                windows.extend([Time([begin + i * period, begin + i * period + duration]) for i in range(repeat)])
+
+        self._timing_windows[obs.id] = windows
+
+    def _calculate_target_info(self,
+                               obs: Observation,
+                               target: Target,
+                               use_sb2: bool = True) -> NoReturn:
+        """
+        For a given site, calculate the information for a target for all the nights in
+        the time grid and store this in the _target_information.
+
+        Some of this information may be repetitive as, e.g. the RA and dec of a target should not
+        depend on the site, so sites whose twilights overlap with have this information repeated.
+
+        Finally, this method can calculate the total amount of time that, for the observation,
+        the target is visible, and the visibility fraction for the target as a ratio of the amount of
+        time remaining for the observation to the total visibility time for the target from a night through
+        to the end of the period.
+        """
+        night_events = Collector._night_events_manager.get_night_events(self.time_grid, self.time_slot_length, obs.site)
+
+        # Iterate over the time grid, checking to see if there is already a TargetInfo
+        # for the target for the given day at the given site.
+        # If so, we skip.
+        # If not, we execute the calculations and store.
+        # In order to properly calculate the:
+        # * rem_visibility_time: total time a target is visible from the current night to the end of the period
+        # * rem_visibility_frac: fraction of remaining observation length to rem_visibility_time
+        # we want to process the nights BACKWARDS so that we can sum up the visibility time.
+        rem_visibility_time = 0.0 * u.h
+        for ridx, jday in enumerate(reversed(self.time_grid)):
+            # Convert to the actual
+            idx = len(self.time_grid) - ridx - 1
+            if (target, obs.id, idx) not in Collector._target_info:
+                if isinstance(target, SiderealTarget):
+                    pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
+                    pm_dec = target.pm_dec / Collector._MILLIARCSECS_PER_DEGREE
+
+                    # Calculate the new coordinates for the night.
+                    # For each entry in time, we want to calculate the offset in epoch-years.
+                    time_offsets = np.array([target.epoch +
+                                             (t - Collector._JULIAN_BASIS) / Collector._JULIAN_YEAR_LENGTH
+                                             for t in night_events.times[idx]])
+
+                    # Calculate the ra and dec for each target and convert to decimal degrees.
+                    # TODO: Verify, but we should already be in decimal degrees here.
+                    # TODO: Leaving this in for now as documentation on SkyCoord should it be needed.
+                    coords = SkyCoord((target.ra + pm_ra * time_offsets) * u.deg,
+                                      (target.dec + pm_dec * time_offsets) * u.deg)
+                    # ra = coords.ra.value
+                    # dec = coords.dec.value
+                    # ra = target.ra + pm_ra * time_offsets
+                    # dec = target.dec + pm_dec * time_offsets
+
+                elif isinstance(target, NonsiderealTarget):
+                    coords = SkyCoord(target.ra * u.deg, target.dec * u.deg)
+                    # ra = target.ra
+                    # dec = target.dec
+
+                else:
+                    msg = f'Invalid target: {target}'
+                    logging.error(msg)
+                    raise ValueError(msg)
+
+                # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
+                lst = night_events.local_sidereal_times[idx]
+                hourangle = lst - coords.ra
+                hourangle.wrap_at(12.0 * u.hour, inplace=True)
+                alt, az, par_ang = vskyutil.altazparang(coords.dec, hourangle, obs.site.value.location.lat)
+                airmass = vskyutil.true_airmass(alt)
+
+                targ_prop = airmass if obs.constraints.elevation_type is ElevationType.AIRMASS else hourangle.value
+
+                # Sky brightness.
+                sb = np.full([len(night_events.times)], SkyBackground.SBANY)
+
+                if obs.constraints.conditions.sb < SkyBackground.SBANY:
+                    targ_moon_ang = coords.separation(night_events.moon_pos)
+
+                    # Use the new sky brightness calculator.
+                    if use_sb2:
+                        brightness = sky_brightness.calculate_sky_brightness(
+                            180.0 * u.deg - night_events.sun_moon_ang,
+                            targ_moon_ang,
+                            night_events.moon_dist,
+                            90.0 * u.deg - night_events.moon_alt,
+                            90.0 * u.deg - alt,
+                            90.0 * u.deg - night_events.sun_alt
+                        )
+
+                    # Use the QPT sky brightness calculator.
+                    else:
+                        brightness = sky_brightness.calculate_sky_brightness_qpt(
+                            180.0 * u.deg - night_events.sun_moon_ang,
+                            targ_moon_ang,
+                            90.0 * u.deg - night_events.moon_alt,
+                            90.0 * u.deg - alt,
+                            90.0 * u.deg - night_events.sun_alt
+                        )
+
+                    sb = sky_brightness.convert_to_sky_background(brightness)
+
+                # Calculate the time slots for the night in which there is visibility.
+                visibility = np.array([], dtype=int)
+
+                # Select where sky brightness and elevation constraints are met.
+                # np.where used here acts as np.asarray(condition).nonzero(), i.e. it returns the indices
+                # where the condition holds in the array specified.
+                # np.where used in this way does return a tuple of size two, hence we have to take
+                # the first element. The general use of np.where is considerably different.
+                isb = np.where(np.logical_and(sb <= obs.constraints.conditions.sb,
+                                              np.logical_and(night_events.sun_alt <= -12 * u.deg,
+                                                             np.logical_and(
+                                                                 targ_prop >= obs.constraints.elevation_min,
+                                                                 targ_prop <= obs.constraints.elevation_max
+                                                             ))))[0]
+
+                # Apply timing window constraints.
+                for timing in self._timing_windows[obs.id]:
+                    itw = np.where(np.logical_and(night_events.times[isb] >= timing[0],
+                                                  night_events.times[isb] <= timing[1]))[0]
+                    visibility = np.append(visibility, isb[itw])
+
+                # TODO: Guide star availability for moving targets anhelp(d parallactic angle modes.
+                # TODO: Unsure of how to calculate this.
+
+                # Calculate the visibility time, the ongoing summed remaining visibility time, and
+                # the remaining visibility fraction.
+                visibility_time = len(visibility) * self.time_slot_length
+                rem_visibility_time += visibility_time
+
+                # TODO: Unsure of how to calculate the visibility fraction.
+                # TODO: Where do we get the observation time information for the numerator?
+                # TODO: Leave this out for now until we know.
+
+                Collector._target_info[(target.name, obs.id, idx)] = TargetInfo(
+                    coords=coords,
+                    alt=alt,
+                    az=az,
+                    par_ang=par_ang,
+                    hourangle=hourangle,
+                    airmass=airmass,
+                    sky_brightness=sb,
+                    visibility=visibility,
+                    visibility_time=visibility_time,
+                    rem_visibility_time=rem_visibility_time
+                )
+
+                logging.info(f'Done calculating visibility for observation {obs.id}.')
+
+    # TODO: This should also be precomputed: it is not clear how it will change if
+    # TODO: we get a mutation notification from GPP, which may happen with execution time or
+    # TODO: time allocation.
+    def load_programs(self, program_provider: ProgramProvider, data: Iterable[dict]) -> NoReturn:
+        """
+        Load the programs provided as JSON into the Collector.
+
+        The program_provider should be a concrete implementation of the API to read in
+        programs from JSON files.
+
+        The json_data comprises the program inputs as an iterable object per site. We use iterable
+        since the amount of data here might be enormous, and we do not want to store it all
+        in memory at once.
+        """
+        # Purge the old programs and observations.
+        self._programs = {}
+        self._timing_windows = {}
+
+        # As we read, keep track of the observations per site.
+        observations: Dict[Site, List[Observation]] = {site: [] for site in self.sites}
+
+        # Read in the programs.
+        # Count the number of parse failures.
+        bad_program_count = 0
+        for json_program in tqdm(data):
+            try:
+                if len(json_program.keys()) != 1:
+                    msg = f'JSON programs should only have one top-level key: {" ".join(json_program.keys())}'
+                    logging.error(msg)
+                    raise ValueError(msg)
+
+                # Extract the data from the JSON program. We do not need the top label.
+                data = next(iter(json_program.values()))
+                program = program_provider.parse_program(data)
+
+                # If program not in specified semester, then skip.
+                if program.semester is None or program.semester not in self.semesters:
+                    logging.warning(f'Program {program.id} not in a specified semester (skipping).')
+                    continue
+
+                # If a program ID is repeated, warn and overwrite.
+                if program.id in self._programs.keys():
+                    logging.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
+                self._programs[program.id] = program
+
+                # Collect the observations in the program and sort them by site.
+                # Filter out here any observation classes that have not been specified to the Collector.
+                for obs in program.observations():
+                    if obs.obs_class in self.obs_classes:
+                        observations[obs.site].append(obs)
+                    else:
+                        logging.warning(f'Observation {obs.id} not in a specified observation class (skipping).')
+                        continue
+
+                for site, obs in tqdm(((s, o) for s in self.sites for o in observations[s]), leave=False):
+                    # Process the timing window information per observation.
+                    self._process_timing_windows(program, obs)
+
+                    # Process the base over observations to calculate the target information and
+                    # target visibility information.
+                    base = next(filter(lambda t: t.type == TargetType.BASE, obs.targets), None)
+                    if base is not None:
+                        self._calculate_target_info(obs, base)
+
+                    logging.info()
+
+            except ValueError as e:
+                bad_program_count += 1
+                logging.warning(f'Could not parse program: {e}')
+
+        if bad_program_count:
+            logging.error(f'Could not parse {bad_program_count} programs.')
+
+    def available_resources(self) -> Set[Resource]:
+        """
+        Return a set of available resources for the period under consideration.
+        """
+        # TODO: Add more.
+        return {
+            Resource(id='PWFS1'),
+            Resource(id='PWFS2'),
+            Resource(id='GMOS OIWFS'),
+            Resource(id='GMOSN')
+        }
+
+    def get_actual_conditions(self) -> Conditions:
+        return Conditions(
+            CloudCover.CC50,
+            ImageQuality.IQ70,
+            SkyBackground.SB20,
+            WaterVapor.WVANY
+        )

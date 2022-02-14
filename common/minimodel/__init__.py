@@ -45,7 +45,7 @@ class SiteInformation:
 
         timezone_info = self.location.info.meta['timezone']
         try:
-            self.time_zone = timezone(timezone_info)
+            self.timezone = timezone(timezone_info)
         except UnknownTimeZoneError:
             logging.error(f'Unknown time zone lookup: {timezone_info}')
 
@@ -173,6 +173,7 @@ class TimingWindow:
     repeat: int
     period: Optional[timedelta]
 
+    INFINITE_DURATION_FLAG: ClassVar[int] = -1
     INFINITE_DURATION: ClassVar[int] = timedelta.max
     FOREVER_REPEATING: ClassVar[int] = -1
     NON_REPEATING: ClassVar[int] = 0
@@ -290,26 +291,26 @@ class Constraints:
         """
         self.ot_timing_windows: List[Time] = []
 
-        # Collect the timing window information as arrays from the TimingWindow list.
-        starts = (tw.start for tw in self.timing_windows)
-        durations = (tw.duration for tw in self.timing_windows)
-        repeats = (tw.repeat for tw in self.timing_windows)
-        periods = (tw.period for tw in self.timing_windows)
-
-        for (s, d, r, p) in zip(starts, durations, repeats, periods):
-            start = Time(s)
-            duration = TimeDelta.max if d == -1 else TimeDelta(d)
-            repeat = TimingWindow.OCS_INFINITE_REPEATS if r == TimingWindow.FOREVER_REPEATING else max(1, r)
-            period = None if p is None else TimeDelta(p)
-
-            for i in range(repeat):
-                window_start = start if period is None else start + i * period
-                window_end = window_start + duration
-
-                # TODO: This does not seem correct.
-                # TODO: We should be inserting TimingWindow into this list, and not these
-                # TODO: AstroPy Time objects, which are unexpected and cannot be indexed.
-                self.ot_timing_windows.append(Time([window_start, window_end]))
+        # # Collect the timing window information as arrays from the TimingWindow list.
+        # starts = (tw.start for tw in self.timing_windows)
+        # durations = (tw.duration for tw in self.timing_windows)
+        # repeats = (tw.repeat for tw in self.timing_windows)
+        # periods = (tw.period for tw in self.timing_windows)
+        #
+        # for (s, d, r, p) in zip(starts, durations, repeats, periods):
+        #     start = Time(s)
+        #     duration = TimeDelta.max if d == -1 else TimeDelta(d)
+        #     repeat = TimingWindow.OCS_INFINITE_REPEATS if r == TimingWindow.FOREVER_REPEATING else max(1, r)
+        #     period = None if p is None else TimeDelta(p)
+        #
+        #     for i in range(repeat):
+        #         window_start = start if period is None else start + i * period
+        #         window_end = window_start + duration
+        #
+        #         # TODO: This does not seem correct.
+        #         # TODO: We should be inserting TimingWindow into this list, and not these
+        #         # TODO: AstroPy Time objects, which are unexpected and cannot be indexed.
+        #         self.ot_timing_windows.append(Time([window_start, window_end]))
 
 
 class MagnitudeSystem(Enum):
@@ -407,12 +408,16 @@ class TargetTag(Enum):
     MAJOR_BODY = auto()
 
 
+# Type alias for a target name.
+TargetName = str
+
+
 @dataclass
 class Target(ABC):
     """
     Basic target information.
     """
-    name: str
+    name: TargetName
     magnitudes: Set[Magnitude]
     type: TargetType
 
@@ -471,7 +476,6 @@ class Resource:
     performed at a given time based on the resource availability.
     """
     id: str
-    name: str
     description: Optional[str] = None
 
     def __eq__(self, other):
@@ -496,7 +500,7 @@ class Atom:
     """
     Atom information, where an atom is the smallest schedulable set of steps
     such that useful science can be obtained from performing them.
-    The wavelength must be specified in microns.
+    Wavelengths must be specified in microns.
     """
     id: int
     exec_time: timedelta
@@ -506,7 +510,7 @@ class Atom:
     qa_state: QAState
     guide_state: bool
     resources: Set[Resource]
-    wavelength: float
+    wavelength: Set[float]
 
 
 class ObservationStatus(IntEnum):
@@ -577,6 +581,10 @@ class ObservationClass(IntEnum):
     DAYCAL = auto()
 
 
+# Alias for observation identifier.
+ObservationID = str
+
+
 @dataclass
 class Observation:
     """
@@ -589,7 +597,7 @@ class Observation:
       with the base being in the first position
     * guiding is a map between guide probe resources and their targets
     """
-    id: str
+    id: ObservationID
     internal_id: str
     order: int
     title: str
@@ -618,6 +626,7 @@ class Observation:
 
     # Some observations do not have constraints, e.g. GN-208A-FT-103-6.
     constraints: Optional[Constraints]
+
     too_type: Optional[TooType] = None
 
     def total_used(self) -> timedelta:
@@ -743,6 +752,14 @@ class Group(ABC):
         """
         ...
 
+    @abstractmethod
+    def observations(self) -> List[Observation]:
+        """
+        This method should be used to return all the sets of Observations contained
+        in this group and its descendents.
+        """
+        ...
+
 
 @dataclass
 class NodeGroup(Group, ABC):
@@ -773,6 +790,9 @@ class NodeGroup(Group, ABC):
 
     def constraints(self) -> Set[Constraints]:
         return {cs for c in self.children for cs in c.constraints()}
+
+    def observations(self) -> List[Observation]:
+        return [self.children] if isinstance(self.children, Observation) else []
 
     def __len__(self):
         return 1 if isinstance(self.children, Observation) else len(self.children)
@@ -890,6 +910,10 @@ class ProgramTypes(Enum):
     SV = ProgramType('SV', 'System Verification')
 
 
+# Type alias for program ID.
+ProgramID = str
+
+
 @dataclass(unsafe_hash=True)
 class Program:
     """
@@ -898,14 +922,16 @@ class Program:
     The FUZZY_BOUNDARY is a constant that allows for a fuzzy boundary for a program's
     start and end times.
     """
-    id: str
+    id: ProgramID
     internal_id: str
+    # Some programs do not have a typical name and thus cannot be associated with a semester.
+    semester: Optional[Semester]
     band: Band
     thesis: bool
     mode: ProgramMode
-    type: ProgramTypes
-    start_time: datetime
-    end_time: datetime
+    type: Optional[ProgramTypes]
+    start: datetime
+    end: datetime
     allocated_time: Set[TimeAllocation]
     root_group: AndGroup
     too_type: Optional[TooType] = None
@@ -929,6 +955,9 @@ class Program:
 
     def total_used(self) -> timedelta:
         return sum(t.total_used() for t in self.allocated_time)
+
+    def observations(self) -> List[Observation]:
+        return self.root_group.observations()
 
 
 @dataclass(frozen=True)

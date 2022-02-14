@@ -1,11 +1,41 @@
 import calendar
 import numpy as np
 from typing import NoReturn, Tuple
+import zipfile
+import json
 
 from api.abstract import ProgramProvider
-from common.helpers.helpers import str_to_bool
+from common.helpers import str_to_bool
 from common.minimodel import *
 from common.timeutils import sex2dec
+
+
+def read_ocs_zipfile(zip_file: str) -> Mapping[Site, List[dict]]:
+    """
+    Since for OCS we will use a collection of extracted ODB data, this is a
+    convenience method to sort that data into the requisite map from site to
+    a list of the JSON program data.
+    """
+    programs: dict[Site, List[dict]] = {}
+
+    with zipfile.ZipFile(zip_file, 'r') as zf:
+        filenames = zf.namelist()
+        for filename in filenames:
+            filename_parts = filename.split('-')
+            if filename_parts:
+                try:
+                    site = Site(filename_parts[0])
+                except KeyError:
+                    msg = f'Cannot extract site information from {filename}: ignoring.'
+                    logging.warning(msg)
+
+            filedata = zf.read(filename)
+            with json.loads(filedata) as data:
+                programs.setdefault(site, [])
+                programs[site].append(data)
+                logging.info(f'Added program {filename}.')
+
+    return programs
 
 
 class OcsProgramProvider(ProgramProvider):
@@ -225,15 +255,30 @@ class OcsProgramProvider(ProgramProvider):
             start_date = datetime(year, 8, 1)
             end_date = datetime(next_year, 1, 31)
 
-        return start_date, end_date
+        # Account for the flexible boundary on programs.
+        return start_date - Program.FUZZY_BOUNDARY, end_date + Program.FUZZY_BOUNDARY
 
     @staticmethod
     def parse_timing_window(data: dict) -> TimingWindow:
-        start = datetime.fromtimestamp(data[OcsProgramProvider._TimingWindowKeys.START] / 1000)
-        duration = timedelta(milliseconds=data[OcsProgramProvider._TimingWindowKeys.DURATION])
-        repeat = data[OcsProgramProvider._TimingWindowKeys.REPEAT]
-        period = timedelta(milliseconds=data[OcsProgramProvider._TimingWindowKeys.PERIOD]) \
-            if repeat != TimingWindow.NON_REPEATING else None
+        start = datetime.fromtimestamp(data[OcsProgramProvider._TimingWindowKeys.START] / 1000.0)
+
+        duration_info = data[OcsProgramProvider._TimingWindowKeys.DURATION]
+        if duration_info == TimingWindow.INFINITE_DURATION_FLAG:
+            duration = TimingWindow.INFINITE_DURATION
+        else:
+            duration = timedelta(milliseconds=duration_info)
+
+        repeat_info = data[OcsProgramProvider._TimingWindowKeys.REPEAT]
+        if repeat_info == TimingWindow.FOREVER_REPEATING:
+            repeat = TimingWindow.OCS_INFINITE_REPEATS
+        else:
+            repeat = repeat_info
+
+        if repeat == TimingWindow.NON_REPEATING:
+            period = None
+        else:
+            period = timedelta(milliseconds=data[OcsProgramProvider._TimingWindowKeys.PERIOD])
+
         return TimingWindow(
             start=start,
             duration=duration,
@@ -363,9 +408,7 @@ class OcsProgramProvider(ProgramProvider):
             next_atom = False
             obs_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
 
-            # TODO: Should the resource ID and name be the same?
-            instrument = Resource(step[OcsProgramProvider._AtomKeys.INSTRUMENT],
-                                  step[OcsProgramProvider._AtomKeys.INSTRUMENT])
+            instrument = Resource(step[OcsProgramProvider._AtomKeys.INSTRUMENT])
 
             # TODO: Check if this is the right wavelength.
             wavelength = float(step[OcsProgramProvider._AtomKeys.WAVELENGTH])
@@ -519,7 +562,7 @@ class OcsProgramProvider(ProgramProvider):
             if guide_group is not None:
                 for guide_data in guide_group[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE]:
                     guider = guide_data[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE_KEY]
-                    resource = Resource(guider, guider, None)
+                    resource = Resource(id=guider)
                     target = OcsProgramProvider.parse_target(guide_data[OcsProgramProvider._TargetEnvKeys.TARGET])
                     guiding[resource] = target
                     targets.append(target)
@@ -666,15 +709,31 @@ class OcsProgramProvider(ProgramProvider):
         """
         program_id = data[OcsProgramProvider._ProgramKeys.ID]
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
+
+        # Extract the semester and program type, if it can be inferred from the filename.
+        # TODO: The program type may be obtainable via the ODB. Should we extract it?
+        semester = None
+        program_type = None
+        try:
+            id_split = program_id.split('-')
+            semester_year = int(id_split[1][:4])
+            semester_half = SemesterHalf[id_split[1][4]]
+            semester = Semester(year=semester_year, half=semester_half)
+            program_type = ProgramTypes[id_split[2]]
+        except (IndexError, ValueError) as e:
+            logging.warning(f'Program ID {program_id} cannot be parsed.')
+
         band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
         thesis = data[OcsProgramProvider._ProgramKeys.THESIS]
         program_mode = ProgramMode[data[OcsProgramProvider._ProgramKeys.MODE].upper()]
-        program_type = ProgramTypes[program_id.split('-')[2]]
 
         # Get all the SCHEDNOTE and PROGRAMNOTE titles as they may contain FT data.
         note_titles = [data[key][OcsProgramProvider._NoteKeys.TITLE] for key in data.keys()
                        if key.startswith(OcsProgramProvider._ProgramKeys.SCHED_NOTE)
                        or key.startswith(OcsProgramProvider._ProgramKeys.PROGRAM_NOTE)]
+
+        # Determine the start and end date of the program.
+        # NOTE that this includes the fuzzy boundaries.
         start_date, end_date = OcsProgramProvider._get_program_dates(program_type, program_id, note_titles)
 
         # Parse the time accounting allocation data.
@@ -698,12 +757,13 @@ class OcsProgramProvider(ProgramProvider):
         return Program(
             id=program_id,
             internal_id=internal_id,
+            semester=semester,
             band=band,
             thesis=thesis,
             mode=program_mode,
             type=program_type,
-            start_time=start_date,
-            end_time=end_date,
+            start=start_date,
+            end=end_date,
             allocated_time=time_act_alloc,
             root_group=root_group,
             too_type=too_type)

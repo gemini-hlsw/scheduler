@@ -1,5 +1,5 @@
-from collector import *
-from selector import *
+from old_collector import *
+from old_selector import *
 from resource_mock import Resource
 
 import sys
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     sites = [Site.GS, Site.GN]
     semesters = ['2018B', '2019A']
 
-    path = os.path.join('collector', 'data')
+    path = os.path.join('old_collector', 'data')
     collector = Collector(sites, semesters, prog_types, obs_classes, time_range=time_range)
     collector.load(path)
 

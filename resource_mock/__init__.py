@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Dict, NoReturn
 
 from common.structures.site import Site, SITE_ABBREVIATION
-from common.helpers.helpers import str_to_bool
+from common.helpers import str_to_bool
 
 from resource_mock.resources import Resources
 
