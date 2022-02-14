@@ -597,4 +597,3 @@ def test_ocs_api():
     program1 = get_api_program()
     program2 = create_minimodel_program()
     assert program1 == program2
-
