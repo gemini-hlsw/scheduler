@@ -662,6 +662,7 @@ class Observation:
     def wavelengths(self) -> Set[float]:
         """
         The set of wavelengths included in the sequence.
+        Wavelengths are specified in microns.
         """
         return {w for c in self.sequence for w in c.wavelength}
 
