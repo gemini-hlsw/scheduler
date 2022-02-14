@@ -496,21 +496,6 @@ class QAState(IntEnum):
 
 
 @dataclass
-class InstConfig:
-    """
-    Atom instrument configuration.
-    All of these are Resource objects, but divided into categories for convenience.
-    Wavelengths are the exception, and must be specified in microns.
-    TODO: Is this necessary, or can we just have a Set[Resource] in Atom?
-    """
-    inst: Resource
-    fpu: Set[Resource]
-    disperser: Set[Resource]
-    filter: Set[Resource]
-    wavelength: Set[float]
-
-
-@dataclass
 class Atom:
     """
     Atom information, where an atom is the smallest schedulable set of steps
@@ -524,11 +509,8 @@ class Atom:
     observed: bool
     qa_state: QAState
     guide_state: bool
-    
-    # TODO: Select between resources / wavelength or inst_config model.
     resources: Set[Resource]
     wavelength: Set[float]
-#     inst_config: InstConfig
 
 
 class ObservationStatus(IntEnum):
