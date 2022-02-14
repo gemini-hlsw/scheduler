@@ -541,7 +541,7 @@ class Collector(SchedulerComponent):
             Resource(id='GMOSN')
         }
 
-    def conditions(self) -> Conditions:
+    def get_actual_conditions(self) -> Conditions:
         return Conditions(
             CloudCover.CC50,
             ImageQuality.IQ70,
