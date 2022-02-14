@@ -520,6 +520,8 @@ class Collector(SchedulerComponent):
                     if base is not None:
                         self._calculate_target_info(obs, base)
 
+                    logging.info()
+
             except ValueError as e:
                 bad_program_count += 1
                 logging.warning(f'Could not parse program: {e}')
