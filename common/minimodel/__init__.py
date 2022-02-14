@@ -663,7 +663,7 @@ class Observation:
         """
         The set of wavelengths included in the sequence.
         """
-        return {c.wavelength for c in self.sequence}
+        return {w for c in self.sequence for w in c.wavelength}
 
     def constraints(self) -> Set[Constraints]:
         """
