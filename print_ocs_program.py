@@ -3,7 +3,7 @@ import json
 from typing import NoReturn
 
 from api.ocs import OcsProgramProvider
-from common.minimodel import NodeGroup, Observation
+from common.minimodel import Group, Observation
 
 if __name__ == '__main__':
     provider = OcsProgramProvider
@@ -23,7 +23,7 @@ if __name__ == '__main__':
         for atom in obs.sequence:
             print(f'{sep(depth + 1)} {atom}')
 
-    def print_group(depth: int, group: NodeGroup) -> NoReturn:
+    def print_group(depth: int, group: Group) -> NoReturn:
         # Is this a subgroup or an observation?
         if isinstance(group.children, Observation):
             print_observation(depth, group.children)

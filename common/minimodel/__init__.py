@@ -2,7 +2,7 @@
 # pip install numpy==1.21.4
 
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from astropy.coordinates import EarthLocation, UnknownSiteException
 from astropy.coordinates.angles import Angle
 from astropy.time import Time
@@ -594,7 +594,6 @@ class Observation:
     resources: Set[Resource]
     setuptime_type: SetupTimeType
     acq_overhead: timedelta
-    exec_time: timedelta
 
     # TODO: This will be handled differently between OCS and GPP.
     # TODO: 1. In OCS, when the sequence is examined, the ObservationClasses of the
@@ -614,6 +613,12 @@ class Observation:
     constraints: Optional[Constraints]
 
     too_type: Optional[TooType] = None
+
+    def exec_time(self) -> timedelta:
+        """
+        Total execution time for the program, which is sum across atoms and the acquisition overhead.
+        """
+        return sum((atom.exec_time for atom in self.sequence), timedelta()) + self.acq_overhead
 
     def total_used(self) -> timedelta:
         """
@@ -710,59 +715,9 @@ class Group(ABC):
     number_to_observe: int
     delay_min: timedelta
     delay_max: timedelta
+    children: Union[List['Group'], Observation]
 
     def __post_init__(self):
-        pass
-
-    @abstractmethod
-    def required_resources(self) -> Set[Resource]:
-        """
-        This method should be implemented to return all the Resources required by
-        this group and its descendents.
-        """
-        ...
-
-    @abstractmethod
-    def wavelengths(self) -> Set[float]:
-        """
-        This method should be implemented to return all the wavelengths used by
-        this group and its descendents.
-        """
-        ...
-
-    @abstractmethod
-    def constraints(self) -> Set[Constraints]:
-        """
-        This method should be used to return all the sets of Conditions required by
-        this group and its descendents.
-        """
-        ...
-
-    @abstractmethod
-    def observations(self) -> List[Observation]:
-        """
-        This method should be used to return all the sets of Observations contained
-        in this group and its descendents.
-        """
-        ...
-
-
-@dataclass
-class NodeGroup(Group, ABC):
-    """
-    A NodeGroup is the fundamental implementation of a group, i.e. a group that
-    contains children, which can either be:
-    1. A single observation (in which case, the group should be an AND group); or
-    2. A list of other groups (in which case, the group can be either an AND or OR group).
-    Note that it is still abstract and cannot be instantiated.
-
-    The distinction between Group and NodeGroup is made so that NodeGroup can
-    reference Group in its members, since Python classes cannot be self-referential.
-    """
-    children: Union[List[Group], Observation]
-
-    def __post_init__(self):
-        super().__post_init__()
         if self.number_to_observe <= 0:
             msg = f'Group {self.group_name} specifies non-positive {self.number_to_observe} children to be observed.'
             logging.error(msg)
@@ -801,7 +756,7 @@ class AndOption(Enum):
 
 
 @dataclass
-class AndGroup(NodeGroup):
+class AndGroup(Group):
     """
     The concrete implementation of an AND group.
     It requires an AndOption to specify how its observations should be handled,
@@ -827,7 +782,7 @@ class AndGroup(NodeGroup):
 
 
 @dataclass
-class OrGroup(NodeGroup):
+class OrGroup(Group):
     """
     The concrete implementation of an OR group.
     The restrictions on an OR group is that it must explicitly require not all

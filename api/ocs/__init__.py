@@ -514,7 +514,6 @@ class OcsProgramProvider(ProgramProvider):
                      data[OcsProgramProvider._ObsKeys.LOG]]
 
         atoms = OcsProgramProvider.parse_atoms(data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
-        exec_time = sum([atom.exec_time for atom in atoms], timedelta()) + acq_overhead
 
         # TODO: Should this be a list of all targets for the observation?
         targets = []
@@ -597,7 +596,6 @@ class OcsProgramProvider(ProgramProvider):
             resources=resources,
             setuptime_type=setuptime_type,
             acq_overhead=acq_overhead,
-            exec_time=exec_time,
             obs_class=obs_class,
             targets=targets,
             guiding=guiding,
@@ -722,7 +720,7 @@ class OcsProgramProvider(ProgramProvider):
             semester = Semester(year=semester_year, half=semester_half)
             program_type = ProgramTypes[id_split[2]]
         except (IndexError, ValueError) as e:
-            logging.warning(f'Program ID {program_id} cannot be parsed.')
+            logging.warning(f'Program ID {program_id} cannot be parsed: {e}.')
 
         band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
         thesis = data[OcsProgramProvider._ProgramKeys.THESIS]
@@ -770,7 +768,7 @@ class OcsProgramProvider(ProgramProvider):
             too_type=too_type)
 
     @staticmethod
-    def _check_too_type(program_id: str, too_type: TooType, group: NodeGroup) -> NoReturn:
+    def _check_too_type(program_id: str, too_type: TooType, group: Group) -> NoReturn:
         """
         Determine the validity of the TooTypes of the Observations in a Program.
 
@@ -805,12 +803,12 @@ class OcsProgramProvider(ProgramProvider):
                 return sub_too_type is None
             return sub_too_type is None or sub_too_type <= too_type
 
-        def process_group(node_group: NodeGroup):
+        def process_group(pgroup: Group):
             """
             Traverse down through the group, processing Observations and subgroups.
             """
-            if isinstance(node_group.children, Observation):
-                observation: Observation = node_group.children
+            if isinstance(pgroup.children, Observation):
+                observation: Observation = pgroup.children
 
                 # If the observation's ToO type is None, we set it from the program.
                 if observation.too_type is None:
@@ -823,9 +821,7 @@ class OcsProgramProvider(ProgramProvider):
                     raise ValueError(nc_msg)
                 observation.too_type = too_type
             else:
-                for subgroup in node_group.children:
-                    if isinstance(subgroup, NodeGroup):
-                        node_subgroup: NodeGroup = subgroup
-                        process_group(node_subgroup)
+                for subgroup in pgroup.children:
+                    process_group(subgroup)
 
         process_group(group)
