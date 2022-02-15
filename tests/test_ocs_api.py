@@ -99,7 +99,7 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=False,
             resources={gmosn},
-            wavelength=0.475
+            wavelength={0.475}
         )
     ]
 
@@ -212,7 +212,7 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=False,
             resources={gnirs},
-            wavelength=2.2
+            wavelength={2.2}
         )
     ]
 
@@ -329,7 +329,7 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=False,
             resources={gnirs},
-            wavelength=2.2
+            wavelength={2.2}
         )
     ]
 
@@ -503,7 +503,7 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=False,
             resources={gmosn},
-            wavelength=0.475
+            wavelength={0.475}
         )
     ]
 

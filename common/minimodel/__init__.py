@@ -792,7 +792,10 @@ class NodeGroup(Group, ABC):
         return {cs for c in self.children for cs in c.constraints()}
 
     def observations(self) -> List[Observation]:
-        return [self.children] if isinstance(self.children, Observation) else []
+        if isinstance(self.children, Observation):
+            return [self.children]
+        else:
+            return [o for g in self.children for o in g.observations()]
 
     def __len__(self):
         return 1 if isinstance(self.children, Observation) else len(self.children)
