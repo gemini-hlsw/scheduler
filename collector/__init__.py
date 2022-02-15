@@ -543,7 +543,7 @@ class Collector(SchedulerComponent):
         }
 
     @staticmethod
-    def get_actual_conditions_variant() -> Variant:
+    def get_actual_conditions_variant() -> Optional[Variant]:
         time_blocks = Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')
         variants = {
             Variant(
@@ -556,6 +556,4 @@ class Collector(SchedulerComponent):
                 time_blocks=time_blocks
             )
         }
-
         return next(filter(lambda v: v.iq == ImageQuality.IQ70 and v.cc == CloudCover.CC50, variants), None)
-
