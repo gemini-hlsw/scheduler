@@ -4,7 +4,9 @@
 import logging
 from abc import ABC, abstractmethod
 from astropy.coordinates import EarthLocation, UnknownSiteException
+from astropy.coordinates.angles import Angle
 from astropy.time import Time
+from astropy.units import Quantity
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
@@ -280,37 +282,21 @@ class Constraints:
     # clearance_windows: Optional[List[ClearanceWindow]] = None
     strehl: Optional[Strehl] = None
 
-    def __post_init__(self):
-        """
-        Convert the timing window information to more natural units, i.e. a list of
-        AstroPy Time, which is for more convenient processing.
 
-        This creates a property on the Constraints called ot_timing_windows.
-
-        TODO: Do we need this?
-        """
-        self.ot_timing_windows: List[Time] = []
-
-        # # Collect the timing window information as arrays from the TimingWindow list.
-        # starts = (tw.start for tw in self.timing_windows)
-        # durations = (tw.duration for tw in self.timing_windows)
-        # repeats = (tw.repeat for tw in self.timing_windows)
-        # periods = (tw.period for tw in self.timing_windows)
-        #
-        # for (s, d, r, p) in zip(starts, durations, repeats, periods):
-        #     start = Time(s)
-        #     duration = TimeDelta.max if d == -1 else TimeDelta(d)
-        #     repeat = TimingWindow.OCS_INFINITE_REPEATS if r == TimingWindow.FOREVER_REPEATING else max(1, r)
-        #     period = None if p is None else TimeDelta(p)
-        #
-        #     for i in range(repeat):
-        #         window_start = start if period is None else start + i * period
-        #         window_end = window_start + duration
-        #
-        #         # TODO: This does not seem correct.
-        #         # TODO: We should be inserting TimingWindow into this list, and not these
-        #         # TODO: AstroPy Time objects, which are unexpected and cannot be indexed.
-        #         self.ot_timing_windows.append(Time([window_start, window_end]))
+@dataclass
+class Variant:
+    """
+    A weather variant.
+    wind_speed should be in m / s.
+    TODO: No idea what time blocks are. Note this could be a list or a single value.
+    """
+    iq: ImageQuality
+    cc: CloudCover
+    wv: WaterVapor
+    wind_dir: Angle
+    wind_sep: Angle
+    wind_spd: Quantity
+    time_blocks: Time
 
 
 class MagnitudeSystem(Enum):

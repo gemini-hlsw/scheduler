@@ -1,6 +1,5 @@
-from astropy.coordinates import Angle, SkyCoord
+from astropy.coordinates import SkyCoord
 from astropy.time import TimeDelta
-from astropy.units.quantity import Quantity
 from astropy import units as u
 import numpy as np
 import time
@@ -521,7 +520,7 @@ class Collector(SchedulerComponent):
                     if base is not None:
                         self._calculate_target_info(obs, base)
 
-                    logging.info()
+                    logging.info(f'Processed observation {obs.id}.')
 
             except ValueError as e:
                 bad_program_count += 1
@@ -530,7 +529,8 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             logging.error(f'Could not parse {bad_program_count} programs.')
 
-    def available_resources(self) -> Set[Resource]:
+    @staticmethod
+    def available_resources() -> Set[Resource]:
         """
         Return a set of available resources for the period under consideration.
         """
@@ -542,10 +542,20 @@ class Collector(SchedulerComponent):
             Resource(id='GMOSN')
         }
 
-    def get_actual_conditions(self) -> Conditions:
-        return Conditions(
-            CloudCover.CC50,
-            ImageQuality.IQ70,
-            SkyBackground.SB20,
-            WaterVapor.WVANY
-        )
+    @staticmethod
+    def get_actual_conditions_variant() -> Variant:
+        time_blocks = Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')
+        variants = {
+            Variant(
+                iq=ImageQuality.IQ70,
+                cc=CloudCover.CC50,
+                wv=WaterVapor.WVANY,
+                wind_dir=330.0 * u.deg,
+                wind_sep=40.0 * u.deg,
+                wind_spd=5.0 * u.m / u.s,
+                time_blocks=time_blocks
+            )
+        }
+
+        return next(filter(lambda v: v.iq == ImageQuality.IQ70 and v.cc == CloudCover.CC50, variants), None)
+
