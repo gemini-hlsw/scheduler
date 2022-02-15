@@ -15,9 +15,9 @@ def round_minute(time: Time, up: bool = False) -> Time:
     t.format = 'iso'
     t.out_subfmt = 'date_hm'
     if up:
-        sec = int(t.strftime('%S'))
-        if sec:
-            t += 1.0 * u.min
+        sec = t.strftime('%S').astype(int)
+        idx = np.where(sec > 0)
+        t[idx] += 1.0 * u.min
     return Time(t.iso, format='iso', scale='utc')
 
 

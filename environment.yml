@@ -2,12 +2,15 @@ name: greedymax-env
 dependencies:
   - python=3.9.*
   - astropy
-  - numpy
-  - openpyxl
-  - tabulate
-  - matplotlib
-  - tqdm
-  - joblib
-  - pytest
   - hypothesis
+  - joblib
+  - marshmallow_dataclass
+  - marshmallow_enum
+  - marshmallow_numpy
+  - matplotlib
+  - numpy=1.21.*
+  - openpyxl
+  - pytest
   - pytz
+  - tabulate
+  - tqdm

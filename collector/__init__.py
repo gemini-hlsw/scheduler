@@ -4,7 +4,7 @@ from astropy import units as u
 import numpy as np
 import time
 from tqdm import tqdm
-from typing import Dict, FrozenSet, Iterable, NoReturn
+from typing import Dict, FrozenSet, Iterable, Tuple, NoReturn
 
 from api.abstract import ProgramProvider
 from common import sky_brightness
@@ -24,7 +24,7 @@ NightIndex = int
 
 
 # NOTE: this is an unfortunate workaround needed to get rid of warnings in PyCharm.
-@add_schema
+# @add_schema
 @dataclass
 class NightEvents:
     """
@@ -129,7 +129,7 @@ class NightEventsManager:
     Manages pre-calculation of NightEvents.
     We only maintain one set of NightEvents for a site at any given time.
     """
-    _night_events: ClassVar[Mapping[Site, NightEvents]]
+    _night_events: dict[Site, NightEvents] = {}
 
     @staticmethod
     def get_night_events(time_grid: Time,
@@ -149,16 +149,27 @@ class NightEventsManager:
                  (time_grid[0] < ne[site].time_grid[0] or time_grid[-1] > ne[site].time_grid[1]))):
             # TODO: I am not convinced that this is the correct way to calculate the night events.
             # TODO: This is how it is done in the old collector, so it should work? Needs more testing.
+            events = vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
             NightEventsManager._night_events[site] = NightEvents(
                 time_grid=time_grid,
                 time_slot_length=time_slot_length,
-                *vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
+                site=site,
+                # *vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
+                midnight=events[0],
+                sunset=events[1],
+                sunrise=events[2],
+                twilight_evening_12=events[3],
+                twilight_morning_12=events[4],
+                moonrise=events[5],
+                moonset=events[6],
+                sun_moon_ang=events[7],
+                moon_illumination_fraction=events[8]
             )
 
         return NightEventsManager._night_events[site]
 
 
-@add_schema
+# @add_schema
 @dataclass
 class TargetInfo:
     """
@@ -201,6 +212,7 @@ class TargetInfo:
     rem_visibility_frac: float
 
 
+# @add_schema
 @dataclass
 class Collector(SchedulerComponent):
     """
@@ -238,7 +250,7 @@ class Collector(SchedulerComponent):
     # 4. NightIndex of interest
     # We want the ObservationID in here so that any target sharing in GPP is deliberately split here, since
     # the target info is observation-specific due to the constraints and site.
-    _target_info: ClassVar[Dict[(TargetName, ObservationID, NightIndex)], TargetInfo] = {}
+    _target_info: ClassVar[Dict[Tuple[TargetName, ObservationID, NightIndex], TargetInfo]] = {}
 
     # The default timeslot length currently used.
     DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min

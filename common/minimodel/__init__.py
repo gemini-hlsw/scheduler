@@ -72,7 +72,7 @@ class SemesterHalf(Enum):
     B = 'B'
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class Semester:
     """
     A semester is a period for which programs may be submitted to Gemini and consists of:

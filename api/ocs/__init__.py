@@ -1,8 +1,8 @@
 import calendar
+import json
 import numpy as np
 from typing import NoReturn, Tuple
 import zipfile
-import json
 
 from api.abstract import ProgramProvider
 from common.helpers import str_to_bool
@@ -19,18 +19,18 @@ def read_ocs_zipfile(zip_file: str) -> Mapping[Site, List[dict]]:
     programs: dict[Site, List[dict]] = {}
 
     with zipfile.ZipFile(zip_file, 'r') as zf:
-        filenames = zf.namelist()
-        for filename in filenames:
+        for filename in zf.namelist():
             filename_parts = filename.split('-')
             if filename_parts:
                 try:
-                    site = Site(filename_parts[0])
+                    site = Site[filename_parts[0]]
                 except KeyError:
                     msg = f'Cannot extract site information from {filename}: ignoring.'
                     logging.warning(msg)
 
-            filedata = zf.read(filename)
-            with json.loads(filedata) as data:
+            with zf.open(filename) as f:
+                contents = f.read().decode('utf-8')
+                data = json.loads(contents)
                 programs.setdefault(site, [])
                 programs[site].append(data)
                 logging.info(f'Added program {filename}.')
