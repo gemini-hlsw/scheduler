@@ -595,8 +595,10 @@ def angle_between(a, b):
     return np.arccos(np.clip(nra.x * nrb.x + nra.y * nrb.y + nra.z * nrb.z, -1., 1.))
 
 
-def true_airmass(altit):
+def true_airmass(altit: Angle) -> np.ndarray:
     """true airmass for an altitude.
+    Equivalent of getAirmass in the QPT, based on vskyutil.true_airmass
+    https://github.com/gemini-hlsw/ocs/blob/12a0999bc8bb598220ddbccbdbab5aa1e601ebdd/bundle/edu.gemini.qpt.client/src/main/java/edu/gemini/qpt/core/util/ImprovedSkyCalcMethods.java#L119
 
     Based on a fit to Kitt Peak airmass tables, C. M. Snell & A. M. Heiser, 1968,
     PASP, 80, 336.  Valid to about airmass 12, and beyond that just returns
@@ -621,8 +623,7 @@ def true_airmass(altit):
     #            z = 0.  The poly fit is very close to the tabulated points
     # 	   (largest difference is 3.2e-4) and appears smooth.
     #            This 85-degree point is at secz = 11.47, so for secz > 12
-    #            I just return secz - 1.5 ... about the largest offset
-    #            properly determined. */
+    #            just return secz   */
 
     #    coefs = [2.879465E-3,  3.033104E-3, 1.351167E-3, -4.716679E-5]
 
@@ -632,20 +633,17 @@ def true_airmass(altit):
         altit = altit[None]  # Makes 1D
         scalar_input = True
 
-    ret = np.full(len(altit), -1.)
+    # ret = np.zeros(len(altit))
+    ret = np.full(len(altit), 58.)
     ii = np.where(altit > 0.0)[0][:]
     if len(ii) != 0:
         ret[ii] = 1. / np.sin(altit[ii])  # sec z = 1/sin (altit)
 
-    jj = np.where(ret > 12.)[0][:]
-    if len(jj) != 0:
-        ret[jj] -= 1.5
-
-    kk = np.where(np.logical_and(ret >= 0.0, ret <= 12.))[0][:]
+    kk = np.where(np.logical_and(ret >= 0.0, ret < 12.))[0][:]
     if len(kk) != 0:
         seczmin1 = ret[kk] - 1.
         coefs = np.array([-4.716679E-5, 1.351167E-3, 3.033104E-3, 2.879465E-3, 0.])
-        ret[kk] -= np.polyval(coefs, seczmin1)
+        ret[kk] = ret[kk] - np.polyval(coefs, seczmin1)
         # print "poly gives",  np.polyval(coefs,seczmin1)
 
     if scalar_input:

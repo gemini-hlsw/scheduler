@@ -187,9 +187,6 @@ class TargetInfo:
 
     rem_visibility_time is the remaining visibility time for the target for the observation across
     the rest of the time period.
-
-    TODO: We also need a rem_visibility_frac, but I am not sure how to calculate the information
-    TODO: for the numerator of this fraction.
     """
     coord: SkyCoord
     alt: Angle
@@ -201,7 +198,7 @@ class TargetInfo:
     visibility: npt.NDArray[int]
     visibility_time: TimeDelta
     rem_visibility_time: TimeDelta
-    rem_visibility_frac: float = 0.0
+    rem_visibility_frac: float
 
 
 @dataclass
@@ -239,6 +236,8 @@ class Collector(SchedulerComponent):
     # 1. TargetName
     # 2. ObservationID (for the associated constraints and site)
     # 4. NightIndex of interest
+    # We want the ObservationID in here so that any target sharing in GPP is deliberately split here, since
+    # the target info is observation-specific due to the constraints and site.
     _target_info: ClassVar[Dict[(TargetName, ObservationID, NightIndex)], TargetInfo] = {}
 
     # The default timeslot length currently used.
@@ -311,8 +310,7 @@ class Collector(SchedulerComponent):
 
     def _calculate_target_info(self,
                                obs: Observation,
-                               target: Target,
-                               use_sb2: bool = True) -> NoReturn:
+                               target: Target) -> NoReturn:
         """
         For a given site, calculate the information for a target for all the nights in
         the time grid and store this in the _target_information.
@@ -336,6 +334,8 @@ class Collector(SchedulerComponent):
         # * rem_visibility_frac: fraction of remaining observation length to rem_visibility_time
         # we want to process the nights BACKWARDS so that we can sum up the visibility time.
         rem_visibility_time = 0.0 * u.h
+        rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
+
         for ridx, jday in enumerate(reversed(self.time_grid)):
             # Convert to the actual
             idx = len(self.time_grid) - ridx - 1
@@ -350,13 +350,10 @@ class Collector(SchedulerComponent):
                                              (t - Collector._JULIAN_BASIS) / Collector._JULIAN_YEAR_LENGTH
                                              for t in night_events.times[idx]])
 
-                    # Calculate the ra and dec for each target and convert to decimal degrees.
-                    # TODO: Verify, but we should already be in decimal degrees here.
-                    # TODO: Leaving this in for now as documentation on SkyCoord should it be needed.
+                    # Calculate the ra and dec for each target.
+                    # This information is already stored in decimal degrees at this point.
                     coords = SkyCoord((target.ra + pm_ra * time_offsets) * u.deg,
                                       (target.dec + pm_dec * time_offsets) * u.deg)
-                    # ra = coords.ra.value
-                    # dec = coords.dec.value
                     # ra = target.ra + pm_ra * time_offsets
                     # dec = target.dec + pm_dec * time_offsets
 
@@ -384,28 +381,14 @@ class Collector(SchedulerComponent):
 
                 if obs.constraints.conditions.sb < SkyBackground.SBANY:
                     targ_moon_ang = coords.separation(night_events.moon_pos)
-
-                    # Use the new sky brightness calculator.
-                    if use_sb2:
-                        brightness = sky_brightness.calculate_sky_brightness(
-                            180.0 * u.deg - night_events.sun_moon_ang,
-                            targ_moon_ang,
-                            night_events.moon_dist,
-                            90.0 * u.deg - night_events.moon_alt,
-                            90.0 * u.deg - alt,
-                            90.0 * u.deg - night_events.sun_alt
-                        )
-
-                    # Use the QPT sky brightness calculator.
-                    else:
-                        brightness = sky_brightness.calculate_sky_brightness_qpt(
-                            180.0 * u.deg - night_events.sun_moon_ang,
-                            targ_moon_ang,
-                            90.0 * u.deg - night_events.moon_alt,
-                            90.0 * u.deg - alt,
-                            90.0 * u.deg - night_events.sun_alt
-                        )
-
+                    brightness = sky_brightness.calculate_sky_brightness(
+                        180.0 * u.deg - night_events.sun_moon_ang,
+                        targ_moon_ang,
+                        night_events.moon_dist,
+                        90.0 * u.deg - night_events.moon_alt,
+                        90.0 * u.deg - alt,
+                        90.0 * u.deg - night_events.sun_alt
+                    )
                     sb = sky_brightness.convert_to_sky_background(brightness)
 
                 # Calculate the time slots for the night in which there is visibility.
@@ -429,17 +412,13 @@ class Collector(SchedulerComponent):
                                                   night_events.times[isb] <= timing[1]))[0]
                     visibility = np.append(visibility, isb[itw])
 
-                # TODO: Guide star availability for moving targets anhelp(d parallactic angle modes.
-                # TODO: Unsure of how to calculate this.
+                # TODO: Guide star availability for moving targets and parallactic angle modes.
 
                 # Calculate the visibility time, the ongoing summed remaining visibility time, and
                 # the remaining visibility fraction.
                 visibility_time = len(visibility) * self.time_slot_length
                 rem_visibility_time += visibility_time
-
-                # TODO: Unsure of how to calculate the visibility fraction.
-                # TODO: Where do we get the observation time information for the numerator?
-                # TODO: Leave this out for now until we know.
+                rem_visibility_frac = rem_visibility_frac_numerator / rem_visibility_time
 
                 Collector._target_info[(target.name, obs.id, idx)] = TargetInfo(
                     coords=coords,
@@ -451,7 +430,8 @@ class Collector(SchedulerComponent):
                     sky_brightness=sb,
                     visibility=visibility,
                     visibility_time=visibility_time,
-                    rem_visibility_time=rem_visibility_time
+                    rem_visibility_time=rem_visibility_time,
+                    rem_visibility_frac=rem_visibility_frac
                 )
 
                 logging.info(f'Done calculating visibility for observation {obs.id}.')
