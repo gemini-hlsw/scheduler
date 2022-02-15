@@ -1,4 +1,5 @@
 from astropy.coordinates import Angle, SkyCoord
+from astropy.time import TimeDelta
 from astropy.units.quantity import Quantity
 from astropy import units as u
 import numpy as np
