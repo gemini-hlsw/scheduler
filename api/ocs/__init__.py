@@ -449,7 +449,7 @@ class OcsProgramProvider(ProgramProvider):
                     qa_state=QAState.NONE,
                     guide_state=False,
                     resources={instrument},
-                    wavelength={wavelength}
+                    wavelengths={wavelength}
                 ))
 
             atoms[-1].exec_time += step_time
