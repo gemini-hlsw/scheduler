@@ -2,22 +2,31 @@ import os
 import json
 from typing import NoReturn
 
+from api.abstract import ProgramProvider
 from api.ocs import OcsProgramProvider
 from common.minimodel import Group, Observation, Program
 
 
-def print_ocs_program(filename=os.path.join('data', 'GN-2018B-Q-101.json')) -> NoReturn:
-    provider = OcsProgramProvider
-    # data = provider.load_program(os.path.join('data', 'GN-2018B-Q-101.json'))
-    path = os.path.join('data', 'GN-2018B-Q-101.json')
-    with open(path, 'r') as f:
+def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.json'),
+                                provider: ProgramProvider = OcsProgramProvider) -> NoReturn:
+    """
+    Using a specified JSON file and a ProgramProvider, read in the program
+    and print it.
+
+    TODO: Could pass in JSON data instead, as GppProgramProvider will not produce files.
+    """
+    with open(filename, 'r') as f:
         data = json.loads(f.read())
 
-    program = OcsProgramProvider.parse_program(data['PROGRAM_BASIC'])
+    program = provider.parse_program(data['PROGRAM_BASIC'])
     print_program(program)
 
 
 def print_program(program: Program) -> NoReturn:
+    """
+    Print the high-level information about a program in human semi-readable format
+    to give an idea as to its structure.
+    """
     print(f'Program: {program.id}')
 
     def sep(depth: int) -> str:
