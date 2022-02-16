@@ -2,9 +2,9 @@ import logging
 
 import astropy.units.quantity
 
-from old_collector import Collector
-import old_collector.vskyutil as vs
-import old_collector.sb as sb
+from collector import Collector
+import collector.vskyutil as vs
+import collector.sb as sb
 
 from common.structures.conditions import Conditions, SkyConditions
 from common.structures.elevation import ElevationType
@@ -12,9 +12,9 @@ from common.structures.observation_status import ObservationStatus
 from common.structures.target import TargetTag
 from common.structures.too_type import ToOType
 from common.structures.obs_class import ObservationClass
-from old_selector.visibility import Visibility
-from old_selector.ranker import Ranker
-import old_selector.horizons as hz
+from selector.visibility import Visibility
+from selector.ranker import Ranker
+import selector.horizons as hz
 
 from greedy_max.schedule import Observation, Visit
 from common.structures.site import Site, GEOGRAPHICAL_LOCATIONS, TIME_ZONES

@@ -3,7 +3,7 @@
 # Horizons API using URLs
 
 import argparse
-import old_selector.coords as coords
+import selector.coords as coords
 import datetime
 import dateutil.parser
 import glob

@@ -12,11 +12,11 @@ import pytz
 import os
 import numpy as np
 
-import old_collector.sb as sb
-from old_collector.vskyutil import nightevents
-from old_collector.xmlutils import *
-from old_collector.get_tadata import get_report, get_tas, sumtas_date
-from old_collector.program import Program
+import collector.sb as sb
+from collector.vskyutil import nightevents
+from collector.xmlutils import *
+from collector.get_tadata import get_report, get_tas, sumtas_date
+from collector.program import Program
 
 from common.helpers import round_min
 from common.structures.conditions import *
