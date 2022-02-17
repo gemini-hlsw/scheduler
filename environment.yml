@@ -8,3 +8,6 @@ dependencies:
   - matplotlib
   - tqdm
   - joblib
+  - pytest
+  - hypothesis
+  - pytz

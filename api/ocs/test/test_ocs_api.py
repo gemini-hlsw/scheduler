@@ -4,13 +4,14 @@ from api.ocs import OcsProgramProvider
 
 from datetime import datetime, timedelta
 import json
+import os
 
 
 def get_api_program() -> Program:
     """
     Load the GN-2022A-Q-999 program from the JSON file.
     """
-    with open('GN-2022A-Q-999.json', 'r') as f:
+    with open(os.path.join('api','ocs','test','GN-2022A-Q-999.json'), 'r') as f:
         data = json.loads(f.read())
         return OcsProgramProvider.parse_program(data['PROGRAM_BASIC'])
 
