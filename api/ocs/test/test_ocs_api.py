@@ -146,7 +146,7 @@ def create_minimodel_program() -> Program:
         elevation_max=2.0,
         timing_windows=[
             TimingWindow(
-                start=datetime(2022, 1, 11, 14, 7, 31, 128000),
+                start=datetime(2022, 1, 12, 0, 7, 31, 128000),
                 duration=timedelta(days=1),
                 repeat=TimingWindow.NON_REPEATING,
                 period=TimingWindow.NO_PERIOD
@@ -367,26 +367,25 @@ def create_minimodel_program() -> Program:
 
     gmosn1_timing_windows = [
         TimingWindow(
-            start=datetime(2022, 1, 11, 12, 27, 30, 498000),
+            start=datetime(2022, 1, 11, 22, 27, 30, 498000),
             duration=timedelta(hours=24),
             repeat=TimingWindow.NON_REPEATING,
             period=TimingWindow.NO_PERIOD
         ),
-        # TODO: ??? -0.1 second duration???
         TimingWindow(
-            start=datetime(2022, 1, 12, 12, 28, 42),
+            start=datetime(2022, 1, 12, 22, 28, 42),
             duration=TimingWindow.INFINITE_DURATION,
             repeat=TimingWindow.NON_REPEATING,
             period=TimingWindow.NO_PERIOD
         ),
         TimingWindow(
-            start=datetime(2022, 1, 13, 12, 29, 37),
+            start=datetime(2022, 1, 13, 22, 29, 37),
             duration=timedelta(hours=12),
             repeat=TimingWindow.OCS_INFINITE_REPEATS,
             period=timedelta(hours=36)
         ),
         TimingWindow(
-            start=datetime(2022, 1, 14, 12, 32, 31),
+            start=datetime(2022, 1, 14, 22, 32, 31),
             duration=timedelta(days=1),
             repeat=10,
             period=timedelta(days=2)
