@@ -23,7 +23,7 @@ jobs:
 
       - name: Add $PYTHONPATH
         run: |
-          echo "PYTHONPATH=home/runner/work/Scheduler" >> $GITHUB_ENV
+          echo "PYTHONPATH=home/runner/work/" >> $GITHUB_ENV
       
       - name: Test with pytest
         run: |
