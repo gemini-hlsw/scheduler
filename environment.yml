@@ -10,3 +10,4 @@ dependencies:
   - joblib
   - pytest
   - hypothesis
+  - pytz
