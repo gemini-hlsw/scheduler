@@ -372,7 +372,6 @@ def create_minimodel_program() -> Program:
             repeat=TimingWindow.NON_REPEATING,
             period=TimingWindow.NO_PERIOD
         ),
-        # TODO: ??? -0.1 second duration???
         TimingWindow(
             start=datetime(2022, 1, 12, 22, 28, 42),
             duration=TimingWindow.INFINITE_DURATION,
