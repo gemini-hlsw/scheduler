@@ -12,7 +12,6 @@ def get_api_program() -> Program:
     Load the GN-2022A-Q-999 program from the JSON file.
     """
     path = os.path.join('data', 'GN-2022A-Q-999.json')
-    print(os.getcwd())
     with open(path, 'r') as f:
         data = json.loads(f.read())
         return OcsProgramProvider.parse_program(data['PROGRAM_BASIC'])
