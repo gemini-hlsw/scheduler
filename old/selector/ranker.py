@@ -1,6 +1,6 @@
 import astropy.units as u
 import numpy as np
-import old_selector.horizons as hz
+import selector.horizons as hz
 
 from astropy.coordinates import SkyCoord
 from astropy.time import Time

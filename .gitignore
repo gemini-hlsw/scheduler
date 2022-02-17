@@ -108,7 +108,7 @@ venv.bak/
 
 # tests
 maglimits_test.py
-test
+
 
 # osx ds_store
 .DS_Store
@@ -119,4 +119,4 @@ test
 # logger
 *.log
 
-old_collector/data/
+

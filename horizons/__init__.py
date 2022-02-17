@@ -43,7 +43,6 @@ class HorizonsAngle:
         """
         return HorizonsAngle.to_degrees(angle) * HorizonsAngle.microarcsecsPerDegree
 
-
 class Coordinates:
     """
     Both ra and dec are in radians.
@@ -89,7 +88,6 @@ class Coordinates:
     
     def __repr__(self) -> str:
         return f'Coordinates(ra={self.ra}, dec={self.dec})'
-
 
 @dataclass
 class EphemerisCoordinates:
