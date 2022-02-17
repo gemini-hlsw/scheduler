@@ -636,7 +636,7 @@ class Observation:
         """
         The set of wavelengths included in the sequence.
         """
-        return {w for c in self.sequence for w in c.wavelength}
+        return {w for c in self.sequence for w in c.wavelengths}
 
     def constraints(self) -> Set[Constraints]:
         """
@@ -651,7 +651,7 @@ class Observation:
         during the GreedyMax algorithm. Note that it is also available directly
         from the OCS, which is used to populate the time allocation.
         """
-        return sum(atom.prog_time for atom in self.sequence)
+        return sum((atom.prog_time for atom in self.sequence), start=timedelta())
 
     def partner_used(self) -> timedelta:
         """
@@ -659,7 +659,7 @@ class Observation:
         during the GreedyMax algorithm. Note that it is also available directly
         from the OCS, which is used to populate the time allocation.
         """
-        return sum(atom.part_time for atom in self.sequence)
+        return sum((atom.part_time for atom in self.sequence), start=timedelta())
 
     @staticmethod
     def _select_obsclass(classes: List[ObservationClass]) -> Optional[ObservationClass]:

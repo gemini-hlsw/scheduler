@@ -1,3 +1,4 @@
+import pytz
 from astropy.coordinates import SkyCoord
 from astropy.time import TimeDelta
 from astropy import units as u
@@ -87,8 +88,7 @@ class NightEvents:
         # Pre-calculate the different times.
         # We want these as Python lists because the entries will have different lengths.
         # TODO: Thus, the np.vectorize approach will not work here, but we keep it here as documentation.
-        # self.utc_times = np.vectorize(lambda t: t.to_datetime('utc'))(self.times)
-        self.utc_times = [t.to_datetime('utc') for t in self.times]
+        self.utc_times = [t.to_datetime(pytz.UTC) for t in self.times]
         self.local_times = [t.to_datetime(self.site.value.timezone) for t in self.times]
         self.local_sidereal_times = [vskyutil.lpsidereal(t, self.site.value.location) for t in self.times]
 
@@ -118,9 +118,10 @@ class NightEvents:
         # accumoon produces a tuple, (SkyCoord, ndarray) indicating position and distance.
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
         # collect the SkyCoords into one tuple, and the ndarrays into another.
+        # The moon_dist are already a Quantity: error if try to convert.
         moon_pos, moon_dist = zip(*[vskyutil.accumoon(t, self.site.value.location) for t in self.times])
         self.moon_pos = SkyCoord(moon_pos)
-        self.moon_dist = Quantity(moon_dist)
+        self.moon_dist = moon_dist
         self.moon_alt, self.moon_az, self.moon_par_ang = altazparang(self.moon_pos)
 
 
@@ -149,12 +150,16 @@ class NightEventsManager:
                  (time_grid[0] < ne[site].time_grid[0] or time_grid[-1] > ne[site].time_grid[1]))):
             # TODO: I am not convinced that this is the correct way to calculate the night events.
             # TODO: This is how it is done in the old collector, so it should work? Needs more testing.
+            # I do not understand why the spread operation is not working over nightevents.
+            # It works just fine in toy examples.
+            # Complains about __init__() getting multiple args for time_grid.
+            # Must be a cleaner way to do this.
             events = vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
-            NightEventsManager._night_events[site] = NightEvents(
+            night_events = NightEvents(
                 time_grid=time_grid,
                 time_slot_length=time_slot_length,
                 site=site,
-                # *vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
+                # *events,
                 midnight=events[0],
                 sunset=events[1],
                 sunrise=events[2],
@@ -165,6 +170,13 @@ class NightEventsManager:
                 sun_moon_ang=events[7],
                 moon_illumination_fraction=events[8]
             )
+            # night_events = NightEvents(
+            #     time_grid=time_grid,
+            #     time_slot_length=time_slot_length,
+            #     site=site,
+            #     *events
+            # )
+            NightEventsManager._night_events[site] = night_events
 
         return NightEventsManager._night_events[site]
 
@@ -351,7 +363,7 @@ class Collector(SchedulerComponent):
         for ridx, jday in enumerate(reversed(self.time_grid)):
             # Convert to the actual
             idx = len(self.time_grid) - ridx - 1
-            if (target, obs.id, idx) not in Collector._target_info:
+            if (target.name, obs.id, idx) not in Collector._target_info:
                 if isinstance(target, SiderealTarget):
                     pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
                     pm_dec = target.pm_dec / Collector._MILLIARCSECS_PER_DEGREE
@@ -360,6 +372,7 @@ class Collector(SchedulerComponent):
                     # For each entry in time, we want to calculate the offset in epoch-years.
                     time_offsets = np.array([target.epoch +
                                              (t - Collector._JULIAN_BASIS) / Collector._JULIAN_YEAR_LENGTH
+                                             # t - (Collector._JULIAN_BASIS / Collector._JULIAN_YEAR_LENGTH)
                                              for t in night_events.times[idx]])
 
                     # Calculate the ra and dec for each target.
