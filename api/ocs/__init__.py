@@ -260,7 +260,7 @@ class OcsProgramProvider(ProgramProvider):
 
     @staticmethod
     def parse_timing_window(data: dict) -> TimingWindow:
-        start = datetime.fromtimestamp(data[OcsProgramProvider._TimingWindowKeys.START] / 1000.0)
+        start = datetime.utcfromtimestamp(data[OcsProgramProvider._TimingWindowKeys.START] / 1000.0)
 
         duration_info = data[OcsProgramProvider._TimingWindowKeys.DURATION]
         if duration_info == TimingWindow.INFINITE_DURATION_FLAG:
