@@ -4,15 +4,13 @@ from api.ocs import OcsProgramProvider
 
 from datetime import datetime, timedelta
 import json
-import os
 
 
 def get_api_program() -> Program:
     """
     Load the GN-2022A-Q-999 program from the JSON file.
     """
-    path = os.path.join('data', 'GN-2022A-Q-999.json')
-    with open(path, 'r') as f:
+    with open('GN-2022A-Q-999.json', 'r') as f:
         data = json.loads(f.read())
         return OcsProgramProvider.parse_program(data['PROGRAM_BASIC'])
 
@@ -114,8 +112,6 @@ def create_minimodel_program() -> Program:
         resources=set(),
         setuptime_type=SetupTimeType.FULL,
         acq_overhead=timedelta(minutes=6),
-        # TODO: Check this. This is based on the atoms calculation.
-        #exec_time=timedelta(seconds=360, microseconds=84300),
         obs_class=ObservationClass.SCIENCE,
         targets=gmosn2_targets,
         guiding=gmosn2_guiding,
@@ -227,8 +223,6 @@ def create_minimodel_program() -> Program:
         resources=set(),
         setuptime_type=SetupTimeType.FULL,
         acq_overhead=timedelta(minutes=15),
-        # TODO: Check this. This is based on the atoms calculation.
-        # exec_time=timedelta(seconds=900, microseconds=26190),
         obs_class=ObservationClass.SCIENCE,
         targets=gnirs2_targets,
         guiding=gnirs2_guiding,
@@ -344,7 +338,6 @@ def create_minimodel_program() -> Program:
         resources=set(),
         setuptime_type=SetupTimeType.FULL,
         acq_overhead=timedelta(minutes=15),
-        # exec_time=timedelta(seconds=900, microseconds=26190),
         obs_class=ObservationClass.SCIENCE,
         targets=gnirs1_targets,
         guiding=gnirs1_guiding,
@@ -518,7 +511,6 @@ def create_minimodel_program() -> Program:
         resources=set(),
         setuptime_type=SetupTimeType.REACQUISITION,
         acq_overhead=timedelta(minutes=5),
-        #exec_time=timedelta(seconds=300, microseconds=392500),
         obs_class=ObservationClass.SCIENCE,
         targets=gmosn1_targets,
         guiding=gmonsn1_guiding,
