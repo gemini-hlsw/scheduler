@@ -148,34 +148,15 @@ class NightEventsManager:
                 (len(ne[site].time_grid) == 1 and ne[site].time_grid[0] != time_grid[0]) or
                 (len(ne[site].time_grid) > 1 and
                  (time_grid[0] < ne[site].time_grid[0] or time_grid[-1] > ne[site].time_grid[1]))):
-            # TODO: I am not convinced that this is the correct way to calculate the night events.
-            # TODO: This is how it is done in the old collector, so it should work? Needs more testing.
-            # I do not understand why the spread operation is not working over nightevents.
-            # It works just fine in toy examples.
-            # Complains about __init__() getting multiple args for time_grid.
-            # Must be a cleaner way to do this.
-            events = vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
+
+            # For some strange reason, this does not work if we specify keywords for NightEvents.
+            # It complains about __init__() getting multiple args for time_grid.
             night_events = NightEvents(
-                time_grid=time_grid,
-                time_slot_length=time_slot_length,
-                site=site,
-                # *events,
-                midnight=events[0],
-                sunset=events[1],
-                sunrise=events[2],
-                twilight_evening_12=events[3],
-                twilight_morning_12=events[4],
-                moonrise=events[5],
-                moonset=events[6],
-                sun_moon_ang=events[7],
-                moon_illumination_fraction=events[8]
+                time_grid,
+                time_slot_length,
+                site,
+                *vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
             )
-            # night_events = NightEvents(
-            #     time_grid=time_grid,
-            #     time_slot_length=time_slot_length,
-            #     site=site,
-            #     *events
-            # )
             NightEventsManager._night_events[site] = night_events
 
         return NightEventsManager._night_events[site]
@@ -370,13 +351,17 @@ class Collector(SchedulerComponent):
 
                     # Calculate the new coordinates for the night.
                     # For each entry in time, we want to calculate the offset in epoch-years.
+                    # TODO: Is this right? It follows the convention in OCS Epoch.scala.
+                    # https://github.com/gemini-hlsw/ocs/blob/ba542ec6ffe5d03a0f31f880a52f60dd6ade3812/bundle/edu.gemini.spModel.core/src/main/scala/edu/gemini/spModel/core/Epoch.scala#L28
+                    # We need to convert from Time to value to do the division.
                     time_offsets = np.array([target.epoch +
-                                             (t - Collector._JULIAN_BASIS) / Collector._JULIAN_YEAR_LENGTH
-                                             # t - (Collector._JULIAN_BASIS / Collector._JULIAN_YEAR_LENGTH)
+                                             (t.value - Collector._JULIAN_BASIS) / Collector._JULIAN_YEAR_LENGTH
                                              for t in night_events.times[idx]])
 
                     # Calculate the ra and dec for each target.
                     # This information is already stored in decimal degrees at this point.
+                    ra = (target.ra + pm_ra * time_offsets) * u.deg
+                    dec = (target.dec + pm_dec * time_offsets) * u.deg
                     coords = SkyCoord((target.ra + pm_ra * time_offsets) * u.deg,
                                       (target.dec + pm_dec * time_offsets) * u.deg)
                     # ra = target.ra + pm_ra * time_offsets
@@ -527,9 +512,11 @@ class Collector(SchedulerComponent):
 
                     logging.info(f'Processed observation {obs.id}.')
 
-            except ValueError as e:
-                bad_program_count += 1
-                logging.warning(f'Could not parse program: {e}')
+            except FileNotFoundError:
+                ...
+            # except ValueError as e:
+            #     bad_program_count += 1
+            #     logging.warning(f'Could not parse program: {e}')
 
         if bad_program_count:
             logging.error(f'Could not parse {bad_program_count} programs.')

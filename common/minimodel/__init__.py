@@ -479,6 +479,8 @@ class QAState(IntEnum):
     FAIL = auto()
     USABLE = auto()
     PASS = auto()
+    # TODO: Not in original mini-model description, but returned by OCS?
+    CHECK = auto()
 
 
 @dataclass
@@ -508,6 +510,8 @@ class ObservationStatus(IntEnum):
     PROPOSED = auto()
     APPROVED = auto()
     FOR_REVIEW = auto()
+    # TODO: Not in original mini-model description, but returned by OCS?
+    ON_HOLD = auto()
     READY = auto()
     ONGOING = auto()
     OBSERVED = auto()

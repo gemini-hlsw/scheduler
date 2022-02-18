@@ -357,7 +357,7 @@ class OcsProgramProvider(ProgramProvider):
 
         # TODO: Is this the proper way to handle conversions from hms and dms?
         ra = sex2dec(ra_hhmmss, todegree=True)
-        dec = sex2dec(dec_ddmmss, todegree=True)
+        dec = sex2dec(dec_ddmmss, todegree=False)
 
         pm_ra = data.setdefault(OcsProgramProvider._TargetKeys.DELTARA, 0.0)
         pm_dec = data.setdefault(OcsProgramProvider._TargetKeys.DELTADEC, 0.0)
@@ -472,6 +472,8 @@ class OcsProgramProvider(ProgramProvider):
         """
         Parse a general target - either sidereal or nonsidereal - from the supplied data.
         """
+        # TODO: If we are a ToO, we don't have a target, and thus we don't have a tag.
+        # TODO: Thus, this raises a KeyError.
         tag = data[OcsProgramProvider._TargetKeys.TAG]
         if tag == 'sidereal':
             return OcsProgramProvider.parse_sidereal_target(data)
