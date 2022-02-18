@@ -110,11 +110,6 @@ class NightEvents:
         self.sun_pos = SkyCoord([vskyutil.lpsun(t) for t in self.times])
         self.sun_alt, self.sun_az, self.sun_par_ang = altazparang(self.sun_pos)
 
-        # TODO: Do we need both pos and dist? Depends on which sb algorithm we are using.
-        # TODO: lpmoon is faster than accumoon so it is preferable, and just produces a SkyCoord.
-        # TODO: If we need dist as well, we must use accumoon instead.
-        # self.moon_pos = [vskyutil.lpmoon(t, self.site.value.location) for t in self.times]
-
         # accumoon produces a tuple, (SkyCoord, ndarray) indicating position and distance.
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
         # collect the SkyCoords into one tuple, and the ndarrays into another.
@@ -387,10 +382,10 @@ class Collector(SchedulerComponent):
                 targ_prop = airmass if obs.constraints.elevation_type is ElevationType.AIRMASS else hourangle.value
 
                 # Sky brightness.
-                sb = np.full([len(night_events.times)], SkyBackground.SBANY)
+                sb = np.full([len(night_events.times[idx])], SkyBackground.SBANY)
 
                 if obs.constraints.conditions.sb < SkyBackground.SBANY:
-                    targ_moon_ang = coords.separation(night_events.moon_pos)
+                    targ_moon_ang = coords.separation(night_events.moon_pos[idx])
                     brightness = sky_brightness.calculate_sky_brightness(
                         180.0 * u.deg - night_events.sun_moon_ang,
                         targ_moon_ang,
@@ -410,7 +405,7 @@ class Collector(SchedulerComponent):
                 # np.where used in this way does return a tuple of size two, hence we have to take
                 # the first element. The general use of np.where is considerably different.
                 isb = np.where(np.logical_and(sb <= obs.constraints.conditions.sb,
-                                              np.logical_and(night_events.sun_alt <= -12 * u.deg,
+                                              np.logical_and(night_events.sun_alt[idx] <= -12 * u.deg,
                                                              np.logical_and(
                                                                  targ_prop >= obs.constraints.elevation_min,
                                                                  targ_prop <= obs.constraints.elevation_max
