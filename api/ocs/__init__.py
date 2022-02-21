@@ -1,7 +1,7 @@
 import calendar
 import json
 import numpy as np
-from typing import NoReturn, Tuple
+from typing import Iterable, NoReturn, Tuple
 import zipfile
 
 from api.abstract import ProgramProvider
@@ -9,21 +9,17 @@ from common.helpers import str_to_bool, hmsstr2deg, dmsstr2deg
 from common.minimodel import *
 
 
-def read_ocs_zipfile(zip_file: str) -> List[dict]:
+def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
     """
     Since for OCS we will use a collection of extracted ODB data, this is a
     convenience method to parse the data into a list of the JSON program data.
     """
-    programs: List[dict] = []
-
     with zipfile.ZipFile(zip_file, 'r') as zf:
         for filename in zf.namelist():
             with zf.open(filename) as f:
                 contents = f.read().decode('utf-8')
-                programs.append(json.loads(contents))
                 logging.info(f'Added program {filename}.')
-
-    return programs
+                yield json.loads(contents)
 
 
 class OcsProgramProvider(ProgramProvider):

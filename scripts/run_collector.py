@@ -6,8 +6,7 @@ from collector import *
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
-    # Load the programs into a Mapping[Site, List[dict]].
-    # TODO: Probably fix this since Collector doesn't care about the Site division.
+    # Read in a list of JSON data
     programs = read_ocs_zipfile(os.path.join('..', 'data', '2018B_program_samples.zip'))
 
     collector = Collector(
