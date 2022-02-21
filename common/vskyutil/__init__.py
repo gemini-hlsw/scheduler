@@ -1885,13 +1885,6 @@ def nightevents(aTime, location, localtzone, verbose=True):
     # if verbose: print("moonrise: ", tmoonrise)
     if verbose: print("moonrise: ", tmoonrise)
 
-    sunmoonang = sunpos.separation(moonpos)
-    moonillumfrac = 0.5 * (1. - np.cos(sunmoonang))
-
-    if verbose:
-        print("sunmoonang: ", sunmoonang)
-        print("moonillumfrac: ", moonillumfrac)
-
     if scalar_input:
         tsunset = np.squeeze(tsunset)
         tsunrise = np.squeeze(tsunrise)
@@ -1899,11 +1892,8 @@ def nightevents(aTime, location, localtzone, verbose=True):
         tmorntwi12 = np.squeeze(tmorntwi12)
         tmoonrise = np.squeeze(tmoonrise)
         tmoonset = np.squeeze(tmoonset)
-        sunmoonang = np.squeeze(sunmoonang)
-        moonillumfrac = np.squeeze(moonillumfrac)
 
-    return midnight, tsunset, tsunrise, tevetwi12, tmorntwi12, \
-           tmoonrise, tmoonset, sunmoonang, moonillumfrac
+    return midnight, tsunset, tsunrise, tevetwi12, tmorntwi12, tmoonrise, tmoonset
 
 
 def xair(zd):

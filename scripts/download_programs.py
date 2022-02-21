@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 import logging
 from dataclasses import dataclass
 import os
@@ -56,7 +55,7 @@ DEFAULT_PROGRAM_TYPES = frozenset([
 
 def download_programs(server: ODBServer = DEFAULT_SERVER,
                       output_path: str = 'programs',
-                      zip_file: str = 'programs.zip',
+                      zip_file: str = os.path.join('..', '..', 'data', 'programs.zip'),
                       semesters: Mapping[Site, str] = None,
                       program_types: FrozenSet[ProgramTypes] = DEFAULT_PROGRAM_TYPES) -> NoReturn:
     """

@@ -72,7 +72,7 @@ class SemesterHalf(Enum):
     B = 'B'
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class Semester:
     """
     A semester is a period for which programs may be submitted to Gemini and consists of:
@@ -81,6 +81,9 @@ class Semester:
     """
     year: int
     half: SemesterHalf
+
+    def __str__(self):
+        return f'{self.year}{self.half.value}'
 
 
 @dataclass(unsafe_hash=True)
@@ -175,8 +178,9 @@ class TimingWindow:
     repeat: int
     period: Optional[timedelta]
 
+    # For infinite duration, use the length of an LP.
     INFINITE_DURATION_FLAG: ClassVar[int] = -1
-    INFINITE_DURATION: ClassVar[int] = timedelta.max
+    INFINITE_DURATION: ClassVar[int] = timedelta(days=3 * 365, hours=24)
     FOREVER_REPEATING: ClassVar[int] = -1
     NON_REPEATING: ClassVar[int] = 0
     NO_PERIOD: ClassVar[Optional[timedelta]] = None
@@ -479,6 +483,8 @@ class QAState(IntEnum):
     FAIL = auto()
     USABLE = auto()
     PASS = auto()
+    # TODO: Not in original mini-model description, but returned by OCS?
+    CHECK = auto()
 
 
 @dataclass
@@ -508,6 +514,8 @@ class ObservationStatus(IntEnum):
     PROPOSED = auto()
     APPROVED = auto()
     FOR_REVIEW = auto()
+    # TODO: Not in original mini-model description, but returned by OCS?
+    ON_HOLD = auto()
     READY = auto()
     ONGOING = auto()
     OBSERVED = auto()
@@ -636,7 +644,7 @@ class Observation:
         """
         The set of wavelengths included in the sequence.
         """
-        return {w for c in self.sequence for w in c.wavelength}
+        return {w for c in self.sequence for w in c.wavelengths}
 
     def constraints(self) -> Set[Constraints]:
         """
@@ -651,7 +659,7 @@ class Observation:
         during the GreedyMax algorithm. Note that it is also available directly
         from the OCS, which is used to populate the time allocation.
         """
-        return sum(atom.prog_time for atom in self.sequence)
+        return sum((atom.prog_time for atom in self.sequence), start=timedelta())
 
     def partner_used(self) -> timedelta:
         """
@@ -659,7 +667,7 @@ class Observation:
         during the GreedyMax algorithm. Note that it is also available directly
         from the OCS, which is used to populate the time allocation.
         """
-        return sum(atom.part_time for atom in self.sequence)
+        return sum((atom.part_time for atom in self.sequence), start=timedelta())
 
     @staticmethod
     def _select_obsclass(classes: List[ObservationClass]) -> Optional[ObservationClass]:

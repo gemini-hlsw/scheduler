@@ -1,5 +1,3 @@
-#import os, sys
-#sys.path.insert(0, os.path.abspath(".."))
 import pytest
 from hypothesis import given, strategies as st
 

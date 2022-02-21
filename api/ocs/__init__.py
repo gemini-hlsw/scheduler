@@ -1,41 +1,25 @@
 import calendar
-import numpy as np
-from typing import NoReturn, Tuple
-import zipfile
 import json
+import numpy as np
+from typing import Iterable, NoReturn, Tuple
+import zipfile
 
 from api.abstract import ProgramProvider
-from common.helpers import str_to_bool
+from common.helpers import str_to_bool, hmsstr2deg, dmsstr2deg
 from common.minimodel import *
-from common.timeutils import sex2dec
 
 
-def read_ocs_zipfile(zip_file: str) -> Mapping[Site, List[dict]]:
+def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
     """
     Since for OCS we will use a collection of extracted ODB data, this is a
-    convenience method to sort that data into the requisite map from site to
-    a list of the JSON program data.
+    convenience method to parse the data into a list of the JSON program data.
     """
-    programs: dict[Site, List[dict]] = {}
-
     with zipfile.ZipFile(zip_file, 'r') as zf:
-        filenames = zf.namelist()
-        for filename in filenames:
-            filename_parts = filename.split('-')
-            if filename_parts:
-                try:
-                    site = Site(filename_parts[0])
-                except KeyError:
-                    msg = f'Cannot extract site information from {filename}: ignoring.'
-                    logging.warning(msg)
-
-            filedata = zf.read(filename)
-            with json.loads(filedata) as data:
-                programs.setdefault(site, [])
-                programs[site].append(data)
+        for filename in zf.namelist():
+            with zf.open(filename) as f:
+                contents = f.read().decode('utf-8')
                 logging.info(f'Added program {filename}.')
-
-    return programs
+                yield json.loads(contents)
 
 
 class OcsProgramProvider(ProgramProvider):
@@ -356,8 +340,10 @@ class OcsProgramProvider(ProgramProvider):
         dec_ddmmss = data[OcsProgramProvider._TargetKeys.DEC]
 
         # TODO: Is this the proper way to handle conversions from hms and dms?
-        ra = sex2dec(ra_hhmmss, todegree=True)
-        dec = sex2dec(dec_ddmmss, todegree=True)
+        # ra = sex2dec(ra_hhmmss, todegree=True)
+        # dec = sex2dec(dec_ddmmss, todegree=False)
+        ra = hmsstr2deg(ra_hhmmss)
+        dec = dmsstr2deg(dec_ddmmss)
 
         pm_ra = data.setdefault(OcsProgramProvider._TargetKeys.DELTARA, 0.0)
         pm_dec = data.setdefault(OcsProgramProvider._TargetKeys.DELTADEC, 0.0)
@@ -472,6 +458,8 @@ class OcsProgramProvider(ProgramProvider):
         """
         Parse a general target - either sidereal or nonsidereal - from the supplied data.
         """
+        # TODO: If we are a ToO, we don't have a target, and thus we don't have a tag.
+        # TODO: Thus, this raises a KeyError.
         tag = data[OcsProgramProvider._TargetKeys.TAG]
         if tag == 'sidereal':
             return OcsProgramProvider.parse_sidereal_target(data)
