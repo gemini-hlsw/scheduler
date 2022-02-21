@@ -20,6 +20,5 @@ if __name__ == '__main__':
         obs_classes={ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL}
     )
 
-    program_list = [p for lst in programs.values() for p in lst]
     collector.load_programs(program_provider=OcsProgramProvider(),
-                            data=program_list)
+                            data=programs)

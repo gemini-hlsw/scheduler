@@ -9,29 +9,18 @@ from common.helpers import str_to_bool, hmsstr2deg, dmsstr2deg
 from common.minimodel import *
 
 
-def read_ocs_zipfile(zip_file: str) -> Mapping[Site, List[dict]]:
+def read_ocs_zipfile(zip_file: str) -> List[dict]:
     """
     Since for OCS we will use a collection of extracted ODB data, this is a
-    convenience method to sort that data into the requisite map from site to
-    a list of the JSON program data.
+    convenience method to parse the data into a list of the JSON program data.
     """
-    programs: dict[Site, List[dict]] = {}
+    programs: List[dict] = []
 
     with zipfile.ZipFile(zip_file, 'r') as zf:
         for filename in zf.namelist():
-            filename_parts = filename.split('-')
-            if filename_parts:
-                try:
-                    site = Site[filename_parts[0]]
-                except KeyError:
-                    msg = f'Cannot extract site information from {filename}: ignoring.'
-                    logging.warning(msg)
-
             with zf.open(filename) as f:
                 contents = f.read().decode('utf-8')
-                data = json.loads(contents)
-                programs.setdefault(site, [])
-                programs[site].append(data)
+                programs.append(json.loads(contents))
                 logging.info(f'Added program {filename}.')
 
     return programs
