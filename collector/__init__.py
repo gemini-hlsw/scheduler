@@ -92,7 +92,7 @@ class NightEvents:
         self.local_times = [t.to_datetime(self.site.value.timezone) for t in self.times]
         self.local_sidereal_times = [vskyutil.lpsidereal(t, self.site.value.location) for t in self.times]
 
-        def altazparang(pos: SkyCoord):
+        def altazparang(pos: SkyCoord) -> Tuple[npt.NDArray[Angle], npt.NDArray[Angle], npt.NDArray[Angle]]:
             """
             Common code to invoke vskyutil.altazparang for a number of positions and then properly
             combine the results into three numpy arrays, representing, indexed by time:
@@ -104,7 +104,11 @@ class NightEvents:
                 *[vskyutil.altazparang(p.dec, lst - p.ra, self.site.value.location.lat)
                   for p, lst in zip(pos, self.local_sidereal_times)]
             )
-            return np.array(alt), np.array(az), np.array(par_ang)
+            alt = np.array(alt)
+            az = np.array(az)
+            par_ang = np.array(par_ang)
+            return alt, az, par_ang
+            # return np.array(alt), np.array(az), np.array(par_ang)
 
         # Calculate the parameters for the sun, joining together the positions.
         self.sun_pos = SkyCoord([vskyutil.lpsun(t) for t in self.times])
@@ -293,7 +297,8 @@ class Collector(SchedulerComponent):
         TODO: It would be easy to convert this from astropy to simply use datetime.
         TODO: How would this affect efficiency?
         """
-        if len(obs.constraints.timing_windows) == 0:
+        # TODO: If we don't have constraints, should we create a program-length timing window?
+        if not obs.constraints or len(obs.constraints.timing_windows) == 0:
             # Create a timing window for the entirety of the program.
             windows = [Time([prog.start, prog.end])]
         else:
@@ -357,13 +362,13 @@ class Collector(SchedulerComponent):
                     # This information is already stored in decimal degrees at this point.
                     ra = (target.ra + pm_ra * time_offsets) * u.deg
                     dec = (target.dec + pm_dec * time_offsets) * u.deg
-                    coords = SkyCoord((target.ra + pm_ra * time_offsets) * u.deg,
+                    coord = SkyCoord((target.ra + pm_ra * time_offsets) * u.deg,
                                       (target.dec + pm_dec * time_offsets) * u.deg)
                     # ra = target.ra + pm_ra * time_offsets
                     # dec = target.dec + pm_dec * time_offsets
 
                 elif isinstance(target, NonsiderealTarget):
-                    coords = SkyCoord(target.ra * u.deg, target.dec * u.deg)
+                    coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
                     # ra = target.ra
                     # dec = target.dec
 
@@ -374,59 +379,76 @@ class Collector(SchedulerComponent):
 
                 # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
                 lst = night_events.local_sidereal_times[idx]
-                hourangle = lst - coords.ra
+                hourangle = lst - coord.ra
                 hourangle.wrap_at(12.0 * u.hour, inplace=True)
-                alt, az, par_ang = vskyutil.altazparang(coords.dec, hourangle, obs.site.value.location.lat)
+                alt, az, par_ang = vskyutil.altazparang(coord.dec, hourangle, obs.site.value.location.lat)
                 airmass = vskyutil.true_airmass(alt)
 
-                targ_prop = airmass if obs.constraints.elevation_type is ElevationType.AIRMASS else hourangle.value
+                # Calculate the time slots for the night in which there is visibility.
+                # If there is no constraint information for an observation, we cannot calculate this.
+                visibility = np.array([], dtype=int)
+
+                # TODO: If an observation has no constraints, how should we handle this?
+                visibility_time = 0.0 * self.time_slot_length
+                rem_visibility_frac = 0.0
 
                 # Sky brightness.
                 sb = np.full([len(night_events.times[idx])], SkyBackground.SBANY)
 
-                if obs.constraints.conditions.sb < SkyBackground.SBANY:
-                    targ_moon_ang = coords.separation(night_events.moon_pos[idx])
-                    brightness = sky_brightness.calculate_sky_brightness(
-                        180.0 * u.deg - night_events.sun_moon_ang,
-                        targ_moon_ang,
-                        night_events.moon_dist,
-                        90.0 * u.deg - night_events.moon_alt,
-                        90.0 * u.deg - alt,
-                        90.0 * u.deg - night_events.sun_alt
-                    )
-                    sb = sky_brightness.convert_to_sky_background(brightness)
+                if obs.constraints:
+                    print(night_events.moon_alt)
+                    if obs.id == 'GN-2018B-Q-101-1337':
+                        print('here')
+                    if obs.constraints.conditions.sb < SkyBackground.SBANY:
+                        targ_moon_ang = coord.separation(night_events.moon_pos[idx])
+                        brightness = sky_brightness.calculate_sky_brightness(
+                            180.0 * u.deg - night_events.sun_moon_ang,
+                            targ_moon_ang,
+                            night_events.moon_dist,
+                            90.0 * u.deg - night_events.moon_alt,  # TODO: this line is causing a weird error?
+                            90.0 * u.deg - alt,
+                            90.0 * u.deg - night_events.sun_alt
+                        )
+                        sb = sky_brightness.convert_to_sky_background(brightness)
 
-                # Calculate the time slots for the night in which there is visibility.
-                visibility = np.array([], dtype=int)
+                    # Select where sky brightness and elevation constraints are met.
+                    # np.where used here acts as np.asarray(condition).nonzero(), i.e. it returns the indices
+                    # where the condition holds in the array specified.
+                    # np.where used in this way does return a tuple of size two, hence we have to take
+                    # the first element. The general use of np.where is considerably different.
+                    # TODO: What do we do if the elevation_type is NONE? For now, just ignore elevation.
+                    if obs.constraints.elevation_type is ElevationType.NONE:
+                        isb = np.where(np.logical_and(sb <= obs.constraints.conditions.sb,
+                                                      night_events.sun_alt[idx] <= -12 * u.deg))[0]
+                    else:
+                        targ_prop = airmass if obs.constraints.elevation_type is ElevationType.AIRMASS else hourangle.value
+                        isb = np.where(np.logical_and(sb <= obs.constraints.conditions.sb,
+                                                      np.logical_and(night_events.sun_alt[idx] <= -12 * u.deg,
+                                                                     np.logical_and(
+                                                                         targ_prop >= obs.constraints.elevation_min,
+                                                                         targ_prop <= obs.constraints.elevation_max
+                                                                     ))))[0]
 
-                # Select where sky brightness and elevation constraints are met.
-                # np.where used here acts as np.asarray(condition).nonzero(), i.e. it returns the indices
-                # where the condition holds in the array specified.
-                # np.where used in this way does return a tuple of size two, hence we have to take
-                # the first element. The general use of np.where is considerably different.
-                isb = np.where(np.logical_and(sb <= obs.constraints.conditions.sb,
-                                              np.logical_and(night_events.sun_alt[idx] <= -12 * u.deg,
-                                                             np.logical_and(
-                                                                 targ_prop >= obs.constraints.elevation_min,
-                                                                 targ_prop <= obs.constraints.elevation_max
-                                                             ))))[0]
+                    # Apply timing window constraints.
+                    # We always have at least one timing window. If one was not given, the program length will be used.
+                    for timing in self._timing_windows[obs.id]:
+                        itw = np.where(np.logical_and(night_events.times[idx][isb] >= timing[0],
+                                                      night_events.times[idx][isb] <= timing[1]))[0]
+                        visibility = np.append(visibility, isb[itw])
 
-                # Apply timing window constraints.
-                for timing in self._timing_windows[obs.id]:
-                    itw = np.where(np.logical_and(night_events.times[isb] >= timing[0],
-                                                  night_events.times[isb] <= timing[1]))[0]
-                    visibility = np.append(visibility, isb[itw])
+                    # TODO: Guide star availability for moving targets and parallactic angle modes.
 
-                # TODO: Guide star availability for moving targets and parallactic angle modes.
+                    # Calculate the visibility time, the ongoing summed remaining visibility time, and
+                    # the remaining visibility fraction.
+                    visibility_time = len(visibility) * self.time_slot_length
+                    rem_visibility_time += visibility_time
 
-                # Calculate the visibility time, the ongoing summed remaining visibility time, and
-                # the remaining visibility fraction.
-                visibility_time = len(visibility) * self.time_slot_length
-                rem_visibility_time += visibility_time
-                rem_visibility_frac = rem_visibility_frac_numerator / rem_visibility_time
+                    # TODO: What if the denominator is 0? For now, we just use a value of 0.0 for the visibility frac.
+                    if rem_visibility_time.value:
+                        rem_visibility_frac = rem_visibility_frac_numerator / rem_visibility_time
 
                 Collector._target_info[(target.name, obs.id, idx)] = TargetInfo(
-                    coords=coords,
+                    coord=coord,
                     alt=alt,
                     az=az,
                     par_ang=par_ang,
@@ -439,7 +461,7 @@ class Collector(SchedulerComponent):
                     rem_visibility_frac=rem_visibility_frac
                 )
 
-                logging.info(f'Done calculating visibility for observation {obs.id}.')
+        logging.info(f'Done calculating visibility for observation {obs.id}.')
 
     # TODO: This should also be precomputed: it is not clear how it will change if
     # TODO: we get a mutation notification from GPP, which may happen with execution time or
