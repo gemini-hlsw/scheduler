@@ -366,9 +366,6 @@ class Magnitude:
     value: float
     error: Optional[float] = None
 
-    def __repr__(self):
-        return f'Magnitude({self.band.name}, {self.value})'
-
 
 class TargetType(Enum):
     """
