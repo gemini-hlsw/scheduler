@@ -5,7 +5,7 @@ import numpy as np
 import pytz
 import time
 from tqdm import tqdm
-from typing import Dict, FrozenSet, Iterable, Tuple, NoReturn
+from typing import FrozenSet, Iterable, Tuple, NoReturn
 
 from api.abstract import ProgramProvider
 from common import sky_brightness
@@ -230,14 +230,14 @@ class Collector(SchedulerComponent):
     # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
     # This is a list of the programs as read in.
     # We only want to read these in once unless the program_types change, which they should not.
-    _programs: ClassVar[Dict[ProgramID, Program]] = {}
+    _programs: ClassVar[Mapping[ProgramID, Program]] = {}
 
     # The observations associated with the above programs, which we store by site.
-    _observations: ClassVar[Dict[Site, List[Observation]]] = {}
+    _observations: ClassVar[Mapping[Site, List[Observation]]] = {}
 
     # Observation timing windows in an easier to use format.
     # We look up timing window information by observation id.
-    _timing_windows: ClassVar[Dict[ObservationID, List[Time]]]
+    _timing_windows: ClassVar[Mapping[ObservationID, List[Time]]]
 
     # The target information is dependent on the:
     # 1. TargetName
@@ -245,7 +245,7 @@ class Collector(SchedulerComponent):
     # 4. NightIndex of interest
     # We want the ObservationID in here so that any target sharing in GPP is deliberately split here, since
     # the target info is observation-specific due to the constraints and site.
-    _target_info: ClassVar[Dict[Tuple[TargetName, ObservationID, NightIndex], TargetInfo]] = {}
+    _target_info: ClassVar[Mapping[Tuple[TargetName, ObservationID, NightIndex], TargetInfo]] = {}
 
     # The default timeslot length currently used.
     DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min
@@ -483,7 +483,7 @@ class Collector(SchedulerComponent):
         self._timing_windows = {}
 
         # As we read, keep track of the observations per site.
-        observations: Dict[Site, List[Observation]] = {site: [] for site in self.sites}
+        observations: Mapping[Site, List[Observation]] = {site: [] for site in self.sites}
 
         # Read in the programs.
         # Count the number of parse failures.
