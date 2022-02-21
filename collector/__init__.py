@@ -91,7 +91,7 @@ class NightEvents:
         self.local_times = [t.to_datetime(self.site.value.timezone) for t in self.times]
         self.local_sidereal_times = [vskyutil.lpsidereal(t, self.site.value.location) for t in self.times]
 
-        def altazparang(pos: List[SkyCoord]):  # -> Tuple[npt.NDArray[Angle], npt.NDArray[Angle], npt.NDArray[Angle]]:
+        def altazparang(pos: List[SkyCoord]) -> Tuple[npt.NDArray[Angle], npt.NDArray[Angle], npt.NDArray[Angle]]:
             """
             Common code to invoke vskyutil.altazparang for a number of positions and then properly
             combine the results into three numpy arrays, representing, indexed by time:
@@ -103,11 +103,7 @@ class NightEvents:
                 *[vskyutil.altazparang(p.dec, lst - p.ra, self.site.value.location.lat)
                   for p, lst in zip(pos, self.local_sidereal_times)]
             )
-            # alt = np.array(alt)
-            # az = np.array(az)
-            # par_ang = np.array(par_ang)
             return alt, az, par_ang
-            # return np.array(alt), np.array(az), np.array(par_ang)
 
         # Calculate the parameters for the sun, joining together the positions.
         # self.sun_pos = SkyCoord([vskyutil.lpsun(t) for t in self.times])
