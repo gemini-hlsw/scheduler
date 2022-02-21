@@ -18,7 +18,7 @@ import common.vskyutil as vskyutil
 # We need this as a PyCharm warning workaround for dataclasses here.
 # Otherwise, we get that dataclass parameters are unexpected.
 # TODO: This does not work with numpy, so we just have to accept the warnings.
-from marshmallow_dataclass import add_schema
+# from marshmallow_dataclass import add_schema
 
 
 # Type aliases for convenience.
