@@ -4,9 +4,6 @@ dependencies:
   - astropy
   - hypothesis
   - joblib
-  - marshmallow_dataclass
-  - marshmallow_enum
-  - marshmallow_numpy
   - matplotlib
   - numpy=1.21.*
   - openpyxl
