@@ -5,9 +5,8 @@ from typing import NoReturn, Tuple
 import zipfile
 
 from api.abstract import ProgramProvider
-from common.helpers import str_to_bool
+from common.helpers import str_to_bool, hmsstr2deg, dmsstr2deg
 from common.minimodel import *
-from common.timeutils import sex2dec
 
 
 def read_ocs_zipfile(zip_file: str) -> Mapping[Site, List[dict]]:
@@ -356,8 +355,10 @@ class OcsProgramProvider(ProgramProvider):
         dec_ddmmss = data[OcsProgramProvider._TargetKeys.DEC]
 
         # TODO: Is this the proper way to handle conversions from hms and dms?
-        ra = sex2dec(ra_hhmmss, todegree=True)
-        dec = sex2dec(dec_ddmmss, todegree=False)
+        # ra = sex2dec(ra_hhmmss, todegree=True)
+        # dec = sex2dec(dec_ddmmss, todegree=False)
+        ra = hmsstr2deg(ra_hhmmss)
+        dec = dmsstr2deg(dec_ddmmss)
 
         pm_ra = data.setdefault(OcsProgramProvider._TargetKeys.DELTARA, 0.0)
         pm_dec = data.setdefault(OcsProgramProvider._TargetKeys.DELTADEC, 0.0)

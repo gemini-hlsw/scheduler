@@ -82,6 +82,9 @@ class Semester:
     year: int
     half: SemesterHalf
 
+    def __str__(self):
+        return f'{self.year}{self.half.value}'
+
 
 @dataclass(unsafe_hash=True)
 class ObservingPeriod:
@@ -175,8 +178,9 @@ class TimingWindow:
     repeat: int
     period: Optional[timedelta]
 
+    # For infinite duration, use the length of an LP.
     INFINITE_DURATION_FLAG: ClassVar[int] = -1
-    INFINITE_DURATION: ClassVar[int] = timedelta.max
+    INFINITE_DURATION: ClassVar[int] = timedelta(days=3 * 365, hours=24)
     FOREVER_REPEATING: ClassVar[int] = -1
     NON_REPEATING: ClassVar[int] = 0
     NO_PERIOD: ClassVar[Optional[timedelta]] = None

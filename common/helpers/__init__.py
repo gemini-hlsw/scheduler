@@ -32,15 +32,42 @@ def str_to_bool(s: Optional[str]) -> bool:
 SIGNS = {'': 1, '+': 1, '-': -1}
 
 
+def dmsstr2deg(s: str) -> float:
+    if not s:
+        raise ValueError(f'Illegal DMS string: {s}')
+
+    sign = '+'
+    if s[0] in SIGNS:
+        sign = s[0]
+        s = s[1:]
+
+    result = s.split(':')
+    if len(result) != 3:
+        raise ValueError(f'Illegal DMS string: {s}')
+
+    return dms2deg(int(result[0]), int(result[1]), float(result[2]), sign)
+
+
 def dms2deg(d: int, m: int, s: float, sign: str) -> float:
     if sign not in SIGNS:
-        raise ValueError(f"Illegal sign in DMS '{sign}{d}:{m}:{s}")
-
-    return SIGNS[sign] * (d + m / 60.0 + s / 3600.0)
+        raise ValueError(f'Illegal sign "{sign}" in DMS: {sign}{d}:{m}:{s}')
+    dec = SIGNS[sign] * (d + m / 60.0 + s / 3600.0)
+    return dec if dec < 180 else -(360 - dec)
 
 
 def dms2rad(d: int, m: int, s: float, sign: str) -> float:
     return dms2deg(d, m, s, sign) * np.pi / 180.0
+
+
+def hmsstr2deg(s: str) -> float:
+    if not s:
+        raise ValueError(f'Illegal HMS string: {s}')
+
+    result = s.split(':')
+    if len(result) != 3:
+        raise ValueError(f'Illegal HMS string: {s}')
+
+    return hms2deg(int(result[0]), int(result[1]), float(result[2]))
 
 
 def hms2deg(h: int, m: int, s: float) -> float:

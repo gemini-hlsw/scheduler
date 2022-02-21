@@ -45,8 +45,6 @@ class NightEvents:
     twilight_morning_12: Time
     moonrise: Time
     moonset: Time
-    sun_moon_ang: Angle
-    moon_illumination_fraction: npt.NDArray[float]
 
     def __post_init__(self):
         """
@@ -92,7 +90,7 @@ class NightEvents:
         self.local_times = [t.to_datetime(self.site.value.timezone) for t in self.times]
         self.local_sidereal_times = [vskyutil.lpsidereal(t, self.site.value.location) for t in self.times]
 
-        def altazparang(pos: SkyCoord) -> Tuple[npt.NDArray[Angle], npt.NDArray[Angle], npt.NDArray[Angle]]:
+        def altazparang(pos: List[SkyCoord]):  # -> Tuple[npt.NDArray[Angle], npt.NDArray[Angle], npt.NDArray[Angle]]:
             """
             Common code to invoke vskyutil.altazparang for a number of positions and then properly
             combine the results into three numpy arrays, representing, indexed by time:
@@ -104,24 +102,28 @@ class NightEvents:
                 *[vskyutil.altazparang(p.dec, lst - p.ra, self.site.value.location.lat)
                   for p, lst in zip(pos, self.local_sidereal_times)]
             )
-            alt = np.array(alt)
-            az = np.array(az)
-            par_ang = np.array(par_ang)
+            # alt = np.array(alt)
+            # az = np.array(az)
+            # par_ang = np.array(par_ang)
             return alt, az, par_ang
             # return np.array(alt), np.array(az), np.array(par_ang)
 
         # Calculate the parameters for the sun, joining together the positions.
-        self.sun_pos = SkyCoord([vskyutil.lpsun(t) for t in self.times])
+        # self.sun_pos = SkyCoord([vskyutil.lpsun(t) for t in self.times])
+        self.sun_pos = [SkyCoord(vskyutil.lpsun(t)) for t in self.times]
         self.sun_alt, self.sun_az, self.sun_par_ang = altazparang(self.sun_pos)
 
         # accumoon produces a tuple, (SkyCoord, ndarray) indicating position and distance.
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
         # collect the SkyCoords into one tuple, and the ndarrays into another.
         # The moon_dist are already a Quantity: error if try to convert.
-        moon_pos, moon_dist = zip(*[vskyutil.accumoon(t, self.site.value.location) for t in self.times])
-        self.moon_pos = SkyCoord(moon_pos)
-        self.moon_dist = moon_dist
+        self.moon_pos, self.moon_dist = zip(*[vskyutil.accumoon(t, self.site.value.location) for t in self.times])
+        # self.moon_pos = SkyCoord(moon_pos)
+        # self.moon_dist = moon_dist
         self.moon_alt, self.moon_az, self.moon_par_ang = altazparang(self.moon_pos)
+
+        # Angle between the sun and the moon.
+        self.sun_moon_ang = [sun_pos.separation(moon_pos) for sun_pos, moon_pos in zip(self.sun_pos, self.moon_pos)]
 
 
 class NightEventsManager:
@@ -146,7 +148,7 @@ class NightEventsManager:
                 time_slot_length != ne[site].time_slot_length or
                 (len(ne[site].time_grid) == 1 and ne[site].time_grid[0] != time_grid[0]) or
                 (len(ne[site].time_grid) > 1 and
-                 (time_grid[0] < ne[site].time_grid[0] or time_grid[-1] > ne[site].time_grid[1]))):
+                 (time_grid[0] < ne[site].time_grid[0] or time_grid[-1] > ne[site].time_grid[-1]))):
 
             # For some strange reason, this does not work if we specify keywords for NightEvents.
             # It complains about __init__() getting multiple args for time_grid.
@@ -294,7 +296,7 @@ class Collector(SchedulerComponent):
 
         If no timing windows are given, then create one large timing window for the entire program.
 
-        TODO: It would be easy to convert this from astropy to simply use datetime.
+        TODO: We should probably eliminate conversion from Python datetime to AstroPy Time.
         TODO: How would this affect efficiency?
         """
         # TODO: If we don't have constraints, should we create a program-length timing window?
@@ -306,7 +308,7 @@ class Collector(SchedulerComponent):
             for tw in obs.constraints.timing_windows:
                 t0 = time.mktime(tw.start.utctimetuple()) * 1000 * u.ms
                 begin = Time(t0.to_value('s'), format='unix', scale='utc')
-                duration = tw.duration / 3600000.0 * u.h
+                duration = tw.duration.total_seconds() / 3600.0 * u.h
                 repeat = max(1, tw.repeat)
                 period = tw.period.total_seconds() / 3600.0 * u.h if tw.period is not None else 0.0 * u.h
                 windows.extend([Time([begin + i * period, begin + i * period + duration]) for i in range(repeat)])
@@ -342,8 +344,9 @@ class Collector(SchedulerComponent):
         rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
 
         for ridx, jday in enumerate(reversed(self.time_grid)):
-            # Convert to the actual
+            # Convert to the actual time grid index.
             idx = len(self.time_grid) - ridx - 1
+
             if (target.name, obs.id, idx) not in Collector._target_info:
                 if isinstance(target, SiderealTarget):
                     pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
@@ -360,10 +363,10 @@ class Collector(SchedulerComponent):
 
                     # Calculate the ra and dec for each target.
                     # This information is already stored in decimal degrees at this point.
-                    ra = (target.ra + pm_ra * time_offsets) * u.deg
-                    dec = (target.dec + pm_dec * time_offsets) * u.deg
+                    # ra = (target.ra + pm_ra * time_offsets) * u.deg
+                    # dec = (target.dec + pm_dec * time_offsets) * u.deg
                     coord = SkyCoord((target.ra + pm_ra * time_offsets) * u.deg,
-                                      (target.dec + pm_dec * time_offsets) * u.deg)
+                                     (target.dec + pm_dec * time_offsets) * u.deg)
                     # ra = target.ra + pm_ra * time_offsets
                     # dec = target.dec + pm_dec * time_offsets
 
@@ -396,18 +399,15 @@ class Collector(SchedulerComponent):
                 sb = np.full([len(night_events.times[idx])], SkyBackground.SBANY)
 
                 if obs.constraints:
-                    print(night_events.moon_alt)
-                    if obs.id == 'GN-2018B-Q-101-1337':
-                        print('here')
                     if obs.constraints.conditions.sb < SkyBackground.SBANY:
                         targ_moon_ang = coord.separation(night_events.moon_pos[idx])
                         brightness = sky_brightness.calculate_sky_brightness(
-                            180.0 * u.deg - night_events.sun_moon_ang,
+                            180.0 * u.deg - night_events.sun_moon_ang[idx],
                             targ_moon_ang,
-                            night_events.moon_dist,
-                            90.0 * u.deg - night_events.moon_alt,  # TODO: this line is causing a weird error?
+                            night_events.moon_dist[idx],
+                            90.0 * u.deg - night_events.moon_alt[idx],
                             90.0 * u.deg - alt,
-                            90.0 * u.deg - night_events.sun_alt
+                            90.0 * u.deg - night_events.sun_alt[idx]
                         )
                         sb = sky_brightness.convert_to_sky_background(brightness)
 
@@ -500,7 +500,7 @@ class Collector(SchedulerComponent):
 
                 # If program not in specified semester, then skip.
                 if program.semester is None or program.semester not in self.semesters:
-                    logging.warning(f'Program {program.id} not in a specified semester (skipping).')
+                    logging.warning(f'Program {program.id} not in a specified semester (skipping): {program.semester}.')
                     continue
 
                 # If a program ID is repeated, warn and overwrite.
@@ -514,7 +514,8 @@ class Collector(SchedulerComponent):
                     if obs.obs_class in self.obs_classes:
                         observations[obs.site].append(obs)
                     else:
-                        logging.warning(f'Observation {obs.id} not in a specified observation class (skipping).')
+                        name = obs.obs_class.name
+                        logging.warning(f'Observation {obs.id} not in a specified class (skipping): {name}.')
                         continue
 
                 for site, obs in tqdm(((s, o) for s in self.sites for o in observations[s]), leave=False):
@@ -529,11 +530,9 @@ class Collector(SchedulerComponent):
 
                     logging.info(f'Processed observation {obs.id}.')
 
-            except FileNotFoundError:
-                ...
-            # except ValueError as e:
-            #     bad_program_count += 1
-            #     logging.warning(f'Could not parse program: {e}')
+            except ValueError as e:
+                bad_program_count += 1
+                logging.warning(f'Could not parse program: {e}')
 
         if bad_program_count:
             logging.error(f'Could not parse {bad_program_count} programs.')
