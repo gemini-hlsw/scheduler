@@ -1,5 +1,4 @@
-#import os, sys
-#sys.path.insert(0, os.path.abspath(".."))
+import os
 import pytest
 from hypothesis import given, strategies as st
 
@@ -134,6 +133,7 @@ def test_horizons_client_query(target: NonsiderealTarget,
     """
     HorizonsClient.query should return a list of Coordinates
     """
+    os.chdir(os.path.join('..', '..'))
     with horizons_session(*session_parameters) as session:
         eph = session.get_ephemerides(target)
         assert isinstance(eph.coordinates, list)
