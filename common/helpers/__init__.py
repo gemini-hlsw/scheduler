@@ -45,7 +45,12 @@ def dmsstr2deg(s: str) -> float:
     if len(result) != 3:
         raise ValueError(f'Illegal DMS string: {s}')
 
-    return dms2deg(int(result[0]), int(result[1]), float(result[2]), sign)
+    try:
+        return dms2deg(int(result[0]), int(result[1]), float(result[2]), sign)
+    except ValueError:
+        import logging
+        logging.error(f'Uhoh: {s}')
+        raise
 
 
 def dms2deg(d: int, m: int, s: float, sign: str) -> float:
