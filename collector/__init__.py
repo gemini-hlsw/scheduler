@@ -1,8 +1,8 @@
-import pytz
 from astropy.coordinates import SkyCoord
 from astropy.time import TimeDelta
 from astropy import units as u
 import numpy as np
+import pytz
 import time
 from tqdm import tqdm
 from typing import Dict, FrozenSet, Iterable, Tuple, NoReturn
@@ -17,6 +17,7 @@ import common.vskyutil as vskyutil
 # The package marshmallow-dataclass extends the dataclasses.dataclass decorator by adding schema information.
 # We need this as a PyCharm warning workaround for dataclasses here.
 # Otherwise, we get that dataclass parameters are unexpected.
+# TODO: This does not work with numpy, so we just have to accept the warnings.
 from marshmallow_dataclass import add_schema
 
 
