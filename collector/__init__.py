@@ -91,7 +91,7 @@ class NightEvents:
             return alt, az, par_ang
 
         # Calculate the parameters for the sun, joining together the positions.
-        # We also precalculate the indices for the time slots for the night have the required sun altitude.
+        # We also precalculate the indices for the time slots for the night that have the required sun altitude.
         self.sun_pos = [SkyCoord(vskyutil.lpsun(t)) for t in self.times]
         self.sun_alt, self.sun_az, self.sun_par_ang = altazparang(self.sun_pos)
         self.sun_alt_indices = [self.sun_alt[night_idx] <= -12 * u.deg for night_idx, _ in enumerate(self.time_grid)]
