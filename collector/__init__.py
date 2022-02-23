@@ -1,3 +1,4 @@
+import logging
 from astropy.coordinates import SkyCoord
 from astropy.time import TimeDelta
 from astropy import units as u
@@ -64,29 +65,13 @@ class NightEvents:
         # n in an array with the number of time slots in a night.
         n = ((time_ends.jd - time_starts.jd) / time_slot_length_days + 0.5).astype(int)
 
-        # Most general times: can convert into others.
-        # TODO: This does not work as currently done:
-        # starts = Time(['2000-01-01', '2000-01-02'])
-        # ends = Time(['2000-01-01 12:00', '2000-01-02 12:00'])
-        # n = [3, 4]
-        # ts = [np.linspace(start.jd, end.jd, i) for start, end, i in zip(starts, ends, n)]
-        # -> [array([2451544.5 , 2451544.75, 2451545]), array([2451545.5, 2451545.66666667, 2451545.83333333, 2451546])]
-        # Time(ts, format='jd') generates exceptions.
-        # We can do:
-        # self.times = [Time(t, format='jd') for t in ts]
-        # This will give us arrays per night of the times.
-        # We can then wrap all of this in a Time object to get an array, but it seems
-        # more advantageous to keep them separate so we can do nightly lookups?
-        # self.times = Time(self.times)
-        # -> <Time object: scale='utc' format='jd' value=[array ts above in 1D]>
-
-        # NOTE: We want this as a Python list because the entries will have different lengths!
+        # Calculate a list of arrays per night of the times.
+        # We want this as a Python list because the arrays will have different lengths.
         self.times = [Time(np.linspace(start.jd, end.jd - time_slot_length_days, i), format='jd')
                       for start, end, i in zip(time_starts, time_ends, n)]
 
         # Pre-calculate the different times.
         # We want these as Python lists because the entries will have different lengths.
-        # TODO: Thus, the np.vectorize approach will not work here, but we keep it here as documentation.
         self.utc_times = [t.to_datetime(pytz.UTC) for t in self.times]
         self.local_times = [t.to_datetime(self.site.value.timezone) for t in self.times]
         self.local_sidereal_times = [vskyutil.lpsidereal(t, self.site.value.location) for t in self.times]
@@ -106,17 +91,16 @@ class NightEvents:
             return alt, az, par_ang
 
         # Calculate the parameters for the sun, joining together the positions.
-        # self.sun_pos = SkyCoord([vskyutil.lpsun(t) for t in self.times])
+        # We also precalculate the indices for the time slots for the night that have the required sun altitude.
         self.sun_pos = [SkyCoord(vskyutil.lpsun(t)) for t in self.times]
         self.sun_alt, self.sun_az, self.sun_par_ang = altazparang(self.sun_pos)
+        self.sun_alt_indices = [self.sun_alt[night_idx] <= -12 * u.deg for night_idx, _ in enumerate(self.time_grid)]
 
         # accumoon produces a tuple, (SkyCoord, ndarray) indicating position and distance.
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
         # collect the SkyCoords into one tuple, and the ndarrays into another.
         # The moon_dist are already a Quantity: error if try to convert.
         self.moon_pos, self.moon_dist = zip(*[vskyutil.accumoon(t, self.site.value.location) for t in self.times])
-        # self.moon_pos = SkyCoord(moon_pos)
-        # self.moon_dist = moon_dist
         self.moon_alt, self.moon_az, self.moon_par_ang = altazparang(self.moon_pos)
 
         # Angle between the sun and the moon.
@@ -264,13 +248,15 @@ class Collector(SchedulerComponent):
         """
         Initializes the internal data structures for the Collector and populates them.
         """
-        # TODO: How to handle the time range?
-        # TODO: 1. Originally: Time, assume size 2
-        # TODO: 2. start Time and end Time, force size 1
         # Check that the times are valid.
+        if not np.isscalar(self.start_time.value):
+            msg = f'Illegal start time (must be scalar): {self.start_time}.'
+            raise ValueError(msg)
+        if not np.isscalar(self.end_time.value):
+            msg = f'Illegal end time (must be scalar): {self.end_time}.'
+            raise ValueError(msg)
         if self.start_time >= self.end_time:
             msg = f'Start time ({self.start_time}) must be earlier than end time ({self.end_time}).'
-            logging.error(msg)
             raise ValueError(msg)
 
         # Set up the time grid for the period under consideration: this is an astropy Time
@@ -374,7 +360,6 @@ class Collector(SchedulerComponent):
 
                 else:
                     msg = f'Invalid target: {target}'
-                    logging.error(msg)
                     raise ValueError(msg)
 
                 # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
@@ -385,64 +370,68 @@ class Collector(SchedulerComponent):
                 airmass = vskyutil.true_airmass(alt)
 
                 # Calculate the time slots for the night in which there is visibility.
-                # If there is no constraint information for an observation, we cannot calculate this.
                 visibility = np.array([], dtype=int)
 
-                # TODO: If an observation has no constraints, how should we handle this?
-                visibility_time = 0.0 * self.time_slot_length
-                rem_visibility_frac = 0.0
+                # Determine time slot indices where the sky brightness and elevation constraints are met.
+                # By default, in the case where an observation has no constraints, we use SB ANY.
+                if obs.constraints and obs.constraints.conditions.sb < SkyBackground.SBANY:
+                    targ_sb = obs.constraints.conditions.sb
+                    targ_moon_ang = coord.separation(night_events.moon_pos[idx])
+                    brightness = sky_brightness.calculate_sky_brightness(
+                        180.0 * u.deg - night_events.sun_moon_ang[idx],
+                        targ_moon_ang,
+                        night_events.moon_dist[idx],
+                        90.0 * u.deg - night_events.moon_alt[idx],
+                        90.0 * u.deg - alt,
+                        90.0 * u.deg - night_events.sun_alt[idx]
+                    )
+                    sb = sky_brightness.convert_to_sky_background(brightness)
+                else:
+                    targ_sb = SkyBackground.SBANY
+                    sb = np.full([len(night_events.times[idx])], SkyBackground.SBANY)
 
-                # Sky brightness.
-                sb = np.full([len(night_events.times[idx])], SkyBackground.SBANY)
-
+                # In the case where an observation has no constraint information or an elevation constraint
+                # type of None, we use airmass default values.
                 if obs.constraints:
-                    if obs.constraints.conditions.sb < SkyBackground.SBANY:
-                        targ_moon_ang = coord.separation(night_events.moon_pos[idx])
-                        brightness = sky_brightness.calculate_sky_brightness(
-                            180.0 * u.deg - night_events.sun_moon_ang[idx],
-                            targ_moon_ang,
-                            night_events.moon_dist[idx],
-                            90.0 * u.deg - night_events.moon_alt[idx],
-                            90.0 * u.deg - alt,
-                            90.0 * u.deg - night_events.sun_alt[idx]
-                        )
-                        sb = sky_brightness.convert_to_sky_background(brightness)
+                    targ_prop = hourangle if obs.constraints.elevation_type is ElevationType.HOUR_ANGLE else airmass
+                    elev_min = obs.constraints.elevation_min
+                    elev_max = obs.constraints.elevation_max
+                else:
+                    targ_prop = airmass
+                    elev_min = Constraints.DEFAULT_AIRMASS_ELEVATION_MIN
+                    elev_max = Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
 
-                    # Select where sky brightness and elevation constraints are met.
-                    # np.where used here acts as np.asarray(condition).nonzero(), i.e. it returns the indices
-                    # where the condition holds in the array specified.
-                    # np.where used in this way does return a tuple of size two, hence we have to take
-                    # the first element. The general use of np.where is considerably different.
-                    # TODO: What do we do if the elevation_type is NONE? For now, just ignore elevation.
-                    if obs.constraints.elevation_type is ElevationType.NONE:
-                        isb = np.where(np.logical_and(sb <= obs.constraints.conditions.sb,
-                                                      night_events.sun_alt[idx] <= -12 * u.deg))[0]
-                    else:
-                        targ_prop = airmass if obs.constraints.elevation_type is ElevationType.AIRMASS else hourangle.value
-                        isb = np.where(np.logical_and(sb <= obs.constraints.conditions.sb,
-                                                      np.logical_and(night_events.sun_alt[idx] <= -12 * u.deg,
-                                                                     np.logical_and(
-                                                                         targ_prop >= obs.constraints.elevation_min,
-                                                                         targ_prop <= obs.constraints.elevation_max
-                                                                     ))))[0]
+                # Calculate the time slot indices for the night where:
+                # 1. The sun altitude requirement is met (precalculated in night_events)
+                # 2. The sky background constraint is met
+                # 3. The elevation constraints are met
+                sa_idx = night_events.sun_alt_indices[idx]
+                c_idx = np.where(
+                    np.logical_and(sb[sa_idx] <= targ_sb,
+                                   np.logical_and(targ_prop[sa_idx] >= elev_min,
+                                                  targ_prop[sa_idx] <= elev_max))
+                )[0]
 
-                    # Apply timing window constraints.
-                    # We always have at least one timing window. If one was not given, the program length will be used.
-                    for timing in self._timing_windows[obs.id]:
-                        itw = np.where(np.logical_and(night_events.times[idx][isb] >= timing[0],
-                                                      night_events.times[idx][isb] <= timing[1]))[0]
-                        visibility = np.append(visibility, isb[itw])
+                # Apply timing window constraints.
+                # We always have at least one timing window. If one was not given, the program length will be used.
+                for timing in self._timing_windows[obs.id]:
+                    tw_idx = np.where(
+                        np.logical_and(night_events.times[idx][c_idx] >= timing[0],
+                                       night_events.times[idx][c_idx] <= timing[1])
+                    )[0]
+                    visibility = np.append(visibility, sa_idx[c_idx[tw_idx]])
 
-                    # TODO: Guide star availability for moving targets and parallactic angle modes.
+                # TODO: Guide star availability for moving targets and parallactic angle modes.
 
-                    # Calculate the visibility time, the ongoing summed remaining visibility time, and
-                    # the remaining visibility fraction.
-                    visibility_time = len(visibility) * self.time_slot_length
-                    rem_visibility_time += visibility_time
-
-                    # TODO: What if the denominator is 0? For now, we just use a value of 0.0 for the visibility frac.
-                    if rem_visibility_time.value:
-                        rem_visibility_frac = rem_visibility_frac_numerator / rem_visibility_time
+                # Calculate the visibility time, the ongoing summed remaining visibility time, and
+                # the remaining visibility fraction.
+                # If the denominator for the visibility fraction is 0, use a value of 0.
+                visibility_time = len(visibility) * self.time_slot_length
+                rem_visibility_time += visibility_time
+                if rem_visibility_time.value:
+                    rem_visibility_frac = rem_visibility_frac_numerator / rem_visibility_time
+                else:
+                    rem_visibility_frac = 0.0
 
                 Collector._target_info[(target.name, obs.id, idx)] = TargetInfo(
                     coord=coord,
@@ -457,8 +446,6 @@ class Collector(SchedulerComponent):
                     rem_visibility_time=rem_visibility_time,
                     rem_visibility_frac=rem_visibility_frac
                 )
-
-        logging.info(f'Done calculating visibility for observation {obs.id}.')
 
     # TODO: This should also be precomputed: it is not clear how it will change if
     # TODO: we get a mutation notification from GPP, which may happen with execution time or
@@ -484,11 +471,11 @@ class Collector(SchedulerComponent):
         # Read in the programs.
         # Count the number of parse failures.
         bad_program_count = 0
+
         for json_program in tqdm(data):
             try:
                 if len(json_program.keys()) != 1:
                     msg = f'JSON programs should only have one top-level key: {" ".join(json_program.keys())}'
-                    logging.error(msg)
                     raise ValueError(msg)
 
                 # Extract the data from the JSON program. We do not need the top label.
@@ -515,7 +502,7 @@ class Collector(SchedulerComponent):
                         logging.warning(f'Observation {obs.id} not in a specified class (skipping): {name}.')
                         continue
 
-                for site, obs in tqdm(((s, o) for s in self.sites for o in observations[s]), leave=False):
+                for obs in tqdm(program.observations(), leave=False):
                     # Process the timing window information per observation.
                     self._process_timing_windows(program, obs)
 
