@@ -54,10 +54,11 @@ DEFAULT_PROGRAM_TYPES = frozenset([
 
 
 def download_programs(server: ODBServer = DEFAULT_SERVER,
-                      output_path: str = 'programs',
-                      zip_file: str = os.path.join('..', '..', 'data', 'programs.zip'),
+                      output_path: str = os.path.join('..', 'tmp'),
+                      zip_file: str = os.path.join('..', 'data', 'programs.zip'),
                       semesters: Mapping[Site, str] = None,
-                      program_types: FrozenSet[ProgramTypes] = DEFAULT_PROGRAM_TYPES) -> NoReturn:
+                      program_types: FrozenSet[ProgramTypes] = DEFAULT_PROGRAM_TYPES,
+                      remove_output_path=True) -> NoReturn:
     """
     Download a list of the programs from the specified server and produce a zip file.
     * server: an observing database (ODB) server information
@@ -77,7 +78,7 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
         # Get a list of all programs in the ODB.
         tn.read_until(b'g! ')
         tn.write('lsprogs'.encode('ascii') + b'\n')
-        program_names = [name.decode('ascii') for name in tn.read_until(b'g! ').split()]
+        program_names = [name.decode('ascii') for name in tn.read_until(b'g! ').split()][:25]
 
         # Filter based on program type.
         # We are interested in programs of the form Gs-yyyys-T-nnn
@@ -102,6 +103,7 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
         logging.log(EXTRACT, f'Found: {len(filtered_programs)} programs.')
 
         # Download all the programs we have filtered.
+        cwd = os.getcwd()
         if not os.path.isdir(output_path):
             os.mkdir(output_path)
 
@@ -129,6 +131,10 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
 
                 # Remove the program file as we are done with it.
                 os.unlink(program_file)
+
+        os.chdir(cwd)
+        if remove_output_path:
+            os.rmdir(output_path)
 
 
 if __name__ == '__main__':
