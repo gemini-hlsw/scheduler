@@ -1,6 +1,3 @@
-# NOTE: In order to use numpy.typing, this file requires the 1.21 numpy package to be installed via:
-# pip install numpy==1.21.4
-
 from abc import ABC
 from astropy.coordinates import EarthLocation, UnknownSiteException
 from astropy.coordinates.angles import Angle
