@@ -1,3 +1,4 @@
+import logging
 import calendar
 import json
 import numpy as np
@@ -148,25 +149,21 @@ class OcsProgramProvider(ProgramProvider):
             year = int(prog_id[3:7])
         except ValueError as e:
             msg = f'Illegal year specified for program {prog_id}: {prog_id[3:7]}.'
-            logging.error(msg)
-            raise ValueError(msg, e)
+            raise ValueError(e, msg)
         except TypeError as e:
             msg = f'Illegal type data specified for program {prog_id}: {prog_id[3:7]}.'
-            logging.error(msg)
-            raise TypeError(msg, e)
+            raise TypeError(e, msg)
         next_year = year + 1
 
         # Make sure the actual year is in the valid range.
         if year < 2000 or year > 2100:
             msg = f'Illegal year specified for program {prog_id}: {prog_id[3:7]}.'
-            logging.error(msg)
             raise ValueError(msg)
 
         try:
             semester = SemesterHalf(prog_id[7])
         except ValueError as e:
             msg = f'Illegal semester specified for program {prog_id}: {prog_id[7]}'
-            logging.error(msg)
             raise ValueError(msg, e)
 
         # Special handling for FT programs.
@@ -220,7 +217,6 @@ class OcsProgramProvider(ProgramProvider):
             note_title = next(filter(is_ft_note, note_titles), None)
             if note_title is None:
                 msg = f'Fast turnaround program {id} has no note containing start / end date information.'
-                logging.error(msg)
                 raise ValueError(msg)
 
             # Parse the month information.
@@ -229,8 +225,7 @@ class OcsProgramProvider(ProgramProvider):
 
             except IndexError as e:
                 msg = f'Fast turnaround program {id} note title has improper form: {note_title}.'
-                logging.error(msg)
-                raise ValueError(msg, e)
+                raise ValueError(e, msg)
 
             start_date, end_date = date_info
 
@@ -281,8 +276,7 @@ class OcsProgramProvider(ProgramProvider):
             except (ValueError, TypeError) as e:
                 # Either of these will just be a ValueError.
                 msg = f'Illegal value for constraint: {value}'
-                logging.error(msg)
-                raise ValueError(msg, e)
+                raise ValueError(e, msg)
 
         return Conditions(
             *[lookup(to_value(data[key])) for lookup, key in
@@ -327,9 +321,8 @@ class OcsProgramProvider(ProgramProvider):
         try:
             target_type = TargetType[target_type_data]
         except KeyError as e:
-            msg = f'Target {name} has illegal type {target_type_data}'
-            logging.error(msg)
-            raise KeyError(msg, e)
+            msg = f'Target {name} has illegal type {target_type_data}.'
+            raise KeyError(e, msg)
 
         return name, magnitudes, target_type
 
@@ -457,17 +450,15 @@ class OcsProgramProvider(ProgramProvider):
     def parse_target(data: dict) -> Target:
         """
         Parse a general target - either sidereal or nonsidereal - from the supplied data.
+        If we are a ToO, we don't have a target, and thus we don't have a tag. Thus, this raises a KeyError.
         """
-        # TODO: If we are a ToO, we don't have a target, and thus we don't have a tag.
-        # TODO: Thus, this raises a KeyError.
         tag = data[OcsProgramProvider._TargetKeys.TAG]
         if tag == 'sidereal':
             return OcsProgramProvider.parse_sidereal_target(data)
         elif tag == 'nonsidereal':
             return OcsProgramProvider.parse_nonsidereal_target(data)
         else:
-            msg = f'Illegal target tag type: {tag}'
-            logging.error(msg)
+            msg = f'Illegal target tag type: {tag}.'
             raise ValueError(msg)
 
     @staticmethod
@@ -512,7 +503,6 @@ class OcsProgramProvider(ProgramProvider):
         target_env_keys = [key for key in data.keys() if key.startswith(OcsProgramProvider._TargetKeys.KEY)]
         if len(target_env_keys) != 1:
             msg = f'Invalid target environment information found for {obs_id}.'
-            logging.error(msg)
             raise ValueError(msg)
         target_env = data[target_env_keys[0]]
 
@@ -535,13 +525,11 @@ class OcsProgramProvider(ProgramProvider):
             if auto_guide_group:
                 if len(auto_guide_group) > 1:
                     msg = f'Multiple auto guide groups found for {obs_id}.'
-                    logging.error(msg)
                     raise ValueError(msg)
                 guide_group = auto_guide_group[0]
             elif primary_guide_group:
                 if len(primary_guide_group) > 1:
                     msg = f'Multiple primary guide groups found for {obs_id}.'
-                    logging.error(msg)
                     raise ValueError(msg)
                 guide_group = primary_guide_group[0]
 
@@ -774,7 +762,6 @@ class OcsProgramProvider(ProgramProvider):
         """
         if too_type == TooType.INTERRUPT:
             msg = f'OCS program {program_id} has a ToO type of INTERRUPT.'
-            logging.error(msg)
             raise ValueError(msg)
 
         def compatible(sub_too_type: Optional[TooType]) -> bool:
@@ -805,7 +792,6 @@ class OcsProgramProvider(ProgramProvider):
                 # Check compatibility between the observation's ToO type and the program's ToO type.
                 if not compatible(too_type):
                     nc_msg = f'Observation {observation.id} has illegal ToO type for its program.'
-                    logging.error(nc_msg)
                     raise ValueError(nc_msg)
                 observation.too_type = too_type
             else:

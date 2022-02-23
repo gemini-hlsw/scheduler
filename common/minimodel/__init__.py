@@ -1,7 +1,6 @@
 # NOTE: In order to use numpy.typing, this file requires the 1.21 numpy package to be installed via:
 # pip install numpy==1.21.4
 
-import logging
 from abc import ABC
 from astropy.coordinates import EarthLocation, UnknownSiteException
 from astropy.coordinates.angles import Angle
@@ -42,14 +41,16 @@ class SiteInformation:
 
         try:
             self.location = EarthLocation.of_site(astropy_lookup)
-        except UnknownSiteException:
-            logging.error(f'Unknown site lookup: {astropy_lookup}')
+        except UnknownSiteException as e:
+            msg = f'Unknown site lookup: {astropy_lookup}.'
+            raise ValueError(e, msg)
 
         timezone_info = self.location.info.meta['timezone']
         try:
             self.timezone = timezone(timezone_info)
-        except UnknownTimeZoneError:
-            logging.error(f'Unknown time zone lookup: {timezone_info}')
+        except UnknownTimeZoneError as e:
+            msg = f'Unknown time zone lookup: {timezone_info}.'
+            raise ValueError(e, msg)
 
 
 class Site(Enum):
@@ -285,6 +286,12 @@ class Constraints:
     timing_windows: List[TimingWindow]
     # clearance_windows: Optional[List[ClearanceWindow]] = None
     strehl: Optional[Strehl] = None
+
+    # Default airmass values to use for elevation constraints if:
+    # 1. The Constraints are not present in the Observation at all; or
+    # 2. The elevation_type is set to NONE.
+    DEFAULT_AIRMASS_ELEVATION_MIN: ClassVar[float] = 1.0
+    DEFAULT_AIRMASS_ELEVATION_MAX: ClassVar[float] = 2.3
 
 
 @dataclass
@@ -728,7 +735,6 @@ class Group(ABC):
     def __post_init__(self):
         if self.number_to_observe <= 0:
             msg = f'Group {self.group_name} specifies non-positive {self.number_to_observe} children to be observed.'
-            logging.error(msg)
             raise ValueError(msg)
 
     def required_resources(self) -> Set[Resource]:
@@ -780,12 +786,10 @@ class AndGroup(Group):
         if self.number_to_observe != len(self.children):
             msg = f'AND group {self.group_name} specifies {self.number_to_observe} children to be observed but has '\
                   f'{len(self.children)} children.'
-            logging.error(msg)
             raise ValueError(msg)
         if self.previous is not None and (self.previous < 0 or self.previous >= len(self.children)):
             msg = f'AND group {self.group_name} has {len(self.children)} children and an illegal previous value of '\
                   f'{self.previous}'
-            logging.error(msg)
             raise ValueError(msg)
 
 
@@ -801,7 +805,6 @@ class OrGroup(Group):
         if self.number_to_observe >= len(self.children):
             msg = f'OR group {self.group_name} specifies {self.number_to_observe} children to be observed but has '\
                   f'{len(self.children)} children.'
-            logging.error(msg)
             raise ValueError(msg)
 
 
