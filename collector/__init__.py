@@ -101,8 +101,6 @@ class NightEvents:
         # collect the SkyCoords into one tuple, and the ndarrays into another.
         # The moon_dist are already a Quantity: error if try to convert.
         self.moon_pos, self.moon_dist = zip(*[vskyutil.accumoon(t, self.site.value.location) for t in self.times])
-        # self.moon_pos = SkyCoord(moon_pos)
-        # self.moon_dist = moon_dist
         self.moon_alt, self.moon_az, self.moon_par_ang = altazparang(self.moon_pos)
 
         # Angle between the sun and the moon.
