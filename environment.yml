@@ -11,3 +11,4 @@ dependencies:
   - pytz
   - tabulate
   - tqdm
+  - scipy
