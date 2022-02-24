@@ -28,3 +28,7 @@ if __name__ == '__main__':
 
     # Output the state of and information calculated by the Collector.
     print_collector_info(collector, samples=60)
+    
+    
+
+    #print_atoms_for_program(collector._programs[list(collector._programs.keys())[0]])

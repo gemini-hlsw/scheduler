@@ -1,8 +1,10 @@
 import os
 import json
 from typing import NoReturn
+from zlib import DEF_BUF_SIZE
 
 from astropy import units as u
+from matplotlib.pyplot import cool
 
 from api.abstract import ProgramProvider
 from api.ocs import OcsProgramProvider
@@ -95,3 +97,11 @@ def print_collector_info(collector: Collector, samples: int = 60) -> NoReturn:
                          for obs_id in Collector.get_observation_ids())
     for obs_id, target_name in target_info:
         print(f'Observation {obs_id}, Target {target_name}')
+
+
+def print_atoms_for_program(program: Program) -> NoReturn:
+
+    for obs in program.observations():
+        print(f'Observation: {obs.id}')
+        for atom in obs.sequence:
+            print(f'\t{atom}')

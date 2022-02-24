@@ -14,12 +14,6 @@ from common.minimodel import *
 
 
 #  TODO: MOVE TO COMMON/MINIMODEL ?
-@dataclass
-class InstrumentConfig:
-    fpu: str
-    disperser: str
-    filter: str
-    wavelength: float
 
 class ObservationMode(str, Enum):
     UNKNOWN = 'unknown'
@@ -30,6 +24,18 @@ class ObservationMode(str, Enum):
     XD = 'xd'
     CORON = 'coron'
     NRM = 'nrm'
+
+
+@dataclass
+class InstrumentConfig:
+    """
+    Auxiliary class to store the instrument configuration.
+    The final config is saved as a set of Resource objects.
+    """
+    fpu: List[str]
+    disperser: List[str]
+    filter: List[str]
+    wavelength: List[float]
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
     """
@@ -174,6 +180,7 @@ class OcsProgramProvider(ProgramProvider):
         DECKER = 'instrument:acquisitionMirror'
         ACQ_MIRROR = 'instrument:acquisitionMirror'
         CROSS_DISPERSED = 'instrument:crossDispersed'
+    
 
     @staticmethod
     def _get_mode(inst: str, config: InstrumentConfig) -> ObservationMode:
@@ -184,7 +191,7 @@ class OcsProgramProvider(ProgramProvider):
 
         mode = ObservationMode.UNKNOWN
         if searchlist('GMOS', inst):
-            if 'MIRROR' in config['disperser']:
+            if 'MIRROR' in config.disperser:
                 mode = ObservationMode.IMAGING
             elif searchlist('arcsec', config.fpu):
                 mode = ObservationMode.LONGSLIT
@@ -204,19 +211,19 @@ class OcsProgramProvider(ProgramProvider):
             if (searchlist('FPU_NONE', config.fpu) and
                 searchlist('IMAGING', config.disperser)):
                 mode = ObservationMode.IMAGING
-        elif config['inst'] == 'NIRI':
+        elif inst == 'NIRI':
             if searchlist('NONE', config.disperser) and searchlist('MASK_IMAGING', config.fpu):
                 mode = ObservationMode.IMAGING
-        elif config['inst'] == 'NIFS':
+        elif inst == 'NIFS':
             mode = ObservationMode.IFU
-        elif config['inst'] == 'GNIRS':
+        elif inst == 'GNIRS':
             if searchlist('mirror', config.disperser):
                 mode = ObservationMode.IMAGING
             elif searchlist('XD', config.disperser):
                 mode = ObservationMode.XD
             else:
                 mode = ObservationMode.LONGSLIT
-        elif config['inst'] == 'GPI':
+        elif inst == 'GPI':
             if searchlist('CORON', config.fpu):
                 mode = ObservationMode.CORON
             elif searchlist('NRM', config.fpu):
@@ -531,14 +538,12 @@ class OcsProgramProvider(ProgramProvider):
         
         return offset_lag
 
-        
-
     @staticmethod
-    def _parse_instrument_configuration(data: dict, instrument: str) -> InstrumentConfig:
+    def _parse_instrument_configuration(data: dict, instrument: str) -> Tuple[str]:
         """
         A dict is return until the Instrument configuration model is created
         """
-        instruments = {'GSAOI': OcsProgramProvider._FPUKeys.GSAOI,
+        instruments_keys = {'GSAOI': OcsProgramProvider._FPUKeys.GSAOI,
                        'GPI': OcsProgramProvider._FPUKeys.GPI,
                        'Flamingos2': OcsProgramProvider._FPUKeys.F2,
                        'NIFS': OcsProgramProvider._FPUKeys.NIFS,
@@ -557,8 +562,12 @@ class OcsProgramProvider(ProgramProvider):
             else:
                 fpu = instrument
         else:
-            if instrument in instruments:
-                fpu = data[instruments[instrument]]
+            if instrument in instruments_keys:
+                if instruments_keys[instrument] in data:
+                    fpu = data[instruments_keys[instrument]]
+                else:
+                    fpu = None
+                    # TODO: Might need to raise an exception here. Check code with science.
             else:
                 raise ValueError(f'Instrument {instrument} not supported')
 
@@ -591,7 +600,7 @@ class OcsProgramProvider(ProgramProvider):
             filter = find_filter(disperser[0], OcsProgramProvider.NIFS_FILTER_WAVELENGTHS)
         wavelength = OcsProgramProvider.GPI_FILTER_WAVELENGTHS[filter] if instrument == 'GPI' else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH])
 
-        return InstrumentConfig(fpu, disperser, filter, wavelength)
+        return (fpu, disperser, filter, wavelength)
     
     @staticmethod
     def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
@@ -617,11 +626,12 @@ class OcsProgramProvider(ProgramProvider):
 
         exposure_times = []
         coadds = []
-        wavelengths = []
+        # wavelengths = []
 
         instrument = sequence[0][OcsProgramProvider._AtomKeys.INSTRUMENT] # all atoms must have the same instrument
         offset_lag = OcsProgramProvider._parse_offsets(sequence, 'GPI')
 
+        inst_config = InstrumentConfig([], [], [], [])
         # Sequence analysis
         prev = 0
         n_offsets = 0
@@ -636,15 +646,20 @@ class OcsProgramProvider(ProgramProvider):
 
             #Instrument configuration aka Resource
             # instrument = step[OcsProgramProvider._AtomKeys.INSTRUMENT]
-            instrument_config = OcsProgramProvider._parse_instrument_configuration(step, instrument)
-            mode = OcsProgramProvider._get_mode(instrument, instrument_config)
-            wavelengths.append(instrument_config.wavelength)
+            fpu, disperser, filter, wavelength  = OcsProgramProvider._parse_instrument_configuration(step, instrument)
+            inst_config.fpu.append(fpu)
+            inst_config.disperser.append(disperser)
+            inst_config.filter.append(filter)
+            inst_config.wavelength.append(wavelength)
+
+            mode = OcsProgramProvider._get_mode(instrument, inst_config)
+            #wavelengths.append(wavelength)
 
             coadds.append(int(step[OcsProgramProvider._AtomKeys.COADDS]) if OcsProgramProvider._AtomKeys.COADDS in step else 1)
             exposure_times.append(step[OcsProgramProvider._AtomKeys.EXPOSURE_TIME])
             
             # Any wavelength/filter change is a new atom
-            if atom_id == 0 or (atom_id > 0 and wavelengths[atom_id] != wavelengths[prev]):
+            if atom_id == 0 or (atom_id > 0 and inst_config.wavelength[atom_id] != inst_config.wavelength[prev]):
                 next_atom = True
                 logging.info('Atom for wavelength')
 
@@ -659,7 +674,7 @@ class OcsProgramProvider(ProgramProvider):
                 if offset_lag == 0 and not exptime_groups:
                     # For NIR imaging, need to have at least two offset positions if no repeating pattern
                     # New atom after every 2nd offset (noffsets is odd)
-                    if mode is ObservationMode.IMAGING and offset_lag == 0 and all(w > 1.0 for w in wavelengths):
+                    if mode is ObservationMode.IMAGING and offset_lag == 0 and all(w > 1.0 for w in inst_config.wavelength):
                         if atom_id == 0:
                             n_offsets += 1
                         else:
@@ -688,10 +703,11 @@ class OcsProgramProvider(ProgramProvider):
                     partner_time = timedelta(seconds=0)
                     program_time = timedelta(seconds=step_time)
 
-                resources = [Resource('instrument', instrument),
-                             Resource('disperser', instrument_config.disperser),
-                             Resource('fpu', instrument_config.fpu),
-                             Resource('filter', instrument_config.filter)]
+                resources = set()
+                resources.add(inst_config.fpu[atom_id])
+                resources.add(inst_config.disperser[atom_id])
+                resources.add(inst_config.filter[atom_id])
+                resources.add(Resource(instrument))
 
                 atoms.append(Atom(atom_id,
                                   exec_time,
@@ -701,7 +717,7 @@ class OcsProgramProvider(ProgramProvider):
                                   select_qastate(qa_states),
                                   guide_state(step),
                                   resources,
-                                  instrument_config.wavelength))
+                                  inst_config.wavelength))
                 
         return atoms
 
