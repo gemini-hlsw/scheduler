@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import os
 import requests
 import telnetlib
+import tempfile
 from typing import Mapping, NoReturn, FrozenSet
 import zipfile
 
@@ -54,15 +55,13 @@ DEFAULT_PROGRAM_TYPES = frozenset([
 
 
 def download_programs(server: ODBServer = DEFAULT_SERVER,
-                      output_path: str = 'programs',
-                      zip_file: str = os.path.join('..', '..', 'data', 'programs.zip'),
+                      zip_file: str = os.path.join('..', 'data', 'programs.zip'),
                       semesters: Mapping[Site, str] = None,
                       program_types: FrozenSet[ProgramTypes] = DEFAULT_PROGRAM_TYPES) -> NoReturn:
     """
-    Download a list of the programs from the specified server and produce a zip file.
+    Download a list of the programs from the specified server to a temporary directory and produce a zip file.
     * server: an observing database (ODB) server information
-    * output_path: the path where we will create the zipfile of the retrieved programs
-    * zip_file: the name of the zip file that will contain the programs
+    * zip_file: the path of the zip file that will contain the programs
     * semesters: for each Site, the semesters of interest
     * program_types: the types of programs to download
     """
@@ -102,6 +101,8 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
         logging.log(EXTRACT, f'Found: {len(filtered_programs)} programs.')
 
         # Download all the programs we have filtered.
+        cwd = os.getcwd()
+        output_path = tempfile.mkdtemp()
         if not os.path.isdir(output_path):
             os.mkdir(output_path)
 
@@ -120,6 +121,7 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
                 else:
                     logging.warning(f'Could not retrieve program {program_name}, status code {r.status_code}')
 
+        zip_file = os.path.join(cwd, zip_file)
         if os.path.isfile(zip_file):
             os.unlink(zip_file)
 
@@ -129,6 +131,9 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
 
                 # Remove the program file as we are done with it.
                 os.unlink(program_file)
+
+        os.chdir(cwd)
+        os.rmdir(output_path)
 
 
 if __name__ == '__main__':
