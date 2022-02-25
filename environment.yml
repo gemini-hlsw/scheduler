@@ -4,6 +4,7 @@ dependencies:
   - astropy
   - hypothesis
   - matplotlib
+  - more_itertools
   - numpy=1.21.*
   - openpyxl
   - pytest
