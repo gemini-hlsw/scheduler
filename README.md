@@ -2,16 +2,19 @@ Scheduler
 
 The automated Scheduler for Gemini Observatory.
 
+It currently is supported to run on Python 3.9.x.
+
 Note that you need the following libraries to run this:
 * astropy
+* hypothesis
 * matplotlib
+* more_itertools
+* numpy (>= 1.21.4 for numpy typing)
 * openpyxl
+* pytest
 * pytz
-* requests
 * tabulate
-* joblib
 * tqdm
-* numpy >= 1.21.4 (for numpy typing)
 
 ## Install
 

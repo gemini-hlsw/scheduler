@@ -7,8 +7,8 @@ from collector import *
 
 if __name__ == '__main__':
     # Reduce logging to ERROR only to display the tqdm bars nicely.
-    # logging.basicConfig(level=logging.INFO)
-    logging.basicConfig(level=logging.ERROR)
+    logging.basicConfig(level=logging.INFO)
+    # logging.basicConfig(level=logging.ERROR)
 
     # Read in a list of JSON data
     programs = read_ocs_zipfile(os.path.join('..', 'data', '2018B_program_samples.zip'))

@@ -92,9 +92,7 @@ def print_collector_info(collector: Collector, samples: int = 60) -> NoReturn:
             print('\n\n')
 
     # TODO: Using a private property. This will be relocated.
-    targets = {(target, obs) for target, obs, _ in Collector._target_info}
-    for target, obs in targets:
-        print(f'Target {target} in observation {obs}')
-    # for k, v in Collector._target_info.items():
-    #     target, obs, idx = k
-    #     print(f'Observation {obs}, target {target}, night={idx}')
+    targets = sorted((obs, target) for target, obs in Collector._target_info)
+    for obs, target in targets:
+        print(f'Observation {obs}, Target {target}')
+
