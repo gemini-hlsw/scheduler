@@ -704,12 +704,12 @@ class OcsProgramProvider(ProgramProvider):
                     program_time = timedelta(seconds=step_time)
 
                 resources = set()
-                resources.add(inst_config.fpu[atom_id])
-                resources.add(inst_config.disperser[atom_id])
-                resources.add(inst_config.filter[atom_id])
+                resources.add(Resource(inst_config.fpu[atom_id]))
+                resources.add(Resource(inst_config.disperser[atom_id]))
+                resources.add(Resource(inst_config.filter[atom_id]))
                 resources.add(Resource(instrument))
 
-                atoms.append(Atom(atom_id,
+                atoms.append(Atom(n_atom,
                                   exec_time,
                                   program_time,
                                   partner_time,

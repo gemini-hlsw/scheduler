@@ -1,7 +1,7 @@
 import os
 
 from api.ocs import read_ocs_zipfile, OcsProgramProvider
-from common.output import print_collector_info
+from common.output import atoms_to_sheet, print_collector_info
 from collector import *
 
 
@@ -29,6 +29,7 @@ if __name__ == '__main__':
     # Output the state of and information calculated by the Collector.
     print_collector_info(collector, samples=60)
     
-    
-
-    #print_atoms_for_program(collector._programs[list(collector._programs.keys())[0]])
+    # Output the data in a spreadsheet.
+    # for program in collector._programs.values():
+    #    if program.id == 'GS-2018B-Q-101':
+    #        atoms_to_sheet(program)
