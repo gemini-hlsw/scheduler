@@ -12,3 +12,4 @@ dependencies:
   - tabulate
   - tqdm
   - scipy
+  - more_itertools
