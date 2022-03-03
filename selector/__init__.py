@@ -1,23 +1,23 @@
 from typing import FrozenSet
 
-from collector import Collector
 from common.minimodel import *
-from common.scheduler import SchedulerComponent
 
 
 @dataclass
-class Selector(SchedulerComponent):
+class Selector:
     """
     This is the Selector portion of the automated Scheduler.
-
     It selects the scheduling candidates that are viable for the data collected by
     the Collector.
     """
-    collector: Collector
+
+    start_time: datetime
+    time_length: timedelta
+    delta_time: timedelta = timedelta(minutes=1)
+    sites: FrozenSet[Site] = frozenset(s for s in Site)
 
     def __post_init__(self):
         """
         Initialize internal non-input data members.
         """
         ...
-
