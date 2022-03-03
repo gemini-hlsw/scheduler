@@ -7,7 +7,6 @@ from common.minimodel import *
 class Selector:
     """
     This is the Selector portion of the automated Scheduler.
-
     It selects the scheduling candidates that are viable for the data collected by
     the Collector.
     """
@@ -22,4 +21,3 @@ class Selector:
         Initialize internal non-input data members.
         """
         ...
-

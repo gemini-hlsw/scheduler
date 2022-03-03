@@ -91,8 +91,7 @@ def print_collector_info(collector: Collector, samples: int = 60) -> NoReturn:
             print(f'\t{[a.to_value(u.deg) for a in night_events.sun_moon_ang[idx][::samples]]}')
             print('\n\n')
 
-    # TODO: Using a private property. This will be relocated.
-    targets = sorted((obs, target) for target, obs in Collector._target_info)
-    for obs, target in targets:
-        print(f'Observation {obs}, Target {target}')
-
+    target_info = sorted((obs_id, Collector.get_base_target(obs_id).name)
+                         for obs_id in Collector.get_observation_ids())
+    for obs_id, target_name in target_info:
+        print(f'Observation {obs_id}, Target {target_name}')
