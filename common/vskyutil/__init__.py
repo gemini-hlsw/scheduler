@@ -473,11 +473,11 @@ def lpsidereal(time, location):
 
     sid = (24110.54841 + 8640184.812866 * t + 0.093104 * t ** 2 - 6.2e-6 * t ** 3) / 86400.
     # at Greenwich
-    sid_int = sid.astype(np.int)
+    sid_int = sid.astype(np.int64)
     sid = sid - sid_int
     # longitude is measured east so add.
     sid = sid + 1.0027379093 * ut + location.lon.hour / 24.
-    sid_int = sid.astype(np.int)
+    sid_int = sid.astype(np.int64)
     sid = (sid - sid_int) * 24.
     # if(sid < 0.) : sid = sid + 24.
     sidout = Angle(sid, unit=u.hour)
