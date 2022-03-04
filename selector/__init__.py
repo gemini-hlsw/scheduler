@@ -9,7 +9,6 @@ from common.scheduler import SchedulerComponent
 class Selector(SchedulerComponent):
     """
     This is the Selector portion of the automated Scheduler.
-
     It selects the scheduling candidates that are viable for the data collected by
     the Collector.
     """
@@ -20,4 +19,3 @@ class Selector(SchedulerComponent):
         Initialize internal non-input data members.
         """
         ...
-
