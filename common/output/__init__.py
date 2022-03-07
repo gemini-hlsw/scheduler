@@ -8,7 +8,7 @@ from matplotlib.pyplot import cool
 
 from api.abstract import ProgramProvider
 from api.ocs import OcsProgramProvider
-from common.minimodel import Group, Observation, Program, Atom
+from common.minimodel import Group, Observation, ObservationClass, Program, Atom
 from collector import Collector, NightEventsManager
 
 from openpyxl import Workbook
@@ -126,11 +126,12 @@ def atoms_to_sheet(dt: Union[Program, Observation, Group]) -> NoReturn:
     # TODO: Output for larger formats(e.g Program) not required but might be good to have.
     if isinstance(dt, Program):
         for obs in dt.observations():
-            for atom in obs.sequence:
-                ws.title = f'{obs.id}'
-                save_to_sheet(atom)
-            ws = wb.create_sheet()
-            ws.append(['id', 'exec_time', 'prog_time', 'part_time', 'observed', 'qa_state', 'guide_state'])
+            if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PARTNERCAL]:
+                for atom in obs.sequence:
+                    ws.title = f'{obs.id}'
+                    save_to_sheet(atom)
+                ws = wb.create_sheet()
+                ws.append(['id', 'exec_time', 'prog_time', 'part_time', 'observed', 'qa_state', 'guide_state'])
         wb.save(f'{dt.id}.xlsx')
 
     elif isinstance(dt, Observation):

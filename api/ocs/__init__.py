@@ -638,6 +638,7 @@ class OcsProgramProvider(ProgramProvider):
         exptime_groups = False
         n_pattern = offset_lag
         for atom_id, step in enumerate(sequence):
+
             next_atom = False
             
             observe_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
