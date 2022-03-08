@@ -9,7 +9,7 @@ import time
 from tqdm import tqdm
 from typing import Dict, FrozenSet, Iterable, Tuple, NoReturn
 
-from api.abstract import ProgramProvider
+from api.programprovider.abstract import ProgramProvider
 from common import sky_brightness
 import common.helpers as helpers
 from common.minimodel import *
@@ -368,7 +368,7 @@ class Collector(SchedulerComponent):
     def _calculate_target_info(self,
                                obs: Observation,
                                target: Target,
-                               timing_windows: List[Time]): # -> NightIndexMap:
+                               timing_windows: List[Time]) -> NightIndexMap:
         """
         For a given site, calculate the information for a target for all the nights in
         the time grid and store this in the _target_information.
@@ -552,7 +552,6 @@ class Collector(SchedulerComponent):
 
                 # Collect the observations in the program and sort them by site.
                 # Filter out here any observation classes that have not been specified to the Collector.
-                obsvds = program.observations()
                 bad_obs, good_obs = partition(lambda x: x.obs_class in self.obs_classes, program.observations())
                 bad_obs = list(bad_obs)
                 good_obs = list(good_obs)
@@ -591,20 +590,39 @@ class Collector(SchedulerComponent):
             logging.error(f'Could not parse {bad_program_count} programs.')
 
     @staticmethod
-    def available_resources() -> Set[Resource]:
+    def available_resources(site: Site,
+                            night_idx: NightIndex) -> Set[Resource]:
         """
-        Return a set of available resources for the period under consideration.
+        Return a set of available resources for the night under consideration.
+        TODO: This should be an interface to connect with a mock service or with an actual service.
         """
-        # TODO: Add more.
-        return {
+        # TODO: Guiders are not yet included in required resources but it is assumed that they will be.
+        # TODO: Remove observatory-specific things from this, clearly.
+        site_independent_resources = {
             Resource(id='PWFS1'),
             Resource(id='PWFS2'),
-            Resource(id='GMOS OIWFS'),
-            Resource(id='GMOSN')
+            Resource(id='GMOS OIWFS')
         }
 
+        if site == Site.GN:
+            return site_independent_resources.union({
+                Resource(id='GMOS-N'),
+                Resource(id='GNIRS')
+            })
+        elif site == Site.GS:
+            return site_independent_resources.union({
+                Resource(id='GMOS-S'),
+                Resource(id='Flamingos2')
+            })
+
     @staticmethod
-    def get_actual_conditions_variant() -> Optional[Variant]:
+    def get_actual_conditions_variant(site: Site,
+                                      time_period: Time) -> Optional[Variant]:
+        """
+        Return the weather variant.
+        This should be site-based and time-based.
+        TODO: What more information do we need here?
+        """
         time_blocks = Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')
         variants = {
             Variant(

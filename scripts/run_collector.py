@@ -1,8 +1,8 @@
 import os
 
-from api.ocs import read_ocs_zipfile, OcsProgramProvider
-from common.output import atoms_to_sheet, print_collector_info
-from collector import *
+from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from common.output import print_collector_info
+from components.collector import *
 
 
 if __name__ == '__main__':

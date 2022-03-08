@@ -1,7 +1,7 @@
 from common.helpers import dmsstr2deg
 from common.timeutils import sex2dec
 from common.minimodel import *
-from api.ocs import OcsProgramProvider
+from api.programprovider.ocs import OcsProgramProvider
 
 from datetime import datetime, timedelta
 import json

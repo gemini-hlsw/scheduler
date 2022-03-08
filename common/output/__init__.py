@@ -6,10 +6,10 @@ from zlib import DEF_BUF_SIZE
 from astropy import units as u
 from matplotlib.pyplot import cool
 
-from api.abstract import ProgramProvider
-from api.ocs import OcsProgramProvider
-from common.minimodel import Group, Observation, ObservationClass, Program, Atom
-from collector import Collector, NightEventsManager
+from api.programprovider.abstract import ProgramProvider
+from api.programprovider.ocs import OcsProgramProvider
+from common.minimodel import Atom, Group, Observation, ObservationClass, Program
+from components.collector import Collector, NightEventsManager
 
 from openpyxl import Workbook
 
@@ -105,6 +105,7 @@ def print_atoms_for_observation(observation: Observation) -> NoReturn:
     for atom in observation.sequence:
         print(f'\t{atom}')
 
+
 def atoms_to_sheet(dt: Union[Program, Observation, Group]) -> NoReturn:
     """
     Print out the atoms in a program or observation to a spreadsheet.
@@ -143,3 +144,4 @@ def atoms_to_sheet(dt: Union[Program, Observation, Group]) -> NoReturn:
         raise NotImplementedError
     else:
         raise ValueError(f'Unsupported type: {type(dt)}')
+

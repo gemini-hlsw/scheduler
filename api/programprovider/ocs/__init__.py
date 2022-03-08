@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Iterable, NoReturn, Tuple
 import zipfile
 
-from api.abstract import ProgramProvider
+from api.programprovider.abstract import ProgramProvider
 from common.helpers import str_to_bool, hmsstr2deg, dmsstr2deg
 from common.timeutils import sex2dec
 from common.minimodel import *

@@ -1,4 +1,6 @@
 from abc import ABC
+
+import numpy as np
 from astropy.coordinates import EarthLocation, UnknownSiteException
 from astropy.coordinates.angles import Angle
 from astropy.time import Time
@@ -253,7 +255,7 @@ class ElevationType(IntEnum):
     AIRMASS = auto()
 
 
-@dataclass(order=True)
+@dataclass(order=True, frozen=True)
 class Conditions:
     """
     A set of conditions.
@@ -264,10 +266,31 @@ class Conditions:
     This should be done via:
     current_conditions <= required_conditions.
     """
-    cc: CloudCover
-    iq: ImageQuality
-    sb: SkyBackground
-    wv: WaterVapor
+    cc: Union[npt.NDArray[CloudCover], CloudCover]
+    iq: Union[npt.NDArray[ImageQuality], ImageQuality]
+    sb: Union[npt.NDArray[SkyBackground], SkyBackground]
+    wv: Union[npt.NDArray[WaterVapor], WaterVapor]
+
+    def __post_init__(self):
+        """
+        Ensure that if any arrays are specified, all values are specified arrays of the same size.
+        """
+        is_uniform = len({np.isscalar(self.cc), np.isscalar(self.iq), np.isscalar(self.sb), np.isscalar(self.wv)}) == 1
+        if not is_uniform:
+            raise ValueError(f'Conditions have a mixture of array and scalar types: {self}')
+
+        are_arrays = isinstance(self.cc, np.ndarray)
+        if are_arrays:
+            uniform_lengths = len({len(self.cc), len(self.iq), len(self.sb), len(self.wv)}) == 1
+            if not uniform_lengths:
+                raise ValueError(f'Conditions have a variable number of array sizes: {self}')
+
+    def __len__(self):
+        """
+        For array values, return the length of the arrays.
+        For scalar values, return a length of 1.
+        """
+        return len(self.cc) if isinstance(self.cc, npt.NDArray[CloudCover]) else 1
 
 
 @dataclass
@@ -298,13 +321,30 @@ class Variant:
     wind_speed should be in m / s.
     TODO: No idea what time blocks are. Note this could be a list or a single value.
     """
-    iq: ImageQuality
-    cc: CloudCover
-    wv: WaterVapor
+    iq: Union[npt.NDArray[ImageQuality], ImageQuality]
+    cc: Union[npt.NDArray[CloudCover], CloudCover]
+    wv: Union[npt.NDArray[WaterVapor], WaterVapor]
     wind_dir: Angle
     wind_sep: Angle
     wind_spd: Quantity
     time_blocks: Time
+
+    def __post_init__(self):
+        """
+        Ensure that if any arrays are specified, all values are specified arrays of the same size.
+        """
+        is_uniform = len({np.isscalar(self.cc), np.isscalar(self.iq), np.isscalar(self.wv)}) == 1
+        if not is_uniform:
+            raise ValueError(f'Variant has a mixture of array and scalar types: {self}')
+
+        are_arrays = isinstance(self.cc, np.ndarray)
+        array_lengths = {len(self.wind_dir), len(self.wind_sep), len(self.wind_spd)}
+        if are_arrays:
+            uniform_lengths = len({len(self.cc), len(self.iq), len(self.wv)}.union(array_lengths)) == 1
+        else:
+            uniform_lengths = len(array_lengths) == 1
+        if not uniform_lengths:
+            raise ValueError(f'Variants has a variable number of array sizes: {self}')
 
 
 class MagnitudeSystem(Enum):

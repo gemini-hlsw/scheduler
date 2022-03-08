@@ -5,7 +5,7 @@
 import re
 import numpy as np
 from astropy import units as u
-from collector.vskyutil import ztwilight, xair
+from components.collector import ztwilight, xair
 
 
 def convertcond(iq, cc, bg, wv, verbose=False):
