@@ -1,8 +1,104 @@
+from dataclasses import dataclass
 import numpy as np
 
-from components.collector import Collector, NightIndex
+from common.helpers import flatten
 from common.minimodel import *
 from common.scheduler import SchedulerComponent
+from components.collector import Collector, NightIndex
+
+
+# @dataclass
+# class Visit:
+#     idx: int
+#     site: Site
+#     group: Group
+#
+#     # Standards time in time slots.
+#     standard_time: int
+#
+#     def __post_init__(self):
+#         self.score = None
+#
+#         # Create a Conditions object that uses the most restrictive values over all
+#         # observations.
+#         self.observations = self.group.observations()
+#
+#         # TODO: Test this.
+#         self.conditions = Conditions(
+#             cc=CloudCover(min(flatten((obs.constraints.conditions.cc for obs in self.observations)))),
+#             iq=ImageQuality(min(flatten((obs.constraints.conditions.iq for obs in self.observations)))),
+#             sb=SkyBackground(min(flatten((obs.constraints.conditions.sb for obs in self.observations)))),
+#             wv=WaterVapor(min(flatten((obs.constraints.conditions.wv for obs in self.observations))))
+#         )
+#
+#     def length(self) -> int:
+#         """
+#         Calculate the length of the unit based on both observation and calibrations times
+#         """
+#         # length here is acq + time and is a float?
+#         obs_slots = sum([obs.length for obs in self.observations])
+#
+#         if self.standard_time > 0:  # not a single science observation
+#             standards_needed = max(1, int(obs_slots // self.standard_time))
+#
+#             if standards_needed == 1:
+#                 cal_slots = self.calibrations[0].length  # take just one
+#             else:
+#                 cal_slots = sum([cal.length for cal in self.calibrations])
+#
+#             return obs_slots + cal_slots
+#         else:
+#             return obs_slots
+#
+#     def observed(self) -> int:
+#         """
+#         Calculate the observed time for both observation and calibrations
+#         """
+#         # observed: observation time on time slots
+#         obs_slots = sum([obs.observed for obs in self.observations])
+#         cal_slots = sum([cal.observed for cal in self.calibrations])
+#         return obs_slots + cal_slots
+#
+#     def acquisition(self) -> None:
+#         """
+#         Add acquisition overhead to the total length of each observation in the unit
+#         """
+#         for observation in self.observations:
+#             if observation.observed < observation.length:  # not complete observation
+#                 observation.length += observation.acquisition
+#
+#     def get_observations(self) -> Dict[int, Observation]:
+#         total_obs = {}
+#         for obs in self.observations:
+#             total_obs[obs.idx] = obs
+#         for cal in self.calibrations:
+#             total_obs[cal.idx] = cal
+#         return total_obs
+#
+#     def airmass(self, obs_idx: int) -> float:
+#         """
+#         Get airmass values for the observation
+#         """
+#         if obs_idx in self.observations:
+#             return self.observations[obs_idx].visibility.airmass
+#         if obs_idx in self.calibrations:
+#             return self.calibrations[obs_idx].visibility.airmass
+#         else:
+#             return None
+#
+#     def __contains__(self, obs_idx: int) -> bool:
+#
+#         if obs_idx in [sci.idx for sci in self.observations]:
+#             return True
+#         elif obs_idx in [cal.idx for cal in self.calibrations]:
+#             return True
+#         else:
+#             return False
+#
+#     def __str__(self) -> str:
+#         return f'Visit {self.idx} \n ' + \
+#                f'-- observations: \n {[str(obs) for obs in self.observations]} \n' + \
+#                f'-- calibrations: {[str(cal) for cal in self.calibrations]} \n'
 
 
 @dataclass
