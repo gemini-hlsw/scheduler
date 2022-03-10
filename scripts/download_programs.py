@@ -26,7 +26,7 @@ class ODBServer:
     read_port: int
 
 
-# The default server to use for the base.
+# The default server to use for the Scheduler.
 DEFAULT_SERVER = ODBServer('gnodbscheduler', 8224, 8442)
 
 # These are the semesters of interest that we will download from the ODB,

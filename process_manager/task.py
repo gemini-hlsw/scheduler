@@ -3,6 +3,7 @@ from enum import Enum
 
 DEFAULT_TIMEOUT = 10
 
+
 class TaskType(Enum):
     """
     Enum for task types
@@ -13,8 +14,7 @@ class TaskType(Enum):
 
 class SchedulerTask:
     """
-    A base task that describes scheduling times and the instance of the base to be used (target)
-
+    A Scheduler task that describes scheduling times and the instance of the base to be used (target)
     """
     def __init__(self,
                  start_time: datetime,

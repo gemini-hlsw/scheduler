@@ -6,7 +6,7 @@ from typing import List, NoReturn, Optional, Sized, Tuple
 
 class Plan:
     """
-    The final plan created by the base that includes the schedule (for both sites) itself
+    The final plan created by the Scheduler that includes the schedule (for both sites) itself
     and the observations for each site.
     """
     def __init__(self, total_time_slots, sites):              
