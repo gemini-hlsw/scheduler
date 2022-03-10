@@ -1,9 +1,5 @@
-from dataclasses import dataclass
-import numpy as np
-
-from common.helpers import flatten
 from common.minimodel import *
-from common.scheduler import SchedulerComponent
+from components.base import SchedulerComponent
 from components.collector import Collector, NightIndex
 
 

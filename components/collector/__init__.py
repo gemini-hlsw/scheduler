@@ -3,7 +3,6 @@ from astropy.coordinates import SkyCoord
 from astropy.time import TimeDelta
 from astropy import units as u
 from more_itertools import partition
-import numpy as np
 import pytz
 import time
 from tqdm import tqdm
@@ -13,7 +12,7 @@ from api.programprovider.abstract import ProgramProvider
 from common import sky_brightness
 import common.helpers as helpers
 from common.minimodel import *
-from common.scheduler import SchedulerComponent
+from components.base import SchedulerComponent
 import common.vskyutil as vskyutil
 
 # Type aliases for convenience.

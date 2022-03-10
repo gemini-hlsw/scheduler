@@ -13,7 +13,7 @@ class TaskType(Enum):
 
 class SchedulerTask:
     """
-    A scheduler task that describes scheduling times and the instance of the scheduler to be used (target)
+    A base task that describes scheduling times and the instance of the base to be used (target)
 
     """
     def __init__(self,
