@@ -58,6 +58,7 @@ class OcsProgramProvider(ProgramProvider):
 
     GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
     NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
+    OBSERVE_TYPES = ['FLAT', 'ARC', 'DARK', 'BIAS'] 
 
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
@@ -180,6 +181,16 @@ class OcsProgramProvider(ProgramProvider):
         DECKER = 'instrument:acquisitionMirror'
         ACQ_MIRROR = 'instrument:acquisitionMirror'
         CROSS_DISPERSED = 'instrument:crossDispersed'
+    
+
+    FPU_FOR_INSTRUMENT = {'GSAOI': _FPUKeys.GSAOI,
+                       'GPI': _FPUKeys.GPI,
+                       'Flamingos2': _FPUKeys.F2,
+                       'NIFS': _FPUKeys.NIFS,
+                       'GNIRS': _FPUKeys.GNIRS,
+                       'GMOS-N': _FPUKeys.GMOSN,
+                       'GMOS-S': _FPUKeys.GMOSS,
+                       'NIRI': _FPUKeys.NIRI}
     
 
     @staticmethod
@@ -503,7 +514,7 @@ class OcsProgramProvider(ProgramProvider):
         for s in data:
             p = 0.0
             q = 0.0
-            if s[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in ['FLAT', 'ARC', 'DARK', 'BIAS']:
+            if s[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider.OBSERVE_TYPES:
                 p = float(s[OcsProgramProvider._AtomKeys.OFFSET_P]) if OcsProgramProvider._AtomKeys.OFFSET_Q in s else 0.0
                 q = float(s[OcsProgramProvider._AtomKeys.OFFSET_Q]) if OcsProgramProvider._AtomKeys.OFFSET_Q in s else 0.0
                 sky_p_offsets.append(p)
@@ -543,14 +554,6 @@ class OcsProgramProvider(ProgramProvider):
         """
         A dict is return until the Instrument configuration model is created
         """
-        instruments_keys = {'GSAOI': OcsProgramProvider._FPUKeys.GSAOI,
-                       'GPI': OcsProgramProvider._FPUKeys.GPI,
-                       'Flamingos2': OcsProgramProvider._FPUKeys.F2,
-                       'NIFS': OcsProgramProvider._FPUKeys.NIFS,
-                       'GNIRS': OcsProgramProvider._FPUKeys.GNIRS,
-                       'GMOS-N': OcsProgramProvider._FPUKeys.GMOSN,
-                       'GMOS-S': OcsProgramProvider._FPUKeys.GMOSS,
-                       'NIRI': OcsProgramProvider._FPUKeys.NIRI}
 
         def find_filter(input: str, filter_dict: Mapping[str, str]) -> Optional[str]:
             return next(filter(lambda f: f in input, filter_dict), None)
@@ -562,9 +565,9 @@ class OcsProgramProvider(ProgramProvider):
             else:
                 fpu = instrument
         else:
-            if instrument in instruments_keys:
-                if instruments_keys[instrument] in data:
-                    fpu = data[instruments_keys[instrument]]
+            if instrument in OcsProgramProvider.FPU_FOR_INSTRUMENT:
+                if OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
+                    fpu = data[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
                 else:
                     fpu = None
                     # TODO: Might need to raise an exception here. Check code with science.
@@ -613,8 +616,7 @@ class OcsProgramProvider(ProgramProvider):
         
         def select_qastate(states: List[QAState]) -> QAState:
             # Precedence order for observation classes.
-            qastate_order = [QAState.NONE, QAState.UNDEFINED, QAState.FAIL, QAState.USABLE, QAState.PASS]
-            return next((s for s in qastate_order if s in states), QAState.NONE)
+            return min(states, default=QAState.NONE)
 
         # n_steps = len(sequence)
         # n_abba = 0
@@ -664,7 +666,7 @@ class OcsProgramProvider(ProgramProvider):
                 next_atom = True
                 logging.info('Atom for wavelength')
 
-            if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in ['FLAT', 'ARC', 'DARK', 'BIAS']:
+            if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider.OBSERVE_TYPES:
                 if observe_class.upper() == 'SCIENCE' and (atom_id > 0 and
                                                            exposure_times[atom_id] != exposure_times[prev] or
                                                            coadds[atom_id] != coadds[prev]):
@@ -704,12 +706,12 @@ class OcsProgramProvider(ProgramProvider):
                     partner_time = timedelta(seconds=0)
                     program_time = timedelta(seconds=step_time)
 
-                resources = set()
-                resources.add(Resource(inst_config.fpu[atom_id]))
-                resources.add(Resource(inst_config.disperser[atom_id]))
-                resources.add(Resource(inst_config.filter[atom_id]))
-                resources.add(Resource(instrument))
-
+                resources = {Resource(inst_config.fpu[atom_id]), 
+                             Resource(inst_config.disperser[atom_id]),
+                             Resource(inst_config.filter[atom_id]),
+                             Resource(inst_config.fpu[atom_id]),
+                             Resource(instrument)}
+              
                 atoms.append(Atom(n_atom,
                                   exec_time,
                                   program_time,
@@ -770,9 +772,6 @@ class OcsProgramProvider(ProgramProvider):
 
         
         atoms = OcsProgramProvider.parse_atoms(data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
-        #print(f'OBSERVATION_BASIC-{num}')
-        #print(atoms)
-        #input()
         exec_time = sum([atom.exec_time for atom in atoms], timedelta()) + acq_overhead
 
         # TODO: Should this be a list of all targets for the observation?
