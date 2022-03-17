@@ -27,9 +27,9 @@ if __name__ == '__main__':
                             data=programs)
 
     # Output the state of and information calculated by the Collector.
-    print_collector_info(collector, samples=60)
+    #print_collector_info(collector, samples=60)
     
     # Output the data in a spreadsheet.
-    # for program in collector._programs.values():
-    #    if program.id == 'GS-2018B-Q-101':
-    #        atoms_to_sheet(program)
+    for program in collector.get_program_ids():
+        if program == 'GS-2018B-Q-101':
+            atoms_to_sheet(collector.get_program(program))

@@ -2,6 +2,9 @@ import logging
 import calendar
 import json
 import numpy as np
+from scipy.signal import find_peaks
+from typing import NoReturn, Tuple
+from enum import Enum
 from typing import Iterable, NoReturn, Tuple
 import zipfile
 
@@ -9,6 +12,30 @@ from api.abstract import ProgramProvider
 from common.helpers import str_to_bool, hmsstr2deg, dmsstr2deg
 from common.minimodel import *
 
+
+#  TODO: MOVE TO COMMON/MINIMODEL ?
+
+class ObservationMode(str, Enum):
+    UNKNOWN = 'unknown'
+    IMAGING = 'imaging'
+    LONGSLIT = 'longslit'
+    IFU = 'ifu'
+    MOS = 'mos'
+    XD = 'xd'
+    CORON = 'coron'
+    NRM = 'nrm'
+
+
+@dataclass
+class InstrumentConfig:
+    """
+    Auxiliary class to store the instrument configuration.
+    The final config is saved as a set of Resource objects.
+    """
+    fpu: List[str]
+    disperser: List[str]
+    filter: List[str]
+    wavelength: List[float]
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
     """
@@ -28,6 +55,10 @@ class OcsProgramProvider(ProgramProvider):
     A ProgramProvider that parses programs from JSON extracted from the OCS
     Observing Database.
     """
+
+    GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
+    NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
+    OBSERVE_TYPES = ['FLAT', 'ARC', 'DARK', 'BIAS'] 
 
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
@@ -117,6 +148,12 @@ class OcsProgramProvider(ProgramProvider):
         TOTAL_TIME = 'totalTime'
         OFFSET_P = 'telescope:p'
         OFFSET_Q = 'telescope:q'
+        EXPOSURE_TIME = 'observe:exposureTime'
+        DATA_LABEL = 'observe:dataLabel'
+        COADDS = 'observe:coadds'
+        FILTER = 'instrument:filter'
+        DISPERSER = 'instrument:disperser'
+        OBSERVE_TYPE = 'observe:observeType'
 
     class _TimingWindowKeys:
         TIMING_WINDOWS = 'timingWindows'
@@ -128,6 +165,86 @@ class OcsProgramProvider(ProgramProvider):
     class _MagnitudeKeys:
         NAME = 'name'
         VALUE = 'value'
+
+    class _FPUKeys:
+        GSAOI = 'instrument:utilityWheel'
+        GNIRS = 'instrument:slitWidth'
+        GMOSN = 'instrument:fpu'
+        GPI = 'instrument:observingMode'
+        F2 = 'instrument:fpu'
+        GMOSS= 'instrument:fpu'
+        NIRI = 'instrument:mask'
+        NIFS = 'instrument:mask'
+    
+    class _InstrumentKeys:
+        NAME = 'instrument:name'
+        DECKER = 'instrument:acquisitionMirror'
+        ACQ_MIRROR = 'instrument:acquisitionMirror'
+        CROSS_DISPERSED = 'instrument:crossDispersed'
+    
+
+    FPU_FOR_INSTRUMENT = {'GSAOI': _FPUKeys.GSAOI,
+                       'GPI': _FPUKeys.GPI,
+                       'Flamingos2': _FPUKeys.F2,
+                       'NIFS': _FPUKeys.NIFS,
+                       'GNIRS': _FPUKeys.GNIRS,
+                       'GMOS-N': _FPUKeys.GMOSN,
+                       'GMOS-S': _FPUKeys.GMOSS,
+                       'NIRI': _FPUKeys.NIRI}
+    
+
+    @staticmethod
+    def _get_mode(inst: str, config: InstrumentConfig) -> ObservationMode:
+        """Determine the observation mode (e.g. imaging, longslit, mos, ifu,..."""
+
+        def searchlist(val, alist):
+            return any(val in elem for elem in alist)
+
+        mode = ObservationMode.UNKNOWN
+        if searchlist('GMOS', inst):
+            if 'MIRROR' in config.disperser:
+                mode = ObservationMode.IMAGING
+            elif searchlist('arcsec', config.fpu):
+                mode = ObservationMode.LONGSLIT
+            elif searchlist('IFU', config.fpu):
+                mode = ObservationMode.IFU
+            elif 'CUSTOM_MASK' in config.fpu:
+                mode = ObservationMode.MOS
+        elif inst in ["GSAOI", "'Alopeke", "Zorro"]:
+            mode = ObservationMode.IMAGING
+        elif inst in ['IGRINS', 'MAROON-X']:
+            mode = ObservationMode.LONGSLIT
+        elif inst in ['GHOST', 'MAROON-X', 'GRACES', 'Phoenix']:
+            mode = ObservationMode.XD
+        elif inst == 'Flamingos2':
+            if searchlist('LONGSLIT', config.fpu):
+                mode = ObservationMode.LONGSLIT
+            if (searchlist('FPU_NONE', config.fpu) and
+                searchlist('IMAGING', config.disperser)):
+                mode = ObservationMode.IMAGING
+        elif inst == 'NIRI':
+            if searchlist('NONE', config.disperser) and searchlist('MASK_IMAGING', config.fpu):
+                mode = ObservationMode.IMAGING
+        elif inst == 'NIFS':
+            mode = ObservationMode.IFU
+        elif inst == 'GNIRS':
+            if searchlist('mirror', config.disperser):
+                mode = ObservationMode.IMAGING
+            elif searchlist('XD', config.disperser):
+                mode = ObservationMode.XD
+            else:
+                mode = ObservationMode.LONGSLIT
+        elif inst == 'GPI':
+            if searchlist('CORON', config.fpu):
+                mode = ObservationMode.CORON
+            elif searchlist('NRM', config.fpu):
+                mode = ObservationMode.NRM
+            elif searchlist('DIRECT', config.fpu):
+                mode = ObservationMode.IMAGING
+            else:
+                mode = ObservationMode.IFU
+
+        return mode
 
     @staticmethod
     def parse_magnitude(data: dict) -> Magnitude:
@@ -373,77 +490,238 @@ class OcsProgramProvider(ProgramProvider):
             dec=np.empty([]))
 
     @staticmethod
+    def _parse_offsets(data: dict, inst: str):
+        """
+        Parse the offsets out of the data.
+        """
+        def autocorr_lag(x):
+            """
+            Test for patterns with auto-correlation
+            """
+            # Auto correlation
+            result = np.correlate(x, x, mode='full')
+            corrmax = np.max(result)
+            if corrmax != 0.0:
+                result = result / corrmax
+            peaks, _ = find_peaks(result[result.size // 2:], height=(0, None), prominence=(0.25, None))
+            return peaks[0] if len(peaks) > 0 else 0
+
+        p_offsets = []
+        q_offsets = []
+        sky_p_offsets = []
+        sky_q_offsets = []
+        
+        for s in data:
+            p = 0.0
+            q = 0.0
+            if s[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider.OBSERVE_TYPES:
+                p = float(s[OcsProgramProvider._AtomKeys.OFFSET_P]) if OcsProgramProvider._AtomKeys.OFFSET_Q in s else 0.0
+                q = float(s[OcsProgramProvider._AtomKeys.OFFSET_Q]) if OcsProgramProvider._AtomKeys.OFFSET_Q in s else 0.0
+                sky_p_offsets.append(p)
+                sky_q_offsets.append(q)
+            p_offsets.append(p)
+            q_offsets.append(q)
+        #  Analyze sky offset patterns using auto-correlation
+        #  The lag is the length of any pattern, 0 means no repeating pattern
+        plag = 0
+        qlag = 0
+        offset_lag = 0
+        if inst == 'GPI':
+            offset_lag = len(data)
+        else:
+            if len(sky_p_offsets) > 1:
+                plag = autocorr_lag(np.array(sky_p_offsets))
+            if len(sky_q_offsets) > 1:
+                qlag = autocorr_lag(np.array(sky_q_offsets))
+
+            # Special cases
+            if plag == 0 and qlag == 0 and len(sky_q_offsets) == 4:
+                # single ABBA pattern, which the auto-correlation won't find
+                if sky_q_offsets[0] == sky_q_offsets[3] and sky_q_offsets[1] == sky_q_offsets[2]:
+                    qlag = 4
+            elif len(sky_q_offsets) == 2:
+                # If only two steps, put them together, might be AB, also silly to split only two steps
+                qlag = 2
+
+            offset_lag = qlag
+            if plag > 0 and plag != qlag:
+                offset_lag = 0
+        
+        return offset_lag
+
+    @staticmethod
+    def _parse_instrument_configuration(data: dict, instrument: str) -> Tuple[str]:
+        """
+        A dict is return until the Instrument configuration model is created
+        """
+
+        def find_filter(input: str, filter_dict: Mapping[str, str]) -> Optional[str]:
+            return next(filter(lambda f: f in input, filter_dict), None)
+
+        if instrument == 'Visitor Instrument':
+            instrument = data[OcsProgramProvider._InstrumentKeys.NAME].split(' ')[0]
+            if instrument in ["'Alopeke", "Zorro"]:
+                fpu = None
+            else:
+                fpu = instrument
+        else:
+            if instrument in OcsProgramProvider.FPU_FOR_INSTRUMENT:
+                if OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
+                    fpu = data[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
+                else:
+                    fpu = None
+                    # TODO: Might need to raise an exception here. Check code with science.
+            else:
+                raise ValueError(f'Instrument {instrument} not supported')
+
+        if OcsProgramProvider._AtomKeys.DISPERSER in data:
+            disperser = data[OcsProgramProvider._AtomKeys.DISPERSER]
+        elif instrument in ['IGRINS', 'MAROON-X']:
+            disperser = instrument
+        else:
+            disperser = None
+        
+        if instrument == 'GNIRS':
+            if data[OcsProgramProvider._InstrumentKeys.ACQ_MIRROR] == 'in' and data[OcsProgramProvider._InstrumentKeys.DECKER] == 'acquisition':
+                disperser = 'mirror'
+            else:
+                disperser = disperser.replace('grating', '') + data[OcsProgramProvider._InstrumentKeys.CROSS_DISPERSED]
+        elif instrument == 'Flamingos2' and fpu == 'FPU_NONE':
+            if data['instrument:decker'] == 'IMAGING':
+                disperser = data['instrument:decker']
+
+        if OcsProgramProvider._AtomKeys.FILTER in data:
+            filter = data[OcsProgramProvider._AtomKeys.FILTER]
+        elif instrument == 'GPI':
+            filter = find_filter(fpu, OcsProgramProvider.GPI_FILTER_WAVELENGTHS)
+        else:
+            if instrument == 'GNIRS':
+                filter = None
+            else:
+                filter = 'Unknown'
+        if instrument == 'NIFS' and 'Same as Disperser' in filter:
+            filter = find_filter(disperser[0], OcsProgramProvider.NIFS_FILTER_WAVELENGTHS)
+        wavelength = OcsProgramProvider.GPI_FILTER_WAVELENGTHS[filter] if instrument == 'GPI' else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH])
+
+        return (fpu, disperser, filter, wavelength)
+    
+    @staticmethod
     def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
         """
         Atom handling logic.
-
-        TODO: Update this with Bryan's newer code.
         """
-        n_steps = len(sequence)
-        n_abba = 0
+
+        def guide_state(step: dict) -> bool:
+            return any('guideWith' in key and guide == 'guide' for key, guide in step.items())
+        
+        def select_qastate(states: List[QAState]) -> QAState:
+            # Precedence order for observation classes.
+            return min(states, default=QAState.NONE)
+
+        # n_steps = len(sequence)
+        # n_abba = 0
         n_atom = 0
         atoms = []
+
+        p_offsets = []
+        q_offsets = []
+
+        exposure_times = []
+        coadds = []
+        # wavelengths = []
+
+        instrument = sequence[0][OcsProgramProvider._AtomKeys.INSTRUMENT] # all atoms must have the same instrument
+        offset_lag = OcsProgramProvider._parse_offsets(sequence, 'GPI')
+
+        inst_config = InstrumentConfig([], [], [], [])
+        # Sequence analysis
+        prev = 0
+        n_offsets = 0
+        exptime_groups = False
+        n_pattern = offset_lag
         for atom_id, step in enumerate(sequence):
+
             next_atom = False
-            obs_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
-
-            instrument = Resource(step[OcsProgramProvider._AtomKeys.INSTRUMENT])
-
-            # TODO: Check if this is the right wavelength.
-            wavelength = float(step[OcsProgramProvider._AtomKeys.WAVELENGTH])
+            
+            observe_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
+            step_time = step[OcsProgramProvider._AtomKeys.TOTAL_TIME] / 1000
             observed = str_to_bool(step[OcsProgramProvider._AtomKeys.OBSERVED])
-            step_time = timedelta(milliseconds=step[OcsProgramProvider._AtomKeys.TOTAL_TIME] / 1000)
 
-            # Offset information
-            offset_p = OcsProgramProvider._AtomKeys.OFFSET_P
-            offset_q = OcsProgramProvider._AtomKeys.OFFSET_Q
-            p = float(step[offset_p]) if offset_p in step.keys() else None
-            q = float(step[offset_q]) if offset_q in step.keys() else None
+            #Instrument configuration aka Resource
+            # instrument = step[OcsProgramProvider._AtomKeys.INSTRUMENT]
+            fpu, disperser, filter, wavelength  = OcsProgramProvider._parse_instrument_configuration(step, instrument)
+            inst_config.fpu.append(fpu)
+            inst_config.disperser.append(disperser)
+            inst_config.filter.append(filter)
+            inst_config.wavelength.append(wavelength)
 
-            # Any wavelength/filter_name change is a new atom
-            if atom_id == 0 or (atom_id > 0 and
-                                wavelength != float(sequence[atom_id - 1][OcsProgramProvider._AtomKeys.WAVELENGTH])):
+            mode = OcsProgramProvider._get_mode(instrument, inst_config)
+            #wavelengths.append(wavelength)
+
+            coadds.append(int(step[OcsProgramProvider._AtomKeys.COADDS]) if OcsProgramProvider._AtomKeys.COADDS in step else 1)
+            exposure_times.append(step[OcsProgramProvider._AtomKeys.EXPOSURE_TIME])
+            
+            # Any wavelength/filter change is a new atom
+            if atom_id == 0 or (atom_id > 0 and inst_config.wavelength[atom_id] != inst_config.wavelength[prev]):
                 next_atom = True
+                logging.info('Atom for wavelength')
 
-            # Patterns:
-            # AB
-            # ABBA
-            if q is not None and n_steps >= 4 and n_steps - atom_id > 3 and n_abba == 0:
-                if (q == float(sequence[atom_id + 3][offset_q]) and
-                        q != float(sequence[atom_id + 1][offset_q]) and
-                        float(sequence[atom_id + 1][offset_q]) == float(sequence[atom_id + 2][offset_q])):
-                    n_abba = 3
+            if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider.OBSERVE_TYPES:
+                if observe_class.upper() == 'SCIENCE' and (atom_id > 0 and
+                                                           exposure_times[atom_id] != exposure_times[prev] or
+                                                           coadds[atom_id] != coadds[prev]):
                     next_atom = True
-            else:
-                n_abba -= 1
+                    logging.info('Atom for exposure time change')
 
+                # Offsets - a new offset pattern is a new atom
+                if offset_lag == 0 and not exptime_groups:
+                    # For NIR imaging, need to have at least two offset positions if no repeating pattern
+                    # New atom after every 2nd offset (noffsets is odd)
+                    if mode is ObservationMode.IMAGING and offset_lag == 0 and all(w > 1.0 for w in inst_config.wavelength):
+                        if atom_id == 0:
+                            n_offsets += 1
+                        else:
+                            if p_offsets[atom_id] != p_offsets[prev] or q_offsets[atom_id] != q_offsets[prev]:
+                                n_offsets += 1
+                        if n_offsets % 2 == 1:
+                            next_atom = True
+                            logging.info('Atom for offset pattern')
+                    else:
+                        n_pattern -= 1
+                        if n_pattern < 0:
+                            next_atom = True
+                            logging.info('Atom for offset pattern')
+                            n_pattern = offset_lag - 1
+                prev = atom_id
+            
             if next_atom:
+                # New atom entry
                 n_atom += 1
-                atoms.append(Atom(
-                    id=n_atom,
-                    exec_time=timedelta(milliseconds=0),
-                    prog_time=timedelta(milliseconds=0),
-                    part_time=timedelta(milliseconds=0),
-                    observed=observed,
-                    qa_state=QAState.NONE,
-                    guide_state=False,
-                    resources={instrument},
-                    wavelengths={wavelength}
-                ))
+                exec_time = timedelta(seconds=step_time)
 
-            atoms[-1].exec_time += step_time
-
-            if 'partnerCal' in obs_class:
-                atoms[-1].part_time += step_time
-            else:
-                atoms[-1].prog_time += step_time
-
-            if n_atom > 0 and qa_states:
-                if atom_id < len(qa_states):
-                    atoms[-1].qa_state = qa_states[atom_id - 1]
+                if 'partnerCal' in observe_class:
+                    partner_time = timedelta(seconds=step_time)
+                    program_time = timedelta(seconds=0)
                 else:
-                    atoms[-1].qa_state = qa_states[-1]
+                    partner_time = timedelta(seconds=0)
+                    program_time = timedelta(seconds=step_time)
 
+                resources = {Resource(inst_config.fpu[atom_id]), 
+                             Resource(inst_config.disperser[atom_id]),
+                             Resource(inst_config.filter[atom_id]),
+                             Resource(inst_config.fpu[atom_id]),
+                             Resource(instrument)}
+              
+                atoms.append(Atom(n_atom,
+                                  exec_time,
+                                  program_time,
+                                  partner_time,
+                                  observed,
+                                  select_qastate(qa_states),
+                                  guide_state(step),
+                                  resources,
+                                  inst_config.wavelength))
+                
         return atoms
 
     @staticmethod
@@ -492,7 +770,9 @@ class OcsProgramProvider(ProgramProvider):
         qa_states = [QAState[log_entry[OcsProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
                      data[OcsProgramProvider._ObsKeys.LOG]]
 
+        
         atoms = OcsProgramProvider.parse_atoms(data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
+        exec_time = sum([atom.exec_time for atom in atoms], timedelta()) + acq_overhead
 
         # TODO: Should this be a list of all targets for the observation?
         targets = []

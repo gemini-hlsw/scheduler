@@ -4,10 +4,11 @@ dependencies:
   - astropy
   - hypothesis
   - matplotlib
-  - more_itertools
+  - more-itertools
   - numpy=1.21.*
   - openpyxl
   - pytest
   - pytz
   - tabulate
   - tqdm
+  - scipy
