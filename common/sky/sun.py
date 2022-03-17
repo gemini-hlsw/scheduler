@@ -11,7 +11,7 @@ from typing import Tuple, Union
 class Sun:
 
     @staticmethod
-    def location(time: Time):
+    def location(time: Time) -> SkyCoord:
         """
         low-precision position of the sun.
 
@@ -59,7 +59,7 @@ class Sun:
         return SkyCoord(ra, dec, frame=fr, unit='radian')
 
     @staticmethod
-    def time_by_altitude(alt, tguess, location):   
+    def time_by_altitude(alt: Angle, tguess: Time, location: EarthLocation)-> Time:
         """
         time at which the sun crosses a given elevation.
 
@@ -109,27 +109,23 @@ class Sun:
             print('Error: alt and tguess have incompatible lengths')
             return
 
-        sunpos = Sun.location(tguess)
-        # print "sunpos entering",sunpos
-        # print "tguess.jd, longit:",tguess.jd, location.lon.hour
+        sunpos = Sun.location(tguess)   
         tolerance = Angle(1.0e-4, unit=u.rad)
 
         delt = TimeDelta(0.002, format='jd')  # timestep
-        # print "sidereal: ",local_sidereal_time(tguess, location)
-        # print "sunpos.ra: ",sunpos.ra
+   
 
         ha = local_sidereal_time(tguess, location) - sunpos.ra
-        # print "ha entering",ha
         alt2, az, parang = Altitude.above(sunpos.dec, Angle(ha, unit=u.hourangle), location.lat)
-        # print "alt2",alt2
+
         tguess = tguess + delt
         sunpos = local_sidereal_time(tguess)
-        # print "sunpos with delt",sunpos
+
         alt3, az, parang = Altitude.above(sunpos.dec, local_sidereal_time(tguess, location) - sunpos.ra, location.lat)
         err = alt3 - alt
-        # print "alt3, alt, err",alt3,alt,err
+
         deriv = (alt3 - alt2) / delt
-        # print "deriv",deriv
+
         kount = np.zeros(len(tguess), dtype=int)
         kk = np.where(np.logical_and(abs(err) > tolerance, kount < 10))[0][:]
         while (len(kk) != 0):

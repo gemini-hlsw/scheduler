@@ -4,7 +4,7 @@ from astropy.time import Time
 from astropy.coordinates import PrecessedGeocentric, Angle
 import numpy as np
 import numpy.typing as npt
-from sky.constants import J2000, FLATTEN, EQUAT_RAD
+from common.sky.constants import J2000, FLATTEN, EQUAT_RAD
 from datetime import datetime, timedelta
 from astropy.coordinates import BaseRADecFrame
 

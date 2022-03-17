@@ -3,6 +3,7 @@ import numpy as np
 import numpy.typing as npt
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, Distance, GeocentricTrueEcliptic, Angle
+import astropy.units as u
 from astropy.time import TimeDelta
 from sky.utils import local_sidereal_time, current_geocent_frame, geocentric_coors
 from sky.constants import J2000, EQUAT_RAD
@@ -234,7 +235,7 @@ class Moon:
         self.BETA = Angle(np.deg2rad(beta), unit=u.rad)
         self.LAMBDA = Angle(np.deg2rad(lambd), unit=u.rad)
     
-    def low_precision_location(self, obs):
+    def low_precision_location(self, obs: EarthLocation):
         # This is the same as the high precision method, but with a
         # different set of coefficients.  The difference is small.
         # Good to about 0.1 deg, from the 1992 Astronomical Almanac, p. D46.
@@ -268,10 +269,10 @@ class Moon:
         delta = np.arcsin(n)
         distancemultiplier = Distance(EQUAT_RAD, unit=u.m)
 
-        fr = current_geocent_frame(time)
+        fr = current_geocent_frame(self.time)
         return SkyCoord(alpha, delta, topo_dist * distancemultiplier, frame=fr), topo_dist
     
-    def accurate_location(self, obs):
+    def accurate_location(self, obs: EarthLocation):
         """  
         Compute topocentric location and distance of moon to better accuracy.
 
@@ -279,10 +280,6 @@ class Moon:
 
         Parameters
         ----------
-
-        time : Time
-            An astropy Time.  This is converted to TT (terrestrial time) internally
-            for the computations.
         obs : EarthLocation
             location on earth.
 
@@ -297,12 +294,12 @@ class Moon:
         # separately since it does not transform properly for some reason.
 
         # eq = 'J{:7.2f}'.format(2000. + (time_ttjd[0] - _Constants.J2000) / 365.25)
-        equinox = f'J{2000. + (time_ttjd[0] - J2000) / 365.25:7.2f}'
+        equinox = f'J{2000. + (self.time_ttjd[0] - J2000) / 365.25:7.2f}'
         frame = GeocentricTrueEcliptic(equinox=equinox)
         inecl = SkyCoord(lon=Angle(self.LAMBDA, unit=u.rad), lat=Angle(self.BETA, unit=u.rad), frame=frame)
 
         # Transform into geocentric equatorial.
-        geocen = inecl.transform_to(current_geocent_frame(time))
+        geocen = inecl.transform_to(current_geocent_frame(self.time))
 
         # Do the topo correction yourself. First form xyz coords in equatorial syst of date
         x = dist * np.cos(geocen.ra) * np.cos(geocen.dec)
@@ -314,7 +311,7 @@ class Moon:
         # with the sidereal time
 
         # Exact match with thorskyutil/skycalc with the line below
-        xobs, yobs, zobs = geocentric_coors(local_sidereal_time(time, obs), obs.lat, obs.height)
+        xobs, yobs, zobs = geocentric_coors(local_sidereal_time(self.time, obs), obs.lat, obs.height)
 
         # recenter moon's cartesian coordinates on position of obs
         x = x - xobs
@@ -331,7 +328,7 @@ class Moon:
             decout = np.squeeze(decout)
             topodist = np.squeeze(topo_dist)
         
-        return SkyCoord(raout, decout, unit=u.rad, frame=current_geocent_frame(time)), topo_dist
+        return SkyCoord(raout, decout, unit=u.rad, frame=current_geocent_frame(self.time)), topo_dist
     
     def time_by_altitude(self, alt, tguess, location):
         """
