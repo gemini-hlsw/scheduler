@@ -1,7 +1,36 @@
+from api.observatory.abstract import ObservatoryProperties
 from common.minimodel import *
 from components.base import SchedulerComponent
 from components.collector import Collector, NightIndex
+from components.ranker import Ranker
 
+from typing import Dict, Iterable, FrozenSet, Mapping, Set
+
+
+@dataclass
+class GroupInfo:
+    """
+    Information regarding Groups that can only be calculated in the Selector.
+    This comprises:
+    1. The most restrictive Conditions required for the group as per all its subgroups.
+    2. The slots in which the group can be scheduled based on resources and environmental conditions.
+    3. The score assigned to the group.
+    4. The standards time associated with the group, in hours.
+    5. A flag to indicate if the group can be split.
+    A group can be split if and only if it contains more than one observation.
+
+    TODO: We may have to move the sky brightness calculations in here, although
+    TODO: I believe they are based on sun / moon positions so they may not require
+    TODO: recalculations.
+
+    TODO: Do we need any more information here?
+    """
+    minimum_conditions: Conditions
+    schedulable_slot_indices: Mapping[(Site, NightIndex), npt.NDArray[int]]
+    conditions_score: Mapping[(Site, NightIndex), npt.NDArray[float]]
+    score: Mapping[NightIndex, float]
+    standards: float
+    is_splittable: bool
 
 # @dataclass
 # class Visit:
@@ -97,29 +126,157 @@ from components.collector import Collector, NightIndex
 #                f'-- calibrations: {[str(cal) for cal in self.calibrations]} \n'
 
 
+# Type alias for Group information mapping.
+GroupInfoMap = Dict[GroupID, GroupInfo]
+ProgramGroupInfoMap = Dict[ProgramID, GroupInfoMap]
+
+
 @dataclass
 class Selector(SchedulerComponent):
     """
     This is the Selector portion of the automated Scheduler.
     It selects the scheduling candidates that are viable for the data collected by
     the Collector.
+
+    Note that unlike the Collector, the Selector does not use static variables, since
+    the data contained here can change over time, unlike the Collector where the
+    information is statically determined.
+
+    TODO: Is this what we want?
     """
     collector: Collector
 
-    def __post_init__(self):
+    # Observatory-specific properties.
+    properties: ObservatoryProperties
+
+    # Use the default Ranker to calculate scores.
+    ranker: Ranker = Ranker()
+
+    def __init__(self):
         """
         Initialize internal non-input data members.
         """
-        ...
+        # Visibility calculations that can only be completed in the Selector.
+        # These comprise what can be done on a given night depending on weather,
+        # resources, etc.
+        self._groups: Dict[GroupID, Group] = {}
+
+        # List of groups that have been selected.
+        self._group_info: GroupInfoMap = {}
+
+    def get_group_ids(self) -> Iterable[GroupID]:
+        """
+        Return a list of all the group IDs stored in the Selector.
+        """
+        return self._groups.keys()
+
+    def get_group(self, group_id: GroupID) -> Optional[Group]:
+        """
+        If a group with the given ID exists, return it.
+        Otherwise, return None.
+        """
+        return self._groups.get(group_id, None)
+
+    def get_group_info(self, group_id) -> Optional[GroupInfoMap]:
+        """
+        Given a GroupID, if the group exists, return the group information
+        as a map from NightIndex to GroupInfo.
+        """
+        return self._group_info.get(group_id, None)
+
+    def _calculate_group(self,
+                         group: Group,
+                         sites: FrozenSet[Site],
+                         night_indices: npt.NDArray[NightIndex],
+                         group_info_map: GroupInfoMap) -> (GroupInfoMap, Conditions):
+        """
+        Calculate the information for a Group as described in select.
+        We ignore the return result of GroupInfo in all cases except the root
+        group, which gets returned automatically.
+        The Conditions are the minimum required conditions for all subgroups.
+        """
+        if isinstance(group.children, Observation):
+            # Process this group directly.
+            obs = group.children
+            mrc = obs.constraints.conditions
+            is_splittable = False
+        else:
+            # Process all subgroups and then process this group directly.
+            cds = {}
+            for subgroup in group.children:
+                cds = {cd for _, cd in self._calculate_group(subgroup, sites, night_indices, group_info_map)}
+            mrc = Conditions.most_restrictive_conditions(cds.union(Constraints.LEAST_RESTRICTIVE_CONDITIONS))
+            is_splittable = len(group.observations()) > 1
+
+        # TODO: We should probably store or return the required resources instead of
+        # TODO: recalculating them repeatedly since this calculation is inefficient
+        # TODO: and requires re-traversing the entire tree rooted at this group.
+        # Calculate the nights where the required resources are in place.
+        resources = group.required_resources()
+        res_night_index = {(site, night_index) for site in sites for night_index in night_indices
+                           if Selector._check_resource_availability(resources, site, night_index)}
+
+        # Calculate when the conditions are met.
+        # We only need to concern ourselves with the night indices where the resources are in place.
+        # We can skip any where the resources are not available.
+        conditions_score = {}
+        for (site, night_index) in res_night_index:
+            # TODO: This doesn't look quite right.
+            night_events = self.collector.get_night_events(site, night_index)
+
+            # TODO: Is this the time period we want here?
+            # TODO: Would this be better with a time grid and times?
+            time_period = Time(night_events.times[0], night_events.times[-1])
+            actual_conditions = self.collector.get_actual_conditions_variant(site, time_period)
+            if actual_conditions is not None:
+                # TODO: *** Figure out the negha and ToOType. ***
+                conditions_score[(site, night_index)] = self._match_conditions(mrc, actual_conditions,
+                                                                                False, TooType.RAPID)
+                # TODO: Filter out the visibility_slot_idx based on the conditions score.
+                # TODO: This is on observations. How do we combine the observations?
+                # self.collector.get_target_info()
+
+        group_info_map[group.id] = GroupInfo(
+            minimum_conditions=mrc,
+            schedulable_slot_indices=None,
+            conditions_score=conditions_score,
+            score=None,
+            standards=0,
+            is_splittable=is_splittable
+        )
+
+        return group_info_map, mrc
 
     def select(self,
-               site: Site):
+               sites: FrozenSet[Site],
+               night_indices: FrozenSet[NightIndex]) -> ProgramGroupInfoMap:
         """
         Perform the selection of the observations and groups based on:
         * Resource availability
         * 80% chance of completion (TBD)
+        for the given site(s) and night index.
+
+        For each program, begin at the root group and iterate down to the leaves.
+        Each leaf contains an Observation. Filter out Observations that cannot be performed
+        at one of the given sites.
+
+        For each Observation group node, calculate:
+        1. The minimum required conditions to perform the Observation.
+        1. For each night index:
+           The time slots for which the observation can be performed (based on resource availability and weather).
+        3. The score of the Observation.
+
+        Bubble this information back up to conglomerate it for the parent groups.
+
+        Note that this requires special handling for OR Groups: an OR group may still
+        be performed if some of its children cannot be performed.
+
+        An AND group must be able to perform all of its children.
+
+        This information is returned on a program-by-program basis.
         """
-        ...
+        return {program_id: self.calculate_group(Collector.get_program(program_id).root_group, sites, night_indices)
+                for program_id in Collector.get_program_ids()}
 
     @staticmethod
     def _check_resource_availability(required_resources: Set[Resource],
@@ -135,11 +292,11 @@ class Selector(SchedulerComponent):
 
     @staticmethod
     def _match_conditions(required_conditions: Conditions,
-                          actual_conditions: Conditions,
+                          actual_conditions: Variant,
                           neg_ha: bool,
                           too_status: TooType) -> npt.NDArray[float]:
         """
-        Determine if the required conditions are satisfied by the actual conditions.
+        Determine if the required conditions are satisfied by the actual conditions variant.
         """
         # TODO: Can we move part of this to the mini-model? Do we want to?
 
@@ -176,7 +333,7 @@ class Selector(SchedulerComponent):
         cmatch = np.ones(length)
         cmatch[bad_cond_idx] = 0
 
-        # Penalize for using IQ / CCthat is too good:
+        # Penalize for using IQ / CC that is better than needed:
         # Multiply the weights by actual value / value where value is better than required and target
         # does not set soon and is not a rapid ToO.
         # TODO: What about interrupting ToOs?

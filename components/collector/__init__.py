@@ -15,9 +15,6 @@ from common.minimodel import *
 from components.base import SchedulerComponent
 import common.vskyutil as vskyutil
 
-# Type aliases for convenience.
-NightIndex = int
-
 
 # NOTE: this is an unfortunate workaround needed to get rid of warnings in PyCharm.
 # @add_schema
@@ -143,7 +140,7 @@ class NightEventsManager:
         return NightEventsManager._night_events[site]
 
 
-@dataclass
+@dataclass(frozen=True)
 class TargetInfo:
     """
     Target information for a given target at a given site for a given night.
@@ -187,8 +184,8 @@ class TargetInfo:
 
 # Type aliases for TargetInfo information.
 # Use Dict here instead of Mapping to bypass warnings as we need [] access.
-NightIndexMap = Dict[NightIndex, TargetInfo]
-TargetInfoMap = Dict[Tuple[TargetName, ObservationID], NightIndexMap]
+TargetInfoNightIndexMap = Dict[NightIndex, TargetInfo]
+TargetInfoMap = Dict[Tuple[TargetName, ObservationID], TargetInfoNightIndexMap]
 
 
 # @add_schema
@@ -272,6 +269,11 @@ class Collector(SchedulerComponent):
             for site in self.sites
         }
 
+    def get_night_events(self, site: Site, night_index: NightIndex) -> NightEvents:
+        return Collector._night_events_manager.get_night_events(self.time_grid[night_index],
+                                                                self.time_slot_length,
+                                                                site)
+
     @staticmethod
     def get_program_ids() -> Iterable[ProgramID]:
         """
@@ -280,12 +282,12 @@ class Collector(SchedulerComponent):
         return Collector._programs.keys()
 
     @staticmethod
-    def get_program(prog_id: ProgramID) -> Optional[Program]:
+    def get_program(program_id: ProgramID) -> Optional[Program]:
         """
         If a program with the given ID exists, return it.
         Otherwise, return None.
         """
-        return Collector._programs.get(prog_id, None)
+        return Collector._programs.get(program_id, None)
 
     @staticmethod
     def get_observation_ids(prog_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
@@ -326,7 +328,7 @@ class Collector(SchedulerComponent):
         return Collector._observations.get(obs_id, None)
 
     @staticmethod
-    def get_target_info(obs_id: ObservationID) -> Optional[TargetInfoMap]:
+    def get_target_info(obs_id: ObservationID) -> Optional[TargetInfoNightIndexMap]:
         """
         Given an ObservationID, if the observation exists and there is a target for the
         observation, return the target information as a map from NightIndex to TargetInfo.
@@ -367,7 +369,7 @@ class Collector(SchedulerComponent):
     def _calculate_target_info(self,
                                obs: Observation,
                                target: Target,
-                               timing_windows: List[Time]) -> NightIndexMap:
+                               timing_windows: List[Time]) -> TargetInfoNightIndexMap:
         """
         For a given site, calculate the information for a target for all the nights in
         the time grid and store this in the _target_information.
@@ -394,7 +396,7 @@ class Collector(SchedulerComponent):
         rem_visibility_time = 0.0 * u.h
         rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
 
-        target_info: NightIndexMap = {}
+        target_info: TargetInfoNightIndexMap = {}
 
         for ridx, jday in enumerate(reversed(self.time_grid)):
             # Convert to the actual time grid index.
@@ -466,6 +468,7 @@ class Collector(SchedulerComponent):
             # 1. The sun altitude requirement is met (precalculated in night_events)
             # 2. The sky background constraint is met
             # 3. The elevation constraints are met
+            # TODO: Are we calculating this correctly? I am not convinced.
             sa_idx = night_events.sun_alt_indices[idx]
             c_idx = np.where(
                 np.logical_and(sb[sa_idx] <= targ_sb,

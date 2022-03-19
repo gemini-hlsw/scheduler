@@ -1,14 +1,49 @@
+from enum import Enum, EnumMeta
 from typing import Set
 
-from api.observatory.abstract import ObservatoryCalculations
-from common.minimodel import Observation, Site
+from api.observatory.abstract import ObservatoryProperties
+from common.minimodel import Observation, ObservationMode, Resource, Site
 
 
-class GeminiCalculations(ObservatoryCalculations):
+class GeminiProperties(ObservatoryProperties):
     """
     Implementation of ObservatoryCalculations specific to Gemini.
     TODO: See and adapt old code below from old Selector.
     """
+
+    class _InstrumentsMeta(EnumMeta):
+        def __contains__(cls, r: Resource) -> bool:
+            return any(inst.id in r for inst in cls.__members__.values())
+
+    # Gemini-specific instruments.
+    class Instruments(Enum, metaclass=_InstrumentsMeta):
+        FLAMINGOS2 = Resource('Flamingos2')
+        GNIRS = Resource('GNIRS')
+        NIFS = Resource('NIFS')
+        IGRINS = Resource('IGRINS')
+
+    @staticmethod
+    def determine_standard_time(resources: Set[Resource],
+                                wavelengths: Set[float],
+                                modes: Set[ObservationMode],
+                                cal_length: int) -> float:
+        """
+        Determine the standard star time required for Gemini.
+        TODO: See comments in overridden method.
+        """
+        if cal_length > 1:
+            # Check to see if any of the resources are instruments.
+            # TODO: We may only want to include specific resources, in which case, modify
+            # TODO: Instruments above to be StandardInstruments.
+            if any(resource in GeminiProperties.Instruments for resource in resources):
+                if all(wavelength <= 2.5 for wavelength in wavelengths):
+                    return 1.5
+                else:
+                    return 1.0
+            if ObservationMode.IMAGING in modes:
+                return 2.0
+            return 0.0
+
     @staticmethod
     def has_complementary_modes(obs: Observation, site: Site) -> Set[Observation]:
         """

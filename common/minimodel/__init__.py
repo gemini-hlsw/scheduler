@@ -10,7 +10,13 @@ from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
 import numpy.typing as npt
 from pytz import timezone, UnknownTimeZoneError
-from typing import ClassVar, List, Mapping, Optional, Set, Union
+from typing import ClassVar, Iterable, List, Mapping, Optional, Set, Union
+
+from common.helpers import flatten
+
+
+# Type aliases for convenience.
+NightIndex = int
 
 
 class SiteInformation:
@@ -281,9 +287,21 @@ class Conditions:
 
         are_arrays = isinstance(self.cc, np.ndarray)
         if are_arrays:
-            uniform_lengths = len({len(self.cc), len(self.iq), len(self.sb), len(self.wv)}) == 1
+            uniform_lengths = len({self.cc.size, self.iq.size, self.sb.size, self.wv.size}) == 1
             if not uniform_lengths:
                 raise ValueError(f'Conditions have a variable number of array sizes: {self}')
+
+    @staticmethod
+    def most_restrictive_conditions(conditions: Iterable['Conditions']) -> 'Conditions':
+        """
+        Given an iterable of conditions, find the most restrictive amongst the set.
+        If no conditions are given, return the most flexible conditions possible.
+        """
+        min_cc = min(flatten(c.cc for c in conditions), default=CloudCover.CCANY)
+        min_iq = min(flatten(c.iq for c in conditions), default=ImageQuality.IQANY)
+        min_sb = min(flatten(c.sb for c in conditions), default=SkyBackground.SBANY)
+        min_wv = min(flatten(c.wv for c in conditions), default=WaterVapor.WVANY)
+        return Conditions(cc=min_cc, iq=min_iq, sb=min_sb, wv=min_wv)
 
     def __len__(self):
         """
@@ -312,6 +330,12 @@ class Constraints:
     # 2. The elevation_type is set to NONE.
     DEFAULT_AIRMASS_ELEVATION_MIN: ClassVar[float] = 1.0
     DEFAULT_AIRMASS_ELEVATION_MAX: ClassVar[float] = 2.3
+
+    # Least restrictive conditions.
+    LEAST_RESTRICTIVE_CONDITIONS = Conditions(cc=CloudCover.CCANY,
+                                              iq=ImageQuality.IQANY,
+                                              sb=SkyBackground.SBANY,
+                                              wv=WaterVapor.WVANY)
 
 
 @dataclass
@@ -549,6 +573,21 @@ class Atom:
     wavelengths: Set[float]
 
 
+class ObservationMode(str, Enum):
+    """
+    TODO: Where does this go? Find it in the atom code in the OcsProgramExtractor once done.
+    TODO: It seems to depend on the instrument and FPU.
+    """
+    UNKNOWN = 'unknown'
+    IMAGING = 'imaging'
+    LONGSLIT = 'longslit'
+    IFU = 'ifu'
+    MOS = 'mos'
+    XD = 'xd'
+    CORON = 'coron'
+    NRM = 'nrm'
+
+
 class ObservationStatus(IntEnum):
     """
     The status of an observation as indicated in the Observing Tool / ODB.
@@ -754,6 +793,10 @@ class Observation:
                dict((k, v) for k, v in other.__dict__.items() if k != 'sequence')
 
 
+# Type alias for group ID.
+GroupID = str
+
+
 # Since Python doesn't allow classes to self-reference, we have to make a basic group
 # from which to subclass.
 @dataclass
@@ -771,7 +814,7 @@ class Group(ABC):
     * delay_min: used in cadences
     * delay_max: used in cadences
     """
-    id: str
+    id: GroupID
     group_name: str
     number_to_observe: int
     delay_min: timedelta
@@ -782,6 +825,18 @@ class Group(ABC):
         if self.number_to_observe <= 0:
             msg = f'Group {self.group_name} specifies non-positive {self.number_to_observe} children to be observed.'
             raise ValueError(msg)
+
+    def subgroup_ids(self) -> Set[GroupID]:
+        if isinstance(self.children, Observation):
+            return set()
+        else:
+            return {subgroup.id for subgroup in self.children}
+
+    def sites(self) -> Set[Site]:
+        if isinstance(self.children, Observation):
+            return {self.children.site}
+        else:
+            return set.union(*[s.sites() for s in self.children])
 
     def required_resources(self) -> Set[Resource]:
         return {r for c in self.children for r in c.required_resources()}
