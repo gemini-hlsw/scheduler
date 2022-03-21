@@ -1,4 +1,5 @@
-from common.helpers import dmsstr2deg, hmsstr2deg
+from common.helpers import dmsstr2deg
+from common.timeutils import sex2dec
 from common.minimodel import *
 from api.ocs import OcsProgramProvider
 
@@ -54,7 +55,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.V, 5.8)
         },
         type=TargetType.BASE,
-        ra=hmsstr2deg('18:51:03.840'),
+        ra=sex2dec('18:51:03.840', todegree=True),
         dec=dmsstr2deg('353:43:40.80'),
         pm_ra=-1.568,
         pm_dec=-4.144,
@@ -75,7 +76,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.K, 10.894)
         },
         type=TargetType.GUIDESTAR,
-        ra=hmsstr2deg('18:50:50.990'),
+        ra=sex2dec('18:50:50.990', todegree=True),
         dec=dmsstr2deg('353:44:28.68'),
         pm_ra=-0.6,
         pm_dec=-7.4,
@@ -164,7 +165,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.K, 1.71)
         },
         type=TargetType.BASE,
-        ra=hmsstr2deg('18:36:23.940'),
+        ra=sex2dec('18:36:23.940', todegree=True),
         dec=dmsstr2deg('336:05:42.90'),
         pm_ra=9.82,
         pm_dec=-5.54,
@@ -185,7 +186,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.K, 6.769)
         },
         type=TargetType.GUIDESTAR,
-        ra=hmsstr2deg('18:36:36.196'),
+        ra=sex2dec('18:36:36.196', todegree=True),
         dec=dmsstr2deg('336:00:20.55'),
         pm_ra=10.6,
         pm_dec=0.1,
@@ -279,7 +280,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.K, value=3.6)
         },
         type=TargetType.BASE,
-        ra=hmsstr2deg('16:57:09.050'),
+        ra=sex2dec('16:57:09.050', todegree=True),
         dec=dmsstr2deg('355:53:58.88'),
         pm_ra=-4.72,
         pm_dec=-6.54,
@@ -300,7 +301,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.J, value=9.628)
         },
         type=TargetType.GUIDESTAR,
-        ra=hmsstr2deg('16:57:12.230'),
+        ra=sex2dec('16:57:12.230', todegree=True),
         dec=dmsstr2deg('355:48:33.04'),
         pm_ra=-2.7,
         pm_dec=5.7,
@@ -412,7 +413,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.g, value=7.101)
         },
         type=TargetType.BASE,
-        ra=hmsstr2deg('21:29:58.330'),
+        ra=sex2dec('21:29:58.330', todegree=True),
         dec=dmsstr2deg('12:10:01.20'),
         pm_ra=-0.63,
         pm_dec=-3.8,
@@ -433,7 +434,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.V, value=12.834)
         },
         type=TargetType.GUIDESTAR,
-        ra=hmsstr2deg('21:29:54.924'),
+        ra=sex2dec('21:29:54.924', todegree=True),
         dec=dmsstr2deg('12:13:22.47'),
         pm_ra=-7.2,
         pm_dec=-6.8,
@@ -453,7 +454,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.J, value=14.455)
         },
         type=TargetType.TUNING_STAR,
-        ra=hmsstr2deg('21:29:46.873'),
+        ra=sex2dec('21:29:46.873', todegree=True),
         dec=dmsstr2deg('12:12:57.61'),
         pm_ra=4.9,
         pm_dec=0.9,
@@ -469,7 +470,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.J, 13.504)
         },
         type=TargetType.BLIND_OFFSET,
-        ra=hmsstr2deg('21:29:42.967'),
+        ra=sex2dec('21:29:42.967', todegree=True),
         dec=dmsstr2deg('12:09:53.42'),
         pm_ra=-21.0,
         pm_dec=-12.9,

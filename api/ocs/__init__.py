@@ -10,6 +10,7 @@ import zipfile
 
 from api.abstract import ProgramProvider
 from common.helpers import str_to_bool, hmsstr2deg, dmsstr2deg
+from common.timeutils import sex2dec
 from common.minimodel import *
 
 
@@ -450,9 +451,9 @@ class OcsProgramProvider(ProgramProvider):
         dec_ddmmss = data[OcsProgramProvider._TargetKeys.DEC]
 
         # TODO: Is this the proper way to handle conversions from hms and dms?
-        # ra = sex2dec(ra_hhmmss, todegree=True)
+        ra = sex2dec(ra_hhmmss, todegree=True)
         # dec = sex2dec(dec_ddmmss, todegree=False)
-        ra = hmsstr2deg(ra_hhmmss)
+        # ra = hmsstr2deg(ra_hhmmss)
         dec = dmsstr2deg(dec_ddmmss)
 
         pm_ra = data.setdefault(OcsProgramProvider._TargetKeys.DELTARA, 0.0)
