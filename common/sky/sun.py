@@ -2,11 +2,9 @@ import numpy as np
 from sky.constants import J2000
 from sky.utils import current_geocent_frame, local_sidereal_time
 from sky.altitude import Altitude
-from astropy.coordinates import Angle, SkyCoord
+from astropy.coordinates import Angle, SkyCoord, EarthLocation
 from astropy.time import Time, TimeDelta
 from astropy.units import u
-from typing import Tuple, Union
-
 
 class Sun:
 
@@ -50,24 +48,35 @@ class Sun:
         ra = np.arctan2(y, x)
         dec = np.arcsin(z)
 
-        fr = current_geocent_frame(time)
-
+        frame = current_geocent_frame(time)
 
         if scalar_input:
             ra = np.squeeze(ra)
             dec = np.squeeze(dec)
-        return SkyCoord(ra, dec, frame=fr, unit='radian')
+        return SkyCoord(ra, dec, frame=frame, unit='radian')
 
     @staticmethod
-    def time_by_altitude(alt: Angle, tguess: Time, location: EarthLocation)-> Time:
+    def time_by_altitude(alt: Angle,
+                         time_guess: Time,
+                         location: EarthLocation,
+                         timestep: float = 0.002) -> Time:
         """
-        time at which the sun crosses a given elevation.
+        Time at which the sun crosses a particular altitude alt, which is an Angle,
+        for an EarthLocation location.
+
+        This of course happens twice a day (or not at all);
+        time_guess is a Time approximating the answer.
+        The usual use case will be to compute roughly when sunset or twilight occurs,
+        and hand the result to this routine to get a more exact answer.
+
+        This uses the low-precision sun location, which is typically good to 0.01 degree.
+        That's plenty good enough for computing rise, set, and twilight times.
 
         Parameters:
 
-        alt : Angle, single or array. If array, then must be the same length as tguess
+        alt : Angle, single or array. If array, then must be the same length as time_guess
         Desired altitude.
-        tguess : Time, single or array
+        time_guess : Time, single or array
         Starting time for iteration.  This must be fairly
         close so that the iteration coverges on the correct
         phenomenon (e.g., rise time, not set time).
@@ -76,64 +85,49 @@ class Sun:
         Returns: Time if convergent
                 None if non-convergent
         """
-
-        # returns the Time at which the sun crosses a
-        # particular altitude alt, which is an Angle,
-        # for an EarthLocation location.
-
-        # This of course happens twice a day (or not at
-        # all); tguess is a Time approximating the answer.
-        # The usual use case will be to compute roughly when
-        # sunset or twilight occurs, and hand the result to this
-        # routine to get a more exact answer.
-
-        # This uses the low-precision sun "lpsun", which is
-        # typically good to 0.01 degree.  That's plenty good
-        # enough for computing rise, set, and twilight times.
-
-        tguess = Time(np.asarray(tguess.jd), format='jd')
+        time_guess = Time(np.asarray(time_guess.jd), format='jd')
         alt = Angle(np.asarray(alt.to_value(u.rad)), unit=u.rad)
         scalar_input = False
-        if tguess.ndim == 0 and alt.ndim == 0:
+        if time_guess.ndim == 0 and alt.ndim == 0:
             scalar_input = True
-        if tguess.ndim == 0:
-            tguess = tguess[None]  # Makes 1D
+        if time_guess.ndim == 0:
+            time_guess = time_guess[None]  # Makes 1D
         if alt.ndim == 0:
             alt = alt[None]
 
-        if len(tguess) == 1 and len(alt) > 1:
-            tguess = Time(tguess.jd * np.ones(len(alt)), format='jd')
-        elif len(tguess) > 1 and len(alt) == 1:
-            alt = alt * np.ones(len(tguess))
-        elif len(tguess) != len(alt):
-            print('Error: alt and tguess have incompatible lengths')
-            return
+        if len(time_guess) == 1 and len(alt) > 1:
+            time_guess = Time(time_guess.jd * np.ones(len(alt)), format='jd')
+        elif len(time_guess) > 1 and len(alt) == 1:
+            alt = alt * np.ones(len(time_guess))
+        elif len(time_guess) != len(alt):
+            raise ValueError('Error: alt and time_guess have incompatible lengths')
 
-        sunpos = Sun.location(tguess)   
+        sun_pos = Sun.location(time_guess)
         tolerance = Angle(1.0e-4, unit=u.rad)
 
-        delt = TimeDelta(0.002, format='jd')  # timestep
+        delta = TimeDelta(timestep, format='jd')
    
+        ha = local_sidereal_time(time_guess, location) - sun_pos.ra
+        alt2, az, parang = Altitude.above(sun_pos.dec, Angle(ha, unit=u.hourangle), location.lat)
 
-        ha = local_sidereal_time(tguess, location) - sunpos.ra
-        alt2, az, parang = Altitude.above(sunpos.dec, Angle(ha, unit=u.hourangle), location.lat)
+        time_guess = time_guess + delta
+        sun_pos = local_sidereal_time(time_guess)
 
-        tguess = tguess + delt
-        sunpos = local_sidereal_time(tguess)
-
-        alt3, az, parang = Altitude.above(sunpos.dec, local_sidereal_time(tguess, location) - sunpos.ra, location.lat)
+        alt3, az, parang = Altitude.above(sun_pos.dec,
+                                          local_sidereal_time(time_guess, location) - sun_pos.ra, 
+                                          location.lat)
         err = alt3 - alt
+        deriv = (alt3 - alt2) / delta
 
-        deriv = (alt3 - alt2) / delt
-
-        kount = np.zeros(len(tguess), dtype=int)
+        kount = np.zeros(len(time_guess), dtype=int)
         kk = np.where(np.logical_and(abs(err) > tolerance, kount < 10))[0][:]
         while (len(kk) != 0):
-            tguess[kk] = tguess[kk] - err[kk] / deriv[kk]
-            sunpos = None
-            sunpos = Sun.location(tguess[kk])
-            alt3[kk], az[kk], parang[kk] = Altitude.above(sunpos.dec, local_sidereal_time(tguess[kk], location) - sunpos.ra,
-                                                    location.lat)
+            time_guess[kk] = time_guess[kk] - err[kk] / deriv[kk]
+            sun_pos = None
+            sun_pos = Sun.location(time_guess[kk])
+            alt3[kk], az[kk], parang[kk] = Altitude.above(sun_pos.dec,
+                                                          local_sidereal_time(time_guess[kk], location) - sun_pos.ra,
+                                                          location.lat)
             err[kk] = alt3[kk] - alt[kk]
             kount[kk] = kount[kk] + 1
             ii = np.where(kount >= 9)[0][:]
@@ -143,5 +137,5 @@ class Sun:
             kk = np.where(np.logical_and(abs(err) > tolerance, kount < 10))[0][:]
 
         if scalar_input:
-            tguess = np.squeeze(tguess)
-        return Time(tguess, format='iso')
+            time_guess = np.squeeze(time_guess)
+        return Time(time_guess, format='iso')

@@ -5,9 +5,9 @@ from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, Distance, GeocentricTrueEcliptic, Angle
 import astropy.units as u
 from astropy.time import TimeDelta
-from sky.utils import local_sidereal_time, current_geocent_frame, geocentric_coors
-from sky.constants import J2000, EQUAT_RAD
-from sky.altitude import Altitude
+from common.sky.utils import local_sidereal_time, current_geocent_frame, geocentric_coors
+from common.sky.constants import J2000, EQUAT_RAD
+from common.sky.altitude import Altitude
 
 class Moon:
 
