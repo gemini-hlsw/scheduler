@@ -1,13 +1,17 @@
 import os
 import json
-from typing import NoReturn
+from typing import NoReturn, Union
+from zlib import DEF_BUF_SIZE
 
 from astropy import units as u
+from matplotlib.pyplot import cool
 
 from api.abstract import ProgramProvider
 from api.ocs import OcsProgramProvider
-from common.minimodel import Group, Observation, Program
+from common.minimodel import Group, Observation, ObservationClass, Program, Atom
 from collector import Collector, NightEventsManager
+
+from openpyxl import Workbook
 
 
 def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.json'),
@@ -95,3 +99,47 @@ def print_collector_info(collector: Collector, samples: int = 60) -> NoReturn:
                          for obs_id in Collector.get_observation_ids())
     for obs_id, target_name in target_info:
         print(f'Observation {obs_id}, Target {target_name}')
+
+
+def print_atoms_for_observation(observation: Observation) -> NoReturn:
+    for atom in observation.sequence:
+        print(f'\t{atom}')
+
+def atoms_to_sheet(dt: Union[Program, Observation, Group]) -> NoReturn:
+    """
+    Print out the atoms in a program or observation to a spreadsheet.
+    """
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(['id', 'exec_time', 'prog_time', 'part_time', 'observed', 'qa_state', 'guide_state'])
+
+    def save_to_sheet(atom: Atom):
+        ws.cell(column=1, row=atom.id + 1, value=atom.id)
+        ws.cell(column=2, row=atom.id + 1, value=atom.exec_time.total_seconds())
+        ws.cell(column=3, row=atom.id + 1, value=atom.prog_time.total_seconds())
+        ws.cell(column=4, row=atom.id + 1, value=atom.part_time.total_seconds())
+        ws.cell(column=5, row=atom.id + 1, value=atom.observed)
+        ws.cell(column=6, row=atom.id + 1, value=atom.qa_state.value)
+        ws.cell(column=7, row=atom.id + 1, value=atom.guide_state)
+
+    # TODO: Output for larger formats(e.g Program) not required but might be good to have.
+    if isinstance(dt, Program):
+        for obs in dt.observations():
+            if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PARTNERCAL]:
+                for atom in obs.sequence:
+                    ws.title = f'{obs.id}'
+                    save_to_sheet(atom)
+                ws = wb.create_sheet()
+                ws.append(['id', 'exec_time', 'prog_time', 'part_time', 'observed', 'qa_state', 'guide_state'])
+        wb.save(f'{dt.id}.xlsx')
+
+    elif isinstance(dt, Observation):
+        print(f'Observation: {dt.id}')
+        for atom in dt.sequence:
+            save_to_sheet(atom)
+        wb.save(f'{dt.id}.xlsx')
+    elif isinstance(dt, Group):
+        raise NotImplementedError
+    else:
+        raise ValueError(f'Unsupported type: {type(dt)}')
