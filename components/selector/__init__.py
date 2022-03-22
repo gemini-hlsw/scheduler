@@ -195,17 +195,47 @@ class Selector(SchedulerComponent):
         group, which gets returned automatically.
         The Conditions are the minimum required conditions for all subgroups.
         """
+        # Negative hour angle: an array of boolean over the night indices.
+        # Assume True, but if any observation in the group has an obsclass of SCIENCE or
+        # PROGRAMCAL, and the visibility of the observation for the night has an hour angle[0]
+        # value > 0, then set it to False for the night.
         if isinstance(group.children, Observation):
             # Process this group directly.
             obs = group.children
             mrc = obs.constraints.conditions
             is_splittable = False
+
+            # For a given night, if the hour angle is < 0 in the first time step, then we don't consider it
+            # setting at the start.
+            visibility = Collector.get_target_info(obs.id)
+
+            # We only worry about negative hour angle if the observation is SCIENCE or PROGCAL.
+            if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
+                # If we are science or progcal, then the neg HA value for a night is if the first HA for the night
+                # is negative.
+                negative_hour_angle = {night_idx: visibility[night_idx].hourangle[0].value < 0
+                                       for night_idx in night_indices}
+            else:
+                negative_hour_angle = {night_idx: False for night_idx in night_indices}
+
         else:
+            # TODO: Design of handling of OR subgroups.
+            # First off, we ensure that this group does not have any OR subgroups.
+            # We do not know how to handle an OR subgroup at this phase, so OR groups
+            # are only allowed as the root group.
+            if any(isinstance(subgroup, OrGroup) for subgroup in group.children):
+                raise NotImplementedError(f'Group ${group.id} has an OrGroup as a subgroup.')
+
             # Process all subgroups and then process this group directly.
-            cds = {}
+            # First, we get the Conditions for all subgroups and find the most restrictive,
+            # which is what we need if we want to satisfy the group requirements.
+            conditions = {}
             for subgroup in group.children:
-                cds = {cd for _, cd in self._calculate_group(subgroup, sites, night_indices, group_info_map)}
-            mrc = Conditions.most_restrictive_conditions(cds.union(Constraints.LEAST_RESTRICTIVE_CONDITIONS))
+                conditions = {cd for _, cd in self._calculate_group(subgroup, sites, night_indices, group_info_map)}
+            mrc = Conditions.most_restrictive_conditions(conditions.union(Constraints.LEAST_RESTRICTIVE_CONDITIONS))
+
+            # This will likely always be true unless we have trivial nested groups, but check
+            # to make sure.
             is_splittable = len(group.observations()) > 1
 
         # TODO: We should probably store or return the required resources instead of
@@ -218,23 +248,25 @@ class Selector(SchedulerComponent):
 
         # Calculate when the conditions are met.
         # We only need to concern ourselves with the night indices where the resources are in place.
-        # We can skip any where the resources are not available.
+        # We can skip anywhere the resources are not available.
         conditions_score = {}
         for (site, night_index) in res_night_index:
             # TODO: This doesn't look quite right.
-            night_events = self.collector.get_night_events(site, night_index)
+            night_events = self.collector.get_night_events_for_night_index(site, night_index)
 
             # TODO: Is this the time period we want here?
             # TODO: Would this be better with a time grid and times?
+            # TODO: We need to decide how we request conditions data.
             time_period = Time(night_events.times[0], night_events.times[-1])
             actual_conditions = self.collector.get_actual_conditions_variant(site, time_period)
+
             if actual_conditions is not None:
                 # TODO: *** Figure out the negha and ToOType. ***
                 conditions_score[(site, night_index)] = self._match_conditions(mrc, actual_conditions,
-                                                                                False, TooType.RAPID)
+                                                                               False, TooType.RAPID)
                 # TODO: Filter out the visibility_slot_idx based on the conditions score.
                 # TODO: This is on observations. How do we combine the observations?
-                # self.collector.get_target_info()
+                target_info_night_idx_map = self.collector.get_target_info()
 
         group_info_map[group.id] = GroupInfo(
             minimum_conditions=mrc,

@@ -46,7 +46,6 @@ class ProgramProvider(ABC):
 
         The members are as follows:
         * group_id: an ID of the group as provided by the data provider
-        * group_name: the name of the group as provided by the data provider
 
         This method should be called from either parse_program, or, due to group nesting,
         parse_or_group or parse_and_group.
@@ -65,7 +64,6 @@ class ProgramProvider(ABC):
 
         The members are as follows:
         * group_id: an ID of the group as provided by the data provider
-        * group_name: the name of the group as provided by the data provider
 
         This method should be called from either parse_program, or, due to group nesting,
         parse_or_group or parse_and_group.
@@ -74,7 +72,7 @@ class ProgramProvider(ABC):
 
     @staticmethod
     @abstractmethod
-    def parse_observation(data: dict, num: int) -> Program:
+    def parse_observation(data: dict, num: int) -> Observation:
         """
         Given an associative array that contains observation data, retrieve the data
         and populate an Observation object.

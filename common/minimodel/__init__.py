@@ -92,32 +92,6 @@ class Semester:
         return f'{self.year}{self.half.value}'
 
 
-@dataclass(unsafe_hash=True)
-class ObservingPeriod:
-    """
-    This class represents a period under observation and contains visibility
-    and scoring calculations for a night.
-
-    It contains the constants:
-    * MAX_AIRMASS: the maximum possible value for airmass.
-    * CLASSICAL_NIGHT_LENGTH: the timedelta length for a classical observing night.
-    """
-    start: datetime
-    length: timedelta
-    vishours: float
-    airmass: npt.NDArray[float]
-    hour_angle: npt.NDArray[float]
-    alt: npt.NDArray[float]
-    az: npt.NDArray[float]
-    parallactic_angle: npt.NDArray[float]
-    sbcond: npt.NDArray[float]
-    visfrac: npt.NDArray[float]
-    score: Optional[npt.NDArray[float]] = None
-
-    MAX_AIRMASS: ClassVar[float] = 2.3
-    CLASSICAL_NIGHT_LENGTH: ClassVar[timedelta] = timedelta(hours=10)
-
-
 class TimeAccountingCode(str, Enum):
     """
     The time accounting codes for the possible partner submissions or internal program
@@ -498,6 +472,8 @@ class SiderealTarget(Target):
     RA and Dec should be specified in decimal degrees.
     Proper motion must be specified in milliarcseconds / year.
     Epoch must be the decimal year.
+
+    NOTE: The proper motion adjusted coordinates can be found in the TargetInfo in coord.
     """
     ra: float
     dec: float
@@ -657,6 +633,9 @@ class ObservationClass(IntEnum):
     ACQCAL = auto()
     DAYCAL = auto()
 
+
+# Type alias for program ID.
+ProgramID = str
 
 # Alias for observation identifier.
 ObservationID = str
@@ -966,10 +945,6 @@ class ProgramTypes(Enum):
     SV = ProgramType('SV', 'System Verification')
 
 
-# Type alias for program ID.
-ProgramID = str
-
-
 @dataclass(unsafe_hash=True)
 class Program:
     """
@@ -1014,31 +989,3 @@ class Program:
 
     def observations(self) -> List[Observation]:
         return self.root_group.observations()
-
-
-@dataclass(frozen=True)
-class Visit:
-    """
-    A visit is a scheduled piece of an observation.
-    It can be no less than a single atom.
-
-    TODO: This will probably require some refinement as we progress.
-    """
-    start_time: datetime
-    end_time: datetime
-    observation_id: str
-    first_atom_id: str
-    last_atom_id: str
-    comment: str
-    setuptime_type: SetupTimeType
-
-
-@dataclass
-class Plan:
-    """
-    A complete plan for each site, mapping an observation period to the list
-    of visits to be performed during that period.
-
-    TODO: This will probably require some refinement as we progress.
-    """
-    scheduled_atoms: Mapping[Site, Mapping[ObservingPeriod, List[Visit]]]

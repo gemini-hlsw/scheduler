@@ -16,8 +16,6 @@ from components.base import SchedulerComponent
 import common.vskyutil as vskyutil
 
 
-# NOTE: this is an unfortunate workaround needed to get rid of warnings in PyCharm.
-# @add_schema
 @dataclass
 class NightEvents:
     """
@@ -269,7 +267,12 @@ class Collector(SchedulerComponent):
             for site in self.sites
         }
 
-    def get_night_events(self, site: Site, night_index: NightIndex) -> NightEvents:
+    def get_night_events(self, site: Site) -> NightEvents:
+        return Collector._night_events_manager.get_night_events(self.time_grid,
+                                                                self.time_slot_length,
+                                                                site)
+
+    def get_night_events_for_night_index(self, site: Site, night_index: NightIndex) -> NightEvents:
         return Collector._night_events_manager.get_night_events(self.time_grid[night_index],
                                                                 self.time_slot_length,
                                                                 site)

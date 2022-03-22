@@ -1,7 +1,7 @@
-from common.helpers import dmsstr2deg
-from common.timeutils import sex2dec
-from common.minimodel import *
 from api.programprovider.ocs import OcsProgramProvider
+from common.helpers import dmsstr2deg
+from common.minimodel import *
+from common.timeutils import sex2dec
 
 from datetime import datetime, timedelta
 import json
@@ -24,6 +24,8 @@ def create_minimodel_program() -> Program:
 
     Note that we do not have to worry about atoms as we have no obslog data.
     """
+    program_id = 'GN-2022A-Q-999'
+
     # *** SHARED RESOURCES ***
     gmosn = Resource(id='GMOS-N')
     gmos_oiwfs = Resource(id='GMOS OIWFS')
@@ -566,7 +568,7 @@ def create_minimodel_program() -> Program:
 
     # *** PROGRAM ***
     return Program(
-        id='GN-2022A-Q-999',
+        id=program_id,
         internal_id='c396b9c9-9bdd-4eec-be83-81162090d032',
         semester=Semester(year=2022, half=SemesterHalf.A),
         band=Band.BAND2,
