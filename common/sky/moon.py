@@ -8,6 +8,7 @@ from astropy.time import TimeDelta
 from common.sky.utils import local_sidereal_time, current_geocent_frame, geocentric_coors
 from common.sky.constants import J2000, EQUAT_RAD
 from common.sky.altitude import Altitude
+from typing import NoReturn, Tuple
 
 class Moon:
 
@@ -24,7 +25,7 @@ class Moon:
         self.LAMBDA = None
         self.BETA = None
 
-    def _low_precission_calculations(self):
+    def _low_precission_calculations(self) -> NoReturn:
         """
         Compute low precision values for the moon location method calculations.
         """
@@ -54,7 +55,7 @@ class Moon:
 
         return LAMBDA, BETA, PIE
 
-    def _high_precision_calculations(self):
+    def _high_precision_calculations(self) -> NoReturn:
         """
         Compute accurate precession values for the moon location method calculations.
         """
@@ -235,11 +236,12 @@ class Moon:
         self.BETA = Angle(np.deg2rad(beta), unit=u.rad)
         self.LAMBDA = Angle(np.deg2rad(lambd), unit=u.rad)
     
-    def low_precision_location(self, obs: EarthLocation):
-        # This is the same as the high precision method, but with a
-        # different set of coefficients.  The difference is small.
-        # Good to about 0.1 deg, from the 1992 Astronomical Almanac, p. D46.
-        # Note that input time is a float.
+    def low_precision_location(self, obs: EarthLocation) -> Tuple[SkyCoord, float]:
+        """
+        This is the same as the high precision method, but with a different set of coefficients.  
+        The difference is small. Good to about 0.1 deg, from the 1992 Astronomical Almanac, p. D46.
+        Note that input time is a float.
+        """
 
         self._low_precission_calculations()
         # Terrestrial time with julian day
@@ -272,7 +274,7 @@ class Moon:
         fr = current_geocent_frame(self.time)
         return SkyCoord(alpha, delta, topo_dist * distancemultiplier, frame=fr), topo_dist
     
-    def accurate_location(self, obs: EarthLocation):
+    def accurate_location(self, obs: EarthLocation) -> Tuple[SkyCoord, float]:
         """  
         Compute topocentric location and distance of moon to better accuracy.
 
@@ -326,13 +328,15 @@ class Moon:
         if self.scalar_input:
             raout = np.squeeze(raout)
             decout = np.squeeze(decout)
-            topodist = np.squeeze(topo_dist)
+            topo_dist = np.squeeze(topo_dist)
         
         return SkyCoord(raout, decout, unit=u.rad, frame=current_geocent_frame(self.time)), topo_dist
     
-    def time_by_altitude(self, alt, tguess, location):
+    def time_by_altitude(self, 
+                         alt: Angle, 
+                         time_guess: Time, 
+                         location: EarthLocation) -> Time:
         """
-        
         Time at which moon passes a given altitude.
 
         This really does have to be iterated since the moon moves fairly
@@ -340,9 +344,9 @@ class Moon:
 
         Parameters
         ----------
-        alt : Angle, single or array.  If array, then must be the same length as tguess
+        alt : Angle, single or array.  If array, then must be the same length as time_guess
         desired altitude.
-        tguess : Time, single or array
+        time_guess : Time, single or array
         initial guess; this needs to be fairly close.
         location : EarthLocation
 
@@ -350,56 +354,54 @@ class Moon:
         a Time, or None if non-convergent.
         """
 
-        # tguess is a Time, location is an EarthLocation
+        # time_guess is a Time, location is an EarthLocation
 
-        tguess = Time(np.asarray(tguess.jd), format='jd')
+        time_guess = Time(np.asarray(time_guess.jd), format='jd')
         scalar_input = False
-        if tguess.ndim == 0:
-            tguess = tguess[None]  # Makes 1D
+        if time_guess.ndim == 0:
+            time_guess = time_guess[None]  # Makes 1D
             scalar_input = True
         alt = Angle(np.asarray(alt.to_value(u.rad)), unit=u.rad)
         if alt.ndim == 0:
             alt = alt[None]
 
-        if len(tguess) != len(alt):
-            print('Error: alt and guess must be the same length')
-            return
+        if len(time_guess) != len(alt):
+            raise ValueError('Error: alt and guess must be the same length')
 
-        moonpos, topodist = self.accurate(tguess, location)
+        moon_pos, _ = self.accurate(time_guess, location)
         tolerance = Angle(1.0e-4, unit=u.rad)
 
-        delt = TimeDelta(0.002, format='jd')  # timestep
+        delta = TimeDelta(0.002, format='jd')  # timestep
 
-        ha = local_sidereal_time(tguess, location) - moonpos.ra
+        ha = local_sidereal_time(time_guess, location) - moon_pos.ra
        
-        alt2, az, parang = Altitude.above(moonpos.dec, Angle(ha, unit=u.hourangle), location.lat)
+        alt2, az, parang = Altitude.above(moon_pos.dec, Angle(ha, unit=u.hourangle), location.lat)
 
-        tguess = tguess + delt
-        moonpos, topodist = self.accurate(tguess, location)
+        time_guess += delta
+        moon_pos, _ = self.accurate(time_guess, location)
 
-        alt3, az, parang = Altitude.above(moonpos.dec, local_sidereal_time(tguess, location) - moonpos.ra, location.lat)
+        alt3, az, parang = Altitude.above(moon_pos.dec, local_sidereal_time(time_guess, location) - moon_pos.ra, location.lat)
         err = alt3 - alt
 
-        deriv = (alt3 - alt2) / delt
+        deriv = (alt3 - alt2) / delta
 
-        kount = np.zeros(len(tguess), dtype=int)
+        kount = np.zeros(len(time_guess), dtype=int)
         kk = np.where(np.logical_and(abs(err) > tolerance, kount < 10))[0][:]
         while (len(kk) != 0):
 
-            tguess[kk] = tguess[kk] - err[kk] / deriv[kk]
-            moonpos = None
-            topodist = None
-            moonpos, topodist = self.accurate(tguess[kk], location)
-            alt3[kk], az[kk], parang[kk] = Altitude.above(moonpos.dec, local_sidereal_time(tguess[kk], location) - moonpos.ra,
+            time_guess[kk] = time_guess[kk] - err[kk] / deriv[kk]
+            moon_pos = None
+            #topodist = None
+            moon_pos, _ = self.accurate(time_guess[kk], location)
+            alt3[kk], az[kk], parang[kk] = Altitude.above(moon_pos.dec, local_sidereal_time(time_guess[kk], location) - moon_pos.ra,
                                                     location.lat)
             err[kk] = alt3[kk] - alt[kk]
             ii = np.where(kount >= 9)[0][:]
             if len(ii) != 0:
-                print("Moonrise or set calculation not converging!\n")
-                return None
+                raise ValueError("Moonrise or set calculation not converging!\n")
+
             kk = np.where(np.logical_and(abs(err) > tolerance, kount < 10))[0][:]
 
         if scalar_input:
-            tguess = np.squeeze(tguess)
-        return Time(tguess, format='iso')
-
+            time_guess = np.squeeze(time_guess)
+        return Time(time_guess, format='iso')

@@ -1,7 +1,7 @@
 from typing import Tuple, Union, Optional
 import astropy.units as u
-from astropy.time import Time
-from astropy.coordinates import PrecessedGeocentric, Angle
+from astropy.time import Time, TimezoneInfo
+from astropy.coordinates import PrecessedGeocentric, Angle, EarthLocation
 import numpy as np
 import numpy.typing as npt
 from common.sky.constants import J2000, FLATTEN, EQUAT_RAD
@@ -26,9 +26,8 @@ def current_geocent_frame(time: Time) -> BaseRADecFrame:
     time_ep = 2000. + (np.asarray(time.jd) - J2000) / 365.25
     if time_ep.ndim == 0:
         time_ep = time_ep[None]  # Makes 1D
-    #eq = Time("J{:7.2f}".format(time_ep[0]))
     equinox = Time(f'J{time_ep[0]:7.2f}')
-    # print(eq)
+
     return PrecessedGeocentric(equinox=equinox)
 
 
@@ -126,7 +125,7 @@ def min_max_alt(lat: Angle, dec: Union[Angle, float, npt.NDArray[float]]) -> Tup
     return Angle(minalt, unit=u.rad), Angle(maxalt, unit=u.rad)
 
 
-def local_midnight_time(aTime: Time, localtzone) -> Time:
+def local_midnight_time(time: Time, localtzone: TimezoneInfo) -> Time:
     """find nearest local midnight (UT).
 
     If it's before noon local time, returns previous midnight;
@@ -134,7 +133,7 @@ def local_midnight_time(aTime: Time, localtzone) -> Time:
 
     Parameters :
 
-    aTime : astropy Time
+    time : astropy Time
 
     localtzone : timezone object.
 
@@ -148,16 +147,15 @@ def local_midnight_time(aTime: Time, localtzone) -> Time:
     # clock-time midnight.  The returned Time is unaware
     # of the timezone but should be correct.
 
-    aTime = Time(np.asarray(aTime.iso), format='iso')
+    time = Time(np.asarray(time.iso), format='iso')
     scalar_input = False
-    if aTime.ndim == 0:
-        aTime = aTime[None]  # Makes 1D
+    if time.ndim == 0:
+        time = time[None]  # Makes 1D
         scalar_input = True
 
     datetmid = []
-    for time in aTime:
+    for time in time:
         datet = time.to_datetime(timezone=localtzone)
-        # print(datet)
 
         # if before midnight, add 12 hours
         if datet.hour >= 12:
@@ -229,6 +227,7 @@ def local_sidereal_time(time: Time, location: EarthLocation) -> Angle:
         return np.squeeze(lst)
     return lst
 
+
 def true_airmass(altit: Angle) -> npt.NDArray[float]:
     """true airmass for an altitude.
     Equivalent of getAirmass in the QPT, based on vskyutil.true_airmass
@@ -238,6 +237,16 @@ def true_airmass(altit: Angle) -> npt.NDArray[float]:
     PASP, 80, 336.  Valid to about airmass 12, and beyond that just returns
     secz minus 1.5, which won't be quite right.
 
+    Takes an Angle and return the true airmass, based on a tabulation of the mean KPNO
+    atmosphere given by C. M. Snell & A. M. Heiser, 1968, PASP, 80, 336.  
+    They tabulated the airmass at 5 degr intervals from z = 60 to 85 degrees; I fit the data with
+    a fourth order poly for (secz - airmass) as a function of (secz - 1) using 
+    the IRAF curfit routine, then adjusted the zeroth order term to force (secz - airmass) to zero at
+    z = 0.  The poly fit is very close to the tabulated points (largest difference is 3.2e-4) 
+    and appears smooth. This 85-degree point is at secz = 11.47, so for secz > 12 just return secz
+
+    coefs = [2.879465E-3,  3.033104E-3, 1.351167E-3, -4.716679E-5]
+
     Parameters
     ----------
 
@@ -246,20 +255,6 @@ def true_airmass(altit: Angle) -> npt.NDArray[float]:
 
     Returns : float
     """
-    # takes an Angle and return the true airmass, based on
-    # 	 a tabulation of the mean KPNO
-    #            atmosphere given by C. M. Snell & A. M. Heiser, 1968,
-    # 	   PASP, 80, 336.  They tabulated the airmass at 5 degr
-    #            intervals from z = 60 to 85 degrees; I fit the data with
-    #            a fourth order poly for (secz - airmass) as a function of
-    #            (secz - 1) using the IRAF curfit routine, then adjusted the
-    #            zeroth order term to force (secz - airmass) to zero at
-    #            z = 0.  The poly fit is very close to the tabulated points
-    # 	   (largest difference is 3.2e-4) and appears smooth.
-    #            This 85-degree point is at secz = 11.47, so for secz > 12
-    #            just return secz   */
-
-    #    coefs = [2.879465E-3,  3.033104E-3, 1.351167E-3, -4.716679E-5]
 
     altit = np.asarray(altit.to_value(u.rad).data)
     scalar_input = False
@@ -278,7 +273,6 @@ def true_airmass(altit: Angle) -> npt.NDArray[float]:
         seczmin1 = ret[kk] - 1.
         coefs = np.array([-4.716679E-5, 1.351167E-3, 3.033104E-3, 2.879465E-3, 0.])
         ret[kk] = ret[kk] - np.polyval(coefs, seczmin1)
-        # print "poly gives",  np.polyval(coefs,seczmin1)
 
     if scalar_input:
         return np.squeeze(ret)
@@ -312,8 +306,7 @@ def hour_angle_to_angle(dec: Union[Angle, float, npt.NDArray[float]],
 
     dec = np.asarray(dec.to_value(u.rad).data) * u.rad
     alt = np.asarray(alt.to_value(u.rad)) * u.rad
-    # dec = np.asarray(dec.rad) * u.rad
-    # alt = np.asarray(alt.rad) * u.rad
+
     scalar_input = False
     if dec.ndim == 0 and alt.ndim == 0:
         scalar_input = True
@@ -356,4 +349,3 @@ def hour_angle_to_angle(dec: Union[Angle, float, npt.NDArray[float]],
         # return (Angle(np.squeeze(x), unit = u.rad))
         x = np.squeeze(x)
     return Angle(x, unit=u.rad)
-
