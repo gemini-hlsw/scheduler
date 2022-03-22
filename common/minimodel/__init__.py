@@ -69,6 +69,9 @@ class Site(Enum):
     GS = SiteInformation('Gemini South', 'I11@399')
 
 
+ALL_SITES = frozenset(s for s in Site)
+
+
 class SemesterHalf(Enum):
     """
     Gemini typically schedules programs for two semesters per year, namely A and B.

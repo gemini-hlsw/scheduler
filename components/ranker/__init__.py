@@ -1,8 +1,9 @@
 import astropy.units as u
+from copy import deepcopy
 from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
-from typing import Callable, Dict, List, Mapping, Tuple, Union
+from typing import Callable, Dict, FrozenSet, List, Mapping, Tuple, Union
 
 from common.minimodel import *
 from components.collector import Collector
@@ -86,6 +87,7 @@ class Ranker:
     """
     collector: Collector
     night_indices: npt.NDArray[NightIndex]
+    sites: FrozenSet[Site] = frozenset(s.value for s in Site)
     params: RankerParameters = RankerParameters()
     band_params: RankerBandParameterMap = _default_band_params()
 
@@ -93,11 +95,19 @@ class Ranker:
         """
         We only want to calculate the parameters once since they do not change.
         """
-        # For each program in the collector, calculate all of the scores for the observation.
+        # Create a full zero score that fits the sites, nights, and time slots for initialization
+        # and to return if an observation is not to be included.
+        self._zero_scores = {}
+        for site in self.collector.sites:
+            night_events = self.collector.get_night_events(site)
+            self._zero_scores[site] = [np.zeros(len(night_events.times[night_idx])) for night_idx in self.night_indices]
+
+        # For each program in the collector, calculate all the scores for its observations
+        # that are amongst the sites we specify the ranker to handle.
         self._observation_scores: Dict[ObservationID, Scores] = {}
         for program_id in self.collector.get_program_ids():
             program = self.collector.get_program(program_id)
-            for obs in program.observations():
+            for obs in [o for o in program.observations() if o.site in self.sites]:
                 self._observation_scores[obs.id] = self._score_obs(program, obs)
 
     def _metric_slope(self,
@@ -172,11 +182,9 @@ class Ranker:
         These are returned as a list indexed by night index as per the night_indices supplied,
         and the list items are numpy arrays of float for each time slot during the specified night.
         """
-        # Collection of all night events for the specified site.
-        night_events = self.collector.get_night_events(obs.site)
-
-        # scores are indexed by night_idx and contain scores for each time slot.
-        scores = [np.zeros(len(night_events.times[night_idx])) for night_idx in self.night_indices]
+        # Scores are indexed by night_idx and contain scores for each time slot.
+        # We initialize to all zeros.
+        scores = deepcopy(self._zero_scores[obs.site])
 
         # target_info is a map from night index to TargetInfo.
         # We require it to proceed for hour angle / elevation information and coordinates.
@@ -234,7 +242,10 @@ class Ranker:
         return scores
 
     def get_observation_scores(self, obs_id: ObservationID) -> Scores:
-        return self._observation_scores[obs_id]
+        return self._observation_scores.get(obs_id,
+                                            default=deepcopy(
+                                                self._zero_scores[self.collector.get_observation(obs_id).site])
+                                            )
 
     def score_group(self,
                     group: Group) -> Scores:

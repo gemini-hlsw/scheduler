@@ -149,10 +149,7 @@ class Selector(SchedulerComponent):
     # Observatory-specific properties.
     properties: ObservatoryProperties
 
-    # Use the default Ranker to calculate scores.
-    ranker: Ranker = Ranker()
-
-    def __init__(self):
+    def __post_init__(self):
         """
         Initialize internal non-input data members.
         """
@@ -186,8 +183,7 @@ class Selector(SchedulerComponent):
 
     def _calculate_group(self,
                          group: Group,
-                         sites: FrozenSet[Site],
-                         night_indices: npt.NDArray[NightIndex],
+                         ranker: Ranker,
                          group_info_map: GroupInfoMap) -> (GroupInfoMap, Conditions):
         """
         Calculate the information for a Group as described in select.
@@ -195,10 +191,6 @@ class Selector(SchedulerComponent):
         group, which gets returned automatically.
         The Conditions are the minimum required conditions for all subgroups.
         """
-        # Negative hour angle: an array of boolean over the night indices.
-        # Assume True, but if any observation in the group has an obsclass of SCIENCE or
-        # PROGRAMCAL, and the visibility of the observation for the night has an hour angle[0]
-        # value > 0, then set it to False for the night.
         if isinstance(group.children, Observation):
             # Process this group directly.
             obs = group.children
@@ -213,29 +205,22 @@ class Selector(SchedulerComponent):
             if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
                 # If we are science or progcal, then the neg HA value for a night is if the first HA for the night
                 # is negative.
-                negative_hour_angle = {night_idx: visibility[night_idx].hourangle[0].value < 0
-                                       for night_idx in night_indices}
+                negative_hour_angle = [visibility[night_idx].hourangle[0].value < 0
+                                       for night_idx in ranker.night_indices]
             else:
-                negative_hour_angle = {night_idx: False for night_idx in night_indices}
+                negative_hour_angle = [False] * len(ranker.night_indices)
+            too_type = obs.too_type
 
         else:
-            # TODO: Design of handling of OR subgroups.
-            # First off, we ensure that this group does not have any OR subgroups.
-            # We do not know how to handle an OR subgroup at this phase, so OR groups
-            # are only allowed as the root group.
-            if any(isinstance(subgroup, OrGroup) for subgroup in group.children):
-                raise NotImplementedError(f'Group ${group.id} has an OrGroup as a subgroup.')
-
             # Process all subgroups and then process this group directly.
             # First, we get the Conditions for all subgroups and find the most restrictive,
             # which is what we need if we want to satisfy the group requirements.
             conditions = {}
             for subgroup in group.children:
-                conditions = {cd for _, cd in self._calculate_group(subgroup, sites, night_indices, group_info_map)}
+                conditions = {cd for _, cd in self._calculate_group(subgroup, ranker, group_info_map)}
             mrc = Conditions.most_restrictive_conditions(conditions.union(Constraints.LEAST_RESTRICTIVE_CONDITIONS))
 
-            # This will likely always be true unless we have trivial nested groups, but check
-            # to make sure.
+            # This will always be true unless we have trivial nested groups, but check to make sure.
             is_splittable = len(group.observations()) > 1
 
         # TODO: We should probably store or return the required resources instead of
@@ -243,7 +228,7 @@ class Selector(SchedulerComponent):
         # TODO: and requires re-traversing the entire tree rooted at this group.
         # Calculate the nights where the required resources are in place.
         resources = group.required_resources()
-        res_night_index = {(site, night_index) for site in sites for night_index in night_indices
+        res_night_index = {(site, night_index) for site in ranker.sites for night_index in ranker.night_indices
                            if Selector._check_resource_availability(resources, site, night_index)}
 
         # Calculate when the conditions are met.
@@ -262,8 +247,11 @@ class Selector(SchedulerComponent):
 
             if actual_conditions is not None:
                 # TODO: *** Figure out the negha and ToOType. ***
-                conditions_score[(site, night_index)] = self._match_conditions(mrc, actual_conditions,
-                                                                               False, TooType.RAPID)
+                conditions_score[(site, night_index)] = self._match_conditions(mrc,
+                                                                               actual_conditions,
+                                                                               negative_hour_angle,
+                                                                               too_type)
+
                 # TODO: Filter out the visibility_slot_idx based on the conditions score.
                 # TODO: This is on observations. How do we combine the observations?
                 target_info_night_idx_map = self.collector.get_target_info()
@@ -281,9 +269,10 @@ class Selector(SchedulerComponent):
 
     def select(self,
                sites: FrozenSet[Site],
-               night_indices: FrozenSet[NightIndex]) -> ProgramGroupInfoMap:
+               night_indices: Optional[npt.NDArray[NightIndex]] = None,
+               ranker: Optional[Ranker] = None) -> ProgramGroupInfoMap:
         """
-        Perform the selection of the observations and groups based on:
+        Perform the selection of the groups based on:
         * Resource availability
         * 80% chance of completion (TBD)
         for the given site(s) and night index.
@@ -294,19 +283,34 @@ class Selector(SchedulerComponent):
 
         For each Observation group node, calculate:
         1. The minimum required conditions to perform the Observation.
-        1. For each night index:
+        2. For each night index:
            The time slots for which the observation can be performed (based on resource availability and weather).
         3. The score of the Observation.
 
         Bubble this information back up to conglomerate it for the parent groups.
 
-        Note that this requires special handling for OR Groups: an OR group may still
-        be performed if some of its children cannot be performed.
-
         An AND group must be able to perform all of its children.
 
-        This information is returned on a program-by-program basis.
+        TODO: Currently OR groups cannot be handled. They are not supported by OCS and
+        TODO: attempts to include them will result in a NotImplementedException.
+        TODO: Further design work must be done to determine how to score them and how to
+        TODO: determine the time slots at which they can be scheduled.
+
+        As all groups are in a group tree rooted at a program node, his information is returned on a
+        program-by-program basis.
         """
+        # If no night indices are specified, assume all night indices.
+        if night_indices is None:
+            night_indices = np.arange(len(self.collector.time_grid))
+
+        # If no manual ranker was specified, create the default.
+        if ranker is None:
+            ranker = Ranker(self.collector, night_indices)
+
+        # The night_indices in the Selector and Ranker must be the same.
+        if night_indices != ranker.night_indices:
+            raise ValueError(f'The Ranker must have the same night indices as the Selector select method.')
+
         return {program_id: self.calculate_group(Collector.get_program(program_id).root_group, sites, night_indices)
                 for program_id in Collector.get_program_ids()}
 
@@ -322,6 +326,8 @@ class Selector(SchedulerComponent):
         available_resources = Collector.available_resources(site, night_idx)
         return required_resources.issubset(available_resources)
 
+    # TODO: neg_ha is now an array of boolean across the night indices.
+    # TODO: Fix the code to account for this.
     @staticmethod
     def _match_conditions(required_conditions: Conditions,
                           actual_conditions: Variant,
@@ -369,7 +375,6 @@ class Selector(SchedulerComponent):
         # Multiply the weights by actual value / value where value is better than required and target
         # does not set soon and is not a rapid ToO.
         # TODO: What about interrupting ToOs?
-
         # This should work as we are adjusting structures that are passed by reference.
         def adjuster(array, value):
             better_idx = np.where(array < value)[0]
