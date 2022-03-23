@@ -16,7 +16,7 @@ def test_sun_location_at_j2000():
     Test that the sun location is at the equator at J2000.
     """
 
-    assert Sun.location(Time('J2000')) == SkyCoord(0, 0, unit='radian')
+    assert Sun.at(Time('J2000')) == SkyCoord(0, 0, unit='radian')
 
 def test_sun_time_by_altitude(location):
     """

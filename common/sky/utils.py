@@ -276,6 +276,7 @@ def true_airmass(altit: Angle) -> npt.NDArray[float]:
 
     if scalar_input:
         return np.squeeze(ret)
+    return ret
 
 
 def hour_angle_to_angle(dec: Union[Angle, float, npt.NDArray[float]],

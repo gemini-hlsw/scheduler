@@ -1,3 +1,7 @@
+from re import U
+import astropy.units as u
+from astropy.time import Time
+
 """
 Constants that are used here and there.  Some are Quantities,
 others are just floats. Not all are used.
@@ -26,29 +30,3 @@ RSUN = 6.96000e8  # /* IAU 1976 recom. solar radius, meters */
 RMOON = 1.738e6  # /* IAU 1976 recom. lunar radius, meters */
 PLANET_TOL = 3.  # /* flag if nearer than 3 degrees
 KZEN = 0.172  # V-band zenith extinction for sky-brightness
-
-ALT15 = 41.7291 * u.deg  # altitude at which true airm = 1.5
-ALT20 = 29.8796 * u.deg  # same for 2.0
-ALT30 = 19.278 * u.deg  # and 3.0
-
-SIDRATE = 1.0027379093  # ratio of sidereal to solar rate
-SIDDAY = TimeDelta(1., format='jd') / 1.0027379093
-ZERO_TIMEDELTA = TimeDelta(0., format='jd')
-
-# list planets so dictionary entries can be called up in order.
-PLANETNAMES = ['mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']
-# Phase brightness coefficients for the inner planets.
-PLANETPHASECOEFS = {'mercury': (0.013363763741181076, -0.2480840022313796,
-                                1.6325515091649714, -4.9390499605838665, 7.718379797341275, -6.131445146202686,
-                                3.7914559630732065, -0.616),
-                    'venus': (
-                    0.09632276402543158, -0.5292390263170846, 1.2103116107350298, -0.05981450198047742, -4.38394),
-                    'mars': (-0.4274213867715291, 1.2988953215615762, -1.601),
-                    'jupiter': (-9.40), 'saturn': (-9.22), 'uranus': (-7.19), 'neptune': (-6.87)}
-# These are adapted (converted to radian argument) from expressions given
-# by Mallama, A. Wang, D., and Howard, R. A., Icarus 155, 253 (2002) for Mercury,
-# Mallama, A. Wang, D., and Howard, R. A. Icarus 182, 10 (2005) for Venus, and
-# Mallama, A., Icarus 192, 404 (2007) for Mars.  For the outer planets the phase angle
-# is always nearly zero, so no phase angle correction is applied to Jupiter and further
-# planets -- their magnitudes are adjusted only for sun-planet and earth-planet inverse square
-# dimming. No attempt is made to account for the varying aspect of Saturn's rings.

@@ -38,7 +38,7 @@ def night_events(time: Time, location: EarthLocation, localtzone: TimezoneInfo, 
     lst_midnight = local_sidereal_time(midnight, location)
 
     # Sun
-    sun_at_midnight = Sun.location(midnight)
+    sun_at_midnight = Sun.at(midnight)
 
     # allow separate rise and set altitudes for horizon effects
     horiz = (-0.883 - np.sqrt(2. * location.height / EQUAT_RAD) * (180. / np.pi)) * u.deg
@@ -83,7 +83,7 @@ def night_events(time: Time, location: EarthLocation, localtzone: TimezoneInfo, 
         print("morn twi12:", times_morn_12twi)
 
     # Moon
-    moon_at_midnight = Moon.low_precision_location(midnight, location)
+    moon_at_midnight, _ = Moon().at(midnight).low_precision_location(location)
     ha_moon_at_midnight = lst_midnight - moon_at_midnight.ra
     ha_moon_at_midnight.wrap_at(12. * u.hour, inplace=True)
 

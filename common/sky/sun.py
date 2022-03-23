@@ -1,15 +1,15 @@
 import numpy as np
-from sky.constants import J2000
-from sky.utils import current_geocent_frame, local_sidereal_time
-from sky.altitude import Altitude
+from common.sky.constants import J2000
+from common.sky.utils import current_geocent_frame, local_sidereal_time
+from common.sky.altitude import Altitude
 from astropy.coordinates import Angle, SkyCoord, EarthLocation
 from astropy.time import Time, TimeDelta
-from astropy.units import u
+import astropy.units as u
 
 class Sun:
 
     @staticmethod
-    def location(time: Time) -> SkyCoord:
+    def at(time: Time) -> SkyCoord:
         """
         low-precision position of the sun.
 
@@ -102,7 +102,7 @@ class Sun:
         elif len(time_guess) != len(alt):
             raise ValueError('Error: alt and time_guess have incompatible lengths')
 
-        sun_pos = Sun.location(time_guess)
+        sun_pos = Sun.at(time_guess)
         tolerance = Angle(1.0e-4, unit=u.rad)
 
         delta = TimeDelta(timestep, format='jd')
@@ -111,7 +111,7 @@ class Sun:
         alt2, az, parang = Altitude.above(sun_pos.dec, Angle(ha, unit=u.hourangle), location.lat)
 
         time_guess = time_guess + delta
-        sun_pos = local_sidereal_time(time_guess)
+        sun_pos = Sun.at(time_guess)
 
         alt3, az, parang = Altitude.above(sun_pos.dec,
                                           local_sidereal_time(time_guess, location) - sun_pos.ra, 
@@ -124,7 +124,7 @@ class Sun:
         while (len(kk) != 0):
             time_guess[kk] = time_guess[kk] - err[kk] / deriv[kk]
             sun_pos = None
-            sun_pos = Sun.location(time_guess[kk])
+            sun_pos = Sun.at(time_guess[kk])
             alt3[kk], az[kk], parang[kk] = Altitude.above(sun_pos.dec,
                                                           local_sidereal_time(time_guess[kk], location) - sun_pos.ra,
                                                           location.lat)

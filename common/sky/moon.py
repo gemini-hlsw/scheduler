@@ -1,6 +1,4 @@
-from sky.constants import J2000
 import numpy as np
-import numpy.typing as npt
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, Distance, GeocentricTrueEcliptic, Angle
 import astropy.units as u
@@ -10,27 +8,38 @@ from common.sky.constants import J2000, EQUAT_RAD
 from common.sky.altitude import Altitude
 from typing import NoReturn, Tuple
 
+
 class Moon:
 
-    def __init__(self, time):
+    def __init__(self):
+
+        #TODO: skip constructor altogether and just use the at method?
+        self.time = None
+        self.time_jd = None
+        self.time_ttjd = None  # important to use correct time argument for this!!
+        self.scalar_input = False
+        self.PIE = None
+        self.LAMBDA = None
+        self.BETA = None
+
+    def at(self, time: Time):
 
         self.time = time
+        self.time_jd = np.asarray(time.jd)
         self.time_ttjd = np.asarray(time.tt.jd)  # important to use correct time argument for this!!
         self.scalar_input = False
         if self.time_ttjd.ndim == 0:
             self.time_ttjd = self.time_ttjd[None]  # Makes 1D
             self.scalar_input = True
-
-        self.PIE = None
-        self.LAMBDA = None
-        self.BETA = None
+        
+        return self
 
     def _low_precission_calculations(self) -> NoReturn:
         """
         Compute low precision values for the moon location method calculations.
         """
         #jd = np.asarray(self.time.jd)
-        T = (self.time - J2000) / 36525.  # jul cent. since J2000.0
+        T = (self.time_jd - J2000) / 36525.  # jul cent. since J2000.0
 
         lambd = (218.32 + 481267.883 * T
                  + 6.29 * np.sin(np.deg2rad(134.9 + 477198.85 * T))
@@ -39,27 +48,26 @@ class Moon:
                  + 0.21 * np.sin(np.deg2rad(269.9 + 954397.70 * T))
                  - 0.19 * np.sin(np.deg2rad(357.5 + 35999.05 * T))
                  - 0.11 * np.sin(np.deg2rad(186.6 + 966404.05 * T)))
-        LAMBDA = np.deg2rad(lambd)
+        self.LAMBDA = np.deg2rad(lambd)
 
         beta = (5.13 * np.sin(np.deg2rad(93.3 + 483202.03 * T))
                 + 0.28 * np.sin(np.deg2rad(228.2 + 960400.87 * T))
                 - 0.28 * np.sin(np.deg2rad(318.3 + 6003.18 * T))
                 - 0.17 * np.sin(np.deg2rad(217.6 - 407332.20 * T)))
-        BETA = np.deg2rad(beta)
+        self.BETA = np.deg2rad(beta)
 
         pie = (0.9508 + 0.0518 * np.cos(np.deg2rad(134.9 + 477198.85 * T))
                 + 0.0095 * np.cos(np.deg2rad(259.2 - 413335.38 * T))
                 + 0.0078 * np.cos(np.deg2rad(235.7 + 890534.23 * T))
                 + 0.0028 * np.cos(np.deg2rad(269.9 + 954397.70 * T)))
-        PIE = np.deg2rad(pie)
+        self.PIE = np.deg2rad(pie)
 
-        return LAMBDA, BETA, PIE
 
     def _high_precision_calculations(self) -> NoReturn:
         """
         Compute accurate precession values for the moon location method calculations.
         """
-        T = (self.time - 2415020.) / 36525.  # this based around 1900 ... */
+        T = (self.time_ttjd - 2415020.) / 36525.  # this based around 1900 ... */
         TSQ = T * T
         TCB = TSQ * T
         LPR = 270.434164 + 481267.8831 * T - 0.001133 * TSQ + 0.0000019 * TCB
@@ -290,6 +298,7 @@ class Moon:
         tuple of a SkyCoord and a distance.
 
         """
+        self._high_precision_calculations()
         dist = Distance(1. / np.sin(np.deg2rad(self.PIE)) * EQUAT_RAD)
 
         # place these in a skycoord in ecliptic coords of date.  Handle distance
@@ -332,8 +341,8 @@ class Moon:
         
         return SkyCoord(raout, decout, unit=u.rad, frame=current_geocent_frame(self.time)), topo_dist
     
-    def time_by_altitude(self, 
-                         alt: Angle, 
+    @staticmethod
+    def time_by_altitude(alt: Angle, 
                          time_guess: Time, 
                          location: EarthLocation) -> Time:
         """
@@ -368,7 +377,8 @@ class Moon:
         if len(time_guess) != len(alt):
             raise ValueError('Error: alt and guess must be the same length')
 
-        moon_pos, _ = self.accurate(time_guess, location)
+        moon = Moon()
+        moon_pos, _ = moon.at(time_guess).accurate_location(location)
         tolerance = Angle(1.0e-4, unit=u.rad)
 
         delta = TimeDelta(0.002, format='jd')  # timestep
@@ -378,7 +388,7 @@ class Moon:
         alt2, az, parang = Altitude.above(moon_pos.dec, Angle(ha, unit=u.hourangle), location.lat)
 
         time_guess += delta
-        moon_pos, _ = self.accurate(time_guess, location)
+        moon_pos, _ = moon.at(time_guess).accurate_location(location)
 
         alt3, az, parang = Altitude.above(moon_pos.dec, local_sidereal_time(time_guess, location) - moon_pos.ra, location.lat)
         err = alt3 - alt
@@ -391,8 +401,8 @@ class Moon:
 
             time_guess[kk] = time_guess[kk] - err[kk] / deriv[kk]
             moon_pos = None
-            #topodist = None
-            moon_pos, _ = self.accurate(time_guess[kk], location)
+            
+            moon_pos, _ = moon.at(time_guess[kk]).accurate_location(location)
             alt3[kk], az[kk], parang[kk] = Altitude.above(moon_pos.dec, local_sidereal_time(time_guess[kk], location) - moon_pos.ra,
                                                     location.lat)
             err[kk] = alt3[kk] - alt[kk]

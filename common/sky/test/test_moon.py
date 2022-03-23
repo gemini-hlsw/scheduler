@@ -19,14 +19,12 @@ def test_moon_accurate_location(moon, location):
     """
     Test that the moon location is accurate.
     """
-    
     assert moon.accurate_location(location) == SkyCoord(0, 0, unit='radian')
 
-def test_moon_low_precision_location(moon,location):
+def test_moon_low_precision_location(moon, location):
     """
     Test that the moon location is accurate.
     """
-    moon = Moon()
     assert moon.low_precision_location(location) == SkyCoord(0, 0, unit='radian')
 
 def test_moon_time_by_altitude(moon, location):
