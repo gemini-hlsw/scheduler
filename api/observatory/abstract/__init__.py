@@ -1,3 +1,5 @@
+from astropy.time import Time
+
 from abc import ABC
 from typing import Set
 
@@ -14,7 +16,7 @@ class ObservatoryProperties(ABC):
     def determine_standard_time(resources: Set[Resource],
                                 wavelengths: Set[float],
                                 modes: Set[ObservationMode],
-                                cal_length: int) -> float:
+                                cal_length: int) -> Time:
         """
         Given the information, determine the length in hours required for calibration
         on a standard star.

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
 import numpy.typing as npt
 from pytz import timezone, UnknownTimeZoneError
-from typing import ClassVar, Iterable, List, Mapping, Optional, Set, Union
+from typing import ClassVar, Iterable, List, Mapping, Optional, Sequence, Set, Union
 
 from common.helpers import flatten
 
@@ -254,6 +254,17 @@ class Conditions:
     sb: Union[npt.NDArray[SkyBackground], SkyBackground]
     wv: Union[npt.NDArray[WaterVapor], WaterVapor]
 
+    # Least restrictive conditions.
+    @classmethod
+    def least_restrictive(cls) -> 'Conditions':
+        """
+        Return the least possible restrictive conditions.
+        """
+        return cls(cc=CloudCover.CCANY,
+                   iq=ImageQuality.IQANY,
+                   sb=SkyBackground.SBANY,
+                   wv=WaterVapor.WVANY)
+
     def __post_init__(self):
         """
         Ensure that if any arrays are specified, all values are specified arrays of the same size.
@@ -269,11 +280,13 @@ class Conditions:
                 raise ValueError(f'Conditions have a variable number of array sizes: {self}')
 
     @staticmethod
-    def most_restrictive_conditions(conditions: Iterable['Conditions']) -> 'Conditions':
+    def most_restrictive_conditions(conditions: Sequence['Conditions']) -> 'Conditions':
         """
         Given an iterable of conditions, find the most restrictive amongst the set.
         If no conditions are given, return the most flexible conditions possible.
         """
+        if len(conditions) == 0:
+            return Conditions.least_restrictive()
         min_cc = min(flatten(c.cc for c in conditions), default=CloudCover.CCANY)
         min_iq = min(flatten(c.iq for c in conditions), default=ImageQuality.IQANY)
         min_sb = min(flatten(c.sb for c in conditions), default=SkyBackground.SBANY)
@@ -307,12 +320,6 @@ class Constraints:
     # 2. The elevation_type is set to NONE.
     DEFAULT_AIRMASS_ELEVATION_MIN: ClassVar[float] = 1.0
     DEFAULT_AIRMASS_ELEVATION_MAX: ClassVar[float] = 2.3
-
-    # Least restrictive conditions.
-    LEAST_RESTRICTIVE_CONDITIONS = Conditions(cc=CloudCover.CCANY,
-                                              iq=ImageQuality.IQANY,
-                                              sb=SkyBackground.SBANY,
-                                              wv=WaterVapor.WVANY)
 
 
 @dataclass
