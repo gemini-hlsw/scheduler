@@ -340,7 +340,7 @@ class Collector(SchedulerComponent):
         if info is None or info[1] is None:
             return None
         target_name = info[1].name
-        return Collector._target_info.get((obs_id, target_name), None)
+        return Collector._target_info.get((target_name, obs_id), None)
 
     @staticmethod
     def _process_timing_windows(prog: Program, obs: Observation) -> List[Time]:

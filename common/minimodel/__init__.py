@@ -298,7 +298,7 @@ class Conditions:
         For array values, return the length of the arrays.
         For scalar values, return a length of 1.
         """
-        return len(self.cc) if isinstance(self.cc, npt.NDArray) else 1
+        return len(self.cc) if isinstance(self.cc, np.ndarray) else 1
 
 
 @dataclass
@@ -983,22 +983,22 @@ class Program:
     FUZZY_BOUNDARY: ClassVar[timedelta] = timedelta(days=14)
 
     def program_awarded(self) -> timedelta:
-        return sum(t.program_awarded for t in self.allocated_time)
+        return sum((t.program_awarded for t in self.allocated_time), timedelta())
 
     def program_used(self) -> timedelta:
-        return sum(t.program_used for t in self.allocated_time)
+        return sum((t.program_used for t in self.allocated_time), timedelta())
 
     def partner_awarded(self) -> timedelta:
-        return sum(t.partner_awarded for t in self.allocated_time)
+        return sum((t.partner_awarded for t in self.allocated_time), timedelta())
 
     def partner_used(self) -> timedelta:
-        return sum(t.partner_used for t in self.allocated_time)
+        return sum((t.partner_used for t in self.allocated_time), timedelta())
 
     def total_awarded(self) -> timedelta:
-        return sum(t.total_awarded() for t in self.allocated_time)
+        return sum((t.total_awarded() for t in self.allocated_time), timedelta())
 
     def total_used(self) -> timedelta:
-        return sum(t.total_used() for t in self.allocated_time)
+        return sum((t.total_used() for t in self.allocated_time), timedelta())
 
     def observations(self) -> List[Observation]:
         return self.root_group.observations()

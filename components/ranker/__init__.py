@@ -214,10 +214,11 @@ class Ranker:
         # Get the latitude associated with the site.
         site_latitude = obs.site.value.location.lat
         if site_latitude < 0. * u.deg:
-            dec_diff = [site_latitude - np.max(dec[night_idx]) for night_idx in self.night_indices]
+            dec_diff = Angle([site_latitude - np.max(dec[night_idx]) for night_idx in self.night_indices])
         else:
-            dec_diff = [np.min(dec[night_idx]) - site_latitude for night_idx in self.night_indices]
+            dec_diff = Angle([np.min(dec[night_idx]) - site_latitude for night_idx in self.night_indices])
 
+        # TODO: Bug here. How do we want to handle c? As an array or scalar?
         if np.abs(dec_diff) < 40. * u.deg:
             # Weighted to slightly positive HA.
             c = np.array([3., 0.1, -0.06])

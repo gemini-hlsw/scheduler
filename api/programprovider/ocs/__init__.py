@@ -14,19 +14,6 @@ from common.timeutils import sex2dec
 from common.minimodel import *
 
 
-#  TODO: MOVE TO COMMON/MINIMODEL ?
-
-class ObservationMode(str, Enum):
-    UNKNOWN = 'unknown'
-    IMAGING = 'imaging'
-    LONGSLIT = 'longslit'
-    IFU = 'ifu'
-    MOS = 'mos'
-    XD = 'xd'
-    CORON = 'coron'
-    NRM = 'nrm'
-
-
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
     """
     Since for OCS we will use a collection of extracted ODB data, this is a
