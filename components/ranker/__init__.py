@@ -87,14 +87,17 @@ class Ranker:
     """
     collector: Collector
     night_indices: npt.NDArray[NightIndex]
-    sites: FrozenSet[Site] = frozenset(s.value for s in Site)
+    sites: FrozenSet[Site] = ALL_SITES
     params: RankerParameters = RankerParameters()
-    band_params: RankerBandParameterMap = _default_band_params()
+    band_params: RankerBandParameterMap = None
 
     def __post_init__(self):
         """
         We only want to calculate the parameters once since they do not change.
         """
+        if self.band_params is None:
+            self.band_params = _default_band_params()
+
         # Create a full zero score that fits the sites, nights, and time slots for initialization
         # and to return if an observation is not to be included.
         self._zero_scores = {}

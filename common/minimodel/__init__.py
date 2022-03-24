@@ -322,7 +322,7 @@ class Constraints:
     DEFAULT_AIRMASS_ELEVATION_MAX: ClassVar[float] = 2.3
 
 
-@dataclass
+@dataclass(order=True, eq=True, frozen=True)
 class Variant:
     """
     A weather variant.
@@ -346,7 +346,9 @@ class Variant:
             raise ValueError(f'Variant has a mixture of array and scalar types: {self}')
 
         are_arrays = isinstance(self.cc, np.ndarray)
-        array_lengths = {len(self.wind_dir), len(self.wind_sep), len(self.wind_spd)}
+        array_lengths = {np.asarray(self.wind_dir).size,
+                         np.asarray(self.wind_sep).size,
+                         np.asarray(self.wind_spd).size}
         if are_arrays:
             uniform_lengths = len({len(self.cc), len(self.iq), len(self.wv)}.union(array_lengths)) == 1
         else:

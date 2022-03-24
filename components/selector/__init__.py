@@ -92,7 +92,7 @@ class Selector(SchedulerComponent):
         return self._group_info.get(group_id, None)
 
     def select(self,
-               sites: FrozenSet[Site],
+               sites: FrozenSet[Site] = ALL_SITES,
                night_indices: Optional[npt.NDArray[NightIndex]] = None,
                ranker: Optional[Ranker] = None) -> ProgramGroupInfoMap:
         """
@@ -132,7 +132,7 @@ class Selector(SchedulerComponent):
             ranker = Ranker(self.collector, night_indices)
 
         # The night_indices in the Selector and Ranker must be the same.
-        if night_indices != ranker.night_indices:
+        if not np.array_equal(night_indices, ranker.night_indices):
             raise ValueError(f'The Ranker must have the same night indices as the Selector select method.')
 
         # Create the structure to hold the mapping fom program ID to its group info.
@@ -145,7 +145,7 @@ class Selector(SchedulerComponent):
 
             # Calculate the group info and put it in the structure if there is actually group
             # info data inside of it, i.e. feasible time slots for it in the plan.
-            group_info = self._calculate_group(program.root_group, ranker)
+            group_info = self._calculate_group(program.root_group, sites, ranker)
 
             # TODO: There are many different ways how to structure what we can return.
             # TODO: Right now we return any program that has a schedulable group.
@@ -172,6 +172,7 @@ class Selector(SchedulerComponent):
 
     def _calculate_group(self,
                          group: Group,
+                         sites: Set[Site],
                          ranker: Ranker,
                          group_info_map: GroupInfoMap = None) -> GroupInfoMap:
         """
@@ -192,10 +193,11 @@ class Selector(SchedulerComponent):
         if processor is None:
             raise ValueError(f'Could not process group {group.id}')
 
-        return processor(group, ranker, group_info_map)
+        return processor(group, sites, ranker, group_info_map)
 
     def _calculate_observation_group(self,
                                      group: Group,
+                                     sites: Set[Site],
                                      ranker: Ranker,
                                      group_info_map: GroupInfoMap) -> GroupInfoMap:
         """
@@ -207,9 +209,10 @@ class Selector(SchedulerComponent):
 
         obs = group.children
 
-        # TODO: Check to make sure that the obs is valid.
-        # TODO: If it is not, it should not even be considered for selection.
         if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED}:
+            return group_info_map
+        if obs.site not in sites:
+            logging.warning(f'Selector skipping observation {obs.id} as not in a designated site.')
             return group_info_map
 
         target_info = Collector.get_target_info(obs.id)
@@ -222,7 +225,8 @@ class Selector(SchedulerComponent):
 
         # TODO: Do we need standards? I'm not sure, but by the old Visit code,
         # TODO: this is not how we handle standards.
-        standards = ObservatoryProperties.determine_standard_time(required_res)
+        # standards = ObservatoryProperties.determine_standard_time(required_res, obs.wavelengths(), obs)
+        standards = 0. * u.h
 
         res_night_availability = np.array([self._check_resource_availability(required_res, obs.site, night_idx)
                                            for night_idx in ranker.night_indices])
@@ -240,14 +244,15 @@ class Selector(SchedulerComponent):
         # TODO: Maybe we only need to concern ourselves with the night indices where the resources are in place.
         conditions_score = []
         wind_score = []
-        for night_idx in ranker.night_indices:
-            # We need the night_events for the night for timing information.
-            night_events = self.collector.get_night_events_for_night_index(obs.site, night_idx)
 
+        # We need the night_events for the night for timing information.
+        night_events = self.collector.get_night_events(obs.site)
+
+        for night_idx in ranker.night_indices:
             # TODO: Is this the time period we want here?
             # TODO: Would this be better with a time grid and times?
             # TODO: We need to decide how we request conditions data.
-            time_period = Time(night_events.times[0], night_events.times[-1])
+            time_period = Time(night_events.times[night_idx][0], night_events.times[night_idx][-1])
             actual_conditions = self.collector.get_actual_conditions_variant(obs.site, time_period)
 
             # If we can obtain the conditions variant, calculate the conditions and wind mapping.
@@ -256,7 +261,7 @@ class Selector(SchedulerComponent):
                 conditions_score.append(Selector._match_conditions(mrc, actual_conditions, negative_hour_angle, too_type))
                 wind_score.append(Selector._wind_conditions(actual_conditions, target_info[night_idx].az))
             else:
-                zero = np.zeros(len(night_events.times))
+                zero = np.zeros(len(night_events.times[night_idx]))
                 conditions_score.append(zero.copy())
                 wind_score.append(zero.copy())
 
@@ -292,6 +297,7 @@ class Selector(SchedulerComponent):
 
     def _calculate_and_group(self,
                              group: Group,
+                             sites: Set[Site],
                              ranker: Ranker,
                              group_info_map: GroupInfoMap) -> GroupInfoMap:
         """
@@ -306,7 +312,7 @@ class Selector(SchedulerComponent):
         # Process all subgroups and then process this group directly.
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
-            self._calculate_group(subgroup, ranker, group_info_map)
+            self._calculate_group(subgroup, sites, ranker, group_info_map)
 
         # Make sure that there is an entry for each subgroup. If not, we skip.
         if any(sg.id not in group_info_map for sg in group.children):
@@ -358,6 +364,7 @@ class Selector(SchedulerComponent):
 
     def _calculate_or_group(self,
                             group: Group,
+                            site: Set[Site],
                             ranker: Ranker,
                             group_info_map: GroupInfoMap) -> NoReturn:
         """
