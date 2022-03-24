@@ -27,6 +27,12 @@ class RankerParameters:
     vis_power: float = 1.0
     wha_power: float = 1.0
     comp_exp: int = 1
+
+    # Weighted to slightly positive HA.
+    dec_diff_less_40: npt.NDArray[float] = np.array([3., 0., -0.08])
+    # Weighted to 0 HA if Xmin > 1.3.
+    dec_diff: npt.NDArray[float] = np.array([3., 0.1, -0.06])
+
     score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = _default_score_combiner
 
 
@@ -48,7 +54,7 @@ class RankerBandParameters:
 NightTimeSlotScores = npt.NDArray[float]
 
 # Scores across all nights for the timeslots.
-Scores = List[NightTimeSlotScores]
+Scores = npt.NDArray[NightTimeSlotScores]
 
 # A map of parameters per band for the Ranker.
 RankerBandParameterMap = Mapping[Band, RankerBandParameters]
@@ -103,7 +109,8 @@ class Ranker:
         self._zero_scores = {}
         for site in self.collector.sites:
             night_events = self.collector.get_night_events(site)
-            self._zero_scores[site] = [np.zeros(len(night_events.times[night_idx])) for night_idx in self.night_indices]
+            self._zero_scores[site] = np.array([np.zeros(len(night_events.times[night_idx]))
+                                                for night_idx in self.night_indices])
 
         # For each program in the collector, calculate all the scores for its observations
         # that are amongst the sites we specify the ranker to handle.
@@ -214,34 +221,32 @@ class Ranker:
         # Get the latitude associated with the site.
         site_latitude = obs.site.value.location.lat
         if site_latitude < 0. * u.deg:
-            dec_diff = Angle([site_latitude - np.max(dec[night_idx]) for night_idx in self.night_indices])
+            dec_diff = [np.abs(site_latitude - np.max(dec[night_idx])) for night_idx in self.night_indices]
         else:
-            dec_diff = Angle([np.min(dec[night_idx]) - site_latitude for night_idx in self.night_indices])
+            dec_diff = [np.abs(np.min(dec[night_idx]) - site_latitude) for night_idx in self.night_indices]
 
-        # TODO: Bug here. How do we want to handle c? As an array or scalar?
-        if np.abs(dec_diff) < 40. * u.deg:
-            # Weighted to slightly positive HA.
-            c = np.array([3., 0.1, -0.06])
-        else:
-            # Weighted to 0 HA if Xmin > 1.3.
-            c = np.array([3., 0., -0.08])
+        c = np.array([self.params.dec_diff_less_40 if angle < 40. * u.deg
+                      else self.params.dec_diff for angle in dec_diff])
 
-        wha = [c[0] + c[1] * ha[night_idx] / u.hourangle + (c[2] / u.hourangle ** 2) * ha[night_idx] ** 2
-               for night_idx in self.night_indices]
-        kk = [np.where(wha[night_idx] <= 0.)[0] for night_idx in self.night_indices]
+        wha = np.array([c[night_idx][0] + c[night_idx][1] * ha[night_idx] / u.hourangle
+                        + (c[night_idx][2] / u.hourangle ** 2) * ha[night_idx] ** 2
+                        for night_idx in self.night_indices])
+        kk = np.array([np.where(wha[night_idx] <= 0.)[0] for night_idx in self.night_indices])
         for night_idx in self.night_indices:
             wha[night_idx][kk[night_idx]] = 0.
 
-        p = [(metric[0] ** self.params.met_power) *
-             (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
-             (wha[night_idx] ** self.params.wha_power)
-             for night_idx in self.night_indices]
+        p = np.array([(metric[0] ** self.params.met_power) *
+                      (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
+                      (wha[night_idx] ** self.params.wha_power)
+                      for night_idx in self.night_indices])
 
         # Assign scores in p to all indices where visibility constraints are met.
         # They will otherwise be 0 as originally defined.
+        # TODO: This does not work. Something is wrong with visibility_slot_idx
+        # TODO: and scores needs to be a numpy array, I think.
         for night_idx in self.night_indices:
             slot_indices = target_info[night_idx].visibility_slot_idx
-            scores[night_idx][slot_indices] = p[slot_indices]
+            scores[night_idx].put(slot_indices, p[slot_indices])
 
         return scores
 
