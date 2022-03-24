@@ -298,7 +298,7 @@ class Conditions:
         For array values, return the length of the arrays.
         For scalar values, return a length of 1.
         """
-        return len(self.cc) if isinstance(self.cc, npt.NDArray[CloudCover]) else 1
+        return len(self.cc) if isinstance(self.cc, npt.NDArray) else 1
 
 
 @dataclass
@@ -328,6 +328,7 @@ class Variant:
     A weather variant.
     wind_speed should be in m / s.
     TODO: No idea what time blocks are. Note this could be a list or a single value.
+    TODO: Because of this, we cannot hash Variants., which is problematic.
     """
     iq: Union[npt.NDArray[ImageQuality], ImageQuality]
     cc: Union[npt.NDArray[CloudCover], CloudCover]
@@ -335,7 +336,7 @@ class Variant:
     wind_dir: Angle
     wind_sep: Angle
     wind_spd: Quantity
-    time_blocks: Time
+    # time_blocks: Time
 
     def __post_init__(self):
         """
