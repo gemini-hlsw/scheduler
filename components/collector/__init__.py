@@ -369,8 +369,8 @@ class Collector(SchedulerComponent):
 
         return windows
     
-
-    def _calculate_proper_motion(self,target: Target, time: Time) -> SkyCoord:
+    @staticmethod
+    def _calculate_proper_motion(target: Target, time: Time) -> SkyCoord:
         """
         Calculate the proper motion of a target.
         """
@@ -378,12 +378,9 @@ class Collector(SchedulerComponent):
         pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
         pm_dec = target.pm_dec / Collector._MILLIARCSECS_PER_DEGREE
         
-        time_offsets = time - Collector._EPOCH2TIME[target.epoch] 
-        print()
-        #print(time_offsets.to_value('jd','float'))
-        #input()
-        new_ra = target.ra + pm_ra * time_offsets.to(u.yr).value * u.deg
-        new_dec = target.dec + pm_dec * time_offsets.to(u.yr).value * u.deg
+        time_offsets = time - Collector._EPOCH2TIME[target.epoch]
+        new_ra = (target.ra + pm_ra * time_offsets.to(u.yr).value) * u.deg
+        new_dec = (target.dec + pm_dec * time_offsets.to(u.yr).value) * u.deg
         return SkyCoord(new_ra, new_dec, frame='icrs', unit='deg')
     
 
@@ -431,7 +428,7 @@ class Collector(SchedulerComponent):
             # this information is already stored in decimal degrees at this point.
             if isinstance(target, SiderealTarget):
                 # Take proper motion into account over the time slots.
-                coord = self._calculate_proper_motion(target, self.time_grid[idx])
+                coord = Collector._calculate_proper_motion(target, self.time_grid[idx])
             elif isinstance(target, NonsiderealTarget):
                 coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
 
