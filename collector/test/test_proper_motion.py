@@ -23,5 +23,5 @@ def test_proper_motion(target, time):
     Test that the sun location is at the equator at J2000.
     """
     coord = Collector._calculate_proper_motion(target, time)
-    assert coord.ra.deg == 78.85740081
-    assert coord.dec.deg == 15.63008372
+    assert abs(coord.ra.deg - 78.85740081) < 1e-5
+    assert abs(coord.dec.deg - 15.63008372) < 1e-5
