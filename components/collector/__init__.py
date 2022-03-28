@@ -86,7 +86,9 @@ class NightEvents:
         # We also precalculate the indices for the time slots for the night that have the required sun altitude.
         self.sun_pos = [SkyCoord(vskyutil.lpsun(t)) for t in self.times]
         self.sun_alt, self.sun_az, self.sun_par_ang = altazparang(self.sun_pos)
-        self.sun_alt_indices = [self.sun_alt[night_idx] <= -12 * u.deg for night_idx, _ in enumerate(self.time_grid)]
+        # self.sun_alt_indices = [self.sun_alt[night_idx] <= -12 * u.deg for night_idx, _ in enumerate(self.time_grid)]
+        self.sun_alt_indices = [np.where(self.sun_alt[night_idx] <= -12 * u.deg)[0]
+                                for night_idx, _ in enumerate(self.time_grid)]
 
         # accumoon produces a tuple, (SkyCoord, ndarray) indicating position and distance.
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
@@ -403,7 +405,7 @@ class Collector(SchedulerComponent):
 
         for ridx, jday in enumerate(reversed(self.time_grid)):
             # Convert to the actual time grid index.
-            idx = len(self.time_grid) - ridx - 1
+            night_idx = len(self.time_grid) - ridx - 1
 
             # Calculate the ra and dec for each target.
             # In case we decide to go with numpy arrays instead of SkyCoord,
@@ -417,7 +419,7 @@ class Collector(SchedulerComponent):
                 # For each entry in time, we want to calculate the offset in epoch-years.
                 # TODO: Is this right? It follows the convention in OCS Epoch.scala.
                 # https://github.com/gemini-hlsw/ocs/blob/ba542ec6ffe5d03a0f31f880a52f60dd6ade3812/bundle/edu.gemini.spModel.core/src/main/scala/edu/gemini/spModel/core/Epoch.scala#L28
-                time_offsets = target.epoch + night_events.pm_array[idx]
+                time_offsets = target.epoch + night_events.pm_array[night_idx]
                 coord = SkyCoord((target.ra + pm_ra * time_offsets) * u.deg,
                                  (target.dec + pm_dec * time_offsets) * u.deg)
 
@@ -429,7 +431,7 @@ class Collector(SchedulerComponent):
                 raise ValueError(msg)
 
             # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
-            lst = night_events.local_sidereal_times[idx]
+            lst = night_events.local_sidereal_times[night_idx]
             hourangle = lst - coord.ra
             hourangle.wrap_at(12.0 * u.hour, inplace=True)
             alt, az, par_ang = vskyutil.altazparang(coord.dec, hourangle, obs.site.value.location.lat)
@@ -442,19 +444,19 @@ class Collector(SchedulerComponent):
             # By default, in the case where an observation has no constraints, we use SB ANY.
             if obs.constraints and obs.constraints.conditions.sb < SkyBackground.SBANY:
                 targ_sb = obs.constraints.conditions.sb
-                targ_moon_ang = coord.separation(night_events.moon_pos[idx])
+                targ_moon_ang = coord.separation(night_events.moon_pos[night_idx])
                 brightness = sky_brightness.calculate_sky_brightness(
-                    180.0 * u.deg - night_events.sun_moon_ang[idx],
+                    180.0 * u.deg - night_events.sun_moon_ang[night_idx],
                     targ_moon_ang,
-                    night_events.moon_dist[idx],
-                    90.0 * u.deg - night_events.moon_alt[idx],
+                    night_events.moon_dist[night_idx],
+                    90.0 * u.deg - night_events.moon_alt[night_idx],
                     90.0 * u.deg - alt,
-                    90.0 * u.deg - night_events.sun_alt[idx]
+                    90.0 * u.deg - night_events.sun_alt[night_idx]
                 )
                 sb = sky_brightness.convert_to_sky_background(brightness)
             else:
                 targ_sb = SkyBackground.SBANY
-                sb = np.full([len(night_events.times[idx])], SkyBackground.SBANY)
+                sb = np.full([len(night_events.times[night_idx])], SkyBackground.SBANY)
 
             # In the case where an observation has no constraint information or an elevation constraint
             # type of None, we use airmass default values.
@@ -472,7 +474,7 @@ class Collector(SchedulerComponent):
             # 2. The sky background constraint is met
             # 3. The elevation constraints are met
             # TODO: Are we calculating this correctly? I am not convinced.
-            sa_idx = night_events.sun_alt_indices[idx]
+            sa_idx = night_events.sun_alt_indices[night_idx]
             c_idx = np.where(
                 np.logical_and(sb[sa_idx] <= targ_sb,
                                np.logical_and(targ_prop[sa_idx] >= elev_min,
@@ -482,9 +484,14 @@ class Collector(SchedulerComponent):
             # Apply timing window constraints.
             # We always have at least one timing window. If one was not given, the program length will be used.
             for tw in timing_windows:
+                # TODO: I think this is wrong. Remove it. We only want the indices into sa_idx[c_idx].
+                # tw_idx = np.where(
+                #     np.logical_and(night_events.times[night_idx][c_idx] >= tw[0],
+                #                    night_events.times[night_idx][c_idx] <= tw[1])
+                # )[0]
                 tw_idx = np.where(
-                    np.logical_and(night_events.times[idx][c_idx] >= tw[0],
-                                   night_events.times[idx][c_idx] <= tw[1])
+                    np.logical_and(night_events.times[night_idx][sa_idx[c_idx]] >= tw[0],
+                                   night_events.times[night_idx][sa_idx[c_idx]] <= tw[1])
                 )[0]
                 visibility_slot_idx = np.append(visibility_slot_idx, sa_idx[c_idx[tw_idx]])
 
@@ -496,11 +503,13 @@ class Collector(SchedulerComponent):
             visibility_time = len(visibility_slot_idx) * self.time_slot_length
             rem_visibility_time += visibility_time
             if rem_visibility_time.value:
-                rem_visibility_frac = rem_visibility_frac_numerator / rem_visibility_time
+                # This is a fraction, so convert to seconds to cancel the units out.
+                rem_visibility_frac = (rem_visibility_frac_numerator.total_seconds() /
+                                       rem_visibility_time.to_value(u.s))
             else:
                 rem_visibility_frac = 0.0
 
-            target_info[idx] = TargetInfo(
+            target_info[night_idx] = TargetInfo(
                 coord=coord,
                 alt=alt,
                 az=az,

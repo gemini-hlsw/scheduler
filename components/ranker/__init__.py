@@ -242,11 +242,9 @@ class Ranker:
 
         # Assign scores in p to all indices where visibility constraints are met.
         # They will otherwise be 0 as originally defined.
-        # TODO: This does not work. Something is wrong with visibility_slot_idx
-        # TODO: and scores needs to be a numpy array, I think.
         for night_idx in self.night_indices:
             slot_indices = target_info[night_idx].visibility_slot_idx
-            scores[night_idx].put(slot_indices, p[slot_indices])
+            scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
 
         return scores
 
