@@ -387,6 +387,9 @@ class Collector(SchedulerComponent):
         time remaining for the observation to the total visibility time for the target from a night through
         to the end of the period.
         """
+        if obs.id == 'GN-2018B-Q-1385':
+            print("Uhoh")
+
         # Get the night events.
         night_events = self.night_events[obs.site]
 
@@ -484,11 +487,6 @@ class Collector(SchedulerComponent):
             # Apply timing window constraints.
             # We always have at least one timing window. If one was not given, the program length will be used.
             for tw in timing_windows:
-                # TODO: I think this is wrong. Remove it. We only want the indices into sa_idx[c_idx].
-                # tw_idx = np.where(
-                #     np.logical_and(night_events.times[night_idx][c_idx] >= tw[0],
-                #                    night_events.times[night_idx][c_idx] <= tw[1])
-                # )[0]
                 tw_idx = np.where(
                     np.logical_and(night_events.times[night_idx][sa_idx[c_idx]] >= tw[0],
                                    night_events.times[night_idx][sa_idx[c_idx]] <= tw[1])

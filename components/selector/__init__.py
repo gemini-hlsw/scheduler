@@ -203,6 +203,9 @@ class Selector(SchedulerComponent):
         """
         Calculate the GroupInfo for a group that contains an observation and add it to
         the group_info_map.
+
+        TODO: Not every observation has TargetInfo: if it is not in a specified class, it will not.
+        TODO: How do we handle these cases? For now, I am going to skip any observation with a missing TargetInfo.
         """
         if not isinstance(group.children, Observation):
             raise ValueError(f'Non-observation group {group.id} cannot be treated as observation group.')
@@ -215,7 +218,13 @@ class Selector(SchedulerComponent):
             logging.warning(f'Selector skipping observation {obs.id} as not in a designated site.')
             return group_info_map
 
+        # There may be no target_info.
         target_info = Collector.get_target_info(obs.id)
+        if target_info is None:
+            return group_info_map
+        # An observation may not have constraints.
+        if obs.constraints is None:
+            return group_info_map
 
         mrc = obs.constraints.conditions
         is_splittable = len(obs.sequence) > 1
@@ -234,10 +243,9 @@ class Selector(SchedulerComponent):
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
             # If we are science or progcal, then the neg HA value for a night is if the first HA for the night
             # is negative.
-            negative_hour_angle = np.array([target_info[night_idx].hourangle[0].value < 0
-                                            for night_idx in ranker.night_indices])
+            neg_ha = np.array([target_info[night_idx].hourangle[0].value < 0 for night_idx in ranker.night_indices])
         else:
-            negative_hour_angle = np.array([False] * len(ranker.night_indices))
+            neg_ha = np.array([False] * len(ranker.night_indices))
         too_type = obs.too_type
 
         # Calculate when the conditions are met and an adjustment array if the conditions are better than needed.
@@ -258,7 +266,7 @@ class Selector(SchedulerComponent):
             # If we can obtain the conditions variant, calculate the conditions and wind mapping.
             # Otherwise, use arrays of all zeros to indicate that we cannot calculate this information.
             if actual_conditions is not None:
-                conditions_score.append(Selector._match_conditions(mrc, actual_conditions, negative_hour_angle, too_type))
+                conditions_score.append(Selector._match_conditions(mrc, actual_conditions, neg_ha, too_type))
                 wind_score.append(Selector._wind_conditions(actual_conditions, target_info[night_idx].az))
             else:
                 zero = np.zeros(len(night_events.times[night_idx]))
@@ -274,13 +282,16 @@ class Selector(SchedulerComponent):
         for night_idx in ranker.night_indices:
             vis_idx = target_info[night_idx].visibility_slot_idx
             if res_night_availability[night_idx]:
-                schedulable_slot_indices[night_idx] = np.where(conditions_score[vis_idx] > 0)[0]
+                # Resources are available on night_idx, so check where the conditions_score is nonzero.
+                schedulable_slot_indices.append(np.where(conditions_score[vis_idx] > 0)[0])
             else:
-                schedulable_slot_indices[night_idx] = np.array([])
+                # Resources are not available on night_idx, so no need to check conditions_score.
+                schedulable_slot_indices.append(np.array([]))
 
         # Calculate the scores for the observation across all nights across all timeslots.
         # Multiply by the conditions score to adjust the scores.
         # Note that np.multiply will handle lists of numpy arrays.
+        # TODO: This generates a warning about ragged arrays, but seems to produce the right shape of structure.
         scores = np.multiply(np.multiply(conditions_score, ranker.get_observation_scores(obs.id)), wind_score)
 
         group_info_map[group.id] = GroupInfo(
@@ -314,6 +325,7 @@ class Selector(SchedulerComponent):
         for subgroup in group.children:
             self._calculate_group(subgroup, sites, ranker, group_info_map)
 
+        # TODO: This does not seem right.
         # Make sure that there is an entry for each subgroup. If not, we skip.
         if any(sg.id not in group_info_map for sg in group.children):
             return group_info_map
@@ -407,13 +419,13 @@ class Selector(SchedulerComponent):
     def _match_conditions(required_conditions: Conditions,
                           actual_conditions: Variant,
                           neg_ha: npt.NDArray[bool],
-                          too_status: TooType) -> npt.NDArray[float]:
+                          too_status: Optional[TooType]) -> npt.NDArray[float]:
         """
         Determine if the required conditions are satisfied by the actual conditions variant.
         * required_conditions: the conditions required by an observation
         * actual_conditions: the actual conditions variant, which can hold scalars or numpy arrays
         * neg_ha: a numpy array indexed by night that indicates if the first angle hour is negative
-        * too_status: the TOO status of the observation
+        * too_status: the TOO status of the observation, if any
 
         We return a numpy array with entries in [0,1] indicating how well the actual conditions match
         the required conditions.
@@ -464,8 +476,17 @@ class Selector(SchedulerComponent):
         # does not set soon and is not a rapid ToO.
         # This should work as we are adjusting structures that are passed by reference.
         def adjuster(array, value):
-            better_idx = np.where(np.logical_and(array < value, neg_ha))[0]
-            if len(better_idx) > 0 and too_status not in {TooType.RAPID, TooType.INTERRUPT}:
+            # TODO: We get here and array has size 1, neg_ha has size 3 (based on night_indices), and we get [0,1,2].
+            # TODO: This will not work.
+            # TODO EXAMPLE:
+            # np.where(np.logical_and(np.array([0]) < 1, np.array([True, True, True])))
+            # Out: (array([0, 1, 2]),)
+            # better_idx = np.where(np.logical_and(array < value, neg_ha))[0]
+            better_tmp_idx = np.where(array < value)[0]
+            better_idx = np.where(neg_ha[better_tmp_idx])[0]
+            if len(better_idx) > len(cmatch):
+                print(f"*** ERROR: {length}, {len(better_idx)} > {len(cmatch)}")
+            if len(better_idx) > 0 and (too_status is None or too_status not in {TooType.RAPID, TooType.INTERRUPT}):
                 cmatch[better_idx] = cmatch[better_idx] * array / value
         adjuster(actual_iq, required_conditions.iq)
         adjuster(actual_cc, required_conditions.cc)

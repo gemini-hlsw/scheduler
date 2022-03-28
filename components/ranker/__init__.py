@@ -54,7 +54,7 @@ class RankerBandParameters:
 NightTimeSlotScores = npt.NDArray[float]
 
 # Scores across all nights for the timeslots.
-Scores = npt.NDArray[NightTimeSlotScores]
+Scores = List[NightTimeSlotScores]
 
 # A map of parameters per band for the Ranker.
 RankerBandParameterMap = Mapping[Band, RankerBandParameters]
@@ -109,8 +109,7 @@ class Ranker:
         self._zero_scores = {}
         for site in self.collector.sites:
             night_events = self.collector.get_night_events(site)
-            self._zero_scores[site] = np.array([np.zeros(len(night_events.times[night_idx]))
-                                                for night_idx in self.night_indices])
+            self._zero_scores[site] = [np.zeros(len(night_events.times[night_idx])) for night_idx in self.night_indices]
 
         # For each program in the collector, calculate all the scores for its observations
         # that are amongst the sites we specify the ranker to handle.
@@ -228,17 +227,17 @@ class Ranker:
         c = np.array([self.params.dec_diff_less_40 if angle < 40. * u.deg
                       else self.params.dec_diff for angle in dec_diff])
 
-        wha = np.array([c[night_idx][0] + c[night_idx][1] * ha[night_idx] / u.hourangle
-                        + (c[night_idx][2] / u.hourangle ** 2) * ha[night_idx] ** 2
-                        for night_idx in self.night_indices])
-        kk = np.array([np.where(wha[night_idx] <= 0.)[0] for night_idx in self.night_indices])
+        wha = [c[night_idx][0] + c[night_idx][1] * ha[night_idx] / u.hourangle
+               + (c[night_idx][2] / u.hourangle ** 2) * ha[night_idx] ** 2
+               for night_idx in self.night_indices]
+        kk = [np.where(wha[night_idx] <= 0.)[0] for night_idx in self.night_indices]
         for night_idx in self.night_indices:
             wha[night_idx][kk[night_idx]] = 0.
 
-        p = np.array([(metric[0] ** self.params.met_power) *
-                      (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
-                      (wha[night_idx] ** self.params.wha_power)
-                      for night_idx in self.night_indices])
+        p = [(metric[0] ** self.params.met_power) *
+             (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
+             (wha[night_idx] ** self.params.wha_power)
+             for night_idx in self.night_indices]
 
         # Assign scores in p to all indices where visibility constraints are met.
         # They will otherwise be 0 as originally defined.
@@ -250,9 +249,7 @@ class Ranker:
 
     def get_observation_scores(self, obs_id: ObservationID) -> Scores:
         return self._observation_scores.get(obs_id,
-                                            default=deepcopy(
-                                                self._zero_scores[self.collector.get_observation(obs_id).site])
-                                            )
+                                            deepcopy(self._zero_scores[self.collector.get_observation(obs_id).site]))
 
     def score_group(self,
                     group: Group) -> Scores:
