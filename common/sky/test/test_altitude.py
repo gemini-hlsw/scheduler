@@ -1,25 +1,17 @@
 import pytest
 from common.sky.altitude import Altitude
-from astropy.coordinates import Angle
+from astropy.coordinates import Angle,Longitude
+import astropy.units as u
+from fixtures import coord, location
 
-@pytest.fixture
-def dec():
-    return Angle(0, unit='deg')
 
-@pytest.fixture
-def ha():
-    return Angle(0, unit='hourangle')
-
-@pytest.fixture
-def lat():
-    return Angle(0, unit='deg')
-
-def test_altitude_above_zero(dec, ha, lat):
+@pytest.mark.usefixtures("coord", "location")
+def test_altitude_above_zero(coord, location):
     """
     Test that altitude is 0 at the equator.
     """
-    alt, az, parallac = Altitude.above(dec, ha, lat)
+    alt, az, parallac = Altitude.above(coord[0].dec, -3.0 * u.hourangle, location.lat)
 
-    assert alt == 0
-    assert az == 0
-    assert parallac == 0
+    assert alt.deg == Angle(0.84002209, unit=u.rad).deg
+    assert az == Longitude(1.1339171, unit=u.radian)
+    assert parallac == Angle(-1.6527975, unit=u.radian)
