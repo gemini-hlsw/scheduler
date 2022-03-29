@@ -243,7 +243,7 @@ class Collector(SchedulerComponent):
     # The number of milliarcsecs in a degree, for proper motion calculation.
     _MILLIARCSECS_PER_DEGREE: ClassVar[int] = 60*60*1000
 
-    _EPOCH2TIME: ClassVar[Mapping[float, Time]] = {2000.0: Time('2000-01-01 12:00:00', scale='utc'), }
+    _EPOCH2TIME: ClassVar[Mapping[float, Time]] = {}
 
     def __post_init__(self):
         """
@@ -377,7 +377,7 @@ class Collector(SchedulerComponent):
 
         pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
         pm_dec = target.pm_dec / Collector._MILLIARCSECS_PER_DEGREE
-        epoch_time = Collector._EPOCH2TIME.get(target.epoch, Time(target.epoch, format='jyear'))
+        epoch_time = Collector._EPOCH2TIME.setdefault(target.epoch, Time(target.epoch, format='jyear'))
         time_offsets = time - epoch_time
         new_ra = (target.ra + pm_ra * time_offsets.to(u.yr).value) * u.deg
         new_dec = (target.dec + pm_dec * time_offsets.to(u.yr).value) * u.deg
