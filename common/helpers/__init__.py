@@ -2,7 +2,21 @@ from astropy.time import Time
 import astropy.units as u
 import numpy as np
 
+from collections.abc import Iterable
 from typing import Optional
+
+
+def flatten(lst):
+    """
+    Flattens any iterable, no matter how irregular.
+    Example: flatten([1, 2, [3, 4, 5], [[6, 7], 8, [9, 10]]])
+    Deliberately left untyped to allow for maximum type usage.
+    """
+    for el in lst:
+        if isinstance(el, Iterable) and not isinstance(el, (str, bytes)):
+            yield from flatten(el)
+        else:
+            yield el
 
 
 def round_minute(time: Time, up: bool = False) -> Time:
