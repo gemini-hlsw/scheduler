@@ -3,16 +3,14 @@
 # Horizons API using URLs
 
 import argparse
-import selector.coords as coords
+from components import selector as coords
 import datetime
 import dateutil.parser
-import glob
 import logging
 import numpy
 #import odb
 import os
 import requests
-import sys
 
 version = '2015-Jun-17' # Andrew Stephens, beta version
 version = '2016-Aug-25' # AWS, Coordinates now returns a list of dates & coordinates
