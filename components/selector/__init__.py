@@ -235,7 +235,7 @@ class Selector(SchedulerComponent):
         # TODO: Do we need standards? I'm not sure, but by the old Visit code,
         # TODO: this is not how we handle standards.
         # standards = ObservatoryProperties.determine_standard_time(required_res, obs.wavelengths(), obs)
-        standards = 0. * u.h
+        standards = 0.
 
         res_night_availability = np.array([self._check_resource_availability(required_res, obs.site, night_idx)
                                            for night_idx in ranker.night_indices])
@@ -260,13 +260,13 @@ class Selector(SchedulerComponent):
             # TODO: Is this the time period we want here?
             # TODO: Would this be better with a time grid and times?
             # TODO: We need to decide how we request conditions data.
-            time_period = Time(night_events.times[night_idx][0], night_events.times[night_idx][-1])
-            actual_conditions = self.collector.get_actual_conditions_variant(obs.site, time_period)
+            # time_period = Time(night_events.times[night_idx][0], night_events.times[night_idx][-1])
+            actual_conditions = self.collector.get_actual_conditions_variant(obs.site, night_idx)
 
             # If we can obtain the conditions variant, calculate the conditions and wind mapping.
             # Otherwise, use arrays of all zeros to indicate that we cannot calculate this information.
             if actual_conditions is not None:
-                conditions_score.append(Selector._match_conditions(mrc, actual_conditions, neg_ha, too_type))
+                conditions_score.append(Selector._match_conditions(mrc, actual_conditions, neg_ha[night_idx], too_type))
                 wind_score.append(Selector._wind_conditions(actual_conditions, target_info[night_idx].az))
             else:
                 zero = np.zeros(len(night_events.times[night_idx]))
@@ -339,7 +339,8 @@ class Selector(SchedulerComponent):
 
         # TODO: Do we need standards?
         # TODO: This is not how we handle standards. Fix this.
-        standards = np.sum([group_info_map[sg.id].standards for sg in group.children])
+        # standards = np.sum([group_info_map[sg.id].standards for sg in group.children])
+        standards = 0.
 
         # The availability of resources for this group is the product of resource availability for the subgroups.
         sg_res_night_availability = [group_info_map[sg.id].resource_night_availability for sg in group.children]
@@ -407,7 +408,7 @@ class Selector(SchedulerComponent):
         """
         wind = np.ones(len(azimuth))
         az_wd = np.abs(azimuth - variant.wind_dir)
-        idx = np.where(np.logical_and(variant.wind_spd > 10 * u.m / u.s,
+        idx = np.where(np.logical_and(variant.wind_spd > 10, # * u.m / u.s,
                                       np.logical_or(az_wd <= variant.wind_sep,
                                                     360. * u.deg - az_wd <= variant.wind_sep)))[0]
 
@@ -418,7 +419,7 @@ class Selector(SchedulerComponent):
     @staticmethod
     def _match_conditions(required_conditions: Conditions,
                           actual_conditions: Variant,
-                          neg_ha: npt.NDArray[bool],
+                          neg_ha: bool,
                           too_status: Optional[TooType]) -> npt.NDArray[float]:
         """
         Determine if the required conditions are satisfied by the actual conditions variant.
@@ -435,13 +436,15 @@ class Selector(SchedulerComponent):
         * 1 indicates that the actual conditions perfectly satisfy the required ones, or we do not care, as is the
             case in certain types of targets of opportunity; and
         * a value in (0,1) indicates that the actual conditions over-satisfy the required ones.
+
+        TODO: Check this for correctness.
         """
         # TODO: Can we move part of this to the mini-model? Do we want to?
 
         # Convert the actual conditions to arrays.
-        actual_iq = np.asarray(actual_conditions.iq.value)
-        actual_cc = np.asarray(actual_conditions.cc.value)
-        actual_wv = np.asarray(actual_conditions.wv.value)
+        actual_iq = np.asarray(actual_conditions.iq)
+        actual_cc = np.asarray(actual_conditions.cc)
+        actual_wv = np.asarray(actual_conditions.wv)
 
         # The mini-model manages the IQ, CC, WV, and SB being the same types and sizes
         # so this check is a bit extraneous: if one has an ndim of 0, they all will.
@@ -482,8 +485,9 @@ class Selector(SchedulerComponent):
             # np.where(np.logical_and(np.array([0]) < 1, np.array([True, True, True])))
             # Out: (array([0, 1, 2]),)
             # better_idx = np.where(np.logical_and(array < value, neg_ha))[0]
-            better_tmp_idx = np.where(array < value)[0]
-            better_idx = np.where(neg_ha[better_tmp_idx])[0]
+            # better_tmp_idx = np.where(array < value)[0]
+            # better_idx = np.where(neg_ha[better_tmp_idx])[0]
+            better_idx = np.where(array < value)[0] if neg_ha else np.array([])
             if len(better_idx) > len(cmatch):
                 print(f"*** ERROR: {length}, {len(better_idx)} > {len(cmatch)}")
             if len(better_idx) > 0 and (too_status is None or too_status not in {TooType.RAPID, TooType.INTERRUPT}):

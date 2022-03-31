@@ -6,7 +6,6 @@ from common.output import print_collector_info
 from components.collector import *
 from components.selector import Selector
 
-
 if __name__ == '__main__':
     # Reduce logging to ERROR only to display the tqdm bars nicely.
     logging.basicConfig(level=logging.INFO)
@@ -38,8 +37,10 @@ if __name__ == '__main__':
 
     # Execute the Selector.
     night_indices = np.array([0, 1])
-    results = selector.select()
-    
+
+    # Running the selector still has bugs.
+    # results = selector.select()
+
     # Output the data in a spreadsheet.
     # for program in collector._programs.values():
     #    if program.id == 'GS-2018B-Q-101':

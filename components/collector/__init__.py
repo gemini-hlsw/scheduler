@@ -274,11 +274,6 @@ class Collector(SchedulerComponent):
                                                                 self.time_slot_length,
                                                                 site)
 
-    def get_night_events_for_night_index(self, site: Site, night_index: NightIndex) -> NightEvents:
-        return Collector._night_events_manager.get_night_events(self.time_grid[night_index],
-                                                                self.time_slot_length,
-                                                                site)
-
     @staticmethod
     def get_program_ids() -> Iterable[ProgramID]:
         """
@@ -627,24 +622,27 @@ class Collector(SchedulerComponent):
                 Resource(id='Flamingos2')
             })
 
-    @staticmethod
-    def get_actual_conditions_variant(site: Site,
-                                      time_period: Time) -> Optional[Variant]:
+    def get_actual_conditions_variant(self,
+                                      site: Site,
+                                      night_index: NightIndex) -> Optional[Variant]:
         """
         Return the weather variant.
         This should be site-based and time-based.
-        TODO: What more information do we need here?
+        TODO: This should not be night_index since we may not be interested in the conditions for the entire
+        TODO: night, but for now, until we figure out how we want to handle this in the Selector, for array
+        TODO: multiplication, we do it this way.
         """
-        # time_blocks = Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')
-        variants = {
-            Variant(
-                iq=ImageQuality.IQ70,
-                cc=CloudCover.CC50,
-                wv=WaterVapor.WVANY,
-                wind_dir=330.0 * u.deg,
-                wind_sep=40.0 * u.deg,
-                wind_spd=5.0 * u.m / u.s,
-                # time_blocks=time_blocks
-            )
-        }
-        return next(filter(lambda v: v.iq == ImageQuality.IQ70 and v.cc == CloudCover.CC50, variants), None)
+        night_events = self.get_night_events(site)
+        night_length = len(night_events.times[night_index])
+        # np.ndarray is not hashable.
+        # variants = {
+        return Variant(
+            iq=np.full(night_length, ImageQuality.IQ70),
+            cc=np.full(night_length, CloudCover.CC50),
+            wv=np.full(night_length, WaterVapor.WVANY),
+            wind_dir=Angle(np.full(night_length, 330.0), unit='deg'),
+            wind_sep=Angle(np.full(night_length, 40.0), unit='deg'),
+            wind_spd=Quantity(np.full(night_length, 5.0 * u.m / u.s))
+        )
+        # }
+        # return next(filter(lambda v: v.iq == ImageQuality.IQ70 and v.cc == CloudCover.CC50, variants), None)

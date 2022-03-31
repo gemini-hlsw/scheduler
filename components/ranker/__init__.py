@@ -287,11 +287,15 @@ class Ranker:
         # TODO: There may be an easier way to do this, but I do not want to mess with the original code as
         # TODO: I do not understand exactly how this scoring works.
         # Create the initial empty scores.
+        # visit_score = np.empty((0, len(self.times[inight])), dtype=float)
         group_scores = [np.empty((0, len(obs_scores[night_idx])), dtype=float) for night_idx in self.night_indices]
 
         for os in obs_scores:
             for night_idx in self.night_indices:
+                # visit_score = np.append(visit_score, np.array([score]), axis=0)
                 group_scores[night_idx] = np.append(group_scores[night_idx], np.array([os[night_idx]]), axis=0)
+
+        # visit.score = np.apply_along_axis(combine_score, 0, visit_score)[0]
 
         return [np.apply_along_axis(self.params.score_combiner, 0, group_scores[night_idx])[0]
                 for night_idx in self.night_indices]
