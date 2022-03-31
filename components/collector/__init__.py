@@ -3,25 +3,19 @@ from astropy.coordinates import SkyCoord
 from astropy.time import TimeDelta
 from astropy import units as u
 from more_itertools import partition
-import numpy as np
 import pytz
 import time
 from tqdm import tqdm
 from typing import Dict, FrozenSet, Iterable, Tuple, NoReturn
 
-from api.abstract import ProgramProvider
+from api.programprovider.abstract import ProgramProvider
 from common import sky_brightness
 import common.helpers as helpers
 from common.minimodel import *
-from common.scheduler import SchedulerComponent
+from components.base import SchedulerComponent
 import common.vskyutil as vskyutil
 
-# Type aliases for convenience.
-NightIndex = int
 
-
-# NOTE: this is an unfortunate workaround needed to get rid of warnings in PyCharm.
-# @add_schema
 @dataclass
 class NightEvents:
     """
@@ -92,7 +86,9 @@ class NightEvents:
         # We also precalculate the indices for the time slots for the night that have the required sun altitude.
         self.sun_pos = [SkyCoord(vskyutil.lpsun(t)) for t in self.times]
         self.sun_alt, self.sun_az, self.sun_par_ang = altazparang(self.sun_pos)
-        self.sun_alt_indices = [self.sun_alt[night_idx] <= -12 * u.deg for night_idx, _ in enumerate(self.time_grid)]
+        # self.sun_alt_indices = [self.sun_alt[night_idx] <= -12 * u.deg for night_idx, _ in enumerate(self.time_grid)]
+        self.sun_alt_indices = [np.where(self.sun_alt[night_idx] <= -12 * u.deg)[0]
+                                for night_idx, _ in enumerate(self.time_grid)]
 
         # accumoon produces a tuple, (SkyCoord, ndarray) indicating position and distance.
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
@@ -144,7 +140,7 @@ class NightEventsManager:
         return NightEventsManager._night_events[site]
 
 
-@dataclass
+@dataclass(frozen=True)
 class TargetInfo:
     """
     Target information for a given target at a given site for a given night.
@@ -188,8 +184,8 @@ class TargetInfo:
 
 # Type aliases for TargetInfo information.
 # Use Dict here instead of Mapping to bypass warnings as we need [] access.
-NightIndexMap = Dict[NightIndex, TargetInfo]
-TargetInfoMap = Dict[Tuple[TargetName, ObservationID], NightIndexMap]
+TargetInfoNightIndexMap = Dict[NightIndex, TargetInfo]
+TargetInfoMap = Dict[Tuple[TargetName, ObservationID], TargetInfoNightIndexMap]
 
 
 # @add_schema
@@ -273,6 +269,11 @@ class Collector(SchedulerComponent):
             for site in self.sites
         }
 
+    def get_night_events(self, site: Site) -> NightEvents:
+        return Collector._night_events_manager.get_night_events(self.time_grid,
+                                                                self.time_slot_length,
+                                                                site)
+
     @staticmethod
     def get_program_ids() -> Iterable[ProgramID]:
         """
@@ -281,12 +282,12 @@ class Collector(SchedulerComponent):
         return Collector._programs.keys()
 
     @staticmethod
-    def get_program(prog_id: ProgramID) -> Optional[Program]:
+    def get_program(program_id: ProgramID) -> Optional[Program]:
         """
         If a program with the given ID exists, return it.
         Otherwise, return None.
         """
-        return Collector._programs.get(prog_id, None)
+        return Collector._programs.get(program_id, None)
 
     @staticmethod
     def get_observation_ids(prog_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
@@ -327,7 +328,7 @@ class Collector(SchedulerComponent):
         return Collector._observations.get(obs_id, None)
 
     @staticmethod
-    def get_target_info(obs_id: ObservationID) -> Optional[TargetInfoMap]:
+    def get_target_info(obs_id: ObservationID) -> Optional[TargetInfoNightIndexMap]:
         """
         Given an ObservationID, if the observation exists and there is a target for the
         observation, return the target information as a map from NightIndex to TargetInfo.
@@ -336,7 +337,7 @@ class Collector(SchedulerComponent):
         if info is None or info[1] is None:
             return None
         target_name = info[1].name
-        return Collector._target_info.get((obs_id, target_name), None)
+        return Collector._target_info.get((target_name, obs_id), None)
 
     @staticmethod
     def _process_timing_windows(prog: Program, obs: Observation) -> List[Time]:
@@ -368,7 +369,7 @@ class Collector(SchedulerComponent):
     def _calculate_target_info(self,
                                obs: Observation,
                                target: Target,
-                               timing_windows: List[Time]): # -> NightIndexMap:
+                               timing_windows: List[Time]) -> TargetInfoNightIndexMap:
         """
         For a given site, calculate the information for a target for all the nights in
         the time grid and store this in the _target_information.
@@ -381,6 +382,9 @@ class Collector(SchedulerComponent):
         time remaining for the observation to the total visibility time for the target from a night through
         to the end of the period.
         """
+        if obs.id == 'GN-2018B-Q-1385':
+            print("Uhoh")
+
         # Get the night events.
         night_events = self.night_events[obs.site]
 
@@ -395,11 +399,11 @@ class Collector(SchedulerComponent):
         rem_visibility_time = 0.0 * u.h
         rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
 
-        target_info: NightIndexMap = {}
+        target_info: TargetInfoNightIndexMap = {}
 
         for ridx, jday in enumerate(reversed(self.time_grid)):
             # Convert to the actual time grid index.
-            idx = len(self.time_grid) - ridx - 1
+            night_idx = len(self.time_grid) - ridx - 1
 
             # Calculate the ra and dec for each target.
             # In case we decide to go with numpy arrays instead of SkyCoord,
@@ -413,7 +417,7 @@ class Collector(SchedulerComponent):
                 # For each entry in time, we want to calculate the offset in epoch-years.
                 # TODO: Is this right? It follows the convention in OCS Epoch.scala.
                 # https://github.com/gemini-hlsw/ocs/blob/ba542ec6ffe5d03a0f31f880a52f60dd6ade3812/bundle/edu.gemini.spModel.core/src/main/scala/edu/gemini/spModel/core/Epoch.scala#L28
-                time_offsets = target.epoch + night_events.pm_array[idx]
+                time_offsets = target.epoch + night_events.pm_array[night_idx]
                 coord = SkyCoord((target.ra + pm_ra * time_offsets) * u.deg,
                                  (target.dec + pm_dec * time_offsets) * u.deg)
 
@@ -425,7 +429,7 @@ class Collector(SchedulerComponent):
                 raise ValueError(msg)
 
             # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
-            lst = night_events.local_sidereal_times[idx]
+            lst = night_events.local_sidereal_times[night_idx]
             hourangle = lst - coord.ra
             hourangle.wrap_at(12.0 * u.hour, inplace=True)
             alt, az, par_ang = vskyutil.altazparang(coord.dec, hourangle, obs.site.value.location.lat)
@@ -438,19 +442,19 @@ class Collector(SchedulerComponent):
             # By default, in the case where an observation has no constraints, we use SB ANY.
             if obs.constraints and obs.constraints.conditions.sb < SkyBackground.SBANY:
                 targ_sb = obs.constraints.conditions.sb
-                targ_moon_ang = coord.separation(night_events.moon_pos[idx])
+                targ_moon_ang = coord.separation(night_events.moon_pos[night_idx])
                 brightness = sky_brightness.calculate_sky_brightness(
-                    180.0 * u.deg - night_events.sun_moon_ang[idx],
+                    180.0 * u.deg - night_events.sun_moon_ang[night_idx],
                     targ_moon_ang,
-                    night_events.moon_dist[idx],
-                    90.0 * u.deg - night_events.moon_alt[idx],
+                    night_events.moon_dist[night_idx],
+                    90.0 * u.deg - night_events.moon_alt[night_idx],
                     90.0 * u.deg - alt,
-                    90.0 * u.deg - night_events.sun_alt[idx]
+                    90.0 * u.deg - night_events.sun_alt[night_idx]
                 )
                 sb = sky_brightness.convert_to_sky_background(brightness)
             else:
                 targ_sb = SkyBackground.SBANY
-                sb = np.full([len(night_events.times[idx])], SkyBackground.SBANY)
+                sb = np.full([len(night_events.times[night_idx])], SkyBackground.SBANY)
 
             # In the case where an observation has no constraint information or an elevation constraint
             # type of None, we use airmass default values.
@@ -467,7 +471,8 @@ class Collector(SchedulerComponent):
             # 1. The sun altitude requirement is met (precalculated in night_events)
             # 2. The sky background constraint is met
             # 3. The elevation constraints are met
-            sa_idx = night_events.sun_alt_indices[idx]
+            # TODO: Are we calculating this correctly? I am not convinced.
+            sa_idx = night_events.sun_alt_indices[night_idx]
             c_idx = np.where(
                 np.logical_and(sb[sa_idx] <= targ_sb,
                                np.logical_and(targ_prop[sa_idx] >= elev_min,
@@ -478,8 +483,8 @@ class Collector(SchedulerComponent):
             # We always have at least one timing window. If one was not given, the program length will be used.
             for tw in timing_windows:
                 tw_idx = np.where(
-                    np.logical_and(night_events.times[idx][c_idx] >= tw[0],
-                                   night_events.times[idx][c_idx] <= tw[1])
+                    np.logical_and(night_events.times[night_idx][sa_idx[c_idx]] >= tw[0],
+                                   night_events.times[night_idx][sa_idx[c_idx]] <= tw[1])
                 )[0]
                 visibility_slot_idx = np.append(visibility_slot_idx, sa_idx[c_idx[tw_idx]])
 
@@ -491,11 +496,13 @@ class Collector(SchedulerComponent):
             visibility_time = len(visibility_slot_idx) * self.time_slot_length
             rem_visibility_time += visibility_time
             if rem_visibility_time.value:
-                rem_visibility_frac = rem_visibility_frac_numerator / rem_visibility_time
+                # This is a fraction, so convert to seconds to cancel the units out.
+                rem_visibility_frac = (rem_visibility_frac_numerator.total_seconds() /
+                                       rem_visibility_time.to_value(u.s))
             else:
                 rem_visibility_frac = 0.0
 
-            target_info[idx] = TargetInfo(
+            target_info[night_idx] = TargetInfo(
                 coord=coord,
                 alt=alt,
                 az=az,
@@ -552,7 +559,6 @@ class Collector(SchedulerComponent):
 
                 # Collect the observations in the program and sort them by site.
                 # Filter out here any observation classes that have not been specified to the Collector.
-                obsvds = program.observations()
                 bad_obs, good_obs = partition(lambda x: x.obs_class in self.obs_classes, program.observations())
                 bad_obs = list(bad_obs)
                 good_obs = list(good_obs)
@@ -591,30 +597,52 @@ class Collector(SchedulerComponent):
             logging.error(f'Could not parse {bad_program_count} programs.')
 
     @staticmethod
-    def available_resources() -> Set[Resource]:
+    def available_resources(site: Site,
+                            night_idx: NightIndex) -> Set[Resource]:
         """
-        Return a set of available resources for the period under consideration.
+        Return a set of available resources for the night under consideration.
+        TODO: This should be an interface to connect with a mock service or with an actual service.
         """
-        # TODO: Add more.
-        return {
+        # TODO: Guiders are not yet included in required resources but it is assumed that they will be.
+        # TODO: Remove observatory-specific things from this, clearly.
+        site_independent_resources = {
             Resource(id='PWFS1'),
             Resource(id='PWFS2'),
-            Resource(id='GMOS OIWFS'),
-            Resource(id='GMOSN')
+            Resource(id='GMOS OIWFS')
         }
 
-    @staticmethod
-    def get_actual_conditions_variant() -> Optional[Variant]:
-        time_blocks = Time(["2021-04-24 04:30:00", "2021-04-24 08:00:00"], format='iso', scale='utc')
-        variants = {
-            Variant(
-                iq=ImageQuality.IQ70,
-                cc=CloudCover.CC50,
-                wv=WaterVapor.WVANY,
-                wind_dir=330.0 * u.deg,
-                wind_sep=40.0 * u.deg,
-                wind_spd=5.0 * u.m / u.s,
-                time_blocks=time_blocks
-            )
-        }
-        return next(filter(lambda v: v.iq == ImageQuality.IQ70 and v.cc == CloudCover.CC50, variants), None)
+        if site == Site.GN:
+            return site_independent_resources.union({
+                Resource(id='GMOS-N'),
+                Resource(id='GNIRS')
+            })
+        elif site == Site.GS:
+            return site_independent_resources.union({
+                Resource(id='GMOS-S'),
+                Resource(id='Flamingos2')
+            })
+
+    def get_actual_conditions_variant(self,
+                                      site: Site,
+                                      night_index: NightIndex) -> Optional[Variant]:
+        """
+        Return the weather variant.
+        This should be site-based and time-based.
+        TODO: This should not be night_index since we may not be interested in the conditions for the entire
+        TODO: night, but for now, until we figure out how we want to handle this in the Selector, for array
+        TODO: multiplication, we do it this way.
+        """
+        night_events = self.get_night_events(site)
+        night_length = len(night_events.times[night_index])
+        # np.ndarray is not hashable.
+        # variants = {
+        return Variant(
+            iq=np.full(night_length, ImageQuality.IQ70),
+            cc=np.full(night_length, CloudCover.CC50),
+            wv=np.full(night_length, WaterVapor.WVANY),
+            wind_dir=Angle(np.full(night_length, 330.0), unit='deg'),
+            wind_sep=Angle(np.full(night_length, 40.0), unit='deg'),
+            wind_spd=Quantity(np.full(night_length, 5.0 * u.m / u.s))
+        )
+        # }
+        # return next(filter(lambda v: v.iq == ImageQuality.IQ70 and v.cc == CloudCover.CC50, variants), None)

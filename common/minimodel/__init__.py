@@ -1,4 +1,6 @@
 from abc import ABC
+
+import numpy as np
 from astropy.coordinates import EarthLocation, UnknownSiteException
 from astropy.coordinates.angles import Angle
 from astropy.time import Time
@@ -8,7 +10,13 @@ from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
 import numpy.typing as npt
 from pytz import timezone, UnknownTimeZoneError
-from typing import ClassVar, List, Mapping, Optional, Set, Union
+from typing import ClassVar, Iterable, List, Mapping, Optional, Sequence, Set, Union
+
+from common.helpers import flatten
+
+
+# Type aliases for convenience.
+NightIndex = int
 
 
 class SiteInformation:
@@ -61,6 +69,9 @@ class Site(Enum):
     GS = SiteInformation('Gemini South', 'I11@399')
 
 
+ALL_SITES = frozenset(s for s in Site)
+
+
 class SemesterHalf(Enum):
     """
     Gemini typically schedules programs for two semesters per year, namely A and B.
@@ -82,32 +93,6 @@ class Semester:
 
     def __str__(self):
         return f'{self.year}{self.half.value}'
-
-
-@dataclass(unsafe_hash=True)
-class ObservingPeriod:
-    """
-    This class represents a period under observation and contains visibility
-    and scoring calculations for a night.
-
-    It contains the constants:
-    * MAX_AIRMASS: the maximum possible value for airmass.
-    * CLASSICAL_NIGHT_LENGTH: the timedelta length for a classical observing night.
-    """
-    start: datetime
-    length: timedelta
-    vishours: float
-    airmass: npt.NDArray[float]
-    hour_angle: npt.NDArray[float]
-    alt: npt.NDArray[float]
-    az: npt.NDArray[float]
-    parallactic_angle: npt.NDArray[float]
-    sbcond: npt.NDArray[float]
-    visfrac: npt.NDArray[float]
-    score: Optional[npt.NDArray[float]] = None
-
-    MAX_AIRMASS: ClassVar[float] = 2.3
-    CLASSICAL_NIGHT_LENGTH: ClassVar[timedelta] = timedelta(hours=10)
 
 
 class TimeAccountingCode(str, Enum):
@@ -253,7 +238,7 @@ class ElevationType(IntEnum):
     AIRMASS = auto()
 
 
-@dataclass(order=True)
+@dataclass(order=True, frozen=True)
 class Conditions:
     """
     A set of conditions.
@@ -264,10 +249,56 @@ class Conditions:
     This should be done via:
     current_conditions <= required_conditions.
     """
-    cc: CloudCover
-    iq: ImageQuality
-    sb: SkyBackground
-    wv: WaterVapor
+    cc: Union[npt.NDArray[CloudCover], CloudCover]
+    iq: Union[npt.NDArray[ImageQuality], ImageQuality]
+    sb: Union[npt.NDArray[SkyBackground], SkyBackground]
+    wv: Union[npt.NDArray[WaterVapor], WaterVapor]
+
+    # Least restrictive conditions.
+    @classmethod
+    def least_restrictive(cls) -> 'Conditions':
+        """
+        Return the least possible restrictive conditions.
+        """
+        return cls(cc=CloudCover.CCANY,
+                   iq=ImageQuality.IQANY,
+                   sb=SkyBackground.SBANY,
+                   wv=WaterVapor.WVANY)
+
+    def __post_init__(self):
+        """
+        Ensure that if any arrays are specified, all values are specified arrays of the same size.
+        """
+        is_uniform = len({np.isscalar(self.cc), np.isscalar(self.iq), np.isscalar(self.sb), np.isscalar(self.wv)}) == 1
+        if not is_uniform:
+            raise ValueError(f'Conditions have a mixture of array and scalar types: {self}')
+
+        are_arrays = isinstance(self.cc, np.ndarray)
+        if are_arrays:
+            uniform_lengths = len({self.cc.size, self.iq.size, self.sb.size, self.wv.size}) == 1
+            if not uniform_lengths:
+                raise ValueError(f'Conditions have a variable number of array sizes: {self}')
+
+    @staticmethod
+    def most_restrictive_conditions(conditions: Sequence['Conditions']) -> 'Conditions':
+        """
+        Given an iterable of conditions, find the most restrictive amongst the set.
+        If no conditions are given, return the most flexible conditions possible.
+        """
+        if len(conditions) == 0:
+            return Conditions.least_restrictive()
+        min_cc = min(flatten(c.cc for c in conditions), default=CloudCover.CCANY)
+        min_iq = min(flatten(c.iq for c in conditions), default=ImageQuality.IQANY)
+        min_sb = min(flatten(c.sb for c in conditions), default=SkyBackground.SBANY)
+        min_wv = min(flatten(c.wv for c in conditions), default=WaterVapor.WVANY)
+        return Conditions(cc=min_cc, iq=min_iq, sb=min_sb, wv=min_wv)
+
+    def __len__(self):
+        """
+        For array values, return the length of the arrays.
+        For scalar values, return a length of 1.
+        """
+        return len(self.cc) if isinstance(self.cc, np.ndarray) else 1
 
 
 @dataclass
@@ -291,20 +322,40 @@ class Constraints:
     DEFAULT_AIRMASS_ELEVATION_MAX: ClassVar[float] = 2.3
 
 
-@dataclass
+@dataclass(order=True, eq=True, frozen=True)
 class Variant:
     """
     A weather variant.
     wind_speed should be in m / s.
     TODO: No idea what time blocks are. Note this could be a list or a single value.
+    TODO: Because of this, we cannot hash Variants., which is problematic.
     """
-    iq: ImageQuality
-    cc: CloudCover
-    wv: WaterVapor
+    iq: Union[npt.NDArray[ImageQuality], ImageQuality]
+    cc: Union[npt.NDArray[CloudCover], CloudCover]
+    wv: Union[npt.NDArray[WaterVapor], WaterVapor]
     wind_dir: Angle
     wind_sep: Angle
     wind_spd: Quantity
-    time_blocks: Time
+    # time_blocks: Time
+
+    def __post_init__(self):
+        """
+        Ensure that if any arrays are specified, all values are specified arrays of the same size.
+        """
+        is_uniform = len({np.isscalar(self.cc), np.isscalar(self.iq), np.isscalar(self.wv)}) == 1
+        if not is_uniform:
+            raise ValueError(f'Variant has a mixture of array and scalar types: {self}')
+
+        are_arrays = isinstance(self.cc, np.ndarray)
+        array_lengths = {np.asarray(self.wind_dir).size,
+                         np.asarray(self.wind_sep).size,
+                         np.asarray(self.wind_spd).size}
+        if are_arrays:
+            uniform_lengths = len({len(self.cc), len(self.iq), len(self.wv)}.union(array_lengths)) == 1
+        else:
+            uniform_lengths = len(array_lengths) == 1
+        if not uniform_lengths:
+            raise ValueError(f'Variants has a variable number of array sizes: {self}')
 
 
 class MagnitudeSystem(Enum):
@@ -434,6 +485,8 @@ class SiderealTarget(Target):
     RA and Dec should be specified in decimal degrees.
     Proper motion must be specified in milliarcseconds / year.
     Epoch must be the decimal year.
+
+    NOTE: The proper motion adjusted coordinates can be found in the TargetInfo in coord.
     """
     ra: float
     dec: float
@@ -509,6 +562,21 @@ class Atom:
     wavelengths: Set[float]
 
 
+class ObservationMode(str, Enum):
+    """
+    TODO: Where does this go? Find it in the atom code in the OcsProgramExtractor once done.
+    TODO: It seems to depend on the instrument and FPU.
+    """
+    UNKNOWN = 'unknown'
+    IMAGING = 'imaging'
+    LONGSLIT = 'longslit'
+    IFU = 'ifu'
+    MOS = 'mos'
+    XD = 'xd'
+    CORON = 'coron'
+    NRM = 'nrm'
+
+
 class ObservationStatus(IntEnum):
     """
     The status of an observation as indicated in the Observing Tool / ODB.
@@ -578,6 +646,9 @@ class ObservationClass(IntEnum):
     ACQCAL = auto()
     DAYCAL = auto()
 
+
+# Type alias for program ID.
+ProgramID = str
 
 # Alias for observation identifier.
 ObservationID = str
@@ -714,6 +785,10 @@ class Observation:
                dict((k, v) for k, v in other.__dict__.items() if k != 'sequence')
 
 
+# Type alias for group ID.
+GroupID = str
+
+
 # Since Python doesn't allow classes to self-reference, we have to make a basic group
 # from which to subclass.
 @dataclass
@@ -731,7 +806,7 @@ class Group(ABC):
     * delay_min: used in cadences
     * delay_max: used in cadences
     """
-    id: str
+    id: GroupID
     group_name: str
     number_to_observe: int
     delay_min: timedelta
@@ -742,6 +817,18 @@ class Group(ABC):
         if self.number_to_observe <= 0:
             msg = f'Group {self.group_name} specifies non-positive {self.number_to_observe} children to be observed.'
             raise ValueError(msg)
+
+    def subgroup_ids(self) -> Set[GroupID]:
+        if isinstance(self.children, Observation):
+            return set()
+        else:
+            return {subgroup.id for subgroup in self.children}
+
+    def sites(self) -> Set[Site]:
+        if isinstance(self.children, Observation):
+            return {self.children.site}
+        else:
+            return set.union(*[s.sites() for s in self.children])
 
     def required_resources(self) -> Set[Resource]:
         return {r for c in self.children for r in c.required_resources()}
@@ -871,10 +958,6 @@ class ProgramTypes(Enum):
     SV = ProgramType('SV', 'System Verification')
 
 
-# Type alias for program ID.
-ProgramID = str
-
-
 @dataclass(unsafe_hash=True)
 class Program:
     """
@@ -900,50 +983,22 @@ class Program:
     FUZZY_BOUNDARY: ClassVar[timedelta] = timedelta(days=14)
 
     def program_awarded(self) -> timedelta:
-        return sum(t.program_awarded for t in self.allocated_time)
+        return sum((t.program_awarded for t in self.allocated_time), timedelta())
 
     def program_used(self) -> timedelta:
-        return sum(t.program_used for t in self.allocated_time)
+        return sum((t.program_used for t in self.allocated_time), timedelta())
 
     def partner_awarded(self) -> timedelta:
-        return sum(t.partner_awarded for t in self.allocated_time)
+        return sum((t.partner_awarded for t in self.allocated_time), timedelta())
 
     def partner_used(self) -> timedelta:
-        return sum(t.partner_used for t in self.allocated_time)
+        return sum((t.partner_used for t in self.allocated_time), timedelta())
 
     def total_awarded(self) -> timedelta:
-        return sum(t.total_awarded() for t in self.allocated_time)
+        return sum((t.total_awarded() for t in self.allocated_time), timedelta())
 
     def total_used(self) -> timedelta:
-        return sum(t.total_used() for t in self.allocated_time)
+        return sum((t.total_used() for t in self.allocated_time), timedelta())
 
     def observations(self) -> List[Observation]:
         return self.root_group.observations()
-
-
-@dataclass(frozen=True)
-class Visit:
-    """
-    A visit is a scheduled piece of an observation.
-    It can be no less than a single atom.
-
-    TODO: This will probably require some refinement as we progress.
-    """
-    start_time: datetime
-    end_time: datetime
-    observation_id: str
-    first_atom_id: str
-    last_atom_id: str
-    comment: str
-    setuptime_type: SetupTimeType
-
-
-@dataclass
-class Plan:
-    """
-    A complete plan for each site, mapping an observation period to the list
-    of visits to be performed during that period.
-
-    TODO: This will probably require some refinement as we progress.
-    """
-    scheduled_atoms: Mapping[Site, Mapping[ObservingPeriod, List[Visit]]]

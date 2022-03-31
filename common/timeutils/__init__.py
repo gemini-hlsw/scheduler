@@ -1,20 +1,18 @@
-# Time and coordinate-related python libraries
-# Bryan Miller
-
-from __future__ import print_function
+from datetime import datetime
 import sys
+from typing import Tuple
 
 
-def sex2dec(stime, todegree=False, sep=':'):
-    # stime is a string of format "HR:MIN:SEC"
-    # returns the decimal equivalent
-    # Bryan Miller
-    # From sex2dec.pro
-
+def sex2dec(stime: str,
+            todegree: bool = False,
+            sep: str = ':') -> float:
+    """
+    stime is a string of format "HR:MIN:SEC"
+    Returns the decimal equivalent.
+    """
     l_stime = str(stime).replace("+", "")
     if sep not in l_stime:
-        print('Separator not found. Input must be in the format "HR<sep>MIN<sep>SEC"')
-        return -1
+        raise ValueError(f'Separator {sep} not found in {stime}. Input must be in the format "HR<sep>MIN<sep>SEC"')
 
     f = 1.0
     if todegree:
@@ -24,9 +22,6 @@ def sex2dec(stime, todegree=False, sep=':'):
     exp = 0
     sign = 1.
     for val in l_stime.split(sep):
-        # tmp = val.lstrip('0')
-        # if tmp == '':
-        #    tmp = '0'
         x = float(val)
         if x < 0.0:
             sign = -1.
@@ -35,24 +30,19 @@ def sex2dec(stime, todegree=False, sep=':'):
     return sign * f * result
 
 
-def dtsex2dec(datetime, todegree=False):
-    # input is a datetime object
-    # Bryan Miller
-
+def dtsex2dec(dt: datetime,
+              todegree: bool = False) -> float:
     f = 1.0
     if todegree:
         f = 15.0
 
     sign = 1.
-    if datetime.hour < 0:
+    if dt.hour < 0:
         sign = -1.
-    return sign * f * (abs(datetime.hour) + datetime.minute / 60. + datetime.second / 3600.)
+    return sign * f * (abs(dt.hour) + dt.minute / 60. + dt.second / 3600.)
 
 
-def sixty(dd):
-    # http://stackoverflow.com/questions/2579535/how-to-convert-dd-to-dms-in-python
-    # Equivalent to sixty.pro
-    # Bryan Miller
+def sixty(dd: float) -> Tuple[int, int, int]:
     is_positive = dd >= 0
     l_dd = abs(dd)
     minutes, seconds = divmod(l_dd * 3600, 60)
@@ -63,14 +53,19 @@ def sixty(dd):
         minutes = minutes if is_positive else -minutes
     else:
         seconds = seconds if is_positive else -seconds
-    return (degrees, minutes, seconds)
+    return degrees, minutes, seconds
 
 
-def dec2sex(d, p=3, cutsec=False, hour=False, tohour=False, sep=':', leadzero=0, round=False):
+def dec2sex(d: float,
+            p: int = 3,
+            cutsec: bool = False,
+            hour: bool = False,
+            tohour: bool = False,
+            sep: str = ':',
+            leadzero: int = 0,
+            round_min: bool = False) -> str:
     """
-    Convert decimal degrees/hours to a formatted sexigesimal string
-    From dec2sex.pro
-    Bryan Miller
+    Convert decimal degrees/hours to a formatted sexigesimal string.
 
     Parameters
     :param d: input in degrees
@@ -80,15 +75,11 @@ def dec2sex(d, p=3, cutsec=False, hour=False, tohour=False, sep=':', leadzero=0,
     :param tohour: convert from degress to hours (divide by 15.)
     :param sep: Separator string
     :param leadzero: if >0 display leading 0's, e.g. -05:25. The value is the number of digits for the DD or HR field.
-    :param round: when cutsec, round to the nearest minute rather than truncate
+    :param round_min: when cutsec, round to the nearest minute rather than truncate
     :return: string
     """
     l_d = float(d)
     sign = ''
-    sd = ''
-    dg = 0
-    mn = 0
-    sc = 0.0
     maxdg = 360.
 
     if tohour:
@@ -108,14 +99,8 @@ def dec2sex(d, p=3, cutsec=False, hour=False, tohour=False, sep=':', leadzero=0,
     six = sixty(l_d)
 
     dg = abs(int(six[0]))
-    if (six[0] < 0):
+    if six[0] < 0:
         sign = '-'
-    # if dg >= 100:
-    #     ldg = 3
-    # elif dg >= 10:
-    #     ldg = 2
-    # else:
-    #     ldg = 1
 
     if leadzero > 0:
         sldg = '0' + str(leadzero)
@@ -123,20 +108,19 @@ def dec2sex(d, p=3, cutsec=False, hour=False, tohour=False, sep=':', leadzero=0,
         sldg = str(len(str(dg)))
 
     mn = abs(int(six[1]))
-    if (six[1] < 0):
+    if six[1] < 0:
         sign = '-'
 
     sc = float(secstr.format(abs(six[2])))
-    if (six[2] < 0.0):
+    if six[2] < 0.0:
         sign = '-'
-    #    print sign,dg,mn,sc
 
     if sc >= 60.0:
         sc -= 60.0
         mn = mn + 1
 
     if cutsec:
-        if round and sc >= 30.:
+        if round_min and sc >= 30.:
             # Round to the nearest minute, otherwise truncate
             mn += 1
         sc = 0.0
@@ -156,4 +140,3 @@ def dec2sex(d, p=3, cutsec=False, hour=False, tohour=False, sep=':', leadzero=0,
         s = fmt.format(sign, dg, mn, sc)
 
     return s.strip()
-
