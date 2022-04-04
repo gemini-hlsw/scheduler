@@ -1,6 +1,6 @@
 import pytest
 from astropy.time import Time
-from collector import Collector
+from components.collector import Collector
 from common.minimodel import SiderealTarget
 
 
