@@ -1,4 +1,5 @@
 import logging
+from this import d
 from astropy.coordinates import SkyCoord
 from astropy.time import TimeDelta
 from astropy import units as u
@@ -240,7 +241,9 @@ class Collector(SchedulerComponent):
     _MAX_NIGHT_EVENT_TIME: ClassVar[Time] = Time('2100-01-01 00:00:00', format='iso', scale='utc')
 
     # The number of milliarcsecs in a degree, for proper motion calculation.
-    _MILLIARCSECS_PER_DEGREE: ClassVar[int] = 1296000000
+    _MILLIARCSECS_PER_DEGREE: ClassVar[int] = 60*60*1000
+
+    _EPOCH2TIME: ClassVar[Mapping[float, Time]] = {}
 
     def __post_init__(self):
         """
@@ -365,6 +368,21 @@ class Collector(SchedulerComponent):
                 windows.extend([Time([begin + i * period, begin + i * period + duration]) for i in range(repeat)])
 
         return windows
+    
+    @staticmethod
+    def _calculate_proper_motion(target: Target, time: Time) -> SkyCoord:
+        """
+        Calculate the proper motion of a target.
+        """
+
+        pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
+        pm_dec = target.pm_dec / Collector._MILLIARCSECS_PER_DEGREE
+        epoch_time = Collector._EPOCH2TIME.setdefault(target.epoch, Time(target.epoch, format='jyear'))
+        time_offsets = time - epoch_time
+        new_ra = (target.ra + pm_ra * time_offsets.to(u.yr).value) * u.deg
+        new_dec = (target.dec + pm_dec * time_offsets.to(u.yr).value) * u.deg
+        return SkyCoord(new_ra, new_dec, frame='icrs', unit='deg')
+    
 
     def _calculate_target_info(self,
                                obs: Observation,
@@ -410,17 +428,7 @@ class Collector(SchedulerComponent):
             # this information is already stored in decimal degrees at this point.
             if isinstance(target, SiderealTarget):
                 # Take proper motion into account over the time slots.
-                pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
-                pm_dec = target.pm_dec / Collector._MILLIARCSECS_PER_DEGREE
-
-                # Calculate the new coordinates for the night.
-                # For each entry in time, we want to calculate the offset in epoch-years.
-                # TODO: Is this right? It follows the convention in OCS Epoch.scala.
-                # https://github.com/gemini-hlsw/ocs/blob/ba542ec6ffe5d03a0f31f880a52f60dd6ade3812/bundle/edu.gemini.spModel.core/src/main/scala/edu/gemini/spModel/core/Epoch.scala#L28
-                time_offsets = target.epoch + night_events.pm_array[night_idx]
-                coord = SkyCoord((target.ra + pm_ra * time_offsets) * u.deg,
-                                 (target.dec + pm_dec * time_offsets) * u.deg)
-
+                coord = Collector._calculate_proper_motion(target, self.time_grid[idx])
             elif isinstance(target, NonsiderealTarget):
                 coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
 
