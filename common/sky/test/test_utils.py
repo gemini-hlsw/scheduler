@@ -36,8 +36,8 @@ def test_current_geocent_frame(midnight):
 @pytest.mark.usefixtures("coord", "location")
 def test_min_max_alt(coord, location):
     minalt, maxalt = min_max_alt(location.lat, coord.dec)
-    assert minalt[0].deg == -38.96425410833332
-    assert maxalt[0].deg == 78.61185700277774
+    np.testing.assert_almost_equal(minalt[0].deg, -38.96425410833332)
+    np.testing.assert_almost_equal(maxalt[0].deg, 78.61185700277774)
 
 @pytest.mark.usefixtures("coord", "location")
 def test_hour_angle_to_angle(coord, location):
