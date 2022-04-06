@@ -1,6 +1,6 @@
 import pytest
 from astropy.time import Time
-from astropy.coordinates import EarthLocation, Angle, PrecessedGeocentricFrame, SkyCoord
+from astropy.coordinates import EarthLocation, Angle, PrecessedGeocentric, SkyCoord
 import astropy.units as u
 import numpy as np
 from common.sky.utils import local_sidereal_time, current_geocent_frame, min_max_alt
@@ -20,21 +20,24 @@ def times():
 
 @pytest.mark.usefixtures("midnight", "location")
 def test_local_sidereal_time_with_single_value(midnight, location):
-    assert local_sidereal_time(midnight, location) == Angle(17.71182168, unit=u.hourangle)
-
+    expected = Angle(17.71182168, unit=u.hourangle)
+    lst = local_sidereal_time(midnight, location)
+    # assert abs(local_sidereal_time(midnight, location).deg - Angle(17.71182168, unit=u.hourangle).deg) < 1e-6
+    np.testing.assert_array_almost_equal(lst.deg, expected.deg, decimal=6)
 
 def test_local_sidereal_time_with_time_array(times, location):
     ...
 
 @pytest.mark.usefixtures("midnight")
 def test_current_geocent_frame(midnight):
-    assert current_geocent_frame(midnight) == PrecessedGeocentricFrame(equinox='J2020.500', obstime='J2000.000')
+    expected = PrecessedGeocentric(equinox='J2020.500', obstime='J2000.000')
+    assert current_geocent_frame(midnight) == expected
 
 @pytest.mark.usefixtures("coord", "location")
 def test_min_max_alt(coord, location):
     minalt, maxalt = min_max_alt(location.lat, coord.dec)
-    assert minalt.to_value(u.deg) == -38.96425410833332
-    assert maxalt.to_value(u.deg) == 78.61185700277774
+    assert minalt[0].deg == -38.96425410833332
+    assert maxalt[0].deg == 78.61185700277774
 
 @pytest.mark.usefixtures("coord", "location")
 def test_hour_angle_to_angle(coord, location):
@@ -48,4 +51,4 @@ def test_hour_angle_to_angle(coord, location):
                                            (-20, -1.0)
                                            ])
 def test_true_airmass(alt, expected):
-    assert true_airmass(alt) == expected
+    assert true_airmass(alt *u.deg) == expected

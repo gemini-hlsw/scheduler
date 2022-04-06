@@ -200,7 +200,7 @@ def local_sidereal_time(time: Time, location: EarthLocation) -> Angle:
         scalar_input = True
     
     fraction = time.jd - julian_int
-    mid = fraction + 0.5
+    mid = julian_int + 0.5
     ut = fraction - 0.5
     less_than_half = np.where(fraction < 0.5)[0][:]
     if len(less_than_half) != 0:
@@ -209,14 +209,14 @@ def local_sidereal_time(time: Time, location: EarthLocation) -> Angle:
     
     t = (mid - J2000) / 36525.
 
-    sidereal = (24110.54841 + 8640184.812866 * t + 0.093104 * t ** 2 - 6.2e-6 * t ** 3) / 86400.
+    sidereal = (24110.54841 + 8640184.812866 * t + 0.093104 * t**2 - 6.2e-6 * t**3) / 86400.
     # at Greenwich
-    sid_int = sidereal.astype(np.int)
-    sidereal -= sid_int
+    sid_int = sidereal.astype(np.int64)
+    sidereal = sidereal - sid_int
     # longitude is measured east so add.
-    sidereal += (1.0027379093 * ut + location.lon.hour / 24.)
+    sidereal = sidereal + 1.0027379093 * ut + location.lon.hour / 24.
     
-    sid_int = sidereal.astype(np.int)
+    sid_int = sidereal.astype(np.int64)
     sidereal = (sidereal - sid_int) * 24.
     # if(sid < 0.) : sid = sid + 24.
     # TODO: A convertion to radians is needed if the output is not an Angle
@@ -263,7 +263,7 @@ def true_airmass(altit: Angle) -> npt.NDArray[float]:
         scalar_input = True
 
     # ret = np.zeros(len(altit))
-    ret = np.full(len(altit), 58.)
+    ret = np.full(len(altit), -1.)
     ii = np.where(altit > 0.0)[0][:]
     if len(ii) != 0:
         ret[ii] = 1. / np.sin(altit[ii])  # sec z = 1/sin (altit)

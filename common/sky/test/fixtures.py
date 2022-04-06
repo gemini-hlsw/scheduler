@@ -15,3 +15,7 @@ def coord():
 @pytest.fixture
 def location():
     return EarthLocation.of_site('gemini_north')
+
+@pytest.fixture
+def test_time():
+    return Time('2020-07-01 10:00:00.000', format='iso', scale='utc')

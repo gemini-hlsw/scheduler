@@ -68,6 +68,7 @@ class Moon:
         Compute accurate precession values for the moon location method calculations.
         """
         T = (self.time_ttjd - 2415020.) / 36525.  # this based around 1900 ... */
+        print(T)
         TSQ = T * T
         TCB = TSQ * T
         LPR = 270.434164 + 481267.8831 * T - 0.001133 * TSQ + 0.0000019 * TCB
@@ -91,6 +92,9 @@ class Moon:
         D = D + 0.002011 * sinx
 
         sinx = 0.003964 * np.sin(np.deg2rad(346.560 + 132.870 * T - 0.0091731 * TSQ))
+
+        
+
         LPR = LPR + sinx
         MPR = MPR + sinx
         D = D + sinx
@@ -104,6 +108,12 @@ class Moon:
         F = F - 0.004328 * np.sin(np.deg2rad(OM + 275.05 - 2.30 * T))
 
         e = 1 - 0.002495 * T - 0.00000752 * TSQ
+
+        M = np.deg2rad(M)  # these will all be arguments ... */
+        MPR = np.deg2rad(MPR)
+        D = np.deg2rad(D)
+        F = np.deg2rad(F)
+        # print(LPR, MPR, M, F, D, )
 
         lambd = (LPR + 6.288750 * np.sin(MPR)
                     + 1.274018 * np.sin(2 * D - MPR)
@@ -299,6 +309,7 @@ class Moon:
 
         """
         self._high_precision_calculations()
+        print(self.LAMBDA,self.BETA,self.PIE)
         dist = Distance(1. / np.sin(np.deg2rad(self.PIE)) * EQUAT_RAD)
 
         # place these in a skycoord in ecliptic coords of date.  Handle distance
