@@ -77,10 +77,6 @@ class NightEvents:
             2. azimuth
             3. parallactic angle
             """
-            # alt, az, par_ang = zip(
-            #    *[vskyutil.altazparang(p.dec, lst - p.ra, self.site.value.location.lat)
-            #      for p, lst in zip(pos, self.local_sidereal_times)]
-            #)
             alt, az, par_ang = zip(
                 *[sky.Altitude.above(p.dec, lst - p.ra, self.site.value.location.lat)
                   for p, lst in zip(pos, self.local_sidereal_times)]
@@ -90,10 +86,8 @@ class NightEvents:
 
         # Calculate the parameters for the sun, joining together the positions.
         # We also precalculate the indices for the time slots for the night that have the required sun altitude.
-        #self.sun_pos = [SkyCoord(vskyutil.lpsun(t)) for t in self.times]
         self.sun_pos = [SkyCoord(sky.Sun.at(t)) for t in self.times]
         self.sun_alt, self.sun_az, self.sun_par_ang = altazparang(self.sun_pos)
-        # self.sun_alt_indices = [self.sun_alt[night_idx] <= -12 * u.deg for night_idx, _ in enumerate(self.time_grid)]
         self.sun_alt_indices = [np.where(self.sun_alt[night_idx] <= -12 * u.deg)[0]
                                 for night_idx, _ in enumerate(self.time_grid)]
 
@@ -101,7 +95,6 @@ class NightEvents:
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
         # collect the SkyCoords into one tuple, and the ndarrays into another.
         # The moon_dist are already a Quantity: error if try to convert.
-        # self.moon_pos, self.moon_dist = zip(*[vskyutil.accumoon(t, self.site.value.location) for t in self.times])
         self.moon_pos, self.moon_dist = zip(*[sky.Moon().at(t).accurate_location(self.site.value.location) for t in self.times])
         self.moon_alt, self.moon_az, self.moon_par_ang = altazparang(self.moon_pos)
 
@@ -141,7 +134,6 @@ class NightEventsManager:
                 time_grid,
                 time_slot_length,
                 site,
-                #*vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
                 *sky.night_events(time_grid, site.value.location, site.value.timezone)
             )
             NightEventsManager._night_events[site] = night_events

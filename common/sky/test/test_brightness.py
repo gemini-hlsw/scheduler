@@ -9,7 +9,7 @@ import astropy.units as u
 
 def test_sky_brigthness_qpt():
     """
-    Test that the sky brightness is calculated correctly.
+    Test that the sky brightness is calculated correctly according to the QPT method.
     """
     ...
 
@@ -23,6 +23,6 @@ def test_sky_brigthness():
 
 def test_convert_to_sky_background():
     """
-    Test that the sky brightness is calculated correctly.
+    Test the conversion to sky background.
     """
     ...

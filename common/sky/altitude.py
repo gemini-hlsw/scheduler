@@ -2,33 +2,38 @@ import numpy as np
 import numpy.typing as npt
 import astropy.units as u
 from astropy.coordinates import Angle, Longitude
-from typing import Tuple, Union
+from typing import Tuple, Union, TypeVar
+
+T = TypeVar('T')
+U = TypeVar('U')
+ScalarOrArray = Union[T, U, npt.NDArray[U]]
+AngleParam = ScalarOrArray[Angle, float]
 
 class Altitude:
 
-    def above(dec: Union[Angle, float, npt.NDArray[float]],
-              ha: Union[Angle, float, npt.NDArray[float]],
-              lat: Union[Angle, float, npt.NDArray[float]]) -> Tuple[Angle, Angle, Angle]:
+    def above(dec: AngleParam,
+              ha: AngleParam,
+              lat: AngleParam) -> Tuple[Angle, Angle, Angle]:
         """
-        Compute altitudeude above horizon, azimuth, and parallactic angle.
+        Compute altitude above horizon, azimuth, and parallactic angle.
 
         The parallactic angle is the position angle of the arc between the
         object and the zenith, i.e. the position angle that points 'straight up'
         when you're looking at an object.  It is important for atmospheric
         refraction and dispersion compensation, which Filippenko discusses
         ( 1982PASP...94..715F ).  Does not take small effects into
-        account (polar motion, nutation, whatever) so is Lighter weight than
+        account (polar motion, nutation, whatever) so is lighter weight than
         the astropy equivalents.
 
-        Filippenko's expression for the parallactic angle leaves it to the the user
+        Filippenko's expression for the parallactic angle leaves it to the user
         to select the correct root of an inverse trig function; this is handled
         automatically here by fully solving the astronomical triangle.
 
-        The astropy altaz transformation depends on the 3 Mbyte download from USNO 
+        The astropy altaz transformation depends on the 3 Mbyte download from USNO
         to find the lst, so here is a stripped down version.
-        # Arguments are all assumed to be Angles so they don't need to be converted to radians; 
+        # Arguments are all assumed to be Angles so they don't need to be converted to radians;
         the dec is assumed to be in equinox of date to avoid
-        # We get the parallactic angle almost for since we have ha, colat, and altitudeude.
+        # We get the parallactic angle almost for since we have ha, colat, and altitude.
 
         Parameters
         ----------

@@ -6,6 +6,7 @@ from astropy.coordinates import PrecessedGeocentric, Angle, EarthLocation
 import numpy as np
 import numpy.typing as npt
 from common.sky.constants import J2000, FLATTEN, EQUAT_RAD
+from common.sky.altitude import AngleParam
 from datetime import datetime, timedelta
 from astropy.coordinates import BaseRADecFrame
 
@@ -82,7 +83,7 @@ def geocentric_coors(geolong: Angle, geolat: float, height: float) -> Tuple[floa
     return x_geo, y_geo, z_geo
 
 
-def min_max_alt(lat: Angle, dec: Union[Angle, float, npt.NDArray[float]]) -> Tuple[Angle, Angle]:
+def min_max_alt(lat: Angle, dec: AngleParam) -> Tuple[Angle, Angle]:
     """Finds the mimimum and maximum altitudes of a celestial location.
 
     Parameters
@@ -281,9 +282,9 @@ def true_airmass(altit: Angle) -> npt.NDArray[float]:
     return ret
 
 
-def hour_angle_to_angle(dec: Union[Angle, float, npt.NDArray[float]],
-                        lat: Union[Angle, float, npt.NDArray[float]],
-                        alt: Union[Angle, float, npt.NDArray[float]]) -> Angle:
+def hour_angle_to_angle(dec: AngleParam,
+                        lat: AngleParam,
+                        alt: AngleParam) -> Angle:
     """
     Return an Angle giving the hour angle (from spherical astronomy, east
     or west of meridian, not the u.hourangle from astropy) at which

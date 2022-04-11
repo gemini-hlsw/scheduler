@@ -1,6 +1,6 @@
 import pytest
 from common.sky.altitude import Altitude
-from astropy.coordinates import Angle,Longitude
+from astropy.coordinates import Angle, Longitude
 import astropy.units as u
 from fixtures import coord, location
 import numpy.testing as nptest
@@ -20,7 +20,3 @@ def test_altitude_above_zero(coord, location):
     nptest.assert_almost_equal(alt.rad, expected_alt.rad, decimal=3)
     nptest.assert_almost_equal(az.rad, expected_az.rad, decimal=3)
     nptest.assert_almost_equal(parallac.rad, expected_par.rad, decimal=3)
-
-    # assert abs(alt.deg - Angle(0.84002209, unit=u.rad).deg) <= 1e-5
-    # assert abs(az.degree - Longitude(1.1339171, unit=u.radian).degree) <= 1e-5
-    # assert abs(parallac.deg - Angle(-1.6527975, unit=u.radian).deg) <= 1e-5

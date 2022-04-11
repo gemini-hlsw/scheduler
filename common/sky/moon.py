@@ -34,7 +34,7 @@ class Moon:
         
         return self
 
-    def _low_precission_calculations(self) -> NoReturn:
+    def _low_precision_calculations(self) -> NoReturn:
         """
         Compute low precision values for the moon location method calculations.
         """
@@ -258,7 +258,7 @@ class Moon:
         Note that input time is a float.
         """
 
-        self._low_precission_calculations()
+        self._low_precision_calculations()
         # Terrestrial time with julian day
         sid = local_sidereal_time(self.time, obs)
         lat = obs.lat
