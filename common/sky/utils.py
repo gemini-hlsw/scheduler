@@ -1,5 +1,6 @@
-from typing import Tuple, Union, Optional
+from typing import Tuple, Union
 import astropy.units as u
+from astropy.units import Quantity
 from astropy.time import Time, TimezoneInfo
 from astropy.coordinates import PrecessedGeocentric, Angle, EarthLocation
 import numpy as np
@@ -353,7 +354,7 @@ def hour_angle_to_angle(dec: Union[Angle, float, npt.NDArray[float]],
     return Angle(x, unit=u.rad)
 
 
-def xair(zd):
+def xair(zd: Quantity) -> Quantity:
     """
     Evaluate true airmass, equation 3 from Krisciunas &  Schaefer 1991
     zd is a Quantity
@@ -394,7 +395,7 @@ def xair(zd):
     return x
 
 
-def ztwilight(alt):
+def ztwilight(alt: Angle) -> float:
     """Estimate twilight contribution to zenith sky brightness, in magnitudes
     per square arcsecond.
 

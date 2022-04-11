@@ -10,11 +10,9 @@ from tqdm import tqdm
 from typing import Dict, FrozenSet, Iterable, Tuple, NoReturn
 
 from api.programprovider.abstract import ProgramProvider
-from common import sky_brightness
 import common.helpers as helpers
 from common.minimodel import *
 from components.base import SchedulerComponent
-import common.vskyutil as vskyutil
 import common.sky as sky
 
 
@@ -144,7 +142,7 @@ class NightEventsManager:
                 time_slot_length,
                 site,
                 #*vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
-                *sky.night_events(time_grid, site.value.location, site.value.timezone, verbose=False)
+                *sky.night_events(time_grid, site.value.location, site.value.timezone)
             )
             NightEventsManager._night_events[site] = night_events
 
@@ -438,7 +436,7 @@ class Collector(SchedulerComponent):
             # this information is already stored in decimal degrees at this point.
             if isinstance(target, SiderealTarget):
                 # Take proper motion into account over the time slots.
-                coord = Collector._calculate_proper_motion(target, self.time_grid[idx])
+                coord = Collector._calculate_proper_motion(target, self.time_grid[night_idx])
             elif isinstance(target, NonsiderealTarget):
                 coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
 
@@ -462,7 +460,7 @@ class Collector(SchedulerComponent):
             if obs.constraints and obs.constraints.conditions.sb < SkyBackground.SBANY:
                 targ_sb = obs.constraints.conditions.sb
                 targ_moon_ang = coord.separation(night_events.moon_pos[night_idx])
-                brightness = sky_brightness.calculate_sky_brightness(
+                brightness = sky.brightness.calculate_sky_brightness(
                     180.0 * u.deg - night_events.sun_moon_ang[night_idx],
                     targ_moon_ang,
                     night_events.moon_dist[night_idx],
@@ -470,7 +468,7 @@ class Collector(SchedulerComponent):
                     90.0 * u.deg - alt,
                     90.0 * u.deg - night_events.sun_alt[night_idx]
                 )
-                sb = sky_brightness.convert_to_sky_background(brightness)
+                sb = sky.brightness.convert_to_sky_background(brightness)
             else:
                 targ_sb = SkyBackground.SBANY
                 sb = np.full([len(night_events.times[night_idx])], SkyBackground.SBANY)

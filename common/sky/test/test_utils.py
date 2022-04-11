@@ -4,7 +4,7 @@ from astropy.coordinates import EarthLocation, Angle, PrecessedGeocentric, SkyCo
 import astropy.units as u
 import numpy as np
 from common.sky.utils import local_sidereal_time, current_geocent_frame, min_max_alt
-from common.sky.utils import hour_angle_to_angle, true_airmass
+from common.sky.utils import hour_angle_to_angle, true_airmass, ztwilight, xair
 from fixtures import midnight, location, coord
 
 # All values are calculated using the following code:
@@ -52,3 +52,16 @@ def test_hour_angle_to_angle(coord, location):
                                            ])
 def test_true_airmass(alt, expected):
     assert true_airmass(alt *u.deg) == expected
+
+def test_ztwilight():
+    alt = Angle(-15.0, unit=u.deg)
+    assert ztwilight(alt) == 1.0258832592592588
+
+@pytest.mark.parametrize("alt, expected", [(0., 1.),
+                                           (30, 1.14707867),
+                                           (60, 1.88982237),
+                                           (90, 5.0),
+                                           (120, 10.)
+                                           ])
+def test_xair(alt, expected):
+     np.testing.assert_almost_equal(xair(alt * u.deg), expected)
