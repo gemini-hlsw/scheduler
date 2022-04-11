@@ -3,7 +3,7 @@ from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, Distance, GeocentricTrueEcliptic, Angle
 import astropy.units as u
 from astropy.time import TimeDelta
-from common.sky.utils import local_sidereal_time, current_geocent_frame, geocentric_coors
+from common.sky.utils import local_sidereal_time, current_geocent_frame, geocentric_coors, hour_angle_to_angle
 from common.sky.constants import J2000, EQUAT_RAD
 from common.sky.altitude import Altitude
 from typing import NoReturn, Tuple
@@ -62,13 +62,11 @@ class Moon:
                 + 0.0028 * np.cos(np.deg2rad(269.9 + 954397.70 * T)))
         self.PIE = np.deg2rad(pie)
 
-
     def _high_precision_calculations(self) -> NoReturn:
         """
         Compute accurate precession values for the moon location method calculations.
         """
         T = (self.time_ttjd - 2415020.) / 36525.  # this based around 1900 ... */
-        print(T)
         TSQ = T * T
         TCB = TSQ * T
         LPR = 270.434164 + 481267.8831 * T - 0.001133 * TSQ + 0.0000019 * TCB
@@ -113,7 +111,6 @@ class Moon:
         MPR = np.deg2rad(MPR)
         D = np.deg2rad(D)
         F = np.deg2rad(F)
-        # print(LPR, MPR, M, F, D, )
 
         lambd = (LPR + 6.288750 * np.sin(MPR)
                     + 1.274018 * np.sin(2 * D - MPR)
@@ -309,7 +306,6 @@ class Moon:
 
         """
         self._high_precision_calculations()
-        print(self.LAMBDA,self.BETA,self.PIE)
         dist = Distance(1. / np.sin(np.deg2rad(self.PIE)) * EQUAT_RAD)
 
         # place these in a skycoord in ecliptic coords of date.  Handle distance
@@ -426,3 +422,60 @@ class Moon:
         if scalar_input:
             time_guess = np.squeeze(time_guess)
         return Time(time_guess, format='iso')
+    def rise_and_set(self, 
+                     location: EarthLocation, 
+                     midnight: Time, 
+                     set_alt: Angle, 
+                     rise_alt: Angle) -> Tuple[Time, Time]:
+        """
+        Return times of moon rise and set.
+
+        Parameters
+        ----------
+        location : EarthLocation
+
+        Returns
+        -------
+        rise : Time
+        set : Time
+        """
+        moon_at_midnight, _ = self.at(midnight).low_precision_location(location)
+        lst_midnight = local_sidereal_time(midnight, location)
+        ha_moon_at_midnight = lst_midnight - moon_at_midnight.ra
+        ha_moon_at_midnight.wrap_at(12. * u.hour, inplace=True)
+
+
+        ha_moon_set = hour_angle_to_angle(moon_at_midnight.dec, location.lat, set_alt)  # corresponding hr angles
+        diff_moon_set = ha_moon_set - ha_moon_at_midnight  # how far from setting point at midn.
+        # find nearest setting point
+        # if diff_moon_set.hour >= 12. : diff_moon_set = diff_moon_set - Angle(24. * u.hour)
+        ii = np.where(diff_moon_set.hour >= 12.)[0][:]
+        if len(ii) != 0:
+            diff_moon_set[ii] = diff_moon_set[ii] - Angle(24. * u.hour)
+
+        # if diff_moon_set.hour < -12. : diff_moon_set = diff_moon_set + Angle(24. * u.hour)
+        jj = np.where(diff_moon_set.hour < -12.)[0][:]
+        if len(jj) != 0:
+            diff_moon_set[jj] = diff_moon_set[jj] + Angle(24. * u.hour)
+
+        timedelta_moon_set = TimeDelta(diff_moon_set.hour / 24., format='jd')
+        times_moon_set = midnight + timedelta_moon_set
+        times_moon_set = (set_alt, times_moon_set, location)
+
+        ha_moonrise = -1. * hour_angle_to_angle(moon_at_midnight.dec, location.lat, rise_alt)  # signed
+        diff_moonrise = ha_moonrise - ha_moon_at_midnight  # how far from riseting point at midn.
+        # find nearest riseting point
+        # if diff_moonrise.hour >= 12.: diff_moonrise = diff_moonrise - Angle(24. * u.hour)
+        # if diff_moonrise.hour < -12.: diff_moonrise = diff_moonrise + Angle(24. * u.hour)
+        ii = np.where(diff_moonrise.hour >= 12.)[0][:]
+        if len(ii) != 0:
+            diff_moonrise[ii] = diff_moonrise[ii] - Angle(24. * u.hour)
+        jj = np.where(diff_moonrise.hour < -12.)[0][:]
+        if len(jj) != 0:
+            diff_moonrise[jj] = diff_moonrise[jj] + Angle(24. * u.hour)
+
+        timedelta_moonrise = TimeDelta(diff_moonrise.hour / 24., format='jd')
+        times_moonrise = midnight + timedelta_moonrise  
+        times_moonrise = Moon.time_by_altitude(rise_alt, times_moonrise, location)
+
+        return times_moonrise, times_moon_set

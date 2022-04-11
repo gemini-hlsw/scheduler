@@ -1,10 +1,12 @@
 import numpy as np
 from common.sky.constants import J2000
-from common.sky.utils import current_geocent_frame, local_sidereal_time
+from common.sky.utils import current_geocent_frame, local_sidereal_time, hour_angle_to_angle
 from common.sky.altitude import Altitude
 from astropy.coordinates import Angle, SkyCoord, EarthLocation
 from astropy.time import Time, TimeDelta
+from typing import Tuple
 import astropy.units as u
+
 
 class Sun:
 
@@ -139,3 +141,60 @@ class Sun:
         if scalar_input:
             time_guess = np.squeeze(time_guess)
         return Time(time_guess, format='iso')
+    @staticmethod
+    def rise_and_set(location: EarthLocation,
+                     time: Time,
+                     midnight: Time,
+                     set_alt: Angle,
+                     rise_alt) -> Tuple[Time]:
+        """
+        Compute rise and set times for this Sun, for the current
+        ``location`` and ``time`` of the night.
+
+        Returns
+        -------
+        `~astropy.time.Time`
+            The time of the event for the body in the
+            ``precision`` of this `Sun`.
+
+        """
+
+        sun_at_midnight = Sun.at(midnight)
+        lst_midnight = local_sidereal_time(midnight, location)
+        nt = len(time)
+
+        sunset_ha = hour_angle_to_angle(sun_at_midnight.dec, location.lat, set_alt)  # corresponding hr angles
+        sunrise_ha = Angle(2. * np.pi, unit=u.rad) - hour_angle_to_angle(sun_at_midnight.dec, location.lat, rise_alt)  # corresponding hr angles
+
+        twelve_twilight_alt = Angle(-12. * np.ones(nt), unit=u.deg)  # 12 degree nautical twilight
+
+        sunset_ha = hour_angle_to_angle(sun_at_midnight.dec, location.lat, set_alt)  # corresponding hr angles
+        sunrise_ha = Angle(2. * np.pi, unit=u.rad) - hour_angle_to_angle(sun_at_midnight.dec, location.lat, rise_alt)  # corresponding hr angles
+        twelve_twilight_ha = hour_angle_to_angle(sun_at_midnight.dec, location.lat, twelve_twilight_alt)
+        sun_at_midnight_ha = (lst_midnight - sun_at_midnight.ra).wrap_at(24. * u.hour)
+
+        sunset_guess = sun_at_midnight_ha - sunset_ha  # angles away from midnight
+        sunrise_guess = sunrise_ha - sun_at_midnight_ha
+        even_12twi_guess = sun_at_midnight_ha - twelve_twilight_ha
+        morn_12twi_guess = Angle(2. * np.pi, unit=u.rad) - twelve_twilight_ha - sun_at_midnight_ha
+
+        # convert to time deltas
+        timedelta_sunset = TimeDelta(sunset_guess.hour / 24., format='jd')
+        timedelta_sunrise = TimeDelta(sunrise_guess.hour / 24., format='jd')
+        timedelta_even_12twi = TimeDelta(even_12twi_guess.hour / 24., format='jd')
+        timedelta_morn_12twi = TimeDelta(morn_12twi_guess.hour / 24., format='jd')
+        
+        # form into times and iterate to accurate answer.
+        times_sunset = midnight - timedelta_sunset  # first approx
+        times_sunset = Sun.time_by_altitude(set_alt, times_sunset, location)
+
+        times_sunrise = midnight + timedelta_sunrise  # first approx
+        times_sunrise = Sun.time_by_altitude(rise_alt, times_sunrise, location)
+
+        times_even_12twi = midnight - timedelta_even_12twi
+        times_even_12twi = Sun.time_by_altitude(twelve_twilight_alt, times_even_12twi, location)
+
+        times_morn_12twi = midnight + timedelta_morn_12twi
+        times_morn_12twi = Sun.time_by_altitude(twelve_twilight_alt, times_morn_12twi, location)
+        
+        return times_sunrise, times_sunset, times_even_12twi, times_morn_12twi
