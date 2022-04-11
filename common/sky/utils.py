@@ -8,6 +8,7 @@ from common.sky.constants import J2000, FLATTEN, EQUAT_RAD
 from datetime import datetime, timedelta
 from astropy.coordinates import BaseRADecFrame
 
+
 def current_geocent_frame(time: Time) -> BaseRADecFrame:
     """ 
     Returns a PrecessedGeocentric frame for the equinox
@@ -350,3 +351,102 @@ def hour_angle_to_angle(dec: Union[Angle, float, npt.NDArray[float]],
         # return (Angle(np.squeeze(x), unit = u.rad))
         x = np.squeeze(x)
     return Angle(x, unit=u.rad)
+
+
+def xair(zd):
+    """
+    Evaluate true airmass, equation 3 from Krisciunas &  Schaefer 1991
+    zd is a Quantity
+
+    zd : '~astropy.units.Quantity'
+        Float or numpy array of zenith distance angles
+
+    Trick for handling arrays and scalars from
+    https://stackoverflow.com/questions/29318459/python-function-that-handles-scalar-or-arrays
+    """
+
+    zd = np.asarray(zd.to_value(u.rad).data) * u.rad
+    scalar_input = False
+    if zd.ndim == 0:
+        zd = zd[None]  # Makes 1D
+        scalar_input = True
+
+    x = np.zeros(len(zd))
+
+    # below the horizon
+    kk = np.where(zd > 90. * u.deg)[0][:]
+    if len(kk) != 0:
+        x[kk] = 10.
+
+    # above the horizon
+    ik = np.where(zd <= 90. * u.deg)[0][:]
+    if len(ik) != 0:
+        v = np.sqrt(1.0 - 0.96 * np.sin(zd[ik]) ** 2)
+        ii = np.where(v != 0.0)[0][:]
+        if len(ii) != 0:
+            x[ik[ii]] = 1. / v[ii]
+        jj = np.where(v == 0.0)[0][:]
+        if len(jj) != 0:
+            x[ik[jj]] = 10.
+
+    if scalar_input:
+        return np.squeeze(x)
+    return x
+
+
+def ztwilight(alt):
+    """Estimate twilight contribution to zenith sky brightness, in magnitudes
+    per square arcsecond.
+
+    Evaluates a polynomial approximation to observational data (see source for
+    reference) of zenith sky brightness (blue) as a function of the sun's elevation
+    from -0.9 degrees to -18 degrees.  For reference, 3 mag is roughly Nautical
+    twilight and looks 'pretty dark'; something like 10 mag is about the maximum
+    for broadband sky flats in many cases.
+
+    Parameters
+    ----------
+    alt : Angle
+        Sun's elevation.  Meaningful range is -0.9 to -18 degrees.
+
+    Returns
+        float.  If the sun is up, returns 20; if the sun below -18, returns 0.
+
+    """
+    # Given an Angle alt in the range -0.9 to -18 degrees,
+    # evaluates a polynomial expansion for the approximate brightening
+    # in magnitudes of the zenith in twilight compared to its
+    # value at full night, as function of altitude of the sun (in degrees).
+    # To get this expression I looked in Meinel, A.,
+    # & Meinel, M., "Sunsets, Twilight, & Evening Skies", Cambridge U.
+    # Press, 1983; there's a graph on p. 38 showing the decline of
+    # zenith twilight.  I read points off this graph and fit them with a
+    # polynomial.
+    # Comparison with Ashburn, E. V. 1952, JGR, v.57, p.85 shows that this
+    # is a good fit to his B-band measurements.
+
+    alt = Angle(np.asarray(alt.deg), unit=u.deg)
+    scalar_input = False
+    if alt.ndim == 0:
+        alt = alt[None]  # Makes 1D
+        scalar_input = True
+
+    twisb = np.zeros(len(alt))
+    # flag for sun up, also not grossly wrong.
+    ii = np.where(alt.deg > -0.9)[0][:]
+    if len(ii) != 0:
+        twisb[ii] = 20.
+
+    # fully dark, no contrib to zenith skyglow.
+    jj = np.where(alt.deg < -18.)[0][:]
+    if len(jj) != 0:
+        twisb[jj] = 0.
+
+    kk = np.where(np.logical_and(alt.deg >= -18., alt.deg <= -0.9))[0][:]
+    if len(kk) != 0:
+        y = (-1. * alt[kk].deg - 9.0) / 9.0  # my polynomial's argument
+        twisb[kk] = ((2.0635175 * y + 1.246602) * y - 9.4084495) * y + 6.132725
+
+    if scalar_input:
+        twisb = np.squeeze(twisb)
+    return twisb
