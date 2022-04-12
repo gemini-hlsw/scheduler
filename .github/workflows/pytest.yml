@@ -25,7 +25,10 @@ jobs:
         run: |
           echo "PYTHONPATH=/home/runner/work/Scheduler/Scheduler" >> $GITHUB_ENV
       
-      - name: Test with pytest
+      - name: Generate Report
         run: |
-          $CONDA/bin/pytest
+          pip install coverage
+          coverage run -m pytest
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v2
           
