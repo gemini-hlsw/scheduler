@@ -4,7 +4,7 @@ from astropy import units as u
 from astropy.units import Quantity
 from typing import Union
 
-from common import vskyutil
+from common.sky.utils import xair, ztwilight
 from common.minimodel import SkyBackground
 
 
@@ -82,14 +82,14 @@ def calculate_sky_brightness(moon_phase_angle: Quantity,
     # Correction for twilight
     i = np.where(sun_alt > -18.5 * u.deg)[0][:]
     if len(i) != 0:
-        v_zen[i] = v_zen[i] - vskyutil.ztwilight(sun_alt[i])
+        v_zen[i] = v_zen[i] - ztwilight(sun_alt[i])
 
     # zenith sky brightness
     b_zen = 0.263 * a ** (q - v_zen)
 
     # Sky brightness with no moon at target, scattering due to airmass
-    b_sky = b_zen * vskyutil.xair(target_zenith_distang) * 10.0 ** (
-                -0.4 * k * (vskyutil.xair(target_zenith_distang) - 1.0))
+    b_sky = b_zen * xair(target_zenith_distang) * 10.0 ** (
+                -0.4 * k * (xair(target_zenith_distang) - 1.0))
 
     # Lunar sky brightness
     b_moon = np.zeros(n)
@@ -133,8 +133,8 @@ def calculate_sky_brightness(moon_phase_angle: Quantity,
         frho[kk] += 9.9e8
 
     # Sky brightness from the Moon in nanoLamberts (B)
-    b_moon[im] = frho[im] * istar[im] * 10 ** (-0.4 * k * vskyutil.xair(moon_zenith_distang[im])) * (
-            1.0 - 10 ** (-0.4 * k * vskyutil.xair(target_zenith_distang[im]))
+    b_moon[im] = frho[im] * istar[im] * 10 ** (-0.4 * k * xair(moon_zenith_distang[im])) * (
+            1.0 - 10 ** (-0.4 * k * xair(target_zenith_distang[im]))
     )
 
     # hh = np.where(np.logical_and(cc > 0.5, cc < 0.8))[0][:]
@@ -216,14 +216,14 @@ def calculate_sky_brightness_qpt(moon_phase_angle: Quantity,
     v_zen = np.ones(len(target_zenith_distang)) * 21.587
     # correction for twilight
     ii = np.where(sun_alt > -18.5 * u.deg)[0][:]
-    v_zen[ii] = v_zen[ii] - vskyutil.ztwilight(sun_alt[ii])
+    v_zen[ii] = v_zen[ii] - ztwilight(sun_alt[ii])
 
     # zenith sky brightness
     b_zen = 0.263 * a**(q - v_zen)
 
     # Sky brightness with no moon at target, scattering due to airmass
-    b_sky = b_zen * vskyutil.xair(target_zenith_distang) * 10.0 ** (
-            -0.4 * k * (vskyutil.xair(target_zenith_distang) - 1.0)
+    b_sky = b_zen * xair(target_zenith_distang) * 10.0 ** (
+            -0.4 * k * (xair(target_zenith_distang) - 1.0)
     )
 
     # Lunar sky brightness
@@ -239,8 +239,8 @@ def calculate_sky_brightness_qpt(moon_phase_angle: Quantity,
         fpjj = (1.06 + np.cos(target_moon_angdist[jj]) ** 2) * 10.0 ** 5.36 + 10.0 ** (
                 6.15 - target_moon_angdist[jj].value / 40.0
         )
-        b_moon[jj] = fpjj * istar[jj] * 10 ** (-0.4 * k * vskyutil.xair(moon_zenith_distang[jj])) * (
-                1.0 - 10 ** (-0.4 * k * vskyutil.xair(target_zenith_distang[jj]))
+        b_moon[jj] = fpjj * istar[jj] * 10 ** (-0.4 * k * xair(moon_zenith_distang[jj])) * (
+                1.0 - 10 ** (-0.4 * k * xair(target_zenith_distang[jj]))
         )
 
     kk = np.where(ii != jj)[0][:]
@@ -248,8 +248,8 @@ def calculate_sky_brightness_qpt(moon_phase_angle: Quantity,
         # There is a bug in the following line from the original code, used by QPT
         fpkk = 6.2e7 / (target_moon_angdist[kk].value ** 2)
         # fpkk = (1.06 + np.cos(mdist[kk])**2) * 10.0**5.36 + 6.2e7 / (mdist[kk].value**2)
-        b_moon[kk] = fpkk * istar[kk] * 10 ** (-0.4 * k * vskyutil.xair(moon_zenith_distang[kk])) * (
-                1.0 - 10 ** (-0.4 * k * vskyutil.xair(target_zenith_distang[kk]))
+        b_moon[kk] = fpkk * istar[kk] * 10 ** (-0.4 * k * xair(moon_zenith_distang[kk])) * (
+                1.0 - 10 ** (-0.4 * k * xair(target_zenith_distang[kk]))
         )
 
     # hh = np.where(np.logical_and(cc > 0.5, cc < 0.8))[0][:]
