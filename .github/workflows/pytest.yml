@@ -28,6 +28,7 @@ jobs:
       - name: Generate Report
         run: |
           $CONDA/bin/coverage run -m pytest
+          $CONDA/bin/coverage xml
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v2
