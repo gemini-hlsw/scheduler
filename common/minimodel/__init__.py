@@ -674,7 +674,6 @@ class Observation:
     status: ObservationStatus
     active: bool
     priority: Priority
-    resources: Set[Resource]
     setuptime_type: SetupTimeType
     acq_overhead: timedelta
 
@@ -713,7 +712,7 @@ class Observation:
         """
         The required resources for an observation based on the sequence's needs.
         """
-        return self.resources | {r for a in self.sequence for r in a.resources}
+        return self.guiding.keys() | {r for a in self.sequence for r in a.resources}
 
     def wavelengths(self) -> Set[float]:
         """
