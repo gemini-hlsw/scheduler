@@ -726,9 +726,6 @@ class OcsProgramProvider(ProgramProvider):
         active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
         priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY].upper()]
 
-        # TODO: We need to populate this with the resources needed by the observation.
-        resources = set()
-
         setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
         acq_overhead = timedelta(milliseconds=data[OcsProgramProvider._ObsKeys.SETUPTIME])
         obs_class = ObservationClass[data[OcsProgramProvider._ObsKeys.OBS_CLASS].upper()]
@@ -819,7 +816,6 @@ class OcsProgramProvider(ProgramProvider):
             status=status,
             active=active,
             priority=priority,
-            resources=resources,
             setuptime_type=setuptime_type,
             acq_overhead=acq_overhead,
             obs_class=obs_class,
