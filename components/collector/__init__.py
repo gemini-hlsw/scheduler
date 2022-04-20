@@ -8,7 +8,7 @@ import pytz
 import time
 from tqdm import tqdm
 from typing import Dict, FrozenSet, Iterable, Tuple, NoReturn
-
+from astropy.time import Time
 from api.programprovider.abstract import ProgramProvider
 import common.helpers as helpers
 from common.minimodel import *
