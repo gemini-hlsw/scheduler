@@ -8,13 +8,12 @@ import pytz
 import time
 from tqdm import tqdm
 from typing import Dict, FrozenSet, Iterable, Tuple, NoReturn
-
+from astropy.time import Time
 from api.programprovider.abstract import ProgramProvider
-from common import sky_brightness
 import common.helpers as helpers
 from common.minimodel import *
 from components.base import SchedulerComponent
-import common.vskyutil as vskyutil
+import common.sky as sky
 
 
 @dataclass
@@ -67,8 +66,9 @@ class NightEvents:
         # We want these as Python lists because the entries will have different lengths.
         self.utc_times = [t.to_datetime(pytz.UTC) for t in self.times]
         self.local_times = [t.to_datetime(self.site.value.timezone) for t in self.times]
-        self.local_sidereal_times = [vskyutil.lpsidereal(t, self.site.value.location) for t in self.times]
-
+        # self.local_sidereal_times = [vskyutil.lpsidereal(t, self.site.value.location) for t in self.times]
+        self.local_sidereal_times = [sky.local_sidereal_time(t, self.site.value.location) for t in self.times]
+        
         def altazparang(pos: List[SkyCoord]) -> Tuple[npt.NDArray[Angle], npt.NDArray[Angle], npt.NDArray[Angle]]:
             """
             Common code to invoke vskyutil.altazparang for a number of positions and then properly
@@ -78,16 +78,16 @@ class NightEvents:
             3. parallactic angle
             """
             alt, az, par_ang = zip(
-                *[vskyutil.altazparang(p.dec, lst - p.ra, self.site.value.location.lat)
+                *[sky.Altitude.above(p.dec, lst - p.ra, self.site.value.location.lat)
                   for p, lst in zip(pos, self.local_sidereal_times)]
             )
+
             return alt, az, par_ang
 
         # Calculate the parameters for the sun, joining together the positions.
         # We also precalculate the indices for the time slots for the night that have the required sun altitude.
-        self.sun_pos = [SkyCoord(vskyutil.lpsun(t)) for t in self.times]
+        self.sun_pos = [SkyCoord(sky.Sun.at(t)) for t in self.times]
         self.sun_alt, self.sun_az, self.sun_par_ang = altazparang(self.sun_pos)
-        # self.sun_alt_indices = [self.sun_alt[night_idx] <= -12 * u.deg for night_idx, _ in enumerate(self.time_grid)]
         self.sun_alt_indices = [np.where(self.sun_alt[night_idx] <= -12 * u.deg)[0]
                                 for night_idx, _ in enumerate(self.time_grid)]
 
@@ -95,7 +95,7 @@ class NightEvents:
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
         # collect the SkyCoords into one tuple, and the ndarrays into another.
         # The moon_dist are already a Quantity: error if try to convert.
-        self.moon_pos, self.moon_dist = zip(*[vskyutil.accumoon(t, self.site.value.location) for t in self.times])
+        self.moon_pos, self.moon_dist = zip(*[sky.Moon().at(t).accurate_location(self.site.value.location) for t in self.times])
         self.moon_alt, self.moon_az, self.moon_par_ang = altazparang(self.moon_pos)
 
         # Angle between the sun and the moon.
@@ -134,7 +134,7 @@ class NightEventsManager:
                 time_grid,
                 time_slot_length,
                 site,
-                *vskyutil.nightevents(time_grid, site.value.location, site.value.timezone, verbose=False)
+                *sky.night_events(time_grid, site.value.location, site.value.timezone)
             )
             NightEventsManager._night_events[site] = night_events
 
@@ -428,7 +428,7 @@ class Collector(SchedulerComponent):
             # this information is already stored in decimal degrees at this point.
             if isinstance(target, SiderealTarget):
                 # Take proper motion into account over the time slots.
-                coord = Collector._calculate_proper_motion(target, self.time_grid[idx])
+                coord = Collector._calculate_proper_motion(target, self.time_grid[night_idx])
             elif isinstance(target, NonsiderealTarget):
                 coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
 
@@ -440,8 +440,9 @@ class Collector(SchedulerComponent):
             lst = night_events.local_sidereal_times[night_idx]
             hourangle = lst - coord.ra
             hourangle.wrap_at(12.0 * u.hour, inplace=True)
-            alt, az, par_ang = vskyutil.altazparang(coord.dec, hourangle, obs.site.value.location.lat)
-            airmass = vskyutil.true_airmass(alt)
+            #alt, az, par_ang = vskyutil.altazparang(coord.dec, hourangle, obs.site.value.location.lat)
+            alt, az, par_ang = sky.Altitude.above(coord.dec, hourangle, obs.site.value.location.lat)
+            airmass = sky.true_airmass(alt)
 
             # Calculate the time slots for the night in which there is visibility.
             visibility_slot_idx = np.array([], dtype=int)
@@ -451,7 +452,7 @@ class Collector(SchedulerComponent):
             if obs.constraints and obs.constraints.conditions.sb < SkyBackground.SBANY:
                 targ_sb = obs.constraints.conditions.sb
                 targ_moon_ang = coord.separation(night_events.moon_pos[night_idx])
-                brightness = sky_brightness.calculate_sky_brightness(
+                brightness = sky.brightness.calculate_sky_brightness(
                     180.0 * u.deg - night_events.sun_moon_ang[night_idx],
                     targ_moon_ang,
                     night_events.moon_dist[night_idx],
@@ -459,7 +460,7 @@ class Collector(SchedulerComponent):
                     90.0 * u.deg - alt,
                     90.0 * u.deg - night_events.sun_alt[night_idx]
                 )
-                sb = sky_brightness.convert_to_sky_background(brightness)
+                sb = sky.brightness.convert_to_sky_background(brightness)
             else:
                 targ_sb = SkyBackground.SBANY
                 sb = np.full([len(night_events.times[night_idx])], SkyBackground.SBANY)

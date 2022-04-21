@@ -3,17 +3,15 @@ from abc import ABC
 import numpy as np
 from astropy.coordinates import EarthLocation, UnknownSiteException
 from astropy.coordinates.angles import Angle
-from astropy.time import Time
 from astropy.units import Quantity
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
 import numpy.typing as npt
 from pytz import timezone, UnknownTimeZoneError
-from typing import ClassVar, Iterable, List, Mapping, Optional, Sequence, Set, Union
+from typing import ClassVar, List, Mapping, Optional, Sequence, Set, Union
 
 from common.helpers import flatten
-
 
 # Type aliases for convenience.
 NightIndex = int
@@ -336,6 +334,7 @@ class Variant:
     wind_dir: Angle
     wind_sep: Angle
     wind_spd: Quantity
+
     # time_blocks: Time
 
     def __post_init__(self):
@@ -540,7 +539,7 @@ class QAState(IntEnum):
     FAIL = auto()
     USABLE = auto()
     PASS = auto()
-    # TODO: Not in original mini-model description, but returned by OCS?
+    # TODO: Not in original mini-model description, but returned by OCS.
     CHECK = auto()
 
 
@@ -564,8 +563,9 @@ class Atom:
 
 class ObservationMode(str, Enum):
     """
-    TODO: Where does this go? Find it in the atom code in the OcsProgramExtractor once done.
-    TODO: It seems to depend on the instrument and FPU.
+    TODO: This is not stored anywhere and is only used temporarily in the atom code in the
+    TODO: OcsProgramExtractor. Should it be stored anywhere or is it only used in intermediate
+    TODO: calculations? It seems to depend on the instrument and FPU.
     """
     UNKNOWN = 'unknown'
     IMAGING = 'imaging'
@@ -586,7 +586,7 @@ class ObservationStatus(IntEnum):
     PROPOSED = auto()
     APPROVED = auto()
     FOR_REVIEW = auto()
-    # TODO: Not in original mini-model description, but returned by OCS?
+    # TODO: Not in original mini-model description, but returned by OCS.
     ON_HOLD = auto()
     READY = auto()
     ONGOING = auto()
@@ -626,9 +626,9 @@ class SetupTimeType(IntEnum):
     """
     The setup time type for an observation.
     """
-    FULL = auto()
-    REACQUISITION = auto()
     NONE = auto()
+    REACQUISITION = auto()
+    FULL = auto()
 
 
 class ObservationClass(IntEnum):
@@ -674,7 +674,6 @@ class Observation:
     status: ObservationStatus
     active: bool
     priority: Priority
-    resources: Set[Resource]
     setuptime_type: SetupTimeType
     acq_overhead: timedelta
 
@@ -713,7 +712,7 @@ class Observation:
         """
         The required resources for an observation based on the sequence's needs.
         """
-        return self.resources | {r for a in self.sequence for r in a.resources}
+        return self.guiding.keys() | {r for a in self.sequence for r in a.resources}
 
     def wavelengths(self) -> Set[float]:
         """
@@ -774,15 +773,15 @@ class Observation:
         Observations are to be placed in AND Groups of size 1 for scheduling purposes.
         """
         return 1
-    
+
     def __eq__(self, other: 'Observation') -> bool:
         """
-        This override the one created by @dataclass to temporaly skip sequence 
-        comparison in test cases while the atomn creation process is finish.
+        We override the equality checker created by @dataclass to temporarily skip sequence
+        comparison in test cases until the atom creation process is finish.
         """
-        
-        return dict((k, v) for k, v in self.__dict__.items() if k != 'sequence') == \
-               dict((k, v) for k, v in other.__dict__.items() if k != 'sequence')
+
+        return (dict((k, v) for k, v in self.__dict__.items() if k != 'sequence') ==
+                dict((k, v) for k, v in other.__dict__.items() if k != 'sequence'))
 
 
 # Type alias for group ID.
@@ -877,11 +876,11 @@ class AndGroup(Group):
     def __post_init__(self):
         super().__post_init__()
         if self.number_to_observe != len(self.children):
-            msg = f'AND group {self.group_name} specifies {self.number_to_observe} children to be observed but has '\
+            msg = f'AND group {self.group_name} specifies {self.number_to_observe} children to be observed but has ' \
                   f'{len(self.children)} children.'
             raise ValueError(msg)
         if self.previous is not None and (self.previous < 0 or self.previous >= len(self.children)):
-            msg = f'AND group {self.group_name} has {len(self.children)} children and an illegal previous value of '\
+            msg = f'AND group {self.group_name} has {len(self.children)} children and an illegal previous value of ' \
                   f'{self.previous}'
             raise ValueError(msg)
 
@@ -893,10 +892,11 @@ class OrGroup(Group):
     The restrictions on an OR group is that it must explicitly require not all
     of its children to be observed.
     """
+
     def __post_init__(self):
         super().__post_init__()
         if self.number_to_observe >= len(self.children):
-            msg = f'OR group {self.group_name} specifies {self.number_to_observe} children to be observed but has '\
+            msg = f'OR group {self.group_name} specifies {self.number_to_observe} children to be observed but has ' \
                   f'{len(self.children)} children.'
             raise ValueError(msg)
 
