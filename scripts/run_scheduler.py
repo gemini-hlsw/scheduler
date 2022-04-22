@@ -36,10 +36,8 @@ if __name__ == '__main__':
     )
 
     # Execute the Selector.
-    night_indices = np.array([0, 1])
-
-    # Running the selector still has bugs.
-    # results = selector.select()
+    # Not sure the best way to display the output.
+    results = selector.select()
 
     # Output the data in a spreadsheet.
     # for program in collector._programs.values():
