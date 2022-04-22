@@ -248,8 +248,7 @@ class Ranker:
         return scores
 
     def get_observation_scores(self, obs_id: ObservationID) -> Scores:
-        return self._observation_scores.get(obs_id,
-                                            deepcopy(self._zero_scores[self.collector.get_observation(obs_id).site]))
+        return self._observation_scores.get(obs_id)
 
     def score_group(self,
                     group: Group) -> Scores:
@@ -270,33 +269,27 @@ class Ranker:
         else:
             raise ValueError('Ranker group scoring can only score groups.')
 
+    # TODO: Should we be considering the scores of the subgroups or the scores of the
+    # TODO: observations when calculating the score of this group?
     def score_and_group(self,
                         group: AndGroup) -> Scores:
         """
         Calculate the scores for each night and time slot of an AND Group.
         """
-        # Retrieve the scores of all the observations in the group.
-        # This comprises a list, indexed by observation, of a list of the nights with
-        # entries corresponding to the time slot scores, i.e. something of the form:
-        # [[obs1_night1, obs1_night2, ...], [obs2_night1, obs2_night2, ...], ...]
-        # We want this in the form:
-        # [[obs1_night1, obs2_night1, ...], [obs1_night2, obs2_night2, ...], ...]
-        # which we can obtain with a simple zip and conversion to list for [] access.
-        obs_scores = list(zip(*[self.get_observation_scores(obs.id) for obs in group.observations()]))
+        # TODO: An AND group could theoretically be at multiple sites if it contained
+        # TODO: an OR group, but check before changing the score to be per site as well.
+        assert(len(group.sites()) == 1, f'Too many sites: {len(group.sites())}')
+        night_events = self.collector.get_night_events(list(group.sites())[0])
+        group_scores = [np.empty((0, len(night_events.times[night_idx])), dtype=float)
+                        for night_idx in self.night_indices]
 
-        # TODO: There may be an easier way to do this, but I do not want to mess with the original code as
-        # TODO: I do not understand exactly how this scoring works.
-        # Create the initial empty scores.
-        # visit_score = np.empty((0, len(self.times[inight])), dtype=float)
-        group_scores = [np.empty((0, len(obs_scores[night_idx])), dtype=float) for night_idx in self.night_indices]
+        # For each night, calculate the score for the group over its observations.
+        for night_idx in self.night_indices:
+            for obs in group.observations():
+                obs_score = self.get_observation_scores(obs.id)[night_idx]
+                group_scores[night_idx] = np.append(group_scores[night_idx], np.array([obs_score]), axis=0)
 
-        for os in obs_scores:
-            for night_idx in self.night_indices:
-                # visit_score = np.append(visit_score, np.array([score]), axis=0)
-                group_scores[night_idx] = np.append(group_scores[night_idx], np.array([os[night_idx]]), axis=0)
-
-        # visit.score = np.apply_along_axis(combine_score, 0, visit_score)[0]
-
+        # Combine the scores as per the score_combiner and return.
         return [np.apply_along_axis(self.params.score_combiner, 0, group_scores[night_idx])[0]
                 for night_idx in self.night_indices]
 
