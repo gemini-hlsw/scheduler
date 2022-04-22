@@ -1,9 +1,9 @@
 from astropy.time import Time
-
+from astropy import units as u
 from abc import ABC
 from typing import Set
 
-from common.minimodel import Observation, ObservationMode, Resource, Site
+from common.minimodel import ObservationMode, Resource
 
 
 class ObservatoryProperties(ABC):
@@ -25,14 +25,4 @@ class ObservatoryProperties(ABC):
         TODO: Based on the Gemini code, it seems like the latter is the case, but we do have
         TODO: the obsmode code in the atom extraction which provides an ObservationMode.
         """
-        return 0.0
-
-    @staticmethod
-    def has_complementary_modes(obs: Observation, site: Site) -> Set[Observation]:
-        """
-        Determine if the specified observation has one or more complementary observations
-        that can be performed instead at the specified site.
-
-        The default assumption is that there are none unless otherwise implemented.
-        """
-        return set()
+        return 0. * u.h
