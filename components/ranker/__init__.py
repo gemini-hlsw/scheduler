@@ -278,7 +278,8 @@ class Ranker:
         """
         # TODO: An AND group could theoretically be at multiple sites if it contained
         # TODO: an OR group, but check before changing the score to be per site as well.
-        assert(len(group.sites()) == 1, f'Too many sites: {len(group.sites())}')
+        if len(group.sites()) != 1:
+            raise ValueError(f'AND group {group.group_name} has too many sites: {len(group.sites())}')
         night_events = self.collector.get_night_events(list(group.sites())[0])
         group_scores = [np.empty((0, len(night_events.times[night_idx])), dtype=float)
                         for night_idx in self.night_indices]
