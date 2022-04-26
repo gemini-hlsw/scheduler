@@ -5,7 +5,7 @@ from enum import Enum, EnumMeta
 from typing import Set
 
 from api.observatory.abstract import ObservatoryProperties
-from common.minimodel import Observation, ObservationMode, Resource, Site
+from common.minimodel import ObservationMode, Resource
 
 
 class GeminiProperties(ObservatoryProperties):
@@ -49,57 +49,3 @@ class GeminiProperties(ObservatoryProperties):
             if ObservationMode.IMAGING in modes:
                 return 2.0 * u.h
             return 0.0 * u.h
-
-    @staticmethod
-    def has_complementary_modes(obs: Observation, site: Site) -> Set[Observation]:
-        """
-        go = False
-        altinst = 'None'
-
-        obs_site = site
-        mode = obs.instrument.observation_mode()
-        instrument = obs.instrument
-        if obs_site != site:
-            if site == Site.GN:
-                if (instrument.name == 'GMOS-S' and
-                        mode in ['imaging', 'longslit', 'ifu']):
-                    go = True
-                    altinst = 'GMOS-N'
-                elif instrument.name == 'Flamingos2':
-                    if mode in ['imaging']:
-                        go = True
-                        altinst = 'NIRI'
-                    elif (mode in ['longslit'] and
-                          'GCAL' not in instrument.name and
-                          'R3000' in instrument.disperser):
-                        go = True
-                        altinst = 'GNIRS'
-            elif site == Site.GN:
-
-                if (instrument.name == 'GMOS-N' and
-                        mode in ['imaging', 'longslit', 'ifu']):
-                    go = True
-                    altinst = 'GMOS-S'
-                elif (instrument.name == 'NIRI' and
-                      instrument.camera == 'F6'):
-                    go = True
-                    altinst = 'Flamingos2'
-                    if mode in ['imaging']:
-                        go = True
-                        altinst = 'Flamingos2'
-                    elif mode in ['longslit']:
-                        if (instrument.disperser == 'D_10' and
-                                'SHORT' in instrument.camera):
-                            go = True
-                            altinst = 'Flamingos2'
-                        elif (instrument.disperser == 'D_10' and
-                              'LONG' in instrument.camera):
-                            go = True
-                            altinst = 'Flamingos2'
-        else:
-            go = True
-            altinst = obs.instrument.name
-
-        return go, altinst
-        """
-        ...
