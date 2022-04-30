@@ -9,7 +9,6 @@ import astropy.units as u
 
 
 class Sun:
-
     @staticmethod
     def at(time: Time) -> SkyCoord:
         """
@@ -38,9 +37,9 @@ class Sun:
             scalar_input = True
 
         n = jd - J2000  # referred to J2000
-        L = 280.460 + 0.9856474 * n
+        ell = 280.460 + 0.9856474 * n
         g = np.deg2rad(357.528 + 0.9856003 * n)
-        lambd = np.deg2rad(L + 1.915 * np.sin(g) + 0.020 * np.sin(2. * g))
+        lambd = np.deg2rad(ell + 1.915 * np.sin(g) + 0.020 * np.sin(2. * g))
         epsilon = np.deg2rad(23.439 - 0.0000004 * n)
 
         x = np.cos(lambd)
@@ -116,16 +115,15 @@ class Sun:
         sun_pos = Sun.at(time_guess)
 
         alt3, az, parang = Altitude.above(sun_pos.dec,
-                                          local_sidereal_time(time_guess, location) - sun_pos.ra, 
+                                          local_sidereal_time(time_guess, location) - sun_pos.ra,
                                           location.lat)
         err = alt3 - alt
         deriv = (alt3 - alt2) / delta
 
         kount = np.zeros(len(time_guess), dtype=int)
         kk = np.where(np.logical_and(abs(err) > tolerance, kount < 10))[0][:]
-        while (len(kk) != 0):
+        while len(kk) != 0:
             time_guess[kk] = time_guess[kk] - err[kk] / deriv[kk]
-            sun_pos = None
             sun_pos = Sun.at(time_guess[kk])
             alt3[kk], az[kk], parang[kk] = Altitude.above(sun_pos.dec,
                                                           local_sidereal_time(time_guess[kk], location) - sun_pos.ra,
@@ -134,19 +132,19 @@ class Sun:
             kount[kk] = kount[kk] + 1
             ii = np.where(kount >= 9)[0][:]
             if len(ii) != 0:
-                print("Sunrise, set, or twilight calculation not converging!\n")
-                return None
+                raise ArithmeticError("Sunrise, set, or twilight calculation not converging.")
             kk = np.where(np.logical_and(abs(err) > tolerance, kount < 10))[0][:]
 
         if scalar_input:
             time_guess = np.squeeze(time_guess)
         return Time(time_guess, format='iso')
+
     @staticmethod
     def rise_and_set(location: EarthLocation,
                      time: Time,
                      midnight: Time,
                      set_alt: Angle,
-                     rise_alt) -> Tuple[Time]:
+                     rise_alt) -> Tuple[Time, Time, Time, Time]:
         """
         Compute rise and set times for this Sun, for the current
         ``location`` and ``time`` of the night.
@@ -156,20 +154,17 @@ class Sun:
         `~astropy.time.Time`
             The time of the event for the body in the
             ``precision`` of this `Sun`.
-
         """
 
         sun_at_midnight = Sun.at(midnight)
         lst_midnight = local_sidereal_time(midnight, location)
         nt = len(time)
 
-        sunset_ha = hour_angle_to_angle(sun_at_midnight.dec, location.lat, set_alt)  # corresponding hr angles
-        sunrise_ha = Angle(2. * np.pi, unit=u.rad) - hour_angle_to_angle(sun_at_midnight.dec, location.lat, rise_alt)  # corresponding hr angles
-
         twelve_twilight_alt = Angle(-12. * np.ones(nt), unit=u.deg)  # 12 degree nautical twilight
 
-        sunset_ha = hour_angle_to_angle(sun_at_midnight.dec, location.lat, set_alt)  # corresponding hr angles
-        sunrise_ha = Angle(2. * np.pi, unit=u.rad) - hour_angle_to_angle(sun_at_midnight.dec, location.lat, rise_alt)  # corresponding hr angles
+        # corresponding hr angles
+        sunset_ha = hour_angle_to_angle(sun_at_midnight.dec, location.lat, set_alt)
+        sunrise_ha = Angle(2. * np.pi, unit=u.rad) - hour_angle_to_angle(sun_at_midnight.dec, location.lat, rise_alt)
         twelve_twilight_ha = hour_angle_to_angle(sun_at_midnight.dec, location.lat, twelve_twilight_alt)
         sun_at_midnight_ha = (lst_midnight - sun_at_midnight.ra).wrap_at(24. * u.hour)
 

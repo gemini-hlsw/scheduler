@@ -5,6 +5,7 @@ from fixtures import midnight, location
 import pytz
 import numpy.testing as nptest
 
+
 @pytest.mark.usefixtures("midnight", "location")
 def test_night_events(midnight, location):
     """
