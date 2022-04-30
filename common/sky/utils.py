@@ -1,7 +1,7 @@
 from typing import Tuple
 import astropy.units as u
 from astropy.units import Quantity
-from astropy.time import Time, TimezoneInfo
+from astropy.time import Time
 from astropy.coordinates import PrecessedGeocentric, Angle, EarthLocation
 import numpy as np
 import numpy.typing as npt
