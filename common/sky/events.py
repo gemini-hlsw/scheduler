@@ -2,7 +2,8 @@ import numpy as np
 import numpy.typing as npt
 import astropy.units as u
 from astropy.coordinates import Angle, EarthLocation
-from astropy.time import Time, TimezoneInfo
+from astropy.time import Time
+from pytz import timezone
 from typing import Tuple, Union
 
 from common.sky.utils import local_midnight_time
@@ -11,7 +12,7 @@ from common.sky.constants import EQUAT_RAD
 from common.sky.moon import Moon
 
 
-def night_events(time: Time, location: EarthLocation, localtzone: TimezoneInfo) -> \
+def night_events(time: Time, location: EarthLocation, localtzone: timezone) -> \
         Tuple[Time, Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time],
               Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time],
               Union[npt.NDArray[float], Tuple[Angle, Time, EarthLocation]]]:

@@ -5,6 +5,7 @@ from astropy.time import Time, TimezoneInfo
 from astropy.coordinates import PrecessedGeocentric, Angle, EarthLocation
 import numpy as np
 import numpy.typing as npt
+from pytz import timezone
 from common.sky.constants import J2000, FLATTEN, EQUAT_RAD
 from common.sky.altitude import AngleParam
 from datetime import datetime, timedelta
@@ -130,7 +131,7 @@ def min_max_alt(lat: Angle, dec: AngleParam) -> Tuple[Angle, Angle]:
     return Angle(minalt, unit=u.rad), Angle(maxalt, unit=u.rad)
 
 
-def local_midnight_time(time: Time, localtzone: TimezoneInfo) -> Time:
+def local_midnight_time(time: Time, localtzone: timezone) -> Time:
     """find nearest local midnight (UT).
 
     If it's before noon local time, returns previous midnight;
