@@ -1,32 +1,24 @@
 import numpy as np
 import numpy.typing as npt
 from astropy import units as u
+from astropy.coordinates import Angle, Distance
 from astropy.units import Quantity
-from typing import Union
 
+from common.sky.constants import KZEN, EQUAT_RAD
 from common.sky.utils import xair, ztwilight
 from common.minimodel import SkyBackground
 
 
-def calculate_sky_brightness(moon_phase_angle: Quantity,
-                             target_moon_angdist: Quantity,
-                             earth_moon_dist: Quantity,
-                             moon_zenith_distang: Quantity,
-                             target_zenith_distang: Quantity,
-                             sun_zenith_distang: Quantity,
-                             cc: Union[float, npt.NDArray[float]] = 0.0,
+def calculate_sky_brightness(moon_phase_angle: Angle,
+                             target_moon_angdist: Distance,
+                             earth_moon_dist: Distance,
+                             moon_zenith_distang: Angle,
+                             target_zenith_distang: Angle,
+                             sun_zenith_distang: Angle,
                              verbose: bool = False) -> npt.NDArray[float]:
     """
     Calculate sky brightness based on formulas from Krisciunas & Schaefer 1991
     Uses array processing
-    Bryan Miller
-    November 5, 2004
-    June 1, 2015 - added cc parameter while testing cloud scattering corrections
-    July 3, 2020 - add terms for lunar distance and close to/on lunar disk,
-                   using skycalc approach
-
-    Matt Bonnyman
-    converted from IDL to Python May 23, 2018
 
     Parameters
     ----------
@@ -48,9 +40,6 @@ def calculate_sky_brightness(moon_phase_angle: Quantity,
     sun_zenith_distang : '~astropy.units.Quantity'
         Sun zenith distance angles
 
-    cc :
-        Single float or a numpy array of float of current cloud conditions
-
     verbose :
         Verbose output flag
 
@@ -61,17 +50,15 @@ def calculate_sky_brightness(moon_phase_angle: Quantity,
     """
 
     # Constants
-    k = 0.172  # mag/airmass relation for Hale Pohaku
     a = 2.51189
     q = 27.78151
-    equat_rad = 6378137. * u.m  # /* equatorial radius of earth, meters */
 
     sun_alt = 90.0 * u.deg - sun_zenith_distang  # sun altitude
     if verbose:
         print(f'sun_alt: {sun_alt}')
 
     # Relative distance between the Earth and the Moon
-    norm_moondist = earth_moon_dist / (60.27 * equat_rad)
+    norm_moondist = earth_moon_dist / (60.27 * EQUAT_RAD)
 
     # Number of positions
     n = len(target_zenith_distang)
@@ -89,7 +76,7 @@ def calculate_sky_brightness(moon_phase_angle: Quantity,
 
     # Sky brightness with no moon at target, scattering due to airmass
     b_sky = b_zen * xair(target_zenith_distang) * 10.0 ** (
-                -0.4 * k * (xair(target_zenith_distang) - 1.0))
+                -0.4 * KZEN * (xair(target_zenith_distang) - 1.0))
 
     # Lunar sky brightness
     b_moon = np.zeros(n)
@@ -133,8 +120,8 @@ def calculate_sky_brightness(moon_phase_angle: Quantity,
         frho[kk] += 9.9e8
 
     # Sky brightness from the Moon in nanoLamberts (B)
-    b_moon[im] = frho[im] * istar[im] * 10 ** (-0.4 * k * xair(moon_zenith_distang[im])) * (
-            1.0 - 10 ** (-0.4 * k * xair(target_zenith_distang[im]))
+    b_moon[im] = frho[im] * istar[im] * 10 ** (-0.4 * KZEN * xair(moon_zenith_distang[im])) * (
+            1.0 - 10 ** (-0.4 * KZEN * xair(target_zenith_distang[im]))
     )
 
     # hh = np.where(np.logical_and(cc > 0.5, cc < 0.8))[0][:]
@@ -160,7 +147,6 @@ def calculate_sky_brightness_qpt(moon_phase_angle: Quantity,
                                  moon_zenith_distang: Quantity,
                                  target_zenith_distang: Quantity,
                                  sun_zenith_distang: Quantity,
-                                 cc: Union[float, npt.NDArray[float]] = 0.0,
                                  verbose: bool = False) -> npt.NDArray[float]:
     """
     Calculate sky brightness based on formulas from Krisciunas & Schaefer 1991
@@ -188,9 +174,6 @@ def calculate_sky_brightness_qpt(moon_phase_angle: Quantity,
     sun_zenith_distang : '~astropy.units.Quantity'
         Numpy array of Sun zenith distance angles
 
-    cc :
-        Single float or a numpy array of float of current cloud conditions
-
     verbose :
         Verbose output flag
 
@@ -200,7 +183,7 @@ def calculate_sky_brightness_qpt(moon_phase_angle: Quantity,
         Numpy array of sky background magnitudes at target location
     """
 
-    k = 0.172  # mag/airmass relation for Hale Pohaku
+    # Constants
     a = 2.51189
     q = 27.78151
 
@@ -223,7 +206,7 @@ def calculate_sky_brightness_qpt(moon_phase_angle: Quantity,
 
     # Sky brightness with no moon at target, scattering due to airmass
     b_sky = b_zen * xair(target_zenith_distang) * 10.0 ** (
-            -0.4 * k * (xair(target_zenith_distang) - 1.0)
+            -0.4 * KZEN * (xair(target_zenith_distang) - 1.0)
     )
 
     # Lunar sky brightness
@@ -239,8 +222,8 @@ def calculate_sky_brightness_qpt(moon_phase_angle: Quantity,
         fpjj = (1.06 + np.cos(target_moon_angdist[jj]) ** 2) * 10.0 ** 5.36 + 10.0 ** (
                 6.15 - target_moon_angdist[jj].value / 40.0
         )
-        b_moon[jj] = fpjj * istar[jj] * 10 ** (-0.4 * k * xair(moon_zenith_distang[jj])) * (
-                1.0 - 10 ** (-0.4 * k * xair(target_zenith_distang[jj]))
+        b_moon[jj] = fpjj * istar[jj] * 10 ** (-0.4 * KZEN * xair(moon_zenith_distang[jj])) * (
+                1.0 - 10 ** (-0.4 * KZEN * xair(target_zenith_distang[jj]))
         )
 
     kk = np.where(ii != jj)[0][:]
@@ -248,8 +231,8 @@ def calculate_sky_brightness_qpt(moon_phase_angle: Quantity,
         # There is a bug in the following line from the original code, used by QPT
         fpkk = 6.2e7 / (target_moon_angdist[kk].value ** 2)
         # fpkk = (1.06 + np.cos(mdist[kk])**2) * 10.0**5.36 + 6.2e7 / (mdist[kk].value**2)
-        b_moon[kk] = fpkk * istar[kk] * 10 ** (-0.4 * k * xair(moon_zenith_distang[kk])) * (
-                1.0 - 10 ** (-0.4 * k * xair(target_zenith_distang[kk]))
+        b_moon[kk] = fpkk * istar[kk] * 10 ** (-0.4 * KZEN * xair(moon_zenith_distang[kk])) * (
+                1.0 - 10 ** (-0.4 * KZEN * xair(target_zenith_distang[kk]))
         )
 
     # hh = np.where(np.logical_and(cc > 0.5, cc < 0.8))[0][:]

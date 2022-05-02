@@ -1,5 +1,4 @@
 import logging
-from this import d
 from astropy.coordinates import SkyCoord
 from astropy.time import TimeDelta
 from astropy import units as u
@@ -95,7 +94,8 @@ class NightEvents:
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
         # collect the SkyCoords into one tuple, and the ndarrays into another.
         # The moon_dist are already a Quantity: error if try to convert.
-        self.moon_pos, self.moon_dist = zip(*[sky.Moon().at(t).accurate_location(self.site.value.location) for t in self.times])
+        self.moon_pos, self.moon_dist = zip(*[sky.Moon().at(t).accurate_location(self.site.value.location)
+                                              for t in self.times])
         self.moon_alt, self.moon_az, self.moon_par_ang = altazparang(self.moon_pos)
 
         # Angle between the sun and the moon.
@@ -370,11 +370,10 @@ class Collector(SchedulerComponent):
         return windows
     
     @staticmethod
-    def _calculate_proper_motion(target: Target, time: Time) -> SkyCoord:
+    def _calculate_proper_motion(target: SiderealTarget, time: Time) -> SkyCoord:
         """
         Calculate the proper motion of a target.
         """
-
         pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
         pm_dec = target.pm_dec / Collector._MILLIARCSECS_PER_DEGREE
         epoch_time = Collector._EPOCH2TIME.setdefault(target.epoch, Time(target.epoch, format='jyear'))
@@ -382,7 +381,6 @@ class Collector(SchedulerComponent):
         new_ra = (target.ra + pm_ra * time_offsets.to(u.yr).value) * u.deg
         new_dec = (target.dec + pm_dec * time_offsets.to(u.yr).value) * u.deg
         return SkyCoord(new_ra, new_dec, frame='icrs', unit='deg')
-    
 
     def _calculate_target_info(self,
                                obs: Observation,

@@ -1,10 +1,11 @@
-from typing import Tuple, Union
+from typing import Tuple
 import astropy.units as u
 from astropy.units import Quantity
-from astropy.time import Time, TimezoneInfo
+from astropy.time import Time
 from astropy.coordinates import PrecessedGeocentric, Angle, EarthLocation
 import numpy as np
 import numpy.typing as npt
+from pytz import timezone
 from common.sky.constants import J2000, FLATTEN, EQUAT_RAD
 from common.sky.altitude import AngleParam
 from datetime import datetime, timedelta
@@ -18,11 +19,10 @@ def current_geocent_frame(time: Time) -> BaseRADecFrame:
 
     Parameters
     ----------
-
     time : astropy Time, if an array then the first entry is used
 
     Returns
-
+    -------
     an astropy PrecessedGeocentric time.
     """
     # Generate a PrecessedGeocentric frame for the current equinox.
@@ -54,8 +54,9 @@ def geocentric_coors(geolong: Angle, geolat: float, height: float) -> Tuple[floa
     height :  float
         Height above sea level, which must be in meters.
 
-    Returns: Tuple of astropy Quantities X, Y, Z, which
-        are distances.
+    Returns
+    -------
+    Triple of distances.
     """
 
     # computes the geocentric coordinates from the geodetic
@@ -70,21 +71,23 @@ def geocentric_coors(geolong: Angle, geolat: float, height: float) -> Tuple[floa
 
     denom = (1. - FLATTEN) * np.sin(geolat)
     denom = np.cos(geolat) * np.cos(geolat) + denom * denom
-    C_geo = 1. / np.sqrt(denom)
-    S_geo = (1. - FLATTEN) * (1. - FLATTEN) * C_geo
-    C_geo = C_geo + height / EQUAT_RAD
+    c_geo = 1. / np.sqrt(denom)
+    s_geo = (1. - FLATTEN) * (1. - FLATTEN) * c_geo
+    c_geo = c_geo + height / EQUAT_RAD
+
     #  deviation from almanac notation -- include height here.
-    S_geo = S_geo + height / EQUAT_RAD
+    s_geo = s_geo + height / EQUAT_RAD
+
     # distancemultiplier = Distance(_Constants.EQUAT_RAD, unit = u.m)
-    x_geo = EQUAT_RAD * C_geo * np.cos(geolat) * np.cos(geolong)
-    y_geo = EQUAT_RAD * C_geo * np.cos(geolat) * np.sin(geolong)
-    z_geo = EQUAT_RAD * S_geo * np.sin(geolat)
+    x_geo = EQUAT_RAD * c_geo * np.cos(geolat) * np.cos(geolong)
+    y_geo = EQUAT_RAD * c_geo * np.cos(geolat) * np.sin(geolong)
+    z_geo = EQUAT_RAD * s_geo * np.sin(geolat)
 
     return x_geo, y_geo, z_geo
 
 
 def min_max_alt(lat: Angle, dec: AngleParam) -> Tuple[Angle, Angle]:
-    """Finds the mimimum and maximum altitudes of a celestial location.
+    """Finds the minimum and maximum altitudes of a celestial location.
 
     Parameters
     ----------
@@ -93,8 +96,8 @@ def min_max_alt(lat: Angle, dec: AngleParam) -> Tuple[Angle, Angle]:
     dec : astropy Angle, float or array
         declination of the object.
 
-    Returns :
-
+    Returns
+    -------
     (minalt, maxalt) : both Astropy Angle
         tuple of minimum and maximum altitudes.
     """
@@ -128,7 +131,7 @@ def min_max_alt(lat: Angle, dec: AngleParam) -> Tuple[Angle, Angle]:
     return Angle(minalt, unit=u.rad), Angle(maxalt, unit=u.rad)
 
 
-def local_midnight_time(time: Time, localtzone: TimezoneInfo) -> Time:
+def local_midnight_time(time: Time, localtzone: timezone) -> Time:
     """find nearest local midnight (UT).
 
     If it's before noon local time, returns previous midnight;
@@ -141,8 +144,8 @@ def local_midnight_time(time: Time, localtzone: TimezoneInfo) -> Time:
     localtzone : timezone object.
 
     Returns
-
-    Time.  This is not zone-aware, but should be correct.
+    -------
+    Time. This is not zone-aware, but should be correct.
     """
 
     # takes an astropy Time and the local time zone and
@@ -163,7 +166,6 @@ def local_midnight_time(time: Time, localtzone: TimezoneInfo) -> Time:
         # if before midnight, add 12 hours
         if datet.hour >= 12:
             datet = datet + timedelta(hours=12.)
-
         datetmid.append(localtzone.localize(datetime(datet.year, datet.month, datet.day, 0, 0, 0)))
 
     if scalar_input:
@@ -221,13 +223,13 @@ def local_sidereal_time(time: Time, location: EarthLocation) -> Angle:
     
     sid_int = sidereal.astype(np.int64)
     sidereal = (sidereal - sid_int) * 24.
-    # if(sid < 0.) : sid = sid + 24.
-    # TODO: A convertion to radians is needed if the output is not an Angle
+
+    # TODO: A conversion to radians is needed if the output is not an Angle
     lst = Angle(sidereal, unit=u.hour)
     lst.wrap_at(24. * u.hour, inplace=True)
 
     if scalar_input:
-        return np.squeeze(lst)
+        return lst.squeeze()
     return lst
 
 
@@ -255,10 +257,7 @@ def true_airmass(altit: Angle) -> npt.NDArray[float]:
 
     altit : Angle, float or numpy array
         Altitude above horizon.
-
-    Returns : float
     """
-
     altit = np.asarray(altit.to_value(u.rad).data)
     scalar_input = False
     if altit.ndim == 0:
@@ -324,8 +323,7 @@ def hour_angle_to_angle(dec: AngleParam,
     elif len(dec) > 1 and len(alt) == 1:
         alt = alt * np.ones(len(dec))
     elif len(dec) != len(alt):
-        print('Error: dec and alt have incompatible lengths')
-        return
+        raise ValueError('Error: dec and alt have incompatible lengths')
 
     x = np.zeros(len(dec))
     codec = np.zeros(len(dec))
@@ -355,7 +353,7 @@ def hour_angle_to_angle(dec: AngleParam,
     return Angle(x, unit=u.rad)
 
 
-def xair(zd: Quantity) -> Quantity:
+def xair(zd: Quantity) -> npt.NDArray[float]:
     """
     Evaluate true airmass, equation 3 from Krisciunas &  Schaefer 1991
     zd is a Quantity
@@ -392,11 +390,11 @@ def xair(zd: Quantity) -> Quantity:
             x[ik[jj]] = 10.
 
     if scalar_input:
-        return np.squeeze(x)
+        return x.squeeze()
     return x
 
 
-def ztwilight(alt: Angle) -> float:
+def ztwilight(alt: Angle) -> npt.NDArray[float]:
     """Estimate twilight contribution to zenith sky brightness, in magnitudes
     per square arcsecond.
 
@@ -412,7 +410,8 @@ def ztwilight(alt: Angle) -> float:
         Sun's elevation.  Meaningful range is -0.9 to -18 degrees.
 
     Returns
-        float.  If the sun is up, returns 20; if the sun below -18, returns 0.
+    -------
+        numpy array of float.  If the sun is up, returns 20; if the sun below -18, returns 0.
 
     """
     # Given an Angle alt in the range -0.9 to -18 degrees,

@@ -84,10 +84,9 @@ class Selector(SchedulerComponent):
         """
         return self._groups.get(group_id, None)
 
-    def get_group_info(self, group_id) -> Optional[GroupInfoMap]:
+    def get_group_info(self, group_id) -> Optional[GroupInfo]:
         """
-        Given a GroupID, if the group exists, return the group information
-        as a map from NightIndex to GroupInfo.
+        Given a GroupID, if the group exists, return the group information.
         """
         return self._group_info.get(group_id, None)
 
@@ -172,7 +171,7 @@ class Selector(SchedulerComponent):
 
     def _calculate_group(self,
                          group: Group,
-                         sites: Set[Site],
+                         sites: FrozenSet[Site],
                          ranker: Ranker,
                          group_info_map: GroupInfoMap = None) -> GroupInfoMap:
         """
@@ -197,7 +196,7 @@ class Selector(SchedulerComponent):
 
     def _calculate_observation_group(self,
                                      group: Group,
-                                     sites: Set[Site],
+                                     sites: FrozenSet[Site],
                                      ranker: Ranker,
                                      group_info_map: GroupInfoMap) -> GroupInfoMap:
         """
@@ -308,7 +307,7 @@ class Selector(SchedulerComponent):
 
     def _calculate_and_group(self,
                              group: Group,
-                             sites: Set[Site],
+                             sites: FrozenSet[Site],
                              ranker: Ranker,
                              group_info_map: GroupInfoMap) -> GroupInfoMap:
         """
@@ -377,7 +376,7 @@ class Selector(SchedulerComponent):
 
     def _calculate_or_group(self,
                             group: Group,
-                            site: Set[Site],
+                            site: FrozenSet[Site],
                             ranker: Ranker,
                             group_info_map: GroupInfoMap) -> NoReturn:
         """

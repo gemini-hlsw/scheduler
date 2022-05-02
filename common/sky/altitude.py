@@ -9,8 +9,12 @@ U = TypeVar('U')
 ScalarOrArray = Union[T, U, npt.NDArray[U]]
 AngleParam = ScalarOrArray[Angle, float]
 
-class Altitude:
 
+class Altitude:
+    def __init__(self):
+        raise NotImplementedError('Use static method Altitude.above.')
+
+    @staticmethod
     def above(dec: AngleParam,
               ha: AngleParam,
               lat: AngleParam) -> Tuple[Angle, Angle, Angle]:
@@ -39,14 +43,14 @@ class Altitude:
         ----------
 
         dec : Angle, float or numpy array
-        Declination
+            Declination
         ha : Angle, float or numpy array
-        Hour angle (spherical astronomy) of the position, positive westward
+            Hour angle (spherical astronomy) of the position, positive westward
         lat : Angle
-        Latitude of site.
+            Latitude of site.
 
         Returns
-
+        -------
         tuple of (altitude, azimuth, parallactic), all of which are Angles.
         """
 
@@ -65,8 +69,7 @@ class Altitude:
         elif len(dec) > 1 and len(ha) == 1:
             ha = ha * np.ones(len(dec))
         elif len(dec) != len(ha):
-            print('Error: dec and ha have incompatible lengths')
-            return
+            raise ValueError('Error: dec and ha have incompatible lengths')
 
         cos_dec = np.cos(dec)
         sin_dec = np.sin(dec)

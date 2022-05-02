@@ -1,14 +1,21 @@
 import numpy as np
+import numpy.typing as npt
 import astropy.units as u
 from astropy.coordinates import Angle, EarthLocation
-from astropy.time import Time, TimezoneInfo
+from astropy.time import Time
+from pytz import timezone
+from typing import Tuple, Union
+
 from common.sky.utils import local_midnight_time
 from common.sky.sun import Sun
 from common.sky.constants import EQUAT_RAD
 from common.sky.moon import Moon
 
 
-def night_events(time: Time, location: EarthLocation, localtzone: TimezoneInfo):
+def night_events(time: Time, location: EarthLocation, localtzone: timezone) -> \
+        Tuple[Time, Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time],
+              Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time],
+              Union[npt.NDArray[float], Tuple[Angle, Time, EarthLocation]]]:
     """
     Compute phenomena for a given night.
 
@@ -20,7 +27,6 @@ def night_events(time: Time, location: EarthLocation, localtzone: TimezoneInfo):
         input time; if before noon, events of previous night are computed.
     location : EarthLocation
     localtzone : timezone object.
-    verbose: verbose output
     """
     # prototype for the events of a single night -- sunset and rise,
     # twilights, and moonrise and set.
