@@ -7,6 +7,7 @@ from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from common.output import print_collector_info
 from components.collector import *
 from components.selector import Selector
+from components.optimizer import Optimizer, GreedyMax
 
 if __name__ == '__main__':
     # Reduce logging to ERROR only to display the tqdm bars nicely.
@@ -117,9 +118,12 @@ if __name__ == '__main__':
     # Note that the actual scores are generated using the Ranker (components.ranker.__init__.py, Ranker class), which
     # follows the old implementation but is generalized to multi-night, and cleaned up significantly.
 
-
     # Sergio preliminary work:
     # Output the data in a spreadsheet.
     # for program in collector._programs.values():
     #    if program.id == 'GS-2018B-Q-101':
     #        atoms_to_sheet(program)
+
+    gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
+    optimizer = Optimizer(results, algorithm=gm)
+    plan = optimizer.schedule()
