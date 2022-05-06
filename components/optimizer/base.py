@@ -15,5 +15,7 @@ class BaseOptimizer(metaclass=abc.ABCMeta):
     def __subclasshook__(cls, subclass):
         return (hasattr(subclass, 'schedule') and
                 callable(subclass.schedule) and
+                hasattr(subclass, 'add') and
+                callable(subclass.add) and
                 hasattr(subclass, 'get_visits') and
                 callable(subclass.get_visits))
