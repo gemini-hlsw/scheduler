@@ -1,4 +1,6 @@
 import abc
+from common.minimodel import Plan
+
 
 
 class BaseOptimizer(metaclass=abc.ABCMeta):
@@ -18,4 +20,21 @@ class BaseOptimizer(metaclass=abc.ABCMeta):
                 hasattr(subclass, 'add') and
                 callable(subclass.add) and
                 hasattr(subclass, 'get_visits') and
-                callable(subclass.get_visits))
+                callable(subclass.get_visits) and
+                hasattr(subclass, '_run') and
+                callable(subclass, '_run'))
+
+    @property
+    def get_visits(self):
+        return self._visits
+
+    @abc.abstractmethod
+    def schedule(self) -> Plan:
+        plan = Plan()
+        while not plan.is_full():
+            self._run()
+        return plan
+    
+    @abc.abstractmethod
+    def _run(self):
+        ...
