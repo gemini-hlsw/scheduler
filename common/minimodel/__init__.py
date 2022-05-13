@@ -696,6 +696,12 @@ class Observation:
 
     too_type: Optional[TooType] = None
 
+    def base_target(self) -> Optional[Target]:
+        """
+        Get the base target for this Observation if it has one, and None otherwise.
+        """
+        return next(filter(lambda t: t.type == TargetType.BASE, self.targets), None)
+
     def exec_time(self) -> timedelta:
         """
         Total execution time for the program, which is sum across atoms and the acquisition overhead.

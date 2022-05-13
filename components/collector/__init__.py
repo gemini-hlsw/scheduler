@@ -293,16 +293,16 @@ class Collector(SchedulerComponent):
         return Collector._programs.get(program_id, None)
 
     @staticmethod
-    def get_observation_ids(prog_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
+    def get_observation_ids(program_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
         """
         Return the observation IDs in the Collector.
         If the prog_id is specified, limit these to those in the specified in the program.
         If no such prog_id exists, return None.
         If no prog_id is specified, return a complete list of observation IDs.
         """
-        if prog_id is None:
+        if program_id is None:
             return Collector._observations.keys()
-        return Collector._observations_per_program.get(prog_id, None)
+        return Collector._observations_per_program.get(program_id, None)
 
     @staticmethod
     def get_observation(obs_id: ObservationID) -> Optional[Observation]:
@@ -579,7 +579,7 @@ class Collector(SchedulerComponent):
 
                 for obs in tqdm(good_obs, leave=False):
                     # Retrieve tne base target, if any. If not, we cannot process.
-                    base = next(filter(lambda t: t.type == TargetType.BASE, obs.targets), None)
+                    base = obs.base_target()
 
                     # Record the observation and target for this observation ID.
                     Collector._observations[obs.id] = obs, base

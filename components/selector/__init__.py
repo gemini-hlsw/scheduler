@@ -6,7 +6,7 @@ import astropy.units as u
 from api.observatory.abstract import ObservatoryProperties
 from common.minimodel import *
 from components.base import SchedulerComponent
-from components.collector import Collector, NightIndex
+from components.collector import Collector, NightEvents, NightIndex, TargetInfoNightIndexMap
 from components.ranker import Ranker, Scores
 
 from typing import Dict, Iterable, FrozenSet, NoReturn, Set
@@ -497,3 +497,39 @@ class Selector(SchedulerComponent):
         if scalar_input:
             cmatch = np.squeeze(cmatch)
         return cmatch
+
+    def get_program_ids(self) -> Iterable[ProgramID]:
+        """
+        Simplified interface to the Collector.
+        """
+        return self.collector.get_program_ids()
+
+    def get_program(self, program_id: ProgramID) -> Optional[Program]:
+        """
+        Simplified interface to the Collector.
+        """
+        return self.collector.get_program(program_id)
+
+    def get_observation_ids(self, program_id: Optional[ProgramID] = None) -> Iterable[ObservationID]:
+        """
+        Simplified interface to the Collector.
+        """
+        return self.collector.get_observation_ids(program_id)
+
+    def get_observation(self, obs_id: ObservationID) -> Optional[Observation]:
+        """
+        Simplified interface to the Collector.
+        """
+        return self.collector.get_observation(obs_id)
+
+    def get_night_events(self, site: Site) -> Optional[NightEvents]:
+        """
+        Simplified interface to the Collector.
+        """
+        return self.collector.get_night_events(site)
+
+    def get_target_info(self, obs_id: ObservationID) -> Optional[TargetInfoNightIndexMap]:
+        """
+        Simplified interface to the Collector.
+        """
+        return self.collector.get_target_info(obs_id)
