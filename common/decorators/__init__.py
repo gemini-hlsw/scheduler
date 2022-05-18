@@ -1,6 +1,6 @@
 
 import numpy as np
-from datetime import timedelta 
+from datetime import timedelta
 
 def scalar_input(func):
     """
@@ -22,6 +22,10 @@ def scalar_input(func):
 def with_igrins_cal(func):
     def add_calibration(self):
         if ('IGRINS' in [res.id for res in self.required_resources()] and self.partner_used() > 0):
-            return func + timedelta(seconds=(1 / 6))
-        return func
+            return func(self) + timedelta(seconds=(1 / 6))
+        return func(self)
     return add_calibration
+
+"""
+def gemini(func)
+"""

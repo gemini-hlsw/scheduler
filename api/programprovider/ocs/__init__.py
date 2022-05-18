@@ -807,7 +807,7 @@ class OcsProgramProvider(ProgramProvider):
         else:
             too_type = None
 
-        return Observation(
+        return GeminiObservation(
             id=obs_id,
             internal_id=internal_id,
             order=num,
