@@ -155,6 +155,7 @@ class Selector(SchedulerComponent):
             raise ValueError(f'Non-observation group {group.id} cannot be treated as observation group.')
 
         obs = group.children
+        
 
         if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED}:
             return group_data_map
@@ -318,7 +319,7 @@ class Selector(SchedulerComponent):
         # Calculate the scores for the group across all nights across all timeslots.
         scores = ranker.score_and_group(group)
 
-        group_info = GroupInfo(
+        group_info_map[group.id] = GroupInfo(
             minimum_conditions=mrc,
             is_splittable=is_splittable,
             standards=standards,

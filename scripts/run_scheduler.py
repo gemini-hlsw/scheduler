@@ -125,14 +125,13 @@ if __name__ == '__main__':
     #        atoms_to_sheet(program)
 
     # "Selection" format for optimzer
-    # Dict[Group, GroupInfo]
+    # Dict[GroupID, Tuple[Group, GroupInfo]
 
     selection = {}
     for program_id, group_info_map in results.items():
         for group_id, group_info in group_info_map.items():
-            print(group_id, group_info)
             group = selector.get_group(group_id)
-            selection[group] = group_info # TODO: We might consider just add group info to group?
+            selection[group_id] = (group, group_info)  # TODO: We might consider just add group info to group?
 
     # print(selection)
     gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm

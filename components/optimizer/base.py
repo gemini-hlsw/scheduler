@@ -32,7 +32,7 @@ class BaseOptimizer(metaclass=abc.ABCMeta):
     def schedule(self) -> Plan:
         plan = Plan()
         while not plan.is_full():
-            self._run()
+            self._run(plan)
         return plan
     
     @abc.abstractmethod

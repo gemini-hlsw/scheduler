@@ -1,7 +1,7 @@
 from common.minimodel import Group
 from .base import BaseOptimizer
 from typing import Dict
-from common.minimodel import Group
+from common.minimodel import Group, Plan
 from components.selector import GroupInfo
 
 Selection = Dict[Group, GroupInfo]
@@ -22,18 +22,21 @@ class GreedyMax(BaseOptimizer):
         """
         Find the group with the highest score.
         """
-        return max(self.selection, key=lambda g: g.score)
-    
-    def _insert(self, max_group: Group):
+        # TODO: This makes a case for adding Info to the group
+        info = [g[1] for g in self.selection.values()]
+        return max(i.scores[0][0] for i in info)  # This just plain wrong and for demo purposes
+ 
+    def _insert(self, max_group: Group, plan: Plan):
         """
         Insert the group into the plan.
         This might be general for all optimizers but for GreedyMax we need to
         move things around as we insert (also splitting). It could be force to implement by
         the abstract class
         """
+        plan.add_group(max_group)
         return True
 
-    def _run(self):
+    def _run(self, plan: Plan):
         """
         GreedyMax logic goes here.
         """
@@ -45,7 +48,7 @@ class GreedyMax(BaseOptimizer):
             iter += 1
 
             max_group = self._find_max_group()
-            if self._insert(max_group):
+            if self._insert(max_group, plan):
                 scheduled = True
             else:
                 pass
