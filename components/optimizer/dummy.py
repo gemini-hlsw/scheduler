@@ -5,6 +5,10 @@ import random
 
 class Dummy(BaseOptimizer):
 
+    def __init__(self, seed=42):
+        # Set seed for replication
+        random.seed(seed)
+
     def _run(self, plan: Plan):
         """
         Gives a random group/observation to add to plan
