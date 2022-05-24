@@ -60,12 +60,3 @@ class GreedyMax(BaseOptimizer):
         # Preparation for the optimizer i.e create chromosomes, etc.
         self.selection = selection
         return self
-
-    def schedule(self):
-        """
-        Entry point for any optimizer. This method is given by the base class.
-        """
-        return super().schedule()
-
-    def get_visits(self):
-        return self._visits

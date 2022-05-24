@@ -6,6 +6,7 @@ from api.observatory.gemini import GeminiProperties
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from common.output import print_collector_info
 from components.collector import *
+from components.optimizer.dummy import Dummy
 from components.selector import Selector
 from components.optimizer import Optimizer, GreedyMax
 
@@ -126,14 +127,16 @@ if __name__ == '__main__':
 
     # "Selection" format for optimzer
     # Dict[GroupID, Tuple[Group, GroupInfo]
-
     selection = {}
     for program_id, group_info_map in results.items():
         for group_id, group_info in group_info_map.items():
             group = selector.get_group(group_id)
             selection[group_id] = (group, group_info)  # TODO: We might consider just add group info to group?
 
-    # print(selection)
-    gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
-    optimizer = Optimizer(selection, algorithm=gm)
-    plan = optimizer.schedule()
+    # NightEvents
+    night_events = {site: collector.get_night_events(site) for site in ALL_SITES}
+
+    # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
+    dummy = Dummy()
+    optimizer = Optimizer(selection, algorithm=dummy)
+    plans_for_all_sites = {site: optimizer.schedule(night_events[site]) for site in ALL_SITES}

@@ -1,6 +1,9 @@
 import abc
-from common.minimodel import Plan
+from common.minimodel import Group, Plan
+from components.selector import GroupInfo
+from typing import Dict
 
+Selection = Dict[Group, GroupInfo]
 
 
 class BaseOptimizer(metaclass=abc.ABCMeta):
@@ -28,13 +31,10 @@ class BaseOptimizer(metaclass=abc.ABCMeta):
     def get_visits(self):
         return self._visits
 
-    @abc.abstractmethod
-    def schedule(self) -> Plan:
-        plan = Plan()
+    def schedule(self, plan: Plan):
         while not plan.is_full():
             self._run(plan)
-        return plan
     
     @abc.abstractmethod
-    def _run(self):
+    def _run(self, plan: Plan):
         ...
