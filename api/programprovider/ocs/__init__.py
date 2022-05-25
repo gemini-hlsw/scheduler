@@ -9,6 +9,7 @@ from typing import Iterable, NoReturn, Tuple
 import zipfile
 
 from api.programprovider.abstract import ProgramProvider
+from api.observatory.gemini import GeminiObservation
 from common.helpers import str_to_bool, dmsstr2deg
 from common.timeutils import sex2dec
 from common.minimodel import *

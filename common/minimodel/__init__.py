@@ -12,7 +12,6 @@ from pytz import timezone, UnknownTimeZoneError
 from typing import ClassVar, List, Mapping, Optional, Sequence, Set, Union
 
 from common.helpers import flatten
-from common.decorators import with_igrins_cal
 
 # Type aliases for convenience.
 NightIndex = int
@@ -789,17 +788,7 @@ class Observation:
 
         return (dict((k, v) for k, v in self.__dict__.items() if k != 'sequence') ==
                 dict((k, v) for k, v in other.__dict__.items() if k != 'sequence'))
-
-
-class GeminiObservation(Observation):
-    """
-    A Gemini-specific extension of the Observation class.
-    """
-    @with_igrins_cal
-    def total_used(self) -> timedelta:
-        return super().total_used()
     
-
 # Type alias for group ID.
 GroupID = str
 
