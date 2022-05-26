@@ -3,7 +3,7 @@ from common.minimodel import Plan
 import random
 
 
-class Dummy(BaseOptimizer):
+class DummyOptimizer(BaseOptimizer):
 
     def __init__(self, seed=42):
         # Set seed for replication

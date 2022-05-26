@@ -6,7 +6,7 @@ from api.observatory.gemini import GeminiProperties
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from common.output import print_collector_info
 from components.collector import *
-from components.optimizer.dummy import Dummy
+from components.optimizer.dummy import DummyOptimizer
 from components.selector import Selector
 from components.optimizer import Optimizer, GreedyMax
 
@@ -137,6 +137,6 @@ if __name__ == '__main__':
     night_events = {site: collector.get_night_events(site) for site in ALL_SITES}
 
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
-    dummy = Dummy()
+    dummy = DummyOptimizer()
     optimizer = Optimizer(selection, algorithm=dummy)
     plans_for_all_sites = {site: optimizer.schedule(night_events[site]) for site in ALL_SITES}
