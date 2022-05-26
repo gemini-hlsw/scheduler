@@ -788,8 +788,7 @@ class Observation:
 
         return (dict((k, v) for k, v in self.__dict__.items() if k != 'sequence') ==
                 dict((k, v) for k, v in other.__dict__.items() if k != 'sequence'))
-
-
+    
 # Type alias for group ID.
 GroupID = str
 

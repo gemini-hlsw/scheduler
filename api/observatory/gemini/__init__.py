@@ -3,10 +3,10 @@ import astropy.units as u
 
 from enum import Enum, EnumMeta
 from typing import Set
+from datetime import timedelta
 
 from api.observatory.abstract import ObservatoryProperties
-from common.minimodel import ObservationMode, Resource
-
+from common.minimodel import Observation, ObservationMode, Resource
 
 class GeminiProperties(ObservatoryProperties):
     """
@@ -49,3 +49,20 @@ class GeminiProperties(ObservatoryProperties):
             if ObservationMode.IMAGING in modes:
                 return 2.0 * u.h
             return 0.0 * u.h
+
+
+def with_igrins_cal(func):
+    def add_calibration(self):
+        if GeminiProperties.Instruments.IGRINS in self.required_resources() and self.partner_used() > 0:
+            return func(self) + timedelta(seconds=(1 / 6))
+        return func(self)
+    return add_calibration
+
+
+class GeminiObservation(Observation):
+    """
+    A Gemini-specific extension of the Observation class.
+    """
+    @with_igrins_cal
+    def total_used(self) -> timedelta:
+        return super().total_used()
