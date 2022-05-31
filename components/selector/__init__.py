@@ -71,25 +71,6 @@ class Selector(SchedulerComponent):
         # List of groups that have been selected.
         self._group_info: GroupInfoMap = {}
 
-    def get_group_ids(self) -> Iterable[GroupID]:
-        """
-        Return a list of all the group IDs stored in the Selector.
-        """
-        return self._groups.keys()
-
-    def get_group(self, group_id: GroupID) -> Optional[Group]:
-        """
-        If a group with the given ID exists, return it.
-        Otherwise, return None.
-        """
-        return self._groups.get(group_id, None)
-
-    def get_group_info(self, group_id) -> Optional[GroupInfo]:
-        """
-        Given a GroupID, if the group exists, return the group information.
-        """
-        return self._group_info.get(group_id, None)
-
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
                night_indices: Optional[npt.NDArray[NightIndex]] = None,
@@ -151,11 +132,11 @@ class Selector(SchedulerComponent):
             # TODO: Possible changes to this:
             # TODO: 1. Only return programs where the root group is schedulable.
             # TODO: 2. Only include schedulable groups in the data for each program.
-            # Note that the filter on the second will filter our root groups with no slots, since
+            # Note that the filter on the second will filter out root groups with no slots, since
             # the slots for an ancestor node are based on its subnodes.
 
             # This will filter out all GroupInfo objects that do not have schedulable slots.
-            # group_info = {gid: info for gid, info in group_info.items() if len(info.schedulable_slot_indices) > 0}
+            group_info = {gid: info for gid, info in group_info.items() if len(info.schedulable_slot_indices) > 0}
 
             # This filters out any programs that have no root group with any schedulable slots.
             # if len(group_info[program.root_group.id].schedulable_slot_indices) > 0:
@@ -521,6 +502,28 @@ class Selector(SchedulerComponent):
         Simplified interface to the Collector.
         """
         return self.collector.get_observation(obs_id)
+
+    def get_group_ids(self) -> Iterable[GroupID]:
+        """
+        Return a list of all the group IDs stored in the Selector.
+        TODO: Consider this method for removal, since schedulable groups are handed back by select.
+        TODO: This will return all group keys, some of which have no GroupInfo.
+        """
+        return self._groups.keys()
+
+    def get_group(self, group_id: GroupID) -> Optional[Group]:
+        """
+        If a group with the given ID exists, return it.
+        Otherwise, return None.
+        """
+        return self._groups.get(group_id, None)
+
+    def get_group_info(self, group_id) -> Optional[GroupInfo]:
+        """
+        Given a GroupID, if the group exists, return the group information.
+        TODO: Consider this method for removal, since this is handed back by select.
+        """
+        return self._group_info.get(group_id, None)
 
     def get_night_events(self, site: Site) -> Optional[NightEvents]:
         """
