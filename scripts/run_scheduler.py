@@ -55,6 +55,7 @@ if __name__ == '__main__':
     # The NightEvents are the calculations for a given site across all nights.
     #
     # This may have to be modified in the future to accept date ranges, since now they return everything the Collector
+
     # was initialized with in terms of period length and time granularity.
     #
     # For all the values:
@@ -126,12 +127,13 @@ if __name__ == '__main__':
     #        atoms_to_sheet(program)
 
     # "Selection" format for optimzer
-    # Dict[GroupID, Tuple[Group, GroupInfo]
+    # Dict[GroupID, Tuple[Group, GroupInfo, List[TargetInfo]]]
     selection = {}
     for program_id, group_info_map in results.items():
         for group_id, group_info in group_info_map.items():
             group = selector.get_group(group_id)
-            selection[group_id] = (group, group_info)  # TODO: We might consider just add group info to group?
+            target_infos = [collector.get_target_info(o.id) for o in group.observations()]
+            selection[group_id] = (group, group_info, target_infos)
 
     # NightEvents
     night_events = {site: collector.get_night_events(site) for site in ALL_SITES}
