@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from enum import Enum, IntEnum, auto
 import numpy.typing as npt
 from pytz import timezone, UnknownTimeZoneError
-from typing import ClassVar, List, Mapping, Optional, Sequence, Set, Union
+from typing import ClassVar, Collection, FrozenSet, List, Mapping, Optional, Sequence, Set, Union
 
 from common.helpers import flatten
 
@@ -788,7 +788,8 @@ class Observation:
 
         return (dict((k, v) for k, v in self.__dict__.items() if k != 'sequence') ==
                 dict((k, v) for k, v in other.__dict__.items() if k != 'sequence'))
-    
+
+
 # Type alias for group ID.
 GroupID = str
 
@@ -822,32 +823,38 @@ class Group(ABC):
             msg = f'Group {self.group_name} specifies non-positive {self.number_to_observe} children to be observed.'
             raise ValueError(msg)
 
-    def subgroup_ids(self) -> Set[GroupID]:
+    def subgroup_ids(self) -> FrozenSet[GroupID]:
         if isinstance(self.children, Observation):
-            return set()
+            return frozenset()
         else:
-            return {subgroup.id for subgroup in self.children}
+            return frozenset(subgroup.id for subgroup in self.children)
 
-    def sites(self) -> Set[Site]:
+    def sites(self) -> FrozenSet[Site]:
         if isinstance(self.children, Observation):
-            return {self.children.site}
+            return frozenset([self.children.site])
         else:
-            return set.union(*[s.sites() for s in self.children])
+            return frozenset.union(*[s.sites() for s in self.children])
 
-    def required_resources(self) -> Set[Resource]:
-        return {r for c in self.children for r in c.required_resources()}
+    def required_resources(self) -> FrozenSet[Resource]:
+        return frozenset(r for c in self.children for r in c.required_resources())
 
-    def wavelengths(self) -> Set[float]:
-        return {w for c in self.children for w in c.wavelengths()}
+    def wavelengths(self) -> FrozenSet[float]:
+        return frozenset(w for c in self.children for w in c.wavelengths())
 
-    def constraints(self) -> Set[Constraints]:
-        return {cs for c in self.children for cs in c.constraints()}
+    def constraints(self) -> FrozenSet[Constraints]:
+        return frozenset(cs for c in self.children for cs in c.constraints())
 
     def observations(self) -> List[Observation]:
         if isinstance(self.children, Observation):
             return [self.children]
         else:
             return [o for g in self.children for o in g.observations()]
+
+    def is_observation_group(self) -> bool:
+        return isinstance(self.children, Observation)
+
+    def is_scheduling_group(self) -> bool:
+        return not(self.is_observation_group())
 
     def __len__(self):
         return 1 if isinstance(self.children, Observation) else len(self.children)
@@ -1007,3 +1014,18 @@ class Program:
 
     def observations(self) -> List[Observation]:
         return self.root_group.observations()
+
+    def get_group_ids(self) -> FrozenSet[GroupID]:
+        return self.root_group.subgroup_ids()
+
+    def get_group(self, group_id: GroupID) -> Optional[Group]:
+        def aux(group: Group) -> Optional[Group]:
+            if group.id == group_id:
+                return group
+            elif group.is_scheduling_group():
+                for subgroup in group.children:
+                    retval = aux(subgroup)
+                    if retval is not None:
+                        return retval
+            return None
+        return aux(self.root_group)

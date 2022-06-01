@@ -9,10 +9,10 @@ from components.base import SchedulerComponent
 from components.collector import Collector, NightEvents, NightIndex, TargetInfoNightIndexMap
 from components.ranker import Ranker, Scores
 
-from typing import Dict, Iterable, FrozenSet, NoReturn, Set
+from typing import Dict, FrozenSet, Set
 
 
-@dataclass
+@dataclass(frozen=True)
 class GroupInfo:
     """
     Information regarding Groups that can only be calculated in the Selector.
@@ -38,12 +38,56 @@ class GroupInfo:
     scores: Scores
 
 
-# Type alias for Group information mapping.
-GroupInfoMap = Dict[GroupID, GroupInfo]
-ProgramGroupInfoMap = Dict[ProgramID, GroupInfoMap]
+@dataclass(frozen=True)
+class GroupData:
+    group: Group
+    group_info: GroupInfo
 
 
-@dataclass
+# This has to be a Dict because we need to be able to write to it using [idx].
+GroupDataMap = Dict[GroupID, GroupData]
+
+
+@dataclass(frozen=True)
+class ProgramInfo:
+    """
+    This represents the information for a program that contains schedulable components during the time frame
+    under consideration, along with those schedulable components.
+    """
+    program: Program
+
+    # Schedulable groups by ID and their information.
+    group_data: GroupDataMap
+
+    # Schedulable observations by their ID. This is duplicated in the group information above
+    # but provided for convenience.
+    observations: Mapping[ObservationID, Observation]
+
+    # Target information relevant to this program.
+    target_info: Mapping[ObservationID, TargetInfoNightIndexMap]
+
+    def __post_init__(self):
+        # Set up the keys from the data. We have to use this ugly syntax to make the dataclass frozen.
+        object.__setattr__(self, 'observation_ids', frozenset(self.observations.keys()))
+        object.__setattr__(self, 'group_ids', frozenset(self.group_data.keys()))
+
+
+@dataclass(frozen=True)
+class Selection:
+    """
+    The selection of information passed by the Selector to the Optimizer.
+    This includes the list of programs that are schedulable
+    """
+    program_info: Mapping[ProgramID, ProgramInfo]
+    night_events: Mapping[Site, NightEvents]
+
+    def __post_init__(self):
+        # Set up the keys from the data.
+        object.__setattr__(self, 'program_ids', frozenset(self.program_info.keys()))
+        # self.program_ids = frozenset(self.program_info.keys())
+
+
+@dataclass(frozen=True)
 class Selector(SchedulerComponent):
     """
     This is the Selector portion of the automated Scheduler.
@@ -59,22 +103,10 @@ class Selector(SchedulerComponent):
     # Observatory-specific properties.
     properties: ObservatoryProperties
 
-    def __post_init__(self):
-        """
-        Initialize internal non-input data members.
-        """
-        # Visibility calculations that can only be completed in the Selector.
-        # These comprise what can be done on a given night depending on weather,
-        # resources, etc.
-        self._groups: Dict[GroupID, Group] = {}
-
-        # List of groups that have been selected.
-        self._group_info: GroupInfoMap = {}
-
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
                night_indices: Optional[npt.NDArray[NightIndex]] = None,
-               ranker: Optional[Ranker] = None) -> ProgramGroupInfoMap:
+               ranker: Optional[Ranker] = None) -> Selection:
         """
         Perform the selection of the groups based on:
         * Resource availability
@@ -99,9 +131,6 @@ class Selector(SchedulerComponent):
         TODO: attempts to include them will result in a NotImplementedException.
         TODO: Further design work must be done to determine how to score them and how to
         TODO: determine the time slots at which they can be scheduled.
-
-        As all groups are in a group tree rooted at a program node, his information is returned on a
-        program-by-program basis.
         """
         # If no night indices are specified, assume all night indices.
         if night_indices is None:
@@ -116,7 +145,7 @@ class Selector(SchedulerComponent):
             raise ValueError(f'The Ranker must have the same night indices as the Selector select method.')
 
         # Create the structure to hold the mapping fom program ID to its group info.
-        program_calcs = {}
+        program_info: Dict[ProgramID, ProgramInfo] = {}
         for program_id in Collector.get_program_ids():
             program = Collector.get_program(program_id)
             if program is None:
@@ -124,42 +153,45 @@ class Selector(SchedulerComponent):
                 continue
 
             # Calculate the group info and put it in the structure if there is actually group
-            # info data inside of it, i.e. feasible time slots for it in the plan.
-            group_info = self._calculate_group(program.root_group, sites, ranker)
-
-            # TODO: There are many different ways how to structure what we can return.
-            # TODO: Right now we return any program that has a schedulable group.
-            # TODO: Possible changes to this:
-            # TODO: 1. Only return programs where the root group is schedulable.
-            # TODO: 2. Only include schedulable groups in the data for each program.
-            # Note that the filter on the second will filter out root groups with no slots, since
-            # the slots for an ancestor node are based on its subnodes.
+            # info data inside it, i.e. feasible time slots for it in the plan.
+            unfiltered_group_data_map = self._calculate_group(program.root_group, sites, ranker)
 
             # This will filter out all GroupInfo objects that do not have schedulable slots.
-            group_info = {gid: info for gid, info in group_info.items() if len(info.schedulable_slot_indices) > 0}
-
-            # This filters out any programs that have no root group with any schedulable slots.
-            # if len(group_info[program.root_group.id].schedulable_slot_indices) > 0:
-            #     program_calcs[program.id] = group_info
+            group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
+                              if len(gp_data.group_info.schedulable_slot_indices) > 0}
 
             # This filters out any programs that have no groups with any schedulable slots.
-            if any(len(info.schedulable_slot_indices) > 0 for info in group_info.values()):
-                program_calcs[program.id] = group_info
+            if any(len(group_data.group_info.schedulable_slot_indices) > 0 for group_data in group_data_map.values()):
+                # Remember that in an observation group, the only child is an Observation: hence references here
+                # to group.children are simply the Observation.
+                observations = {group_data.group.children.id: group_data.group.children
+                                for group_data in group_data_map.values()
+                                if group_data.group.is_observation_group()}
+                target_info = {obs_id: self.collector.get_target_info(obs_id) for obs_id, obs in observations.items()}
+                program_info[program.id] = ProgramInfo(
+                    program=program,
+                    group_data=group_data_map,
+                    observations=observations,
+                    target_info=target_info
+                )
 
         # The end product is a map of ProgramID to a map of GroupID to GroupInfo, where
         # at least one GroupInfo has schedulable slots.
-        return program_calcs
+        return Selection(
+            program_info=program_info,
+            night_events={site: self.collector.get_night_events(site) for site in sites}
+        )
 
     def _calculate_group(self,
                          group: Group,
                          sites: FrozenSet[Site],
                          ranker: Ranker,
-                         group_info_map: GroupInfoMap = None) -> GroupInfoMap:
+                         group_data_map: GroupDataMap = None) -> GroupDataMap:
         """
         Delegate this group to the proper calculation method.
         """
-        if group_info_map is None:
-            group_info_map = {}
+        if group_data_map is None:
+            group_data_map = {}
 
         processor = None
         if isinstance(group, AndGroup):
@@ -173,38 +205,39 @@ class Selector(SchedulerComponent):
         if processor is None:
             raise ValueError(f'Could not process group {group.id}')
 
-        return processor(group, sites, ranker, group_info_map)
+        return processor(group, sites, ranker, group_data_map)
 
     def _calculate_observation_group(self,
                                      group: Group,
                                      sites: FrozenSet[Site],
                                      ranker: Ranker,
-                                     group_info_map: GroupInfoMap) -> GroupInfoMap:
+                                     group_data_map: GroupDataMap) -> GroupDataMap:
         """
         Calculate the GroupInfo for a group that contains an observation and add it to
-        the group_info_map.
+        the group_data_map.
 
         TODO: Not every observation has TargetInfo: if it is not in a specified class, it will not.
         TODO: How do we handle these cases? For now, I am going to skip any observation with a missing TargetInfo.
         """
-        if not isinstance(group.children, Observation):
+        if not group.is_observation_group():
             raise ValueError(f'Non-observation group {group.id} cannot be treated as observation group.')
 
         obs = group.children
 
         if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED}:
-            return group_info_map
+            return group_data_map
         if obs.site not in sites:
             logging.warning(f'Selector skipping observation {obs.id} as not in a designated site.')
-            return group_info_map
+            return group_data_map
 
-        # There may be no target_info.
+        # We ignore the Observation if:
+        # 1. There is no target info associated with it.
         target_info = Collector.get_target_info(obs.id)
         if target_info is None:
-            return group_info_map
-        # An observation may not have constraints.
+            return group_data_map
+        # 2. There are no constraints associated with it.
         if obs.constraints is None:
-            return group_info_map
+            return group_data_map
 
         mrc = obs.constraints.conditions
         is_splittable = len(obs.sequence) > 1
@@ -274,7 +307,7 @@ class Selector(SchedulerComponent):
         # TODO: This generates a warning about ragged arrays, but seems to produce the right shape of structure.
         scores = np.multiply(np.multiply(conditions_score, ranker.get_observation_scores(obs.id)), wind_score)
 
-        group_info_map[group.id] = GroupInfo(
+        group_info = GroupInfo(
             minimum_conditions=mrc,
             is_splittable=is_splittable,
             standards=standards,
@@ -284,16 +317,18 @@ class Selector(SchedulerComponent):
             schedulable_slot_indices=schedulable_slot_indices,
             scores=scores
         )
-        return group_info_map
+
+        group_data_map[group.id] = GroupData(group, group_info)
+        return group_data_map
 
     def _calculate_and_group(self,
                              group: Group,
                              sites: FrozenSet[Site],
                              ranker: Ranker,
-                             group_info_map: GroupInfoMap) -> GroupInfoMap:
+                             group_data_map: GroupDataMap) -> GroupDataMap:
         """
          Calculate the GroupInfo for an AND group that contains subgroups and add it to
-        the group_info_map.
+        the group_data_map.
         """
         if not isinstance(group, AndGroup):
             raise ValueError(f'Tried to process group {group.id} as an AND group.')
@@ -303,15 +338,15 @@ class Selector(SchedulerComponent):
         # Process all subgroups and then process this group directly.
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
-            self._calculate_group(subgroup, sites, ranker, group_info_map)
+            self._calculate_group(subgroup, sites, ranker, group_data_map)
 
-        # TODO: This does not seem right.
+        # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
-        if any(sg.id not in group_info_map for sg in group.children):
-            return group_info_map
+        if any(sg.id not in group_data_map for sg in group.children):
+            return group_data_map
 
         # Calculate the most restrictive conditions.
-        subgroup_conditions = ([group_info_map[sg.id].minimum_conditions for sg in group.children])
+        subgroup_conditions = ([group_data_map[sg.id].group_info.minimum_conditions for sg in group.children])
         mrc = Conditions.most_restrictive_conditions(subgroup_conditions)
 
         # This group will always be splittable unless we have some bizarre nesting.
@@ -323,26 +358,27 @@ class Selector(SchedulerComponent):
         standards = 0.
 
         # The availability of resources for this group is the product of resource availability for the subgroups.
-        sg_res_night_availability = [group_info_map[sg.id].resource_night_availability for sg in group.children]
+        sg_res_night_availability = [group_data_map[sg.id].group_info.resource_night_availability
+                                     for sg in group.children]
         res_night_availability = np.multiply.reduce(sg_res_night_availability).astype(bool)
 
         # The conditions score is the product of the conditions scores for each subgroup across each night.
-        sg_conditions_scores = [group_info_map[sg.id].conditions_score for sg in group.children]
+        sg_conditions_scores = [group_data_map[sg.id].group_info.conditions_score for sg in group.children]
         conditions_score = np.multiply.reduce(sg_conditions_scores)
 
         # The wind score is the product of the wind scores for each subgroup across each night.
-        sg_wind_scores = [group_info_map[sg.id].wind_score for sg in group.children]
+        sg_wind_scores = [group_data_map[sg.id].group_info.wind_score for sg in group.children]
         wind_score = np.multiply.reduce(sg_wind_scores)
 
         # The schedulable slot indices are simply the products of the schedulable slot indices across
         # all the subgroups, which numpy impressively can combine.
-        schedulable_slot_indices = np.multiply.reduce([group_info_map[sg.id].schedulable_slot_indices
+        schedulable_slot_indices = np.multiply.reduce([group_data_map[sg.id].group_info.schedulable_slot_indices
                                                        for sg in group.children])
 
         # Calculate the scores for the group across all nights across all timeslots.
         scores = ranker.score_and_group(group)
 
-        group_info_map[group.id] = GroupInfo(
+        group_info = GroupInfo(
             minimum_conditions=mrc,
             is_splittable=is_splittable,
             standards=standards,
@@ -353,16 +389,17 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        return group_info_map
+        group_data_map[group.id] = GroupData(group, group_info)
+        return group_data_map
 
     def _calculate_or_group(self,
                             group: Group,
                             site: FrozenSet[Site],
                             ranker: Ranker,
-                            group_info_map: GroupInfoMap) -> NoReturn:
+                            group_data_map: GroupDataMap) -> GroupDataMap:
         """
          Calculate the GroupInfo for an AND group that contains subgroups and add it to
-        the group_info_map.
+        the group_data_map.
 
         Not yet implemented.
         """
@@ -468,8 +505,6 @@ class Selector(SchedulerComponent):
             # better_tmp_idx = np.where(array < value)[0]
             # better_idx = np.where(neg_ha[better_tmp_idx])[0]
             better_idx = np.where(array < value)[0] if neg_ha else np.array([])
-            if len(better_idx) > len(cmatch):
-                print(f"*** ERROR: {length}, {len(better_idx)} > {len(cmatch)}")
             if len(better_idx) > 0 and (too_status is None or too_status not in {TooType.RAPID, TooType.INTERRUPT}):
                 cmatch[better_idx] = cmatch[better_idx] * array / value
         adjuster(actual_iq, required_conditions.iq)
@@ -478,61 +513,3 @@ class Selector(SchedulerComponent):
         if scalar_input:
             cmatch = np.squeeze(cmatch)
         return cmatch
-
-    def get_program_ids(self) -> Iterable[ProgramID]:
-        """
-        Simplified interface to the Collector.
-        """
-        return self.collector.get_program_ids()
-
-    def get_program(self, program_id: ProgramID) -> Optional[Program]:
-        """
-        Simplified interface to the Collector.
-        """
-        return self.collector.get_program(program_id)
-
-    def get_observation_ids(self, program_id: Optional[ProgramID] = None) -> Iterable[ObservationID]:
-        """
-        Simplified interface to the Collector.
-        """
-        return self.collector.get_observation_ids(program_id)
-
-    def get_observation(self, obs_id: ObservationID) -> Optional[Observation]:
-        """
-        Simplified interface to the Collector.
-        """
-        return self.collector.get_observation(obs_id)
-
-    def get_group_ids(self) -> Iterable[GroupID]:
-        """
-        Return a list of all the group IDs stored in the Selector.
-        TODO: Consider this method for removal, since schedulable groups are handed back by select.
-        TODO: This will return all group keys, some of which have no GroupInfo.
-        """
-        return self._groups.keys()
-
-    def get_group(self, group_id: GroupID) -> Optional[Group]:
-        """
-        If a group with the given ID exists, return it.
-        Otherwise, return None.
-        """
-        return self._groups.get(group_id, None)
-
-    def get_group_info(self, group_id) -> Optional[GroupInfo]:
-        """
-        Given a GroupID, if the group exists, return the group information.
-        TODO: Consider this method for removal, since this is handed back by select.
-        """
-        return self._group_info.get(group_id, None)
-
-    def get_night_events(self, site: Site) -> Optional[NightEvents]:
-        """
-        Simplified interface to the Collector.
-        """
-        return self.collector.get_night_events(site)
-
-    def get_target_info(self, obs_id: ObservationID) -> Optional[TargetInfoNightIndexMap]:
-        """
-        Simplified interface to the Collector.
-        """
-        return self.collector.get_target_info(obs_id)
