@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from common.minimodel import Group, Plan
+from common.minimodel import Group, Plans, Plan
 from components.selector import GroupInfo, GroupID
-from typing import Mapping, Tuple
+from typing import Mapping, Tuple, List
 
 Selection = Mapping[GroupID, Tuple[Group, GroupInfo]]
 
@@ -15,10 +15,11 @@ class BaseOptimizer(ABC):
     get_visits: methods that updates the plan
 
     """
-    def schedule(self, plan: Plan):
-        while not plan.is_full():
-            self._run(plan)
+    def schedule(self, plans: Plans):
+        for night in range(len(plans.nights)):
+            self._run(plans.nights[night])
     
     @abstractmethod
-    def _run(self, plan: Plan):
+    # TODO: Replace to NightIndex
+    def _run(self, plans: List[Plan]):
         ...

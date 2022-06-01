@@ -1012,79 +1012,56 @@ class Program:
     def observations(self) -> List[Observation]:
         return self.root_group.observations()
 
-
-class Plans:
-    """
-    A collection of Nightly Plan from a corresponding Site
-    """
-    def __init__(self, night_events):
-        self.durations = [len(night_events.times[idx]) for idx, _ in enumerate(night_events.time_grid)]
-        self.start_times = [night_events.local_times[idx][0] for idx, _ in enumerate(night_events.time_grid)]
-        self.end_times = [night_events.local_times[idx][-1] for idx, _ in enumerate(night_events.time_grid)]
-        self.time_slot_length = night_events.time_slot_length
-
-    def __iter__(self):
-        self.plans = []
-        return self
-
-    def __next__(self):
-        if len(self.plans) <= len(self.durations):
-            self.plans.append(Plan(next(iter(self.start_times)),
-                                   next(iter(self.end_times)),
-                                   slot_length=self.time_slot_length,
-                                   night_duration=next(iter(self.durations))))
-            return next(iter(self.plans))
-        raise StopIteration
-
-
+@dataclass
 class Plan:
     """
     A 'plan' is a collection of nighly plans
     """
-    def __init__(self, start: datetime, end:datetime, slot_length=1, night_duration=10):
-        self.start = start
-        self.end = end
-        self._time_slot_length = slot_length
-        self._time_slots_left = night_duration
-        self._visits = []
+    start: datetime
+    end: datetime
+    time_slot_length: timedelta
+    site: Site
+    _time_slots_left: int
     
-    def _time2slots(self, time: datetime) -> int:
+    def __post_init__(self):
+        self._visits = []
+        self.is_full = False
+    
+    def time2slots(self, time: datetime) -> int:
         return ceil((time.total_seconds() / 60) / self._time_slot_length.value)
 
     def add_group(self, group: Tuple[Group, GroupInfo]) -> NoReturn:
         self._visits.append(group)
         self._time_slots_left -= self._time2slots(group[0].total_used())
     
-    def is_full(self) -> bool:
-        return self._time_slots_left <= 0
+    def add(self, obs: Observation, time_slots: int) -> NoReturn:
+        self._visits.append(obs)
+        self._time_slots_left -= time_slots
 
-    def time_slots_left(self) -> int:
+    def time_left(self) -> int:
         return self._time_slots_left
 
 
 class Plans:
     """
-    A collection of Nightly Plan from a corresponding Site
+    A collection of Nightly Plan from all sites
     """
     def __init__(self, night_events):
         # TODO: adding NightEvents creates a circular dependency!
-        durations = list(map(len, night_events.times))
-        start_times = [local_times[0] for local_times in night_events.local_times]
-        end_times = [local_times[-1] for local_times in night_events.local_times]
-        self.time_slot_length = night_events.time_slot_length
-        self.plans = []
-        for duration, start, end in zip(durations, start_times, end_times):
-            self.plans.append(Plan(start, end, slot_length=self.time_slot_length,
-                                   night_duration=duration))
 
-    def __iter__(self):
-        self._counter = 0
-        return self
+        # TODO: Assumes that all sites schedule the same amount of nights
+        self.nights = [[] for _ in range(len(night_events.values()[0].time_grid))]
 
-    def __next__(self):
-        if self._counter <= len(self.plans):
-            self._counter += 1
-            return next(iter(self.plans))
-        raise StopIteration
-
-
+        for site in night_events.keys():
+            if night_events[site] is not None:
+                for idx, jdx in night_events[site].time_grid:
+                    self.nights[idx].append(Plan(night_events[site].local_times[idx][0],
+                                                 night_events[site].local_times[idx][-1],
+                                                 night_events[site].time_slot_length[idx],
+                                                 site))
+    
+    def all_done(self, night: int) -> bool:
+        """
+        Check if all plans for all sites are done in that night
+        """
+        return all(plan.is_full for plan in self.nights[night])

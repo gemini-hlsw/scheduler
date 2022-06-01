@@ -18,7 +18,10 @@ class Optimizer:
         # This would create and issue with OR groups as observations can be schedule
         # on different sites but not twice. Old GM had some check-ins to handle this
         # cases but right now we don't have OR groups implemented.
+
         plans = Plans(night_events)
-        for plan in plans:
-            self.algorithm.schedule(plan)
+        self.algorithm.schedule(plans)
         return plans
+        
+        
+  
