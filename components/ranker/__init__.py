@@ -6,6 +6,7 @@ import numpy.typing as npt
 from typing import Callable, Dict, FrozenSet, List, Mapping, Tuple, Union
 
 from common.minimodel import *
+from common.calculations import Scores
 from components.collector import Collector
 
 
@@ -49,12 +50,6 @@ class RankerBandParameters:
     xb0: float
     xc0: float
 
-
-# Scores for the timeslots in a specific night.
-NightTimeSlotScores = npt.NDArray[float]
-
-# Scores across all nights for the timeslots.
-Scores = List[NightTimeSlotScores]
 
 # A map of parameters per band for the Ranker.
 RankerBandParameterMap = Mapping[Band, RankerBandParameters]

@@ -1,7 +1,8 @@
 from typing import Final
-from astropy.time import Time
-from astropy.coordinates.distances import Distance
+
 import astropy.units as u
+from astropy.coordinates.distances import Distance
+from astropy.time import Time
 
 """
 Constants that are used here and there.  Some are Quantities,

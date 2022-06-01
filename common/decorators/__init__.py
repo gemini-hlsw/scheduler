@@ -1,5 +1,5 @@
-
 import numpy as np
+
 
 def scalar_input(func):
     """

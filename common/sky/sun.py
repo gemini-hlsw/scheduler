@@ -1,11 +1,13 @@
+from typing import Tuple
+
+import astropy.units as u
 import numpy as np
-from common.sky.constants import J2000
-from common.sky.utils import current_geocent_frame, local_sidereal_time, hour_angle_to_angle
-from common.sky.altitude import Altitude
 from astropy.coordinates import Angle, SkyCoord, EarthLocation
 from astropy.time import Time, TimeDelta
-from typing import Tuple
-import astropy.units as u
+
+from common.sky.altitude import Altitude
+from common.sky.constants import J2000
+from common.sky.utils import current_geocent_frame, local_sidereal_time, hour_angle_to_angle
 
 
 class Sun:

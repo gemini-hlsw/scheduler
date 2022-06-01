@@ -1,9 +1,9 @@
-from astropy.time import Time
-import astropy.units as u
-import numpy as np
-
 from collections.abc import Iterable
 from typing import Optional
+
+import astropy.units as u
+import numpy as np
+from astropy.time import Time
 
 
 def flatten(lst):

@@ -4,9 +4,9 @@ from astropy import units as u
 from astropy.coordinates import Angle, Distance
 from astropy.units import Quantity
 
+from common.minimodel import SkyBackground
 from common.sky.constants import KZEN, EQUAT_RAD
 from common.sky.utils import xair, ztwilight
-from common.minimodel import SkyBackground
 
 
 def calculate_sky_brightness(moon_phase_angle: Angle,

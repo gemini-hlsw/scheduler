@@ -1,17 +1,14 @@
-import os
 import json
+import os
 from typing import NoReturn, Union
-from zlib import DEF_BUF_SIZE
 
 from astropy import units as u
-from matplotlib.pyplot import cool
+from openpyxl import Workbook
 
 from api.programprovider.abstract import ProgramProvider
 from api.programprovider.ocs import OcsProgramProvider
 from common.minimodel import Atom, Group, Observation, ObservationClass, Program
 from components.collector import Collector, NightEventsManager
-
-from openpyxl import Workbook
 
 
 def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.json'),

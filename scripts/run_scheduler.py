@@ -1,4 +1,6 @@
 import os
+import logging
+from common.minimodel import *
 
 from api.observatory.gemini import GeminiProperties
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
@@ -37,55 +39,22 @@ if __name__ == '__main__':
 
     # Execute the Selector.
     # Not sure the best way to display the output.
-    results = selector.select()
+    selection = selector.select()
 
     # Notes for data access:
+    # The Selector returns all the data that an Optimizer needs in order to generate plans.
+    # This comprises a Map[ProgramID, ProgramInfo]
+    # See ProgramInfo in the Scheduler class in order to see the fields that is includes.
     #
-    # *** PROGRAMS ***
-    # 1. Programs are stored in the Collector but can be accessed more easily through the Selector.
-    #    All the Program IDs in the Collector can be accessed with:
-    #       selector.get_program_ids()
-    #    which returns an iterable of program IDs.
-    # 2. To get a specific program:
-    #       selector.get_program(program_id)
-    #    which returns the mini-model representation of the Program (or None if the ID does not exist).
+    # Here are some descriptions of the data in ProgramInfo.
     #
-    # *** OBSERVATIONS ***
-    # 1. Again these are stored in the Collector but to simplify, everything can be obtained through the
-    #    Selector. To get a list of the Observation IDs:
-    #        selector.get_observation_ids(optional prog_id, None is default)
-    #    If there is a program ID supplied, only the observation IDs in that program are returned.
-    #    If nothing is supplied (equivalent to None being supplied), all observation IDs from all programs are returned.
-    # 2. To get a specific Observation:
-    #        selector.get_observation(observation_id)
-    #    which returns the mini-model representation of the Observation (or None if the ID does not exist).
+    # *** NightEvents ***
+    # I don't know if this will be needed, but the ProgramInfo includes NightEvents calculations.
+    # The NightEvents are the calculations for a given site across all nights.
     #
-    # *** TARGETS ***
-    # The Collector stores target calculations for an Observation's target in objects of the TargetInfo class, but this
-    # information is made available through the Selector for ease.
-    # There is one TargetInfo for each target for each night. See the TARGETINFO section below to see what this
-    # contains.
-    #
-    # 1. To get the base target of an Observation, you can go through the Observation or the Selector.
-    #    These two are equivalent:
-    #        observation.base_target()
-    #        selector.get_base_target(observation_id)
-    # If there is no base target associated with the Observation (e.g. ToOs), None is returned.
-    #
-    # 2. To get the TargetInfo associated with an Observation's base target:
-    #        selector.get_target_info(observation_id)
-    #    If there is no target associated with the Observation, None is returned.
-    #    Otherwise, a map is returned from the NightIndex in the period (0 for the first night, 1 for the second, etc,
-    #    and we could just change this to a List, I suppose) to the TargetInfo for that night for that target.
-    #
-    # *** NIGHTEVENTS ***
-    # I don't know if this will be needed, but the NightEvents calculations can be obtained.
-    # The NightEvents are the calculations for a given site across all nights. They are stored in the Collector but
-    # to simplify, can be obtained from the Selector.
-    #     selector.get_night_events(Site.GN or Site.GS)
     # This may have to be modified in the future to accept date ranges, since now they return everything the Collector
     # was initialized with in terms of period length and time granularity.
-    # The NightEvents class is described in the component/Collector/__init__.py file at L19.
+    #
     # For all the values:
     #     midnight
     #     sunset
@@ -107,9 +76,8 @@ if __name__ == '__main__':
     #     moon_alt, moon_az, moon_par_ang: Similar to above
     #     sun_moon_ang: Array indexed by night index to get Angle array giving angle for each time slot during night
     #
-    # *** TARGETINFO ***
+    # *** TargetInfo ***
     # Contains the TargetInfo for a night broken into time slots over that night.
-    # See TARGETS above on how to get the TargetInfo.
     # Contains the following fields:
     #      coord: SkyCoord array representing the position of the target for each time slot during the night
     #             Uses proper motion for SiderealTargets, ephemeris data for NonsiderealTargets
@@ -125,18 +93,9 @@ if __name__ == '__main__':
     #                           period onward
     #      rem_visibility_frac: float, remaining observation time / rem_visibility_time
     #
-    # *** GROUPS ***
-    # This is handled entirely in the Selector. Groups can be accessed either through the mini-model Program obtained
-    # as described above in the PROGRAMS section, or via these Selector methods:
-    # 1. selector.get_group_ids(): returns a list of all group IDs
-    # 2. selector.get_group(group_id): gets specific group by ID
-    #
-    # *** GROUPINFO ***
+    # *** GroupInfo ***
     # This is calculated by the Selector for each AND group.
     # If an AND group contains an OR group, at this point, it throws a NotImplementedError.
-    # Obtain by using:
-    #     selector.get_group_info(group_id): returns a map from night index to GroupInfo
-    # As with TargetInfo, we could use a List instead of a Mapping (and the interface will not change).
     #
     # The GroupInfo object for a Group contains the information for the given Group.
     #       minimum_conditions: Conditions object representing the minimum required conditions by group and all

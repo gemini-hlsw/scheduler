@@ -1,12 +1,13 @@
-from astropy.time import Time
-import astropy.units as u
-
+from datetime import timedelta
 from enum import Enum, EnumMeta
 from typing import Set
-from datetime import timedelta
+
+import astropy.units as u
+from astropy.time import Time
 
 from api.observatory.abstract import ObservatoryProperties
 from common.minimodel import Observation, ObservationMode, Resource
+
 
 class GeminiProperties(ObservatoryProperties):
     """

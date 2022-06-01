@@ -1,6 +1,8 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+from typing import List
 
-from common.minimodel import *
+from common.minimodel import AndGroup, Atom, Conditions, Constraints, Magnitude, NonsiderealTarget, Observation, \
+    OrGroup, Program, QAState, SiderealTarget, Target, TimeAllocation, TimingWindow
 
 
 class ProgramProvider(ABC):

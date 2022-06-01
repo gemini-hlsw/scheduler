@@ -1,11 +1,14 @@
-from api.programprovider.ocs import OcsProgramProvider
-from common.helpers import dmsstr2deg
-from common.minimodel import *
-from common.timeutils import sex2dec
-
-from datetime import datetime, timedelta
 import json
 import os
+from datetime import datetime, timedelta
+
+from api.programprovider.ocs import OcsProgramProvider
+from common.helpers import dmsstr2deg
+from common.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
+    ImageQuality, Magnitude, MagnitudeBands, Observation, ObservationClass, ObservationStatus, Priority, Program, \
+    ProgramMode, ProgramTypes, QAState, Resource, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, \
+    SkyBackground, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor
+from common.timeutils import sex2dec
 
 
 def get_api_program() -> Program:
