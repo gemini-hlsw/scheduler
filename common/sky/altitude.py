@@ -1,8 +1,9 @@
+from typing import Tuple, Union, TypeVar
+
+import astropy.units as u
 import numpy as np
 import numpy.typing as npt
-import astropy.units as u
 from astropy.coordinates import Angle, Longitude
-from typing import Tuple, Union, TypeVar
 
 T = TypeVar('T')
 U = TypeVar('U')

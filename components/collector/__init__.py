@@ -1,11 +1,15 @@
+import logging
 import time
-from typing import Iterable, NoReturn
+from typing import FrozenSet, Iterable, NoReturn, Optional
 
+from astropy.units import Quantity
 from more_itertools import partition
 from tqdm import tqdm
 
 from api.programprovider.abstract import ProgramProvider
 from common.calculations import *
+from common.minimodel import CloudCover, Constraints, ElevationType, ImageQuality, NonsiderealTarget, \
+    ObservationClass, ProgramTypes, Resource, Semester, SiderealTarget, Target, Variant, WaterVapor
 from components.base import SchedulerComponent
 from components.nighteventsmanager import NightEventsManager
 
@@ -35,7 +39,7 @@ class Collector(SchedulerComponent):
     _programs: ClassVar[Mapping[ProgramID, Program]] = {}
 
     # A set of ObservationIDs per ProgramID.
-    _observations_per_program: ClassVar[Mapping[ProgramID, Set[ObservationID]]] = {}
+    _observations_per_program: ClassVar[Mapping[ProgramID, FrozenSet[ObservationID]]] = {}
 
     # This is a map of observation information that is computed as the programs
     # are read in. It contains both the Observation and the base Target (if any) for
@@ -61,7 +65,7 @@ class Collector(SchedulerComponent):
     _MAX_NIGHT_EVENT_TIME: ClassVar[Time] = Time('2100-01-01 00:00:00', format='iso', scale='utc')
 
     # The number of milliarcsecs in a degree, for proper motion calculation.
-    _MILLIARCSECS_PER_DEGREE: ClassVar[int] = 60*60*1000
+    _MILLIARCSECS_PER_DEGREE: ClassVar[int] = 60 * 60 * 1000
 
     _EPOCH2TIME: ClassVar[Mapping[float, Time]] = {}
 
@@ -188,16 +192,16 @@ class Collector(SchedulerComponent):
                 windows.extend([Time([begin + i * period, begin + i * period + duration]) for i in range(repeat)])
 
         return windows
-    
+
     @staticmethod
-    def _calculate_proper_motion(target: SiderealTarget, time: Time) -> SkyCoord:
+    def _calculate_proper_motion(target: SiderealTarget, target_time: Time) -> SkyCoord:
         """
         Calculate the proper motion of a target.
         """
         pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
         pm_dec = target.pm_dec / Collector._MILLIARCSECS_PER_DEGREE
         epoch_time = Collector._EPOCH2TIME.setdefault(target.epoch, Time(target.epoch, format='jyear'))
-        time_offsets = time - epoch_time
+        time_offsets = target_time - epoch_time
         new_ra = (target.ra + pm_ra * time_offsets.to(u.yr).value) * u.deg
         new_dec = (target.dec + pm_dec * time_offsets.to(u.yr).value) * u.deg
         return SkyCoord(new_ra, new_dec, frame='icrs', unit='deg')
@@ -258,7 +262,6 @@ class Collector(SchedulerComponent):
             lst = night_events.local_sidereal_times[night_idx]
             hourangle = lst - coord.ra
             hourangle.wrap_at(12.0 * u.hour, inplace=True)
-            #alt, az, par_ang = vskyutil.altazparang(coord.dec, hourangle, obs.site.value.location.lat)
             alt, az, par_ang = sky.Altitude.above(coord.dec, hourangle, obs.site.value.location.lat)
             airmass = sky.true_airmass(alt)
 
@@ -425,7 +428,7 @@ class Collector(SchedulerComponent):
 
     @staticmethod
     def available_resources(site: Site,
-                            night_idx: NightIndex) -> Set[Resource]:
+                            night_idx: NightIndex) -> FrozenSet[Resource]:
         """
         Return a set of available resources for the night under consideration.
         TODO: This should be an interface to connect with a mock service or with an actual service.
@@ -439,15 +442,15 @@ class Collector(SchedulerComponent):
         }
 
         if site == Site.GN:
-            return site_independent_resources.union({
+            return frozenset(site_independent_resources.union({
                 Resource(id='GMOS-N'),
                 Resource(id='GNIRS')
-            })
+            }))
         elif site == Site.GS:
-            return site_independent_resources.union({
+            return frozenset(site_independent_resources.union({
                 Resource(id='GMOS-S'),
                 Resource(id='Flamingos2')
-            })
+            }))
 
     def get_actual_conditions_variant(self,
                                       site: Site,

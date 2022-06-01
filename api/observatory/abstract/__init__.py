@@ -1,7 +1,8 @@
-from astropy.time import Time
-from astropy import units as u
 from abc import ABC
 from typing import Set
+
+from astropy import units as u
+from astropy.time import Time
 
 from common.minimodel import ObservationMode, Resource
 

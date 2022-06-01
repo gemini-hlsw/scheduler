@@ -1,4 +1,6 @@
 import os
+import logging
+from common.minimodel import *
 
 from api.observatory.gemini import GeminiProperties
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider

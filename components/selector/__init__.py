@@ -1,6 +1,16 @@
+import logging
+from dataclasses import dataclass
+from typing import Dict, FrozenSet, Set, Optional
+
+import astropy.units as u
+import numpy as np
+import numpy.typing as npt
+from astropy.coordinates import Angle
+
 from api.observatory.abstract import ObservatoryProperties
-from common.calculations import *
-from common.minimodel import *
+from common.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
+from common.minimodel import ALL_SITES, AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus, \
+    OrGroup, ProgramID, Resource, Site, TooType, NightIndex, Variant
 from components.base import SchedulerComponent
 from components.collector import Collector
 from components.ranker import Ranker
@@ -439,6 +449,7 @@ class Selector(SchedulerComponent):
             better_idx = np.where(array < value)[0] if neg_ha else np.array([])
             if len(better_idx) > 0 and (too_status is None or too_status not in {TooType.RAPID, TooType.INTERRUPT}):
                 cmatch[better_idx] = cmatch[better_idx] * array / value
+
         adjuster(actual_iq, required_conditions.iq)
         adjuster(actual_cc, required_conditions.cc)
 

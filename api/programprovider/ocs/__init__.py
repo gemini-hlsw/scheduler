@@ -1,18 +1,22 @@
-import logging
 import calendar
 import json
+import logging
+import zipfile
+from datetime import datetime, timedelta
+from typing import Iterable, NoReturn, Tuple, List, Optional, Mapping
+
 import numpy as np
 from scipy.signal import find_peaks
-from typing import NoReturn, Tuple
-from enum import Enum
-from typing import Iterable, NoReturn, Tuple
-import zipfile
 
-from api.programprovider.abstract import ProgramProvider
 from api.observatory.gemini import GeminiObservation
+from api.programprovider.abstract import ProgramProvider
 from common.helpers import str_to_bool, dmsstr2deg
+from common.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
+    Group, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation, ObservationClass, ObservationMode, \
+    ObservationStatus, OrGroup, Priority, Program, ProgramMode, ProgramTypes, QAState, Resource, Semester, \
+    SemesterHalf, Sequence, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType, \
+    TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor
 from common.timeutils import sex2dec
-from common.minimodel import *
 
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
@@ -36,7 +40,7 @@ class OcsProgramProvider(ProgramProvider):
 
     GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
     NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
-    OBSERVE_TYPES = ['FLAT', 'ARC', 'DARK', 'BIAS'] 
+    OBSERVE_TYPES = ['FLAT', 'ARC', 'DARK', 'BIAS']
 
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
@@ -153,7 +157,7 @@ class OcsProgramProvider(ProgramProvider):
         GMOSS = 'instrument:fpu'
         NIRI = 'instrument:mask'
         NIFS = 'instrument:mask'
-    
+
     class _InstrumentKeys:
         NAME = 'instrument:name'
         DECKER = 'instrument:acquisitionMirror'
@@ -417,6 +421,7 @@ class OcsProgramProvider(ProgramProvider):
         """
         Parse the offsets out of the data.
         """
+
         def autocorr_lag(x):
             """
             Test for patterns with auto-correlation
@@ -433,7 +438,7 @@ class OcsProgramProvider(ProgramProvider):
         q_offsets = []
         sky_p_offsets = []
         sky_q_offsets = []
-        
+
         for s in data:
             p = 0.0
             q = 0.0
@@ -472,11 +477,11 @@ class OcsProgramProvider(ProgramProvider):
             offset_lag = qlag
             if plag > 0 and plag != qlag:
                 offset_lag = 0
-        
+
         return offset_lag
 
     @staticmethod
-    def _parse_instrument_configuration(data: dict, instrument: str)\
+    def _parse_instrument_configuration(data: dict, instrument: str) \
             -> Tuple[Optional[str], Optional[str], Optional[str], Optional[float]]:
         """
         A dict is return until the Instrument configuration model is created
@@ -507,7 +512,7 @@ class OcsProgramProvider(ProgramProvider):
             disperser = instrument
         else:
             disperser = None
-        
+
         if instrument == 'GNIRS':
             if (data[OcsProgramProvider._InstrumentKeys.ACQ_MIRROR] == 'in'
                     and data[OcsProgramProvider._InstrumentKeys.DECKER] == 'acquisition'):
@@ -532,7 +537,7 @@ class OcsProgramProvider(ProgramProvider):
         wavelength = (OcsProgramProvider.GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI'
                       else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH]))
         return fpu, disperser, filt, wavelength
-    
+
     @staticmethod
     def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
         """
@@ -618,7 +623,7 @@ class OcsProgramProvider(ProgramProvider):
         for atom_id, step in enumerate(sequence):
 
             next_atom = False
-            
+
             observe_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
             step_time = step[OcsProgramProvider._AtomKeys.TOTAL_TIME] / 1000
             observed = str_to_bool(step[OcsProgramProvider._AtomKeys.OBSERVED])
@@ -635,7 +640,7 @@ class OcsProgramProvider(ProgramProvider):
             coadds.append(int(step[OcsProgramProvider._AtomKeys.COADDS])
                           if OcsProgramProvider._AtomKeys.COADDS in step else 1)
             exposure_times.append(step[OcsProgramProvider._AtomKeys.EXPOSURE_TIME])
-            
+
             # Any wavelength/filter change is a new atom
             if atom_id == 0 or (atom_id > 0 and wavelengths[atom_id] != wavelengths[prev]):
                 next_atom = True
@@ -683,8 +688,8 @@ class OcsProgramProvider(ProgramProvider):
                     program_time = timedelta(seconds=step_time)
 
                 # Convert all the different components into Resources.
-                resources = {Resource(rid) for rid in fpus + dispersers + filters + [instrument]}
-              
+                resources = frozenset(Resource(rid) for rid in fpus + dispersers + filters + [instrument])
+
                 atoms.append(Atom(id=n_atom,
                                   exec_time=exec_time,
                                   prog_time=program_time,
@@ -693,7 +698,7 @@ class OcsProgramProvider(ProgramProvider):
                                   qa_state=min(qa_states, default=QAState.NONE),
                                   guide_state=guide_state(step),
                                   resources=resources,
-                                  wavelengths=set(wavelengths)))
+                                  wavelengths=frozenset(wavelengths)))
         return atoms
 
     @staticmethod
@@ -960,7 +965,7 @@ class OcsProgramProvider(ProgramProvider):
 
         # Parse the time accounting allocation data.
         time_act_alloc_data = data[OcsProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
-        time_act_alloc = set(OcsProgramProvider.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
+        time_act_alloc = frozenset(OcsProgramProvider.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
 
         # Now we parse the groups. For this, we need:
         # 1. A list of Observations at the root level.
