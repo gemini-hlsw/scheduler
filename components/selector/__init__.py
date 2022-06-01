@@ -1,90 +1,9 @@
-import logging
-import numpy as np
-import numpy.typing as npt
-import astropy.units as u
-
 from api.observatory.abstract import ObservatoryProperties
+from common.calculations import *
 from common.minimodel import *
 from components.base import SchedulerComponent
-from components.collector import Collector, NightEvents, NightIndex, TargetInfoNightIndexMap
-from components.ranker import Ranker, Scores
-
-from typing import Dict, FrozenSet, Set
-
-
-@dataclass(frozen=True)
-class GroupInfo:
-    """
-    Information regarding Groups that can only be calculated in the Selector.
-
-    Note that the lists here are indexed by night indices as passed to the selection method, or
-      equivalently, as defined in the Ranker.
-
-    This comprises:
-    1. The most restrictive Conditions required for the group as per all its subgroups.
-    2. The slots in which the group can be scheduled based on resources and environmental conditions.
-    3. The score assigned to the group.
-    4. The standards time associated with the group, in hours.
-    5. A flag to indicate if the group can be split.
-    A group can be split if and only if it contains more than one observation.
-    """
-    minimum_conditions: Conditions
-    is_splittable: bool
-    standards: float
-    resource_night_availability: npt.NDArray[bool]
-    conditions_score: List[npt.NDArray[float]]
-    wind_score: List[npt.NDArray[float]]
-    schedulable_slot_indices: List[npt.NDArray[int]]
-    scores: Scores
-
-
-@dataclass(frozen=True)
-class GroupData:
-    group: Group
-    group_info: GroupInfo
-
-
-# This has to be a Dict because we need to be able to write to it using [idx].
-GroupDataMap = Dict[GroupID, GroupData]
-
-
-@dataclass(frozen=True)
-class ProgramInfo:
-    """
-    This represents the information for a program that contains schedulable components during the time frame
-    under consideration, along with those schedulable components.
-    """
-    program: Program
-
-    # Schedulable groups by ID and their information.
-    group_data: GroupDataMap
-
-    # Schedulable observations by their ID. This is duplicated in the group information above
-    # but provided for convenience.
-    observations: Mapping[ObservationID, Observation]
-
-    # Target information relevant to this program.
-    target_info: Mapping[ObservationID, TargetInfoNightIndexMap]
-
-    def __post_init__(self):
-        # Set up the keys from the data. We have to use this ugly syntax to make the dataclass frozen.
-        object.__setattr__(self, 'observation_ids', frozenset(self.observations.keys()))
-        object.__setattr__(self, 'group_ids', frozenset(self.group_data.keys()))
-
-
-@dataclass(frozen=True)
-class Selection:
-    """
-    The selection of information passed by the Selector to the Optimizer.
-    This includes the list of programs that are schedulable
-    """
-    program_info: Mapping[ProgramID, ProgramInfo]
-    night_events: Mapping[Site, NightEvents]
-
-    def __post_init__(self):
-        # Set up the keys from the data.
-        object.__setattr__(self, 'program_ids', frozenset(self.program_info.keys()))
-        # self.program_ids = frozenset(self.program_info.keys())
+from components.collector import Collector
+from components.ranker import Ranker
 
 
 @dataclass(frozen=True)
@@ -152,16 +71,17 @@ class Selector(SchedulerComponent):
                 logging.error(f'Program {program_id} was not found in the Collector.')
                 continue
 
+            # TODO: We have to check across nights.
             # Calculate the group info and put it in the structure if there is actually group
             # info data inside it, i.e. feasible time slots for it in the plan.
-            unfiltered_group_data_map = self._calculate_group(program.root_group, sites, ranker)
-
+            # We must check across all nights, hence the second for.
             # This will filter out all GroupInfo objects that do not have schedulable slots.
+            unfiltered_group_data_map = self._calculate_group(program.root_group, sites, night_indices, ranker)
             group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
-                              if len(gp_data.group_info.schedulable_slot_indices) > 0}
+                              if any(len(indices) > 0 for indices in gp_data.group_info.schedulable_slot_indices)}
 
             # This filters out any programs that have no groups with any schedulable slots.
-            if any(len(group_data.group_info.schedulable_slot_indices) > 0 for group_data in group_data_map.values()):
+            if group_data_map:
                 # Remember that in an observation group, the only child is an Observation: hence references here
                 # to group.children are simply the Observation.
                 observations = {group_data.group.children.id: group_data.group.children
@@ -185,6 +105,7 @@ class Selector(SchedulerComponent):
     def _calculate_group(self,
                          group: Group,
                          sites: FrozenSet[Site],
+                         night_indices: npt.NDArray[NightIndex],
                          ranker: Ranker,
                          group_data_map: GroupDataMap = None) -> GroupDataMap:
         """
@@ -205,11 +126,12 @@ class Selector(SchedulerComponent):
         if processor is None:
             raise ValueError(f'Could not process group {group.id}')
 
-        return processor(group, sites, ranker, group_data_map)
+        return processor(group, sites, night_indices, ranker, group_data_map)
 
     def _calculate_observation_group(self,
                                      group: Group,
                                      sites: FrozenSet[Site],
+                                     night_indices: npt.NDArray[NightIndex],
                                      ranker: Ranker,
                                      group_data_map: GroupDataMap) -> GroupDataMap:
         """
@@ -324,6 +246,7 @@ class Selector(SchedulerComponent):
     def _calculate_and_group(self,
                              group: Group,
                              sites: FrozenSet[Site],
+                             night_indices: npt.NDArray[NightIndex],
                              ranker: Ranker,
                              group_data_map: GroupDataMap) -> GroupDataMap:
         """
@@ -338,7 +261,7 @@ class Selector(SchedulerComponent):
         # Process all subgroups and then process this group directly.
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
-            self._calculate_group(subgroup, sites, ranker, group_data_map)
+            self._calculate_group(subgroup, sites, night_indices, ranker, group_data_map)
 
         # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
@@ -363,17 +286,26 @@ class Selector(SchedulerComponent):
         res_night_availability = np.multiply.reduce(sg_res_night_availability).astype(bool)
 
         # The conditions score is the product of the conditions scores for each subgroup across each night.
-        sg_conditions_scores = [group_data_map[sg.id].group_info.conditions_score for sg in group.children]
-        conditions_score = np.multiply.reduce(sg_conditions_scores)
+        conditions_score = []
+        for night_idx in night_indices:
+            conditions_scores_for_night = [group_data_map[sg.id].group_info.conditions_score[night_idx]
+                                           for sg in group.children]
+            conditions_score.append(np.multiply.reduce(conditions_scores_for_night))
 
         # The wind score is the product of the wind scores for each subgroup across each night.
-        sg_wind_scores = [group_data_map[sg.id].group_info.wind_score for sg in group.children]
-        wind_score = np.multiply.reduce(sg_wind_scores)
+        wind_score = []
+        for night_idx in night_indices:
+            wind_scores_for_night = [group_data_map[sg.id].group_info.wind_score[night_idx]
+                                     for sg in group.children]
+            wind_score.append(np.multiply.reduce(wind_scores_for_night))
 
-        # The schedulable slot indices are simply the products of the schedulable slot indices across
-        # all the subgroups, which numpy impressively can combine.
-        schedulable_slot_indices = np.multiply.reduce([group_data_map[sg.id].group_info.schedulable_slot_indices
-                                                       for sg in group.children])
+        # The schedulable slot indices are the products of the schedulable slot indices for each subgroup across
+        # each night.
+        schedulable_slot_indices = []
+        for night_idx in night_indices:
+            schedulable_slot_indices_for_night = [group_data_map[sg.id].group_info.schedulable_slot_indices[night_idx]
+                                                  for sg in group.children]
+            schedulable_slot_indices.append(np.multiply.reduce(schedulable_slot_indices_for_night))
 
         # Calculate the scores for the group across all nights across all timeslots.
         scores = ranker.score_and_group(group)
@@ -425,7 +357,7 @@ class Selector(SchedulerComponent):
         """
         wind = np.ones(len(azimuth))
         az_wd = np.abs(azimuth - variant.wind_dir)
-        idx = np.where(np.logical_and(variant.wind_spd > 10, # * u.m / u.s,
+        idx = np.where(np.logical_and(variant.wind_spd > 10,  # * u.m / u.s,
                                       np.logical_or(az_wd <= variant.wind_sep,
                                                     360. * u.deg - az_wd <= variant.wind_sep)))[0]
 
