@@ -22,7 +22,6 @@ class Selector(SchedulerComponent):
     This is the Selector portion of the automated Scheduler.
     It selects the scheduling candidates that are viable for the data collected by
     the Collector.
-
     Note that unlike the Collector, the Selector does not use static variables, since
     the data contained here can change over time, unlike the Collector where the
     information is statically determined.
@@ -41,7 +40,6 @@ class Selector(SchedulerComponent):
         * Resource availability
         * 80% chance of completion (TBD)
         for the given site(s) and night index.
-
         For each program, begin at the root group and iterate down to the leaves.
         Each leaf contains an Observation. Filter out Observations that cannot be performed
         at one of the given sites.
@@ -319,7 +317,7 @@ class Selector(SchedulerComponent):
         # Calculate the scores for the group across all nights across all timeslots.
         scores = ranker.score_and_group(group)
 
-        group_info_map[group.id] = GroupInfo(
+        group_info = GroupInfo(
             minimum_conditions=mrc,
             is_splittable=is_splittable,
             standards=standards,

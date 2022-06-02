@@ -1,16 +1,18 @@
 from dataclasses import dataclass
 from datetime import timedelta, datetime
-from .site import Site
+
+from common.minimodel.visit import Visit
+from common.minimodel.site import Site
+from common.minimodel.observation import Observation
 from math import ceil
-from typing import Tuple, NoReturn
-from group import Group, GroupInfo
-from observation import Observation
+from typing import NoReturn
+
 
 
 @dataclass
 class Plan:
     """
-    A 'plan' is a collection of nighly plans
+    Nightly plan for a specific Site
     """
     start: datetime
     end: datetime
@@ -19,18 +21,15 @@ class Plan:
     _time_slots_left: int
     
     def __post_init__(self):
-        self._visits = []
+        self.visits = []
         self.is_full = False
     
     def time2slots(self, time: datetime) -> int:
         return ceil((time.total_seconds() / 60) / self._time_slot_length.value)
 
-    def add_group(self, group: Tuple[Group, GroupInfo]) -> NoReturn:
-        self._visits.append(group)
-        self._time_slots_left -= self._time2slots(group[0].total_used())
-    
-    def add(self, obs: Observation, time_slots: int) -> NoReturn:
-        self._visits.append(obs)
+    def add(self, obs: Observation, start: datetime, time_slots: int) -> NoReturn:
+        visit = Visit(start, obs.id, obs.sequence[0].id, obs.sequence[-1].id)
+        self.visits.append(visit)
         self._time_slots_left -= time_slots
 
     def time_left(self) -> int:

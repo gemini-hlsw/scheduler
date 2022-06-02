@@ -1,7 +1,6 @@
-from components.collector import NightEvents
 from common.calculations.selection import Selection
 from .greedymax import GreedyMax
-from common.minimodel import Plans
+from common.minimodel.plan import Plans
 
 
 class Optimizer:

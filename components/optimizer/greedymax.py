@@ -1,7 +1,7 @@
-from common.minimodel import Group
 from .base import BaseOptimizer
 from typing import Dict
-from common.minimodel import Group, Plan
+from common.minimodel.group import Group
+from common.minimodel.plan import Plan
 from components.selector import GroupInfo
 
 Selection = Dict[Group, GroupInfo]
