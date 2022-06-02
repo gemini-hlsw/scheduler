@@ -44,15 +44,16 @@ class Plans:
         # TODO: adding NightEvents creates a circular dependency!
 
         # TODO: Assumes that all sites schedule the same amount of nights
-        self.nights = [[] for _ in range(len(night_events.values()[0].time_grid))]
+        self.nights = [[] for _ in range(len(list(night_events.values())[0].time_grid))]
 
         for site in night_events.keys():
             if night_events[site] is not None:
-                for idx, jdx in night_events[site].time_grid:
+                for idx, jdx in enumerate(night_events[site].time_grid):
                     self.nights[idx].append(Plan(night_events[site].local_times[idx][0],
                                                  night_events[site].local_times[idx][-1],
-                                                 night_events[site].time_slot_length[idx],
-                                                 site))
+                                                 night_events[site].time_slot_length,
+                                                 site,
+                                                 len(night_events[site].times[idx])))
     
     def all_done(self, night: int) -> bool:
         """

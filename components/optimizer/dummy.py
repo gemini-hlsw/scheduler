@@ -28,7 +28,7 @@ class DummyOptimizer(BaseOptimizer):
         """
         Gives a random group/observation to add to plan
         """
-        while all(plan.is_full() for plan in plans):
+        while all(plan.is_full for plan in plans):
             for program in self.programs:
                 ran_group = random.choice(program.group_data.values())
                 for observation in ran_group.group.observations():
