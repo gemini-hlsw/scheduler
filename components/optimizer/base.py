@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
-from common.minimodel import Group, Plans, Plan
-from components.selector import GroupInfo, GroupID
+from common.minimodel.plan import Plans, Plan
+from common.minimodel.program import ProgramID
+from common.calculations.programinfo import ProgramInfo
 from typing import Mapping, Tuple, List
-
-Selection = Mapping[GroupID, Tuple[Group, GroupInfo]]
 
 
 class BaseOptimizer(ABC):
@@ -22,4 +21,8 @@ class BaseOptimizer(ABC):
     @abstractmethod
     # TODO: Replace to NightIndex
     def _run(self, plans: List[Plan]):
+        ...
+
+    @abstractmethod
+    def add(self, program_info: Mapping[ProgramID, ProgramInfo]):
         ...

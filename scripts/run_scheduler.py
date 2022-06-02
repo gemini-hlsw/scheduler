@@ -125,20 +125,8 @@ if __name__ == '__main__':
     # for program in collector._programs.values():
     #    if program.id == 'GS-2018B-Q-101':
     #        atoms_to_sheet(program)
-
-    # "Selection" format for optimzer
-    # Dict[GroupID, Tuple[Group, GroupInfo, List[TargetInfo]]]
-    selection = {}
-    for program_id, group_info_map in results.items():
-        for group_id, group_info in group_info_map.items():
-            group = selector.get_group(group_id)
-            target_infos = [collector.get_target_info(o.id) for o in group.observations()]
-            selection[group_id] = (group, group_info, target_infos)
-
-    # NightEvents
-    night_events = {site: collector.get_night_events(site) for site in ALL_SITES}
-
+    
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
     dummy = DummyOptimizer()
     optimizer = Optimizer(selection, algorithm=dummy)
-    plans_for_all_sites = {site: optimizer.schedule(night_events[site]) for site in ALL_SITES}
+    plans_for_all_sites = optimizer.schedule()
