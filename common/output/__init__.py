@@ -1,6 +1,6 @@
 import json
 import os
-from typing import NoReturn, Union
+from typing import NoReturn, Union, List
 
 from astropy import units as u
 from openpyxl import Workbook
@@ -8,6 +8,7 @@ from openpyxl import Workbook
 from api.programprovider.abstract import ProgramProvider
 from api.programprovider.ocs import OcsProgramProvider
 from common.minimodel import Atom, Group, Observation, ObservationClass, Program
+from common.minimodel.plan import Plans
 from components.collector import Collector, NightEventsManager
 
 
@@ -142,3 +143,15 @@ def atoms_to_sheet(dt: Union[Program, Observation, Group]) -> NoReturn:
     else:
         raise ValueError(f'Unsupported type: {type(dt)}')
 
+
+def print_plans(all_plans: List[Plans]) -> NoReturn:
+    """
+    Print out the visit plans.
+    """
+    
+    for plans in all_plans:
+        print(f'\n\n+++++ NIGHT {plans.night + 1} +++++')
+        for plan in plans:
+            print(f'Plan for site: {plan.site.name}')
+            for visit in plan.visits:
+                print(f'\t{visit.start_time}   {visit.obs_id}')

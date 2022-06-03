@@ -1,6 +1,7 @@
 from common.calculations.selection import Selection
 from .greedymax import GreedyMax
 from common.minimodel.plan import Plans
+from typing import List
 
 
 class Optimizer:
@@ -10,15 +11,13 @@ class Optimizer:
     """
 
     def __init__(self, selection: Selection, algorithm=GreedyMax(some_parameter=1)):
-        self.algorithm = algorithm.add(selection.program_info)
+        self.algorithm = algorithm.setup(selection.program_info)
         self.night_events = selection.night_events
+        # TODO: Assumes that all sites schedule the same amount of nights
+        self.period = len(list(self.night_events.values())[0].time_grid)
     
-    def schedule(self) -> Plans:
-        # TODO: This forces to make Plans for each site SEPARATELY.
-        # This would create and issue with OR groups as observations can be schedule
-        # on different sites but not twice. Old GM had some check-ins to handle this
-        # cases but right now we don't have OR groups implemented.
-
-        plans = Plans(self.night_events)
-        self.algorithm.schedule(plans)
-        return plans
+    def schedule(self) -> List[Plans]:
+        # Create set of plans for the amount of nights
+        nights = [Plans(self.night_events, night) for night in range(self.period)]
+        self.algorithm.schedule(nights)
+        return nights

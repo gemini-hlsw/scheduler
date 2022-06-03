@@ -1,12 +1,11 @@
-from dataclasses import dataclass
-from datetime import timedelta, datetime
-
+from common.calculations.nightevents import NightEvents
 from common.minimodel.visit import Visit
 from common.minimodel.site import Site
 from common.minimodel.observation import Observation
+from dataclasses import dataclass
+from datetime import timedelta, datetime
 from math import ceil
-from typing import NoReturn
-
+from typing import NoReturn, Mapping, List
 
 
 @dataclass
@@ -38,25 +37,29 @@ class Plan:
 
 class Plans:
     """
-    A collection of Nightly Plan from all sites
+    A collection of Plan from all sites for a specific night
     """
-    def __init__(self, night_events):
-        # TODO: adding NightEvents creates a circular dependency!
+    def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: int):
 
-        # TODO: Assumes that all sites schedule the same amount of nights
-        self.nights = [[] for _ in range(len(list(night_events.values())[0].time_grid))]
-
-        for site in night_events.keys():
-            if night_events[site] is not None:
-                for idx, jdx in enumerate(night_events[site].time_grid):
-                    self.nights[idx].append(Plan(night_events[site].local_times[idx][0],
-                                                 night_events[site].local_times[idx][-1],
-                                                 night_events[site].time_slot_length,
-                                                 site,
-                                                 len(night_events[site].times[idx])))
+        self.plans = {}
+        self.night = night_idx
+        for site, ne in night_events.items():
+            if ne is not None:
+                self.plans[site] = Plan(ne.local_times[night_idx][0],
+                                        ne.local_times[night_idx][-1],
+                                        ne.time_slot_length,
+                                        site,
+                                        len(ne.times[night_idx]))
     
-    def all_done(self, night: int) -> bool:
+    def __getitem__(self, site: Site) -> Plan:
+        return self.plans[site]
+
+    def __iter__(self):
+        return iter(self.plans.values())
+
+    def all_done(self) -> bool:
         """
-        Check if all plans for all sites are done in that night
+        Check if all plans for all sites are done in a night
         """
-        return all(plan.is_full for plan in self.nights[night])
+        return all(plan.is_full for plan in self.plans.values())
+    

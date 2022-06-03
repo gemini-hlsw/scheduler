@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from common.minimodel.group import Group
 from common.minimodel.plan import Plans, Plan
 from common.minimodel.program import ProgramID
 from common.calculations.programinfo import ProgramInfo
@@ -14,15 +15,18 @@ class BaseOptimizer(ABC):
     get_visits: methods that updates the plan
 
     """
-    def schedule(self, plans: Plans):
-        for night in range(len(plans.nights)):
-            self._run(plans.nights[night])
+    def schedule(self, nights: List[Plans]):
+        for plans in nights:
+            self._run(plans)
     
     @abstractmethod
-    # TODO: Replace to NightIndex
-    def _run(self, plans: List[Plan]):
+    def _run(self, plans: Plans):
         ...
 
     @abstractmethod
-    def add(self, program_info: Mapping[ProgramID, ProgramInfo]):
+    def setup(self, program_info: Mapping[ProgramID, ProgramInfo]):
+        ...
+
+    @abstractmethod
+    def add(self, group: Group):
         ...

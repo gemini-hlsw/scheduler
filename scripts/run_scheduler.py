@@ -4,11 +4,11 @@ from common.minimodel import *
 
 from api.observatory.gemini import GeminiProperties
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from common.output import print_collector_info
+from common.output import print_collector_info, print_plans
 from components.collector import *
 from components.optimizer.dummy import DummyOptimizer
 from components.selector import Selector
-from components.optimizer import Optimizer, GreedyMax
+from components.optimizer import Optimizer
 
 if __name__ == '__main__':
     # Reduce logging to ERROR only to display the tqdm bars nicely.
@@ -129,4 +129,5 @@ if __name__ == '__main__':
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
     dummy = DummyOptimizer()
     optimizer = Optimizer(selection, algorithm=dummy)
-    plans_for_all_sites = optimizer.schedule()
+    plans = optimizer.schedule()
+    print_plans(plans)

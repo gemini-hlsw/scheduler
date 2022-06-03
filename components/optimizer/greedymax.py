@@ -26,7 +26,7 @@ class GreedyMax(BaseOptimizer):
         info = [g[1] for g in self.selection.values()]
         return max(i.scores[0][0] for i in info)  # This just plain wrong and for demo purposes
  
-    def _insert(self, max_group: Group, plan: Plan):
+    def add(self, max_group: Group, plan: Plan):
         """
         Insert the group into the plan.
         This might be general for all optimizers but for GreedyMax we need to
@@ -52,11 +52,8 @@ class GreedyMax(BaseOptimizer):
                 scheduled = True
             else:
                 pass
-                # TODO: this would span a infinite loop if the group is not inserted
-                # and find_max_group keeps returning the same group. If I recall correctly
-                # scores are set to 0.0 and the group is not inserted.
         
-    def add(self, selection: Selection):
+    def setup(self, selection: Selection):
         # Preparation for the optimizer i.e create chromosomes, etc.
         self.selection = selection
         return self
