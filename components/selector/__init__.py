@@ -227,10 +227,8 @@ class Selector(SchedulerComponent):
         for night_idx in ranker.night_indices:
             vis_idx = target_info[night_idx].visibility_slot_idx
             if res_night_availability[night_idx]:
-                # Resources are available on night_idx, so check where the conditions_score is nonzero.
-                schedulable_slot_indices.append(np.where(conditions_score[vis_idx] > 0)[0])
+                schedulable_slot_indices.append(np.where(conditions_score[night_idx][vis_idx] > 0)[0])
             else:
-                # Resources are not available on night_idx, so no need to check conditions_score.
                 schedulable_slot_indices.append(np.array([]))
 
         # Calculate the scores for the observation across all nights across all timeslots.
@@ -238,6 +236,8 @@ class Selector(SchedulerComponent):
         # Note that np.multiply will handle lists of numpy arrays.
         # TODO: This generates a warning about ragged arrays, but seems to produce the right shape of structure.
         scores = np.multiply(np.multiply(conditions_score, ranker.get_observation_scores(obs.id)), wind_score)
+        # print(f'Scores for group: {group.id}:')
+        # print(scores)
 
         group_info = GroupInfo(
             minimum_conditions=mrc,

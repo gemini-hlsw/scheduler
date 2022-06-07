@@ -438,18 +438,45 @@ class Collector(SchedulerComponent):
         site_independent_resources = {
             Resource(id='PWFS1'),
             Resource(id='PWFS2'),
-            Resource(id='GMOS OIWFS')
+            Resource(id='GMOS OIWFS'),
+            Resource(id='FII OIWFS'),
+
+            Resource(id='Mirror'),
+            Resource(id='Longslit 0.50 arcsec'),
+            Resource(id='Longslit 0.75 arcsec'),
+            Resource(id='Longslit 1.00 arcsec'),
+            Resource(id='Longslit 1.50 arcsec'),
+            Resource(id='IFU Right Slit (red)'),
         }
 
         if site == Site.GN:
             return frozenset(site_independent_resources.union({
                 Resource(id='GMOS-N'),
-                Resource(id='GNIRS')
+                Resource(id='R831_G5302'),
+                Resource(id='r_G0303'),
+                Resource(id='i_G0302'),
+                Resource(id='g_G0301'),
+
+                Resource(id='GNIRS'),
+                Resource(id='1.0 arcsec'),
+                Resource(id='32 l/mm SXD')
             }))
         elif site == Site.GS:
             return frozenset(site_independent_resources.union({
                 Resource(id='GMOS-S'),
-                Resource(id='Flamingos2')
+                Resource(id='B600_G5323'),
+                Resource(id='B1200_G5321'),
+                Resource(id='R400_G5325'),
+                Resource(id='OG515_G0330'),
+                Resource(id='r_G0326'),
+                Resource(id='i_G0327'),
+                Resource(id='g_G0325'),
+
+                Resource(id='Flamingos2'),
+                Resource(id='IMAGING'),
+                Resource(id='K_SHORT'),
+                Resource(id='H'),
+                Resource(id='J')
             }))
 
     def get_actual_conditions_variant(self,
