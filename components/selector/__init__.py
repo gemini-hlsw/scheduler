@@ -234,10 +234,8 @@ class Selector(SchedulerComponent):
         # Calculate the scores for the observation across all nights across all timeslots.
         # Multiply by the conditions score to adjust the scores.
         # Note that np.multiply will handle lists of numpy arrays.
-        # TODO: This generates a warning about ragged arrays, but seems to produce the right shape of structure.
+        # This generates a warning about ragged array deprecation, but seems to produce the right shape of structure.
         scores = np.multiply(np.multiply(conditions_score, ranker.get_observation_scores(obs.id)), wind_score)
-        # print(f'Scores for group: {group.id}:')
-        # print(scores)
 
         group_info = GroupInfo(
             minimum_conditions=mrc,
