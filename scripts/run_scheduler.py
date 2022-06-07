@@ -127,6 +127,7 @@ if __name__ == '__main__':
     #        atoms_to_sheet(program)
     
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
+    # print(selection.program_info)
     dummy = DummyOptimizer()
     optimizer = Optimizer(selection, algorithm=dummy)
     plans = optimizer.schedule()

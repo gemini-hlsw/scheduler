@@ -67,13 +67,13 @@ class Group(ABC):
             return [o for g in self.children for o in g.observations()]
 
     def is_observation_group(self) -> bool:
-        return isinstance(self.children, Observation)
+        return issubclass(type(self.children), Observation)
 
     def is_scheduling_group(self) -> bool:
         return not (self.is_observation_group())
 
     def __len__(self):
-        return 1 if isinstance(self.children, Observation) else len(self.children)
+        return 1 if self.is_observation_group() else len(self.children)
 
 
 class AndOption(Enum):

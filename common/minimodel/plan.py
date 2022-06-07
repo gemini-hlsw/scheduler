@@ -24,12 +24,15 @@ class Plan:
         self.is_full = False
     
     def time2slots(self, time: datetime) -> int:
-        return ceil((time.total_seconds() / 60) / self._time_slot_length.value)
+        return ceil((time.total_seconds() / 60) / self.time_slot_length.value)
 
     def add(self, obs: Observation, start: datetime, time_slots: int) -> NoReturn:
         visit = Visit(start, obs.id, obs.sequence[0].id, obs.sequence[-1].id)
         self.visits.append(visit)
         self._time_slots_left -= time_slots
+
+    def has(self, obs: Observation) -> bool:
+        return any(visit.obs_id == obs.id for visit in self.visits)
 
     def time_left(self) -> int:
         return self._time_slots_left
