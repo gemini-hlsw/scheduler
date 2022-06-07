@@ -40,7 +40,6 @@ if __name__ == '__main__':
     # Execute the Selector.
     # Not sure the best way to display the output.
     selection = selector.select()
-    pass
 
     # Notes for data access:
     # The Selector returns all the data that an Optimizer needs in order to generate plans.
