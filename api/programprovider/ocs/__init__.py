@@ -631,9 +631,13 @@ class OcsProgramProvider(ProgramProvider):
             # Instrument configuration aka Resource
             # instrument = step[OcsProgramProvider._AtomKeys.INSTRUMENT]
             fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
-            fpus.append(fpu)
+
+            # We don't want to allow FPU to be None or FPU_NONE, which are effectively the same thing.
+            if fpu != 'None' and fpu != 'FPU_NONE':
+                fpus.append(fpu)
             dispersers.append(disperser)
-            filters.append(filt)
+            if filt and filt != 'None':
+                filters.append(filt)
             wavelengths.append(wavelength)
             mode = determine_mode(instrument)
 
