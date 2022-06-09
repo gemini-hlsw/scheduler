@@ -23,6 +23,14 @@ class ProcessManager:
             return self.standard_runner.schedule(Process(target=task.target), task.timeout)
         else:
             raise ValueError(f'Invalid mode {mode}')
+
+    def add_task(self, timeout: int):
+        task = SchedulerTask((random_date,
+                            random_date + timedelta(days=1),
+                            timeout=timeout,
+                            target=Scheduler(randint(3, 15))))
+        self.schedule_with_runner(task, TaskType.STANDARD)
+
     
     def shutdown(self):
         """
