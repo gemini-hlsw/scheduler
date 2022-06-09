@@ -10,7 +10,7 @@ class Optimizer:
     All algorithms need to follow the same structure to create a Plan
     """
 
-    def __init__(self, selection: Selection, algorithm=GreedyMax(some_parameter=1)):
+    def __init__(self, selection: Selection, algorithm=None):
         self.algorithm = algorithm.setup(selection.program_info)
         self.night_events = selection.night_events
         # TODO: Assumes that all sites schedule the same amount of nights

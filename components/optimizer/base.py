@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from common.minimodel.group import Group
-from common.minimodel.plan import Plans, Plan
+from common.calculations.groupinfo import GroupData
+from common.minimodel.plan import Plans
 from common.minimodel.program import ProgramID
 from common.calculations.programinfo import ProgramInfo
-from typing import Mapping, Tuple, List
+from typing import Mapping, List
 
 
 class BaseOptimizer(ABC):
@@ -11,8 +11,10 @@ class BaseOptimizer(ABC):
     Base class for all Optimizer components.
     Each optimizing algorithm needs to implement the following methods:
 
-    schedule: methods that triggers the formation of the plan
-    get_visits: methods that updates the plan
+    schedule: method that triggers the formation of the plan
+    setup: method that prepares the algorithm to be used for scheduling
+    add: method that adds a group to a plan
+    _run: main driver for the algorithm
 
     """
     def schedule(self, nights: List[Plans]):
@@ -28,5 +30,5 @@ class BaseOptimizer(ABC):
         ...
 
     @abstractmethod
-    def add(self, group: Group):
+    def add(self, group: GroupData):
         ...

@@ -4,7 +4,7 @@ from common.minimodel.program import ProgramID
 from common.minimodel.group import Group
 from common.calculations.programinfo import ProgramInfo
 from datetime import datetime, timedelta
-from typing import Mapping
+from typing import Mapping, NoReturn, Self
 import random
 
 
@@ -42,7 +42,7 @@ class DummyOptimizer(BaseOptimizer):
             else:
                 print('group not added')
         
-    def setup(self, programInfo: Mapping[ProgramID, ProgramInfo]):
+    def setup(self, programInfo: Mapping[ProgramID, ProgramInfo]) -> Self:
         """
         Preparation for the optimizer i.e create chromosomes, etc.
         """
@@ -50,7 +50,7 @@ class DummyOptimizer(BaseOptimizer):
         for p in programInfo.values():
             self.groups.extend([g for g in p.group_data.values() if g.group.is_observation_group()])
         return self
-    
+
     def add(self, group: Group, plans: Plans) -> bool:
         """
         Add a group to a Plan
