@@ -4,9 +4,11 @@ from common.minimodel import *
 
 from api.observatory.gemini import GeminiProperties
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from common.output import print_collector_info
+from common.output import print_collector_info, print_plans
 from components.collector import *
+from components.optimizer.dummy import DummyOptimizer
 from components.selector import Selector
+from components.optimizer import Optimizer
 
 if __name__ == '__main__':
     # Reduce logging to ERROR only to display the tqdm bars nicely.
@@ -53,6 +55,7 @@ if __name__ == '__main__':
     # The NightEvents are the calculations for a given site across all nights.
     #
     # This may have to be modified in the future to accept date ranges, since now they return everything the Collector
+
     # was initialized with in terms of period length and time granularity.
     #
     # For all the values:
@@ -117,9 +120,15 @@ if __name__ == '__main__':
     # Note that the actual scores are generated using the Ranker (components.ranker.__init__.py, Ranker class), which
     # follows the old implementation but is generalized to multi-night, and cleaned up significantly.
 
-
     # Sergio preliminary work:
     # Output the data in a spreadsheet.
     # for program in collector._programs.values():
     #    if program.id == 'GS-2018B-Q-101':
     #        atoms_to_sheet(program)
+    
+    # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
+    # print(selection.program_info)
+    dummy = DummyOptimizer()
+    optimizer = Optimizer(selection, algorithm=dummy)
+    plans = optimizer.schedule()
+    print_plans(plans)

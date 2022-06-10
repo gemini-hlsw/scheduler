@@ -119,4 +119,6 @@ maglimits_test.py
 # logger
 *.log
 
+# scala worksheet for some OCS comparison
+.metals
 
