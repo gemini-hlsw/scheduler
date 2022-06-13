@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-DEFAULT_TIMEOUT = 10
+DEFAULT_TIMEOUT = 10  # seconds
 
 
 class TaskType(Enum):
@@ -18,14 +18,12 @@ class SchedulerTask:
     """
     def __init__(self,
                  start_time: datetime,
-                 end_time: datetime,
                  target: callable,
-                 timeout: int = DEFAULT_TIMEOUT) -> None:
+                 timeout: int) -> None:
 
         self.start_time = start_time
-        self.end_time = end_time
-        self.job_id = hash((self.start_time, self.end_time))
-        self.timeout = timeout
+        self.job_id = hash((self.start_time, timeout))
+        self.timeout = timeout if timeout is not None else DEFAULT_TIMEOUT
         self.target = target
         self.process = None
     

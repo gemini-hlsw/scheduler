@@ -1,15 +1,13 @@
 from dataclasses import dataclass
-import time
-import logging
 import signal
 import os
 from astropy.time import Time
 import astropy.units as u
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from api.observatory.gemini import GeminiProperties
 from components.collector import Collector
 from components.selector import Selector
-from common.minimodel import ALL_SITES, Semester, SemesterHalf, ProgramTypes, ObservationClass
+from components.optimizer import Optimizer
+from components.optimizer.dummy import DummyOptimizer
 
 
 @dataclass
@@ -17,6 +15,7 @@ class CollectorConfig:
     semesters: set
     program_types: set
     obs_classes: set
+
 
 @dataclass
 class SelectorConfig:
@@ -35,14 +34,14 @@ class SchedulerConfig:
 
 class Scheduler():
     def __init__(self, config: SchedulerConfig):
-        logging.basicConfig(level=logging.INFO)
         self.config = config
+        self.plan = None
 
     def __call__(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         programs = read_ocs_zipfile(os.path.join('..', 'data', '2018B_program_samples.zip'))
 
-         # Create the Collector and load the programs.
+        # Create the Collector and load the programs.
         collector = Collector(
             start_time=self.config.start_time,
             end_time=self.config.end_time,
@@ -63,4 +62,9 @@ class Scheduler():
         # Execute the Selector.
         # Not sure the best way to display the output.
         selection = selector.select()
-        
+        # Execute the Optimizer.
+        dummy = DummyOptimizer()
+        optimizer = Optimizer(selection, algorithm=dummy)
+        plans = optimizer.schedule()
+        self.plans = plans
+        # print_plans(plans)

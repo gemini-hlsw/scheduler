@@ -4,7 +4,7 @@ import functools
 import logging
 from itertools import count
 
-from process import ProcessTask, Result
+from .process import ProcessTask, Result
 from multiprocessing import Process
 from typing import NoReturn
 
@@ -18,6 +18,7 @@ class Job:
 
     def __repr__(self):
         return f"Job-{self.sequence}"
+
 
 # TODO: An abstract class might be needed here, but right now RealtimeRunner can be done
 # with just the same Runner as Standard.

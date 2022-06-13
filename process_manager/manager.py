@@ -1,6 +1,10 @@
-from runner import StandardRunner
 from multiprocessing import Process
-from task import SchedulerTask, TaskType
+from datetime import datetime
+from .runner import StandardRunner
+from .task import SchedulerTask, TaskType
+
+
+from typing import NoReturn
 
 
 class ProcessManager:
@@ -24,13 +28,11 @@ class ProcessManager:
         else:
             raise ValueError(f'Invalid mode {mode}')
 
-    def add_task(self, timeout: int):
-        task = SchedulerTask((random_date,
-                            random_date + timedelta(days=1),
-                            timeout=timeout,
-                            target=Scheduler(randint(3, 15))))
-        self.schedule_with_runner(task, TaskType.STANDARD)
-
+    def add_task(self, start: datetime, target: callable, mode: TaskType, timeout: int = None) -> NoReturn:
+        task = SchedulerTask(start,
+                             target,
+                             timeout=timeout)
+        self.schedule_with_runner(task, mode)
     
     def shutdown(self):
         """
