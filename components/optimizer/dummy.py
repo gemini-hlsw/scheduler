@@ -1,10 +1,11 @@
+from __future__ import annotations
 from components.optimizer.base import BaseOptimizer
 from common.minimodel.plan import Plans, Plan
 from common.minimodel.program import ProgramID
 from common.minimodel.group import Group
 from common.calculations.programinfo import ProgramInfo
 from datetime import datetime, timedelta
-from typing import Mapping, NoReturn, Self
+from typing import Mapping
 import random
 
 
@@ -42,7 +43,7 @@ class DummyOptimizer(BaseOptimizer):
             else:
                 print('group not added')
         
-    def setup(self, programInfo: Mapping[ProgramID, ProgramInfo]) -> Self:
+    def setup(self, programInfo: Mapping[ProgramID, ProgramInfo]) -> DummyOptimizer:
         """
         Preparation for the optimizer i.e create chromosomes, etc.
         """
