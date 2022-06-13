@@ -30,5 +30,5 @@ class BaseOptimizer(ABC):
         ...
 
     @abstractmethod
-    def add(self, group: GroupData):
+    def add(self, group: GroupData, Plans: Plans):
         ...
