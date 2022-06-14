@@ -35,5 +35,7 @@ class Site(Enum):
             msg = f'Unknown time zone lookup: {timezone_info}.'
             raise ValueError(e, msg)
 
+    def __repr__(self) -> str:
+        return f'SiteInformation({self.name}, {self.coordinate_center})'
 
 ALL_SITES = frozenset(s for s in Site)
