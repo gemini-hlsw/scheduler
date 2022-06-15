@@ -132,3 +132,5 @@ if __name__ == '__main__':
     optimizer = Optimizer(selection, algorithm=dummy)
     plans = optimizer.schedule()
     print_plans(plans)
+
+    print('DONE')

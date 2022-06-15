@@ -13,3 +13,4 @@ dependencies:
   - tqdm
   - scipy
   - coverage
+  - requests
