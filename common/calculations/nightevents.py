@@ -63,11 +63,10 @@ class NightEvents:
         utc_times = [t.to_datetime(pytz.UTC) for t in times]
         object.__setattr__(self, 'utc_times', utc_times)
 
-        local_times = [t.to_datetime(self.site.value.timezone) for t in times]
+        local_times = [t.to_datetime(self.site.timezone) for t in times]
         object.__setattr__(self, 'local_times', local_times)
 
-        # self.local_sidereal_times = [vskyutil.lpsidereal(t, self.site.value.location) for t in self.times]
-        local_sidereal_times = [sky.local_sidereal_time(t, self.site.value.location) for t in times]
+        local_sidereal_times = [sky.local_sidereal_time(t, self.site.location) for t in times]
         object.__setattr__(self, 'local_sidereal_times', local_sidereal_times)
 
         def alt_az_parang(pos: List[SkyCoord]) -> Tuple[npt.NDArray[Angle], npt.NDArray[Angle], npt.NDArray[Angle]]:
@@ -79,7 +78,7 @@ class NightEvents:
             3. parallactic angle
             """
             alt, az, par_ang = zip(
-                *[sky.Altitude.above(p.dec, lst - p.ra, self.site.value.location.lat)
+                *[sky.Altitude.above(p.dec, lst - p.ra, self.site.location.lat)
                   for p, lst in zip(pos, local_sidereal_times)]
             )
 
@@ -102,7 +101,7 @@ class NightEvents:
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
         # collect the SkyCoords into one tuple, and the ndarrays into another.
         # The moon_dist are already a Quantity: error if try to convert.
-        moon_pos, moon_dist = zip(*[sky.Moon().at(t).accurate_location(self.site.value.location) for t in times])
+        moon_pos, moon_dist = zip(*[sky.Moon().at(t).accurate_location(self.site.location) for t in times])
         object.__setattr__(self, 'moon_pos', moon_pos)
         object.__setattr__(self, 'moon_dist', moon_dist)
 

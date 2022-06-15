@@ -262,7 +262,7 @@ class Collector(SchedulerComponent):
             lst = night_events.local_sidereal_times[night_idx]
             hourangle = lst - coord.ra
             hourangle.wrap_at(12.0 * u.hour, inplace=True)
-            alt, az, par_ang = sky.Altitude.above(coord.dec, hourangle, obs.site.value.location.lat)
+            alt, az, par_ang = sky.Altitude.above(coord.dec, hourangle, obs.site.location.lat)
             airmass = sky.true_airmass(alt)
 
             # Calculate the time slots for the night in which there is visibility.
