@@ -213,7 +213,7 @@ class Ranker:
         ha = [target_info[night_idx].hourangle for night_idx in self.night_indices]
 
         # Get the latitude associated with the site.
-        site_latitude = obs.site.value.location.lat
+        site_latitude = obs.site.location.lat
         if site_latitude < 0. * u.deg:
             dec_diff = [np.abs(site_latitude - np.max(dec[night_idx])) for night_idx in self.night_indices]
         else:

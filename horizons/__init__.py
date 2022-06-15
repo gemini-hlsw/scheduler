@@ -189,7 +189,7 @@ class HorizonsClient:
         
         skip_day = 'NO' if daytime else 'YES'
 
-        center = self.site.value.coordinate_center
+        center = self.site.coordinate_center
 
         params = {'batch': 1,
                   'COMMAND': "'" + target + "'",

@@ -37,7 +37,7 @@ class NightEventsManager(SchedulerComponent):
                 time_grid,
                 time_slot_length,
                 site,
-                *sky.night_events(time_grid, site.value.location, site.value.timezone)
+                *sky.night_events(time_grid, site.location, site.timezone)
             )
             NightEventsManager._night_events[site] = night_events
 
