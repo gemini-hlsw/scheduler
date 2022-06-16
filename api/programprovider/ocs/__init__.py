@@ -501,8 +501,9 @@ class OcsProgramProvider(ProgramProvider):
                 if OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
                     fpu = data[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
                 else:
-                    fpu = None
                     # TODO: Might need to raise an exception here. Check code with science.
+                    # TODO: An example of where this happens is for GN-2018B-Q-103-19.
+                    fpu = None
             else:
                 raise ValueError(f'Instrument {instrument} not supported')
 
@@ -632,8 +633,9 @@ class OcsProgramProvider(ProgramProvider):
             # instrument = step[OcsProgramProvider._AtomKeys.INSTRUMENT]
             fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
 
-            # We don't want to allow FPU to be None or FPU_NONE, which are effectively the same thing.
-            if fpu != 'None' and fpu != 'FPU_NONE':
+            # We don't want to allow FPU to be None, 'None', or FPU_NONE, which are effectively the same thing.
+            # TODO: if fpu is None, this might be an error. Check with science.
+            if fpu is not None and fpu != 'None' and fpu != 'FPU_NONE':
                 fpus.append(fpu)
             dispersers.append(disperser)
             if filt and filt != 'None':
