@@ -53,9 +53,9 @@ if __name__ == '__main__':
                              selector_config)
 
     # Manager params
-    size = 5  # number of processes
+    size = 1  # number of processes
     timeout = 60 * 60  # max time to wait for a process to finish
-    period = 2
+    period = 2000000
     try:
         asyncio.run(main(config, size, timeout, period))
     except RuntimeError:

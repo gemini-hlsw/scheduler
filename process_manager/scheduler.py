@@ -47,24 +47,24 @@ class Scheduler():
             end_time=self.config.end_time,
             time_slot_length=self.config.time_slot_length,
             sites=self.config.sites,
-            semesters=self.config.collector_config.semesters,
+            semesters=self.config.collector.semesters,
             program_types=self.config.collector.program_types,
             obs_classes=self.config.collector.obs_classes
         )
         collector.load_programs(program_provider=OcsProgramProvider(),
                                 data=programs)
 
-        selector = Selector(
-            collector=collector,
-            properties=self.config.selector.properties
-        )
+        # selector = Selector(
+        #    collector=collector,
+        #    properties=self.config.selector.properties
+        #)
 
         # Execute the Selector.
         # Not sure the best way to display the output.
-        selection = selector.select()
+        #selection = selector.select()
         # Execute the Optimizer.
-        dummy = DummyOptimizer()
-        optimizer = Optimizer(selection, algorithm=dummy)
-        plans = optimizer.schedule()
-        self.plans = plans
+        #dummy = DummyOptimizer()
+        #optimizer = Optimizer(selection, algorithm=dummy)
+        #plans = optimizer.schedule()
+        #self.plans = plans
         # print_plans(plans)
