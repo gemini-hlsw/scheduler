@@ -23,8 +23,8 @@ class Plan:
         self.visits = []
         self.is_full = False
     
-    def time2slots(self, time: datetime) -> int:
-        return ceil((time.total_seconds() / 60) / self.time_slot_length.value)
+    def time2slots(self, time: timedelta) -> int:
+        return ceil((time.total_seconds() / self.time_slot_length.total_seconds()) / 60)
 
     def add(self, obs: Observation, start: datetime, time_slots: int) -> NoReturn:
         visit = Visit(start, obs.id, obs.sequence[0].id, obs.sequence[-1].id)
@@ -50,7 +50,7 @@ class Plans:
             if ne is not None:
                 self.plans[site] = Plan(ne.local_times[night_idx][0],
                                         ne.local_times[night_idx][-1],
-                                        ne.time_slot_length,
+                                        ne.time_slot_length.to_datetime(),
                                         site,
                                         len(ne.times[night_idx]))
     

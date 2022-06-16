@@ -48,11 +48,7 @@ def night_events(time: Time, location: EarthLocation, localtzone: timezone) -> \
     rise_alt = Angle(horiz * np.ones(nt), unit=u.deg)  # zd = 90 deg 50 arcmin
 
     # Sun
-    sunrise, sunset, even_12twi, morn_12twi = Sun.rise_and_set(location,
-                                                               time,
-                                                               midnight,
-                                                               set_alt,
-                                                               rise_alt)
+    sunrise, sunset, even_12twi, morn_12twi = Sun.rise_and_set(location, time, midnight, set_alt, rise_alt)
 
     # Moon
     moonrise, moonset = Moon().rise_and_set(location, midnight, set_alt, rise_alt)
