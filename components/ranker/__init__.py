@@ -1,12 +1,11 @@
-import astropy.units as u
 from copy import deepcopy
-from dataclasses import dataclass
-import numpy as np
-import numpy.typing as npt
-from typing import Callable, Dict, FrozenSet, List, Mapping, Tuple, Union
+from typing import Callable, Dict, Tuple
 
-from common.minimodel import *
+import astropy.units as u
+
 from common.calculations import Scores
+from common.minimodel import *
+from common.types import ListOrNDArray
 from components.collector import Collector
 
 
@@ -115,7 +114,7 @@ class Ranker:
                 self._observation_scores[obs.id] = self._score_obs(program, obs)
 
     def _metric_slope(self,
-                      completion: Union[List[float], npt.NDArray[float]],
+                      completion: ListOrNDArray[float],
                       band: npt.NDArray[Band],
                       b3min: npt.NDArray[float],
                       thesis: bool) -> Tuple[npt.NDArray[float], npt.NDArray[float]]:

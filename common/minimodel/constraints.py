@@ -7,6 +7,7 @@ import numpy.typing as npt
 from astropy.coordinates import Angle
 from astropy.units import Quantity
 
+from common.types import ScalarOrNDArray
 from common.helpers import flatten
 from .timingwindow import TimingWindow
 
@@ -86,10 +87,10 @@ class Conditions:
     This should be done via:
     current_conditions <= required_conditions.
     """
-    cc: Union[npt.NDArray[CloudCover], CloudCover]
-    iq: Union[npt.NDArray[ImageQuality], ImageQuality]
-    sb: Union[npt.NDArray[SkyBackground], SkyBackground]
-    wv: Union[npt.NDArray[WaterVapor], WaterVapor]
+    cc: ScalarOrNDArray[CloudCover]
+    iq: ScalarOrNDArray[ImageQuality]
+    sb: ScalarOrNDArray[SkyBackground]
+    wv: ScalarOrNDArray[WaterVapor]
 
     # Least restrictive conditions.
     @classmethod
