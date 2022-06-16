@@ -3,9 +3,8 @@ import asyncio
 import logging
 from astropy.time import Time, TimeDelta
 import astropy.units as u
-from process_manager.task import TaskType
-from process_manager.manager import ProcessManager
-from process_manager.scheduler import Scheduler, SchedulerConfig, CollectorConfig, SelectorConfig
+from process_manager import TaskType, ProcessManager, Scheduler
+from process_manager import SchedulerConfig, CollectorConfig, SelectorConfig
 from api.observatory.gemini import GeminiProperties
 from common.minimodel import ALL_SITES, Semester, SemesterHalf, ProgramTypes, ObservationClass
 
@@ -21,7 +20,7 @@ selector_config = SelectorConfig(GeminiProperties)
 
 config = SchedulerConfig(Time("2018-10-01 08:00:00", format='iso', scale='utc'),
                          Time("2018-10-03 08:00:00", format='iso', scale='utc'),
-                         1.0 * u.min, # change to TimeDelta(1.0 * u.min)
+                         TimeDelta(1.0 * u.min),
                          ALL_SITES,
                          collector_config,
                          selector_config)
