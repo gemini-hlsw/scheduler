@@ -26,11 +26,10 @@ class StandardRunner:
     """
     Main runner to handle Process objects and their associated tasks.
     """
-    def __init__(self, size, timeout=None):
+    def __init__(self, size):
         self.max_jobs = size
         self.jobs = []
         self.callbacks = []
-        self.timeout = timeout
     
     def add_done_callback(self, callback: callable) -> NoReturn:
         """

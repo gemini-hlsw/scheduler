@@ -390,9 +390,7 @@ class Collector(SchedulerComponent):
                 # Filter out here any observation classes that have not been specified to the Collector.
                 bad_obs, good_obs = partition(lambda x: x.obs_class in self.obs_classes, program.observations())
                 bad_obs = list(bad_obs)
-                good_obs = list(good_obs)
-
-                
+                good_obs = list(good_obs)   
 
                 for obs in bad_obs:
                     name = obs.obs_class.name
@@ -403,8 +401,6 @@ class Collector(SchedulerComponent):
 
                 for obs in good_obs:
                     # Retrieve tne base target, if any. If not, we cannot process.
-
-                    print(f'obs to process: {obs.id}')
                     base = obs.base_target()
 
                     # Record the observation and target for this observation ID.
@@ -418,7 +414,6 @@ class Collector(SchedulerComponent):
                     tw = self._process_timing_windows(program, obs)
                     ti = self._calculate_target_info(obs, base, tw)
                     logging.info(f'Processed observation {obs.id}.')
-                    print(f'Processed observation {obs.id}.')
 
                     # Compute the TargetInfo.
                     Collector._target_info[(base.name, obs.id)] = ti

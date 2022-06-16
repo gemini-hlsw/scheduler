@@ -1,19 +1,23 @@
+import asyncio
+import signal
+from random import randint
 from multiprocessing import Process
 from datetime import datetime
 from .runner import StandardRunner
 from .task import SchedulerTask, TaskType
-
+from .scheduler import Scheduler
 
 from typing import NoReturn
 
 
 class ProcessManager:
     """
-    Main handler for each runner, which is responsible for scheduling the task. 
+    Main handler for each runner, which is responsible for scheduling the task.
     """
-    def __init__(self, timeout: int, size: int):
-        self.realtime_runner = StandardRunner(1, timeout)
-        self.standard_runner = StandardRunner(size, timeout)
+    def __init__(self, size: int, timeout: int = None):
+        self.realtime_runner = StandardRunner(1)
+        self.standard_runner = StandardRunner(size)
+        self.timeout = timeout
 
     def schedule_with_runner(self, task: SchedulerTask, mode: TaskType):
         """
@@ -28,11 +32,29 @@ class ProcessManager:
         else:
             raise ValueError(f'Invalid mode {mode}')
 
-    def add_task(self, start: datetime, target: callable, mode: TaskType, timeout: int = None) -> NoReturn:
+    def add_task(self, start: datetime, target: callable, mode: TaskType) -> NoReturn:
         task = SchedulerTask(start,
                              target,
-                             timeout=timeout)
+                             self.timeout)
         self.schedule_with_runner(task, mode)
+    
+    async def run(self, scheduler: Scheduler, period: int, mode: TaskType):
+        done = asyncio.Event()
+        
+        def shutdown():
+            done.set()
+            self.shutdown()
+            asyncio.get_event_loop().stop()
+        
+        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, shutdown)
+
+        while not done.is_set():
+            self.add_task(datetime.now(), scheduler, mode)
+            if period == 0:
+                # random case #
+                await asyncio.sleep(randint(1, 10))
+            else:
+                await asyncio.sleep(period)
     
     def shutdown(self):
         """

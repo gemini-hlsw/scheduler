@@ -692,11 +692,6 @@ class OcsProgramProvider(ProgramProvider):
                     program_time = timedelta(seconds=step_time)
 
                 # Convert all the different components into Resources.
-                print(fpus)
-                #print(dispersers)
-                #print(filters)
-                #print(instrument)
-                #print([rid for rid in fpus + dispersers + filters + [instrument]])
                 resources = frozenset(Resource(rid) for rid in fpus + dispersers + filters + [instrument])
 
                 atoms.append(Atom(id=n_atom,
@@ -734,7 +729,6 @@ class OcsProgramProvider(ProgramProvider):
         keys prior to doing the parsing.
         """
         obs_id = data[OcsProgramProvider._ObsKeys.ID]
-        print('obs_id: ', obs_id)
         internal_id = data[OcsProgramProvider._ObsKeys.INTERNAL_ID]
         title = data[OcsProgramProvider._ObsKeys.TITLE]
         site = Site[data[OcsProgramProvider._ObsKeys.ID].split('-')[0]]
