@@ -4,7 +4,6 @@ from typing import FrozenSet, Iterable, NoReturn, Optional
 
 from astropy.units import Quantity
 from more_itertools import partition
-from tqdm import tqdm
 
 from api.programprovider.abstract import ProgramProvider
 from common.calculations import *
@@ -367,7 +366,7 @@ class Collector(SchedulerComponent):
         # Count the number of parse failures.
         bad_program_count = 0
 
-        for json_program in tqdm(data):
+        for json_program in data:
             try:
                 if len(json_program.keys()) != 1:
                     msg = f'JSON programs should only have one top-level key: {" ".join(json_program.keys())}'
@@ -400,7 +399,7 @@ class Collector(SchedulerComponent):
                 # Set the observation IDs for this program.
                 Collector._observations_per_program[program.id] = {obs.id for obs in good_obs}
 
-                for obs in tqdm(good_obs, leave=False):
+                for obs in good_obs:
                     # Retrieve tne base target, if any. If not, we cannot process.
                     base = obs.base_target()
 

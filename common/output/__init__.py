@@ -60,7 +60,7 @@ def print_collector_info(collector: Collector, samples: int = 60) -> NoReturn:
     print(f'Pre-Collector / Collector running from:')
     print(f'   start time:       {collector.start_time}')
     print(f'   end time:         {collector.end_time}')
-    print(f'   time slot length: {collector.time_slot_length}')
+    print(f'   time slot length: {collector.time_slot_length.to(u.min)}')
 
     # Print out sampled calculation for every hour as there are far too many results to print in full.
     samples = 60
