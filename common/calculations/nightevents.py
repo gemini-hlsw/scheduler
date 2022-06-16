@@ -39,7 +39,8 @@ class NightEvents:
 
     def __post_init__(self):
         # Calculate the length of each night at this site, i.e. time between twilights.
-        night_length = (self.twilight_morning_12 - self.twilight_evening_12).to_value('h') * u.h
+        night_length = TimeDelta((self.twilight_morning_12 - self.twilight_evening_12).to(u.hour))
+        # night_length = TimeDelta((self.twilight_morning_12 - self.twilight_evening_12).to_value('hr'))
         object.__setattr__(self, 'night_length', night_length)
 
         # Create the time arrays, which are arrays that represent the earliest starting

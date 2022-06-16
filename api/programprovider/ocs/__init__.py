@@ -633,7 +633,7 @@ class OcsProgramProvider(ProgramProvider):
             fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
 
             # We don't want to allow FPU to be None or FPU_NONE, which are effectively the same thing.
-            if fpu != 'None' and fpu != 'FPU_NONE':
+            if fpu is not None and fpu != 'None' and fpu != 'FPU_NONE':
                 fpus.append(fpu)
             dispersers.append(disperser)
             if filt and filt != 'None':
@@ -649,14 +649,14 @@ class OcsProgramProvider(ProgramProvider):
             if atom_id == 0 or (atom_id > 0 and wavelengths[atom_id] != wavelengths[prev]):
                 next_atom = True
                 # TODO: Can we make this informative?
-                logging.info('Atom for wavelength')
+                # logging.info('Atom for wavelength')
 
             if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider.OBSERVE_TYPES:
                 if observe_class.upper() == 'SCIENCE' and (atom_id > 0 and
                                                            exposure_times[atom_id] != exposure_times[prev] or
                                                            coadds[atom_id] != coadds[prev]):
                     next_atom = True
-                    logging.info('Atom for exposure time change')
+                    # logging.info('Atom for exposure time change')
 
                 # Offsets - a new offset pattern is a new atom
                 if offset_lag == 0 and not exptime_groups:
@@ -670,12 +670,12 @@ class OcsProgramProvider(ProgramProvider):
                                 n_offsets += 1
                         if n_offsets % 2 == 1:
                             next_atom = True
-                            logging.info('Atom for offset pattern')
+                            # logging.info('Atom for offset pattern')
                     else:
                         n_pattern -= 1
                         if n_pattern < 0:
                             next_atom = True
-                            logging.info('Atom for offset pattern')
+                            # logging.info('Atom for offset pattern')
                             n_pattern = offset_lag - 1
                 prev = atom_id
 

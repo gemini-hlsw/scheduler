@@ -424,7 +424,7 @@ class Moon:
                      location: EarthLocation,
                      midnight: Time,
                      set_alt: Angle,
-                     rise_alt: Angle) -> Tuple[Time, Tuple[Angle, Time, EarthLocation]]:
+                     rise_alt: Angle) -> Tuple[Time, Time]:
         """
         Return times of moon rise and set.
         """
@@ -447,7 +447,7 @@ class Moon:
 
         timedelta_moon_set = TimeDelta(diff_moon_set.hour / 24., format='jd')
         times_moon_set = midnight + timedelta_moon_set
-        times_moon_set = (set_alt, times_moon_set, location)
+        times_moon_set = Moon.time_by_altitude(set_alt, times_moon_set, location)
 
         ha_moonrise = -1. * hour_angle_to_angle(moon_at_midnight.dec, location.lat, rise_alt)
         diff_moonrise = ha_moonrise - ha_moon_at_midnight  # how far from riseting point at midnight
@@ -460,8 +460,8 @@ class Moon:
         if len(jj) != 0:
             diff_moonrise[jj] = diff_moonrise[jj] + Angle(24. * u.hour)
 
-        timedelta_moonrise = TimeDelta(diff_moonrise.hour / 24., format='jd')
-        times_moonrise = midnight + timedelta_moonrise
-        times_moonrise = Moon.time_by_altitude(rise_alt, times_moonrise, location)
+        timedelta_moon_rise = TimeDelta(diff_moonrise.hour / 24., format='jd')
+        times_moon_rise = midnight + timedelta_moon_rise
+        times_moon_rise = Moon.time_by_altitude(rise_alt, times_moon_rise, location)
 
-        return times_moonrise, times_moon_set
+        return times_moon_rise, times_moon_set

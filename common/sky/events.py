@@ -7,16 +7,20 @@ from astropy.coordinates import Angle, EarthLocation
 from astropy.time import Time
 from pytz import timezone
 
+from common.types import TimeScalarOrNDArray
 from common.sky.constants import EQUAT_RAD
 from common.sky.moon import Moon
 from common.sky.sun import Sun
 from common.sky.utils import local_midnight_time
 
 
-def night_events(time: Time, location: EarthLocation, localtzone: timezone) -> \
-        Tuple[Time, Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time],
-              Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time],
-              Union[npt.NDArray[float], Tuple[Angle, Time, EarthLocation]]]:
+def night_events(time: Time, location: EarthLocation, localtzone: timezone) -> Tuple[Time,
+                                                                                     TimeScalarOrNDArray,
+                                                                                     TimeScalarOrNDArray,
+                                                                                     TimeScalarOrNDArray,
+                                                                                     TimeScalarOrNDArray,
+                                                                                     TimeScalarOrNDArray,
+                                                                                     TimeScalarOrNDArray]:
     """
     Compute phenomena for a given night.
 
@@ -48,11 +52,7 @@ def night_events(time: Time, location: EarthLocation, localtzone: timezone) -> \
     rise_alt = Angle(horiz * np.ones(nt), unit=u.deg)  # zd = 90 deg 50 arcmin
 
     # Sun
-    sunrise, sunset, even_12twi, morn_12twi = Sun.rise_and_set(location,
-                                                               time,
-                                                               midnight,
-                                                               set_alt,
-                                                               rise_alt)
+    sunrise, sunset, even_12twi, morn_12twi = Sun.rise_and_set(location, time, midnight, set_alt, rise_alt)
 
     # Moon
     moonrise, moonset = Moon().rise_and_set(location, midnight, set_alt, rise_alt)

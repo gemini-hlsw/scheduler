@@ -10,7 +10,6 @@ dependencies:
   - pytest
   - pytz
   - tabulate
-  - tqdm
   - scipy
   - coverage
   - requests

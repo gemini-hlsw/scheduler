@@ -19,5 +19,5 @@ def test_night_events(midnight, location):
     nptest.assert_almost_equal(even_12twi.jd, Time('2020-07-01 05:58:33.537').jd, decimal=2)
     nptest.assert_almost_equal(morn_12twi.jd, Time('2020-07-01 14:53:11.218').jd, decimal=2)
     nptest.assert_almost_equal(moonrise.jd, Time('2020-07-01 00:50:37.391').jd, decimal=2)
-    nptest.assert_almost_equal(moonset[1].jd, Time('2020-07-01 12:51:54.812').jd, decimal=2)
+    nptest.assert_almost_equal(moonset.jd, Time('2020-07-01 12:51:54.812').jd, decimal=2)
  
