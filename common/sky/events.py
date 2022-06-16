@@ -14,9 +14,12 @@ from common.sky.utils import local_midnight_time
 
 
 def night_events(time: Time, location: EarthLocation, localtzone: timezone) -> \
-        Tuple[Time, Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time],
-              Union[npt.NDArray[float], Time], Union[npt.NDArray[float], Time],
-              Union[npt.NDArray[float], Tuple[Angle, Time, EarthLocation]]]:
+        Tuple[Time, Union[npt.NDArray[float], Time],
+              Union[npt.NDArray[float], Time],
+              Union[npt.NDArray[float], Time],
+              Union[npt.NDArray[float], Time],
+              Union[npt.NDArray[float], Time],
+              Union[npt.NDArray[float], Time]]:
     """
     Compute phenomena for a given night.
 

@@ -424,7 +424,7 @@ class Moon:
                      location: EarthLocation,
                      midnight: Time,
                      set_alt: Angle,
-                     rise_alt: Angle) -> Tuple[Time, Tuple[Angle, Time, EarthLocation]]:
+                     rise_alt: Angle) -> Tuple[Time, Time]:
         """
         Return times of moon rise and set.
         """
