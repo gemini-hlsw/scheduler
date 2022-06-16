@@ -1,10 +1,7 @@
 
 import asyncio
-import signal
 import logging
-from datetime import datetime
-from random import randint
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 import astropy.units as u
 from process_manager.task import TaskType
 from process_manager.manager import ProcessManager
@@ -24,18 +21,18 @@ selector_config = SelectorConfig(GeminiProperties)
 
 config = SchedulerConfig(Time("2018-10-01 08:00:00", format='iso', scale='utc'),
                          Time("2018-10-03 08:00:00", format='iso', scale='utc'),
-                         1.0 * u.min,
+                         1.0 * u.min, # change to TimeDelta(1.0 * u.min)
                          ALL_SITES,
                          collector_config,
                          selector_config)
-                         
+
 scheduler = Scheduler(config)
 
 # Manager params
 mode = TaskType.STANDARD  # Type of runner is going to be working
-size = 1  # number of processes
+size = 2  # number of processes
 timeout = 60 * 60  # max time to wait for a process to finish
-period = 2000000
+period = 2
 
 manager = ProcessManager(size, timeout)
 try:
