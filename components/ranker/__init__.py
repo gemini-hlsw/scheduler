@@ -1,10 +1,14 @@
 from copy import deepcopy
-from typing import Callable, Dict, Tuple
+from dataclasses import dataclass
+from typing import Callable, Dict, FrozenSet, Mapping, Tuple
 
 import astropy.units as u
+import numpy as np
+import numpy.typing as npt
 
 from common.calculations import Scores
-from common.minimodel import *
+from common.minimodel import ALL_SITES, AndGroup, Band, Group, NightIndex, Observation, ObservationID, OrGroup,\
+    Program, Site
 from common.types import ListOrNDArray
 from components.collector import Collector
 
@@ -244,8 +248,7 @@ class Ranker:
     def get_observation_scores(self, obs_id: ObservationID) -> Scores:
         return self._observation_scores.get(obs_id)
 
-    def score_group(self,
-                    group: Group) -> Scores:
+    def score_group(self, group: Group) -> Scores:
         """
         Calculate the score of a Group.
         This is reliant on all the Observations in the Group being scored, which
@@ -255,7 +258,8 @@ class Ranker:
         one night as per the night_indices array, with the list entries being numpy arrays
         that contain the scoring for each time slot across the night.
         """
-        # Determine if we are working with AND or OR groups.
+        # Determine if we are working with and AND or OR group.
+        # We check isinstance instead of is_and_group or is_or_group because otherwise, we get warnings.
         if isinstance(group, AndGroup):
             return self.score_and_group(group)
         elif isinstance(group, OrGroup):

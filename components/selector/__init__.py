@@ -9,8 +9,8 @@ from astropy.coordinates import Angle
 
 from api.observatory.abstract import ObservatoryProperties
 from common.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
-from common.minimodel import ALL_SITES, AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus, \
-    OrGroup, ProgramID, Resource, Site, TooType, NightIndex, Variant
+from common.minimodel import ALL_SITES, AndGroup, Conditions, Group, GroupID, Observation, ObservationClass,\
+    ObservationStatus, OrGroup, ProgramID, Resource, Site, TooType, NightIndex, Variant
 from components.base import SchedulerComponent
 from components.collector import Collector
 from components.ranker import Ranker
@@ -59,6 +59,9 @@ class Selector(SchedulerComponent):
         TODO: Further design work must be done to determine how to score them and how to
         TODO: determine the time slots at which they can be scheduled.
         """
+        # TODO: BRYAN wants all of the group info available.
+        _group_info: Dict[GroupID, GroupInfo] = {}
+
         # If no night indices are specified, assume all night indices.
         if night_indices is None:
             night_indices = np.arange(len(self.collector.time_grid))
@@ -123,13 +126,10 @@ class Selector(SchedulerComponent):
             group_data_map = {}
 
         processor = None
-        if isinstance(group, AndGroup):
-            if isinstance(group.children, Observation):
-                processor = self._calculate_observation_group
-            else:
-                processor = self._calculate_and_group
-        elif isinstance(group, OrGroup):
-            processor = self._calculate_or_group
+        if group.is_observation_group():
+            processor = self._calculate_observation_group
+        else:
+            processor = self._calculate_and_group
 
         if processor is None:
             raise ValueError(f'Could not process group {group.id}')
@@ -153,7 +153,6 @@ class Selector(SchedulerComponent):
             raise ValueError(f'Non-observation group {group.id} cannot be treated as observation group.')
 
         obs = group.children
-        
 
         if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED}:
             return group_data_map
@@ -315,7 +314,7 @@ class Selector(SchedulerComponent):
             schedulable_slot_indices.append(np.multiply.reduce(schedulable_slot_indices_for_night))
 
         # Calculate the scores for the group across all nights across all timeslots.
-        scores = ranker.score_and_group(group)
+        scores = ranker.score_group(group)
 
         group_info = GroupInfo(
             minimum_conditions=mrc,
