@@ -9,12 +9,14 @@ from .scheduler import Scheduler
 
 from typing import NoReturn
 
+DEFAULT_TIMEOUT = 10  # seconds
+
 
 class ProcessManager:
     """
     Main handler for each runner, which is responsible for scheduling the task.
     """
-    def __init__(self, size: int, timeout: int = None):
+    def __init__(self, size: int, timeout: int = DEFAULT_TIMEOUT):
         self.realtime_runner = StandardRunner(1)
         self.standard_runner = StandardRunner(size)
         self.timeout = timeout
