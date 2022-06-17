@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import auto, Enum
@@ -72,6 +72,14 @@ class Group(ABC):
     def is_scheduling_group(self) -> bool:
         return not (self.is_observation_group())
 
+    @abstractmethod
+    def is_and_group(self) -> bool:
+        ...
+
+    @abstractmethod
+    def is_or_group(self) -> bool:
+        ...
+
     def __len__(self):
         return 1 if self.is_observation_group() else len(self.children)
 
@@ -112,6 +120,12 @@ class AndGroup(Group):
                   f'{self.previous}'
             raise ValueError(msg)
 
+    def is_and_group(self) -> bool:
+        return True
+
+    def is_or_group(self) -> bool:
+        return False
+
 
 @dataclass
 class OrGroup(Group):
@@ -127,3 +141,9 @@ class OrGroup(Group):
             msg = f'OR group {self.group_name} specifies {self.number_to_observe} children to be observed but has ' \
                   f'{len(self.children)} children.'
             raise ValueError(msg)
+
+    def is_and_group(self) -> bool:
+        return False
+
+    def is_or_group(self) -> bool:
+        return True
