@@ -3,6 +3,7 @@ import json
 import logging
 import zipfile
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Iterable, NoReturn, Tuple, List, Optional, Mapping
 
 import numpy as np
@@ -28,7 +29,7 @@ def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
         for filename in zf.namelist():
             with zf.open(filename) as f:
                 contents = f.read().decode('utf-8')
-                logging.info(f'Added program {filename}.')
+                logging.info(f'Adding program {Path(filename).with_suffix("")}.')
                 yield json.loads(contents)
 
 
