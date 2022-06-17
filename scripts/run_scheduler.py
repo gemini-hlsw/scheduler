@@ -43,17 +43,26 @@ if __name__ == '__main__':
 
     # Notes for data access:
     # The Selector returns all the data that an Optimizer needs in order to generate plans.
-    # This comprises a Map[ProgramID, ProgramInfo]
-    # See ProgramInfo in the Scheduler class in order to see the fields that is includes.
+    # This comprises a Selection object, which has fields:
+    #    program_ids: set of ProgramID of programs with schedulable groups ONLY
+    #    program_info: a map from ProgramID to ProgramInfo
+    #    night_events: the night events by Site (probably not necessary, see NightEvents below)
     #
-    # Here are some descriptions of the data in ProgramInfo.
+    # *** ProgramInfo ***
+    # This contains:
+    #     program: a reference to the Program object in the mini-model
+    #     group_data: a map from GroupID to GroupData (which has group and group_info members) for SCHEDULABLE groups
+    #     observations: a map from ObservationID to reference to Observation for SCHEDULABLE observations
+    #     target_info: a map from ObservationID to TargetInfo, which contains info for the observation's target
+    #                  (see TargetInfo below)
+    #     observation_ids: set of ObservationID that are schedulable
+    #     group_ids: set of GroupID that are schedulable
     #
     # *** NightEvents ***
     # I don't know if this will be needed, but the ProgramInfo includes NightEvents calculations.
     # The NightEvents are the calculations for a given site across all nights.
     #
     # This may have to be modified in the future to accept date ranges, since now they return everything the Collector
-
     # was initialized with in terms of period length and time granularity.
     #
     # For all the values:
@@ -117,6 +126,19 @@ if __name__ == '__main__':
     #
     # Note that the actual scores are generated using the Ranker (components.ranker.__init__.py, Ranker class), which
     # follows the old implementation but is generalized to multi-night, and cleaned up significantly.
+
+    # BRYAN:
+    # To get group information for any group (including ones that are not schedulable / have zero scores),
+    # go through the Selector:
+    #
+    # selector.get_group_info(group_id)
+    #
+    # Selection only includes data for schedulable things.
+    #
+    # To get, for example, scores:
+    #
+    # selector.get_group_info(group_id).scores
+    # selection.program_info(program_id).group_data(group_id).group_info.scores
 
     # Sergio preliminary work:
     # Output the data in a spreadsheet.

@@ -59,8 +59,8 @@ class Selector(SchedulerComponent):
         TODO: Further design work must be done to determine how to score them and how to
         TODO: determine the time slots at which they can be scheduled.
         """
-        # TODO: BRYAN wants all of the group info available.
-        _group_info: Dict[GroupID, GroupInfo] = {}
+        # TODO BRYAN: wants all of the group info available.
+        _group_info_map: Dict[GroupID, GroupInfo] = {}
 
         # If no night indices are specified, assume all night indices.
         if night_indices is None:
@@ -88,6 +88,11 @@ class Selector(SchedulerComponent):
             # We must check across all nights, hence the second for.
             # This will filter out all GroupInfo objects that do not have schedulable slots.
             unfiltered_group_data_map = self._calculate_group(program.root_group, sites, night_indices, ranker)
+
+            # TODO BRYAN: keep unfiltered group info.
+            for group_id, (_, group_info) in unfiltered_group_data_map:
+                _group_info_map[group_id] = group_info
+
             group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
                               if any(len(indices) > 0 for indices in gp_data.group_info.schedulable_slot_indices)}
 
@@ -106,12 +111,22 @@ class Selector(SchedulerComponent):
                     target_info=target_info
                 )
 
+        # TODO BRYAN: store the group info map of info for all groups.
+        object.__setattr__(self, '_group_info_map', _group_info_map)
+
         # The end product is a map of ProgramID to a map of GroupID to GroupInfo, where
         # at least one GroupInfo has schedulable slots.
         return Selection(
             program_info=program_info,
             night_events={site: self.collector.get_night_events(site) for site in sites}
         )
+
+    def get_group_info(self, group_id: GroupID) -> Optional[GroupInfo]:
+        """
+        Check to see if the group_id has group_info associated with it, and if so, return it.
+        Else return None.
+        """
+        return self._group_info_map[group_id]
 
     def _calculate_group(self,
                          group: Group,
@@ -125,13 +140,13 @@ class Selector(SchedulerComponent):
         if group_data_map is None:
             group_data_map = {}
 
-        processor = None
         if group.is_observation_group():
             processor = self._calculate_observation_group
-        else:
+        elif group.is_and_group():
             processor = self._calculate_and_group
-
-        if processor is None:
+        elif group.is_or_group():
+            processor = self._calculate_or_group
+        else:
             raise ValueError(f'Could not process group {group.id}')
 
         return processor(group, sites, night_indices, ranker, group_data_map)
@@ -154,6 +169,7 @@ class Selector(SchedulerComponent):
 
         obs = group.children
 
+        # TODO: Do we really want to include OBSERVED here?
         if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED}:
             return group_data_map
         if obs.site not in sites:
@@ -175,8 +191,9 @@ class Selector(SchedulerComponent):
         # Calculate a numpy array of bool indexed by night to determine the resource availability.
         required_res = obs.required_resources()
 
-        # TODO: Do we need standards? I'm not sure, but by the old Visit code,
-        # TODO: this is not how we handle standards.
+        # TODO: Do we need standards?
+        # TODO: By the old Visit code, we had them and handled as per comment.
+        # TODO: How do we handle them now?
         # standards = ObservatoryProperties.determine_standard_time(required_res, obs.wavelengths(), obs)
         standards = 0.
 
