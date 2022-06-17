@@ -4,7 +4,7 @@ import functools
 import logging
 from itertools import count
 
-from process import ProcessTask, Result
+from .process import ProcessTask, Result
 from multiprocessing import Process
 from typing import NoReturn
 
@@ -19,17 +19,17 @@ class Job:
     def __repr__(self):
         return f"Job-{self.sequence}"
 
+
 # TODO: An abstract class might be needed here, but right now RealtimeRunner can be done
 # with just the same Runner as Standard.
 class StandardRunner:
     """
     Main runner to handle Process objects and their associated tasks.
     """
-    def __init__(self, size, timeout=None):
+    def __init__(self, size):
         self.max_jobs = size
         self.jobs = []
         self.callbacks = []
-        self.timeout = timeout
     
     def add_done_callback(self, callback: callable) -> NoReturn:
         """

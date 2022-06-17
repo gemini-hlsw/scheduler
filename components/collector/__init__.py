@@ -390,7 +390,7 @@ class Collector(SchedulerComponent):
                 # Filter out here any observation classes that have not been specified to the Collector.
                 bad_obs, good_obs = partition(lambda x: x.obs_class in self.obs_classes, program.observations())
                 bad_obs = list(bad_obs)
-                good_obs = list(good_obs)
+                good_obs = list(good_obs)   
 
                 for obs in bad_obs:
                     name = obs.obs_class.name

@@ -35,5 +35,4 @@ class Site(Enum):
             msg = f'Unknown time zone lookup: {timezone_info}.'
             raise ValueError(e, msg)
 
-
 ALL_SITES = frozenset(s for s in Site)
