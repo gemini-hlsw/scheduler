@@ -90,8 +90,8 @@ class Selector(SchedulerComponent):
             unfiltered_group_data_map = self._calculate_group(program.root_group, sites, night_indices, ranker)
 
             # TODO BRYAN: keep unfiltered group info.
-            for group_id, (_, group_info) in unfiltered_group_data_map:
-                _group_info_map[group_id] = group_info
+            for group_id, group_data in unfiltered_group_data_map.items():
+                _group_info_map[group_id] = group_data.group_info
 
             group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
                               if any(len(indices) > 0 for indices in gp_data.group_info.schedulable_slot_indices)}
