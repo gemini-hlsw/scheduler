@@ -453,8 +453,8 @@ class OcsProgramProvider(ProgramProvider):
                 sky_q_offsets.append(q)
             p_offsets.append(p)
             q_offsets.append(q)
-        #  Analyze sky offset patterns using auto-correlation
-        #  The lag is the length of any pattern, 0 means no repeating pattern
+        #  Analyze sky offset patterns using auto-correlation.
+        #  The lag is the length of any pattern, 0 means no repeating pattern.
         plag = 0
         qlag = 0
         # offset_lag = 0
