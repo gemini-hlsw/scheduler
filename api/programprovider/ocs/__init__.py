@@ -158,6 +158,7 @@ class OcsProgramProvider(ProgramProvider):
         GMOSS = 'instrument:fpu'
         NIRI = 'instrument:mask'
         NIFS = 'instrument:mask'
+        CUSTOM = 'instrument:fpuCustomMask'
 
     class _InstrumentKeys:
         NAME = 'instrument:name'
