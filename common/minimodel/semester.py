@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-class SemesterHalf(Enum):
+class SemesterHalf(str, Enum):
     """
     Gemini typically schedules programs for two semesters per year, namely A and B.
     For other observatories, this logic might have to be substantially changed.
@@ -11,7 +11,7 @@ class SemesterHalf(Enum):
     B = 'B'
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class Semester:
     """
     A semester is a period for which programs may be submitted to Gemini and consists of:
