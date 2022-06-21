@@ -1,16 +1,23 @@
 import logging
 import time
-from typing import FrozenSet, Iterable, NoReturn, Optional
-
-from astropy.units import Quantity
+from dataclasses import dataclass
+from typing import ClassVar, FrozenSet, Iterable, List, Mapping, NoReturn, Optional, Tuple
 from more_itertools import partition
 
+from astropy.coordinates import Angle, SkyCoord
+from astropy.units import Quantity
+from astropy.time import Time, TimeDelta
+import astropy.units as u
+import numpy as np
+
+
 from api.programprovider.abstract import ProgramProvider
-from common.calculations import *
-from common.minimodel import CloudCover, Constraints, ElevationType, ImageQuality, NonsiderealTarget, \
-    ObservationClass, ProgramTypes, Resource, Semester, SiderealTarget, Target, Variant, WaterVapor
+from common.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
+from common.minimodel import CloudCover, Constraints, ElevationType, ImageQuality, NightIndex, NonsiderealTarget, \
+    Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget, Site, SkyBackground, Target, Variant, WaterVapor
 from components.base import SchedulerComponent
 from components.nighteventsmanager import NightEventsManager
+from common import sky
 
 
 @dataclass
