@@ -480,18 +480,13 @@ class Collector(SchedulerComponent):
 
     def get_actual_conditions_variant(self,
                                       site: Site,
-                                      night_index: NightIndex) -> Optional[Variant]:
+                                      times: Time) -> Optional[Variant]:
         """
         Return the weather variant.
         This should be site-based and time-based.
-        TODO: This should not be night_index since we may not be interested in the conditions for the entire
-        TODO: night, but for now, until we figure out how we want to handle this in the Selector, for array
-        TODO: multiplication, we do it this way.
         """
-        night_events = self.get_night_events(site)
-        night_length = len(night_events.times[night_index])
-        # np.ndarray is not hashable.
-        # variants = {
+        night_length = len(times)
+
         return Variant(
             iq=np.full(night_length, ImageQuality.IQ70),
             cc=np.full(night_length, CloudCover.CC50),
@@ -500,5 +495,3 @@ class Collector(SchedulerComponent):
             wind_sep=Angle(np.full(night_length, 40.0), unit='deg'),
             wind_spd=Quantity(np.full(night_length, 5.0 * u.m / u.s))
         )
-        # }
-        # return next(filter(lambda v: v.iq == ImageQuality.IQ70 and v.cc == CloudCover.CC50, variants), None)

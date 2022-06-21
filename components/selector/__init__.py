@@ -217,11 +217,7 @@ class Selector(SchedulerComponent):
         night_events = self.collector.get_night_events(obs.site)
 
         for night_idx in ranker.night_indices:
-            # TODO: Is this the time period we want here?
-            # TODO: Would this be better with a time grid and times?
-            # TODO: We need to decide how we request conditions data.
-            # time_period = Time(night_events.times[night_idx][0], night_events.times[night_idx][-1])
-            actual_conditions = self.collector.get_actual_conditions_variant(obs.site, night_idx)
+            actual_conditions = self.collector.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
 
             # If we can obtain the conditions variant, calculate the conditions and wind mapping.
             # Otherwise, use arrays of all zeros to indicate that we cannot calculate this information.
