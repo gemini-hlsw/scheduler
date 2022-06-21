@@ -36,7 +36,7 @@ if __name__ == '__main__':
     collector.load(path)
 
     # Resource API mock
-    resource_path = os.path.join('resource_mock', 'data')
+    resource_path = os.path.join('resource', 'data')
     resource = Resource(resource_path)
     resource.connect()
     resources = resource.get_night_resources(sites, night_date)
