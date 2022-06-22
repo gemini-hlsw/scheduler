@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, FrozenSet, Set, Optional
+from typing import Dict, FrozenSet, Set, Optional, ClassVar
 
 import astropy.units as u
 import numpy as np
@@ -14,6 +14,7 @@ from common.minimodel import ALL_SITES, AndGroup, Conditions, Group, GroupID, Ob
 from components.base import SchedulerComponent
 from components.collector import Collector
 from components.ranker import Ranker
+from mock.environment import Env   
 
 
 @dataclass(frozen=True)
@@ -27,7 +28,7 @@ class Selector(SchedulerComponent):
     information is statically determined.
     """
     collector: Collector
-
+    static_Env: ClassVar[Env] = Env()
     # Observatory-specific properties.
     properties: ObservatoryProperties
 
@@ -217,7 +218,7 @@ class Selector(SchedulerComponent):
         night_events = self.collector.get_night_events(obs.site)
 
         for night_idx in ranker.night_indices:
-            actual_conditions = self.collector.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
+            actual_conditions = Selector.static_Env.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
 
             # If we can obtain the conditions variant, calculate the conditions and wind mapping.
             # Otherwise, use arrays of all zeros to indicate that we cannot calculate this information.
