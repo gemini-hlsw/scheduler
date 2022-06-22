@@ -1,10 +1,13 @@
-from common.minimodel import Site, Variant, CloudCover, ImageQuality, WaterVapor
-from astropy.time import Time
-from astropy.coordinates import Angle
-from astropy.units import Quantity
 from typing import Optional
-import numpy as np
+
 import astropy.units as u
+import numpy as np
+from astropy.coordinates import Angle
+from astropy.time import Time
+from astropy.units import Quantity
+
+from common.minimodel import Site, Variant, CloudCover, ImageQuality, WaterVapor
+
 
 class Env:
     def get_actual_conditions_variant(self,

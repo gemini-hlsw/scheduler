@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from typing import ClassVar, FrozenSet, Iterable, List, Mapping, NoReturn, Optional, Tuple
 from more_itertools import partition
 
-from astropy.coordinates import Angle, SkyCoord
-from astropy.units import Quantity
+from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
 import astropy.units as u
 import numpy as np
@@ -13,8 +12,9 @@ import numpy as np
 
 from api.programprovider.abstract import ProgramProvider
 from common.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
-from common.minimodel import CloudCover, Constraints, ElevationType, ImageQuality, NightIndex, NonsiderealTarget, \
-    Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget, Site, SkyBackground, Target, Variant, WaterVapor
+from common.minimodel import Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,\
+    ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget, Site, SkyBackground,\
+    Target
 from components.base import SchedulerComponent
 from components.nighteventsmanager import NightEventsManager
 from common import sky
