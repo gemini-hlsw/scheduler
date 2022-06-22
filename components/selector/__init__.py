@@ -10,7 +10,7 @@ from astropy.coordinates import Angle
 from api.observatory.abstract import ObservatoryProperties
 from common.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
 from common.minimodel import ALL_SITES, AndGroup, Conditions, Group, GroupID, Observation, ObservationClass,\
-    ObservationStatus, OrGroup, ProgramID, Resource, Site, TooType, NightIndex, Variant
+    ObservationStatus, ProgramID, Resource, Site, TooType, NightIndex, Variant
 from components.base import SchedulerComponent
 from components.collector import Collector
 from components.ranker import Ranker
