@@ -28,16 +28,9 @@ class App:
         asyncio.get_event_loop().add_signal_handler(signal.SIGINT, shutdown)
 
         while not done.is_set():
-            # This is going to be hoocked up to our GRAPHQL layer
-            #i = input("Enter a command: ")
-            #if i in 'standard':
-            #    mode = TaskType.STANDARD
-            #elif i in 'realtime':
-            #    mode = TaskType.REALTIME
-            #else:
-            #    print("Invalid command")
-            #    mode = TaskType.STANDARD
-            #    continue
+
+            # Observe interaction
+            
 
             mode = TaskType.STANDARD
             scheduler = self.build_scheduler()

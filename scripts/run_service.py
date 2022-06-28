@@ -8,6 +8,8 @@ from api.observatory.gemini import GeminiProperties
 from common.minimodel import ALL_SITES, Semester, SemesterHalf, ProgramTypes, ObservationClass
 import asyncio
 
+# TODO: This script should be the main entry point for the application in the future.
+
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
