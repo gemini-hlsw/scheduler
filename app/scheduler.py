@@ -1,36 +1,14 @@
-from dataclasses import dataclass
+
 import signal
 import os
-from astropy.time import Time
-import astropy.units as u
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from components.collector import Collector
 from components.selector import Selector
 from components.optimizer import Optimizer
 from components.optimizer.dummy import DummyOptimizer
 from common.output import print_plans
+from .config import SchedulerConfig
 
-
-@dataclass
-class CollectorConfig:
-    semesters: set
-    program_types: set
-    obs_classes: set
-
-
-@dataclass
-class SelectorConfig:
-    properties: type
-
-
-@dataclass
-class SchedulerConfig:
-    start_time: Time
-    end_time: Time
-    time_slot_length: u.Quantity
-    sites: set
-    collector: CollectorConfig
-    selector: SelectorConfig
 
 
 class Scheduler():

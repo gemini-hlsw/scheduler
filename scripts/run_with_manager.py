@@ -3,8 +3,8 @@ import asyncio
 import logging
 from astropy.time import Time, TimeDelta
 import astropy.units as u
-from process_manager import TaskType, ProcessManager, Scheduler
-from process_manager import SchedulerConfig, CollectorConfig, SelectorConfig
+from app.process_manager import TaskType, ProcessManager, Scheduler
+from app.process_manager import SchedulerConfig, CollectorConfig, SelectorConfig
 from api.observatory.gemini import GeminiProperties
 from common.minimodel import ALL_SITES, Semester, SemesterHalf, ProgramTypes, ObservationClass
 
