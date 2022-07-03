@@ -1,6 +1,8 @@
 import asyncio
 import signal
+import backoff
 from datetime import datetime
+from gql.tranport.websockets import WebsocketsTransport
 from .process_manager import ProcessManager, TaskType
 from .scheduler import Scheduler
 from astropy.time import Time
@@ -11,12 +13,14 @@ class App:
         self.config = config
         self.manager = ProcessManager(size=config.process_manager.size,
                                       timeout=config.process_manager.timeout)
+        self.transport = WebsocketsTransport(url="wss://YOUR_URL")
 
     def build_scheduler(self, start_time: Time, end_time: Time):
         # TODO: This needs to be modified to use more robust way to build schedulers
         # Right are all the same but with different configs (or parameters)
         return Scheduler(self.config, start_time, end_time)
     
+    @backoff.on_exception(backoff.expo, Exception, max_time=300)
     async def run(self):
         done = asyncio.Event()
 
