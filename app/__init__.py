@@ -1,2 +1,2 @@
 from .app import App
-from .config import SchedulerConfig, CollectorConfig, SelectorConfig
+from .scheduler import Scheduler
