@@ -5,18 +5,19 @@ from multiprocessing import Process
 from datetime import datetime
 from .runner import StandardRunner
 from .task import SchedulerTask, TaskType
-from .scheduler import Scheduler
+from ..scheduler import Scheduler
 
 from typing import NoReturn
 
 DEFAULT_TIMEOUT = 10  # seconds
+DEFAULT_SIZE = 5  # number of tasks to run in parallel
 
 
 class ProcessManager:
     """
     Main handler for each runner, which is responsible for scheduling the task.
     """
-    def __init__(self, size: int, timeout: int = DEFAULT_TIMEOUT):
+    def __init__(self, size: int = DEFAULT_SIZE, timeout: int = DEFAULT_TIMEOUT):
         self.realtime_runner = StandardRunner(1)
         self.standard_runner = StandardRunner(size)
         self.timeout = timeout
