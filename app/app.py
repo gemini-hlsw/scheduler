@@ -2,9 +2,10 @@ import asyncio
 import signal
 import backoff
 from datetime import datetime
-from gql.tranport.websockets import WebsocketsTransport
+
 from .process_manager import ProcessManager, TaskType
 from .scheduler import Scheduler
+from common.queries import Session, test_subscription_query
 from astropy.time import Time
 
 
@@ -13,12 +14,22 @@ class App:
         self.config = config
         self.manager = ProcessManager(size=config.process_manager.size,
                                       timeout=config.process_manager.timeout)
-        self.transport = WebsocketsTransport(url="wss://YOUR_URL")
+        self.session = Session(url=config.session.url)
 
     def build_scheduler(self, start_time: Time, end_time: Time):
         # TODO: This needs to be modified to use more robust way to build schedulers
         # Right are all the same but with different configs (or parameters)
         return Scheduler(self.config, start_time, end_time)
+
+    def _check_for_updates(self) -> bool:
+        """
+        Check for updates in the scheduler
+        """
+        
+        for res in self.session.subscribe(test_subscription_query):
+            if res['data']['subscription_query']['data'] == 'test':
+                print('Update detected')
+                return True
     
     @backoff.on_exception(backoff.expo, Exception, max_time=300)
     async def run(self):
