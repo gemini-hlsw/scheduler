@@ -6,7 +6,7 @@ from gql import Client, gql
 class Session:
 
     def __init__(self, url: str):
-        self.ws_client = Client(transport=WebsocketsTransport(url=url))
+        self.ws_client = Client(transport=WebsocketsTransport(url=f'wss://{url}/ws'))
         self.aoi_client = Client(transport=AIOHTTPTransport(url=url),
                                  fetch_schema_from_transport=True)
 

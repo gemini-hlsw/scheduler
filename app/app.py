@@ -14,7 +14,7 @@ class App:
         self.config = config
         self.manager = ProcessManager(size=config.process_manager.size,
                                       timeout=config.process_manager.timeout)
-        self.session = Session(url=config.session.url)
+        self.session = Session(url=config.graphql.url)
 
     def build_scheduler(self, start_time: Time, end_time: Time):
         # TODO: This needs to be modified to use more robust way to build schedulers

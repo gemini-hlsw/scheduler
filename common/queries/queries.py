@@ -11,3 +11,15 @@ test_subscription_query = gql('''
                               data
                              }
                         ''')
+
+observation_update = gql('''
+                            subscription{
+                              observationEdit{
+                                editType,
+                                value{
+                                   id
+                                },
+                                id
+                              }
+                            }
+                        ''')

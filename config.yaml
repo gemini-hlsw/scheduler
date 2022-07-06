@@ -2,6 +2,9 @@ process_manager:
   size: 5
   timeout: 10
 
+graphql:
+  url: ${GRAPHQL_URL}
+
 scheduler:
   time_slot_length: 1.0 # on minutes
   # Sites allowed for the scheduler 
@@ -19,6 +22,7 @@ collector:
     - ProgramTypes.LP
     - ProgramTypes.FT
     - ProgramTypes.DD
+
 optimizer:
   name: Dummy
 
