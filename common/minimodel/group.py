@@ -132,13 +132,19 @@ class AndGroup(Group):
         """
         Total execution time across the childrenn of this group.
         """
-        return sum(child.exec_time() for child in self.children)
+        if issubclass(type(self.children), Observation):
+            return self.children.exec_time()
+        else:
+            sum(child.exec_time() for child in self.children)
 
     def total_used(self) -> timedelta:
         """
         Total time used across the group: includes program time and partner time.
         """
-        return sum(child.total_time() for child in self.children)
+        if issubclass(type(self.children), Observation):
+            return self.children.total_used()
+        else:
+            sum(child.total_used() for child in self.children)
 
     def instruments(self) -> FrozenSet[Resource]:
         """

@@ -9,8 +9,8 @@ if __name__ == '__main__':
         # for i in input_data:
         #     print(i)
         # input_data = input_data.fillna(method="pad")
-        # print(input_data.loc[[0]])
+        print(input_data.loc[0:2000].to_string())
         # print(input_data.loc[[1]])
         # print(input_data.loc[[2]])
-        print(input_data[['Time_Stamp_UTC', 'cc_band', 'iq_band', 'WindDir', 'WindSpeed']].to_string())
+        # print(input_data[['Time_Stamp_UTC', 'cc_band', 'iq_band', 'WindDir', 'WindSpeed']].to_string())
         # print(input_data['cc_band'].notna())
