@@ -2,6 +2,7 @@ import os
 import logging
 from common.minimodel import *
 
+from api.observatory.abstract import ObservatoryProperties
 from api.observatory.gemini import GeminiProperties
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from common.output import print_collector_info, print_plans
@@ -12,6 +13,7 @@ from components.optimizer import Optimizer
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
+    ObservatoryProperties.set_properties(GeminiProperties)
 
     # Read in a list of JSON data
     programs = read_ocs_zipfile(os.path.join('..', 'data', '2018B_program_samples.zip'))
@@ -32,10 +34,7 @@ if __name__ == '__main__':
     # Output the state of and information calculated by the Collector.
     print_collector_info(collector, samples=60)
 
-    selector = Selector(
-        collector=collector,
-        properties=GeminiProperties
-    )
+    selector = Selector(collector=collector)
 
     # Execute the Selector.
     # Not sure the best way to display the output.

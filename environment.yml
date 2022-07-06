@@ -14,5 +14,6 @@ dependencies:
   - coverage
   - requests
   - pandas
+  - pip
   - pip:
     - omegaconf

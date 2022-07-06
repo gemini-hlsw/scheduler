@@ -9,7 +9,7 @@ from typing import Iterable, NoReturn, Tuple, List, Optional, Mapping
 import numpy as np
 from scipy.signal import find_peaks
 
-from api.observatory.gemini import GeminiObservation
+from api.observatory.gemini.geminiobservation import GeminiObservation
 from api.programprovider.abstract import ProgramProvider
 from common.helpers import str_to_bool, dmsstr2deg
 from common.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
