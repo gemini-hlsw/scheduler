@@ -1,12 +1,14 @@
-from abc import abstractmethod, ABC
+from abc import ABC
 from datetime import timedelta
-from typing import NoReturn, Optional, Set
+from typing import FrozenSet, NoReturn, Optional
 
 from astropy.time import Time
 
-# This has to be done to avoid circular imports.
-from common.minimodel.observationmode import ObservationMode
-from common.minimodel.resource import Resource
+# Introduces circular dependencies
+# from common.minimodel import Resource, ObservationMode
+
+# module common has no attribute minimodel
+# import common.minimodel
 
 
 class ObservatoryProperties(ABC):
@@ -28,9 +30,9 @@ class ObservatoryProperties(ABC):
             raise ValueError('Properties have not been set.')
 
     @staticmethod
-    def determine_standard_time(resources: Set[Resource],
-                                wavelengths: Set[float],
-                                modes: Set[ObservationMode],
+    def determine_standard_time(resources: FrozenSet,
+                                wavelengths: FrozenSet[float],
+                                modes: FrozenSet,
                                 cal_length: int) -> Time:
         """
         Given the information, determine the length in hours required for calibration
@@ -49,7 +51,7 @@ class ObservatoryProperties(ABC):
         )
 
     @staticmethod
-    def is_instrument(resource: Resource) -> bool:
+    def is_instrument(resource) -> bool:
         """
         Determine if the given resource is an instrument or not.
         """
@@ -57,7 +59,7 @@ class ObservatoryProperties(ABC):
         return ObservatoryProperties._properties.is_instrument(resource)
 
     @staticmethod
-    def acquisition_time(resource: Resource, observation_mode: ObservationMode) -> Optional[timedelta]:
+    def acquisition_time(resource, observation_mode) -> Optional[timedelta]:
         """
         Given a resource, check if it is an instrument, and if so, lookup the
         acquisition time for the specified mode.

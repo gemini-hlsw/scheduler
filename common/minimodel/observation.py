@@ -11,7 +11,8 @@ from .site import Site
 from .target import Target, TargetType
 from .too import TooType
 
-from api.observatory.abstract import ObservatoryProperties
+# To avoid circular dependencies.
+import api.observatory.abstract
 
 ObservationID = str
 
@@ -140,7 +141,8 @@ class Observation:
         Returns a resource that is an instrument, if one exists.
         There should be only one.
         """
-        return next(filter(lambda r: ObservatoryProperties.is_instrument(r), self.required_resources()), None)
+        return next(filter(lambda r: api.observatory.abstract.ObservatoryProperties.is_instrument(r),
+                           self.required_resources()), None)
 
     def wavelengths(self) -> Set[float]:
         """

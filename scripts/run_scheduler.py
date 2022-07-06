@@ -13,6 +13,7 @@ from components.optimizer import Optimizer
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
+    ObservatoryProperties.set_properties(GeminiProperties)
 
     # Read in a list of JSON data
     programs = read_ocs_zipfile(os.path.join('..', 'data', '2018B_program_samples.zip'))
@@ -34,7 +35,6 @@ if __name__ == '__main__':
     print_collector_info(collector, samples=60)
 
     selector = Selector(collector=collector)
-    ObservatoryProperties.set_properties(GeminiProperties)
 
     # Execute the Selector.
     # Not sure the best way to display the output.
