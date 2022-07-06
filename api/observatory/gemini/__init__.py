@@ -15,7 +15,7 @@ class GeminiProperties(ObservatoryProperties):
     """
     class _InstrumentsMeta(EnumMeta):
         def __contains__(cls, r: Resource) -> bool:
-            return any(inst.id in r for inst in cls.__members__.values())
+            return any(inst.id in r.id for inst in cls.__members__.values())
 
     # Gemini-specific instruments.
     class Instruments(Enum, metaclass=_InstrumentsMeta):

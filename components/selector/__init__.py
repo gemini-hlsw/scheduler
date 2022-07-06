@@ -29,8 +29,6 @@ class Selector(SchedulerComponent):
     """
     collector: Collector
     _env: ClassVar[Env] = Env()
-    # Observatory-specific properties.
-    properties: ObservatoryProperties
 
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,

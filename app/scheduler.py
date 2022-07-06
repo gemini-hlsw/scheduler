@@ -7,21 +7,17 @@ from astropy.time import Time, TimeDelta
 import astropy.units as u
 
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from api.observatory.abstract import ObservatoryProperties
 from api.observatory.gemini import GeminiProperties
 from components.collector import Collector
 from components.selector import Selector
 from components.optimizer import Optimizer
 from components.optimizer.dummy import DummyOptimizer
 from common.output import print_plans
-from common.minimodel import (Site,
-                              ALL_SITES,
-                              Semester,
-                              SemesterHalf,
-                              ProgramTypes,
-                              ObservationClass)
+from common.minimodel import Site
 
 
-class Scheduler():
+class Scheduler:
     def __init__(self, config: DictConfig, start_time: Time, end_time: Time):
         self.config = config
         self.start_time = start_time
@@ -35,7 +31,8 @@ class Scheduler():
 
         # Parse config
         time_slot_length = TimeDelta(self.config.scheduler.time_slot_length * u.min)
-        sites = frozenset(list(map(eval, self.config.scheduler.sites))) if isinstance(self.config.scheduler.sites, list) else eval(self.config.scheduler.sites)
+        sites = frozenset(list(map(eval, self.config.scheduler.sites)))\
+            if isinstance(self.config.scheduler.sites, list) else eval(self.config.scheduler.sites)
         semesters = set(map(eval, self.config.collector.semesters))
         program_types = set(map(eval, self.config.collector.program_types))
         obs_classes = set(map(eval, self.config.collector.observation_classes))
@@ -45,20 +42,19 @@ class Scheduler():
             end_time=self.end_time,
             time_slot_length=time_slot_length,
             sites=sites,
-            semesters=semesters,
-            program_types=program_types,
-            obs_classes=obs_classes
+            semesters=frozenset(semesters),
+            program_types=frozenset(program_types),
+            obs_classes=frozenset(obs_classes)
         )
         collector.load_programs(program_provider=OcsProgramProvider(),
                                 data=programs)
 
         if Site.GS in sites or Site.GN in sites:
-            properties = GeminiProperties
+            ObservatoryProperties.set_properties(GeminiProperties)
         else:
-            raise NotImplementedError('Only Gemini is supported')
+            raise NotImplementedError('Only Gemini is supported.')
         
-        selector = Selector(collector=collector,
-                            properties=properties)
+        selector = Selector(collector=collector)
 
         # Execute the Selector.
         # Not sure the best way to display the output.

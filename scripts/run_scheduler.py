@@ -2,6 +2,7 @@ import os
 import logging
 from common.minimodel import *
 
+from api.observatory.abstract import ObservatoryProperties
 from api.observatory.gemini import GeminiProperties
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from common.output import print_collector_info, print_plans
@@ -32,10 +33,8 @@ if __name__ == '__main__':
     # Output the state of and information calculated by the Collector.
     print_collector_info(collector, samples=60)
 
-    selector = Selector(
-        collector=collector,
-        properties=GeminiProperties
-    )
+    selector = Selector(collector=collector)
+    ObservatoryProperties.set_properties(GeminiProperties)
 
     # Execute the Selector.
     # Not sure the best way to display the output.

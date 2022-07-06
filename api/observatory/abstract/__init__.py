@@ -1,11 +1,12 @@
 from abc import abstractmethod, ABC
 from datetime import timedelta
-from typing import Optional, Set
+from typing import NoReturn, Optional, Set
 
-from astropy import units as u
 from astropy.time import Time
 
-from common.minimodel import ObservationMode, Resource
+# This has to be done to avoid circular imports.
+from common.minimodel.observationmode import ObservationMode
+from common.minimodel.resource import Resource
 
 
 class ObservatoryProperties(ABC):
@@ -13,9 +14,20 @@ class ObservatoryProperties(ABC):
     Observatory-specific methods that are not tied to other components or
     structures, and allow computations to be implemented in one place.
     """
+    _properties: Optional['ObservatoryProperties'] = None
 
     @staticmethod
-    @abstractmethod
+    def set_properties(cls) -> NoReturn:
+        if not issubclass(cls, ObservatoryProperties):
+            raise ValueError('Illegal properties value.')
+        ObservatoryProperties._properties = cls()
+
+    @staticmethod
+    def _check_properties() -> NoReturn:
+        if ObservatoryProperties._properties is None:
+            raise ValueError('Properties have not been set.')
+
+    @staticmethod
     def determine_standard_time(resources: Set[Resource],
                                 wavelengths: Set[float],
                                 modes: Set[ObservationMode],
@@ -28,21 +40,27 @@ class ObservatoryProperties(ABC):
         TODO: Based on the Gemini code, it seems like the latter is the case, but we do have
         TODO: the obsmode code in the atom extraction which provides an ObservationMode.
         """
-        ...
+        ObservatoryProperties._check_properties()
+        return ObservatoryProperties._properties.determine_standard_time(
+            resources,
+            wavelengths,
+            modes,
+            cal_length
+        )
 
     @staticmethod
-    @abstractmethod
     def is_instrument(resource: Resource) -> bool:
         """
         Determine if the given resource is an instrument or not.
         """
-        ...
+        ObservatoryProperties._check_properties()
+        return ObservatoryProperties._properties.is_instrument(resource)
 
     @staticmethod
-    @abstractmethod
     def acquisition_time(resource: Resource, observation_mode: ObservationMode) -> Optional[timedelta]:
         """
         Given a resource, check if it is an instrument, and if so, lookup the
         acquisition time for the specified mode.
         """
-        ...
+        ObservatoryProperties._check_properties()
+        return ObservatoryProperties._properties.acquisition_time(resource, observation_mode)
