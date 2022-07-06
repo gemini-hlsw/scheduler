@@ -1,6 +1,6 @@
 from datetime import timedelta
 from enum import Enum, EnumMeta
-from typing import Set
+from typing import Optional, Set
 
 import astropy.units as u
 from astropy.time import Time
@@ -50,6 +50,16 @@ class GeminiProperties(ObservatoryProperties):
             if ObservationMode.IMAGING in modes:
                 return 2.0 * u.h
             return 0.0 * u.h
+
+    @staticmethod
+    def is_instrument(resource: Resource) -> bool:
+        return resource in GeminiProperties.Instruments
+
+    @staticmethod
+    def acquisition_time(resource: Resource, observation_mode: ObservationMode) -> Optional[timedelta]:
+        if not GeminiProperties.is_instrument(resource):
+            return None
+        ...
 
 
 def with_igrins_cal(func):

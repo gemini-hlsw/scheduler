@@ -1,5 +1,6 @@
-from abc import ABC
-from typing import Set
+from abc import abstractmethod, ABC
+from datetime import timedelta
+from typing import Optional, Set
 
 from astropy import units as u
 from astropy.time import Time
@@ -14,6 +15,7 @@ class ObservatoryProperties(ABC):
     """
 
     @staticmethod
+    @abstractmethod
     def determine_standard_time(resources: Set[Resource],
                                 wavelengths: Set[float],
                                 modes: Set[ObservationMode],
@@ -26,4 +28,21 @@ class ObservatoryProperties(ABC):
         TODO: Based on the Gemini code, it seems like the latter is the case, but we do have
         TODO: the obsmode code in the atom extraction which provides an ObservationMode.
         """
-        return 0. * u.h
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def is_instrument(resource: Resource) -> bool:
+        """
+        Determine if the given resource is an instrument or not.
+        """
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def acquisition_time(resource: Resource, observation_mode: ObservationMode) -> Optional[timedelta]:
+        """
+        Given a resource, check if it is an instrument, and if so, lookup the
+        acquisition time for the specified mode.
+        """
+        ...
