@@ -27,7 +27,7 @@ class App:
         """
         
         for res in self.session.subscribe(test_subscription_query):
-            if res['data']['subscription_query']['data'] == 'test':
+            if 'data' in res:
                 print('Update detected')
                 return True
     

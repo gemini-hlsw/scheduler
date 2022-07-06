@@ -1,2 +1,2 @@
-from queries import *
-from session import *
+from .queries import *
+from .session import *
