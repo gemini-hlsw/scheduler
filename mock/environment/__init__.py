@@ -1,12 +1,13 @@
-from typing import Optional
-from datetime import date, datetime, timedelta
 
-import os
 import logging
 import bz2
-import pandas as pd
+import os
+from datetime import date, datetime, timedelta
+from typing import Optional
+
 import astropy.units as u
 import numpy as np
+import pandas as pd
 from astropy.coordinates import Angle
 from astropy.time import Time
 from astropy.units import Quantity
@@ -15,50 +16,52 @@ from common.minimodel import Site, Variant, CloudCover, ImageQuality, WaterVapor
 
 
 class Env:
-   
     def __init__(self):
         """
         Stores weather data into a dictionary 
         that can be indexed by site and date.
         """
-        self.site_data = {}
+
+        time_stamp = 'Time_Stamp_UTC'
+        day_difference = timedelta(hours=7)
+
+        def data_file_path(filename: str) -> str:
+            return os.path.join('..', '..', 'data', filename)
+
         self.site_data_by_night = {}
 
         for site in Site:
-            site_lc = site.name.lower()
-            input_filename = Env.data_file_path(f'{site_lc}_weather_data.pickle.bz2')
+            logging.info(f'Processing {site.name}')
+            input_filename = data_file_path(f'{site.name.lower()}_weather_data.pickle.bz2')
 
-            if(os.path.exists(input_filename)):
-                # logging.info(f'Reading {input_filename}')
-                with bz2.open(input_filename) as input_file:
-                        input_data = pd.read_pickle(input_file)
-                        self.site_data[site_lc] = input_data 
-                        # logging.info(site_lc)
-                        # logging.info(self.site_data[site_lc])
-                        # logging.info(f'\t{len(self.site_data[site_lc].columns)} columns, {len(self.site_data[site_lc])} rows')
+            logging.info(f'Reading {input_filename}')
+            with bz2.open(input_filename) as input_file:
+                input_data = pd.read_pickle(input_file)
+                logging.info(f'\t\t{len(input_data.columns)} columns, {len(input_data)} rows')
 
-                self.site_data_by_night[site_lc] = {}
-                local_site_data = self.site_data[site_lc].iterrows()
-                for _index, night in local_site_data:
-                    night_start_line = night
-                    night_date = night["Time_Stamp_UTC"].date()
-                    night_date = night_date.strftime('%Y-%m-%d') 
-                    night_list = [night_start_line]
-                    preivous_line = night_start_line
-                    _index2, current_line = next(local_site_data)
+            self.site_data_by_night[site] = {}
+            local_site_data = input_data.iterrows()
+            for index, night in local_site_data:
+                night_start_line = night
 
-                    while((current_line["Time_Stamp_UTC"] - preivous_line["Time_Stamp_UTC"] < timedelta(hours= 7))):
-                        night_list.append(current_line)
-                        preivous_line = current_line
-                        try:
-                            _index3, current_line = next(local_site_data)
-                        except StopIteration:
-                            print("End of data")
-                            break
-                         
-                    self.site_data_by_night[site_lc][night_date] = night_list
-            else:   
-                print(f'Error, {input_filename} not found')
+                night_date = night[time_stamp].date()
+                logging.info(f'\tProccesing UTC night of {night_date}')
+
+                night_list = [night_start_line]
+                previous_line = night_start_line
+                index2, current_line = next(local_site_data)
+
+                while current_line[time_stamp] - previous_line[time_stamp] < day_difference:
+                    night_list.append(current_line)
+                    previous_line = current_line
+                    try:
+                        index3, current_line = next(local_site_data)
+                    except StopIteration:
+                        logging.info("End of data")
+                        break
+                        
+                self.site_data_by_night[site][night_date] = night_list
+            
         
     def get_actual_conditions_variant(self,
                                       site: Site,
@@ -78,11 +81,9 @@ class Env:
             wind_spd=Quantity(np.full(night_length, 5.0 * u.m / u.s))
         )
     
-    @staticmethod
-    def data_file_path(filename: str) -> str:
-        return os.path.join('..', '..', 'data', filename)
 
-# if __name__ == '__main__':
-#     logging.basicConfig(level=logging.INFO)
-#     env = Env()
-#     print(env.site_data_by_night['gs']["2014-01-02"])
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    env = Env()
+
+    # print(env.site_data_by_night[Site.GS][date(2014, 1, 2)])
