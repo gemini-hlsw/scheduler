@@ -23,3 +23,27 @@ observation_update = gql('''
                               }
                             }
                         ''')
+
+program_update = gql('''
+                      subscription{
+                        programEdit{
+                          editType,
+                          value{
+                            id
+                          },
+                          id
+                        }
+                      }
+                    ''')
+
+target_update = gql('''
+                      subscription{
+                        targetEdit{
+                          editType,
+                          value{
+                            id
+                          },
+                          id
+                        }
+                      }
+                    ''')
