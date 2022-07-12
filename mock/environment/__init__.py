@@ -28,6 +28,14 @@ class Env:
         def data_file_path(filename: str) -> str:
             return os.path.join('..', '..', 'data', filename)
 
+        def cc_band_to_float(data: str) -> float:
+            if type(data) == str:
+                new_value = data[1:-1].split(',')
+                new_value = [float(s) for s in new_value]
+                new_value = max(new_value)
+                return(new_value)
+            return 1.0
+            
         self.site_data_by_night = {}
 
         for site in Site:
@@ -37,32 +45,37 @@ class Env:
             logging.info(f'Reading {input_filename}')
             with bz2.open(input_filename) as input_file:
                 input_data = pd.read_pickle(input_file)
+                input_data.iloc[0] = input_data.iloc[0].fillna(1.0)
+                input_data = input_data.fillna(method='ffill')
+
                 logging.info(f'\t\t{len(input_data.columns)} columns, {len(input_data)} rows')
 
             self.site_data_by_night[site] = {}
             local_site_data = input_data.iterrows()
             for index, night in local_site_data:
                 night_start_line = night
-
                 night_date = night[time_stamp].date()
+                night_start_line["cc_band"] = cc_band_to_float(night_start_line["cc_band"])
+                #logging.info(night_start_line["cc_band"])
                 logging.info(f'\tProccesing UTC night of {night_date}')
-
                 night_list = [night_start_line]
                 previous_line = night_start_line
                 index2, current_line = next(local_site_data)
+                current_line["cc_band"] = cc_band_to_float(current_line["cc_band"])
 
                 while current_line[time_stamp] - previous_line[time_stamp] < day_difference:
                     night_list.append(current_line)
                     previous_line = current_line
                     try:
                         index3, current_line = next(local_site_data)
+                        current_line["cc_band"] = cc_band_to_float(current_line["cc_band"])
                     except StopIteration:
                         logging.info("End of data")
                         break
-                        
+               
                 self.site_data_by_night[site][night_date] = night_list
-            
-        
+
+
     def get_actual_conditions_variant(self,
                                       site: Site,
                                       times: Time) -> Optional[Variant]:
@@ -86,4 +99,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     env = Env()
 
-    # print(env.site_data_by_night[Site.GS][date(2014, 1, 2)])
+    #print(env.site_data_by_night[Site.GS][date(2019, 3, 17)])
