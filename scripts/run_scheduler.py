@@ -162,5 +162,5 @@ if __name__ == '__main__':
     planmanager = graphqlserver.PlanManager()
     planmanager.set_plans(plans)
     print(f'PlanManager plans:\n{planmanager.get_plans()}')
-    graphqlserver.start_graphql_server()
+    graphqlserver.start_graphql_server(plans)
     print('DONE')
