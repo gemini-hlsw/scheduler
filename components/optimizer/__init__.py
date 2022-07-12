@@ -1,6 +1,6 @@
 from common.calculations.selection import Selection
 from .greedymax import GreedyMax
-from common.minimodel.plan import Plans
+from common.plans.__init__ import Plans
 from typing import List
 
 

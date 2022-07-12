@@ -17,6 +17,7 @@ from common.minimodel import Site, Variant, CloudCover, ImageQuality, WaterVapor
 
 class Env:
     def __init__(self):
+        return
         """
         Stores weather data into a dictionary 
         that can be indexed by site and date.

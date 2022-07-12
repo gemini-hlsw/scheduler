@@ -1,11 +1,20 @@
-from common.calculations.nightevents import NightEvents
-from common.minimodel.visit import Visit
-from common.minimodel.site import Site
-from common.minimodel.observation import Observation
 from dataclasses import dataclass
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from math import ceil
-from typing import NoReturn, Mapping, List
+from typing import NoReturn, Mapping
+
+from common.calculations.nightevents import NightEvents
+from common.minimodel.observation import Observation
+from common.minimodel.observation import ObservationID
+from common.minimodel.site import Site
+
+
+@dataclass(order=True, frozen=True)
+class Visit:
+    start_time: datetime  # Unsure if this or something else
+    obs_id: ObservationID
+    atom_start_idx: int
+    atom_end_idx: int
 
 
 @dataclass
@@ -18,11 +27,11 @@ class Plan:
     time_slot_length: timedelta
     site: Site
     _time_slots_left: int
-    
+
     def __post_init__(self):
         self.visits = []
         self.is_full = False
-    
+
     def time2slots(self, time: timedelta) -> int:
         return ceil((time.total_seconds() / self.time_slot_length.total_seconds()) / 60)
 
@@ -42,6 +51,7 @@ class Plans:
     """
     A collection of Plan from all sites for a specific night
     """
+
     def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: int):
 
         self.plans = {}
@@ -53,7 +63,7 @@ class Plans:
                                         ne.time_slot_length.to_datetime(),
                                         site,
                                         len(ne.times[night_idx]))
-    
+
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]
 
@@ -65,4 +75,3 @@ class Plans:
         Check if all plans for all sites are done in a night
         """
         return all(plan.is_full for plan in self.plans.values())
-    

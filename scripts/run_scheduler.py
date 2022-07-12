@@ -129,7 +129,7 @@ if __name__ == '__main__':
     #       scores: list indexed by night index with entries numpy array of float indicating the final scores for the
     #             group for each time slot in the night
     #
-    # Note that the actual scores are generated using the Ranker (components.ranker.__init__.py, Ranker class), which
+    # Note that the actual scores are generated using the Ranker (components.ranker.app.py, Ranker class), which
     # follows the old implementation but is generalized to multi-night, and cleaned up significantly.
 
     # BRYAN:
@@ -158,4 +158,9 @@ if __name__ == '__main__':
     plans = optimizer.schedule()
     print_plans(plans)
 
+    import graphqlserver
+    planmanager = graphqlserver.PlanManager()
+    planmanager.set_plans(plans)
+    print(f'PlanManager plans:\n{planmanager.get_plans()}')
+    graphqlserver.start_graphql_server()
     print('DONE')
