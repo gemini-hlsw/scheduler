@@ -1,5 +1,4 @@
 import os
-import logging
 from common.minimodel import *
 
 from api.observatory.abstract import ObservatoryProperties
@@ -158,9 +157,10 @@ if __name__ == '__main__':
     plans = optimizer.schedule()
     print_plans(plans)
 
-    import graphqlserver
-    plan_manager = graphqlserver.PlanManager()
+    import graphql_server
+    # from graphql_server import PlanManager, start_graphql_server
+    plan_manager = graphql_server.PlanManager()
     plan_manager.set_plans(plans)
-    graphqlserver.start_graphql_server()
+    graphql_server.start_graphql_server()
 
     print('DONE')

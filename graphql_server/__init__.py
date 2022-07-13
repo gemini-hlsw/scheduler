@@ -155,4 +155,4 @@ app.add_websocket_route('/graphql', graphql_app)
 
 def start_graphql_server():
     # uvicorn.run('graphqlserver:app', reload=True, host='127.0.0.1', port=8000)
-    uvicorn.run('graphqlserver:app', host='127.0.0.1', port=8000)
+    uvicorn.run('graphql_server:app', host='127.0.0.1', port=8000)
