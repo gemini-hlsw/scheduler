@@ -12,7 +12,7 @@ from strawberry.asgi import GraphQL
 from common.minimodel import ObservationID, Site
 from common.plans import Plan, Plans, Visit
 
-# NOTE: All times are in UTC.
+# TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 
 # Hierarchy:
 # List[Plans]: one entry for each night
@@ -154,5 +154,5 @@ app.add_websocket_route('/graphql', graphql_app)
 
 
 def start_graphql_server():
-    # uvicorn.run('graphqlserver:app', reload=True, host='127.0.0.1', port=8000)
+    # Using reload=True here resets PlanManager, so only a blank plan is returned.
     uvicorn.run('graphql_server:app', host='127.0.0.1', port=8000)
