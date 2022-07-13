@@ -159,7 +159,8 @@ if __name__ == '__main__':
     print_plans(plans)
 
     import graphqlserver
-    planmanager = graphqlserver.PlanManager()
-    planmanager.set_plans(plans)
+    plan_manager = graphqlserver.PlanManager()
+    plan_manager.set_plans(plans)
     graphqlserver.start_graphql_server()
+
     print('DONE')
