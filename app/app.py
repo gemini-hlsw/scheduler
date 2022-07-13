@@ -25,8 +25,8 @@ class App:
 
         def shutdown():
             done.set()
+            [t.cancel() for t in asyncio.all_tasks()]
             self.manager.shutdown()
-            [t.cancel() for t in asyncio.all_tasks()] 
             asyncio.get_event_loop().stop()
         
         asyncio.get_event_loop().add_signal_handler(signal.SIGINT, shutdown)
