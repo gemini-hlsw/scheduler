@@ -75,9 +75,8 @@ class Env:
                
                 self.site_data_by_night[site][night_date] = night_list
 
-
-    def get_actual_conditions_variant(self,
-                                      site: Site,
+    @staticmethod
+    def get_actual_conditions_variant(site: Site,
                                       times: Time) -> Optional[Variant]:
         """
         Return the weather variant.
