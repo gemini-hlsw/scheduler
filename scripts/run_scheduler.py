@@ -11,6 +11,9 @@ from components.selector import Selector
 from components.optimizer import Optimizer
 
 if __name__ == '__main__':
+    # SET THIS FLAG TO RUN THE GRAPHQL SERVER AT THE END.
+    run_graphql_server = False
+
     logging.basicConfig(level=logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -157,10 +160,10 @@ if __name__ == '__main__':
     plans = optimizer.schedule()
     print_plans(plans)
 
-    import graphql_server
-    # from graphql_server import PlanManager, start_graphql_server
-    plan_manager = graphql_server.PlanManager()
-    plan_manager.set_plans(plans)
-    graphql_server.start_graphql_server()
+    if run_graphql_server:
+        import graphql_server
+        plan_manager = graphql_server.PlanManager()
+        plan_manager.set_plans(plans)
+        graphql_server.start_graphql_server()
 
     print('DONE')
