@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from common.calculations.groupinfo import GroupData
-from common.plans.__init__ import Plans
+from common.plans import Plans
 from common.minimodel.program import ProgramID
 from common.calculations.programinfo import ProgramInfo
 from typing import Mapping, List

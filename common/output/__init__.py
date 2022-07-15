@@ -8,7 +8,7 @@ from openpyxl import Workbook
 from api.programprovider.abstract import ProgramProvider
 from api.programprovider.ocs import OcsProgramProvider
 from common.minimodel import Atom, Group, Observation, ObservationClass, Program
-from common.plans.__init__ import Plans
+from common.plans import Plans
 from components.collector import Collector, NightEventsManager
 
 
