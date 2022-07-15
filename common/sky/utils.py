@@ -267,7 +267,7 @@ def true_airmass(altit: Angle) -> npt.NDArray[float]:
         scalar_input = True
 
     # ret = np.zeros(len(altit))
-    ret = np.full(len(altit), -1.)
+    ret = np.full(len(altit), 500.)
     ii = np.where(altit > 0.0)[0][:]
     if len(ii) != 0:
         ret[ii] = 1. / np.sin(altit[ii])  # sec z = 1/sin (altit)
