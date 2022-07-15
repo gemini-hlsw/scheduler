@@ -2,9 +2,11 @@ from enum import Enum
 from typing import Optional
 
 import astropy.coordinates
+import strawberry
 import pytz
 
 
+@strawberry.enum
 class Site(Enum):
     """
     The sites belonging to the observatory using the Scheduler.

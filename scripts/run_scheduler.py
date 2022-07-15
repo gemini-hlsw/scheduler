@@ -1,5 +1,4 @@
 import os
-import logging
 from common.minimodel import *
 
 from api.observatory.abstract import ObservatoryProperties
@@ -12,6 +11,9 @@ from components.selector import Selector
 from components.optimizer import Optimizer
 
 if __name__ == '__main__':
+    # SET THIS FLAG TO RUN THE GRAPHQL SERVER AT THE END.
+    run_graphql_server = False
+
     logging.basicConfig(level=logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -129,7 +131,7 @@ if __name__ == '__main__':
     #       scores: list indexed by night index with entries numpy array of float indicating the final scores for the
     #             group for each time slot in the night
     #
-    # Note that the actual scores are generated using the Ranker (components.ranker.__init__.py, Ranker class), which
+    # Note that the actual scores are generated using the Ranker (components.ranker.app.py, Ranker class), which
     # follows the old implementation but is generalized to multi-night, and cleaned up significantly.
 
     # BRYAN:
@@ -157,5 +159,11 @@ if __name__ == '__main__':
     optimizer = Optimizer(selection, algorithm=dummy)
     plans = optimizer.schedule()
     print_plans(plans)
+
+    if run_graphql_server:
+        import graphql_server
+        plan_manager = graphql_server.PlanManager()
+        plan_manager.set_plans(plans)
+        graphql_server.start_graphql_server()
 
     print('DONE')
