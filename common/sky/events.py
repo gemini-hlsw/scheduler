@@ -1,8 +1,7 @@
-from typing import Tuple, Union
+from typing import Tuple
 
 import astropy.units as u
 import numpy as np
-import numpy.typing as npt
 from astropy.coordinates import Angle, EarthLocation
 from astropy.time import Time
 from pytz import timezone

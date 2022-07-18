@@ -1,7 +1,7 @@
 import os
-import logging
 from common.minimodel import *
 
+from api.observatory.abstract import ObservatoryProperties
 from api.observatory.gemini import GeminiProperties
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from common.output import print_collector_info, print_plans
@@ -11,7 +11,11 @@ from components.selector import Selector
 from components.optimizer import Optimizer
 
 if __name__ == '__main__':
+    # SET THIS FLAG TO RUN THE GRAPHQL SERVER AT THE END.
+    run_graphql_server = False
+
     logging.basicConfig(level=logging.INFO)
+    ObservatoryProperties.set_properties(GeminiProperties)
 
     # Read in a list of JSON data
     programs = read_ocs_zipfile(os.path.join('..', 'data', '2018B_program_samples.zip'))
@@ -32,14 +36,17 @@ if __name__ == '__main__':
     # Output the state of and information calculated by the Collector.
     print_collector_info(collector, samples=60)
 
-    selector = Selector(
-        collector=collector,
-        properties=GeminiProperties
-    )
+    selector = Selector(collector=collector)
 
     # Execute the Selector.
     # Not sure the best way to display the output.
     selection = selector.select()
+    program_data = selection.program_info['GN-2018B-Q-104']
+    group_data = program_data.group_data['GN-2018B-Q-104-11']
+    group = group_data.group
+    print(group.exec_time())
+    print(group.total_used())
+    print(group.instruments())
 
     # Notes for data access:
     # The Selector returns all the data that an Optimizer needs in order to generate plans.
@@ -124,7 +131,7 @@ if __name__ == '__main__':
     #       scores: list indexed by night index with entries numpy array of float indicating the final scores for the
     #             group for each time slot in the night
     #
-    # Note that the actual scores are generated using the Ranker (components.ranker.__init__.py, Ranker class), which
+    # Note that the actual scores are generated using the Ranker (components.ranker.app.py, Ranker class), which
     # follows the old implementation but is generalized to multi-night, and cleaned up significantly.
 
     # BRYAN:
@@ -152,5 +159,11 @@ if __name__ == '__main__':
     optimizer = Optimizer(selection, algorithm=dummy)
     plans = optimizer.schedule()
     print_plans(plans)
+
+    if run_graphql_server:
+        import graphql_server
+        plan_manager = graphql_server.PlanManager()
+        plan_manager.set_plans(plans)
+        graphql_server.start_graphql_server()
 
     print('DONE')

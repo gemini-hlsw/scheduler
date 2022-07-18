@@ -1,7 +1,7 @@
 from __future__ import annotations
 from common.calculations.groupinfo import GroupData
 from components.optimizer.base import BaseOptimizer
-from common.minimodel.plan import Plans, Plan
+from common.plans.__init__ import Plans, Plan
 from common.minimodel.program import ProgramID
 from common.calculations.programinfo import ProgramInfo
 from datetime import datetime, timedelta

@@ -14,3 +14,9 @@ dependencies:
   - coverage
   - requests
   - pandas
+  - pip
+  - pip:
+    - omegaconf
+    - fastapi
+    - strawberry-graphql[fastapi]
+    - uvicorn[standard]

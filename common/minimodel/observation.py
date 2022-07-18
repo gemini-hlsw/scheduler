@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import timedelta
-from enum import auto, Enum, IntEnum
+from enum import auto, IntEnum
 from typing import List, Mapping, Optional, Set
 
 from .atom import Atom
@@ -11,23 +11,10 @@ from .site import Site
 from .target import Target, TargetType
 from .too import TooType
 
+# To avoid circular dependencies.
+import api.observatory.abstract
+
 ObservationID = str
-
-
-class ObservationMode(str, Enum):
-    """
-    TODO: This is not stored anywhere and is only used temporarily in the atom code in the
-    TODO: OcsProgramExtractor. Should it be stored anywhere or is it only used in intermediate
-    TODO: calculations? It seems to depend on the instrument and FPU.
-    """
-    UNKNOWN = 'unknown'
-    IMAGING = 'imaging'
-    LONGSLIT = 'longslit'
-    IFU = 'ifu'
-    MOS = 'mos'
-    XD = 'xd'
-    CORON = 'coron'
-    NRM = 'nrm'
 
 
 class ObservationStatus(IntEnum):
@@ -133,7 +120,7 @@ class Observation:
 
     def exec_time(self) -> timedelta:
         """
-        Total execution time for the program, which is sum across atoms and the acquisition overhead.
+        Total execution time for the program, which is the sum across atoms and the acquisition overhead.
         """
         return sum((atom.exec_time for atom in self.sequence), timedelta()) + self.acq_overhead
 
@@ -148,6 +135,14 @@ class Observation:
         The required resources for an observation based on the sequence's needs.
         """
         return self.guiding.keys() | {r for a in self.sequence for r in a.resources}
+
+    def instrument(self) -> Optional[Resource]:
+        """
+        Returns a resource that is an instrument, if one exists.
+        There should be only one.
+        """
+        return next(filter(lambda r: api.observatory.abstract.ObservatoryProperties.is_instrument(r),
+                           self.required_resources()), None)
 
     def wavelengths(self) -> Set[float]:
         """

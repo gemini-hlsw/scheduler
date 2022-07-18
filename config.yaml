@@ -1,0 +1,24 @@
+process_manager:
+  size: 5
+  timeout: 10
+
+scheduler:
+  time_slot_length: 1.0 # on minutes
+  # Sites allowed for the scheduler 
+  sites: ALL_SITES
+collector:
+  semesters: 
+    - Semester(2018, SemesterHalf.B)
+  # Classes of observation
+  observation_classes: 
+    - ObservationClass.SCIENCE
+    - ObservationClass.PROGCAL
+    - ObservationClass.PARTNERCAL 
+  program_types: 
+    - ProgramTypes.Q
+    - ProgramTypes.LP
+    - ProgramTypes.FT
+    - ProgramTypes.DD
+optimizer:
+  name: Dummy
+

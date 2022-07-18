@@ -3,6 +3,7 @@ from .constraints import *
 from .group import *
 from .magnitude import *
 from .observation import *
+from .observationmode import *
 from .program import *
 from .qastate import *
 from .resource import *

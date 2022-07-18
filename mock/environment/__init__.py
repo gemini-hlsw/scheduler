@@ -43,6 +43,7 @@ class Env:
             return 1.0
     
     def __init__(self):
+        return
         """
         Stores weather data into a dictionary 
         that can be indexed by site and date.

@@ -9,6 +9,8 @@ from .observation import Observation
 from .resource import Resource
 from .site import Site
 
+from common.helpers import flatten
+
 GroupID = str
 
 
@@ -125,6 +127,37 @@ class AndGroup(Group):
 
     def is_or_group(self) -> bool:
         return False
+
+    def exec_time(self) -> timedelta:
+        """
+        Total execution time across the childrenn of this group.
+        """
+        if issubclass(type(self.children), Observation):
+            return self.children.exec_time()
+        else:
+            sum(child.exec_time() for child in self.children)
+
+    def total_used(self) -> timedelta:
+        """
+        Total time used across the group: includes program time and partner time.
+        """
+        if issubclass(type(self.children), Observation):
+            return self.children.total_used()
+        else:
+            sum(child.total_used() for child in self.children)
+
+    def instruments(self) -> FrozenSet[Resource]:
+        """
+        Return a set of all instruments used in this group.
+        """
+        if issubclass(type(self.children), Observation):
+            instrument = self.children.instrument()
+            if instrument is not None:
+                return frozenset({instrument})
+            else:
+                return frozenset()
+        else:
+            return frozenset(flatten([child.instruments() for child in self.children]))
 
 
 @dataclass

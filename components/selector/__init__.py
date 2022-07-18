@@ -28,9 +28,9 @@ class Selector(SchedulerComponent):
     information is statically determined.
     """
     collector: Collector
-    _env: ClassVar[Env] = Env()
-    # Observatory-specific properties.
-    properties: ObservatoryProperties
+
+    # TODO: Add when Env is complete.
+    # _env: ClassVar[Env] = Env()
 
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
@@ -218,7 +218,9 @@ class Selector(SchedulerComponent):
         night_events = self.collector.get_night_events(obs.site)
 
         for night_idx in ranker.night_indices:
-            actual_conditions = Selector._env.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
+            # TODO: Use Selector._env when the get actual conditions variant method doesn't return static data.
+            # actual_conditions = Selector._env.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
+            actual_conditions = Env.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
 
             # If we can obtain the conditions variant, calculate the conditions and wind mapping.
             # Otherwise, use arrays of all zeros to indicate that we cannot calculate this information.

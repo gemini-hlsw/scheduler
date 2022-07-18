@@ -47,3 +47,6 @@ $ python run_scheduler.py
 
 If you have performed the installation correctly, you should see some basic
 output with no errors and the message DONE.
+
+## Notes
+* For Collector, look into `cached_propperty`.
