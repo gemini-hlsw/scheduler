@@ -1,4 +1,3 @@
-from ast import Await
 import asyncio
 from typing import Awaitable
 import backoff
@@ -9,11 +8,11 @@ from common.queries import observation_update, program_update, target_update
 
 class Session:
     
-    def __init__(self, url: str = 'http://localhost:8080'):
+    def __init__(self, url: str = 'localhost:8080'):
         self.url = url
     
     async def _query(self, session: Client, query: gql):
-        return self.session.execute(query)
+        return session.execute(query)
 
     async def _subscribe(self, session: Client, sub: gql):
         """
@@ -41,5 +40,6 @@ class Session:
         Subscribe to one subscription using one client
         """
         client = Client(transport=WebsocketsTransport(url=f'wss://{self.url}/ws'))
+        print(type(client))
         async with client as session:
             return await self._subscribe(session, query)
