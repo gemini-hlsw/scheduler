@@ -43,7 +43,7 @@ async def test_on_update(session):
 @pytest.mark.asyncio
 async def test_subscribe_all(session):
     """
-    Test an array of subscriptions 
+    Test an array of subscriptions
     """
     resp = await session.subscribe_all()
     print(type(resp[0].pop()))
