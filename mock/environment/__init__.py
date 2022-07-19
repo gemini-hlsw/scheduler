@@ -117,12 +117,10 @@ class Env:
                     cc_band = self.site_data_by_night[site][night].iloc[0]["cc_band"]
                     starting_index = self.site_data_by_night[site][night].index[0]
 
-                    if pd.isna(iq_band) and pd.isna(cc_band):
+                    if pd.isna(iq_band):
                         self.site_data_by_night[site][night].at[starting_index, "iq_band"] = 1.0
-                        self.site_data_by_night[site][night].at[starting_index, "cc_band"] = 1.0
-                    elif pd.isna(iq_band) and (~pd.isna(cc_band)):
-                        self.site_data_by_night[site][night].at[starting_index, "iq_band"] = 1.0
-                    elif (~pd.isna(iq_band)) and pd.isna(cc_band):
+
+                    if pd.isna(cc_band):
                         self.site_data_by_night[site][night].at[starting_index, "cc_band"] = 1.0
 
                     self.site_data_by_night[site][night] = self.site_data_by_night[site][night].fillna(method="ffill")
@@ -152,5 +150,4 @@ class Env:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     env = Env()
-
     # print(env.site_data_by_night[Site.GN][date(2020, 1, 1)])
