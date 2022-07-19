@@ -40,6 +40,5 @@ class Session:
         Subscribe to one subscription using one client
         """
         client = Client(transport=WebsocketsTransport(url=f'wss://{self.url}/ws'))
-        print(type(client))
         async with client as session:
             return await self._subscribe(session, query)
