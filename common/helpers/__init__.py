@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from lib2to3.pgen2.token import OP
 from typing import Optional
 
 import astropy.units as u
@@ -143,7 +144,7 @@ decoder = {'A': '0', 'B': '1', 'Q': '0',
 pattern = '|'.join(decoder.keys())
 
 
-def mask_to_barcode(mask: str, inst: str) -> str:
+def mask_to_barcode(mask: str, inst: Optional[str]) -> str:
     """
     Convert a mask string to a barcode string.
     """
@@ -154,9 +155,16 @@ def mask_to_barcode(mask: str, inst: str) -> str:
         return inst_decode[inst] + re.sub(f'({pattern})', lambda m: decoder[m.group()], mask).replace('-', '')[6:]
 
 
-def barcode_to_mask(barcode: str) -> str:
+def barcode_to_mask(barcode: str, rootname: Optional[str]) -> str:
     """
     Convert a barcode string to a mask string.
     """
     
-    return barcodes[barcode] if barcode in barcodes else None
+    if barcode in barcodes.values():
+        return list(barcodes.keys())[list(barcodes.values()).index(barcode)]
+    else:
+        # Root is like 'GS2022'
+        sem = {'0': 'A', '1':'B'}
+        ptype = {'0': 'Q', '1':'C', '2': 'LP', '3': 'FT', '8': 'SV', '9': 'DD'}
+        
+        return rootname + sem[barcode[1]] + ptype[barcode[2]] + barcode[3:6] + '-' + barcode[6:]
