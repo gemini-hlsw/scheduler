@@ -133,6 +133,7 @@ barcodes = {'0.25arcsec': '10005371',
             'NS2.0arcsec': '10005392',
             'PinholeC': '10005381',
             'focus_array_new': '10000005'}
+
 inst_decode = {'GMOS': '1', 'F2': '3'}
 sem_decode = {'A': '0', 'B': '1'}
 prog_decode = {'Q': '0', 'C': '1', 'L': '2', 'F': '3', 'S': '8', 'D': '9'}
@@ -141,7 +142,9 @@ prog_decode = {'Q': '0', 'C': '1', 'L': '2', 'F': '3', 'S': '8', 'D': '9'}
 decoder = {'A': '0', 'B': '1', 'Q': '0',
            'C': '1', 'LP': '2', 'FT': '3',
            'SV': '8', 'DD': '9'}
+bar_decoder = {value: key for key, value in decoder.items()}
 pattern = '|'.join(decoder.keys())
+sem_code = {value: key for key, value in sem_decode.items()}
 
 
 def mask_to_barcode(mask: str, inst: Optional[str]) -> str:
@@ -164,7 +167,4 @@ def barcode_to_mask(barcode: str, rootname: Optional[str]) -> str:
         return list(barcodes.keys())[list(barcodes.values()).index(barcode)]
     else:
         # Root is like 'GS2022'
-        sem = {'0': 'A', '1':'B'}
-        ptype = {'0': 'Q', '1':'C', '2': 'LP', '3': 'FT', '8': 'SV', '9': 'DD'}
-        
-        return rootname + sem[barcode[1]] + ptype[barcode[2]] + barcode[3:6] + '-' + barcode[6:]
+        return rootname + sem_code[barcode[1]] + bar_decoder[barcode[2]] + barcode[3:6] + '-' + barcode[6:]
