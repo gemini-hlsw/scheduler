@@ -4,6 +4,7 @@ from typing import Optional
 import astropy.units as u
 import numpy as np
 from astropy.time import Time
+import re
 
 
 def flatten(lst):
@@ -109,3 +110,53 @@ def angular_distance(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
     delta_lambda = ra2 - ra1
     a = np.sin(delta_phi / 2)**2 + np.cos(phi_1) * np.cos(phi_2) * np.sin(delta_lambda / 2)**2
     return 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+
+barcodes = {'0.25arcsec': '10005371',
+            '0.5arcsec': '10005372',
+            '0.75arcsec': '10005373',
+            '1.0arcsec': '10005374',
+            '1.5arcsec': '10005375',
+            '2.0arcsec': '10005376',
+            '5.0arcsec': '10005377',
+            'IFU-2': '10000007',
+            'IFU-B': '10000008',
+            'IFU-R': '10000009',
+            'IFU-NS-2': '10000010',
+            'IFU-NS-B': '10000011',
+            'IFU-NS-R': '10000012',
+            'NS0.5arcsec': '10005388',
+            'NS0.75arcsec': '10005389',
+            'NS1.0arcsec': '10005390',
+            'NS1.5arcsec': '10005391',
+            'NS2.0arcsec': '10005392',
+            'PinholeC': '10005381',
+            'focus_array_new': '10000005'}
+inst_decode = {'GMOS': '1', 'F2': '3'}
+sem_decode = {'A': '0', 'B': '1'}
+prog_decode = {'Q': '0', 'C': '1', 'L': '2', 'F': '3', 'S': '8', 'D': '9'}
+
+
+decoder = {'A': '0', 'B': '1', 'Q': '0',
+           'C': '1', 'LP': '2', 'FT': '3',
+           'SV': '8', 'DD': '9'}
+pattern = '|'.join(decoder.keys())
+
+
+def mask_to_barcode(mask: str, inst: str) -> str:
+    """
+    Convert a mask string to a barcode string.
+    """
+    if mask in barcodes:
+        return barcodes[mask]
+    else:
+        # return inst_decode[inst] + sem_decode[mask[6]] + prog_decode[mask[7]] + mask[-6:-3] + mask[-2:]
+        return inst_decode[inst] + re.sub(f'({pattern})', lambda m: decoder[m.group()], mask).replace('-', '')[6:]
+
+
+def barcode_to_mask(barcode: str) -> str:
+    """
+    Convert a barcode string to a mask string.
+    """
+    
+    return barcodes[barcode] if barcode in barcodes else None
