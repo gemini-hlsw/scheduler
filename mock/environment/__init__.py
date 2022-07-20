@@ -48,7 +48,7 @@ class Env:
         """
         self.site_data_by_night = {}
 
-        for site in {Site.GN}:
+        for site in Site:
             site_lc = site.name.lower()
             input_filename = Env._data_file_path(f'{site_lc}_wfs_filled_final_MEDIAN600s.pickle.bz2')
             output_filename = Env._data_file_path(f'{site_lc}_weather_data.pickle.bz2')
