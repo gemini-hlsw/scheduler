@@ -2,7 +2,7 @@ import bz2
 import logging
 import os
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, Union
 
 import astropy.units as u
 import numpy as np
@@ -27,19 +27,19 @@ class Env:
         return os.path.join('..', '..', 'data', filename)
 
     @staticmethod
-    def _cc_band_to_float(data: str) -> float:
+    def _cc_band_to_float(data: Union[str, float]) -> float:
         """
         Returns max value from set of cc_band values 
         """
-        if type(data) == str:
-            new_value = data[1:-1].split(',')
-            new_value = [float(s) for s in new_value]
-            new_value = max(new_value) / 100
-            return new_value
-        elif pd.isna(data):
+        # If it is a float, handle it appropriately.
+        if pd.isna(data):
             return np.nan
-        else:
-            return 1.0
+
+        # Otherwise, it is a str. If it is a set, eval it to get the set, and return the max.
+        if type(data) == str and '{' in data:
+            return max(eval(data)) / 100
+
+        return float(data) / 100
 
     def __init__(self):
         """
@@ -53,6 +53,7 @@ class Env:
             input_filename = Env._data_file_path(f'{site_lc}_wfs_filled_final_MEDIAN600s.pickle.bz2')
             output_filename = Env._data_file_path(f'{site_lc}_weather_data.pickle.bz2')
 
+            logging.info(f'Processing {site.name}...')
             if Env._PRODUCTION_MODE and os.path.exists(output_filename):
                 with bz2.open(output_filename) as output_file:
                     self.site_data_by_night[site] = pd.read_pickle(output_file)
@@ -61,8 +62,6 @@ class Env:
 
             logging.info(f'Processed data for site {site.site_name} not found.')
             logging.info(f'Attempting to process data from input file {input_filename}.')
-            logging.info(f'Reading {input_filename}...')
-            logging.info(f'Processing {site.name}')
 
             with bz2.open(input_filename) as input_file:
                 input_data = pd.read_pickle(input_file)
@@ -88,46 +87,62 @@ class Env:
                 })
                 self.site_data_by_night[site] = {}
 
-                local_site_data = input_data.iterrows()
-                for index, night in local_site_data:
-                    night_start_line = night
-                    night_date = night[Env._time_stamp].date()
-                    night_start_line["cc_band"] = Env._cc_band_to_float(night_start_line["cc_band"])
-                    night_start_line["iq_band"] /= 100
-                    logging.info(f'\tProccesing UTC night of {night_date}')
-                    night_list = [night_start_line]
-                    previous_line = night_start_line
-                    index2, current_line = next(local_site_data)
-                    current_line["cc_band"] = Env._cc_band_to_float(current_line["cc_band"])
-                    current_line["iq_band"] /= 100
+                # We first divide the data into a separate dataframe per night.
+                # 1. night_date of None to indicate no nights have been processed.
+                # 2. An empty list of night_rows that will hold the data rows for the night we are working on.
+                # 3. prev_row of None to indicate that there has been no previously processed night row, since
+                #    a new night will begin when _day_difference has passed from the previous night row.
+                night_date = None
+                night_rows = []
+                prev_row = None
 
-                    while current_line[Env._time_stamp] - previous_line[Env._time_stamp] < Env._day_difference:
-                        night_list.append(current_line)
-                        previous_line = current_line
-                        try:
-                            index3, current_line = next(local_site_data)
-                            current_line["cc_band"] = Env._cc_band_to_float(current_line["cc_band"])
-                            current_line["iq_band"] /= 100
-                        except StopIteration:
-                            logging.info("End of data")
-                            break
+                for index, cur_row in input_data.iterrows():
+                    # Check if we are starting a new night.
+                    if (night_date is None or
+                            (prev_row is not None and
+                             cur_row[Env._time_stamp] - prev_row[Env._time_stamp] >= Env._day_difference)):
+                        # If we have former night data, add it to the processed data.
+                        if night_date is not None:
+                            self.site_data_by_night[site][night_date] = night_rows
 
-                    self.site_data_by_night[site][night_date] = night_list
+                        # Now proceed to start the next night.
+                        logging.info(f'\tProcessing UTC night of {night_date}')
+                        night_date = cur_row[Env._time_stamp].date()
+                        night_rows = []
 
+                        # Process the iq_band and cc_band so that they are defined for the first entry
+                        # of the night.
+                        if pd.isna(cur_row['iq_band']):
+                            cur_row['iq_band'] = 1.0
+                        else:
+                            cur_row['iq_band'] /= 100
+
+                        # Process the cc_band.
+                        if pd.isna(cur_row['cc_band']):
+                            cur_row['cc_band'] = 1.0
+                        else:
+                            cur_row['cc_band'] = Env._cc_band_to_float(cur_row['cc_band'])
+                    else:
+                        # Process the iq_band if it exists by dividing it by 100 to bin it properly.
+                        if not pd.isna(cur_row['iq_band']):
+                            cur_row['iq_band'] = float(cur_row['iq_band']) / 100
+
+                        # Process the cc_band as it could be a set, in which case, we want the maximum value.
+                        cur_row['cc_band'] = Env._cc_band_to_float(cur_row['cc_band'])
+
+                    # Add the new row to the night.
+                    night_rows.append(cur_row)
+                    prev_row = cur_row
+
+                # Now we have all the data broken into nights on a minute by minute basis.
                 for night in self.site_data_by_night[site]:
+                    # Convert to data frame.
                     self.site_data_by_night[site][night] = pd.DataFrame(self.site_data_by_night[site][night])
-                    iq_band = self.site_data_by_night[site][night].iloc[0]["iq_band"]
-                    cc_band = self.site_data_by_night[site][night].iloc[0]["cc_band"]
-                    starting_index = self.site_data_by_night[site][night].index[0]
 
-                    if pd.isna(iq_band):
-                        self.site_data_by_night[site][night].at[starting_index, "iq_band"] = 1.0
-
-                    if pd.isna(cc_band):
-                        self.site_data_by_night[site][night].at[starting_index, "cc_band"] = 1.0
-
+                    # Fill in missing data from the previous populated entry for iq_band and cc_band..
                     self.site_data_by_night[site][night] = self.site_data_by_night[site][night].fillna(method="ffill")
 
+                logging.info('Processing done.')
                 logging.info(f'Writing {output_filename}')
                 pd.to_pickle(self.site_data_by_night[site], output_filename)
 
