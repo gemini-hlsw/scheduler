@@ -18,6 +18,8 @@ class Env:
     _time_stamp = 'Time_Stamp_UTC'
     _day_difference = timedelta(hours=7)
     _PRODUCTION_MODE = False
+    _cc_band = 'cc_band'
+    _iq_band = 'iq_band'
 
     @staticmethod
     def _data_file_path(filename: str) -> str:
@@ -106,35 +108,39 @@ class Env:
                             self.site_data_by_night[site][night_date] = night_rows
 
                         # Now proceed to start the next night.
-                        logging.info(f'\tProcessing UTC night of {night_date}')
                         night_date = cur_row[Env._time_stamp].date()
+                        logging.info(f'\tProcessing UTC night of {night_date}')
                         night_rows = []
 
                         # Process the iq_band and cc_band so that they are defined for the first entry
                         # of the night.
-                        if pd.isna(cur_row['iq_band']):
-                            cur_row['iq_band'] = 1.0
+                        if pd.isna(cur_row[Env._iq_band]):
+                            cur_row[Env._iq_band] = 1.0
                         else:
-                            cur_row['iq_band'] /= 100
+                            cur_row[Env._iq_band] /= 100
 
                         # Process the cc_band.
-                        if pd.isna(cur_row['cc_band']):
-                            cur_row['cc_band'] = 1.0
+                        if pd.isna(cur_row[Env._cc_band]):
+                            cur_row[Env._cc_band] = 1.0
                         else:
-                            cur_row['cc_band'] = Env._cc_band_to_float(cur_row['cc_band'])
+                            cur_row[Env._cc_band] = Env._cc_band_to_float(cur_row[Env._cc_band])
                     else:
                         # Process the iq_band if it exists by dividing it by 100 to bin it properly.
-                        if not pd.isna(cur_row['iq_band']):
-                            cur_row['iq_band'] = float(cur_row['iq_band']) / 100
+                        if not pd.isna(cur_row[Env._iq_band]):
+                            cur_row[Env._iq_band] = float(cur_row[Env._iq_band]) / 100
 
                         # Process the cc_band as it could be a set, in which case, we want the maximum value.
-                        cur_row['cc_band'] = Env._cc_band_to_float(cur_row['cc_band'])
+                        cur_row[Env._cc_band] = Env._cc_band_to_float(cur_row[Env._cc_band])
 
                     # Add the new row to the night.
                     night_rows.append(cur_row)
                     prev_row = cur_row
 
+                # Add the last day, which has not been added yet due to the loop ending.
+                self.site_data_by_night[site][night_date] = night_rows
+
                 # Now we have all the data broken into nights on a minute by minute basis.
+                logging.info('Filling in missing CC and IQ information...')
                 for night in self.site_data_by_night[site]:
                     # Convert to data frame.
                     self.site_data_by_night[site][night] = pd.DataFrame(self.site_data_by_night[site][night])
