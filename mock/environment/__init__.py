@@ -1,8 +1,7 @@
-
-import logging
 import bz2
+import logging
 import os
-from datetime import date, datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 import astropy.units as u
@@ -16,9 +15,9 @@ from common.minimodel import Site, Variant, CloudCover, ImageQuality, WaterVapor
 
 
 class Env:
-
     _time_stamp = 'Time_Stamp_UTC'
     _day_difference = timedelta(hours=7)
+    _PRODUCTION_MODE = False
 
     @staticmethod
     def _data_file_path(filename: str) -> str:
@@ -36,21 +35,17 @@ class Env:
             new_value = data[1:-1].split(',')
             new_value = [float(s) for s in new_value]
             new_value = max(new_value) / 100
-            return(new_value)
-        elif pd.isna(data): 
+            return new_value
+        elif pd.isna(data):
             return np.nan
         else:
             return 1.0
-    
+
     def __init__(self):
-        return
         """
         Stores weather data into a dictionary 
         that can be indexed by site and date.
         """
-
-        PRODUCTION_MODE = False
-            
         self.site_data_by_night = {}
 
         for site in Site:
@@ -58,7 +53,7 @@ class Env:
             input_filename = Env._data_file_path(f'{site_lc}_wfs_filled_final_MEDIAN600s.pickle.bz2')
             output_filename = Env._data_file_path(f'{site_lc}_weather_data.pickle.bz2')
 
-            if PRODUCTION_MODE and os.path.exists(output_filename):
+            if Env._PRODUCTION_MODE and os.path.exists(output_filename):
                 with bz2.open(output_filename) as output_file:
                     self.site_data_by_night[site] = pd.read_pickle(output_file)
                     logging.info(f'{site.site_name} data read in.')
@@ -68,7 +63,7 @@ class Env:
             logging.info(f'Attempting to process data from input file {input_filename}.')
             logging.info(f'Reading {input_filename}...')
             logging.info(f'Processing {site.name}')
-          
+
             with bz2.open(input_filename) as input_file:
                 input_data = pd.read_pickle(input_file)
                 logging.info(f'\t\t{len(input_data.columns)} columns, {len(input_data)} rows')
@@ -83,8 +78,16 @@ class Env:
                     'IQ_OIWFS', 'IQ_P2WFS', 'IQ_OIWFS_MEDIAN', 'IQ_P2WFS_MEDIAN', 'QAP_IQ', 'QAP_IQ_WFS_scaled',
                     'Ratio_OIWFS', 'Ratio_P2WFS', 'QAP_IQ_WFS_scaled500', 'IQ_P2WFS_Zenith', 'IQ_OIWFS_Zenith',
                     'IQ_P2WFS_MEDIAN_Zenith', 'QAP_IQ_WFS_scaled500_Zenith'})
-
+                input_data = input_data.drop(columns={
+                    'cc_extinction', 'cc_extinction_error', 'iq_delivered', 'iq_delivered_error',
+                    'iq_zenith', 'ut_time', 'Time_Stamp', 'Wavelength', 'azimuth',
+                    'elevation', 'filter_name', 'instrument', 'telescope',
+                    'Relative_Humidity', 'Temperature', 'Dewpoint', 'iq_delivered500',
+                    'IQ_OIWFS_MEDIAN_Zenith', 'iq_delivered500_Zenith',
+                    'iq_zenith_error', 'airmass'
+                })
                 self.site_data_by_night[site] = {}
+
                 local_site_data = input_data.iterrows()
                 for index, night in local_site_data:
                     night_start_line = night
@@ -108,9 +111,9 @@ class Env:
                         except StopIteration:
                             logging.info("End of data")
                             break
-                
+
                     self.site_data_by_night[site][night_date] = night_list
-            
+
                 for night in self.site_data_by_night[site]:
                     self.site_data_by_night[site][night] = pd.DataFrame(self.site_data_by_night[site][night])
                     iq_band = self.site_data_by_night[site][night].iloc[0]["iq_band"]
@@ -124,10 +127,10 @@ class Env:
                         self.site_data_by_night[site][night].at[starting_index, "cc_band"] = 1.0
 
                     self.site_data_by_night[site][night] = self.site_data_by_night[site][night].fillna(method="ffill")
-                
+
                 logging.info(f'Writing {output_filename}')
                 pd.to_pickle(self.site_data_by_night[site], output_filename)
-        
+
     @staticmethod
     def get_actual_conditions_variant(site: Site,
                                       times: Time) -> Optional[Variant]:
@@ -145,7 +148,7 @@ class Env:
             wind_sep=Angle(np.full(night_length, 40.0), unit='deg'),
             wind_spd=Quantity(np.full(night_length, 5.0 * u.m / u.s))
         )
-    
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
