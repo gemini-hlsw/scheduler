@@ -1,7 +1,7 @@
 import bz2
 import logging
 import os
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Optional, Union
 
 import astropy.units as u
@@ -167,6 +167,40 @@ class Env:
                 logging.info(f'Writing {output_filename}')
                 pd.to_pickle(self.site_data_by_night[site], output_filename)
 
+
+    def get_weather(self, site: Site, start_time: datetime, end_time: datetime) -> list[object]:
+        """
+        Returns list of weather data
+        based off start and end times 
+        """
+        weather_lilst = []
+
+        def round_seconds(obj: datetime) -> datetime:
+            if obj.microsecond >= 500_000:
+                obj += timedelta(seconds=1)
+            return obj.replace(microsecond=0)
+
+        if start_time.date() in env.site_data_by_night[site] and end_time.date() in env.site_data_by_night[site]:
+            start_time = round_seconds(start_time)
+            end_time = round_seconds(end_time)
+
+            if start_time <= end_time:
+                if start_time in set(env.site_data_by_night[site][start_time.date()][Env._time_stamp]) and end_time in set(env.site_data_by_night[site][end_time.date()][Env._time_stamp]):
+                    for night in env.site_data_by_night[site]:
+                        for index, data in env.site_data_by_night[site][night].iterrows():
+                            if data[Env._time_stamp] >= start_time and data[Env._time_stamp] <= end_time:        
+                                weather_lilst.append(data)
+                else:
+                    logging.info("Error: Starting/ending time is not stored! ")
+            else:
+                logging.info("Error: Starting date is past ending date!")
+        else:
+            logging.info("Error: Starting/ending date is not stored! ")
+
+        return weather_lilst
+
+    
+
     @staticmethod
     def get_actual_conditions_variant(site: Site,
                                       times: Time) -> Optional[Variant]:
@@ -189,4 +223,7 @@ class Env:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     env = Env()
-    # print(env.site_data_by_night[Site.GN][date(2020, 1, 1)])
+
+    # print(env.site_data_by_night[Site.GN][date(2014, 2, 20)])
+    # weather_list = env.get_weather(Site.GN, datetime(2014, 2, 16, 7, 33), datetime(2014, 2, 20, 5, 45))
+    # print(weather_list)
