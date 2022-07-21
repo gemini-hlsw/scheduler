@@ -2,7 +2,8 @@ import bz2
 import logging
 import os
 from datetime import timedelta, datetime
-from typing import Optional, Union
+from tracemalloc import start
+from typing import Optional, Union, List
 
 import astropy.units as u
 import numpy as np
@@ -17,7 +18,7 @@ from common.minimodel import Site, Variant, CloudCover, ImageQuality, WaterVapor
 class Env:
     _time_stamp = 'Time_Stamp_UTC'
     _day_difference = timedelta(hours=7)
-    _PRODUCTION_MODE = False
+    _PRODUCTION_MODE = True
     _cc_band = 'cc_band'
     _iq_band = 'iq_band'
     _wind_speed = 'WindSpeed'
@@ -168,34 +169,25 @@ class Env:
                 pd.to_pickle(self.site_data_by_night[site], output_filename)
 
 
-    def get_weather(self, site: Site, start_time: datetime, end_time: datetime) -> list[object]:
+    def get_weather(self, site: Site, start_time: datetime, end_time: datetime) -> List[object]:
         """
         Returns list of weather data
         based off start and end times 
         """
+        if start_time > end_time:
+            logging.warning(f'Weather request for invalid data range: {start_time} to {end_time}.')
+            return []
+
         weather_list = []
+        
+        start_date = start_time.date()
+        end_date = end_time.date()
+        nights = [n for n in self.site_data_by_night[site] if start_date <= n <= end_date]
 
-        def round_seconds(obj: datetime) -> datetime:
-            if obj.microsecond >= 500_000:
-                obj += timedelta(seconds=1)
-            return obj.replace(microsecond=0)
-
-        if start_time.date() in self.site_data_by_night[site] and end_time.date() in self.site_data_by_night[site]:
-            start_time = round_seconds(start_time)
-            end_time = round_seconds(end_time)
-
-            if start_time <= end_time:
-                if start_time in set(self.site_data_by_night[site][start_time.date()][Env._time_stamp]) and end_time in set(self.site_data_by_night[site][end_time.date()][Env._time_stamp]):
-                    for night in self.site_data_by_night[site]:
-                        for index, data in self.site_data_by_night[site][night].iterrows():
-                            if data[Env._time_stamp] >= start_time and data[Env._time_stamp] <= end_time:        
-                                weather_list.append(data)
-                else:
-                    logging.info("Error: Starting/ending time is not stored! ")
-            else:
-                logging.info("Error: Starting date is past ending date!")
-        else:
-            logging.info("Error: Starting/ending date is not stored! ")
+        for night in nights:
+            for _, data in self.site_data_by_night[site][night].iterrows():
+                if start_time <= data[Env._time_stamp] <= end_time:
+                    weather_list.append(data)
 
         return weather_list 
 
@@ -224,5 +216,5 @@ if __name__ == '__main__':
     env = Env()
 
     # print(env.site_data_by_night[Site.GN][date(2014, 2, 20)])
-    # weather_list = env.get_weather(Site.GN, datetime(2014, 2, 16, 7, 33), datetime(2014, 2, 20, 5, 45))
-    # print(weather_list)
+    weather_list = env.get_weather(Site.GN, datetime(2014, 2, 17, 7, 33), datetime(2014, 2, 20, 10, 45))
+    print(weather_list)
