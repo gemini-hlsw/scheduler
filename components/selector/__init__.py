@@ -13,8 +13,8 @@ from common.minimodel import ALL_SITES, AndGroup, Conditions, Group, GroupID, Ob
     ObservationStatus, ProgramID, Resource, Site, TooType, NightIndex, Variant
 from components.base import SchedulerComponent
 from components.collector import Collector
-from components.ranker import Ranker
-from mock.environment import Env   
+from components.ranker import DefaultRanker, Ranker
+from mock.environment import Env
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,7 @@ class Selector(SchedulerComponent):
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
                night_indices: Optional[npt.NDArray[NightIndex]] = None,
-               ranker: Optional[Ranker] = None) -> Selection:
+               ranker: Optional[DefaultRanker] = None) -> Selection:
         """
         Perform the selection of the groups based on:
         * Resource availability
@@ -69,7 +69,7 @@ class Selector(SchedulerComponent):
 
         # If no manual ranker was specified, create the default.
         if ranker is None:
-            ranker = Ranker(self.collector, night_indices)
+            ranker = DefaultRanker(self.collector, night_indices)
 
         # The night_indices in the Selector and Ranker must be the same.
         if not np.array_equal(night_indices, ranker.night_indices):
