@@ -18,6 +18,10 @@ class Env:
     _time_stamp = 'Time_Stamp_UTC'
     _day_difference = timedelta(hours=7)
     _PRODUCTION_MODE = False
+    _cc_band = 'cc_band'
+    _iq_band = 'iq_band'
+    _wind_speed = 'WindSpeed'
+    _wind_dir = 'WindDir'
 
     @staticmethod
     def _data_file_path(filename: str) -> str:
@@ -77,14 +81,17 @@ class Env:
                     'IQ_OIWFS', 'IQ_P2WFS', 'IQ_OIWFS_MEDIAN', 'IQ_P2WFS_MEDIAN', 'QAP_IQ', 'QAP_IQ_WFS_scaled',
                     'Ratio_OIWFS', 'Ratio_P2WFS', 'QAP_IQ_WFS_scaled500', 'IQ_P2WFS_Zenith', 'IQ_OIWFS_Zenith',
                     'IQ_P2WFS_MEDIAN_Zenith', 'QAP_IQ_WFS_scaled500_Zenith'})
-                input_data = input_data.drop(columns={
-                    'cc_extinction', 'cc_extinction_error', 'iq_delivered', 'iq_delivered_error',
-                    'iq_zenith', 'ut_time', 'Time_Stamp', 'Wavelength', 'azimuth',
-                    'elevation', 'filter_name', 'instrument', 'telescope',
-                    'Relative_Humidity', 'Temperature', 'Dewpoint', 'iq_delivered500',
-                    'IQ_OIWFS_MEDIAN_Zenith', 'iq_delivered500_Zenith',
-                    'iq_zenith_error', 'airmass'
-                })
+
+                # These columns do not appear to be used here, but if we remove them, we
+                # end up with rows with only NaN data, which seems to mess up the timestamp.
+                # input_data = input_data.drop(columns={
+                #     'cc_extinction', 'cc_extinction_error', 'iq_delivered', 'iq_delivered_error',
+                #     'iq_zenith', 'ut_time', 'Time_Stamp', 'Wavelength', 'azimuth',
+                #     'elevation', 'filter_name', 'instrument', 'telescope',
+                #     'Relative_Humidity', 'Temperature', 'Dewpoint', 'iq_delivered500',
+                #     'IQ_OIWFS_MEDIAN_Zenith', 'iq_delivered500_Zenith',
+                #     'iq_zenith_error', 'airmass'
+                # })
                 self.site_data_by_night[site] = {}
 
                 # We first divide the data into a separate dataframe per night.
@@ -106,41 +113,55 @@ class Env:
                             self.site_data_by_night[site][night_date] = night_rows
 
                         # Now proceed to start the next night.
-                        logging.info(f'\tProcessing UTC night of {night_date}')
                         night_date = cur_row[Env._time_stamp].date()
+                        logging.info(f'\tProcessing UTC night of {night_date}')
                         night_rows = []
 
-                        # Process the iq_band and cc_band so that they are defined for the first entry
+                        # Process the relevant data so that they are defined for the first entry
                         # of the night.
-                        if pd.isna(cur_row['iq_band']):
-                            cur_row['iq_band'] = 1.0
+                        if pd.isna(cur_row[Env._iq_band]):
+                            cur_row[Env._iq_band] = 1.0
                         else:
-                            cur_row['iq_band'] /= 100
+                            cur_row[Env._iq_band] /= 100
 
                         # Process the cc_band.
-                        if pd.isna(cur_row['cc_band']):
-                            cur_row['cc_band'] = 1.0
+                        if pd.isna(cur_row[Env._cc_band]):
+                            cur_row[Env._cc_band] = 1.0
                         else:
-                            cur_row['cc_band'] = Env._cc_band_to_float(cur_row['cc_band'])
+                            cur_row[Env._cc_band] = Env._cc_band_to_float(cur_row[Env._cc_band])
+
+                        # Process the wind measurements.
+                        if pd.isna(cur_row[Env._wind_speed]):
+                            cur_row[Env._wind_speed] = 1.0
+                        if pd.isna(cur_row[Env._wind_dir]):
+                            cur_row[Env._wind_dir] = 1.0
                     else:
                         # Process the iq_band if it exists by dividing it by 100 to bin it properly.
-                        if not pd.isna(cur_row['iq_band']):
-                            cur_row['iq_band'] = float(cur_row['iq_band']) / 100
+                        if not pd.isna(cur_row[Env._iq_band]):
+                            cur_row[Env._iq_band] = float(cur_row[Env._iq_band]) / 100
 
                         # Process the cc_band as it could be a set, in which case, we want the maximum value.
-                        cur_row['cc_band'] = Env._cc_band_to_float(cur_row['cc_band'])
+                        cur_row[Env._cc_band] = Env._cc_band_to_float(cur_row[Env._cc_band])
 
                     # Add the new row to the night.
                     night_rows.append(cur_row)
                     prev_row = cur_row
 
+                # Add the last day, which has not been added yet due to the loop ending.
+                self.site_data_by_night[site][night_date] = night_rows
+
                 # Now we have all the data broken into nights on a minute by minute basis.
+                logging.info('Filling in missing CC, IQ, WindSpeed, and WindDir information...')
                 for night in self.site_data_by_night[site]:
                     # Convert to data frame.
                     self.site_data_by_night[site][night] = pd.DataFrame(self.site_data_by_night[site][night])
 
-                    # Fill in missing data from the previous populated entry for iq_band and cc_band..
-                    self.site_data_by_night[site][night] = self.site_data_by_night[site][night].fillna(method="ffill")
+                    # Fill in missing data from the previous populated entry for iq_band and cc_band.
+                    self.site_data_by_night[site][night][[Env._cc_band, Env._iq_band,
+                                                          Env._wind_speed, Env._wind_dir]] = (
+                        self.site_data_by_night[site][night][[Env._cc_band, Env._iq_band,
+                                                              Env._wind_speed, Env._wind_dir]].ffill()
+                    )
 
                 logging.info('Processing done.')
                 logging.info(f'Writing {output_filename}')

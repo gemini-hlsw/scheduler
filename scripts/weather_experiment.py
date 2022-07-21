@@ -48,7 +48,7 @@ if __name__ == '__main__':
                 'IQ_OIWFS_MEDIAN_Zenith', 'iq_delivered500_Zenith',
                 'iq_zenith_error', 'airmass'
             })
-            print(input_data.loc[0:1145].to_string())
+            print(input_data.loc[:3600].to_string())
 
 
-    print_processed()
+    print_unprocessed()
