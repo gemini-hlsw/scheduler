@@ -173,23 +173,23 @@ class Env:
         Returns list of weather data
         based off start and end times 
         """
-        weather_lilst = []
+        weather_list = []
 
         def round_seconds(obj: datetime) -> datetime:
             if obj.microsecond >= 500_000:
                 obj += timedelta(seconds=1)
             return obj.replace(microsecond=0)
 
-        if start_time.date() in env.site_data_by_night[site] and end_time.date() in env.site_data_by_night[site]:
+        if start_time.date() in self.site_data_by_night[site] and end_time.date() in self.site_data_by_night[site]:
             start_time = round_seconds(start_time)
             end_time = round_seconds(end_time)
 
             if start_time <= end_time:
-                if start_time in set(env.site_data_by_night[site][start_time.date()][Env._time_stamp]) and end_time in set(env.site_data_by_night[site][end_time.date()][Env._time_stamp]):
-                    for night in env.site_data_by_night[site]:
-                        for index, data in env.site_data_by_night[site][night].iterrows():
+                if start_time in set(self.site_data_by_night[site][start_time.date()][Env._time_stamp]) and end_time in set(self.site_data_by_night[site][end_time.date()][Env._time_stamp]):
+                    for night in self.site_data_by_night[site]:
+                        for index, data in self.site_data_by_night[site][night].iterrows():
                             if data[Env._time_stamp] >= start_time and data[Env._time_stamp] <= end_time:        
-                                weather_lilst.append(data)
+                                weather_list.append(data)
                 else:
                     logging.info("Error: Starting/ending time is not stored! ")
             else:
@@ -197,9 +197,8 @@ class Env:
         else:
             logging.info("Error: Starting/ending date is not stored! ")
 
-        return weather_lilst
+        return weather_list 
 
-    
 
     @staticmethod
     def get_actual_conditions_variant(site: Site,
