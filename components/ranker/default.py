@@ -1,15 +1,14 @@
 from .base import Ranker
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable, Dict, FrozenSet, Mapping, Tuple
+from typing import Callable, FrozenSet, Mapping, Tuple
 
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
 
 from common.calculations import Scores
-from common.minimodel import ALL_SITES, AndGroup, Band, Group, NightIndex, Observation, ObservationID, OrGroup,\
-                             Program, Site
+from common.minimodel import ALL_SITES, AndGroup, Band, NightIndex, Observation, Program, Site
 from common.types import ListOrNDArray
 from components.collector import Collector
 
@@ -39,6 +38,7 @@ class RankerParameters:
     dec_diff: npt.NDArray[float] = np.array([3., 0.1, -0.06])
 
     score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = _default_score_combiner
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class RankerBandParameters:
@@ -230,7 +230,6 @@ class DefaultRanker(Ranker):
 
         return scores
     
-
     # TODO: Should we be considering the scores of the subgroups or the scores of the
     # TODO: observations when calculating the score of this group?
     def _score_and_group(self, group: AndGroup) -> Scores:
@@ -254,4 +253,3 @@ class DefaultRanker(Ranker):
         # Combine the scores as per the score_combiner and return.
         return [np.apply_along_axis(self.params.score_combiner, 0, group_scores[night_idx])[0]
                 for night_idx in self.night_indices]
-        

@@ -1,7 +1,6 @@
 import numpy as np
 import numpy.typing as npt
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from abc import abstractmethod
 from typing import Dict, FrozenSet
 from common.minimodel import AndGroup, OrGroup, ObservationID, Group, Program, Observation, NightIndex, ALL_SITES, Site
 from common.calculations import Scores
