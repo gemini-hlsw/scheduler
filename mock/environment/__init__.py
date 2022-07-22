@@ -167,7 +167,6 @@ class Env:
                 logging.info(f'Writing {output_filename}')
                 pd.to_pickle(self.site_data_by_night[site], output_filename)
 
-
     def get_weather(self, site: Site, start_time: datetime, end_time: datetime) -> List[object]:
         """
         Returns list of weather data
@@ -178,7 +177,7 @@ class Env:
             return []
 
         weather_list = []
-        
+
         start_date = start_time.date()
         end_date = end_time.date()
         nights = [n for n in self.site_data_by_night[site] if start_date <= n <= end_date]
@@ -188,8 +187,7 @@ class Env:
                 if start_time <= data[Env._time_stamp] <= end_time:
                     weather_list.append(data)
 
-        return weather_list 
-
+        return weather_list
 
     @staticmethod
     def get_actual_conditions_variant(site: Site,
