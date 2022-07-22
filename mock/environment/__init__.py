@@ -2,7 +2,6 @@ import bz2
 import logging
 import os
 from datetime import timedelta, datetime
-from tracemalloc import start
 from typing import Optional, Union, List
 
 import astropy.units as u
