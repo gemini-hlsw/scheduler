@@ -170,28 +170,24 @@ class Variant:
     """
     iq: Union[npt.NDArray[ImageQuality], ImageQuality]
     cc: Union[npt.NDArray[CloudCover], CloudCover]
-    wv: Union[npt.NDArray[WaterVapor], WaterVapor]
     wind_dir: Angle
-    wind_sep: Angle
     wind_spd: Quantity
-
     # time_blocks: Time
 
     def __post_init__(self):
         """
         Ensure that if any arrays are specified, all values are specified arrays of the same size.
         """
-        is_uniform = len({np.isscalar(self.cc), np.isscalar(self.iq), np.isscalar(self.wv)}) == 1
+        is_uniform = len({np.isscalar(self.cc), np.isscalar(self.iq)}) == 1
         if not is_uniform:
             raise ValueError(f'Variant has a mixture of array and scalar types: {self}')
 
         are_arrays = isinstance(self.cc, np.ndarray)
         array_lengths = {np.asarray(self.wind_dir).size,
-                         np.asarray(self.wind_sep).size,
                          np.asarray(self.wind_spd).size}
         if are_arrays:
-            uniform_lengths = len({len(self.cc), len(self.iq), len(self.wv)}.union(array_lengths)) == 1
+            uniform_lengths = len({len(self.cc), len(self.iq)}.union(array_lengths)) == 1
         else:
             uniform_lengths = len(array_lengths) == 1
         if not uniform_lengths:
-            raise ValueError(f'Variants has a variable number of array sizes: {self}')
+            raise ValueError(f'Variant has a variable number of array sizes: {self}')

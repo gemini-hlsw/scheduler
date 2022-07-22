@@ -1,15 +1,14 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, FrozenSet, Set, Optional, ClassVar
+from typing import ClassVar, Dict, FrozenSet, Set, Optional
 
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
 
-from api.observatory.abstract import ObservatoryProperties
 from common.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
-from common.minimodel import ALL_SITES, AndGroup, Conditions, Group, GroupID, Observation, ObservationClass,\
+from common.minimodel import ALL_SITES, AndGroup, Conditions, Group, GroupID, Observation, ObservationClass, \
     ObservationStatus, ProgramID, Resource, Site, TooType, NightIndex, Variant
 from components.base import SchedulerComponent
 from components.collector import Collector
@@ -31,6 +30,8 @@ class Selector(SchedulerComponent):
 
     # TODO: Add when Env is complete.
     # _env: ClassVar[Env] = Env()
+
+    _wind_sep: ClassVar[Angle] = 40. * u.deg
 
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
@@ -379,9 +380,9 @@ class Selector(SchedulerComponent):
         """
         wind = np.ones(len(azimuth))
         az_wd = np.abs(azimuth - variant.wind_dir)
-        idx = np.where(np.logical_and(variant.wind_spd > 10,  # * u.m / u.s,
-                                      np.logical_or(az_wd <= variant.wind_sep,
-                                                    360. * u.deg - az_wd <= variant.wind_sep)))[0]
+        idx = np.where(np.logical_and(variant.wind_spd > 10,  # * u.m / u.s
+                                      np.logical_or(az_wd <= Selector._wind_sep,
+                                                    360. * u.deg - az_wd <= Selector._wind_sep)))[0]
 
         # Adjust down to 0 if the wind conditions are not adequate.
         wind[idx] = 0
@@ -415,17 +416,14 @@ class Selector(SchedulerComponent):
         # Convert the actual conditions to arrays.
         actual_iq = np.asarray(actual_conditions.iq)
         actual_cc = np.asarray(actual_conditions.cc)
-        actual_wv = np.asarray(actual_conditions.wv)
 
         # The mini-model manages the IQ, CC, WV, and SB being the same types and sizes
         # so this check is a bit extraneous: if one has an ndim of 0, they all will.
-        scalar_input = actual_iq.ndim == 0 or actual_cc.ndim == 0 or actual_wv.ndim == 0
+        scalar_input = actual_iq.ndim == 0 or actual_cc.ndim == 0
         if actual_iq.ndim == 0:
             actual_iq = actual_iq[None]
         if actual_cc.ndim == 0:
             actual_cc = actual_cc[None]
-        if actual_wv.ndim == 0:
-            actual_wv = actual_wv[None]
 
         # Again, all lengths are guaranteed to be the same by the mini-model.
         length = len(actual_iq)
@@ -439,9 +437,8 @@ class Selector(SchedulerComponent):
         # Determine the positions where the actual conditions are worse than the requirements.
         bad_iq = actual_iq > required_conditions.iq
         bad_cc = actual_cc > required_conditions.cc
-        bad_wv = actual_wv > required_conditions.wv
 
-        bad_cond_idx = np.where(np.logical_or(np.logical_or(bad_iq, bad_cc), bad_wv))[0]
+        bad_cond_idx = np.where(np.logical_or(bad_iq, bad_cc))[0]
         cmatch = np.ones(length)
         cmatch[bad_cond_idx] = 0
 
