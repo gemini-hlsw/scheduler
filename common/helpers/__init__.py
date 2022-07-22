@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from lib2to3.pgen2.token import OP
 from typing import Optional
 
 import astropy.units as u
