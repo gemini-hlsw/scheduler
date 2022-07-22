@@ -35,7 +35,7 @@ class Selector(SchedulerComponent):
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
                night_indices: Optional[npt.NDArray[NightIndex]] = None,
-               ranker: Optional[DefaultRanker] = None) -> Selection:
+               ranker: Optional[Ranker] = None) -> Selection:
         """
         Perform the selection of the groups based on:
         * Resource availability
