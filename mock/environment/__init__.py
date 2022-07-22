@@ -201,9 +201,7 @@ class Env:
         return Variant(
             iq=np.full(night_length, ImageQuality.IQ70),
             cc=np.full(night_length, CloudCover.CC50),
-            wv=np.full(night_length, WaterVapor.WVANY),
             wind_dir=Angle(np.full(night_length, 330.0), unit='deg'),
-            wind_sep=Angle(np.full(night_length, 40.0), unit='deg'),
             wind_spd=Quantity(np.full(night_length, 5.0 * u.m / u.s))
         )
 
