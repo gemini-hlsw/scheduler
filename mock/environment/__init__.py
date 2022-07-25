@@ -7,6 +7,7 @@ from typing import Optional, Union, List
 import astropy.units as u
 import numpy as np
 import pandas as pd
+import strawberry
 from astropy.coordinates import Angle
 from astropy.time import Time
 from astropy.units import Quantity
@@ -17,7 +18,7 @@ from common.minimodel import Site, Variant, CloudCover, ImageQuality, WaterVapor
 class Env:
     _time_stamp = 'Time_Stamp_UTC'
     _day_difference = timedelta(hours=7)
-    _PRODUCTION_MODE = True
+    _PRODUCTION_MODE = False
     _cc_band = 'cc_band'
     _iq_band = 'iq_band'
     _wind_speed = 'WindSpeed'
@@ -206,10 +207,22 @@ class Env:
         )
 
 
+@strawberry.type
+class SVariant:
+    """
+    Variant data for query service 
+    """
+    time: datetime
+    cloud_cover: CloudCover
+    image_quality: ImageQuality
+    wind_speed: float
+    wind_direction: float
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     env = Env()
 
-    # print(env.site_data_by_night[Site.GN][date(2014, 2, 20)])
-    weather_list = env.get_weather(Site.GN, datetime(2014, 2, 17, 7, 33), datetime(2014, 2, 20, 10, 45))
-    print(weather_list)
+    # # print(env.site_data_by_night[Site.GN][date(2014, 2, 20)])
+    # weather_list = env.get_weather(Site.GN, datetime(2014, 2, 17, 7, 33), datetime(2014, 2, 20, 10, 45))
+    # print(weather_list)
