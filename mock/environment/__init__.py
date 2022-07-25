@@ -12,7 +12,7 @@ from astropy.coordinates import Angle
 from astropy.time import Time
 from astropy.units import Quantity
 
-from common.minimodel import Site, Variant, CloudCover, ImageQuality, WaterVapor
+from common.minimodel import CloudCover, ImageQuality, Site, Variant
 
 
 class Env:
@@ -46,7 +46,7 @@ class Env:
 
         return float(data) / 100
 
-    def __init__(self):
+    def __init__(self, force_reprocessing=False):
         """
         Stores weather data into a dictionary 
         that can be indexed by site and date.
@@ -59,7 +59,7 @@ class Env:
             output_filename = Env._data_file_path(f'{site_lc}_weather_data.pickle.bz2')
 
             logging.info(f'Processing {site.name}...')
-            if Env._PRODUCTION_MODE and os.path.exists(output_filename):
+            if not force_reprocessing and Env._PRODUCTION_MODE and os.path.exists(output_filename):
                 with bz2.open(output_filename) as output_file:
                     self.site_data_by_night[site] = pd.read_pickle(output_file)
                     logging.info(f'{site.site_name} data read in.')
@@ -133,9 +133,9 @@ class Env:
 
                         # Process the wind measurements.
                         if pd.isna(cur_row[Env._wind_speed]):
-                            cur_row[Env._wind_speed] = 1.0
+                            cur_row[Env._wind_speed] = 0.0
                         if pd.isna(cur_row[Env._wind_dir]):
-                            cur_row[Env._wind_dir] = 1.0
+                            cur_row[Env._wind_dir] = 0.0
                     else:
                         # Process the iq_band if it exists by dividing it by 100 to bin it properly.
                         if not pd.isna(cur_row[Env._iq_band]):
