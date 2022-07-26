@@ -31,7 +31,7 @@ class Selector(SchedulerComponent):
     # TODO: Add when Env is complete.
     # _env: ClassVar[Env] = Env()
 
-    _wind_sep: ClassVar[Angle] = 40. * u.deg
+    _wind_sep: ClassVar[Angle] = 20. * u.deg
 
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
