@@ -130,7 +130,7 @@ class HorizonsClient:
 
     def __init__(self,
                  site: Site,
-                 path: str = os.path.join('horizons', 'data'),
+                 path: str = os.path.join('services', 'horizons', 'data'),
                  airmass: int = 3,
                  start: datetime = None,
                  end: datetime = None):
