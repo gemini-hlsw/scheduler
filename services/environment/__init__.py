@@ -9,6 +9,9 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 import strawberry
+import uvicorn
+from fastapi import FastAPI
+from strawberry.asgi import GraphQL
 
 from astropy.coordinates import Angle
 
@@ -18,7 +21,7 @@ from common.minimodel import Site, Variant, CloudCover, ImageQuality
 class Env:
     _time_stamp = 'Time_Stamp_UTC'
     _day_difference = timedelta(hours=7)
-    _PRODUCTION_MODE = False
+    _PRODUCTION_MODE = True
     _cc_band = 'cc_band'
     _iq_band = 'iq_band'
     _wind_speed = 'WindSpeed'
@@ -237,6 +240,27 @@ class SVariant:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     env = Env()
+
+    @strawberry.type
+    class Query:
+
+        @strawberry.field
+        def weather(self, site: Site, start_date: datetime, end_date: datetime) -> List[SVariant]:
+            svariant_list = []
+            variant_list = env.get_weather(site, start_date, end_date)
+            for variant in variant_list:
+                svariant_list.append(SVariant.from_computed_variant(variant))
+            
+            return svariant_list
+
+
+    # schema = strawberry.Schema(query=Query)
+
+    # graphql_app = GraphQL(schema)
+    # app = FastAPI()
+    # app.add_route('/graphql', graphql_app)
+    # app.add_websocket_route('/graphql', graphql_app)
+    # uvicorn.run('graphql_server:app', host='127.0.0.1', port=8000)
 
     # print(env.site_data_by_night[Site.GN][date(2014, 2, 20)])
     # weather_list = env.get_weather(Site.GN, datetime(2014, 2, 17, 7, 33), datetime(2014, 2, 20, 10, 45))
