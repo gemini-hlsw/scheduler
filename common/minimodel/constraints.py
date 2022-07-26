@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from enum import auto, Enum, IntEnum
 from typing import ClassVar, List, Optional, Sequence, Union
 
@@ -6,9 +7,10 @@ import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
 from astropy.units import Quantity
+import strawberry
 
-from common.types import ScalarOrNDArray
 from common.helpers import flatten
+from common.types import ScalarOrNDArray
 from .timingwindow import TimingWindow
 
 
@@ -22,6 +24,7 @@ class SkyBackground(float, Enum):
     SBANY = 1.0
 
 
+@strawberry.enum
 class CloudCover(float, Enum):
     """
     Bins for observation cloud cover requirements or current conditions.
@@ -32,6 +35,7 @@ class CloudCover(float, Enum):
     CCANY = 1.0
 
 
+@strawberry.enum
 class ImageQuality(float, Enum):
     """
     Bins for observation image quality requirements or current conditions.
@@ -166,13 +170,13 @@ class Variant:
     A weather variant.
     wind_speed should be in m / s.
     TODO: No idea what time blocks are. Note this could be a list or a single value.
-    TODO: Because of this, we cannot hash Variants., which is problematic.
+    TODO: Because of this, we cannot hash Variants, which is problematic.
     """
+    start_time: datetime
     iq: Union[npt.NDArray[ImageQuality], ImageQuality]
     cc: Union[npt.NDArray[CloudCover], CloudCover]
     wind_dir: Angle
     wind_spd: Quantity
-    # time_blocks: Time
 
     def __post_init__(self):
         """

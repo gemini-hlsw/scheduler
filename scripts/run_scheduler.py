@@ -44,9 +44,9 @@ if __name__ == '__main__':
     program_data = selection.program_info['GN-2018B-Q-104']
     group_data = program_data.group_data['GN-2018B-Q-104-11']
     group = group_data.group
-    print(group.exec_time())
-    print(group.total_used())
-    print(group.instruments())
+    # print(group.exec_time())
+    # print(group.total_used())
+    # print(group.instruments())
 
     # Notes for data access:
     # The Selector returns all the data that an Optimizer needs in order to generate plans.

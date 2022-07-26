@@ -2,6 +2,7 @@ from typing import Optional
 
 import astropy.units as u
 import numpy as np
+import pytz
 
 from astropy.coordinates import Angle
 from astropy.time import Time
@@ -11,7 +12,6 @@ from common.minimodel import Site, Variant, CloudCover, ImageQuality
 
 
 class Env:
-
     @staticmethod
     def get_actual_conditions_variant(site: Site,
                                       times: Time) -> Optional[Variant]:
@@ -22,6 +22,7 @@ class Env:
         night_length = len(times)
 
         return Variant(
+            start_time=times[0].to_datetime(pytz.UTC),
             iq=np.full(night_length, ImageQuality.IQ70),
             cc=np.full(night_length, CloudCover.CC50),
             wind_dir=Angle(np.full(night_length, 330.0), unit='deg'),
