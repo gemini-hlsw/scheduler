@@ -164,7 +164,6 @@ class Env:
                 logging.info(f'Writing {output_filename}')
                 pd.to_pickle(self.site_data_by_night[site], output_filename)
 
-
     def get_weather(self, site: Site, start_time: datetime, end_time: datetime) -> List[object]:
         """
         Returns list of weather data
@@ -193,7 +192,7 @@ class SVariant:
     """
     Variant data for query service 
     """
-    time: datetime
+    start_time: datetime
     cloud_cover: CloudCover
     image_quality: ImageQuality
     wind_speed: float
