@@ -4,6 +4,7 @@ import os
 from datetime import timedelta, datetime
 from typing import Union, List
 
+import astropy.units as u
 import numpy as np
 import pandas as pd
 import strawberry
@@ -14,7 +15,7 @@ from common.minimodel import Site, Variant, CloudCover, ImageQuality
 class Env:
     _time_stamp = 'Time_Stamp_UTC'
     _day_difference = timedelta(hours=7)
-    _PRODUCTION_MODE = False
+    _PRODUCTION_MODE = True
     _cc_band = 'cc_band'
     _iq_band = 'iq_band'
     _wind_speed = 'WindSpeed'
@@ -164,7 +165,7 @@ class Env:
                 logging.info(f'Writing {output_filename}')
                 pd.to_pickle(self.site_data_by_night[site], output_filename)
 
-    def get_weather(self, site: Site, start_time: datetime, end_time: datetime) -> List[object]:
+    def get_weather(self, site: Site, start_time: datetime, end_time: datetime) -> List[Variant]:
         """
         Returns list of weather data
         based off start and end times 
@@ -174,6 +175,7 @@ class Env:
             return []
 
         weather_list = []
+        variant_list = []
 
         start_date = start_time.date()
         end_date = end_time.date()
@@ -184,7 +186,26 @@ class Env:
                 if start_time <= data[Env._time_stamp] <= end_time:
                     weather_list.append(data)
 
-        return weather_list
+        pd.DataFrame(weather_list)
+
+        for weather in weather_list:
+            # extract the fields above
+            try:
+                variant = Variant(
+                    start_time = weather[Env._time_stamp],
+                    cc = CloudCover(weather[Env._cc_band]),
+                    iq = ImageQuality(weather[Env._iq_band]),
+                    wind_dir = weather[Env._wind_dir] * u.rad,
+                    wind_spd = weather[Env._wind_speed] * u.m / u.s
+                )
+                variant_list.append(variant)
+
+            except ValueError as e:
+                # We catch the exception as a variable called e
+                logging.error(f'get_weather: {e}')
+
+        return variant_list
+        # return weather_list
 
 
 @strawberry.type
@@ -204,5 +225,5 @@ if __name__ == '__main__':
     env = Env()
 
     # # print(env.site_data_by_night[Site.GN][date(2014, 2, 20)])
-    # weather_list = env.get_weather(Site.GN, datetime(2014, 2, 17, 7, 33), datetime(2014, 2, 20, 10, 45))
-    # print(weather_list)
+    weather_list = env.get_weather(Site.GN, datetime(2014, 2, 17, 7, 33), datetime(2014, 2, 20, 10, 45))
+    print(weather_list)
