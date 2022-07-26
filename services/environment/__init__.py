@@ -1,4 +1,5 @@
 import bz2
+from dataclasses import dataclass
 import logging
 import os
 from datetime import timedelta, datetime
@@ -8,6 +9,8 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 import strawberry
+
+from astropy.coordinates import Angle
 
 from common.minimodel import Site, Variant, CloudCover, ImageQuality
 
@@ -195,7 +198,7 @@ class Env:
                     start_time = weather[Env._time_stamp],
                     cc = CloudCover(weather[Env._cc_band]),
                     iq = ImageQuality(weather[Env._iq_band]),
-                    wind_dir = weather[Env._wind_dir] * u.rad,
+                    wind_dir = Angle(weather[Env._wind_dir] * u.rad),
                     wind_spd = weather[Env._wind_speed] * u.m / u.s
                 )
                 variant_list.append(variant)
@@ -213,11 +216,22 @@ class SVariant:
     """
     Variant data for query service 
     """
+
     start_time: datetime
-    cloud_cover: CloudCover
-    image_quality: ImageQuality
-    wind_speed: float
-    wind_direction: float
+    iq: ImageQuality
+    cc: CloudCover
+    wind_dir: float
+    wind_spd: float
+
+    @staticmethod
+    def from_computed_variant(variant: Variant) -> 'SVariant':
+        return SVariant(
+            start_time=variant.start_time,
+            iq=variant.iq,
+            cc=variant.cc,
+            wind_dir=variant.wind_dir.value,
+            wind_spd=variant.wind_spd.value
+            )
 
 
 if __name__ == '__main__':
