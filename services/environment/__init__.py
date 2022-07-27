@@ -237,13 +237,15 @@ class SVariant:
             )
 
 
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     env = Env()
 
     @strawberry.type
     class Query:
-
+        
         @strawberry.field
         def weather(self, site: Site, start_date: datetime, end_date: datetime) -> List[SVariant]:
             svariant_list = []
@@ -253,14 +255,12 @@ if __name__ == '__main__':
             
             return svariant_list
 
-
-    # schema = strawberry.Schema(query=Query)
-
-    # graphql_app = GraphQL(schema)
-    # app = FastAPI()
-    # app.add_route('/graphql', graphql_app)
-    # app.add_websocket_route('/graphql', graphql_app)
-    # uvicorn.run('graphql_server:app', host='127.0.0.1', port=8000)
+    schema = strawberry.Schema(query=Query)
+    graphql_app = GraphQL(schema)
+    app = FastAPI()
+    app.add_route('/graphql', graphql_app)
+    app.add_websocket_route('/graphql', graphql_app)
+    uvicorn.run(app, host='127.0.0.1', port=8000)
 
     # print(env.site_data_by_night[Site.GN][date(2014, 2, 20)])
     # weather_list = env.get_weather(Site.GN, datetime(2014, 2, 17, 7, 33), datetime(2014, 2, 20, 10, 45))
