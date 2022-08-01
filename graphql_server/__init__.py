@@ -1,6 +1,5 @@
 from copy import deepcopy
 from datetime import date, datetime
-from tokenize import Single
 from common.meta import Singleton
 from typing import List, NoReturn
 import pytz
