@@ -2,9 +2,8 @@ import logging
 import asyncio
 import os
 from omegaconf import OmegaConf
-from app import App
+from app.scheduler import App
 from dotenv import load_dotenv
-from mock.observe import Observe
 
 
 # TODO: This script should be the main entry point for the application in the future.

@@ -1,2 +1,1 @@
-from .app import App
-from .scheduler import Scheduler
+from .app import app

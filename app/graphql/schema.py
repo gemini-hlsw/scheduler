@@ -1,0 +1,162 @@
+import asyncio
+import pytz
+import strawberry
+
+from astropy.time import Time
+from copy import deepcopy
+from datetime import date, datetime
+from common.meta import Singleton
+from typing import List, NoReturn
+
+from app.process_manager.manager import ProcessManager, TaskType
+from app.scheduler import Scheduler
+from app.common.minimodel import ObservationID, Site
+from app.common.plans import Plan, Plans, Visit
+
+# TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
+
+# Hierarchy:
+# List[Plans]: one entry for each night
+#   Plans: for a given night, indexed by Site to get Plan
+#     Plan: for a given site, a list of Visits and night information
+#       Visit: One visit as part of a Plan
+
+
+# TODO: We might want to refactor with common.plans to share code when possible.
+# Strawberry classes and converters.
+
+
+@strawberry.type
+class SVisit:
+    """
+    Represents a visit as part of a nightly Plan at a Site.
+    """
+    start_time: datetime
+    obs_id: ObservationID
+    atom_start_idx: int
+    atom_end_idx: int
+
+    @staticmethod
+    def from_computed_visit(visit: Visit) -> 'SVisit':
+        return SVisit(start_time=visit.start_time.astimezone(pytz.UTC),
+                      obs_id=visit.obs_id,
+                      atom_start_idx=visit.atom_start_idx,
+                      atom_end_idx=visit.atom_end_idx)
+
+
+@strawberry.type
+class SPlan:
+    """
+    A nightly Plan for a specific site.
+    """
+    site: Site
+    start_time: datetime
+    end_time: datetime
+    visits: List[SVisit]
+
+    @staticmethod
+    def from_computed_plan(plan: Plan) -> 'SPlan':
+        return SPlan(
+            site=plan.site,
+            start_time=plan.start.astimezone(pytz.UTC),
+            end_time=plan.end.astimezone(pytz.UTC),
+            visits=[SVisit.from_computed_visit(visit) for visit in plan.visits]
+        )
+
+
+@strawberry.type
+class SPlans:
+    """
+    For a given night, a collection of Plan for each Site.
+    """
+    # TODO: Change this to date in UTC
+    night_idx: int
+    plans_per_site: List[SPlan]
+
+    @staticmethod
+    def from_computed_plans(plans: Plans) -> 'SPlans':
+        return SPlans(
+            night_idx=plans.night,
+            plans_per_site=[SPlan.from_computed_plan(plans[site]) for site in Site]
+        )
+
+    def for_site(self, site: Site) -> 'SPlans':
+        return SPlans(
+            night_idx=self.night_idx,
+            plans_per_site=[plans for plans in self.plans_per_site if plans.site == site]
+        )
+
+@strawberry.input
+class CreateNewScheduleInput:
+    """
+    Input for creating a new schedule.
+    """
+    start_time: str
+    end_time: str
+
+class PlanManager(metaclass=Singleton):
+    """
+    A singleton class to store the current List[SPlans].
+    1. The list represents the nights.
+    2. The SPlans for each list entry is indexed by site to store the plan for the night.
+    3. The SPlan is the plan for the site for the night, containing SVisits.
+    """
+    _plans: List[SPlans] = []
+
+    @staticmethod
+    def instance() -> 'PlanManager':
+        return PlanManager()
+
+    @staticmethod
+    def get_plans() -> List[SPlans]:
+        """
+        Make a copy of the plans here and return them.
+        This is to ensure that the plans are not corrupted after the
+        lock is released.
+        """
+        PlanManager._lock.acquire()
+        plans = deepcopy(PlanManager._plans)
+        PlanManager._lock.release()
+        return plans
+
+    @staticmethod
+    def set_plans(plans: List[Plans]) -> NoReturn:
+        """
+        Note that we are converting List[Plans] to List[SPlans].
+        """
+        PlanManager._lock.acquire()
+        calculated_plans = deepcopy(plans)
+        PlanManager._plans = [
+            SPlans.from_computed_plans(p) for p in calculated_plans
+        ]
+        PlanManager._lock.release()
+
+
+@strawberry.type
+class Mutation:
+    @strawberry.mutation
+    async def new_schedule(self,
+                           new_schedule_input: CreateNewScheduleInput,
+                           manager: ProcessManager,
+                           config) -> bool:
+        try:
+            start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), Time(new_schedule_input.end_tim, format='iso', scale='utc')
+        except ValueError:
+            raise ValueError("Invalid time format. Must be ISO8601.")
+        scheduler = Scheduler(config, start, end, PlanManager.instance())
+        manager.add_task(datetime.now(), scheduler, TaskType.STANDARD)
+        await asyncio.sleep(10)
+        return True
+
+@strawberry.type
+class Query:
+    all_plans: List[SPlans] = strawberry.field(resolver=lambda: PlanManager.instance().get_plans())
+
+    @strawberry.field
+    def plans(self) -> List[SPlans]:
+        return PlanManager.instance().get_plans()
+
+    @strawberry.field
+    def site_plans(self, site: Site) -> List[SPlans]:
+        print(f'SITE IS {site}')
+        return [plans.for_site(site) for plans in PlanManager.instance().get_plans()]

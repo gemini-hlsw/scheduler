@@ -40,7 +40,7 @@ class ProcessManager(metaclass=Singleton):
         task = SchedulerTask(start,
                              target,
                              self.timeout)
-        self.schedule_with_runner(task, mode)
+        print(self.schedule_with_runner(task, mode))
     
     async def run(self, scheduler: Scheduler, period: int, mode: TaskType):
         done = asyncio.Event()

@@ -161,9 +161,9 @@ if __name__ == '__main__':
     print_plans(plans)
 
     if run_graphql_server:
-        import graphql_server
-        plan_manager = graphql_server.PlanManager()
+        import graphql
+        plan_manager = graphql.PlanManager()
         plan_manager.set_plans(plans)
-        graphql_server.start_graphql_server()
+        graphql.start_graphql_server()
 
     print('DONE')
