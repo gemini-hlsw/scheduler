@@ -1,6 +1,6 @@
 from copy import deepcopy
 from datetime import date, datetime
-from threading import Lock
+from common.meta import Singleton
 from typing import List, NoReturn
 import pytz
 
@@ -85,21 +85,14 @@ class SPlans:
         )
 
 
-class PlanManager:
+class PlanManager(metaclass=Singleton):
     """
     A singleton class to store the current List[SPlans].
     1. The list represents the nights.
     2. The SPlans for each list entry is indexed by site to store the plan for the night.
     3. The SPlan is the plan for the site for the night, containing SVisits.
     """
-    _lock = Lock()
     _plans: List[SPlans] = []
-
-    def __new__(cls):
-        if not hasattr(cls, 'inst'):
-            cls.inst = super(PlanManager, cls).__new__(cls)
-            # cls.inst.a = 5
-        return cls.inst
 
     @staticmethod
     def instance() -> 'PlanManager':

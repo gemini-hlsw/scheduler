@@ -2,6 +2,7 @@ import asyncio
 import signal
 from random import randint
 from multiprocessing import Process
+from common.meta import Singleton
 from datetime import datetime
 from .runner import StandardRunner
 from .task import SchedulerTask, TaskType
@@ -13,7 +14,7 @@ DEFAULT_TIMEOUT = 10  # seconds
 DEFAULT_SIZE = 5  # number of tasks to run in parallel
 
 
-class ProcessManager:
+class ProcessManager(metaclass=Singleton):
     """
     Main handler for each runner, which is responsible for scheduling the task.
     """
