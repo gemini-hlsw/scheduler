@@ -15,7 +15,7 @@ from app.components.optimizer import Optimizer
 from app.components.optimizer.dummy import DummyOptimizer
 from app.common.output import print_plans
 from app.common.minimodel import Site, ALL_SITES, Semester, ProgramTypes, ObservationClass, SemesterHalf
-from app.graphql.schema import PlanManager
+from app.plan_manager import PlanManager
 
 
 class Scheduler:
