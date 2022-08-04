@@ -1,5 +1,5 @@
 import pytest
-from common.sky.sun import Sun
+from app.common.sky.sun import Sun
 import astropy.units as u
 from astropy.time import Time
 from fixtures import midnight, test_time, location

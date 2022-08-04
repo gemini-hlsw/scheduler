@@ -1,6 +1,6 @@
 import pytest
 from astropy.time import Time
-from common.sky.events import night_events
+from app.common.sky.events import night_events
 from fixtures import midnight, location
 import pytz
 import numpy.testing as nptest

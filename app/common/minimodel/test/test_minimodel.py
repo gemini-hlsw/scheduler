@@ -1,6 +1,6 @@
 import numpy as np
 
-from common.minimodel import CloudCover, Conditions, ImageQuality, SkyBackground, WaterVapor
+from app.common.minimodel import CloudCover, Conditions, ImageQuality, SkyBackground, WaterVapor
 
 
 def test_most_restrictive_conditions1():

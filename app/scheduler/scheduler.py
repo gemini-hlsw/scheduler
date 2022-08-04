@@ -16,24 +16,25 @@ from app.components.optimizer.dummy import DummyOptimizer
 from app.common.output import print_plans
 from app.common.minimodel import Site, ALL_SITES, Semester, ProgramTypes, ObservationClass, SemesterHalf
 from app.plan_manager import PlanManager
+from app.config import config
 
 
 class Scheduler:
-    def __init__(self, config: DictConfig, start_time: Time, end_time: Time, plan_manager: PlanManager):
+    def __init__(self, start_time: Time, end_time: Time):
         self.config = config
         self.start_time = start_time
         self.end_time = end_time
-        self.plan_manager = plan_manager
+        self.plan_manager = PlanManager.instance()
 
     def __call__(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         # ObservatoryProperties.set_properties(GeminiProperties)
         
-        programs = read_ocs_zipfile(os.path.join(os.getcwd(),'app', 'data', '2018B_program_samples.zip'))
+        programs = read_ocs_zipfile(os.path.join(os.getcwd(), 'app', 'data', '2018B_program_samples.zip'))
 
         # Create the Collector and load the programs.
         print('Loading programs...')
-        # Parse config
+        # Parse configs
         time_slot_length = TimeDelta(self.config.scheduler.time_slot_length * u.min)
         sites = frozenset(list(map(eval, self.config.scheduler.sites)))\
             if isinstance(self.config.scheduler.sites, list) else eval(self.config.scheduler.sites)
@@ -70,3 +71,12 @@ class Scheduler:
 
         print_plans(plans)
         self.plan_manager.set_plans(plans)
+
+
+def build_scheduler():
+    # TODO: Default values for now but this should be:
+    # start_time = Time(datetime.now(), scale='utc)
+    # end_time = Time(datetime.now() + rest_of_the_night, scale='utc')
+    start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
+    end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
+    return Scheduler(start, end)

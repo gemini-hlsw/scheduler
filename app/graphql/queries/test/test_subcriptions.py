@@ -1,7 +1,7 @@
 import pytest
 import gql
 import asyncio
-from common.queries import Session, test_subscription_query
+from app.graphql.queries import Session, test_subscription_query
 from unittest.mock import patch
 
 
@@ -25,7 +25,7 @@ class MockClient(gql.Client):
         pass
 
 
-@patch('common.queries.session.Client', MockClient)
+@patch('app.graphql.session.Client', MockClient)
 @pytest.mark.asyncio
 async def test_on_update(session):
     """
@@ -39,7 +39,7 @@ async def test_on_update(session):
     assert resp['observationEdit']['value']['id'] == 'o-6'
 
 
-@patch('common.queries.session.Client', MockClient)
+@patch('app.graphql.session.Client', MockClient)
 @pytest.mark.asyncio
 async def test_subscribe_all(session):
     """

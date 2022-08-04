@@ -1,5 +1,5 @@
 import pytest
-from common.sky.altitude import Altitude
+from app.common.sky.altitude import Altitude
 from astropy.coordinates import Angle, Longitude
 import astropy.units as u
 from fixtures import coord, location

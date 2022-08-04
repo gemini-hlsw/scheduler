@@ -1,5 +1,5 @@
 import pytest
-from common.helpers import mask_to_barcode, barcode_to_mask
+from app.common.helpers import mask_to_barcode, barcode_to_mask
 
 
 @pytest.mark.parametrize('mask, inst, expected', [('GS2017BLP005-34', 'GMOS', '11200534'),

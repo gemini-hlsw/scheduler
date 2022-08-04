@@ -3,8 +3,8 @@ from astropy.time import Time
 from astropy.coordinates import EarthLocation, Angle, PrecessedGeocentric, SkyCoord
 import astropy.units as u
 import numpy as np
-from common.sky.utils import local_sidereal_time, current_geocent_frame, min_max_alt
-from common.sky.utils import hour_angle_to_angle, true_airmass, ztwilight, xair
+from app.common.sky.utils import local_sidereal_time, current_geocent_frame, min_max_alt
+from app.common.sky.utils import hour_angle_to_angle, true_airmass, ztwilight, xair
 from fixtures import midnight, location, coord
 
 # All values are calculated using the following code:

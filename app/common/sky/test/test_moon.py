@@ -1,5 +1,5 @@
 import pytest
-from common.sky.moon import Moon
+from app.common.sky.moon import Moon
 from astropy.time import Time
 import astropy.units as u
 from fixtures import location, test_time

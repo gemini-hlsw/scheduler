@@ -1,7 +1,7 @@
 import pytest
-from common.sky.brightness import calculate_sky_brightness, calculate_sky_brightness_qpt
-from common.sky.brightness import convert_to_sky_background
-from common.sky.constants import KZEN
+from app.common.sky.brightness import calculate_sky_brightness, calculate_sky_brightness_qpt
+from app.common.sky.brightness import convert_to_sky_background
+from app.common.sky.constants import KZEN
 from astropy.coordinates import SkyCoord, Angle
 from astropy.time import Time
 import astropy.units as u

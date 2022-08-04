@@ -2,20 +2,20 @@ import json
 import os
 from datetime import datetime, timedelta
 
-from api.programprovider.ocs import OcsProgramProvider
-from common.helpers import dmsstr2deg
-from common.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
+from app.api.programprovider.ocs import OcsProgramProvider
+from app.common.helpers import dmsstr2deg
+from app.common.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
     ImageQuality, Magnitude, MagnitudeBands, Observation, ObservationClass, ObservationStatus, Priority, Program, \
     ProgramMode, ProgramTypes, QAState, Resource, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, \
     SkyBackground, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor
-from common.timeutils import sex2dec
+from app.common.timeutils import sex2dec
 
 
 def get_api_program() -> Program:
     """
     Load the GN-2022A-Q-999 program from the JSON file.
     """
-    with open(os.path.join('api', 'programprovider', 'ocs', 'test', 'GN-2022A-Q-999.json'), 'r') as f:
+    with open(os.path.join('app', 'api', 'programprovider', 'ocs', 'test', 'GN-2022A-Q-999.json'), 'r') as f:
         data = json.loads(f.read())
         return OcsProgramProvider.parse_program(data['PROGRAM_BASIC'])
 
