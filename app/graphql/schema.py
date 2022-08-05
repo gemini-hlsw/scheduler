@@ -22,11 +22,11 @@ class Mutation:
     async def new_schedule(self,
                            new_schedule_input: CreateNewScheduleInput) -> bool:
         try:
-            start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), Time(new_schedule_input.end_tim, format='iso', scale='utc')
+            start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), Time(new_schedule_input.end_time, format='iso', scale='utc')
         except ValueError:
             raise ValueError("Invalid time format. Must be ISO8601.")
         manager = PM()
-        scheduler = Scheduler(config, start, end, PlanManager.instance())
+        scheduler = Scheduler(start, end)
         manager.add_task(datetime.now(), scheduler, TaskType.STANDARD)
         await asyncio.sleep(10)
         return True
