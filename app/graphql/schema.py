@@ -7,10 +7,10 @@ from datetime import datetime
 from app.process_manager import TaskType
 from app.scheduler import Scheduler
 from app.common.minimodel import Site
-from app.process_manager import ProcessManager as PM
+from app.process_manager import ProcessManager 
 from app.plan_manager import PlanManager
 from app.config import config
-from .scalars import CreateNewScheduleInput, SPlans
+from .scalars import CreateNewScheduleInput, SPlans, NewScheduleResponse, NewScheduleError, NewScheduleSuccess
 
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
@@ -20,16 +20,18 @@ from .scalars import CreateNewScheduleInput, SPlans
 class Mutation:
     @strawberry.mutation
     async def new_schedule(self,
-                           new_schedule_input: CreateNewScheduleInput) -> bool:
+                           new_schedule_input: CreateNewScheduleInput) -> NewScheduleResponse:
         try:
-            start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), Time(new_schedule_input.end_time, format='iso', scale='utc')
+            start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'),\
+                         Time(new_schedule_input.end_time, format='iso', scale='utc')
         except ValueError:
-            raise ValueError("Invalid time format. Must be ISO8601.")
-        manager = PM()
-        scheduler = Scheduler(start, end)
-        manager.add_task(datetime.now(), scheduler, TaskType.STANDARD)
-        await asyncio.sleep(10)
-        return True
+            # TODO: log this error
+            return NewScheduleError(error='Invalid time format. Must be ISO8601.')
+        else:
+            scheduler = Scheduler(start, end)
+            ProcessManager().add_task(datetime.now(), scheduler, TaskType.STANDARD)
+            # await asyncio.sleep(10) # Use if you want to wait for the scheduler to finish
+            return NewScheduleSuccess(success=True)
 
 
 @strawberry.type

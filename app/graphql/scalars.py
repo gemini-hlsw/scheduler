@@ -78,3 +78,22 @@ class CreateNewScheduleInput:
     """
     start_time: str
     end_time: str
+
+
+@strawberry.type
+class NewScheduleSuccess:
+    """
+    Success response for creating a new schedule.
+    """
+    success: bool
+
+
+@strawberry.type
+class NewScheduleError:
+    """
+    Error response for creating a new schedule.
+    """
+    error: str
+
+
+NewScheduleResponse = strawberry.union("NewScheduleResponse", [NewScheduleSuccess, NewScheduleError])
