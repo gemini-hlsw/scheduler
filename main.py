@@ -16,6 +16,7 @@ async def new_schedule(manager, scheduler):
     manager.add_task(datetime.now(), scheduler, TaskType.STANDARD)
     await asyncio.sleep(10)
 
+
 # Root API
 @app.get("/", include_in_schema=False)
 def root() -> JSONResponse:
@@ -23,17 +24,6 @@ def root() -> JSONResponse:
     return JSONResponse(status_code=200,
                         content={
                             "message": "Welcome to Server"})
-
-'''
-@app.get("/new", include_in_schema=False)
-def new() -> JSONResponse:
-    start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
-    end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
-    scheduler = Scheduler(config, start, end, plan_manager)
-    asyncio.run(new_schedule(manager, scheduler))
-    return JSONResponse(status_code=200,
-                        content={ "message": f"New schedule created: {plan_manager.get_plans()}"})
-'''
 
 
 if __name__ == "__main__":

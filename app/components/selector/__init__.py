@@ -7,8 +7,8 @@ import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
 
-from app.common.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
-from app.common.minimodel import ALL_SITES, AndGroup, Conditions, Group, GroupID, Observation, ObservationClass, \
+from common.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
+from common.minimodel import ALL_SITES, AndGroup, Conditions, Group, GroupID, Observation, ObservationClass, \
     ObservationStatus, ProgramID, Resource, Site, TooType, NightIndex, Variant
 from app.components.base import SchedulerComponent
 from app.components.collector import Collector

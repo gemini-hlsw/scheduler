@@ -1,9 +1,9 @@
 from __future__ import annotations
-from app.common.calculations.groupinfo import GroupData
+from common.calculations.groupinfo import GroupData
 from app.components.optimizer.base import BaseOptimizer
-from app.common.plans import Plans, Plan
-from app.common.minimodel.program import ProgramID
-from app.common.calculations.programinfo import ProgramInfo
+from common.plans import Plans, Plan
+from common.minimodel.program import ProgramID
+from common.calculations.programinfo import ProgramInfo
 from datetime import datetime, timedelta
 from typing import Mapping
 import random

@@ -8,7 +8,7 @@ from astropy.coordinates import Angle
 from astropy.time import Time
 from astropy.units import Quantity
 
-from app.common.minimodel import Site, Variant, CloudCover, ImageQuality
+from common.minimodel import Site, Variant, CloudCover, ImageQuality
 
 
 class Env:

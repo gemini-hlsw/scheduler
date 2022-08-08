@@ -13,8 +13,8 @@ from app.components.collector import Collector
 from app.components.selector import Selector
 from app.components.optimizer import Optimizer
 from app.components.optimizer.dummy import DummyOptimizer
-from app.common.output import print_plans
-from app.common.minimodel import Site, ALL_SITES, Semester, ProgramTypes, ObservationClass, SemesterHalf
+from common.output import print_plans
+from common.minimodel import Site, ALL_SITES, Semester, ProgramTypes, ObservationClass, SemesterHalf
 from app.plan_manager import PlanManager
 from app.config import config
 

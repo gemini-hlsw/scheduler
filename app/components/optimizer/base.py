@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from app.common.calculations.groupinfo import GroupData
-from app.common.plans import Plans
-from app.common.minimodel.program import ProgramID
-from app.common.calculations.programinfo import ProgramInfo
+from common.calculations.groupinfo import GroupData
+from common.plans import Plans
+from common.minimodel.program import ProgramID
+from common.calculations.programinfo import ProgramInfo
 from typing import Mapping, List
 
 

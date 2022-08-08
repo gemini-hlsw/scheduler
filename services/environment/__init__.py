@@ -32,7 +32,7 @@ class Env:
         """
         Create paths to files in the data directory.
         """
-        return os.path.join('..', '..', 'data', filename)
+        return os.path.join(os.getcwd(), 'services', 'environment', 'data', filename)
 
     @staticmethod
     def _cc_band_to_float(data: Union[str, float]) -> float:

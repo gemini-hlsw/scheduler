@@ -3,12 +3,12 @@ import os
 from datetime import datetime, timedelta
 
 from app.api.programprovider.ocs import OcsProgramProvider
-from app.common.helpers import dmsstr2deg
-from app.common.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
+from common.helpers import dmsstr2deg
+from common.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
     ImageQuality, Magnitude, MagnitudeBands, Observation, ObservationClass, ObservationStatus, Priority, Program, \
     ProgramMode, ProgramTypes, QAState, Resource, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, \
     SkyBackground, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor
-from app.common.timeutils import sex2dec
+from common.timeutils import sex2dec
 
 
 def get_api_program() -> Program:

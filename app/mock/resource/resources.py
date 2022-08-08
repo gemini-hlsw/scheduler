@@ -1,7 +1,7 @@
 import re
 from typing import Dict, List
 
-from app.common.minimodel import Site
+from common.minimodel import Site
 
 
 class Resources:

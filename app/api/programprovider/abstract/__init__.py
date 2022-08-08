@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from app.common.minimodel import AndGroup, Atom, Conditions, Constraints, Magnitude, NonsiderealTarget, Observation, \
+from common.minimodel import AndGroup, Atom, Conditions, Constraints, Magnitude, NonsiderealTarget, Observation, \
     OrGroup, Program, QAState, SiderealTarget, Target, TimeAllocation, TimingWindow
 
 

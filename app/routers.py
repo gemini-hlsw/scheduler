@@ -4,7 +4,7 @@ from fastapi import APIRouter
 from .graphql.queries import Session
 from .config import config
 from .scheduler import build_scheduler
-from .process_manager import ProcessManager as PM
+from .process_manager import ProcessManager
 from .process_manager import TaskType
 router = APIRouter()
 
@@ -19,6 +19,6 @@ async def odb_changes_endpoint():
             # Run new Schedule
             mode = TaskType.STANDARD
             scheduler = build_scheduler()
-            PM().add_task(datetime.now(), scheduler, mode)
+            ProcessManager().add_task(datetime.now(), scheduler, mode)
         
         await asyncio.sleep(10)

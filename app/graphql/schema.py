@@ -6,7 +6,7 @@ from datetime import datetime
 
 from app.process_manager import TaskType
 from app.scheduler import Scheduler
-from app.common.minimodel import Site
+from common.minimodel import Site
 from app.process_manager import ProcessManager 
 from app.plan_manager import PlanManager
 from app.config import config

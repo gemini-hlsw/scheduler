@@ -11,13 +11,13 @@ from scipy.signal import find_peaks
 
 from app.api.observatory.gemini.geminiobservation import GeminiObservation
 from app.api.programprovider.abstract import ProgramProvider
-from app.common.helpers import str_to_bool, dmsstr2deg
-from app.common.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
+from common.helpers import str_to_bool, dmsstr2deg
+from common.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
     Group, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation, ObservationClass, ObservationMode, \
     ObservationStatus, OrGroup, Priority, Program, ProgramMode, ProgramTypes, QAState, Resource, Semester, \
     SemesterHalf, Sequence, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType, \
     TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor
-from app.common.timeutils import sex2dec
+from common.timeutils import sex2dec
 
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:

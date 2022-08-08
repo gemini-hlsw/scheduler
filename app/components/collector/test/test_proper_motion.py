@@ -1,7 +1,7 @@
 import pytest
 from astropy.time import Time
 from app.components.collector import Collector
-from app.common.minimodel import SiderealTarget
+from common.minimodel import SiderealTarget
 
 
 @pytest.fixture

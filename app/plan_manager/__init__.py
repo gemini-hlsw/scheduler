@@ -1,6 +1,6 @@
-from app.common.meta import Singleton
+from common.meta import Singleton
 from typing import List, NoReturn
-from app.common.plans import Plans
+from common.plans import Plans
 from copy import deepcopy
 from app.graphql.scalars import SPlans
 

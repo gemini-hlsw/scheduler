@@ -2,8 +2,8 @@ import numpy as np
 import numpy.typing as npt
 from abc import abstractmethod
 from typing import Dict, FrozenSet
-from app.common.minimodel import AndGroup, OrGroup, ObservationID, Group, Program, Observation, NightIndex, ALL_SITES, Site
-from app.common.calculations import Scores
+from common.minimodel import AndGroup, OrGroup, ObservationID, Group, Program, Observation, NightIndex, ALL_SITES, Site
+from common.calculations import Scores
 from app.components.collector import Collector
 
 

@@ -2,9 +2,9 @@ from typing import Dict
 
 from astropy.time import Time, TimeDelta
 
-from app.common import sky
-from app.common.calculations import NightEvents
-from app.common.minimodel import Site
+from common import sky
+from common.calculations import NightEvents
+from common.minimodel import Site
 from app.components.base import SchedulerComponent
 
 

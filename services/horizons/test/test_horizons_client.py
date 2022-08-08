@@ -2,7 +2,7 @@ import pytest
 from hypothesis import given, strategies as st
 
 from services.horizons import Coordinates, HorizonsAngle, horizons_session
-from app.common.minimodel import Site, NonsiderealTarget, TargetTag, TargetType
+from common.minimodel import Site, NonsiderealTarget, TargetTag, TargetType
 from datetime import datetime
 import numpy as np
 

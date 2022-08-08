@@ -6,8 +6,8 @@ import astropy.units as u
 from astropy.time import Time
 
 from app.api.observatory.abstract import ObservatoryProperties
-from app.common.minimodel.observationmode import ObservationMode
-from app.common.minimodel.resource import Resource
+from common.minimodel.observationmode import ObservationMode
+from common.minimodel.resource import Resource
 
 
 class GeminiProperties(ObservatoryProperties):

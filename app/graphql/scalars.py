@@ -2,8 +2,8 @@ import strawberry
 import pytz
 from datetime import datetime
 from typing import List
-from app.common.minimodel import ObservationID, Site
-from app.common.plans import Plan, Plans, Visit
+from common.minimodel import ObservationID, Site
+from common.plans import Plan, Plans, Visit
 
 
 # TODO: We might want to refactor with common.plans to share code when possible.

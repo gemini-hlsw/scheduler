@@ -7,9 +7,9 @@ import astropy.units as u
 import numpy as np
 import numpy.typing as npt
 
-from app.common.calculations import Scores
-from app.common.minimodel import ALL_SITES, AndGroup, Band, NightIndex, Observation, Program, Site
-from app.common.types import ListOrNDArray
+from common.calculations import Scores
+from common.minimodel import ALL_SITES, AndGroup, Band, NightIndex, Observation, Program, Site
+from common.types import ListOrNDArray
 from app.components.collector import Collector
 
 

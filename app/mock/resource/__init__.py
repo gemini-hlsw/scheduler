@@ -6,8 +6,8 @@ from typing import Dict, NoReturn
 
 from openpyxl import load_workbook
 
-from app.common.helpers import str_to_bool
-from app.common.minimodel.site import Site
+from common.helpers import str_to_bool
+from common.minimodel.site import Site
 
 
 class ResourceMock:

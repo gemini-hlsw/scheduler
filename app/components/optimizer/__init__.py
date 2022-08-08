@@ -1,6 +1,6 @@
-from app.common.calculations.selection import Selection
+from common.calculations.selection import Selection
 from .greedymax import GreedyMax
-from app.common.plans import Plans
+from common.plans import Plans
 from typing import List
 
 

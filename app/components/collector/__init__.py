@@ -11,13 +11,13 @@ import numpy as np
 
 
 from app.api.programprovider.abstract import ProgramProvider
-from app.common.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
-from app.common.minimodel import Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,\
+from common.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
+from common.minimodel import Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,\
     ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget, Site, SkyBackground,\
     Target
 from app.components.base import SchedulerComponent
 from app.components.nighteventsmanager import NightEventsManager
-from app.common import sky
+from common import sky
 
 
 @dataclass
