@@ -28,7 +28,7 @@ class Scheduler:
 
     def __call__(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-        # ObservatoryProperties.set_properties(GeminiProperties)
+        ObservatoryProperties.set_properties(GeminiProperties)
         
         programs = read_ocs_zipfile(os.path.join(os.getcwd(), 'app', 'data', '2018B_program_samples.zip'))
 

@@ -1,14 +1,14 @@
 import os
 from common.minimodel import *
 
-from api.observatory.abstract import ObservatoryProperties
-from api.observatory.gemini import GeminiProperties
-from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from app.api.observatory.abstract import ObservatoryProperties
+from app.api.observatory.gemini import GeminiProperties
+from app.api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from common.output import print_collector_info, print_plans
-from components.collector import *
-from components.optimizer.dummy import DummyOptimizer
-from components.selector import Selector
-from components.optimizer import Optimizer
+from app.components.collector import *
+from app.components.optimizer.dummy import DummyOptimizer
+from app.components.selector import Selector
+from app.components.optimizer import Optimizer
 
 if __name__ == '__main__':
     # SET THIS FLAG TO RUN THE GRAPHQL SERVER AT THE END.
