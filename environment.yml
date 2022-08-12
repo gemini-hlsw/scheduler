@@ -1,4 +1,4 @@
-name: greedymax-env
+name: schedule
 dependencies:
   - python=3.10.*
   - astropy

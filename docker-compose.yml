@@ -1,0 +1,16 @@
+services:
+  schedule:
+    build: .
+    ports:
+      - "8000:5000"
+    links:
+      - env
+      # - resource
+  env:
+    build: 
+      context: .
+      dockerfile: ./services/environment/Dockerfile
+    ports:
+      - "8000:5001"
+  # resource:
+  #  build: services/resource/
