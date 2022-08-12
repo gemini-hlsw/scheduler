@@ -11,9 +11,6 @@ from .site import Site
 from .target import Target, TargetType
 from .too import TooType
 
-# To avoid circular dependencies.
-import api.observatory.abstract
-
 ObservationID = str
 
 

@@ -5,11 +5,11 @@ from typing import NoReturn, Union, List
 from astropy import units as u
 from openpyxl import Workbook
 
-from api.programprovider.abstract import ProgramProvider
-from api.programprovider.ocs import OcsProgramProvider
+from app.api.programprovider.abstract import ProgramProvider
+from app.api.programprovider.ocs import OcsProgramProvider
 from common.minimodel import Atom, Group, Observation, ObservationClass, Program
 from common.plans import Plans
-from components.collector import Collector, NightEventsManager
+from app.components.collector import Collector, NightEventsManager
 
 
 def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.json'),

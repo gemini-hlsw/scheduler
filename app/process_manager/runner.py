@@ -73,6 +73,7 @@ class StandardRunner:
         ptask = ProcessTask(proc)
         job = Job(ptask)
         proc.name = f'Job-{job.sequence}'
+        print(proc.name)
         ptask.add_done_callback(functools.partial(self.terminated_job, job))
         ptask.start(timeout=timeout)
 
@@ -112,6 +113,7 @@ class StandardRunner:
             self.evict()
         if len(self.jobs) < self.max_jobs:
             self.jobs.append(self._run_job(process, timeout))
+            print(self.jobs)
             return True
         else:
             return False
