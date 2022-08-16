@@ -1,9 +1,8 @@
 import bz2
-from dataclasses import dataclass
 import logging
 import os
-from datetime import timedelta, datetime
-from typing import Union, List
+from datetime import timedelta, date, datetime
+from typing import Dict, List, Union
 
 import astropy.units as u
 import numpy as np
@@ -32,7 +31,7 @@ class Env:
         """
         Create paths to files in the data directory.
         """
-        return os.path.join(os.getcwd(), 'services', 'environment', 'data', filename)
+        return os.path.join('data', filename)
 
     @staticmethod
     def _cc_band_to_float(data: Union[str, float]) -> float:
@@ -54,7 +53,7 @@ class Env:
         Stores weather data into a dictionary 
         that can be indexed by site and date.
         """
-        self.site_data_by_night = {}
+        self.site_data_by_night: Dict[Site, Dict[date]] = {}
 
         for site in Site:
             site_lc = site.name.lower()
@@ -198,11 +197,11 @@ class Env:
             # extract the fields above
             try:
                 variant = Variant(
-                    start_time = weather[Env._time_stamp],
-                    cc = CloudCover(weather[Env._cc_band]),
-                    iq = ImageQuality(weather[Env._iq_band]),
-                    wind_dir = Angle(weather[Env._wind_dir] * u.rad),
-                    wind_spd = weather[Env._wind_speed] * u.m / u.s
+                    start_time=weather[Env._time_stamp],
+                    cc=CloudCover(weather[Env._cc_band]),
+                    iq=ImageQuality(weather[Env._iq_band]),
+                    wind_dir=Angle(weather[Env._wind_dir] * u.rad),
+                    wind_spd=weather[Env._wind_speed] * u.m / u.s
                 )
                 variant_list.append(variant)
 
@@ -234,26 +233,35 @@ class SVariant:
             cc=variant.cc,
             wind_dir=variant.wind_dir.value,
             wind_spd=variant.wind_spd.value
-            )
-
-
+        )
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     env = Env()
 
+    # Example query:
+    # {
+    #     weather(site: GN, startDate: "2016-07-20T12:00:00", endDate: "2016-09-01T12:00:00") {
+    #         startTime
+    #         iq
+    #         cc
+    #         windDir
+    #         windSpd
+    #     }
+    # }
+
     @strawberry.type
     class Query:
-        
         @strawberry.field
         def weather(self, site: Site, start_date: datetime, end_date: datetime) -> List[SVariant]:
             svariant_list = []
             variant_list = env.get_weather(site, start_date, end_date)
             for variant in variant_list:
                 svariant_list.append(SVariant.from_computed_variant(variant))
-            
+
             return svariant_list
+
 
     schema = strawberry.Schema(query=Query)
     graphql_app = GraphQL(schema)
@@ -261,7 +269,3 @@ if __name__ == '__main__':
     app.add_route('/graphql', graphql_app)
     app.add_websocket_route('/graphql', graphql_app)
     uvicorn.run(app, host='127.0.0.1', port=8000)
-
-    # print(env.site_data_by_night[Site.GN][date(2014, 2, 20)])
-    # weather_list = env.get_weather(Site.GN, datetime(2014, 2, 17, 7, 33), datetime(2014, 2, 20, 10, 45))
-    # print(weather_list)
