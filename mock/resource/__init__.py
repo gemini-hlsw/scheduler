@@ -13,7 +13,6 @@ from openpyxl import load_workbook
 
 from .resources import Resources
 
-
 class ResourceMock:
     def __init__(self, path: str):
         self.path = os.path.join(os.getcwd(), path)

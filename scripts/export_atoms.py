@@ -12,6 +12,10 @@ from app.core.components.collector import Collector
 from app.core.output import atoms_to_sheet
 from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from definitions import ROOT_DIR
+from lucupy.minimodel import ALL_SITES, ObservationClass, ProgramTypes, Semester, SemesterHalf
+from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from app.core..output import atoms_to_sheet
+from app.core.components.collector import Collector
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
