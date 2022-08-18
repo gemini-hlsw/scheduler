@@ -9,6 +9,7 @@ from app.components.collector import *
 from app.components.optimizer.dummy import DummyOptimizer
 from app.components.selector import Selector
 from app.components.optimizer import Optimizer
+from definitions import ROOT_DIR
 
 if __name__ == '__main__':
     # SET THIS FLAG TO RUN THE GRAPHQL SERVER AT THE END.
@@ -18,7 +19,7 @@ if __name__ == '__main__':
     ObservatoryProperties.set_properties(GeminiProperties)
 
     # Read in a list of JSON data
-    programs = read_ocs_zipfile(os.path.join('..', 'data', '2018B_program_samples.zip'))
+    programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
 
     # Create the Collector and load the programs.
     collector = Collector(

@@ -15,6 +15,7 @@ from app.components.optimizer import Optimizer
 from app.components.optimizer.dummy import DummyOptimizer
 from common.output import print_plans
 from common.minimodel import Site, ALL_SITES, Semester, ProgramTypes, ObservationClass, SemesterHalf
+from definitions import ROOT_DIR
 from app.plan_manager import PlanManager
 from app.config import config
 
@@ -30,7 +31,7 @@ class Scheduler:
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         ObservatoryProperties.set_properties(GeminiProperties)
         
-        programs = read_ocs_zipfile(os.path.join(os.getcwd(), 'app', 'data', '2018B_program_samples.zip'))
+        programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
 
         # Create the Collector and load the programs.
         print('Loading programs...')

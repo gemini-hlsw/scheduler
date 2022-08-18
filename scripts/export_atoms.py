@@ -6,13 +6,14 @@ from common.minimodel import ALL_SITES, ObservationClass, ProgramTypes, Semester
 from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from common.output import atoms_to_sheet
 from components.collector import Collector
+from definitions import ROOT_DIR
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     # Read in a list of JSON data
-    programs = read_ocs_zipfile(os.path.join('..', 'data', '2018B_program_samples.zip'))
+    programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
 
     # Create the Collector and load the programs.
     collector = Collector(
