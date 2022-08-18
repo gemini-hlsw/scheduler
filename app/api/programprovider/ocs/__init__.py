@@ -18,6 +18,7 @@ from common.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Condit
     SemesterHalf, Sequence, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType, \
     TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor
 from common.timeutils import sex2dec
+from definitions import ROOT_DIR
 
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
