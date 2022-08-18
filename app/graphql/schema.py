@@ -1,15 +1,13 @@
-import asyncio
 import strawberry
 from astropy.time import Time
 from typing import List
 from datetime import datetime
 
 from app.process_manager import TaskType
-from app.scheduler import Scheduler
-from common.minimodel import Site
-from app.process_manager import ProcessManager 
+from ..core.scheduler import Scheduler
+from lucupy.minimodel import Site
+from app.process_manager import ProcessManager
 from app.plan_manager import PlanManager
-from app.config import config
 from .scalars import CreateNewScheduleInput, SPlans, NewScheduleResponse, NewScheduleError, NewScheduleSuccess
 
 

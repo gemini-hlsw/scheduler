@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter
 from .graphql.queries import Session
 from .config import config
-from .scheduler import build_scheduler
+from .core.scheduler import build_scheduler
 from .process_manager import ProcessManager
 from .process_manager import TaskType
 router = APIRouter()

@@ -7,7 +7,7 @@ import tempfile
 from typing import Mapping, NoReturn, FrozenSet
 import zipfile
 
-from common.minimodel import ProgramTypes, Site, SemesterHalf
+from lucupy.minimodel import ProgramTypes, Site, SemesterHalf
 
 # Add level to the logger for more informative logging.
 EXTRACT = logging.WARN

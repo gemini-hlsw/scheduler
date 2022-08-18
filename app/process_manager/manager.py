@@ -2,11 +2,11 @@ import asyncio
 import signal
 from random import randint
 from multiprocessing import Process
-from common.meta import Singleton
+from ..core.meta import Singleton
 from datetime import datetime
 from .runner import StandardRunner
 from .task import SchedulerTask, TaskType
-from ..scheduler import Scheduler
+from ..core.scheduler import Scheduler
 
 from typing import NoReturn
 

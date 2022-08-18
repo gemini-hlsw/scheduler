@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
 import dateutil.parser
-from common.minimodel import NonsiderealTarget, TargetTag, Site
-from common.helpers import dms2rad, hms2rad
+from lucupy.minimodel import NonsiderealTarget, TargetTag, Site
+from lucupy.helpers import dms2rad, hms2rad
 import numpy as np
 import numpy.typing as npt
 import requests
