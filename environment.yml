@@ -17,7 +17,7 @@ dependencies:
   - pip
   - pip:
     - omegaconf
-    - dotenv
+    - python-dotenv
     - fastapi
     - strawberry-graphql[fastapi]
     - uvicorn[standard]
