@@ -4,6 +4,7 @@ import os
 from datetime import timedelta, date, datetime
 from typing import Dict, List, Union
 
+from astropy.time import Time, TimeDelta
 import astropy.units as u
 import numpy as np
 import pandas as pd
@@ -15,6 +16,7 @@ from strawberry.asgi import GraphQL
 from astropy.coordinates import Angle
 
 from common.minimodel import Site, Variant, CloudCover, ImageQuality
+from common.sky import events
 
 
 class Env:
@@ -50,9 +52,18 @@ class Env:
 
     def __init__(self):
         """
-        Stores weather data into a dictionary 
-        that can be indexed by site and date.
+        Loads weather data into a dictionary if processed data currently exists.
+        If data does not exist or reprocessing is requested, data if reprocessed for current
+        and future use (note that this is a slow process).
+
+        Weather data is stored into a dictionary that can be indexed by site and date.
         """
+        # TODO: Make this configurable and store the most recent value.
+        time_slot_length = 1
+        if time_slot_length < 1:
+            raise ValueError(f'Time slot length must be a positive integer: {time_slot_length}')
+        self.time_slot_length = time_slot_length
+
         self.site_data_by_night: Dict[Site, Dict[date]] = {}
 
         for site in Site:
@@ -85,6 +96,8 @@ class Env:
                     'Ratio_OIWFS', 'Ratio_P2WFS', 'QAP_IQ_WFS_scaled500', 'IQ_P2WFS_Zenith', 'IQ_OIWFS_Zenith',
                     'IQ_P2WFS_MEDIAN_Zenith', 'QAP_IQ_WFS_scaled500_Zenith'})
 
+                # The time slot length as a TimeDelta.
+                td = TimeDelta()
                 # These columns do not appear to be used here, but if we remove them, we
                 # end up with rows with only NaN data, which seems to mess up the timestamp.
                 # input_data = input_data.drop(columns={
@@ -127,17 +140,18 @@ class Env:
                         else:
                             cur_row[Env._iq_band] /= 100
 
-                        # Process the cc_band.
                         if pd.isna(cur_row[Env._cc_band]):
                             cur_row[Env._cc_band] = 1.0
                         else:
                             cur_row[Env._cc_band] = Env._cc_band_to_float(cur_row[Env._cc_band])
 
-                        # Process the wind measurements.
                         if pd.isna(cur_row[Env._wind_speed]):
                             cur_row[Env._wind_speed] = 1.0
                         if pd.isna(cur_row[Env._wind_dir]):
                             cur_row[Env._wind_dir] = 1.0
+
+                        # Set prev_row to None to indicate no previous data for this day.
+                        prev_row = None
                     else:
                         # Process the iq_band if it exists by dividing it by 100 to bin it properly.
                         if not pd.isna(cur_row[Env._iq_band]):
@@ -146,8 +160,26 @@ class Env:
                         # Process the cc_band as it could be a set, in which case, we want the maximum value.
                         cur_row[Env._cc_band] = Env._cc_band_to_float(cur_row[Env._cc_band])
 
-                    # Add the new row to the night.
-                    night_rows.append(cur_row)
+                    # Calculate the time difference between this row and the previous row, if there was a previous row.
+                    timediff = (None if prev_row is None
+                                else (cur_row[Env._time_stamp] - prev_row[Env._time_stamp]).to(u.min).round().value)
+
+                    # If this is the first row of the night or the timediff is a multiple of the time slot length, add.
+                    if len(night_rows) == 0 or (timediff is not None and timediff % time_slot_length == 0):
+                        # If the timediff exists, add copies of the prev row until we reach the position where curr_row
+                        # should be placed.
+                        mul = 1
+                        while timediff is not None and mul * time_slot_length < timediff:
+                            prev_row[Env._time_stamp] +=
+                        missing_slots = ([] if timediff is None or timediff == time_slot_length
+                                         else timediff // time_slot_length - 1)
+                        night_rows.extend(prev_row * missing_slots)
+                        night_rows.append(cur_row)
+                        prev_row = cur_row
+                    else:
+
+
+                    # If the previous row is None, set it to cur_row.
                     prev_row = cur_row
 
                 # Add the last day, which has not been added yet due to the loop ending.
@@ -170,14 +202,18 @@ class Env:
                 logging.info(f'Writing {output_filename}')
                 pd.to_pickle(self.site_data_by_night[site], output_filename)
 
-    def get_weather(self, site: Site, start_time: datetime, end_time: datetime) -> List[Variant]:
+    def get_weather(self, site: Site, start_time: datetime, end_time: datetime, time_slot_length: int) -> List[Variant]:
         """
         Returns list of weather data
         based off start and end times 
         """
+        if time_slot_length <= 0:
+            logging.warning(f'Time slot length must be a positive integer: {time_slot_length}.')
+            return []
         if start_time > end_time:
             logging.warning(f'Weather request for invalid data range: {start_time} to {end_time}.')
             return []
+        time_slot_minutes = timedelta(minutes=time_slot_length)
 
         weather_list = []
         variant_list = []
@@ -186,6 +222,7 @@ class Env:
         end_date = end_time.date()
         nights = [n for n in self.site_data_by_night[site] if start_date <= n <= end_date]
 
+        # We want to retrieve all y = start_time + x * time_slot_length for all x >= 0 and y <= end_time.
         for night in nights:
             for _, data in self.site_data_by_night[site][night].iterrows():
                 if start_time <= data[Env._time_stamp] <= end_time:
