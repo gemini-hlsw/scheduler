@@ -2,7 +2,6 @@ name: greedymax-env
 dependencies:
   - python=3.9.*
   - astropy
-  - hypothesis
   - matplotlib
   - more-itertools
   - numpy=1.21.*
