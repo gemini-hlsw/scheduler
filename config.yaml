@@ -2,9 +2,6 @@ process_manager:
   size: 5
   timeout: 10
 
-graphql:
-  url: ${GRAPHQL_URL}
-
 scheduler:
   time_slot_length: 1.0 # on minutes
   # Sites allowed for the scheduler 
@@ -26,3 +23,6 @@ collector:
 optimizer:
   name: Dummy
 
+server:
+  port: 8000
+  host: 127.0.0.1

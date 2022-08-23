@@ -19,4 +19,4 @@ def root() -> JSONResponse:
 if __name__ == "__main__":
     manager = ProcessManager(size=config.process_manager.size,
                              timeout=config.process_manager.timeout)
-    uvicorn.run(app, host='127.0.0.1', port=8000)
+    uvicorn.run(app, host=config.server.host, port=config.server.port)
