@@ -11,7 +11,7 @@ async def callback():
     s = Session(url=CORE_ENDPOINT_URL)
     try:
         a = await s.query(new_schedule_mutation)
-        logging.info(f'{a=}')  # Respond from mutation
+        logging.info(a)  # Respond from mutation
     except Exception as e:
         logging.info(e)  # fail to create new schedule
 

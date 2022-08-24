@@ -49,6 +49,7 @@ class Session:
         """
         Query the server using one client
         """
-        client = Client(transport=AIOHTTPTransport(url=f'https://{self.url}/grapql'))
+        # client = Client(transport=WebsocketsTransport(url=f'wss://{self.url}'))
+        client = Client(transport=AIOHTTPTransport(url=f'http://{self.url}'))
         async with client as session:
             return await self._query(session, query)
