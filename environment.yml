@@ -26,3 +26,4 @@ dependencies:
     - backoff
     - lucupy
     - pytest-asyncio
+    - aiorun

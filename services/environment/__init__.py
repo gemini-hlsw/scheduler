@@ -34,7 +34,7 @@ class Env:
         """
         Create paths to files in the data directory.
         """
-        return os.path.join('data', filename)
+        return os.path.join(os.getcwd(), 'services', 'environment', 'data', filename)
 
     @staticmethod
     def _cc_band_to_float(data: Union[str, float]) -> float:
@@ -303,4 +303,4 @@ if __name__ == '__main__':
     app = FastAPI()
     app.add_route('/graphql', graphql_app)
     app.add_websocket_route('/graphql', graphql_app)
-    uvicorn.run(app, host='127.0.0.1', port=8000)
+    uvicorn.run(app, host='127.0.0.1', port=8001)
