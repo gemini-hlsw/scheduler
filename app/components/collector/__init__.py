@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass
-from typing import ClassVar, FrozenSet, Iterable, List, Mapping, NoReturn, Optional, Tuple
+from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple
 from more_itertools import partition
 
 from astropy.coordinates import SkyCoord
@@ -9,11 +9,10 @@ from astropy.time import Time, TimeDelta
 import astropy.units as u
 import numpy as np
 
-
 from app.api.programprovider.abstract import ProgramProvider
 from common.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
-from common.minimodel import Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,\
-    ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget, Site, SkyBackground,\
+from common.minimodel import Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID, \
+    ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget, Site, SkyBackground, \
     Target
 from app.components.base import SchedulerComponent
 from app.components.nighteventsmanager import NightEventsManager
@@ -42,15 +41,15 @@ class Collector(SchedulerComponent):
     # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
     # This is a list of the programs as read in.
     # We only want to read these in once unless the program_types change, which they should not.
-    _programs: ClassVar[Mapping[ProgramID, Program]] = {}
+    _programs: ClassVar[Dict[ProgramID, Program]] = {}
 
     # A set of ObservationIDs per ProgramID.
-    _observations_per_program: ClassVar[Mapping[ProgramID, FrozenSet[ObservationID]]] = {}
+    _observations_per_program: ClassVar[Dict[ProgramID, FrozenSet[ObservationID]]] = {}
 
     # This is a map of observation information that is computed as the programs
     # are read in. It contains both the Observation and the base Target (if any) for
     # the observation.
-    _observations: ClassVar[Mapping[ObservationID, Tuple[Observation, Optional[Target]]]] = {}
+    _observations: ClassVar[Dict[ObservationID, Tuple[Observation, Optional[Target]]]] = {}
 
     # The target information is dependent on the:
     # 1. TargetName
@@ -73,7 +72,7 @@ class Collector(SchedulerComponent):
     # The number of milliarcsecs in a degree, for proper motion calculation.
     _MILLIARCSECS_PER_DEGREE: ClassVar[int] = 60 * 60 * 1000
 
-    _EPOCH2TIME: ClassVar[Mapping[float, Time]] = {}
+    _EPOCH2TIME: ClassVar[Dict[float, Time]] = {}
 
     def __post_init__(self):
         """
@@ -367,7 +366,7 @@ class Collector(SchedulerComponent):
         in memory at once.
         """
         # Purge the old programs and observations.
-        self._programs = {}
+        Collector._programs = {}
 
         # Read in the programs.
         # Count the number of parse failures.
@@ -397,14 +396,14 @@ class Collector(SchedulerComponent):
                 # Filter out here any observation classes that have not been specified to the Collector.
                 bad_obs, good_obs = partition(lambda x: x.obs_class in self.obs_classes, program.observations())
                 bad_obs = list(bad_obs)
-                good_obs = list(good_obs)   
+                good_obs = list(good_obs)
 
                 for obs in bad_obs:
                     name = obs.obs_class.name
                     logging.warning(f'Observation {obs.id} not in a specified class (skipping): {name}.')
 
                 # Set the observation IDs for this program.
-                Collector._observations_per_program[program.id] = {obs.id for obs in good_obs}
+                Collector._observations_per_program[program.id] = frozenset(obs.id for obs in good_obs)
 
                 for obs in good_obs:
                     # Retrieve tne base target, if any. If not, we cannot process.

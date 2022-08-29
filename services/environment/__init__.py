@@ -1,10 +1,12 @@
 import bz2
+from copy import copy
 import logging
+from math import ceil
 import os
 from datetime import timedelta, date, datetime
 from typing import Dict, List, Union
 
-import astropy.units as u
+from astropy import units as u
 import numpy as np
 import pandas as pd
 import strawberry
@@ -50,8 +52,11 @@ class Env:
 
     def __init__(self):
         """
-        Stores weather data into a dictionary 
-        that can be indexed by site and date.
+        Loads weather data into a dictionary if processed data currently exists.
+        If data does not exist or reprocessing is requested, data if reprocessed for current
+        and future use (note that this is a slow process).
+
+        Weather data is stored into a dictionary that can be indexed by site and date.
         """
         self.site_data_by_night: Dict[Site, Dict[date]] = {}
 
@@ -84,6 +89,9 @@ class Env:
                     'IQ_OIWFS', 'IQ_P2WFS', 'IQ_OIWFS_MEDIAN', 'IQ_P2WFS_MEDIAN', 'QAP_IQ', 'QAP_IQ_WFS_scaled',
                     'Ratio_OIWFS', 'Ratio_P2WFS', 'QAP_IQ_WFS_scaled500', 'IQ_P2WFS_Zenith', 'IQ_OIWFS_Zenith',
                     'IQ_P2WFS_MEDIAN_Zenith', 'QAP_IQ_WFS_scaled500_Zenith'})
+
+                # The time slot length as a Timedelta.
+                td = pd.Timedelta(1, 'm')
 
                 # These columns do not appear to be used here, but if we remove them, we
                 # end up with rows with only NaN data, which seems to mess up the timestamp.
@@ -127,17 +135,18 @@ class Env:
                         else:
                             cur_row[Env._iq_band] /= 100
 
-                        # Process the cc_band.
                         if pd.isna(cur_row[Env._cc_band]):
                             cur_row[Env._cc_band] = 1.0
                         else:
                             cur_row[Env._cc_band] = Env._cc_band_to_float(cur_row[Env._cc_band])
 
-                        # Process the wind measurements.
                         if pd.isna(cur_row[Env._wind_speed]):
                             cur_row[Env._wind_speed] = 1.0
                         if pd.isna(cur_row[Env._wind_dir]):
                             cur_row[Env._wind_dir] = 1.0
+
+                        # Set prev_row to None to indicate no previous data for this day.
+                        prev_row = None
                     else:
                         # Process the iq_band if it exists by dividing it by 100 to bin it properly.
                         if not pd.isna(cur_row[Env._iq_band]):
@@ -146,7 +155,25 @@ class Env:
                         # Process the cc_band as it could be a set, in which case, we want the maximum value.
                         cur_row[Env._cc_band] = Env._cc_band_to_float(cur_row[Env._cc_band])
 
-                    # Add the new row to the night.
+                    # Calculate the time difference between this row and the previous row, if there was a previous row.
+                    if prev_row is None:
+                        timediff = 0
+                    else:
+                        cur_time = cur_row[Env._time_stamp]
+                        prev_time = prev_row[Env._time_stamp]
+                        timediff = (cur_time - prev_time).seconds / 60
+                        if timediff != ceil(timediff):
+                            raise ValueError('timediff is not a value in minutes: '
+                                             f'{cur_time} - {prev_time} = {timediff} minutes')
+                        timediff = int(timediff)
+
+                    # Add empty rows to account for missed measurements.
+                    for idx in range(timediff - 1):
+                        # Copy the previous row since we want to make a new row with a new time stamp.
+                        prev_row = copy(prev_row)
+                        prev_row[Env._time_stamp] += td
+                        night_rows.append(prev_row)
+
                     night_rows.append(cur_row)
                     prev_row = cur_row
 
@@ -170,14 +197,15 @@ class Env:
                 logging.info(f'Writing {output_filename}')
                 pd.to_pickle(self.site_data_by_night[site], output_filename)
 
-    def get_weather(self, site: Site, start_time: datetime, end_time: datetime) -> List[Variant]:
+    def get_weather(self, site: Site, start_time: datetime, end_time: datetime, time_slot_length: int) -> List[Variant]:
         """
         Returns list of weather data
         based off start and end times 
         """
+        if time_slot_length < 1:
+            raise ValueError(f'Time slot length must be a positive integer: {time_slot_length}')
         if start_time > end_time:
-            logging.warning(f'Weather request for invalid data range: {start_time} to {end_time}.')
-            return []
+            raise ValueError(f'Invalid time range: {start_time} to {end_time}.')
 
         weather_list = []
         variant_list = []
@@ -187,10 +215,14 @@ class Env:
         nights = [n for n in self.site_data_by_night[site] if start_date <= n <= end_date]
 
         for night in nights:
+            night_list = []
             for _, data in self.site_data_by_night[site][night].iterrows():
                 if start_time <= data[Env._time_stamp] <= end_time:
-                    weather_list.append(data)
+                    night_list.append(data)
 
+            # We only want all entries from each night of the form:
+            # first entry + x * time_slot_length for all x >= 0.
+            weather_list.extend(night_list[::time_slot_length])
         pd.DataFrame(weather_list)
 
         for weather in weather_list:
@@ -206,11 +238,9 @@ class Env:
                 variant_list.append(variant)
 
             except ValueError as e:
-                # We catch the exception as a variable called e
                 logging.error(f'get_weather: {e}')
 
         return variant_list
-        # return weather_list
 
 
 @strawberry.type
@@ -240,9 +270,10 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     env = Env()
 
-    # Example query:
+    # To access server, go to: http://127.0.0.1:8000/graphql
+    # Here is an example query:
     # {
-    #     weather(site: GN, startDate: "2016-07-20T12:00:00", endDate: "2016-09-01T12:00:00") {
+    #     weather(site: GN, startDate: "2016-07-20T12:00:00", endDate: "2016-09-01T12:00:00", timeSlotLength: 5) {
     #         startTime
     #         iq
     #         cc
@@ -254,14 +285,16 @@ if __name__ == '__main__':
     @strawberry.type
     class Query:
         @strawberry.field
-        def weather(self, site: Site, start_date: datetime, end_date: datetime) -> List[SVariant]:
+        def weather(self, site: Site,
+                    start_date: datetime,
+                    end_date: datetime,
+                    time_slot_length: int = 1) -> List[SVariant]:
             svariant_list = []
-            variant_list = env.get_weather(site, start_date, end_date)
+            variant_list = env.get_weather(site, start_date, end_date, time_slot_length)
             for variant in variant_list:
                 svariant_list.append(SVariant.from_computed_variant(variant))
 
             return svariant_list
-
 
     schema = strawberry.Schema(query=Query)
     graphql_app = GraphQL(schema)
