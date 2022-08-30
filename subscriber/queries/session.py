@@ -2,6 +2,7 @@ import asyncio
 from typing import Awaitable
 import backoff
 from gql.transport.websockets import WebsocketsTransport
+from gql.transport.aiohttp import AIOHTTPTransport
 from gql import Client, gql
 from .queries import observation_update, program_update, target_update
 
@@ -12,7 +13,7 @@ class Session:
         self.url = url
     
     async def _query(self, session: Client, query: gql):
-        return session.execute(query)
+        return await session.execute(query)
 
     async def _subscribe(self, session: Client, sub: gql):
         """
@@ -42,3 +43,13 @@ class Session:
         client = Client(transport=WebsocketsTransport(url=f'wss://{self.url}/ws'))
         async with client as session:
             return await self._subscribe(session, query)
+    
+
+    async def query(self, query: gql) -> Awaitable:
+        """
+        Query the server using one client
+        """
+        # client = Client(transport=WebsocketsTransport(url=f'wss://{self.url}'))
+        client = Client(transport=AIOHTTPTransport(url=f'http://{self.url}'))
+        async with client as session:
+            return await self._query(session, query)

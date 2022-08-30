@@ -1,7 +1,7 @@
 import pytest
 import gql
 import asyncio
-from app.graphql.queries import Session, test_subscription_query
+from subscriber.queries import Session, test_subscription_query
 from unittest.mock import patch
 
 
@@ -17,6 +17,9 @@ class MockClient(gql.Client):
     
     async def subscribe(self, query):
         yield {"observationEdit": {"editType": "UPDATE", "value": {"id": "o-6"}}}
+
+    async def execute(self, query):
+        return {"data":{"newSchedule":{"__typename":"NewScheduleSuccess","success":True}}}
     
     async def __aenter__(self):
         return self
@@ -25,7 +28,7 @@ class MockClient(gql.Client):
         pass
 
 
-@patch('app.graphql.session.Client', MockClient)
+@patch('subscriber.queries.session.Client', MockClient)
 @pytest.mark.asyncio
 async def test_on_update(session):
     """
@@ -39,7 +42,7 @@ async def test_on_update(session):
     assert resp['observationEdit']['value']['id'] == 'o-6'
 
 
-@patch('app.graphql.session.Client', MockClient)
+@patch('subscriber.queries.session.Client', MockClient)
 @pytest.mark.asyncio
 async def test_subscribe_all(session):
     """
@@ -51,3 +54,10 @@ async def test_subscribe_all(session):
     first_task = resp[0].pop()
     assert isinstance(first_task, asyncio.Task)
     assert first_task.done()  # Check that the first task is done
+
+@patch('subscriber.queries.session.Client', MockClient)
+@pytest.mark.asyncio
+async def test_query(session):
+
+    resp = await session.query(test_subscription_query)
+    assert resp['data']['newSchedule']['success']

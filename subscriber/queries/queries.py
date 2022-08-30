@@ -47,3 +47,18 @@ target_update = gql('''
                         }
                       }
                     ''')
+
+new_schedule_mutation = gql('''
+                            mutation {
+                              newSchedule(newScheduleInput:{ startTime:"2018-10-01 08:00:00",
+                                                             endTime:"2018-10-03 08:00:00"}){
+                                 __typename
+                                 ... on NewScheduleSuccess{
+                                    success
+                                }
+                                 ... on NewScheduleError{
+                                    error
+                                }
+                              }
+                            }
+                            ''')
