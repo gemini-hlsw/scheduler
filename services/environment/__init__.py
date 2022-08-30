@@ -16,7 +16,7 @@ from strawberry.asgi import GraphQL
 
 from astropy.coordinates import Angle
 
-from common.minimodel import Site, Variant, CloudCover, ImageQuality
+from lucupy.minimodel import Site, Variant, CloudCover, ImageQuality
 
 
 class Env:

@@ -2,11 +2,11 @@ import logging
 import os
 from astropy.time import Time, TimeDelta
 import astropy.units as u
-from common.minimodel import ALL_SITES, ObservationClass, ProgramTypes, Semester, SemesterHalf
-from api.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from common.output import atoms_to_sheet
-from components.collector import Collector
 from definitions import ROOT_DIR
+from lucupy.minimodel import ALL_SITES, ObservationClass, ProgramTypes, Semester, SemesterHalf
+from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from app.core..output import atoms_to_sheet
+from app.core.components.collector import Collector
 
 
 if __name__ == '__main__':

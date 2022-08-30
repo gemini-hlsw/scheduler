@@ -2,12 +2,15 @@ import strawberry
 import pytz
 from datetime import datetime
 from typing import List
-from common.minimodel import ObservationID, Site
-from common.plans import Plan, Plans, Visit
+from enum import Enum
+from lucupy.minimodel import ObservationID, Site
+from ..core.plans import Plan, Plans, Visit
 
 
 # TODO: We might want to refactor with common.plans to share code when possible.
 # Strawberry classes and converters.
+
+
 
 
 @strawberry.type
@@ -56,6 +59,7 @@ class SPlans:
     # TODO: Change this to date in UTC
     night_idx: int
     plans_per_site: List[SPlan]
+    site = strawberry.enum(Site)
 
     @staticmethod
     def from_computed_plans(plans: Plans) -> 'SPlans':
