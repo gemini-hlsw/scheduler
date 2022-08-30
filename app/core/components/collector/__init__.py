@@ -12,8 +12,8 @@ import numpy as np
 
 from ...programprovider.abstract import ProgramProvider
 from ...calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
-from lucupy.minimodel import Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,\
-    ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget, Site, SkyBackground,\
+from lucupy.minimodel import Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID, \
+    ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget, Site, SkyBackground, \
     Target
 from ..base import SchedulerComponent
 from ..nighteventsmanager import NightEventsManager
