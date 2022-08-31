@@ -1,12 +1,15 @@
 services:
   schedule:
-    build: .
+    build:
+      dockerfile: Dockerfile.web
     ports:
-      - "8000:5000"
+      - "8000:8000"
     links:
       - subscriber
       # - resource
-    entrypoint: "conda run -n schedule python main.py"
+    entrypoint: "python scheduler/main.py"
   subscriber:
-    build: .
-    entrypoint: "conda run -n schedule python subscriber/main.py"
+    build: 
+      dockerfile: Dockerfile.subscriber
+    env_file: .env
+    entrypoint: "python main.py"
