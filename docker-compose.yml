@@ -4,17 +4,9 @@ services:
     ports:
       - "8000:5000"
     links:
-      - env
       - subscriber
       # - resource
     entrypoint: "conda run -n schedule python main.py"
   subscriber:
     build: .
     entrypoint: "conda run -n schedule python subscriber/main.py"
-  env:
-    build: .
-    entrypoint: "conda run -n schedule python services/environment/__init__.py"
-    ports:
-      - "8001:5001"
-  # resource:
-  #  build: services/resource/

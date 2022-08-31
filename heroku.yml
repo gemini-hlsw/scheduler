@@ -1,0 +1,8 @@
+build:
+  docker:
+    web: Dockerfile
+    subscriber: Dockerfile
+run:
+  web: python main.py 
+  subscriber: python subscriber/main.py
+  
