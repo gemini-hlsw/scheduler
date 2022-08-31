@@ -1,3 +1,6 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import logging
 from dataclasses import dataclass
 from typing import ClassVar, Dict, FrozenSet, Set, Optional
@@ -6,13 +9,13 @@ import astropy.units as u
 import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
-
-from ...calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
 from lucupy.minimodel import ALL_SITES, AndGroup, Conditions, Group, GroupID, Observation, ObservationClass, \
     ObservationStatus, ProgramID, Resource, Site, TooType, NightIndex, Variant
-from ..base import SchedulerComponent
-from ..collector import Collector
-from ..ranker import DefaultRanker, Ranker
+
+from app.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
+from app.core.components.base import SchedulerComponent
+from app.core.components.collector import Collector
+from app.core.components.ranker import DefaultRanker, Ranker
 from mock.environment import Env
 
 

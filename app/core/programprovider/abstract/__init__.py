@@ -1,3 +1,6 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from abc import ABC, abstractmethod
 from typing import List
 
@@ -21,6 +24,7 @@ class ProgramProvider(ABC):
     * KeyError if a lookup fails in an enum
     * NotImplementedError if the feature is not offered in this provider
     """
+
     @staticmethod
     @abstractmethod
     def parse_program(data: dict) -> Program:

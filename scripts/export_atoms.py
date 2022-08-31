@@ -1,13 +1,17 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import logging
 import os
-from astropy.time import Time, TimeDelta
-import astropy.units as u
-from definitions import ROOT_DIR
-from lucupy.minimodel import ALL_SITES, ObservationClass, ProgramTypes, Semester, SemesterHalf
-from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from app.core..output import atoms_to_sheet
-from app.core.components.collector import Collector
 
+import astropy.units as u
+from astropy.time import Time, TimeDelta
+from lucupy.minimodel import ALL_SITES, ObservationClass, ProgramTypes, Semester, SemesterHalf
+
+from app.core.components.collector import Collector
+from app.core.output import atoms_to_sheet
+from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from definitions import ROOT_DIR
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
@@ -30,7 +34,7 @@ if __name__ == '__main__':
 
     # Output the state of and information calculated by the Collector.
     # print_collector_info(collector, samples=60)
-    
+
     # Output the data in a spreadsheet.
     for program in collector.get_program_ids():
         if program == 'GS-2018B-Q-101':

@@ -1,32 +1,33 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import json
 import os
+import gzip
 from typing import NoReturn, Union, List
 
 from astropy import units as u
-from openpyxl import Workbook
-
-from ..programprovider.abstract import ProgramProvider
-from ..programprovider.ocs import OcsProgramProvider
 from lucupy.minimodel import Atom, Group, Observation, ObservationClass, Program
 from lucupy.output import print_program
-from ..plans import Plans
-from ..components.collector import Collector, NightEventsManager
+from openpyxl import Workbook
+
+from app.core.components.collector import Collector, NightEventsManager
+from app.core.plans import Plans
+from app.core.programprovider.abstract import ProgramProvider
+from app.core.programprovider.ocs import OcsProgramProvider
 
 
-def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.json'),
+def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.json.gz'),
                                 provider: ProgramProvider = OcsProgramProvider) -> NoReturn:
     """
     Using a specified JSON file and a ProgramProvider, read in the program
     and print it.
-
-    TODO: Could pass in JSON data instead, as GppProgramProvider will not produce files.
     """
-    with open(filename, 'r') as f:
+    with gzip.open(filename, 'r') as f:
         data = json.loads(f.read())
 
     program = provider.parse_program(data['PROGRAM_BASIC'])
     print_program(program)
-
 
 
 def print_collector_info(collector: Collector, samples: int = 60) -> NoReturn:
@@ -37,7 +38,6 @@ def print_collector_info(collector: Collector, samples: int = 60) -> NoReturn:
     print(f'   time slot length: {collector.time_slot_length.to(u.min)}')
 
     # Print out sampled calculation for every hour as there are far too many results to print in full.
-    samples = 60
     time_grid = collector.time_grid
     for site in collector.sites:
         print(f'\n\n+++++ NIGHT EVENTS FOR {site.name} +++++')
@@ -122,7 +122,7 @@ def print_plans(all_plans: List[Plans]) -> NoReturn:
     """
     Print out the visit plans.
     """
-    
+
     for plans in all_plans:
         print(f'\n\n+++++ NIGHT {plans.night + 1} +++++')
         for plan in plans:

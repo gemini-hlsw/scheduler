@@ -1,8 +1,13 @@
-import pytest
-import gql
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import asyncio
-from subscriber.queries import Session, test_subscription_query
 from unittest.mock import patch
+
+import gql
+import pytest
+
+from subscriber.queries import Session, test_subscription_query
 
 
 @pytest.fixture
@@ -14,16 +19,16 @@ class MockClient(gql.Client):
 
     def __init__(self, *args, **kwargs):
         self.transport = None
-    
+
     async def subscribe(self, query):
         yield {"observationEdit": {"editType": "UPDATE", "value": {"id": "o-6"}}}
 
     async def execute(self, query):
-        return {"data":{"newSchedule":{"__typename":"NewScheduleSuccess","success":True}}}
-    
+        return {"data": {"newSchedule": {"__typename": "NewScheduleSuccess", "success": True}}}
+
     async def __aenter__(self):
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
 
@@ -34,7 +39,7 @@ async def test_on_update(session):
     """
     Test a subscription GraphQL subcription change
     """
-   
+
     # mocked_client.return_value.__aenter__.return_value.subscribe = subscribe_to_one
     resp = await session.on_update(test_subscription_query)
     assert isinstance(resp, dict)  # Check that only one response is returned
@@ -55,9 +60,9 @@ async def test_subscribe_all(session):
     assert isinstance(first_task, asyncio.Task)
     assert first_task.done()  # Check that the first task is done
 
+
 @patch('subscriber.queries.session.Client', MockClient)
 @pytest.mark.asyncio
 async def test_query(session):
-
     resp = await session.query(test_subscription_query)
     assert resp['data']['newSchedule']['success']

@@ -1,11 +1,14 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from typing import Dict
 
 from astropy.time import Time, TimeDelta
-
 from lucupy import sky
-from ...calculations import NightEvents
 from lucupy.minimodel import Site
-from ..base import SchedulerComponent
+
+from app.core.calculations import NightEvents
+from app.core.components.base import SchedulerComponent
 
 
 class NightEventsManager(SchedulerComponent):

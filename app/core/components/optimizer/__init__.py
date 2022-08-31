@@ -1,7 +1,11 @@
-from ...calculations.selection import Selection
-from .greedymax import GreedyMax
-from ...plans import Plans
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from typing import List
+
+from app.core.calculations.selection import Selection
+from app.core.plans import Plans
+from .greedymax import GreedyMax
 
 
 class Optimizer:
@@ -15,7 +19,7 @@ class Optimizer:
         self.night_events = selection.night_events
         # TODO: Assumes that all sites schedule the same amount of nights
         self.period = len(list(self.night_events.values())[0].time_grid)
-    
+
     def schedule(self) -> List[Plans]:
         # Create set of plans for the amount of nights
         nights = [Plans(self.night_events, night) for night in range(self.period)]

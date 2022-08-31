@@ -1,14 +1,18 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import json
 import os
 from datetime import datetime, timedelta
 
-from app.core.programprovider.ocs import OcsProgramProvider
 from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
     ImageQuality, Magnitude, MagnitudeBands, Observation, ObservationClass, ObservationStatus, Priority, Program, \
     ProgramMode, ProgramTypes, QAState, Resource, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, \
     SkyBackground, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor
 from lucupy.timeutils import sex2dec
+
+from app.core.programprovider.ocs import OcsProgramProvider
 
 
 def get_api_program() -> Program:

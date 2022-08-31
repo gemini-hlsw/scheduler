@@ -1,12 +1,15 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import logging
-from dataclasses import dataclass
 import os
-import requests
 import telnetlib
 import tempfile
-from typing import Mapping, NoReturn, FrozenSet
 import zipfile
+from dataclasses import dataclass
+from typing import Mapping, NoReturn, FrozenSet
 
+import requests
 from lucupy.minimodel import ProgramTypes, Site, SemesterHalf
 
 # Add level to the logger for more informative logging.

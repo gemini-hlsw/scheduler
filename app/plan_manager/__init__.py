@@ -1,7 +1,11 @@
-from ..core.meta import Singleton
-from typing import List, NoReturn
-from ..core.plans import Plans
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from copy import deepcopy
+from typing import List, NoReturn
+
+from app.core.meta import Singleton
+from app.core.plans import Plans
 from app.graphql.scalars import SPlans
 
 

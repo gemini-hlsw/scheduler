@@ -1,15 +1,19 @@
-import os
-from lucupy.minimodel import *
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from definitions import ROOT_DIR
+import os
+
+from lucupy.minimodel import *
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
-from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from app.core.output import print_collector_info, print_plans
+
 from app.core.components.collector import *
+from app.core.components.optimizer import Optimizer
 from app.core.components.optimizer.dummy import DummyOptimizer
 from app.core.components.selector import Selector
-from app.core.components.optimizer import Optimizer
+from app.core.output import print_collector_info, print_plans
+from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from definitions import ROOT_DIR
 
 if __name__ == '__main__':
     # SET THIS FLAG TO RUN THE GRAPHQL SERVER AT THE END.
@@ -153,7 +157,7 @@ if __name__ == '__main__':
     # for program in collector._programs.values():
     #    if program.id == 'GS-2018B-Q-101':
     #        atoms_to_sheet(program)
-    
+
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
     # print(selection.program_info)
     dummy = DummyOptimizer()
@@ -163,6 +167,7 @@ if __name__ == '__main__':
 
     if run_graphql_server:
         import graphql
+
         plan_manager = graphql.PlanManager()
         plan_manager.set_plans(plans)
         graphql.start_graphql_server()

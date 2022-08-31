@@ -1,18 +1,13 @@
-#!/usr/bin/env python
-# coding: utf-8
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-# Code for manipulating ODB Extractor json files and initial sequence atom definitions
-# Bryan Miller
-# 2021-11-24
-
-import os
-import json
 import gzip
-import numpy as np
+import json
+import os
 
+import numpy as np
 from openpyxl import Workbook
 from openpyxl import load_workbook
-
 
 fpuinst = {'GNIRS': 'instrument:slitWidth', 'GMOS-N': 'instrument:fpu'}
 
@@ -35,13 +30,11 @@ def select_qastate(states):
 
     return qastate
 
-# --------------
-
 
 def select_obsclass(classes):
-    """Return the obsclass based on precedence
-
-        classes: list of observe classes from the ODB extractor
+    """
+    Return the obsclass based on precedence
+    classes: list of observe classes from the ODB extractor
     """
     obsclass = ''
 
@@ -56,11 +49,11 @@ def select_obsclass(classes):
 
     return obsclass
 
-# --------------
 
-
-def findatoms(observation):
-    '''Analyze a json observing sequence from the ODB and define atoms.'''
+def find_atoms(observation):
+    """
+    Analyze a json observing sequence from the ODB and define atoms.
+    """
 
     classes = []
     qastates = []
@@ -129,7 +122,7 @@ def findatoms(observation):
         # AB
         # ABBA
         if qoffsets and nsteps >= 4 and nsteps - ii > 3 and nabba == 0:
-            #             print(q, sequence[ii+1]['telescope:q'], sequence[ii+2]['telescope:q'], sequence[ii+3]['telescope:q'])
+            # print(q, sequence[ii+1]['telescope:q'], sequence[ii+2]['telescope:q'], sequence[ii+3]['telescope:q'])
             if q == float(sequence[ii + 3]['telescope:q']) and q != float(sequence[ii + 1]['telescope:q']) and float(
                     sequence[ii + 1]['telescope:q']) == float(sequence[ii + 2]['telescope:q']):
                 nabba = 3
@@ -160,9 +153,9 @@ def findatoms(observation):
             atoms[-1]['part_time'] += step_time
         else:
             atoms[-1]['prog_time'] += step_time
-            
-#         atoms[-1]['id'] = atomlabel
-            
+
+        # atoms[-1]['id'] = atomlabel
+
         print('{:22} {:12} {:7.2f} {:3d} {:10} {:15} {:12} {:12} {:7.4f} {:5.2f} {:5.2f} {:3d}'.format(datalab,
                                                                                                        observe_class,
                                                                                                        exptime, coadds,
@@ -171,7 +164,7 @@ def findatoms(observation):
                                                                                                        disperser,
                                                                                                        wavelength, p, q,
                                                                                                        atomlabel))
-    #     print(atoms)
+    # print(atoms)
     # Get class/state for last atom
     if natom > 0:
         print(qastates)
@@ -183,28 +176,30 @@ def findatoms(observation):
 
 
 def group_proc(group):
-    '''Process observations within groups'''
+    """
+    Process observations within groups.
+    """
 
     obsnum = []
     for item in list(group.keys()):
         obsid = ''
         if 'OBSERVATION' in item:
-    #         obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
+            # obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
             obsid = group[item]['observationId']
             obsnum.append(int(item.split('-')[1]))
-    #             print(f" \t {item, obsnum[-1], obsid}")
-    #         else:
-    #             print(item, group[item])
+            # print(f" \t {item, obsnum[-1], obsid}")
+        # else:
+        #     print(item, group[item])
 
     if len(obsnum) > 0:
         isrt = np.argsort(obsnum)
         for ii in isrt:
             item = 'OBSERVATION_BASIC-' + str(obsnum[ii])
-            #     obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
+            # obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
             obsid = group[item]['observationId']
             print(f" \t {obsnum[ii], obsid}")
             # Atoms in each sequence
-            atoms = findatoms(group[item])
+            atoms = find_atoms(group[item])
             # Summary of atoms
             classes = []
             qastates = []
@@ -223,11 +218,11 @@ def group_proc(group):
             print(f"qaState (ODB): {group[item]['qaState']}")
             print()
 
-    return
-
 
 def prog_proc(program):
-    '''Process top-level of program'''
+    """
+    Process top-level of program.
+    """
 
     grpnum = []
     grplist = []
@@ -240,25 +235,23 @@ def prog_proc(program):
         # First pass to count and record groups
         for item in list(program[prog].keys()):
             if 'GROUP' in item:
-                #                 print(item, program[prog][item]['name'])
-                #         print(program[prog][item])
+                # print(item, program[prog][item]['name'])
+                # print(program[prog][item])
                 grpnum.append(int(item.split('-')[1]))
                 grplist.append(item.split('-')[0])
 
-        #         gmax = np.max(grpnum)
+        # gmax = np.max(grpnum)
 
         if len(grpnum) > 0:
             # Second pass to put the groups in the same order as in the program
             print(grplist)
             print(grpnum)
             isrt = np.argsort(grpnum)
-            #     print(grpnum)
+            # print(grpnum)
             for ii in isrt:
                 group = grplist[ii] + '-' + str(grpnum[ii])
                 print(group, program[prog][group]['name'])
                 group_proc(program[prog][group])
-
-    return
 
 
 def printseq(sequence, comment='', csv=False, path=''):
@@ -271,14 +264,15 @@ def printseq(sequence, comment='', csv=False, path=''):
         f = open(filename, 'w')
         print('{},{}'.format('comment', comment), file=f)
         print('{},{},{},{},{},{},{},{},{},{},{},{}'.format('datalab', 'class', 'exptime', 'coadds', 'inst', 'fpu',
-                                                        'filter_name', 'disperser', 'wavelength', 'p', 'q', 'atom'), file=f)
+                                                           'filter_name', 'disperser', 'wavelength', 'p', 'q', 'atom'),
+              file=f)
 
     for step in list(sequence):
         datalab = step['observe:dataLabel']
         observe_class = step['observe:class']
         exptime = step['observe:exposureTime']
         inst = step['instrument:instrument']
-    #     print(inst, fpuinst[inst])
+        #     print(inst, fpuinst[inst])
         fpu = step[fpuinst[inst]]
         if 'instrument:filter_name' in step.keys():
             filter_name = step["instrument:filter_name"]
@@ -288,7 +282,7 @@ def printseq(sequence, comment='', csv=False, path=''):
         if 'GMOS' in inst:
             coadds = '1'
             # convert wavelength to microns
-        #     wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
+            # wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
         else:
             coadds = step['observe:coadds']
         disperser = step['instrument:disperser']
@@ -299,9 +293,11 @@ def printseq(sequence, comment='', csv=False, path=''):
         if 'telescope:q' in step.keys():
             q = step['telescope:q']
         else:
-            q = '0.0'    
-        print('{:25} {:10} {:7} {:3} {:10} {:20} {:12} {:12} {:7} {:5} {:5}'.format(datalab, observe_class, exptime, coadds,
-                                                                       inst, fpu, filter_name, disperser, wavelength, p, q))
+            q = '0.0'
+        print('{:25} {:10} {:7} {:3} {:10} {:20} {:12} {:12} {:7} {:5} {:5}'.format(datalab, observe_class, exptime,
+                                                                                    coadds,
+                                                                                    inst, fpu, filter_name, disperser,
+                                                                                    wavelength, p, q))
         if csv and path != '':
             print('{},{},{},{},{},{},{},{},{},{},{},{}'.format(datalab, observe_class, exptime, coadds, inst, fpu,
                                                                filter_name, disperser, wavelength, p, q, atom), file=f)
@@ -317,9 +313,9 @@ def seqxlsx(sequence, comment='', path=''):
     filename = os.path.join(path, obsid + '_seq.xlsx')
     wb = Workbook()
     ws = wb.active
-    
+
     atom = '1'
-    
+
     # Comment
     ws['A1'] = 'comment'
     ws['B1'] = comment
@@ -327,12 +323,12 @@ def seqxlsx(sequence, comment='', path=''):
     # Columns
     columns = ['datalab', 'class', 'inst', 'exptime', 'coadds', 'fpu', 'filter_name',
                'disperser', 'wavelength', 'p', 'q', 'atom']
-    
+
     row = 2
     for ii, col in enumerate(columns):
-        _ = ws.cell(column=ii+1, row=row, value="{0}".format(col))
+        _ = ws.cell(column=ii + 1, row=row, value="{0}".format(col))
     row += 1
-        
+
     #     print('{},{}'.format('comment', comment), file=f)
     #     print('{},{},{},{},{},{},{},{},{},{},{}'.format('datalab', 'class', 'exptime', 'coadds', 'inst', 'fpu', 
     #                                                            'disperser', 'wavelength', 'p', 'q', 'atom'), file=f)
@@ -343,12 +339,12 @@ def seqxlsx(sequence, comment='', path=''):
         data.append(step['observe:class'])
         inst = step['instrument:instrument']
         data.append(inst)
-    #     print(inst, fpuinst[inst])
+        #     print(inst, fpuinst[inst])
         data.append(float(step['observe:exposureTime']))
         if 'GMOS' in inst:
             coadds = '1'
             # convert wavelength to microns
-    #             wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
+        #             wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
         else:
             coadds = step['observe:coadds']
         data.append(int(coadds))
@@ -368,15 +364,15 @@ def seqxlsx(sequence, comment='', path=''):
         if 'telescope:q' in step.keys():
             q = step['telescope:q']
         else:
-            q = '0.0'  
+            q = '0.0'
         data.append(float(q))
         data.append(int(atom))
         print(data)
-        
+
         for ii in range(len(columns)):
-            _ = ws.cell(column=ii+1, row=row, value=data[ii])
+            _ = ws.cell(column=ii + 1, row=row, value=data[ii])
         row += 1
-    
+
     wb.save(filename)
     return
 
@@ -386,13 +382,13 @@ def readseq(file, path):
 
     filename = os.path.join(path, file)
     f = open(filename, 'r')
-    
+
     sequence = {}
-    
+
     # Read and parse csv file: first line is a comment, second has column headings
     nline = 0
     for line in f:
-    #         line = line.rstrip('\n')
+        #         line = line.rstrip('\n')
         values = line.rstrip('\n').split(',')
         if nline == 0:
             sequence['comment'] = values[1]
@@ -405,9 +401,9 @@ def readseq(file, path):
             for i, val in enumerate(values):
                 sequence[columns[i].strip(' ')].append(val.strip(' '))
         nline += 1
-        
+
     f.close()
-    
+
     return sequence
 
 
@@ -415,20 +411,20 @@ def xlsxseq(file, path):
     '''Read sequence information from an Excel spreadsheet'''
 
     filename = os.path.join(path, file)
-    
+
     wb = load_workbook(filename=filename)
     ws = wb.active
-    
+
     sequence = {}
-    
+
     row = 1
     sequence['comment'] = ws.cell(column=2, row=row).value
     row += 1
-    
+
     columns = []
     # Eventually ready the number of columns in the sheet
     for ii in range(26):
-        col = ws.cell(column=ii+1, row=row).value
+        col = ws.cell(column=ii + 1, row=row).value
         if col is not None:
             columns.append(col)
             sequence[col] = []
@@ -439,9 +435,9 @@ def xlsxseq(file, path):
 
     while ws.cell(column=1, row=row).value is not None:
         for jj, col in enumerate(columns):
-            sequence[col].append(ws.cell(column=jj+1, row=row).value)
+            sequence[col].append(ws.cell(column=jj + 1, row=row).value)
         row += 1
-    
+
     return sequence
 
 
@@ -468,10 +464,10 @@ if __name__ == '__main__':
     print('Evaluating: ', file)
     print('Top-level program information')
     for prog in list(program.keys()):
-    #     print(list(program[prog].keys()))
+        #     print(list(program[prog].keys()))
         for item in list(program[prog].keys()):
             print(item)
-    #         print(program[prog][item])
+            #         print(program[prog][item])
             if 'INFO' in item:
                 print(f"\t {program[prog][item]['title']}")
             if all(type not in item for type in ['INFO', 'GROUP']):
@@ -485,7 +481,7 @@ if __name__ == '__main__':
     for item in list(program[prog][group].keys()):
         obsid = ''
         if 'OBSERVATION' in item:
-#         obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
+            #         obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
             obsid = program[prog][group][item]['observationId']
             obsnum.append(item.split('-')[1])
             print(item, obsnum[-1], obsid)
@@ -499,7 +495,7 @@ if __name__ == '__main__':
     # print(obsnum)
     for ii in obsnum:
         item = 'OBSERVATION_BASIC-' + ii
-    #     obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
+        #     obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
         obsid = program[prog][group][item]['observationId']
         print(ii, obsid)
     print()
@@ -509,30 +505,30 @@ if __name__ == '__main__':
     for item in list(program[prog][group][obs].keys()):
         print(item)
         if 'INFO' in item:
-                print(f"\t {program[prog][group][obs][item]['title']}")
+            print(f"\t {program[prog][group][obs][item]['title']}")
         if any(type in item for type in ['CONDITIONS', 'TARGETENV']):
             for key in list(program[prog][group][obs][item].keys()):
                 print(f"\t {key}")
         if all(type not in item for type in ['INFO', 'sequence', 'obsLog']):
-                print(f" \t {program[prog][group][obs][item]}")
+            print(f" \t {program[prog][group][obs][item]}")
 
     tot_seq_time = 0.0
     for step in list(program[prog][group][obs]['sequence']):
         print(step['observe:dataLabel'], step['observe:class'], step['observe:exposureTime'],
               step['observe:coadds'], step['instrument:instrument'], step['instrument:slitWidth'],
               step['instrument:disperser'], step['instrument:observingWavelength'], step['telescope:p'],
-              step['telescope:q'], step['totalTime']/(1000.))
-        tot_seq_time += step['totalTime']/(1000.)
-    print('Acq overhead: ', program[prog][group][obs]['setupTime']/1000.)
+              step['telescope:q'], step['totalTime'] / (1000.))
+        tot_seq_time += step['totalTime'] / (1000.)
+    print('Acq overhead: ', program[prog][group][obs]['setupTime'] / 1000.)
     print('Sequence time:', tot_seq_time)
-    exec_time = program[prog][group][obs]['setupTime']/1000. + tot_seq_time
-    print('Total observation time: ', exec_time, exec_time/3600.)
+    exec_time = program[prog][group][obs]['setupTime'] / 1000. + tot_seq_time
+    print('Total observation time: ', exec_time, exec_time / 3600.)
     print()
 
     # printseq(program[prog][group][obs]['sequence'])
 
     print('Sequence Atoms')
-    atoms = findatoms(program[prog][group][obs])
+    atoms = find_atoms(program[prog][group][obs])
     # Summary of atoms
     for atom in atoms:
         print('Atom ', atom['id'])
@@ -609,12 +605,12 @@ if __name__ == '__main__':
     for item in list(program[prog][group][obs].keys()):
         print(item)
         if 'INFO' in item:
-                print(f"\t {program[prog][group][obs][item]['title']}")
+            print(f"\t {program[prog][group][obs][item]['title']}")
         if any(type in item for type in ['CONDITIONS', 'TARGETENV']):
             for key in list(program[prog][group][obs][item].keys()):
                 print(f"\t {key}")
         if all(type not in item for type in ['INFO', 'sequence', 'obsLog']):
-                print(f" \t {program[prog][group][obs][item]}")
+            print(f" \t {program[prog][group][obs][item]}")
     print()
 
     # obs = 'OBSERVATION_BASIC-1'
@@ -652,11 +648,11 @@ if __name__ == '__main__':
     #     print('{:25} {:10} {:7} {:3} {:10} {:20} {:12} {:7} {:5} {:5}'.format(datalab, observe_class, exptime, coadds, inst, fpu,
     #                                                            disperser, wavelength, p, q))
 
-    #printseq(program[prog][group][obs]['sequence'], comment='Split by wavelength', csv=True, path=path)
+    # printseq(program[prog][group][obs]['sequence'], comment='Split by wavelength', csv=True, path=path)
     # printseq(program[prog][group][obs]['sequence'])
 
     print('Sequence Atoms')
-    atoms = findatoms(program[prog][group][obs])
+    atoms = find_atoms(program[prog][group][obs])
     # Summary of atoms
     for atom in atoms:
         print('Atom ', atom['id'])
@@ -682,7 +678,6 @@ if __name__ == '__main__':
     #     print('{:20} {:12} {:7} {:3} {:10} {:20} {:12} {:7} {:5} {:5} {:3}'.format(datalab, observe_class, exptime, coadds, inst, fpu,
     #                                                            disperser, wavelength, p, q, atom))
 
-
     # seqxlsx(program[prog][group][obs]['sequence'], comment='Split by wavelength', path=path)
     #
     #
@@ -704,7 +699,6 @@ if __name__ == '__main__':
     #
     #     print('{:20} {:12} {:7} {:3} {:10} {:20} {:12} {:7} {:5} {:5} {:3}'.format(datalab, observe_class, exptime, coadds, inst, fpu,
     #                                                            disperser, wavelength, p, q, atom))
-
 
     # FT/nonsidereal/cadence/no groups
     # file = 'GN-2018B-FT-206.json'
@@ -781,4 +775,3 @@ if __name__ == '__main__':
     #             print(f"\t {key}")
     #     if all(type not in item for type in ['INFO', 'sequence', 'obsLog']):
     #             print(f" \t {program[prog][group][obs][item]}")
-

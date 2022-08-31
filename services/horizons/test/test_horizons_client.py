@@ -1,11 +1,14 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
+from datetime import datetime
+
+import numpy as np
 import pytest
 from hypothesis import given, strategies as st
+from lucupy.minimodel import Site, NonsiderealTarget, TargetTag, TargetType
 
 from services.horizons import Coordinates, HorizonsAngle, horizons_session
-from lucupy.minimodel import Site, NonsiderealTarget, TargetTag, TargetType
-from datetime import datetime
-import numpy as np
-
 
 MAX_VALUE = 270 * np.pi / 180
 MIN_VALUE = 90 * np.pi / 180
@@ -114,7 +117,7 @@ def test_interpolation_by_fractional_angular_separation(values):
     Interpolate should be consistent with fractional angular separation, to within 20 µas
     """
     a, b, c, d = values
-    
+
     sep = Coordinates(a, b).angular_distance(Coordinates(c, d))
     deltas = []
 

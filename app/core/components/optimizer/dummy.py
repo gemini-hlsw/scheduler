@@ -1,11 +1,17 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from __future__ import annotations
-from ...calculations import GroupData, ProgramInfo
-from .base import BaseOptimizer
-from ...plans import Plans, Plan
-from lucupy.minimodel.program import ProgramID
+
+import random
 from datetime import datetime, timedelta
 from typing import Mapping
-import random
+
+from lucupy.minimodel.program import ProgramID
+
+from app.core.calculations import GroupData, ProgramInfo
+from app.core.plans import Plan, Plans
+from .base import BaseOptimizer
 
 
 class DummyOptimizer(BaseOptimizer):
@@ -15,10 +21,11 @@ class DummyOptimizer(BaseOptimizer):
         random.seed(seed)
         self.groups = []
 
-    def _allocate_time(self, plan: Plan, obs_time: timedelta) -> datetime:
+    @staticmethod
+    def _allocate_time(plan: Plan, obs_time: timedelta) -> datetime:
         """
         Allocate time for an observation inside a Plan
-        This should be handle by the optimizer as can vary from algorithm to algorithm
+        This should be handled by the optimizer as can vary from algorithm to algorithm
         """
         # Get first available slot
         start = plan.start
@@ -31,7 +38,7 @@ class DummyOptimizer(BaseOptimizer):
         """
         Gives a random group/observation to add to plan
         """
-        
+
         while not plans.all_done() and len(self.groups) > 0:
 
             ran_group = random.choice(self.groups)
@@ -41,13 +48,13 @@ class DummyOptimizer(BaseOptimizer):
                 self.groups.remove(ran_group)
             else:
                 print('group not added')
-        
-    def setup(self, programInfo: Mapping[ProgramID, ProgramInfo]) -> DummyOptimizer:
+
+    def setup(self, program_info: Mapping[ProgramID, ProgramInfo]) -> DummyOptimizer:
         """
-        Preparation for the optimizer i.e create chromosomes, etc.
+        Preparation for the optimizer e.g. create chromosomes, etc.
         """
         self.groups = []
-        for p in programInfo.values():
+        for p in program_info.values():
             self.groups.extend([g for g in p.group_data.values() if g.group.is_observation_group()])
         return self
 
@@ -55,7 +62,7 @@ class DummyOptimizer(BaseOptimizer):
         """
         Add a group to a Plan
         This is called when a new group is added to the program
-        """                        
+        """
         # TODO: Missing different logic for different AND/OR GROUPS
         # Add method should handle those
         for observation in group.group.observations():
@@ -63,7 +70,7 @@ class DummyOptimizer(BaseOptimizer):
             if not plan.is_full and plan.site == observation.site:
                 obs_len = plan.time2slots(observation.total_used())
                 if (plan.time_left() >= obs_len) and not plan.has(observation):
-                    start = self._allocate_time(plan, observation.total_used())
+                    start = DummyOptimizer._allocate_time(plan, observation.total_used())
                     plan.add(observation, start, obs_len)
                     return True
                 else:
@@ -72,4 +79,3 @@ class DummyOptimizer(BaseOptimizer):
                     # Right now we are just going to finish the plan
                     plan.is_full = True
                     return False
-                
