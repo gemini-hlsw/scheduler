@@ -1,23 +1,24 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import signal
 import os
+import signal
 
-from omegaconf import DictConfig
-from astropy.time import Time, TimeDelta
 import astropy.units as u
-
-from definitions import ROOT_DIR
-from ..programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from astropy.time import Time, TimeDelta
+from lucupy.minimodel import Site
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
-from ..components.collector import Collector
-from ..components.selector import Selector
-from ..components.optimizer import Optimizer
-from ..components.optimizer.dummy import DummyOptimizer
-from ..output import print_plans
-from lucupy.minimodel import Site, ALL_SITES, Semester, ProgramTypes, ObservationClass, SemesterHalf
-from app.plan_manager import PlanManager
+
 from app.config import config
+from app.core.components.collector import Collector
+from app.core.components.optimizer import Optimizer
+from app.core.components.optimizer.dummy import DummyOptimizer
+from app.core.components.selector import Selector
+from app.core.output import print_plans
+from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from app.plan_manager import PlanManager
+from definitions import ROOT_DIR
 
 
 class Scheduler:
@@ -30,14 +31,14 @@ class Scheduler:
     def __call__(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         ObservatoryProperties.set_properties(GeminiProperties)
-        
+
         programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
 
         # Create the Collector and load the programs.
         print('Loading programs...')
         # Parse configs
         time_slot_length = TimeDelta(self.config.scheduler.time_slot_length * u.min)
-        sites = frozenset(list(map(eval, self.config.scheduler.sites)))\
+        sites = frozenset(list(map(eval, self.config.scheduler.sites))) \
             if isinstance(self.config.scheduler.sites, list) else eval(self.config.scheduler.sites)
         semesters = set(map(eval, self.config.collector.semesters))
         program_types = set(map(eval, self.config.collector.program_types))
@@ -59,7 +60,7 @@ class Scheduler:
             ObservatoryProperties.set_properties(GeminiProperties)
         else:
             raise NotImplementedError('Only Gemini is supported.')
-        
+
         selector = Selector(collector=collector)
 
         # Execute the Selector.

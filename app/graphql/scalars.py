@@ -1,16 +1,18 @@
-import strawberry
-import pytz
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from datetime import datetime
 from typing import List
-from enum import Enum
+
+import pytz
+import strawberry
 from lucupy.minimodel import ObservationID, Site
-from ..core.plans import Plan, Plans, Visit
+
+from app.core.plans import Plan, Plans, Visit
 
 
 # TODO: We might want to refactor with common.plans to share code when possible.
 # Strawberry classes and converters.
-
-
 
 
 @strawberry.type

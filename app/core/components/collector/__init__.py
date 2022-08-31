@@ -1,23 +1,25 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import logging
 import time
 from dataclasses import dataclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple
-from more_itertools import partition
 
-from astropy.coordinates import SkyCoord
-from astropy.time import Time, TimeDelta
 import astropy.units as u
 import numpy as np
-
-
-from ...programprovider.abstract import ProgramProvider
-from ...calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
-from lucupy.minimodel import Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,\
-    ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget, Site, SkyBackground,\
-    Target
-from ..base import SchedulerComponent
-from ..nighteventsmanager import NightEventsManager
+from astropy.coordinates import SkyCoord
+from astropy.time import Time, TimeDelta
 from lucupy import sky
+from lucupy.minimodel import Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID, \
+    ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget, Site, SkyBackground, \
+    Target
+from more_itertools import partition
+
+from app.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
+from app.core.components.base import SchedulerComponent
+from app.core.components.nighteventsmanager import NightEventsManager
+from app.core.programprovider.abstract import ProgramProvider
 
 
 @dataclass

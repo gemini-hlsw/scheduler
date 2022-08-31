@@ -1,4 +1,6 @@
-from .base import Ranker
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, FrozenSet, Mapping, Tuple
@@ -6,11 +8,12 @@ from typing import Callable, FrozenSet, Mapping, Tuple
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
-
-from ...calculations import Scores
-from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndex, Observation, Program, Site
+from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndex, Observation, Program, Site, OrGroup
 from lucupy.types import ListOrNDArray
-from ..collector import Collector
+
+from app.core.calculations import Scores
+from app.core.components.collector import Collector
+from .base import Ranker
 
 
 def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
@@ -88,7 +91,6 @@ class DefaultRanker(Ranker):
     the given night indices and then stores this information here and uses
     it to agglomerate the scores for a specified Group.
     """
-
     def __init__(self,
                  collector: Collector,
                  night_indices: npt.NDArray[NightIndex],
@@ -98,12 +100,12 @@ class DefaultRanker(Ranker):
         """
         We only want to calculate the parameters once since they do not change.
         """
-        
+
         if band_params is None:
             self.band_params = _default_band_params()
         self.params = params
         super().__init__(collector, night_indices, sites)
-        
+
     def _metric_slope(self,
                       completion: ListOrNDArray[float],
                       band: npt.NDArray[Band],
@@ -229,7 +231,7 @@ class DefaultRanker(Ranker):
             scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
 
         return scores
-    
+
     # TODO: Should we be considering the scores of the subgroups or the scores of the
     # TODO: observations when calculating the score of this group?
     def _score_and_group(self, group: AndGroup) -> Scores:
@@ -253,3 +255,6 @@ class DefaultRanker(Ranker):
         # Combine the scores as per the score_combiner and return.
         return [np.apply_along_axis(self.params.score_combiner, 0, group_scores[night_idx])[0]
                 for night_idx in self.night_indices]
+
+    def _score_or_group(self, group: OrGroup) -> Scores:
+        raise NotImplementedError

@@ -1,14 +1,18 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import csv
 import logging
 import os
 from datetime import datetime, timedelta
 from typing import Dict, NoReturn
 
-from openpyxl import load_workbook
-
 from lucupy.helpers import str_to_bool
 from lucupy.minimodel.site import Site
+from openpyxl import load_workbook
+
 from .resources import Resources
+
 
 class ResourceMock:
     def __init__(self, path: str):

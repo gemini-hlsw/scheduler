@@ -1,14 +1,17 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import asyncio
 import signal
-from random import randint
-from multiprocessing import Process
-from ..core.meta import Singleton
 from datetime import datetime
+from multiprocessing import Process
+from random import randint
+from typing import NoReturn
+
+from app.core.meta import Singleton
+from app.core.scheduler import Scheduler
 from .runner import StandardRunner
 from .task import SchedulerTask, TaskType
-from ..core.scheduler import Scheduler
-
-from typing import NoReturn
 
 DEFAULT_TIMEOUT = 10  # seconds
 DEFAULT_SIZE = 5  # number of tasks to run in parallel
@@ -18,6 +21,7 @@ class ProcessManager(metaclass=Singleton):
     """
     Main handler for each runner, which is responsible for scheduling the task.
     """
+
     def __init__(self, size: int = DEFAULT_SIZE, timeout: int = DEFAULT_TIMEOUT):
         self.realtime_runner = StandardRunner(1)
         self.standard_runner = StandardRunner(size)
@@ -41,15 +45,15 @@ class ProcessManager(metaclass=Singleton):
                              target,
                              self.timeout)
         print(self.schedule_with_runner(task, mode))
-    
+
     async def run(self, scheduler: Scheduler, period: int, mode: TaskType):
         done = asyncio.Event()
-        
+
         def shutdown():
             done.set()
             self.shutdown()
             asyncio.get_event_loop().stop()
-        
+
         asyncio.get_event_loop().add_signal_handler(signal.SIGINT, shutdown)
 
         while not done.is_set():
@@ -59,7 +63,7 @@ class ProcessManager(metaclass=Singleton):
                 await asyncio.sleep(randint(1, 10))
             else:
                 await asyncio.sleep(period)
-    
+
     def shutdown(self):
         """
         Callback for shutting down the process manager.

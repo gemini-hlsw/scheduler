@@ -1,3 +1,6 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import calendar
 import json
 import logging
@@ -7,18 +10,17 @@ from pathlib import Path
 from typing import Iterable, NoReturn, Tuple, List, Optional, Mapping
 
 import numpy as np
-from scipy.signal import find_peaks
-
-from lucupy.observatory.gemini.geminiobservation import GeminiObservation
-from ..abstract import ProgramProvider
 from lucupy.helpers import str_to_bool, dmsstr2deg
 from lucupy.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
     Group, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation, ObservationClass, ObservationMode, \
     ObservationStatus, OrGroup, Priority, Program, ProgramMode, ProgramTypes, QAState, Resource, Semester, \
     SemesterHalf, Sequence, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType, \
     TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor
-from definitions import ROOT_DIR
+from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
+from scipy.signal import find_peaks
+
+from app.core.programprovider.abstract import ProgramProvider
 
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
@@ -978,7 +980,7 @@ class OcsProgramProvider(ProgramProvider):
         # 1. A list of Observations at the root level.
         # 2. A list of Observations for each Scheduling Group.
         # 3. A list of Observations for each Organizational Folder.
-        # We can treat (1) the same as (2) and (3) by simply passing all of the JSON
+        # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
         root_group = OcsProgramProvider.parse_and_group(data, 'Root')
 

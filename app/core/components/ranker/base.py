@@ -1,17 +1,21 @@
-import numpy as np
-import numpy.typing as npt
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from abc import abstractmethod
 from typing import Dict, FrozenSet
+
+import numpy as np
+import numpy.typing as npt
 from lucupy.minimodel import AndGroup, OrGroup, ObservationID, Group, Program, Observation, NightIndex, ALL_SITES, Site
-from ...calculations import Scores
-from ..collector import Collector
+
+from app.core.calculations import Scores
+from app.core.components.collector import Collector
 
 
 class Ranker:
-
     def __init__(self, collector: Collector,
-                       night_indices: npt.NDArray[NightIndex],
-                       sites: FrozenSet[Site] = ALL_SITES):
+                 night_indices: npt.NDArray[NightIndex],
+                 sites: FrozenSet[Site] = ALL_SITES):
         """
         We only want to calculate the parameters once since they do not change.
         """
@@ -32,7 +36,7 @@ class Ranker:
             program = self.collector.get_program(program_id)
             for obs in [o for o in program.observations() if o.site in self.sites]:
                 self._observation_scores[obs.id] = self._score_obs(program, obs)
-    
+
     def get_observation_scores(self, obs_id: ObservationID) -> Scores:
         return self._observation_scores.get(obs_id)
 
@@ -69,7 +73,7 @@ class Ranker:
         Calculate the scores for each night and time slot of an AND Group.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def _score_or_group(self, group: OrGroup) -> Scores:
         """

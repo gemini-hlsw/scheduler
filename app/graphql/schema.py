@@ -1,13 +1,17 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
+from datetime import datetime
+from typing import List
+
 import strawberry
 from astropy.time import Time
-from typing import List
-from datetime import datetime
-
-from app.process_manager import TaskType
-from ..core.scheduler import Scheduler
 from lucupy.minimodel import Site
-from app.process_manager import ProcessManager
+
+from app.core.scheduler import Scheduler
 from app.plan_manager import PlanManager
+from app.process_manager import ProcessManager
+from app.process_manager import TaskType
 from .scalars import CreateNewScheduleInput, SPlans, NewScheduleResponse, NewScheduleError, NewScheduleSuccess
 
 
@@ -20,7 +24,7 @@ class Mutation:
     async def new_schedule(self,
                            new_schedule_input: CreateNewScheduleInput) -> NewScheduleResponse:
         try:
-            start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'),\
+            start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                          Time(new_schedule_input.end_time, format='iso', scale='utc')
         except ValueError:
             # TODO: log this error

@@ -1,14 +1,17 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import dataclasses
 import functools
 import logging
 from itertools import count
-
-from .process import ProcessTask, Result
 from multiprocessing import Process
 from typing import NoReturn
 
+from .process import ProcessTask, Result
+
 job_counter = count()
+
 
 @dataclasses.dataclass(order=True)
 class Job:
@@ -26,11 +29,12 @@ class StandardRunner:
     """
     Main runner to handle Process objects and their associated tasks.
     """
+
     def __init__(self, size):
         self.max_jobs = size
         self.jobs = []
         self.callbacks = []
-    
+
     def add_done_callback(self, callback: callable) -> NoReturn:
         """
         Adds a callback that will be invoked when a job is finished. Useful
@@ -63,7 +67,7 @@ class StandardRunner:
             # Notify that we're ready to queue something new
             for callback in self.callbacks:
                 callback()
-            
+
     def _run_job(self, proc: Process, timeout: int) -> Job:
         """
         Prepares a job and starts its associated process.
@@ -78,10 +82,10 @@ class StandardRunner:
         ptask.start(timeout=timeout)
 
         return job
-    
+
     def evict(self) -> NoReturn:
         """
-        Kill the latest job
+        Kill the latest job.
         """
         try:
             job = self.jobs[-1]
@@ -101,7 +105,7 @@ class StandardRunner:
             del self.jobs[self.jobs.index(task)]
         except ValueError:
             logging.warning(f"  - Task {task} was not in the heap any longer!")
-    
+
     def schedule(self, process: Process, timeout: int) -> bool:
         """
         Attempts scheduling a new job.
@@ -117,7 +121,7 @@ class StandardRunner:
             return True
         else:
             return False
-    
+
     def terminate_all(self) -> NoReturn:
         """
         Ends all running processes.

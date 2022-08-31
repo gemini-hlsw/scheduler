@@ -1,22 +1,23 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import bz2
-from copy import copy
 import logging
-from math import ceil
 import os
+from copy import copy
 from datetime import timedelta, date, datetime
+from math import ceil
 from typing import Dict, List, Union
 
-from astropy import units as u
 import numpy as np
 import pandas as pd
 import strawberry
 import uvicorn
-from fastapi import FastAPI
-from strawberry.asgi import GraphQL
-
+from astropy import units as u
 from astropy.coordinates import Angle
-
+from fastapi import FastAPI
 from lucupy.minimodel import Site, Variant, CloudCover, ImageQuality
+from strawberry.asgi import GraphQL
 
 
 class Env:
@@ -295,6 +296,7 @@ if __name__ == '__main__':
                 svariant_list.append(SVariant.from_computed_variant(variant))
 
             return svariant_list
+
 
     schema = strawberry.Schema(query=Query)
     graphql_app = GraphQL(schema)

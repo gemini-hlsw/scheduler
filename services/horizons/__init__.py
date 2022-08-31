@@ -1,15 +1,19 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
+import contextlib
+import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Tuple, List
+
 import dateutil.parser
-from lucupy.minimodel import NonsiderealTarget, TargetTag, Site
-from lucupy.helpers import dms2rad, hms2rad
 import numpy as np
 import numpy.typing as npt
 import requests
-from typing import Tuple, List
-import logging
-import contextlib
-import os
+from lucupy.helpers import dms2rad, hms2rad
+from lucupy.minimodel import NonsiderealTarget, TargetTag, Site
 
 
 @dataclass
@@ -43,10 +47,12 @@ class HorizonsAngle:
         """
         return HorizonsAngle.to_degrees(angle) * HorizonsAngle.microarcsecsPerDegree
 
+
 class Coordinates:
     """
     Both ra and dec are in radians.
     """
+
     def __init__(self, ra: float, dec: float) -> None:
         self.ra = ra
         self.dec = dec
@@ -61,13 +67,13 @@ class Coordinates:
         phi_2 = other.dec
         delta_phi = other.dec - self.dec
         delta_lambda = other.ra - self.ra
-        a = np.around(np.sin(delta_phi / 2)**2, decimals=10) + np.around(np.cos(phi_1) * np.cos(phi_2) *
-                                                                         np.sin(delta_lambda / 2)**2, decimals=10)
+        a = np.around(np.sin(delta_phi / 2) ** 2, decimals=10) + np.around(np.cos(phi_1) * np.cos(phi_2) *
+                                                                           np.sin(delta_lambda / 2) ** 2, decimals=10)
         if 0 <= a <= 1:
             return 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
         else:
             return 0.0  # TODO: Temporary bypass for negative values in sqrt
- 
+
     def interpolate(self, other: 'Coordinates', f: float) -> 'Coordinates':
         """
         Interpolate between two Coordinates objects.
@@ -85,9 +91,10 @@ class Coordinates:
             phi_i = np.arctan2(z, np.sqrt(x * x + y * y))
             lambda_i = np.arctan2(y, x)
             return Coordinates(lambda_i, phi_i)
-    
+
     def __repr__(self) -> str:
         return f'Coordinates(ra={self.ra}, dec={self.dec})'
+
 
 @dataclass
 class EphemerisCoordinates:
@@ -151,7 +158,7 @@ class HorizonsClient:
         Returns the start and end times based on the given date
         """
         return self.start.strftime(HorizonsClient.FILE_DATE_FORMAT), self.end.strftime(HorizonsClient.FILE_DATE_FORMAT)
-    
+
     def _form_horizons_name(self, tag: TargetTag, designation: str) -> str:
         """
         Formats the name of the body
@@ -170,7 +177,7 @@ class HorizonsClient:
         """
         start, end = self._time_bounds()
         return os.path.join(self.path, f"{self.site.name}_{name.replace(' ', '').replace('/', '')}_{start}-{end}.eph")
-    
+
     def query(self,
               target: str,
               step: str = '1m',
@@ -180,13 +187,13 @@ class HorizonsClient:
               object_data: str = 'NO',
               daytime: bool = False,
               csvformat: str = 'NO') -> requests.Response:
-     
+
         # The items and order follow the JPL/Horizons batch example:
         # ftp://ssd.jpl.nasa.gov/pub/ssd/horizons_batch_example.long
         # and
         # ftp://ssd.jpl.nasa.gov/pub/ssd/horizons-batch-interface.txt
         # Note that spaces should be converted to '%20'
-        
+
         skip_day = 'NO' if daytime else 'YES'
 
         center = self.site.coordinate_center
@@ -235,7 +242,7 @@ class HorizonsClient:
     def get_ephemerides(self,
                         target: NonsiderealTarget,
                         overwrite: bool = False) -> EphemerisCoordinates:
- 
+
         horizons_name = self._form_horizons_name(target.tag, target.des)
         logging.info(f'{target.des}')
 
@@ -243,7 +250,7 @@ class HorizonsClient:
             file = self._get_ephemeris_file(target.des)
         else:
             file = self._get_ephemeris_file(horizons_name)
-        
+
         if not overwrite and os.path.exists(file):
             logging.info(f'Saving ephemerides file for {target.des}')
             with open(file, 'r') as f:
@@ -265,7 +272,6 @@ class HorizonsClient:
 
             for line in lines[firstline:lastline]:
                 if line and line[7:15] != 'Daylight' and line[7:14] != 'Airmass':
-
                     values = line.split(' ')
                     rah = int(values[-6])
                     ram = int(values[-5])
@@ -282,7 +288,7 @@ class HorizonsClient:
             logging.error(f'Error parsing ephemerides file for {target.des}')
             logging.error(e)
             raise e
-        
+
         return EphemerisCoordinates(coords, np.array(time))
 
 

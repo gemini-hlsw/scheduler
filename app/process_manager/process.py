@@ -1,14 +1,18 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import asyncio
-import threading
-import logging
 from enum import Enum
 from functools import partial
+
 
 class NotRunningError(Exception):
     ...
 
+
 class CantStartError(Exception):
     ...
+
 
 class Result(Enum):
     SUCCESS = 0
@@ -16,21 +20,25 @@ class Result(Enum):
     TERMINATED = 2
     ERROR = 3
 
+
 async def delayed_action(wait_time, action):
-    "Executes an arbitrary `action` after `wait_time` seconds have passed"
+    """
+    Executes an arbitrary `action` after `wait_time` seconds have passed.
+    """
     await asyncio.sleep(wait_time)
     res = action()
     if asyncio.iscoroutine(res):
         await res
 
+
 class ProcessTask:
-    '''
+    """
     A class that allows an async process fine control over a
     multiprocessing.Process
 
     Initialize by passing an instance of Process, that must not
     be running.
-    '''
+    """
     def __init__(self, process):
         self.process = process
         self.done = asyncio.Event()
@@ -42,29 +50,39 @@ class ProcessTask:
         """
         Add a callback to be invoked when the process finishes by
         any reason. The callback must accept one argument (the ProcessTask
-        instance itself)
+        instance itself).
         """
         self.done_callbacks.append(callback)
         return self
 
     def success(self):
-        "True if the process ended on its own without issues"
+        """
+        True if the process ended on its own without issues.
+        """
         return self.result == Result.SUCCESS
 
     def error(self):
-        "True if the process ended on its own with an exit status != 0"
+        """
+        True if the process ended on its own with an exit status != 0.
+        """
         return self.result == Result.ERROR
 
     def timed_out(self):
-        "True if the process timed out"
+        """
+        True if the process timed out.
+        """
         return self.result == Result.TIMEOUT
 
     def killed(self):
-        "True if the process was actively terminated"
+        """
+        True if the process was actively terminated.
+        """
         return self.result == Result.TERMINATED
 
     async def wait(self):
-        "Will block until the process finishes (or is terminated)"
+        """
+        Will block until the process finishes (or is terminated).
+        """
         if not self.process.is_alive():
             raise NotRunningError("Can't wait on a process that is not running")
 

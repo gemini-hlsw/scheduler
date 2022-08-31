@@ -1,9 +1,14 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import asyncio
-import signal
 import logging
-from queries import Session, new_schedule_mutation
-from config import ODB_ENDPOINT_URL, CORE_ENDPOINT_URL
+import signal
+
 from aiorun import run
+
+from config import ODB_ENDPOINT_URL, CORE_ENDPOINT_URL
+from queries import Session, new_schedule_mutation
 
 
 async def callback():
