@@ -17,8 +17,8 @@ from app.core.components.optimizer.dummy import DummyOptimizer
 from app.core.components.selector import Selector
 from app.core.output import print_plans
 from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from app.plan_manager import PlanManager
 from definitions import ROOT_DIR
+from planmanager import PlanManager
 
 
 class Scheduler:
@@ -26,7 +26,6 @@ class Scheduler:
         self.config = config
         self.start_time = start_time
         self.end_time = end_time
-        self.plan_manager = PlanManager.instance()
 
     def __call__(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -72,7 +71,7 @@ class Scheduler:
         plans = optimizer.schedule()
 
         print_plans(plans)
-        self.plan_manager.set_plans(plans)
+        PlanManager.set_plans(plans)
 
 
 def build_scheduler():

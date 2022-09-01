@@ -14,11 +14,9 @@ from app.core.components.selector import Selector
 from app.core.output import print_collector_info, print_plans
 from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from definitions import ROOT_DIR
+from planmanager import PlanManager
 
 if __name__ == '__main__':
-    # SET THIS FLAG TO RUN THE GRAPHQL SERVER AT THE END.
-    run_graphql_server = False
-
     logging.basicConfig(level=logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -163,13 +161,10 @@ if __name__ == '__main__':
     dummy = DummyOptimizer()
     optimizer = Optimizer(selection, algorithm=dummy)
     plans = optimizer.schedule()
+    PlanManager.set_plans(plans)
     print_plans(plans)
 
-    if run_graphql_server:
-        import graphql
-
-        plan_manager = graphql.PlanManager()
-        plan_manager.set_plans(plans)
-        graphql.start_graphql_server()
+    print('\nPlanManager contents:')
+    print(PlanManager.get_plans())
 
     print('DONE')

@@ -6,10 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app import app
 from app.config import config
-from app.graphql.schema import PlanManager
 from app.process_manager import ProcessManager
-
-plan_manager = PlanManager()
 
 
 # Root API
