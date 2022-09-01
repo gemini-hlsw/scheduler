@@ -6,7 +6,8 @@ import signal
 
 import astropy.units as u
 from astropy.time import Time, TimeDelta
-from lucupy.minimodel import Site
+# These depdencies looks like are not being reference but are necesary in runtime when eval() is applied
+from lucupy.minimodel import Site, ALL_SITES, Semester, ProgramTypes, ObservationClass, SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 

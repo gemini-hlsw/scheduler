@@ -8,6 +8,7 @@ from typing import List, NoReturn
 from app.core.plans import Plans
 from app.graphql.scalars import SPlans
 
+from threading import Lock
 
 class PlanManager:
     """
@@ -42,3 +43,5 @@ class PlanManager:
             SPlans.from_computed_plans(p) for p in calculated_plans
         ]
         PlanManager._pm_lock.release()
+
+plan_manager = PlanManager()

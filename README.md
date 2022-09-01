@@ -24,10 +24,10 @@ $ export PYTHONPATH=$PYTHONPATH:{path-to-project-base}
 2. Go into the base path for the project and run the following to install the conda environment:
 ```shell
 $ conda env create -f environment.yml
-$ conda activate greedymax-env
+$ conda activate scheduler
 ```
 
-To run the scheduler do:
+To run the scheduler as a standalone scrip do:
 ```shell
 $ cd scripts
 $ python run_scheduler.py
@@ -35,6 +35,11 @@ $ python run_scheduler.py
 
 If you have performed the installation correctly, you should see some basic
 output with no errors and the message DONE.
+
+To run the scheduler as a service do:
+```shell
+$ python main.py
+```
 
 
 ## How to Install (Docker)

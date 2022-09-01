@@ -1,5 +1,7 @@
 FROM python:3.10-buster
 
+WORKDIR /scheduler
+
 # Manage dependencies
 COPY ./requirements.txt /scheduler/requirements.txt
 
@@ -14,3 +16,4 @@ COPY ./config.yaml /scheduler/config.yaml
 COPY ./mock /scheduler/mock
 
 ENV PYTHONPATH "${PYTHONPATH}:/scheduler"
+ENTRYPOINT [ "python", "main.py" ]

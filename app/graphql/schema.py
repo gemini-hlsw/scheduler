@@ -7,6 +7,7 @@ from typing import List
 import strawberry
 from astropy.time import Time
 from lucupy.minimodel import Site
+from app import plan_manager
 
 from app.core.scheduler import Scheduler
 from app.process_manager import ProcessManager
@@ -16,8 +17,6 @@ from .scalars import CreateNewScheduleInput, SPlans, NewScheduleResponse, NewSch
 
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
-
-
 @strawberry.type
 class Mutation:
     @strawberry.mutation
