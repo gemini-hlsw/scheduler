@@ -9,9 +9,9 @@ from astropy.time import Time
 from lucupy.minimodel import Site
 
 from app.core.scheduler import Scheduler
-from app.plan_manager import PlanManager
 from app.process_manager import ProcessManager
 from app.process_manager import TaskType
+from planmanager import PlanManager
 from .scalars import CreateNewScheduleInput, SPlans, NewScheduleResponse, NewScheduleError, NewScheduleSuccess
 
 
@@ -38,13 +38,13 @@ class Mutation:
 
 @strawberry.type
 class Query:
-    all_plans: List[SPlans] = strawberry.field(resolver=lambda: PlanManager.instance().get_plans())
+    all_plans: List[SPlans] = strawberry.field(resolver=lambda: PlanManager.get_plans())
 
     @strawberry.field
     def plans(self) -> List[SPlans]:
-        return PlanManager.instance().get_plans()
+        return PlanManager.get_plans()
 
     @strawberry.field
     def site_plans(self, site: Site) -> List[SPlans]:
         print(f'SITE IS {site}')
-        return [plans.for_site(site) for plans in PlanManager.instance().get_plans()]
+        return [plans.for_site(site) for plans in PlanManager.get_plans()]

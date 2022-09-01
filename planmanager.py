@@ -2,14 +2,14 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from copy import deepcopy
+from threading import Lock
 from typing import List, NoReturn
 
-from app.core.meta import Singleton
 from app.core.plans import Plans
 from app.graphql.scalars import SPlans
 
 
-class PlanManager(metaclass=Singleton):
+class PlanManager:
     """
     A singleton class to store the current List[SPlans].
     1. The list represents the nights.
@@ -17,10 +17,7 @@ class PlanManager(metaclass=Singleton):
     3. The SPlan is the plan for the site for the night, containing SVisits.
     """
     _plans: List[SPlans] = []
-
-    @staticmethod
-    def instance() -> 'PlanManager':
-        return PlanManager()
+    _pm_lock: Lock = Lock()
 
     @staticmethod
     def get_plans() -> List[SPlans]:
@@ -29,9 +26,9 @@ class PlanManager(metaclass=Singleton):
         This is to ensure that the plans are not corrupted after the
         lock is released.
         """
-        PlanManager._lock.acquire()
+        PlanManager._pm_lock.acquire()
         plans = deepcopy(PlanManager._plans)
-        PlanManager._lock.release()
+        PlanManager._pm_lock.release()
         return plans
 
     @staticmethod
@@ -39,9 +36,9 @@ class PlanManager(metaclass=Singleton):
         """
         Note that we are converting List[Plans] to List[SPlans].
         """
-        PlanManager._lock.acquire()
+        PlanManager._pm_lock.acquire()
         calculated_plans = deepcopy(plans)
         PlanManager._plans = [
             SPlans.from_computed_plans(p) for p in calculated_plans
         ]
-        PlanManager._lock.release()
+        PlanManager._pm_lock.release()
