@@ -17,9 +17,6 @@ from definitions import ROOT_DIR
 from planmanager import PlanManager
 
 if __name__ == '__main__':
-    # SET THIS FLAG TO RUN THE GRAPHQL SERVER AT THE END.
-    run_graphql_server = False
-
     logging.basicConfig(level=logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -169,9 +166,5 @@ if __name__ == '__main__':
 
     print('\nPlanManager contents:')
     print(PlanManager.get_plans())
-
-    if run_graphql_server:
-        import graphql
-        graphql.start_graphql_server()
 
     print('DONE')
