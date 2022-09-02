@@ -1,4 +1,4 @@
-name: scheduler
+name: scheduler-env
 dependencies:
   - python=3.10.*
   - pip
