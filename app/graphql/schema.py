@@ -7,7 +7,6 @@ from typing import List
 import strawberry
 from astropy.time import Time
 from lucupy.minimodel import Site
-from app import plan_manager
 
 from app.core.scheduler import Scheduler
 from app.process_manager import ProcessManager
@@ -46,4 +45,5 @@ class Query:
     @strawberry.field
     def site_plans(self, site: Site) -> List[SPlans]:
         print(f'SITE IS {site}')
+        print(f'{PlanManager._plans=}')
         return [plans.for_site(site) for plans in PlanManager.get_plans()]

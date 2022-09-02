@@ -73,6 +73,7 @@ class Scheduler:
 
         print_plans(plans)
         PlanManager.set_plans(plans)
+        print(f'{PlanManager._plans=}')
 
 
 def build_scheduler():
