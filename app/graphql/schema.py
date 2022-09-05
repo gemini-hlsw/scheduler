@@ -3,7 +3,7 @@
 
 from datetime import datetime
 from typing import List
-
+import shelve
 import strawberry
 from astropy.time import Time
 from lucupy.minimodel import Site
@@ -45,5 +45,5 @@ class Query:
     @strawberry.field
     def site_plans(self, site: Site) -> List[SPlans]:
         print(f'SITE IS {site}')
-        print(f'{PlanManager._plans=}')
+        #print(f'{PlanManager._plans=}')
         return [plans.for_site(site) for plans in PlanManager.get_plans()]
