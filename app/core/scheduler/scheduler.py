@@ -3,10 +3,11 @@
 
 import os
 import signal
-
+import shelve
 import astropy.units as u
 from astropy.time import Time, TimeDelta
-from lucupy.minimodel import Site
+# These depdencies looks like are not being reference but are necesary in runtime when eval() is applied
+from lucupy.minimodel import Site, ALL_SITES, Semester, ProgramTypes, ObservationClass, SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
@@ -29,7 +30,7 @@ class Scheduler:
 
     def __call__(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-        ObservatoryProperties.set_properties(GeminiProperties)
+        # ObservatoryProperties.set_properties(GeminiProperties)
 
         programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
 
@@ -70,8 +71,9 @@ class Scheduler:
         optimizer = Optimizer(selection, algorithm=dummy)
         plans = optimizer.schedule()
 
-        print_plans(plans)
+        # Save to database
         PlanManager.set_plans(plans)
+        #print(f'{PlanManager._plans=}')
 
 
 def build_scheduler():

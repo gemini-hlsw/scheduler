@@ -15,6 +15,8 @@ from app.core.plans import Plan, Plans, Visit
 # Strawberry classes and converters.
 
 
+
+
 @strawberry.type
 class SVisit:
     """

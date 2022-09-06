@@ -1,900 +1,898 @@
-{
-  "PROGRAM_BASIC": {
-    "tooType": "Rapid",
-    "GROUP_GROUP_SCHEDULING-2": {
-      "name": "TestGroup",
-      "key": "bfb1b938-fae0-45bb-b13e-a95d65d9d4f8",
-      "OBSERVATION_BASIC-0": {
-        "SCHEDULING_CONDITIONS-0": {
-          "elevationConstraintType": "Airmass",
-          "timingWindows": [],
-          "wv": "Any",
-          "key": "8bb9ec20-4871-402f-abf8-8c1b5461372e",
-          "sb": "Any/Bright",
-          "elevationConstraintMin": 1.1,
-          "elevationConstraintMax": 2.1,
-          "cc": "Any",
-          "iq": "Any"
-        },
-        "priority": "Low",
-        "setupTime": 360000,
-        "TELESCOPE_TARGETENV-1": {
-          "userTargets": [],
-          "primaryIndex": 0,
-          "base": {
-            "name": "M11",
-            "epoch": 2000.0,
-            "tag": "sidereal",
-            "deltara": -1.568,
-            "deltadec": -4.144,
-            "ra": "18:51:03.840",
-            "magnitudes": [
-              {
-                "name": "B",
-                "value": 6.32,
-                "system": "Vega"
-              },
-              {
-                "name": "V",
-                "value": 5.8,
-                "system": "Vega"
-              }
-            ],
-            "type": "Base",
-            "dec": "353:43:40.80"
-          },
-          "key": "9aac8668-d49c-4afb-9935-54d8124680c8",
-          "guideGroups": [
-            {
-              "name": "auto",
-              "tag": "auto",
-              "primaryGroup": true,
-              "guideProbe": [
-                {
-                  "guideProbeKey": "GMOS OIWFS",
-                  "target": {
-                    "name": "419-102509",
-                    "epoch": 2000.0,
-                    "tag": "sidereal",
-                    "deltara": -0.6,
-                    "deltadec": -7.4,
-                    "ra": "18:50:50.990",
-                    "magnitudes": [
-                      {
-                        "name": "B",
-                        "value": 12.261,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "g",
-                        "value": 12.046,
-                        "system": "AB"
-                      },
-                      {
-                        "name": "V",
-                        "value": 11.983,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "UC",
-                        "value": 12.0,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "r",
-                        "value": 11.927,
-                        "system": "AB"
-                      },
-                      {
-                        "name": "i",
-                        "value": 11.875,
-                        "system": "AB"
-                      },
-                      {
-                        "name": "J",
-                        "value": 11.11,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "H",
-                        "value": 11.0,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "K",
-                        "value": 10.894,
-                        "system": "Vega"
-                      }
-                    ],
-                    "type": "GuideStar",
-                    "dec": "353:44:28.68"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "obsLog": [],
-        "setupTimeType": "FULL",
-        "obsStatus": "PHASE2",
-        "observationId": "GN-2022A-Q-999-3",
-        "key": "1a4f101b-de28-4ed1-959f-607b6618705c",
-        "sequence": [
-          {
-            "ocs:obsConditions:WaterVapor": "100",
-            "instrument:mosPreimaging": "No",
-            "instrument:version": "2009A-1",
-            "instrument:port": "side-looking",
-            "instrument:gainSetting": "2",
-            "instrument:useNS": "false",
-            "telescope:version": "2009B-1",
-            "instrument:fpu": "None",
-            "ocs:obsConditions:ImageQuality": "100",
-            "instrument:observingWavelength": "0.475",
-            "instrument:gainChoice": "Low",
-            "observe:object": "M11",
-            "instrument:posAngle": "0.0",
-            "instrument:exposureTime": "50.0",
-            "telescope:Base:name": "M11",
-            "telescope:guideWithPWFS1": "park",
-            "metadata:stepcount": "1",
-            "instrument:disperserOrder": "1",
-            "ocs:observationId": "GN-2022A-Q-999-3",
-            "instrument:ampReadMode": "Slow",
-            "instrument:stageMode": "Follow in XY",
-            "ocs:obsConditions:SkyBackground": "100",
-            "instrument:dtaXOffset": "0",
-            "instrument:fpuMode": "Builtin",
-            "instrument:ampCount": "Twelve",
-            "observe:observeType": "OBJECT",
-            "metadata:spnodekey": "ee164f41-6787-460a-b1ae-5bff95314a0e",
-            "instrument:disperserLambda": "550.0",
-            "observe:dataLabel": "GN-2022A-Q-999-3-001",
-            "ocs:obsConditions:MinAirmass": "1.1",
-            "ocs:obsConditions:MaxAirmass": "2.1",
-            "instrument:ccdYBinning": "2",
-            "observe:headerVisibility": "PUBLIC",
-            "telescope:guideWithPWFS2": "park",
-            "instrument:adc": "No Correction",
-            "smartgcal:maperror": "false",
-            "observe:proprietaryMonths": "12",
-            "instrument:ccdXBinning": "2",
-            "instrument:builtinROI": "Full Frame Readout",
-            "instrument:filter": "g_G0301",
-            "observe:exposureTime": "50.0",
-            "observe:class": "science",
-            "observe:status": "ready",
-            "instrument:disperser": "Mirror",
-            "telescope:guideWithOIWFS": "guide",
-            "observe:sciBand": "2",
-            "ocs:obsConditions:CloudCover": "100",
-            "totalTime": 84300,
-            "instrument:detectorManufacturer": "HAMAMATSU",
-            "metadata:complete": "false",
-            "smartgcal:keyProvider": "edu.gemini.spModel.gemini.gmos.InstGmosNorth@5ebf5314",
-            "ocs:programId": "GN-2022A-Q-999",
-            "instrument:instrument": "GMOS-N"
-          }
-        ],
-        "tooOverrideRapid": false,
-        "obsClass": "science",
-        "title": "GMOSN-2",
-        "qaState": "UNDEFINED",
-        "phase2Status": "Phase 2"
+{"PROGRAM_BASIC" : {
+  "tooType" : "Rapid",
+  "GROUP_GROUP_SCHEDULING-2" : {
+    "name" : "TestGroup",
+    "key" : "bfb1b938-fae0-45bb-b13e-a95d65d9d4f8",
+    "OBSERVATION_BASIC-0" : {
+      "SCHEDULING_CONDITIONS-0" : {
+        "elevationConstraintType" : "Airmass",
+        "timingWindows" : [],
+        "wv" : "Any",
+        "key" : "8bb9ec20-4871-402f-abf8-8c1b5461372e",
+        "sb" : "Any/Bright",
+        "elevationConstraintMin" : 1.1,
+        "elevationConstraintMax" : 2.1,
+        "cc" : "Any",
+        "iq" : "Any"
       },
-      "OBSERVATION_BASIC-1": {
-        "SCHEDULING_CONDITIONS-0": {
-          "elevationConstraintType": "None",
-          "timingWindows": [
+      "priority" : "Low",
+      "setupTime" : 360000,
+      "TELESCOPE_TARGETENV-1" : {
+        "userTargets" : [],
+        "primaryIndex" : 0,
+        "base" : {
+          "name" : "M11",
+          "epoch" : 2000.0,
+          "tag" : "sidereal",
+          "deltara" : -1.568,
+          "deltadec" : -4.144,
+          "ra" : "18:51:03.840",
+          "magnitudes" : [
             {
-              "start": 1641946051128,
-              "duration": 86400000,
-              "period": 0,
-              "repeat": 0
-            }
-          ],
-          "wv": "Any",
-          "key": "5e940b35-db65-45e0-a2d2-9f00a31416f7",
-          "sb": "20%/Darkest",
-          "elevationConstraintMin": 1.0,
-          "elevationConstraintMax": 2.0,
-          "cc": "Any",
-          "iq": "Any"
-        },
-        "priority": "High",
-        "setupTime": 900000,
-        "TELESCOPE_TARGETENV-1": {
-          "userTargets": [],
-          "primaryIndex": 0,
-          "base": {
-            "name": "M22",
-            "epoch": 2000.0,
-            "tag": "sidereal",
-            "deltara": 9.82,
-            "deltadec": -5.54,
-            "ra": "18:36:23.940",
-            "magnitudes": [
-              {
-                "name": "B",
-                "value": 7.16,
-                "system": "Vega"
-              },
-              {
-                "name": "V",
-                "value": 6.17,
-                "system": "Vega"
-              },
-              {
-                "name": "K",
-                "value": 1.71,
-                "system": "Vega"
-              }
-            ],
-            "type": "Base",
-            "dec": "336:05:42.90"
-          },
-          "key": "c283964c-fd0c-4630-872d-e5f073739a31",
-          "guideGroups": [
-            {
-              "name": "auto",
-              "tag": "auto",
-              "primaryGroup": true,
-              "guideProbe": [
-                {
-                  "guideProbeKey": "PWFS2",
-                  "target": {
-                    "name": "331-171970",
-                    "epoch": 2000.0,
-                    "tag": "sidereal",
-                    "deltara": 10.6,
-                    "deltadec": 0.1,
-                    "ra": "18:36:36.196",
-                    "magnitudes": [
-                      {
-                        "name": "B",
-                        "value": 12.888,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "g",
-                        "value": 11.93,
-                        "system": "AB"
-                      },
-                      {
-                        "name": "V",
-                        "value": 11.051,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "UC",
-                        "value": 10.586,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "r",
-                        "value": 10.343,
-                        "system": "AB"
-                      },
-                      {
-                        "name": "i",
-                        "value": 9.839,
-                        "system": "AB"
-                      },
-                      {
-                        "name": "J",
-                        "value": 7.754,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "H",
-                        "value": 6.993,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "K",
-                        "value": 6.769,
-                        "system": "Vega"
-                      }
-                    ],
-                    "type": "GuideStar",
-                    "dec": "336:00:20.55"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "obsLog": [],
-        "setupTimeType": "FULL",
-        "obsStatus": "READY",
-        "observationId": "GN-2022A-Q-999-4",
-        "key": "aef545e2-c330-4c71-9521-c18a9cb3ee34",
-        "sequence": [
-          {
-            "ocs:obsConditions:TimingWindowRepeat0": "0",
-            "ocs:obsConditions:WaterVapor": "100",
-            "instrument:version": "2017A-1",
-            "instrument:coadds": "1",
-            "telescope:version": "2009B-1",
-            "ocs:obsConditions:TimingWindowPeriod0": "0",
-            "instrument:hartmannMask": "Out",
-            "ocs:obsConditions:ImageQuality": "100",
-            "instrument:issPort": "Side-looking",
-            "instrument:observingWavelength": "2.2",
-            "observe:object": "M22",
-            "instrument:posAngle": "0.0",
-            "instrument:wollastonPrism": "No",
-            "instrument:exposureTime": "17.0",
-            "telescope:Base:name": "M22",
-            "telescope:guideWithPWFS1": "park",
-            "metadata:stepcount": "1",
-            "ocs:obsConditions:TimingWindowStart0": "1641946051128",
-            "ocs:observationId": "GN-2022A-Q-999-4",
-            "instrument:readMode": "Bright Objects",
-            "ocs:obsConditions:TimingWindowDuration0": "86400000",
-            "ocs:obsConditions:SkyBackground": "20",
-            "instrument:focus": "best focus",
-            "observe:observeType": "OBJECT",
-            "metadata:spnodekey": "13ee7892-7e2f-410e-8eee-ef472a88b474",
-            "instrument:acquisitionMirror": "out",
-            "observe:dataLabel": "GN-2022A-Q-999-4-001",
-            "instrument:wellDepth": "SHALLOW",
-            "observe:headerVisibility": "PUBLIC",
-            "telescope:guideWithPWFS2": "guide",
-            "instrument:centralWavelength": "2.2",
-            "smartgcal:maperror": "false",
-            "observe:proprietaryMonths": "12",
-            "observe:coadds": "1",
-            "observe:exposureTime": "17.0",
-            "instrument:pixelScale": "0.15\"/pix",
-            "observe:class": "science",
-            "observe:status": "ready",
-            "instrument:disperser": "32 l/mm grating",
-            "telescope:guideWithOIWFS": "park",
-            "observe:sciBand": "2",
-            "ocs:obsConditions:CloudCover": "100",
-            "instrument:camera": "short blue",
-            "totalTime": 26190,
-            "metadata:complete": "false",
-            "instrument:slitWidth": "0.30 arcsec",
-            "smartgcal:keyProvider": "edu.gemini.spModel.gemini.gnirs.InstGNIRS@6c024a4",
-            "ocs:programId": "GN-2022A-Q-999",
-            "instrument:crossDispersed": "No",
-            "instrument:instrument": "GNIRS"
-          }
-        ],
-        "tooOverrideRapid": false,
-        "obsClass": "science",
-        "title": "GNIRS-2",
-        "qaState": "PASS",
-        "phase2Status": "Prepared"
-      }
-    },
-    "isThesis": true,
-    "OBSERVATION_BASIC-0": {
-      "SCHEDULING_CONDITIONS-0": {
-        "elevationConstraintType": "None",
-        "timingWindows": [],
-        "wv": "20%/Low",
-        "key": "404ff028-e545-48c0-9392-b7de5ddbb64c",
-        "sb": "20%/Darkest",
-        "elevationConstraintMin": 0.0,
-        "elevationConstraintMax": 0.0,
-        "cc": "50%/Clear",
-        "iq": "20%/Best"
-      },
-      "priority": "Low",
-      "setupTime": 900000,
-      "TELESCOPE_TARGETENV-1": {
-        "userTargets": [],
-        "primaryIndex": 0,
-        "base": {
-          "name": "M10",
-          "epoch": 2000.0,
-          "tag": "sidereal",
-          "deltara": -4.72,
-          "deltadec": -6.54,
-          "ra": "16:57:09.050",
-          "magnitudes": [
-            {
-              "name": "g",
-              "value": 6.842,
-              "system": "AB"
+              "name" : "B",
+              "value" : 6.32,
+              "system" : "Vega"
             },
             {
-              "name": "V",
-              "value": 4.98,
-              "system": "Vega"
-            },
-            {
-              "name": "K",
-              "value": 3.6,
-              "system": "Vega"
+              "name" : "V",
+              "value" : 5.8,
+              "system" : "Vega"
             }
           ],
-          "type": "Base",
-          "dec": "355:53:58.88"
+          "type" : "Base",
+          "dec" : "353:43:40.80"
         },
-        "key": "ccba87a0-63ad-4b1b-8074-c9c14d245e8e",
-        "guideGroups": [
+        "key" : "9aac8668-d49c-4afb-9935-54d8124680c8",
+        "guideGroups" : [
           {
-            "name": "auto",
-            "tag": "auto",
-            "primaryGroup": true,
-            "guideProbe": [
+            "name" : "auto",
+            "tag" : "auto",
+            "primaryGroup" : true,
+            "guideProbe" : [
               {
-                "guideProbeKey": "PWFS2",
-                "target": {
-                  "name": "430-067087",
-                  "epoch": 2000.0,
-                  "tag": "sidereal",
-                  "deltara": -2.7,
-                  "deltadec": 5.7,
-                  "ra": "16:57:12.230",
-                  "magnitudes": [
+                "guideProbeKey" : "GMOS OIWFS",
+                "target" : {
+                  "name" : "419-102509",
+                  "epoch" : 2000.0,
+                  "tag" : "sidereal",
+                  "deltara" : -0.6,
+                  "deltadec" : -7.4,
+                  "ra" : "18:50:50.990",
+                  "magnitudes" : [
                     {
-                      "name": "B",
-                      "value": 12.927,
-                      "system": "Vega"
+                      "name" : "B",
+                      "value" : 12.261,
+                      "system" : "Vega"
                     },
                     {
-                      "name": "g",
-                      "value": 12.321,
-                      "system": "AB"
+                      "name" : "g",
+                      "value" : 12.046,
+                      "system" : "AB"
                     },
                     {
-                      "name": "V",
-                      "value": 11.78,
-                      "system": "Vega"
+                      "name" : "V",
+                      "value" : 11.983,
+                      "system" : "Vega"
                     },
                     {
-                      "name": "UC",
-                      "value": 11.637,
-                      "system": "Vega"
+                      "name" : "UC",
+                      "value" : 12.0,
+                      "system" : "Vega"
                     },
                     {
-                      "name": "r",
-                      "value": 11.389,
-                      "system": "AB"
+                      "name" : "r",
+                      "value" : 11.927,
+                      "system" : "AB"
                     },
                     {
-                      "name": "i",
-                      "value": 11.04,
-                      "system": "AB"
+                      "name" : "i",
+                      "value" : 11.875,
+                      "system" : "AB"
                     },
                     {
-                      "name": "J",
-                      "value": 9.628,
-                      "system": "Vega"
+                      "name" : "J",
+                      "value" : 11.11,
+                      "system" : "Vega"
                     },
                     {
-                      "name": "H",
-                      "value": 9.082,
-                      "system": "Vega"
+                      "name" : "H",
+                      "value" : 11.0,
+                      "system" : "Vega"
                     },
                     {
-                      "name": "K",
-                      "value": 8.916,
-                      "system": "Vega"
+                      "name" : "K",
+                      "value" : 10.894,
+                      "system" : "Vega"
                     }
                   ],
-                  "type": "GuideStar",
-                  "dec": "355:48:33.04"
+                  "type" : "GuideStar",
+                  "dec" : "353:44:28.68"
                 }
               }
             ]
           }
         ]
       },
-      "obsLog": [],
-      "setupTimeType": "FULL",
-      "obsStatus": "PHASE2",
-      "observationId": "GN-2022A-Q-999-2",
-      "key": "f1e411e3-ec93-430a-ac1d-1c5db3a103e6",
-      "sequence": [
+      "obsLog" : [],
+      "setupTimeType" : "FULL",
+      "obsStatus" : "PHASE2",
+      "observationId" : "GN-2022A-Q-999-3",
+      "key" : "1a4f101b-de28-4ed1-959f-607b6618705c",
+      "sequence" : [
         {
-          "ocs:obsConditions:WaterVapor": "20",
-          "instrument:version": "2017A-1",
-          "instrument:coadds": "1",
-          "telescope:version": "2009B-1",
-          "instrument:hartmannMask": "Out",
-          "ocs:obsConditions:ImageQuality": "20",
-          "instrument:issPort": "Side-looking",
-          "instrument:observingWavelength": "2.2",
-          "observe:object": "M10",
-          "instrument:posAngle": "0.0",
-          "instrument:wollastonPrism": "No",
-          "instrument:exposureTime": "17.0",
-          "telescope:Base:name": "M10",
-          "telescope:guideWithPWFS1": "park",
-          "metadata:stepcount": "1",
-          "ocs:observationId": "GN-2022A-Q-999-2",
-          "instrument:readMode": "Bright Objects",
-          "ocs:obsConditions:SkyBackground": "20",
-          "instrument:focus": "best focus",
-          "observe:observeType": "OBJECT",
-          "metadata:spnodekey": "1b712efd-659d-4854-ae75-a2ea278f82b1",
-          "instrument:acquisitionMirror": "out",
-          "observe:dataLabel": "GN-2022A-Q-999-2-001",
-          "instrument:wellDepth": "SHALLOW",
-          "observe:headerVisibility": "PUBLIC",
-          "telescope:guideWithPWFS2": "guide",
-          "instrument:centralWavelength": "2.2",
-          "smartgcal:maperror": "false",
-          "observe:proprietaryMonths": "12",
-          "observe:coadds": "1",
-          "observe:exposureTime": "17.0",
-          "instrument:pixelScale": "0.15\"/pix",
-          "observe:class": "science",
-          "observe:status": "ready",
-          "instrument:disperser": "32 l/mm grating",
-          "telescope:guideWithOIWFS": "park",
-          "observe:sciBand": "2",
-          "ocs:obsConditions:CloudCover": "50",
-          "instrument:camera": "short blue",
-          "totalTime": 26190,
-          "metadata:complete": "false",
-          "instrument:slitWidth": "0.30 arcsec",
-          "smartgcal:keyProvider": "edu.gemini.spModel.gemini.gnirs.InstGNIRS@c4ef518",
-          "ocs:programId": "GN-2022A-Q-999",
-          "instrument:crossDispersed": "No",
-          "instrument:instrument": "GNIRS"
+          "ocs:obsConditions:WaterVapor" : "100",
+          "instrument:mosPreimaging" : "No",
+          "instrument:version" : "2009A-1",
+          "instrument:port" : "side-looking",
+          "instrument:gainSetting" : "2",
+          "instrument:useNS" : "false",
+          "telescope:version" : "2009B-1",
+          "instrument:fpu" : "None",
+          "ocs:obsConditions:ImageQuality" : "100",
+          "instrument:observingWavelength" : "0.475",
+          "instrument:gainChoice" : "Low",
+          "observe:object" : "M11",
+          "instrument:posAngle" : "0.0",
+          "instrument:exposureTime" : "50.0",
+          "telescope:Base:name" : "M11",
+          "telescope:guideWithPWFS1" : "park",
+          "metadata:stepcount" : "1",
+          "instrument:disperserOrder" : "1",
+          "ocs:observationId" : "GN-2022A-Q-999-3",
+          "instrument:ampReadMode" : "Slow",
+          "instrument:stageMode" : "Follow in XY",
+          "ocs:obsConditions:SkyBackground" : "100",
+          "instrument:dtaXOffset" : "0",
+          "instrument:fpuMode" : "Builtin",
+          "instrument:ampCount" : "Twelve",
+          "observe:observeType" : "OBJECT",
+          "metadata:spnodekey" : "ee164f41-6787-460a-b1ae-5bff95314a0e",
+          "instrument:disperserLambda" : "550.0",
+          "observe:dataLabel" : "GN-2022A-Q-999-3-001",
+          "ocs:obsConditions:MinAirmass" : "1.1",
+          "ocs:obsConditions:MaxAirmass" : "2.1",
+          "instrument:ccdYBinning" : "2",
+          "observe:headerVisibility" : "PUBLIC",
+          "telescope:guideWithPWFS2" : "park",
+          "instrument:adc" : "No Correction",
+          "smartgcal:maperror" : "false",
+          "observe:proprietaryMonths" : "12",
+          "instrument:ccdXBinning" : "2",
+          "instrument:builtinROI" : "Full Frame Readout",
+          "instrument:filter" : "g_G0301",
+          "observe:exposureTime" : "50.0",
+          "observe:class" : "science",
+          "observe:status" : "ready",
+          "instrument:disperser" : "Mirror",
+          "telescope:guideWithOIWFS" : "guide",
+          "observe:sciBand" : "2",
+          "ocs:obsConditions:CloudCover" : "100",
+          "totalTime" : 84300,
+          "instrument:detectorManufacturer" : "HAMAMATSU",
+          "metadata:complete" : "false",
+          "smartgcal:keyProvider" : "edu.gemini.spModel.gemini.gmos.InstGmosNorth@5ebf5314",
+          "ocs:programId" : "GN-2022A-Q-999",
+          "instrument:instrument" : "GMOS-N"
         }
       ],
-      "tooOverrideRapid": false,
-      "obsClass": "science",
-      "title": "GNIRS-1",
-      "qaState": "UNDEFINED",
-      "phase2Status": "Phase 2"
+      "tooOverrideRapid" : false,
+      "obsClass" : "science",
+      "title" : "GMOSN-2",
+      "qaState" : "UNDEFINED",
+      "phase2Status" : "Phase 2"
     },
-    "GROUP_GROUP_FOLDER-1": {
-      "name": "TestFolder",
-      "key": "01434d0e-8c2a-4364-93fb-0ccef0f32dd2",
-      "OBSERVATION_BASIC-0": {
-        "SCHEDULING_CONDITIONS-0": {
-          "elevationConstraintType": "Hour Angle",
-          "timingWindows": [
-            {
-              "start": 1641940050498,
-              "duration": 86400000,
-              "period": 0,
-              "repeat": 0
-            },
-            {
-              "start": 1642026522000,
-              "duration": -1,
-              "period": 0,
-              "repeat": 0
-            },
-            {
-              "start": 1642112977000,
-              "duration": 43200000,
-              "period": 129600000,
-              "repeat": -1
-            },
-            {
-              "start": 1642199551000,
-              "duration": 86400000,
-              "period": 172800000,
-              "repeat": 10
-            }
-          ],
-          "wv": "Any",
-          "key": "a1892de3-466a-47db-9495-ec83e6bf9f77",
-          "sb": "50%/Dark",
-          "elevationConstraintMin": -4.0,
-          "elevationConstraintMax": 4.0,
-          "cc": "70%/Cirrus",
-          "iq": "20%/Best"
-        },
-        "priority": "Low",
-        "setupTime": 300000,
-        "TELESCOPE_TARGETENV-1": {
-          "userTargets": [
-            {
-              "name": "512-132390",
-              "epoch": 2000.0,
-              "tag": "sidereal",
-              "deltara": 4.9,
-              "deltadec": 0.9,
-              "ra": "21:29:46.873",
-              "magnitudes": [
-                {
-                  "name": "B",
-                  "value": 16.708,
-                  "system": "Vega"
-                },
-                {
-                  "name": "g",
-                  "value": 16.335,
-                  "system": "AB"
-                },
-                {
-                  "name": "V",
-                  "value": 16.062,
-                  "system": "Vega"
-                },
-                {
-                  "name": "UC",
-                  "value": 16.017,
-                  "system": "Vega"
-                },
-                {
-                  "name": "r",
-                  "value": 15.77,
-                  "system": "AB"
-                },
-                {
-                  "name": "J",
-                  "value": 14.455,
-                  "system": "Vega"
-                },
-                {
-                  "name": "H",
-                  "value": 13.997,
-                  "system": "Vega"
-                },
-                {
-                  "name": "K",
-                  "value": 13.845,
-                  "system": "Vega"
-                }
-              ],
-              "type": "Tuning Star",
-              "dec": "12:12:57.61"
-            },
-            {
-              "name": "511-136970",
-              "epoch": 2000.0,
-              "tag": "sidereal",
-              "deltara": -21.0,
-              "deltadec": -12.9,
-              "ra": "21:29:42.967",
-              "magnitudes": [
-                {
-                  "name": "UC",
-                  "value": 14.91,
-                  "system": "Vega"
-                },
-                {
-                  "name": "J",
-                  "value": 13.504,
-                  "system": "Vega"
-                },
-                {
-                  "name": "H",
-                  "value": 13.003,
-                  "system": "Vega"
-                },
-                {
-                  "name": "K",
-                  "value": 12.884,
-                  "system": "Vega"
-                }
-              ],
-              "type": "Blind-offset",
-              "dec": "12:09:53.42"
-            }
-          ],
-          "primaryIndex": 0,
-          "base": {
-            "name": "M15",
-            "epoch": 2000.0,
-            "tag": "sidereal",
-            "deltara": -0.63,
-            "deltadec": -3.8,
-            "ra": "21:29:58.330",
-            "magnitudes": [
-              {
-                "name": "B",
-                "value": 3.0,
-                "system": "Vega"
-              },
-              {
-                "name": "g",
-                "value": 7.101,
-                "system": "AB"
-              },
-              {
-                "name": "r",
-                "value": 6.692,
-                "system": "AB"
-              },
-              {
-                "name": "i",
-                "value": 6.439,
-                "system": "AB"
-              },
-              {
-                "name": "z",
-                "value": 6.288,
-                "system": "AB"
-              }
-            ],
-            "type": "Base",
-            "dec": "12:10:01.20"
-          },
-          "key": "d9462dd9-d3bc-4d12-af52-fe4159a5f44c",
-          "guideGroups": [
-            {
-              "name": "auto",
-              "tag": "auto",
-              "primaryGroup": true,
-              "guideProbe": [
-                {
-                  "guideProbeKey": "GMOS OIWFS",
-                  "target": {
-                    "name": "512-132424",
-                    "epoch": 2000.0,
-                    "tag": "sidereal",
-                    "deltara": -7.2,
-                    "deltadec": -6.8,
-                    "ra": "21:29:54.924",
-                    "magnitudes": [
-                      {
-                        "name": "B",
-                        "value": 14.185,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "g",
-                        "value": 13.473,
-                        "system": "AB"
-                      },
-                      {
-                        "name": "V",
-                        "value": 12.834,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "UC",
-                        "value": 12.388,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "r",
-                        "value": 12.37,
-                        "system": "AB"
-                      },
-                      {
-                        "name": "i",
-                        "value": 11.833,
-                        "system": "AB"
-                      },
-                      {
-                        "name": "J",
-                        "value": 10.455,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "H",
-                        "value": 9.796,
-                        "system": "Vega"
-                      },
-                      {
-                        "name": "K",
-                        "value": 9.695,
-                        "system": "Vega"
-                      }
-                    ],
-                    "type": "GuideStar",
-                    "dec": "12:13:22.47"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "obsLog": [],
-        "setupTimeType": "REACQUISITION",
-        "obsStatus": "ONGOING",
-        "observationId": "GN-2022A-Q-999-1",
-        "key": "acc39a30-97a8-42de-98a6-5e77cc95d3ec",
-        "sequence": [
+    "OBSERVATION_BASIC-1" : {
+      "SCHEDULING_CONDITIONS-0" : {
+        "elevationConstraintType" : "None",
+        "timingWindows" : [
           {
-            "ocs:obsConditions:TimingWindowRepeat0": "0",
-            "ocs:obsConditions:WaterVapor": "100",
-            "ocs:obsConditions:TimingWindowPeriod3": "172800000",
-            "ocs:obsConditions:TimingWindowDuration2": "43200000",
-            "instrument:mosPreimaging": "No",
-            "instrument:version": "2009A-1",
-            "ocs:obsConditions:TimingWindowStart1": "1642026522000",
-            "instrument:port": "side-looking",
-            "instrument:gainSetting": "2",
-            "instrument:useNS": "false",
-            "ocs:obsConditions:TimingWindowStart3": "1642199551000",
-            "telescope:version": "2009B-1",
-            "instrument:fpu": "None",
-            "ocs:obsConditions:TimingWindowPeriod0": "0",
-            "ocs:obsConditions:ImageQuality": "20",
-            "instrument:observingWavelength": "0.475",
-            "ocs:obsConditions:TimingWindowDuration1": "-1",
-            "instrument:gainChoice": "Low",
-            "observe:object": "M15",
-            "instrument:posAngle": "0.0",
-            "instrument:exposureTime": "300.0",
-            "telescope:Base:name": "M15",
-            "telescope:guideWithPWFS1": "park",
-            "metadata:stepcount": "1",
-            "instrument:disperserOrder": "1",
-            "ocs:obsConditions:TimingWindowStart0": "1641940050498",
-            "ocs:observationId": "GN-2022A-Q-999-1",
-            "instrument:ampReadMode": "Slow",
-            "instrument:stageMode": "Follow in XY",
-            "ocs:obsConditions:TimingWindowRepeat3": "10",
-            "ocs:obsConditions:TimingWindowDuration0": "86400000",
-            "ocs:obsConditions:SkyBackground": "50",
-            "instrument:dtaXOffset": "0",
-            "instrument:fpuMode": "Builtin",
-            "instrument:ampCount": "Twelve",
-            "ocs:obsConditions:TimingWindowPeriod1": "0",
-            "observe:observeType": "OBJECT",
-            "metadata:spnodekey": "1480b87e-b07a-4d42-b370-201e94ac6deb",
-            "ocs:obsConditions:MaxHourAngle": "4.0",
-            "instrument:disperserLambda": "550.0",
-            "observe:dataLabel": "GN-2022A-Q-999-1-001",
-            "instrument:ccdYBinning": "1",
-            "observe:headerVisibility": "PUBLIC",
-            "telescope:guideWithPWFS2": "park",
-            "instrument:adc": "No Correction",
-            "ocs:obsConditions:TimingWindowRepeat2": "-1",
-            "smartgcal:maperror": "false",
-            "observe:proprietaryMonths": "12",
-            "instrument:ccdXBinning": "1",
-            "instrument:builtinROI": "Full Frame Readout",
-            "instrument:filter": "g_G0301",
-            "observe:exposureTime": "300.0",
-            "observe:class": "science",
-            "observe:status": "ready",
-            "instrument:disperser": "Mirror",
-            "ocs:obsConditions:MinHourAngle": "-4.0",
-            "telescope:guideWithOIWFS": "guide",
-            "observe:sciBand": "2",
-            "ocs:obsConditions:TimingWindowPeriod2": "129600000",
-            "ocs:obsConditions:CloudCover": "70",
-            "totalTime": 392500,
-            "instrument:detectorManufacturer": "HAMAMATSU",
-            "metadata:complete": "false",
-            "smartgcal:keyProvider": "edu.gemini.spModel.gemini.gmos.InstGmosNorth@7ae19c40",
-            "ocs:programId": "GN-2022A-Q-999",
-            "ocs:obsConditions:TimingWindowStart2": "1642112977000",
-            "instrument:instrument": "GMOS-N",
-            "ocs:obsConditions:TimingWindowRepeat1": "0",
-            "ocs:obsConditions:TimingWindowDuration3": "86400000"
+            "start" : 1641946051128,
+            "duration" : 86400000,
+            "period" : 0,
+            "repeat" : 0
           }
         ],
-        "tooOverrideRapid": true,
-        "obsClass": "science",
-        "title": "GMOSN-1",
-        "qaState": "USABLE",
-        "phase2Status": "Prepared"
-      }
-    },
-    "piEmail": "",
-    "key": "c396b9c9-9bdd-4eec-be83-81162090d032",
-    "programMode": "Queue",
-    "piLastName": "",
-    "timeAccountAllocationCategories": [
-      {
-        "awardedProgramTime": 7200000,
-        "usedProgramTime": 0,
-        "usedPartnerTime": 0,
-        "awardedPartnerTime": 3600000,
-        "category": "Canada"
+        "wv" : "Any",
+        "key" : "5e940b35-db65-45e0-a2d2-9f00a31416f7",
+        "sb" : "20%/Darkest",
+        "elevationConstraintMin" : 1.0,
+        "elevationConstraintMax" : 2.0,
+        "cc" : "Any",
+        "iq" : "Any"
       },
+      "priority" : "High",
+      "setupTime" : 900000,
+      "TELESCOPE_TARGETENV-1" : {
+        "userTargets" : [],
+        "primaryIndex" : 0,
+        "base" : {
+          "name" : "M22",
+          "epoch" : 2000.0,
+          "tag" : "sidereal",
+          "deltara" : 9.82,
+          "deltadec" : -5.54,
+          "ra" : "18:36:23.940",
+          "magnitudes" : [
+            {
+              "name" : "B",
+              "value" : 7.16,
+              "system" : "Vega"
+            },
+            {
+              "name" : "V",
+              "value" : 6.17,
+              "system" : "Vega"
+            },
+            {
+              "name" : "K",
+              "value" : 1.71,
+              "system" : "Vega"
+            }
+          ],
+          "type" : "Base",
+          "dec" : "336:05:42.90"
+        },
+        "key" : "c283964c-fd0c-4630-872d-e5f073739a31",
+        "guideGroups" : [
+          {
+            "name" : "auto",
+            "tag" : "auto",
+            "primaryGroup" : true,
+            "guideProbe" : [
+              {
+                "guideProbeKey" : "PWFS2",
+                "target" : {
+                  "name" : "331-171970",
+                  "epoch" : 2000.0,
+                  "tag" : "sidereal",
+                  "deltara" : 10.6,
+                  "deltadec" : 0.1,
+                  "ra" : "18:36:36.196",
+                  "magnitudes" : [
+                    {
+                      "name" : "B",
+                      "value" : 12.888,
+                      "system" : "Vega"
+                    },
+                    {
+                      "name" : "g",
+                      "value" : 11.93,
+                      "system" : "AB"
+                    },
+                    {
+                      "name" : "V",
+                      "value" : 11.051,
+                      "system" : "Vega"
+                    },
+                    {
+                      "name" : "UC",
+                      "value" : 10.586,
+                      "system" : "Vega"
+                    },
+                    {
+                      "name" : "r",
+                      "value" : 10.343,
+                      "system" : "AB"
+                    },
+                    {
+                      "name" : "i",
+                      "value" : 9.839,
+                      "system" : "AB"
+                    },
+                    {
+                      "name" : "J",
+                      "value" : 7.754,
+                      "system" : "Vega"
+                    },
+                    {
+                      "name" : "H",
+                      "value" : 6.993,
+                      "system" : "Vega"
+                    },
+                    {
+                      "name" : "K",
+                      "value" : 6.769,
+                      "system" : "Vega"
+                    }
+                  ],
+                  "type" : "GuideStar",
+                  "dec" : "336:00:20.55"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "obsLog" : [],
+      "setupTimeType" : "FULL",
+      "obsStatus" : "READY",
+      "observationId" : "GN-2022A-Q-999-4",
+      "key" : "aef545e2-c330-4c71-9521-c18a9cb3ee34",
+      "sequence" : [
+        {
+          "ocs:obsConditions:TimingWindowRepeat0" : "0",
+          "ocs:obsConditions:WaterVapor" : "100",
+          "instrument:version" : "2017A-1",
+          "instrument:coadds" : "1",
+          "telescope:version" : "2009B-1",
+          "ocs:obsConditions:TimingWindowPeriod0" : "0",
+          "instrument:hartmannMask" : "Out",
+          "ocs:obsConditions:ImageQuality" : "100",
+          "instrument:issPort" : "Side-looking",
+          "instrument:observingWavelength" : "2.2",
+          "observe:object" : "M22",
+          "instrument:posAngle" : "0.0",
+          "instrument:wollastonPrism" : "No",
+          "instrument:exposureTime" : "17.0",
+          "telescope:Base:name" : "M22",
+          "telescope:guideWithPWFS1" : "park",
+          "metadata:stepcount" : "1",
+          "ocs:obsConditions:TimingWindowStart0" : "1641946051128",
+          "ocs:observationId" : "GN-2022A-Q-999-4",
+          "instrument:readMode" : "Bright Objects",
+          "ocs:obsConditions:TimingWindowDuration0" : "86400000",
+          "ocs:obsConditions:SkyBackground" : "20",
+          "instrument:focus" : "best focus",
+          "observe:observeType" : "OBJECT",
+          "metadata:spnodekey" : "13ee7892-7e2f-410e-8eee-ef472a88b474",
+          "instrument:acquisitionMirror" : "out",
+          "observe:dataLabel" : "GN-2022A-Q-999-4-001",
+          "instrument:wellDepth" : "SHALLOW",
+          "observe:headerVisibility" : "PUBLIC",
+          "telescope:guideWithPWFS2" : "guide",
+          "instrument:centralWavelength" : "2.2",
+          "smartgcal:maperror" : "false",
+          "observe:proprietaryMonths" : "12",
+          "observe:coadds" : "1",
+          "observe:exposureTime" : "17.0",
+          "instrument:pixelScale" : "0.15\"/pix",
+          "observe:class" : "science",
+          "observe:status" : "ready",
+          "instrument:disperser" : "32 l/mm grating",
+          "telescope:guideWithOIWFS" : "park",
+          "observe:sciBand" : "2",
+          "ocs:obsConditions:CloudCover" : "100",
+          "instrument:camera" : "short blue",
+          "totalTime" : 26190,
+          "metadata:complete" : "false",
+          "instrument:slitWidth" : "0.30 arcsec",
+          "smartgcal:keyProvider" : "edu.gemini.spModel.gemini.gnirs.InstGNIRS@6c024a4",
+          "ocs:programId" : "GN-2022A-Q-999",
+          "instrument:crossDispersed" : "No",
+          "instrument:instrument" : "GNIRS"
+        }
+      ],
+      "tooOverrideRapid" : false,
+      "obsClass" : "science",
+      "title" : "GNIRS-2",
+      "qaState" : "PASS",
+      "phase2Status" : "Prepared"
+    }
+  },
+  "isThesis" : true,
+  "OBSERVATION_BASIC-0" : {
+    "SCHEDULING_CONDITIONS-0" : {
+      "elevationConstraintType" : "None",
+      "timingWindows" : [],
+      "wv" : "20%/Low",
+      "key" : "404ff028-e545-48c0-9392-b7de5ddbb64c",
+      "sb" : "20%/Darkest",
+      "elevationConstraintMin" : 0.0,
+      "elevationConstraintMax" : 0.0,
+      "cc" : "50%/Clear",
+      "iq" : "20%/Best"
+    },
+    "priority" : "Low",
+    "setupTime" : 900000,
+    "TELESCOPE_TARGETENV-1" : {
+      "userTargets" : [],
+      "primaryIndex" : 0,
+      "base" : {
+        "name" : "M10",
+        "epoch" : 2000.0,
+        "tag" : "sidereal",
+        "deltara" : -4.72,
+        "deltadec" : -6.54,
+        "ra" : "16:57:09.050",
+        "magnitudes" : [
+          {
+            "name" : "g",
+            "value" : 6.842,
+            "system" : "AB"
+          },
+          {
+            "name" : "V",
+            "value" : 4.98,
+            "system" : "Vega"
+          },
+          {
+            "name" : "K",
+            "value" : 3.6,
+            "system" : "Vega"
+          }
+        ],
+        "type" : "Base",
+        "dec" : "355:53:58.88"
+      },
+      "key" : "ccba87a0-63ad-4b1b-8074-c9c14d245e8e",
+      "guideGroups" : [
+        {
+          "name" : "auto",
+          "tag" : "auto",
+          "primaryGroup" : true,
+          "guideProbe" : [
+            {
+              "guideProbeKey" : "PWFS2",
+              "target" : {
+                "name" : "430-067087",
+                "epoch" : 2000.0,
+                "tag" : "sidereal",
+                "deltara" : -2.7,
+                "deltadec" : 5.7,
+                "ra" : "16:57:12.230",
+                "magnitudes" : [
+                  {
+                    "name" : "B",
+                    "value" : 12.927,
+                    "system" : "Vega"
+                  },
+                  {
+                    "name" : "g",
+                    "value" : 12.321,
+                    "system" : "AB"
+                  },
+                  {
+                    "name" : "V",
+                    "value" : 11.78,
+                    "system" : "Vega"
+                  },
+                  {
+                    "name" : "UC",
+                    "value" : 11.637,
+                    "system" : "Vega"
+                  },
+                  {
+                    "name" : "r",
+                    "value" : 11.389,
+                    "system" : "AB"
+                  },
+                  {
+                    "name" : "i",
+                    "value" : 11.04,
+                    "system" : "AB"
+                  },
+                  {
+                    "name" : "J",
+                    "value" : 9.628,
+                    "system" : "Vega"
+                  },
+                  {
+                    "name" : "H",
+                    "value" : 9.082,
+                    "system" : "Vega"
+                  },
+                  {
+                    "name" : "K",
+                    "value" : 8.916,
+                    "system" : "Vega"
+                  }
+                ],
+                "type" : "GuideStar",
+                "dec" : "355:48:33.04"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "obsLog" : [],
+    "setupTimeType" : "FULL",
+    "obsStatus" : "PHASE2",
+    "observationId" : "GN-2022A-Q-999-2",
+    "key" : "f1e411e3-ec93-430a-ac1d-1c5db3a103e6",
+    "sequence" : [
       {
-        "awardedProgramTime": 14400000,
-        "usedProgramTime": 0,
-        "usedPartnerTime": 0,
-        "awardedPartnerTime": 7200000,
-        "category": "United States"
+        "ocs:obsConditions:WaterVapor" : "20",
+        "instrument:version" : "2017A-1",
+        "instrument:coadds" : "1",
+        "telescope:version" : "2009B-1",
+        "instrument:hartmannMask" : "Out",
+        "ocs:obsConditions:ImageQuality" : "20",
+        "instrument:issPort" : "Side-looking",
+        "instrument:observingWavelength" : "2.2",
+        "observe:object" : "M10",
+        "instrument:posAngle" : "0.0",
+        "instrument:wollastonPrism" : "No",
+        "instrument:exposureTime" : "17.0",
+        "telescope:Base:name" : "M10",
+        "telescope:guideWithPWFS1" : "park",
+        "metadata:stepcount" : "1",
+        "ocs:observationId" : "GN-2022A-Q-999-2",
+        "instrument:readMode" : "Bright Objects",
+        "ocs:obsConditions:SkyBackground" : "20",
+        "instrument:focus" : "best focus",
+        "observe:observeType" : "OBJECT",
+        "metadata:spnodekey" : "1b712efd-659d-4854-ae75-a2ea278f82b1",
+        "instrument:acquisitionMirror" : "out",
+        "observe:dataLabel" : "GN-2022A-Q-999-2-001",
+        "instrument:wellDepth" : "SHALLOW",
+        "observe:headerVisibility" : "PUBLIC",
+        "telescope:guideWithPWFS2" : "guide",
+        "instrument:centralWavelength" : "2.2",
+        "smartgcal:maperror" : "false",
+        "observe:proprietaryMonths" : "12",
+        "observe:coadds" : "1",
+        "observe:exposureTime" : "17.0",
+        "instrument:pixelScale" : "0.15\"/pix",
+        "observe:class" : "science",
+        "observe:status" : "ready",
+        "instrument:disperser" : "32 l/mm grating",
+        "telescope:guideWithOIWFS" : "park",
+        "observe:sciBand" : "2",
+        "ocs:obsConditions:CloudCover" : "50",
+        "instrument:camera" : "short blue",
+        "totalTime" : 26190,
+        "metadata:complete" : "false",
+        "instrument:slitWidth" : "0.30 arcsec",
+        "smartgcal:keyProvider" : "edu.gemini.spModel.gemini.gnirs.InstGNIRS@c4ef518",
+        "ocs:programId" : "GN-2022A-Q-999",
+        "instrument:crossDispersed" : "No",
+        "instrument:instrument" : "GNIRS"
       }
     ],
-    "programId": "GN-2022A-Q-999",
-    "queueBand": "2",
-    "rolloverFlag": false,
-    "awardedTime": 21600000,
-    "investigators": [],
-    "piFirstName": ""
-  }
-}
+    "tooOverrideRapid" : false,
+    "obsClass" : "science",
+    "title" : "GNIRS-1",
+    "qaState" : "UNDEFINED",
+    "phase2Status" : "Phase 2"
+  },
+  "GROUP_GROUP_FOLDER-1" : {
+    "name" : "TestFolder",
+    "key" : "01434d0e-8c2a-4364-93fb-0ccef0f32dd2",
+    "OBSERVATION_BASIC-0" : {
+      "SCHEDULING_CONDITIONS-0" : {
+        "elevationConstraintType" : "Hour Angle",
+        "timingWindows" : [
+          {
+            "start" : 1641940050498,
+            "duration" : 86400000,
+            "period" : 0,
+            "repeat" : 0
+          },
+          {
+            "start" : 1642026522000,
+            "duration" : -1,
+            "period" : 0,
+            "repeat" : 0
+          },
+          {
+            "start" : 1642112977000,
+            "duration" : 43200000,
+            "period" : 129600000,
+            "repeat" : -1
+          },
+          {
+            "start" : 1642199551000,
+            "duration" : 86400000,
+            "period" : 172800000,
+            "repeat" : 10
+          }
+        ],
+        "wv" : "Any",
+        "key" : "a1892de3-466a-47db-9495-ec83e6bf9f77",
+        "sb" : "50%/Dark",
+        "elevationConstraintMin" : -4.0,
+        "elevationConstraintMax" : 4.0,
+        "cc" : "70%/Cirrus",
+        "iq" : "20%/Best"
+      },
+      "priority" : "Low",
+      "setupTime" : 300000,
+      "TELESCOPE_TARGETENV-1" : {
+        "userTargets" : [
+          {
+            "name" : "512-132390",
+            "epoch" : 2000.0,
+            "tag" : "sidereal",
+            "deltara" : 4.9,
+            "deltadec" : 0.9,
+            "ra" : "21:29:46.873",
+            "magnitudes" : [
+              {
+                "name" : "B",
+                "value" : 16.708,
+                "system" : "Vega"
+              },
+              {
+                "name" : "g",
+                "value" : 16.335,
+                "system" : "AB"
+              },
+              {
+                "name" : "V",
+                "value" : 16.062,
+                "system" : "Vega"
+              },
+              {
+                "name" : "UC",
+                "value" : 16.017,
+                "system" : "Vega"
+              },
+              {
+                "name" : "r",
+                "value" : 15.77,
+                "system" : "AB"
+              },
+              {
+                "name" : "J",
+                "value" : 14.455,
+                "system" : "Vega"
+              },
+              {
+                "name" : "H",
+                "value" : 13.997,
+                "system" : "Vega"
+              },
+              {
+                "name" : "K",
+                "value" : 13.845,
+                "system" : "Vega"
+              }
+            ],
+            "type" : "Tuning Star",
+            "dec" : "12:12:57.61"
+          },
+          {
+            "name" : "511-136970",
+            "epoch" : 2000.0,
+            "tag" : "sidereal",
+            "deltara" : -21.0,
+            "deltadec" : -12.9,
+            "ra" : "21:29:42.967",
+            "magnitudes" : [
+              {
+                "name" : "UC",
+                "value" : 14.91,
+                "system" : "Vega"
+              },
+              {
+                "name" : "J",
+                "value" : 13.504,
+                "system" : "Vega"
+              },
+              {
+                "name" : "H",
+                "value" : 13.003,
+                "system" : "Vega"
+              },
+              {
+                "name" : "K",
+                "value" : 12.884,
+                "system" : "Vega"
+              }
+            ],
+            "type" : "Blind-offset",
+            "dec" : "12:09:53.42"
+          }
+        ],
+        "primaryIndex" : 0,
+        "base" : {
+          "name" : "M15",
+          "epoch" : 2000.0,
+          "tag" : "sidereal",
+          "deltara" : -0.63,
+          "deltadec" : -3.8,
+          "ra" : "21:29:58.330",
+          "magnitudes" : [
+            {
+              "name" : "B",
+              "value" : 3.0,
+              "system" : "Vega"
+            },
+            {
+              "name" : "g",
+              "value" : 7.101,
+              "system" : "AB"
+            },
+            {
+              "name" : "r",
+              "value" : 6.692,
+              "system" : "AB"
+            },
+            {
+              "name" : "i",
+              "value" : 6.439,
+              "system" : "AB"
+            },
+            {
+              "name" : "z",
+              "value" : 6.288,
+              "system" : "AB"
+            }
+          ],
+          "type" : "Base",
+          "dec" : "12:10:01.20"
+        },
+        "key" : "d9462dd9-d3bc-4d12-af52-fe4159a5f44c",
+        "guideGroups" : [
+          {
+            "name" : "auto",
+            "tag" : "auto",
+            "primaryGroup" : true,
+            "guideProbe" : [
+              {
+                "guideProbeKey" : "GMOS OIWFS",
+                "target" : {
+                  "name" : "512-132424",
+                  "epoch" : 2000.0,
+                  "tag" : "sidereal",
+                  "deltara" : -7.2,
+                  "deltadec" : -6.8,
+                  "ra" : "21:29:54.924",
+                  "magnitudes" : [
+                    {
+                      "name" : "B",
+                      "value" : 14.185,
+                      "system" : "Vega"
+                    },
+                    {
+                      "name" : "g",
+                      "value" : 13.473,
+                      "system" : "AB"
+                    },
+                    {
+                      "name" : "V",
+                      "value" : 12.834,
+                      "system" : "Vega"
+                    },
+                    {
+                      "name" : "UC",
+                      "value" : 12.388,
+                      "system" : "Vega"
+                    },
+                    {
+                      "name" : "r",
+                      "value" : 12.37,
+                      "system" : "AB"
+                    },
+                    {
+                      "name" : "i",
+                      "value" : 11.833,
+                      "system" : "AB"
+                    },
+                    {
+                      "name" : "J",
+                      "value" : 10.455,
+                      "system" : "Vega"
+                    },
+                    {
+                      "name" : "H",
+                      "value" : 9.796,
+                      "system" : "Vega"
+                    },
+                    {
+                      "name" : "K",
+                      "value" : 9.695,
+                      "system" : "Vega"
+                    }
+                  ],
+                  "type" : "GuideStar",
+                  "dec" : "12:13:22.47"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "obsLog" : [],
+      "setupTimeType" : "REACQUISITION",
+      "obsStatus" : "ONGOING",
+      "observationId" : "GN-2022A-Q-999-1",
+      "key" : "acc39a30-97a8-42de-98a6-5e77cc95d3ec",
+      "sequence" : [
+        {
+          "ocs:obsConditions:TimingWindowRepeat0" : "0",
+          "ocs:obsConditions:WaterVapor" : "100",
+          "ocs:obsConditions:TimingWindowPeriod3" : "172800000",
+          "ocs:obsConditions:TimingWindowDuration2" : "43200000",
+          "instrument:mosPreimaging" : "No",
+          "instrument:version" : "2009A-1",
+          "ocs:obsConditions:TimingWindowStart1" : "1642026522000",
+          "instrument:port" : "side-looking",
+          "instrument:gainSetting" : "2",
+          "instrument:useNS" : "false",
+          "ocs:obsConditions:TimingWindowStart3" : "1642199551000",
+          "telescope:version" : "2009B-1",
+          "instrument:fpu" : "None",
+          "ocs:obsConditions:TimingWindowPeriod0" : "0",
+          "ocs:obsConditions:ImageQuality" : "20",
+          "instrument:observingWavelength" : "0.475",
+          "ocs:obsConditions:TimingWindowDuration1" : "-1",
+          "instrument:gainChoice" : "Low",
+          "observe:object" : "M15",
+          "instrument:posAngle" : "0.0",
+          "instrument:exposureTime" : "300.0",
+          "telescope:Base:name" : "M15",
+          "telescope:guideWithPWFS1" : "park",
+          "metadata:stepcount" : "1",
+          "instrument:disperserOrder" : "1",
+          "ocs:obsConditions:TimingWindowStart0" : "1641940050498",
+          "ocs:observationId" : "GN-2022A-Q-999-1",
+          "instrument:ampReadMode" : "Slow",
+          "instrument:stageMode" : "Follow in XY",
+          "ocs:obsConditions:TimingWindowRepeat3" : "10",
+          "ocs:obsConditions:TimingWindowDuration0" : "86400000",
+          "ocs:obsConditions:SkyBackground" : "50",
+          "instrument:dtaXOffset" : "0",
+          "instrument:fpuMode" : "Builtin",
+          "instrument:ampCount" : "Twelve",
+          "ocs:obsConditions:TimingWindowPeriod1" : "0",
+          "observe:observeType" : "OBJECT",
+          "metadata:spnodekey" : "1480b87e-b07a-4d42-b370-201e94ac6deb",
+          "ocs:obsConditions:MaxHourAngle" : "4.0",
+          "instrument:disperserLambda" : "550.0",
+          "observe:dataLabel" : "GN-2022A-Q-999-1-001",
+          "instrument:ccdYBinning" : "1",
+          "observe:headerVisibility" : "PUBLIC",
+          "telescope:guideWithPWFS2" : "park",
+          "instrument:adc" : "No Correction",
+          "ocs:obsConditions:TimingWindowRepeat2" : "-1",
+          "smartgcal:maperror" : "false",
+          "observe:proprietaryMonths" : "12",
+          "instrument:ccdXBinning" : "1",
+          "instrument:builtinROI" : "Full Frame Readout",
+          "instrument:filter" : "g_G0301",
+          "observe:exposureTime" : "300.0",
+          "observe:class" : "science",
+          "observe:status" : "ready",
+          "instrument:disperser" : "Mirror",
+          "ocs:obsConditions:MinHourAngle" : "-4.0",
+          "telescope:guideWithOIWFS" : "guide",
+          "observe:sciBand" : "2",
+          "ocs:obsConditions:TimingWindowPeriod2" : "129600000",
+          "ocs:obsConditions:CloudCover" : "70",
+          "totalTime" : 392500,
+          "instrument:detectorManufacturer" : "HAMAMATSU",
+          "metadata:complete" : "false",
+          "smartgcal:keyProvider" : "edu.gemini.spModel.gemini.gmos.InstGmosNorth@7ae19c40",
+          "ocs:programId" : "GN-2022A-Q-999",
+          "ocs:obsConditions:TimingWindowStart2" : "1642112977000",
+          "instrument:instrument" : "GMOS-N",
+          "ocs:obsConditions:TimingWindowRepeat1" : "0",
+          "ocs:obsConditions:TimingWindowDuration3" : "86400000"
+        }
+      ],
+      "tooOverrideRapid" : true,
+      "obsClass" : "science",
+      "title" : "GMOSN-1",
+      "qaState" : "USABLE",
+      "phase2Status" : "Prepared"
+    }
+  },
+  "piEmail" : "",
+  "key" : "c396b9c9-9bdd-4eec-be83-81162090d032",
+  "programMode" : "Queue",
+  "piLastName" : "",
+  "timeAccountAllocationCategories" : [
+    {
+      "awardedProgramTime" : 7200000,
+      "usedProgramTime" : 0,
+      "usedPartnerTime" : 0,
+      "awardedPartnerTime" : 3600000,
+      "category" : "Canada"
+    },
+    {
+      "awardedProgramTime" : 14400000,
+      "usedProgramTime" : 0,
+      "usedPartnerTime" : 0,
+      "awardedPartnerTime" : 7200000,
+      "category" : "United States"
+    }
+  ],
+  "programId" : "GN-2022A-Q-999",
+  "queueBand" : "2",
+  "rolloverFlag" : false,
+  "awardedTime" : 21600000,
+  "investigators" : [],
+  "piFirstName" : ""
+}}

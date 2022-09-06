@@ -3,7 +3,7 @@
 
 from datetime import datetime
 from typing import List
-
+import shelve
 import strawberry
 from astropy.time import Time
 from lucupy.minimodel import Site
@@ -16,8 +16,6 @@ from .scalars import CreateNewScheduleInput, SPlans, NewScheduleResponse, NewSch
 
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
-
-
 @strawberry.type
 class Mutation:
     @strawberry.mutation
@@ -47,4 +45,5 @@ class Query:
     @strawberry.field
     def site_plans(self, site: Site) -> List[SPlans]:
         print(f'SITE IS {site}')
+        #print(f'{PlanManager._plans=}')
         return [plans.for_site(site) for plans in PlanManager.get_plans()]
