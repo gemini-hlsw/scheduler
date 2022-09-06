@@ -4,7 +4,7 @@ This is the automated Scheduler for Gemini Observatory, part of the GPP project.
 
 It currently is supported to run on Python >= 3.9.
 
-For the list of dependencies check: `environment.yml`
+For the list of dependencies check: `requirements.txt`
 
 ## How to Install (Local Development)
 
@@ -27,7 +27,7 @@ $ conda env create -f environment.yml
 $ conda activate scheduler
 ```
 
-To run the scheduler as a standalone scrip do:
+To run the scheduler as a standalone script do:
 ```shell
 $ cd scripts
 $ python run_scheduler.py
