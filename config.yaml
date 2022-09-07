@@ -1,6 +1,6 @@
 process_manager:
   size: 5
-  timeout: 10
+  timeout: 100
 
 scheduler:
   time_slot_length: 1.0 # on minutes
