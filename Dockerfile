@@ -14,6 +14,7 @@ COPY ./main.py /scheduler/main.py
 COPY ./definitions.py /scheduler/definitions.py
 COPY ./config.yaml /scheduler/config.yaml
 COPY ./mock /scheduler/mock
+COPY ./planmanager.py /scheduler/planmanager.py
 
 ENV PYTHONPATH "${PYTHONPATH}:/scheduler"
 ENTRYPOINT [ "python", "main.py" ]
