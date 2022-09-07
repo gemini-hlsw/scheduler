@@ -1,28 +1,6 @@
-name: greedymax-env
+name: scheduler-env
 dependencies:
   - python=3.10.*
-  - astropy
-  - hypothesis
-  - matplotlib
-  - more-itertools
-  - numpy=1.21.*
-  - openpyxl
-  - pytest
-  - pytz
-  - tabulate
-  - scipy
-  - coverage
-  - requests
-  - pandas
   - pip
   - pip:
-    - aiorun
-    - omegaconf
-    - python-dotenv
-    - fastapi
-    - strawberry-graphql[fastapi]
-    - uvicorn[standard]
-    - gql[all]
-    - backoff
-    - lucupy
-    - pytest-asyncio
+    - -r requirements.txt

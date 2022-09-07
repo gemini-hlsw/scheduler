@@ -14,7 +14,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
@@ -23,7 +23,7 @@ jobs:
 
       - name: Add $PYTHONPATH
         run: |
-          echo "PYTHONPATH=/home/runner/work/Scheduler/Scheduler" >> $GITHUB_ENV
+          echo "PYTHONPATH=/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
       
       - name: Generate Report
         run: |

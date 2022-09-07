@@ -77,7 +77,6 @@ class StandardRunner:
         ptask = ProcessTask(proc)
         job = Job(ptask)
         proc.name = f'Job-{job.sequence}'
-        print(proc.name)
         ptask.add_done_callback(functools.partial(self.terminated_job, job))
         ptask.start(timeout=timeout)
 
