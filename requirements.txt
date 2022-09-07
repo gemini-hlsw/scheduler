@@ -10,15 +10,9 @@ tabulate
 scipy
 coverage
 requests
-pandas
-aiorun
 omegaconf
-python-dotenv
 fastapi
 strawberry-graphql[fastapi]
 uvicorn[standard]
-gql[all]
-backoff
 lucupy
 pytest-asyncio
-aiorun
