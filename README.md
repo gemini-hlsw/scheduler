@@ -47,7 +47,8 @@ $ python main.py
 1. Run Docker-compose. If is the first time running the script, it would take some time to
 build the Images.  
 ```shell
-$ docker compose up 
+$ docker build -t scheduler .  
+$ docker run -dp 8000:8000 scheduler
 ```
 
 2. You can access `http://localhost:8000/graphql` to interact with the GraphQL console. 
