@@ -4,53 +4,110 @@
 import csv
 import logging
 import os
-from datetime import datetime, timedelta
-from typing import Dict, NoReturn
+from datetime import date, datetime, timedelta
+from typing import Callable, Dict, FrozenSet, List, NoReturn, Set, Tuple
 
 from lucupy.helpers import str_to_bool
-from lucupy.minimodel.site import Site
+from lucupy.minimodel import ALL_SITES, Resource, Site
 from openpyxl import load_workbook
 
+from definitions import ROOT_DIR
 from .resources import Resources
 
+
 class ResourceMock:
-    def __init__(self, path: str):
-        self.path = os.path.join(os.getcwd(), path)
-        self.fpu = {}
-        self.fpur = {}
-        self.grat = {}
-        self.fpu_to_barcode = {}
-        self.instruments = {Site.GS: {}, Site.GN: {}}
-        self.mode = {Site.GS: {}, Site.GN: {}}
-        self.lgs = {Site.GS: {}, Site.GN: {}}
-        self.ifu = {Site.GS: {}, Site.GN: {}}
+    def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
+        self._sites = sites
+        self._path = os.path.join(ROOT_DIR, 'mock', 'resource', 'data')
 
-    def _load_fpu(self, name: str, site: Site) -> tuple[Dict[datetime, str], Dict[datetime, list[str]]]:
-        ifu = {}
-        barcodes = {}
-        with open(os.path.join(self.path, f'GMOS{site.name}_{name}201789.txt')) as f:
+        # This is to avoid recreating repetitive resources.
+        # When we first get a resource ID string, create a Resource for it and store it here.
+        # Then fetch the Resources from here if they exist, and if they do not, then create a new one as per
+        # the _lookup_resource method.
+        self._all_resources: Dict[str, Resource] = {}
+
+        # The map from site and date to the set of resources.
+        self._resources: Dict[Site, Dict[date, Set[Resource]]] = {site: {} for site in self._sites}
+
+        # FPU to barcodes. The mapping is site-dependent.
+        self._fpu_to_barcode: Dict[Site, Dict[Resource, Resource]] = {}
+
+        # Determines whether a night is a part of a laser run.
+        self._lgs: Dict[Site, Dict[date, bool]] = {site: {} for site in self._sites}
+
+    def connect(self):
+        """
+        Emulate a connection to a service and load the data.
+        """
+        for site in self._sites:
+            # Load the FPUs.
+            self._process_csv(site, f'GMOS{site.name}_FPU201789.txt', lambda r: {i.strip() for i in r[1:]})
+
+            # Load the barcodes.
+            self._process_fpu_to_barcodes(f'gmos{site.name}_fpu_barcode.txt')
+
+            # Load the FPUrs.
+            self._process_csv(site, f'GMOS{site.name}_FPUr201789.txt', lambda r: {i.strip() for i in r[1:]})
+
+            # Load the gratings.
+            self._process_csv(site, f'GMOS{site.name}_GRAT201789.txt',
+                              lambda r: {'MIRROR'} | {i.strip().replace('+', '') for i in r[1:]})
+
+        # Process the spreadsheet information for instrument, mode, and LGS settings.
+        self._process_spreadsheet('2018B-2019A Telescope Schedules.xlsx')
+
+    def _process_csv(self, site: Site, name: str, c: Callable[[List[str]], Set[str]]) -> NoReturn:
+        """
+        Process a CSV file as a table, where:
+        1. The first entry is a date in YYYY-mm-dd format
+        2. The remaining entries are resources available on that date.
+        """
+        with open(os.path.join(self._path, name)) as f:
             reader = csv.reader(f, delimiter=',')
             for row in reader:
-                ifu[datetime.strptime(row[0].strip(), "%Y-%m-%d")] = row[1].strip()
-                barcodes[datetime.strptime(row[0].strip(), "%Y-%m-%d")] = [i.strip() for i in row[2:]]
-        return ifu, barcodes
+                row_date = datetime.strptime(row[0].strip(), '%Y-%m-%d').date()
+                date_set = self._resources[site].setdefault(row_date, set())
+                date_set |= {self._lookup_resource(r) for r in c(row[1:])}
+                self._resources[site][row_date] = date_set
 
-    def _load_gratings(self, site: Site) -> dict[datetime, list[str]]:
-        out_dict = {}
-        with open(os.path.join(self.path, f'GMOS{site.name}_GRAT201789.txt')) as f:
-            reader = csv.reader(f, delimiter=',')
-            for row in reader:
-                out_dict[datetime.strptime(row[0].strip(), "%Y-%m-%d")] = [i.strip().replace('+', '') for i in row[1:]]
-                out_dict[datetime.strptime(row[0].strip(), "%Y-%m-%d")].append('MIRROR')
-        return out_dict
+    def _process_spreadsheet(self, name: str) -> NoReturn:
+        """
+        Process an Excel spreadsheet containing instrument, mode, and LGS information.
+        """
+        workbook = load_workbook(filename=os.path.join(self._path, name))
+        for site in self._sites:
+            sheet = workbook[site.name]
+            for row in sheet.iter_rows(min_row=2):
+                row_date = row[0].value
+                date_set = self._resources[site].setdefault(row_date, set())
+                mode = self._lookup_resource(row[1].value)
+                lgs = str_to_bool(row[2].value)
+                instruments = {self._lookup_resource('Flamingos2' if c.value == 'F2' else c.value) for c in row[3:]}
+                date_set |= instruments | {mode}
+                self._resources[site][row_date] = date_set
+                self._lgs[site][row_date] = lgs
 
-    def _load_fpu_to_barcodes(self, site: Site) -> Dict[str, str]:
-        out_dict = {}
-        with open(os.path.join(self.path, f'gmos{site.name}_fpu_barcode.txt')) as f:
+    def _lookup_resource(self, id: str) -> Resource:
+        """
+        Check if a Resource with id already exists.
+        If it does, return it.
+        If not, create it, add it to the list of all Resources, and then return it.
+        """
+        if id not in self._all_resources:
+            self._all_resources[id] = Resource(id=id)
+        return self._all_resources[id]
+
+    def _process_fpu_to_barcodes(self, site: Site, name: str) -> NoReturn:
+        """
+        FPUs at each site map to a unique barcode. These are site-dependent values.
+        """
+        with open(os.path.join(self._path, name)) as f:
             for row in f:
                 fpu, barcode = row.split()
-                out_dict[fpu] = barcode
-        return out_dict
+
+                # Only map if the FPU is a resource.
+                if fpu in self._all_resources:
+                    self._fpu_to_barcode[site][self._all_resources[fpu]] = self._lookup_resource(barcode)
 
     @staticmethod
     def _previous(items, pivot):
@@ -66,38 +123,7 @@ class ResourceMock:
                 tdmin = diff
         return result
 
-    def _excel_reader(self) -> NoReturn:
-        workbook = load_workbook(filename=os.path.join(self.path, '2018B-2019A Telescope Schedules.xlsx'))
-        for site in Site:
-            sheet = workbook[site.name]
-            for row in sheet.iter_rows(min_row=2):
-                date = row[0].value
-                self.instruments[site][date] = ['Flamingos2' if c.value == 'F2' else c.value for c in row[3:]]
-                self.mode[site][date] = row[1].value
-                self.lgs[site][date] = str_to_bool(row[2].value)
-
-        if not self.instruments or not self.mode or not self.lgs:
-            raise Exception("Problems reading spreadsheet..")
-
-    def connect(self) -> NoReturn:
-        """
-        Allows the mock to load all the data locally, emulating a connection to the API.
-        """
-        print('Get Resource data...')
-        for site in Site:
-            self.ifu[site]['FPU'], self.fpu[site] = self._load_fpu('FPU', site)
-            self.ifu[site]['FPUr'], self.fpur[site] = self._load_fpu('FPUr', site)
-            self.grat[site] = self._load_gratings(site)
-            self.fpu_to_barcode[site] = self._load_fpu_to_barcodes(site)
-
-        if not self.fpu or not self.fpur or not self.grat:
-            raise Exception("Problems on reading files...")
-
-        self._excel_reader()
-
-    def _get_info(self, info: str, site: Site, date_str: str):
-        date = datetime.strptime(date_str, "%Y-%m-%d")
-
+    def _get_info(self, site: Site, resource_date: str):
         info_types = {'fpu': self.fpu[site],
                       'fpur': self.fpur[site],
                       'grat': self.grat[site],
