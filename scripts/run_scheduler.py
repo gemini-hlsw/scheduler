@@ -14,7 +14,7 @@ from app.core.components.selector import Selector
 from app.core.output import print_collector_info, print_plans
 from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from definitions import ROOT_DIR
-from planmanager import PlanManager
+from app.db.planmanager import PlanManager
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

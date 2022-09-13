@@ -7,8 +7,12 @@ from threading import Lock
 from typing import List, NoReturn
 from app.core.plans import Plans
 from app.graphql.scalars import SPlans
-
+from .dbmanager import DBManager
+from definitions import ROOT_DIR
 from threading import Lock
+
+db = DBManager(f'{ROOT_DIR}/plans')
+DB_KEY = 'plans'
 
 
 class PlanManager:
@@ -18,8 +22,6 @@ class PlanManager:
     2. The SPlans for each list entry is indexed by site to store the plan for the night.
     3. The SPlan is the plan for the site for the night, containing SVisits.
     """
-    _plans: List[SPlans] = []
-    _pm_lock: Lock = Lock()
 
     @staticmethod
     def get_plans() -> List[SPlans]:
@@ -28,10 +30,7 @@ class PlanManager:
         This is to ensure that the plans are not corrupted after the
         lock is released.
         """
-        # PlanManager._pm_lock.acquire()
-        with shelve.open('plans', flag='r') as db: 
-            plans = deepcopy(db['plans'])
-        #PlanManager._pm_lock.release()
+        plans = deepcopy(db.read())
         return plans
 
     @staticmethod
@@ -39,13 +38,7 @@ class PlanManager:
         """
         Note that we are converting List[Plans] to List[SPlans].
         """
-        # PlanManager._pm_lock.acquire()
         calculated_plans = deepcopy(plans)
-        with shelve.open('plans') as db:
-            db['plans'] = [ 
-                            SPlans.from_computed_plans(p) for p in calculated_plans
-                          ]
-        
-        # PlanManager._pm_lock.release()
-
-#plan_manager = PlanManager()
+        db.write([ 
+                    SPlans.from_computed_plans(p) for p in calculated_plans
+                 ])
