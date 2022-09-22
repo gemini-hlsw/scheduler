@@ -19,7 +19,7 @@ from app.core.components.selector import Selector
 from app.core.output import print_plans
 from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from definitions import ROOT_DIR
-from planmanager import PlanManager
+from app.db.planmanager import PlanManager
 
 
 class Scheduler:

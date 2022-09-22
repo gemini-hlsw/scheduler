@@ -11,7 +11,7 @@ from lucupy.minimodel import Site
 from app.core.scheduler import Scheduler
 from app.process_manager import ProcessManager
 from app.process_manager import TaskType
-from planmanager import PlanManager
+from app.db.planmanager import PlanManager
 from .scalars import CreateNewScheduleInput, SPlans, NewScheduleResponse, NewScheduleError, NewScheduleSuccess
 
 
