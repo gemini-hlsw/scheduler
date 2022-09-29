@@ -558,7 +558,9 @@ class OcsProgramProvider(ProgramProvider):
             return peaks[0] if len(peaks) > 0 else 0
         
         n_atom = 0
-        atom_id = 0 
+        atom_id = 0
+        classes = []
+        guiding = [] 
         atoms = []
 
         p_offsets = []
@@ -572,12 +574,9 @@ class OcsProgramProvider(ProgramProvider):
 
         # all atoms must have the same instrument
         instrument = sequence[0][OcsProgramProvider._AtomKeys.INSTRUMENT]
-        offset_lag = OcsProgramProvider._parse_offsets(sequence, 'GPI')
-
         for step in sequence:
 
             # Instrument configuration aka Resource
-            # instrument = step[OcsProgramProvider._AtomKeys.INSTRUMENT]
             fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
 
             # We don't want to allow FPU to be None or FPU_NONE, which are effectively the same thing.
@@ -688,6 +687,9 @@ class OcsProgramProvider(ProgramProvider):
                 if n_atom > 0:   
                     previous_atom = atoms[-1]
                     # atoms[-1]['qa_state'] = select_qastate(qastates)
+                    previous_atom.qa_state = min(qa_states, default=QAState.NONE)
+                    if previous_atom.qa_state is not QAState.NONE:
+                        previous_atom.observed = True
                     previous_atom.resources = resources
                     previous_atom.guide_state = any(guiding)
                     previous_atom.wavelengths = frozenset(wavelengths)
@@ -701,9 +703,9 @@ class OcsProgramProvider(ProgramProvider):
                                     exec_time=timedelta(0),
                                     prog_time=timedelta(0),
                                     part_time=timedelta(0),
-                                    observed=observed,
-                                    qa_state=min(qa_states, default=QAState.NONE),
-                                    guide_state=guide_state(step),
+                                    observed=False,
+                                    qa_state=QAState.NONE,
+                                    guide_state=False,
                                     resources=resources,
                                     wavelengths=frozenset(wavelengths)))
             
@@ -729,7 +731,9 @@ class OcsProgramProvider(ProgramProvider):
 
         if n_atom > 0:
             previous_atom = atoms[-1]
-            # atoms[-1]['qa_state'] = select_qastate(qastates)
+            previous_atom.qa_state = min(qa_states, default=QAState.NONE)
+            if previous_atom.qa_state is not QAState.NONE:
+                previous_atom.observed = True
             previous_atom.resources = resources
             previous_atom.guide_state = any(guiding)
             previous_atom.wavelengths = frozenset(wavelengths)
