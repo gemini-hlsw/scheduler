@@ -508,8 +508,6 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
 
     return atoms
 
-# --------------
-
 
 def group_proc(group,
                sel_obs_class: FrozenSet = frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL']),
@@ -821,14 +819,11 @@ def xlsxseq(file, path):
     return sequence
 
 
-def xlsxatoms(file, path, sheet='None', verbose=False):
+def xlsxatoms(file: str, path: str, sheet: str = 'None', verbose=False):
     # Read a spreadsheet created by findatoms
-
-    filename = os.path.join(path, file)
+    wb = load_workbook(os.path.join(path, file))
 
     atoms_dict = {}
-
-    wb = load_workbook(filename=filename)
 
     sheets = []
     if sheet == 'None':
@@ -843,15 +838,12 @@ def xlsxatoms(file, path, sheet='None', verbose=False):
     for sheet in sheets:
         ws = wb[sheet]
         print(f"Sheet {ws.title}")
-        # Columns
-        #         columns = ['datalab', 'class', 'type', inst', 'exec_time', 'exptime', 'coadds', 'fpu', 'filter',
-        #                    'disperser', 'wavelength', 'p', 'q', 'guiding', 'qa_state', 'atom']
         sequence = {}
         columns = []
         # Eventually read the number of columns in the sheet
         row = 1
-        for ii in range(16):
-            col = ws.cell(column=ii + 1, row=row).value
+        for idx in range(16):
+            col = ws.cell(column=idx + 1, row=row).value
             if col is not None:
                 columns.append(col)
                 sequence[col] = []
@@ -866,14 +858,13 @@ def xlsxatoms(file, path, sheet='None', verbose=False):
         qastates = []
         while ws.cell(column=1, row=row).value is not None:
             nextatom = False
-            for jj, col in enumerate(columns):
-                sequence[col].append(ws.cell(column=jj + 1, row=row).value)
-            #             print(sequence['datalab'][-1], sequence['inst'][-1], sequence['atom'][-1])
+            for idx, col in enumerate(columns):
+                sequence[col].append(ws.cell(column=idx + 1, row=row).value)
+            # print(sequence['datalab'][-1], sequence['inst'][-1], sequence['atom'][-1])
 
-            # obsid
             if natom == 0:
                 datalab = sequence['datalab'][-1]
-                obsid = datalab[0:datalab.rfind('-')]
+                obs_id = datalab[0:datalab.rfind('-')]
 
             if natom == 0 or (natom > 0 and sequence['atom'][-1] != sequence['atom'][-2]):
                 nextatom = True
@@ -948,7 +939,7 @@ def xlsxatoms(file, path, sheet='None', verbose=False):
                   format(atoms[-1]['exec_time'], atoms[-1]['prog_time'], atoms[-1]['part_time'], \
                          atoms[-1]['guide_state']))
 
-        atoms_dict[obsid] = atoms
+        atoms_dict[obs_id] = atoms
 
     wb.close()
 
