@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import Iterable, NoReturn, Tuple, List, Optional, Mapping
 
 import numpy as np
-from lucupy.helpers import str_to_bool, dmsstr2deg
+from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
     Group, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation, ObservationClass, ObservationMode, \
     ObservationStatus, OrGroup, Priority, Program, ProgramMode, ProgramTypes, QAState, Resource, Semester, \
-    SemesterHalf, Sequence, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType, \
-    TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor
+    SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType, TimeAccountingCode, \
+    TimeAllocation, TimingWindow, TooType, WaterVapor
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 from scipy.signal import find_peaks
@@ -97,8 +97,8 @@ class OcsProgramProvider(ProgramProvider):
         TYPE = 'type'
         RA = 'ra'
         DEC = 'dec'
-        DELTARA = 'deltara'
-        DELTADEC = 'deltadec'
+        DELTA_RA = 'deltara'
+        DELTA_DEC = 'deltadec'
         EPOCH = 'epoch'
         DES = 'des'
         TAG = 'tag'
@@ -387,8 +387,8 @@ class OcsProgramProvider(ProgramProvider):
         # ra = hmsstr2deg(ra_hhmmss)
         dec = dmsstr2deg(dec_ddmmss)
 
-        pm_ra = data.setdefault(OcsProgramProvider._TargetKeys.DELTARA, 0.0)
-        pm_dec = data.setdefault(OcsProgramProvider._TargetKeys.DELTADEC, 0.0)
+        pm_ra = data.setdefault(OcsProgramProvider._TargetKeys.DELTA_RA, 0.0)
+        pm_dec = data.setdefault(OcsProgramProvider._TargetKeys.DELTA_DEC, 0.0)
         epoch = data.setdefault(OcsProgramProvider._TargetKeys.EPOCH, 2000)
 
         return SiderealTarget(
@@ -584,7 +584,7 @@ class OcsProgramProvider(ProgramProvider):
                 filters.append(filt)
             wavelengths.append(wavelength)
 
-            p = 0.0 
+            p = 0.0
             q = 0.0
 
             # Exposures on sky for dither pattern analysis
@@ -610,7 +610,6 @@ class OcsProgramProvider(ProgramProvider):
         # The lag is the length of any pattern, 0 means no repeating pattern
         p_lag = 0
         q_lag = 0
-        offset_lag = 0
         if do_not_split:
             offset_lag = len(sequence)
         else:
@@ -644,19 +643,16 @@ class OcsProgramProvider(ProgramProvider):
             # Any wavelength/filter change is a new atom
             if step_id == 0 or (step_id > 0 and wavelengths[step_id] != wavelengths[step_id - 1]):
                 next_atom = True
-                # TODO: Can we make this informative?
-                # logging.info('Atom for wavelength')
 
             # A change in exposure time or coadds is a new atom for science exposures
             if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider.OBSERVE_TYPES:
-                if observe_class.upper() == 'SCIENCE' and (step_id > 0 and
-                                                           exposure_times[step_id] != exposure_times[prev] or
-                                                           coadds[step_id] != coadds[prev]):
+                if (observe_class.upper() == ObservationClass.SCIENCE.name and step_id > 0 and
+                        (exposure_times[step_id] != exposure_times[prev] or coadds[step_id] != coadds[prev])):
                     next_atom = True
                     # logging.info('Atom for exposure time change')
 
                 # Offsets - a new offset pattern is a new atom
-                if not (offset_lag == 0 and exp_time_groups is True):
+                if offset_lag != 0 or not exp_time_groups:
                     # For NIR imaging, need to have at least two offset positions if no repeating pattern
                     # New atom after every 2nd offset (noffsets is odd)
                     if mode is ObservationMode.IMAGING and offset_lag == 0 and all(w > 1.0 for w in wavelengths):
@@ -679,7 +675,7 @@ class OcsProgramProvider(ProgramProvider):
             # New atom entry
             if next_atom:
                 # Get class, qastate, guiding for previous atom
-                if n_atom > 0:   
+                if n_atom > 0:
                     previous_atom = atoms[-1]
                     previous_atom.qa_state = min(qa_states, default=QAState.NONE)
                     if previous_atom.qa_state is not QAState.NONE:
@@ -688,24 +684,24 @@ class OcsProgramProvider(ProgramProvider):
                     previous_atom.guide_state = any(guiding)
                     previous_atom.wavelengths = frozenset(wavelengths)
 
-                n_atom+=1
-                # Convert all the different components into Resources.
+                n_atom += 1
 
+                # Convert all the different components into Resources.
                 classes = []
                 guiding = []
                 atoms.append(Atom(id=atom_id,
-                                    exec_time=timedelta(0),
-                                    prog_time=timedelta(0),
-                                    part_time=timedelta(0),
-                                    observed=False,
-                                    qa_state=QAState.NONE,
-                                    guide_state=False,
-                                    resources=resources,
-                                    wavelengths=frozenset(wavelengths)))
+                                  exec_time=timedelta(0),
+                                  prog_time=timedelta(0),
+                                  part_time=timedelta(0),
+                                  observed=False,
+                                  qa_state=QAState.NONE,
+                                  guide_state=False,
+                                  resources=resources,
+                                  wavelengths=frozenset(wavelengths)))
 
                 if (step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider.OBSERVE_TYPES and
-                    n_pattern == 0):
-                        n_pattern = offset_lag
+                        n_pattern == 0):
+                    n_pattern = offset_lag
                 n_offsets = 1
 
             # Update atom
@@ -733,7 +729,6 @@ class OcsProgramProvider(ProgramProvider):
             previous_atom.wavelengths = frozenset(wavelengths)
 
         return atoms
-
 
     @staticmethod
     def parse_target(data: dict) -> Target:
