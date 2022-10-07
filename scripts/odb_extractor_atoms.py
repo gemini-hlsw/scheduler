@@ -698,47 +698,31 @@ def seqxlsx(sequence, comment: str = '', path: str = '') -> NoReturn:
     row += 1
 
     for step in list(sequence):
-        data = []
-        data.append(step['observe:dataLabel'])
-        data.append(step['observe:class'])
         inst = step['instrument:instrument']
-        data.append(inst)
-    #     print(inst, fpuinst[inst])
-        data.append(float(step['observe:exposureTime']))
+        # print(inst, fpuinst[inst])
+
         if 'GMOS' in inst:
             coadds = '1'
             # convert wavelength to microns
-#             wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
+            # wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
         else:
             coadds = step['observe:coadds']
-        data.append(int(coadds))
-        data.append(step[fpuinst[inst]])
-        if 'instrument:filter_name' in step.keys():
-            filter_name = step["instrument:filter_name"]
-        else:
-            filter_name = 'None'
-        data.append(filter_name)
-        data.append(step['instrument:disperser'])
-        data.append(float(step['instrument:observingWavelength']))
-        if 'telescope:p' in step.keys():
-            p = step['telescope:p']
-        else:
-            p = '0.0'
-        data.append(float(p))
-        if 'telescope:q' in step.keys():
-            q = step['telescope:q']
-        else:
-            q = '0.0'  
-        data.append(float(q))
-        data.append(int(atom))
+
+        filter_name = step["instrument:filter_name"] if 'instrument:filter_name' in step.keys() else 'None'
+
+        p = step['telescope:p'] if 'telescope:p' in step.keys() else '0.0'
+        q = step['telescope:q'] if 'telescope:q' in step.keys() else '0.0'
+
+        data = [step['observe:dataLabel'], step['observe:class'], inst, float(step['observe:exposureTime']),
+                int(coadds), step[fpuinst[inst]], filter_name, step['instrument:disperser'],
+                float(step['instrument:observingWavelength']), float(p), float(q), int(atom)]
         print(data)
         
-        for ii in range(len(columns)):
-            _ = ws.cell(column=ii+1, row=row, value=data[ii])
+        for col_idx, col_data in enumerate(data):
+            ws.cell(column=col_idx + 1, row=row, value=f'{col_data}')
         row += 1
     
     wb.save(filename)
-    return
 
 
 def readseq(file, path):
