@@ -9,13 +9,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import requests
-from typing import Dict, FrozenSet, Optional, NoReturn, Sequence
+from typing import Dict, FrozenSet, Optional, NoReturn, Sequence, TypeVar
 
 from openpyxl import Workbook
 from openpyxl import load_workbook
 
 from lucupy.minimodel import ObservationClass, QAState
 
+T = TypeVar('T')
 
 fpuinst = {'GSAOI': 'instrument:utilityWheel', 'GPI': 'instrument:observingMode', 'Flamingos2': 'instrument:fpu',
            'NIFS': 'instrument:mask', 'GNIRS': 'instrument:slitWidth', 'GMOS-N': 'instrument:fpu',
@@ -32,22 +33,22 @@ def find_filter(input_filter: str, filter_dict: Dict[str, float]) -> Optional[st
     return next((x for x in list(filter_dict.keys()) if x in input_filter), None)
 
 
-def searchlist(val, alist):
+def search_list(val: Sequence[T], alist: Sequence[T]) -> T:
     """
     Search for existence of val in any element of alist.
     """
     return any(elem for elem in alist if val in elem)
 
 
-def shortid(idin):
+def short_id(id: str) -> str:
     """
-    Return short form of obsid or data label
+    Return short form of obs_id or data label.
     """
-    idsp = idin.split('-')
-    idout = idsp[0][1] + idsp[1][2:5] + '-' + idsp[2] + '-' + idsp[3] + '[' + idsp[4] + ']'
-    if len(idsp) == 6:
-        idout += '-' + idsp[5]
-    return idout
+    id_split = id.split('-')
+    id_out = id_split[0][1] + id_split[1][2:5] + '-' + id_split[2] + '-' + id_split[3] + '[' + id_split[4] + ']'
+    if len(id_split) == 6:
+        id_out += '-' + id_split[5]
+    return id_out
 
 
 def odb_json(progid,
@@ -96,12 +97,12 @@ def obsmode(config: Dict[str, str]) -> str:
     Determine the observation mode (e.g. imaging, longslit, mos, ifu, etc.
     """
     mode = 'unknown'
-    if searchlist('GMOS', config['inst']):
+    if search_list('GMOS', config['inst']):
         if 'MIRROR' in config['disperser']:
             mode = 'imaging'
-        elif searchlist('arcsec', config['fpu']):
+        elif search_list('arcsec', config['fpu']):
             mode = 'longslit'
-        elif searchlist('IFU', config['fpu']):
+        elif search_list('IFU', config['fpu']):
             mode = 'ifu'
         elif 'CUSTOM_MASK' in config['fpu']:
             mode = 'mos'
@@ -112,29 +113,29 @@ def obsmode(config: Dict[str, str]) -> str:
     elif config['inst'] in ['GHOST', 'MAROON-X', 'GRACES', 'Phoenix']:
         mode = 'xd'
     elif config['inst'] == 'Flamingos2':
-        if searchlist('LONGSLIT', config['fpu']):
+        if search_list('LONGSLIT', config['fpu']):
             mode = 'longslit'
-        if searchlist('FPU_NONE', config['fpu']) \
-                and searchlist('IMAGING', config['disperser']):
+        if search_list('FPU_NONE', config['fpu']) \
+                and search_list('IMAGING', config['disperser']):
             mode = 'imaging'
     elif config['inst'] == 'NIRI':
-        if searchlist('NONE', config['disperser']) and searchlist('MASK_IMAGING', config['fpu']):
+        if search_list('NONE', config['disperser']) and search_list('MASK_IMAGING', config['fpu']):
             mode = 'imaging'
     elif config['inst'] == 'NIFS':
         mode = 'ifu'
     elif config['inst'] == 'GNIRS':
-        if searchlist('mirror', config['disperser']):
+        if search_list('mirror', config['disperser']):
             mode = 'imaging'
-        elif searchlist('XD', config['disperser']):
+        elif search_list('XD', config['disperser']):
             mode = 'xd'
         else:
             mode = 'longslit'
     elif config['inst'] == 'GPI':
-        if searchlist('CORON', config['fpu']):
+        if search_list('CORON', config['fpu']):
             mode = 'coron'
-        elif searchlist('NRM', config['fpu']):
+        elif search_list('NRM', config['fpu']):
             mode = 'nrm'
-        elif searchlist('DIRECT', config['fpu']):
+        elif search_list('DIRECT', config['fpu']):
             mode = 'imaging'
         else:
             mode = 'ifu'
@@ -470,7 +471,7 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
             atoms[-1]['prog_time'] += step_time
 
         print('{:17} {:3} {:7.2f} {:3d} {:10} {:12} {:10} {:12} {:6.4f} {:8.2f} {:8.2f} {:1} {:3d}'.format(
-            shortid(datalab),
+            short_id(datalab),
             observe_class[0:3], exptimes[ii], coadds[ii], config['inst'], config['fpu'][ii],
             config['filter'][ii], config['disperser'][ii], config['wavelength'][ii], poffsets[ii],
             qoffsets[ii], guiding[-1], atomlabel),
