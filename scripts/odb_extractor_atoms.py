@@ -164,7 +164,23 @@ def select_qastate(states: Sequence[QAState]) -> str:
     for state in qastate_order:
         if state in states:
             return state
+    return ''
 
+
+def select_obsclass(classes: Sequence[ObservationClass]) -> str:
+    """
+    Return the obsclass based on precedence
+    This requires special handling, so we leave it instead of just using enum comparison.
+
+    classes: list of observe classes from the ODB extractor
+    """
+    # Precedence order for observation classes.
+    obsclass_order = ['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL']
+
+    # Set the obsclass for the entire observation based on obsclass precedence
+    for oclass in obsclass_order:
+        if oclass in classes:
+            return oclass
     return ''
 
 
@@ -402,7 +418,7 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
                 atoms[-1]['qa_state'] = select_qastate(qastates)
                 if atoms[-1]['qa_state'] != 'NONE':
                     atoms[-1]['observed'] = True
-                atoms[-1]['class'] = min(classes, default=None)
+                atoms[-1]['class'] = select_obsclass(classes)
                 if verbose:
                     print('QA states: ', qastates, file=fid)
                     print('Classes: ', classes, file=fid)
@@ -473,7 +489,7 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
         atoms[-1]['qa_state'] = select_qastate(qastates)
         if atoms[-1]['qa_state'] != 'NONE':
             atoms[-1]['observed'] = True
-        atoms[-1]['class'] = min(classes, default=None)
+        atoms[-1]['class'] = select_obsclass(classes)
         if verbose:
             print('QA states: ', qastates, file=fid)
             print('Classes: ', classes, file=fid)
@@ -869,7 +885,7 @@ def xlsxatoms(file, path, sheet='None', verbose=False):
                     atoms[-1]['qa_state'] = select_qastate(qastates)
                     if atoms[-1]['qa_state'] != 'NONE':
                         atoms[-1]['observed'] = True
-                    atoms[-1]['class'] = min(classes, default=None)
+                    atoms[-1]['class'] = select_obsclass(classes)
                     if verbose:
                         print('QA states: ', qastates)
                         print('Classes: ', classes)
@@ -915,7 +931,7 @@ def xlsxatoms(file, path, sheet='None', verbose=False):
             atoms[-1]['qa_state'] = select_qastate(qastates)
             if atoms[-1]['qa_state'] != 'NONE':
                 atoms[-1]['observed'] = True
-            atoms[-1]['class'] = min(classes, default=None)
+            atoms[-1]['class'] = select_obsclass(classes)
             if verbose:
                 print('QA states: ', qastates)
                 print('Classes: ', classes)
