@@ -510,26 +510,27 @@ def group_proc(group,
                sel_obs_class: FrozenSet = frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL']),
                sel_obs_status: FrozenSet = frozenset(['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION', 'ON_HOLD',
                                                       'READY', 'ONGOING', 'OBSERVED', 'INACTIVE']),
-               fid=sys.stdout, wb=None, verbose=False):
-    """Process observations within groups"""
-
+               fid=sys.stdout, wb=None, verbose=False) -> NoReturn:
+    """
+    Process observations within groups.
+    """
     ws = None
-    obsnum = []
+    obs_num = []
     for item in list(group.keys()):
         # obs_id = ''
         if 'OBSERVATION' in item:
             # obs_id = group[item]['observationId']
-            obsnum.append(int(item.split('-')[1]))
+            obs_num.append(int(item.split('-')[1]))
 
-    if len(obsnum) > 0:
-        isrt = np.argsort(obsnum)
+    if len(obs_num) > 0:
+        isrt = np.argsort(obs_num)
         for ii in isrt:
             # obs_program_used = 0.0
             # obs_partner_used = 0.0
-            item = 'OBSERVATION_BASIC-' + str(obsnum[ii])
+            item = 'OBSERVATION_BASIC-' + str(obs_num[ii])
             # obs_id = program[prog][group][item]['sequence'][0]['ocs:observationId']
             obs_id = group[item]['observationId']
-            print(f"{obsnum[ii], obs_id}", file=fid)
+            print(f'{obs_num[ii], obs_id}', file=fid)
             obs_class = group[item]['obsClass'].upper()
             # phase2stat = group[item]['phase2Status'].upper()
             obs_stat = group[item]['obsStatus'].upper()
@@ -569,22 +570,23 @@ def group_proc(group,
                 #                 print(f" program_used: {obs_program_used}")
                 #                 print(f" partner_used: {obs_partner_used}")
                 print('', file=fid)
-
             print('', file=fid)
 
-    return
 
-
-def prog_proc(program, sel_obs_class=['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL'], \
-              sel_obs_status=['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION', 'ON_HOLD', 'READY', \
-                              'ONGOING', 'OBSERVED', 'INACTIVE'], fid=sys.stdout, xls=None, verbose=False):
-    """Process top-level of program"""
-
+def prog_proc(program,
+              sel_obs_class: FrozenSet[str] = frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL',
+                                                         'ACQ', 'ACQCAL', 'DAYCAL']),
+              sel_obs_status: FrozenSet[str] = frozenset(['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION',
+                                                          'ON_HOLD', 'READY','ONGOING', 'OBSERVED', 'INACTIVE']),
+              fid=sys.stdout, xls=None):
+    """
+    Process top-level of program.
+    """
     wb = None
     grpnum = []
     grplist = []
     for prog in list(program.keys()):
-        #     print(list(program[prog].keys()))
+        # print(list(program[prog].keys()))
         print(f"**** {program[prog]['programId']} ****", file=fid)
 
         # Excel output?
@@ -615,14 +617,13 @@ def prog_proc(program, sel_obs_class=['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ',
             isrt = np.argsort(grpnum)
             #     print(grpnum)
             for ii in isrt:
-                group = grplist[ii] + '-' + str(grpnum[ii])
+                group = str(grplist[ii]) + '-' + str(grpnum[ii])
                 print(group, program[prog][group]['name'], file=fid)
                 group_proc(program[prog][group], sel_obs_class=sel_obs_class, sel_obs_status=sel_obs_status,
-                           fid=fid, wb=wb, verbose=verbose)
+                           fid=fid, wb=wb)
 
         # Process any observations at the root level
-        group_proc(program[prog], sel_obs_class=sel_obs_class, sel_obs_status=sel_obs_status, fid=fid,
-                   wb=wb, verbose=verbose)
+        group_proc(program[prog], sel_obs_class=sel_obs_class, sel_obs_status=sel_obs_status, fid=fid, wb=wb)
         print('', file=fid)
 
     if xls is not None:
@@ -954,8 +955,10 @@ if __name__ == '__main__':
     for progid in programs:
         xlsout = os.path.join(path, progid + '.xlsx')
         program = odb_json(progid, path=path)
-        prog_proc(program, sel_obs_class=['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
-                    sel_obs_status=['READY', 'ONGOING', 'OBSERVED'], verbose=False, xls=xlsout, fid=f)
+        prog_proc(program,
+                  sel_obs_class=frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL']),
+                  sel_obs_status=frozenset(['READY', 'ONGOING', 'OBSERVED']),
+                  xls=xlsout, fid=f)
     if f != sys.stdout:
         f.close()
 
