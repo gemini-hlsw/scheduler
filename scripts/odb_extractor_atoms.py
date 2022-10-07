@@ -673,9 +673,10 @@ def printseq(sequence, comment: str = '', csv: bool = False, path: str = ''):
         out_file.close()
 
 
-def seqxlsx(sequence, comment='', path=''):
-    '''Write sequence information to an Excel spreadsheet'''
-
+def seqxlsx(sequence, comment: str = '', path: str = '') -> NoReturn:
+    """
+    Write sequence information to an Excel spreadsheet.
+    """
     obsid = sequence[0]['ocs:observationId']
     filename = os.path.join(path, obsid + '_seq.xlsx')
     wb = Workbook()
@@ -692,13 +693,9 @@ def seqxlsx(sequence, comment='', path=''):
                'disperser', 'wavelength', 'p', 'q', 'atom']
     
     row = 2
-    for ii, col in enumerate(columns):
-        _ = ws.cell(column=ii+1, row=row, value="{0}".format(col))
+    for col_idx, col_data in enumerate(columns):
+        ws.cell(column=col_idx +1, row=row, value=f'col_data')
     row += 1
-        
-#     print('{},{}'.format('comment', comment), file=f)
-#     print('{},{},{},{},{},{},{},{},{},{},{}'.format('datalab', 'class', 'exptime', 'coadds', 'inst', 'fpu', 
-#                                                            'disperser', 'wavelength', 'p', 'q', 'atom'), file=f)
 
     for step in list(sequence):
         data = []
