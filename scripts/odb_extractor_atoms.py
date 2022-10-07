@@ -1,20 +1,19 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import gzip
+import json
 import os
 import sys
-import json
-import gzip
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.signal import find_peaks
-import requests
 from typing import Dict, FrozenSet, Optional, NoReturn, Sequence, TypeVar
 
+import matplotlib.pyplot as plt
+import numpy as np
+import requests
+from lucupy.minimodel import ObservationClass, QAState
 from openpyxl import Workbook
 from openpyxl import load_workbook
-
-from lucupy.minimodel import ObservationClass, QAState
+from scipy.signal import find_peaks
 
 T = TypeVar('T')
 
@@ -51,9 +50,9 @@ def short_id(id: str) -> str:
     return id_out
 
 
-def odb_json(progid,
-             path=None,
-             overwrite=False):
+def odb_json(prog_id: str,
+             path: Optional[str] = None,
+             overwrite: bool = False):
     """
     Download json of ODB program information
 
@@ -65,10 +64,10 @@ def odb_json(progid,
     Return
         json_result: JSON query result as a list of dictionaries
     """
-    if not progid:
+    if not prog_id:
         raise ValueError('Program id not given.')
 
-    file = progid + '.json.gz'
+    file = prog_id + '.json.gz'
     if path is not None and not overwrite and os.path.exists(os.path.join(path, file)):
         with gzip.open(os.path.join(path, file), 'r') as fin:
             json_bytes = fin.read()
@@ -77,7 +76,7 @@ def odb_json(progid,
         json_result = json.loads(json_str)
     else:
         response = requests.get(
-            'http://gnodbscheduler.hi.gemini.edu:8442/programexport?id=' + progid)
+            'http://gnodbscheduler.hi.gemini.edu:8442/programexport?id=' + prog_id)
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as exc:
@@ -471,7 +470,7 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
             observe_class[0:3], exptimes[idx], coadds[idx], config['inst'], config['fpu'][idx],
             config['filter'][idx], config['disperser'][idx], config['wavelength'][idx], poffsets[idx],
             qoffsets[idx], guiding[-1], atomlabel),
-              file=fid)
+            file=fid)
         if ws is not None:
             data = [datalab, observe_class.upper(), step['observe:observeType'].upper(), config['inst'],
                     step_time, exptimes[idx], coadds[idx], config['fpu'][idx],
@@ -577,7 +576,7 @@ def prog_proc(program,
               sel_obs_class: FrozenSet[str] = frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL',
                                                          'ACQ', 'ACQCAL', 'DAYCAL']),
               sel_obs_status: FrozenSet[str] = frozenset(['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION',
-                                                          'ON_HOLD', 'READY','ONGOING', 'OBSERVED', 'INACTIVE']),
+                                                          'ON_HOLD', 'READY', 'ONGOING', 'OBSERVED', 'INACTIVE']),
               fid=sys.stdout, xls=None) -> NoReturn:
     """
     Process top-level of program.
@@ -681,9 +680,9 @@ def seqxlsx(sequence, comment: str = '', path: str = '') -> NoReturn:
     filename = os.path.join(path, obsid + '_seq.xlsx')
     wb = Workbook()
     ws = wb.active
-    
+
     atom = '1'
-    
+
     # Comment
     ws['A1'] = 'comment'
     ws['B1'] = comment
@@ -691,10 +690,10 @@ def seqxlsx(sequence, comment: str = '', path: str = '') -> NoReturn:
     # Columns
     columns = ['datalab', 'class', 'inst', 'exptime', 'coadds', 'fpu', 'filter_name',
                'disperser', 'wavelength', 'p', 'q', 'atom']
-    
+
     row = 2
     for col_idx, col_data in enumerate(columns):
-        ws.cell(column=col_idx +1, row=row, value=f'col_data')
+        ws.cell(column=col_idx + 1, row=row, value=f'col_data')
     row += 1
 
     for step in list(sequence):
@@ -717,11 +716,11 @@ def seqxlsx(sequence, comment: str = '', path: str = '') -> NoReturn:
                 int(coadds), step[fpuinst[inst]], filter_name, step['instrument:disperser'],
                 float(step['instrument:observingWavelength']), float(p), float(q), int(atom)]
         print(data)
-        
+
         for col_idx, col_data in enumerate(data):
             ws.cell(column=col_idx + 1, row=row, value=f'{col_data}')
         row += 1
-    
+
     wb.save(filename)
 
 
@@ -731,10 +730,10 @@ def readseq(file: str, path: str):
     """
     sequence = {}
 
-    with open(os.path.join(path, file), 'r') as f:
+    with open(os.path.join(path, file), 'r') as csv_file:
         # Read and parse csv file: first line is a comment, second has column headings
         nline = 0
-        for line in f:
+        for line in csv_file:
             values = line.rstrip('\n').split(',')
             if nline == 0:
                 sequence['comment'] = values[1]
@@ -747,7 +746,7 @@ def readseq(file: str, path: str):
                 for i, val in enumerate(values):
                     sequence[columns[i].strip(' ')].append(val.strip(' '))
             nline += 1
-    
+
     return sequence
 
 
@@ -763,7 +762,7 @@ def xlsxseq(file: str, path: str):
     row = 1
     sequence['comment'] = ws.cell(column=2, row=row).value
     row += 1
-    
+
     columns = []
     # Eventually ready the number of columns in the sheet
     for idx in range(26):
@@ -779,7 +778,7 @@ def xlsxseq(file: str, path: str):
         for col_idx, col in enumerate(columns):
             sequence[col].append(ws.cell(column=col_idx + 1, row=row).value)
         row += 1
-    
+
     return sequence
 
 
@@ -794,7 +793,7 @@ def xlsxatoms(file: str, path: str, sheet: str = 'None', verbose=False):
         # Read all sheets except the first
         sheets = wb.sheetnames
         sheets.remove('Sheet')
-    elif sheet != 'None' and sheet in wb.sheetnames:
+    elif sheet in wb.sheetnames:
         sheets = [sheet]
     else:
         print(f"Sheet {sheet} not found.")
@@ -804,6 +803,7 @@ def xlsxatoms(file: str, path: str, sheet: str = 'None', verbose=False):
         print(f"Sheet {ws.title}")
         sequence = {}
         columns = []
+
         # Eventually read the number of columns in the sheet
         row = 1
         for idx in range(16):
@@ -820,11 +820,13 @@ def xlsxatoms(file: str, path: str, sheet: str = 'None', verbose=False):
         classes = []
         guiding = []
         qastates = []
+        obs_id = None
+
         while ws.cell(column=1, row=row).value is not None:
             nextatom = False
             for idx, col in enumerate(columns):
                 sequence[col].append(ws.cell(column=idx + 1, row=row).value)
-            # print(sequence['datalab'][-1], sequence['inst'][-1], sequence['atom'][-1])
+                # print(sequence['datalab'][-1], sequence['inst'][-1], sequence['atom'][-1])
 
             if natom == 0:
                 datalab = sequence['datalab'][-1]
@@ -899,14 +901,13 @@ def xlsxatoms(file: str, path: str, sheet: str = 'None', verbose=False):
             atoms[-1]['required_resources']['fpu'] = sequence['fpu'][-1]
 
             # Print basic atom info
-            print(" \t exec_time: {:7.2f}, prog_time: {:7.2f}, part_time: {:7.2f}, guide_state: {}". \
-                  format(atoms[-1]['exec_time'], atoms[-1]['prog_time'], atoms[-1]['part_time'], \
-                         atoms[-1]['guide_state']))
+            print(f' \t exec_time: {atoms[-1]["exec_time"]:7.2f}, prog_time: {atoms[-1]["prog_time"]:7.2f}, '
+                  f'part_time: {atoms[-1]["part_time"]:7.2f}, guide_state: {atoms[-1]["guide_state"]}')
 
-        atoms_dict[obs_id] = atoms
+        if obs_id is not None:
+            atoms_dict[obs_id] = atoms
 
     wb.close()
-
     return atoms_dict
 
 
