@@ -1,13 +1,6 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-#!/usr/bin/env python
-# coding: utf-8
-
-# Code for manipulating ODB Extractor json files and initial sequence atom definitions
-# Bryan Miller
-# 2021-11-24
-
 import os
 import sys
 import json
@@ -16,10 +9,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import requests
-from typing import Dict, Optional
+from typing import Dict, Optional, NoReturn, Sequence
 
 from openpyxl import Workbook
 from openpyxl import load_workbook
+
+from lucupy.minimodel import ObservationClass, QAState
 
 
 fpuinst = {'GSAOI': 'instrument:utilityWheel', 'GPI': 'instrument:observingMode', 'Flamingos2': 'instrument:fpu',
@@ -148,38 +143,28 @@ def obsmode(config: Dict[str, str]) -> str:
 
 
 def guide_state(step):
-    """Determine if guiding is on/off for a sequence step"""
-    # One could also extract the guider used if needed
-    guiding = False
-    for key in list(step.keys()):
-        if 'guideWith' in key:
-            if step[key] == 'guide':
-                guiding = True
-                break
-    return guiding
-
-# --------------
-
-
-def select_qastate(states):
-    """Return the qastate based on precedence
-
-        states: list of observe states from the ODB extractor obsLog
     """
-    qastate = ''
+    Determine if guiding is on/off for a sequence step.
+    """
+    return any(key for key in list(step.keys()) if 'guideWith' in key and step[key] == 'guide')
 
+
+def select_qastate(states: Sequence[QAState]) -> str:
+    """
+    Return the qastate based on precedence.
+    This requires special handling, so we leave it instead of just using enum comparison.
+
+    states: list of observe states from the ODB extractor obsLog
+    """
     # Precedence order for observation classes.
     qastate_order = ['NONE', 'UNDEFINED', 'FAIL', 'USABLE', 'PASS']
 
     # Set the qastate for the entire observation based on precedence
     for state in qastate_order:
         if state in states:
-            qastate = state
-            break
+            return state
 
-    return qastate
-
-# --------------
+    return ''
 
 
 def select_obsclass(classes):
@@ -468,7 +453,7 @@ def findatoms(observation, verbose=False, ws=None, fid=sys.stdout):
                 atoms[-1]['qa_state'] = select_qastate(qastates)
                 if atoms[-1]['qa_state'] != 'NONE':
                     atoms[-1]['observed'] = True
-                atoms[-1]['class'] = select_obsclass(classes)
+                atoms[-1]['class'] = min(classes, default=None)
                 if verbose:
                     print('QA states: ', qastates, file=fid)
                     print('Classes: ', classes, file=fid)
@@ -502,8 +487,8 @@ def findatoms(observation, verbose=False, ws=None, fid=sys.stdout):
             noffsets = 1
 
         # Update atom
-        qastates.append(qastate.upper())
-        classes.append(observe_class.upper())
+        qastates.append(QAState[qastate.upper()])
+        classes.append(ObservationClass[observe_class.upper()])
         guiding.append(guide_state(step))
 
         atoms[-1]['exec_time'] += step_time
@@ -539,7 +524,7 @@ def findatoms(observation, verbose=False, ws=None, fid=sys.stdout):
         atoms[-1]['qa_state'] = select_qastate(qastates)
         if atoms[-1]['qa_state'] != 'NONE':
             atoms[-1]['observed'] = True
-        atoms[-1]['class'] = select_obsclass(classes)
+        atoms[-1]['class'] = min(classes, default=None)
         if verbose:
             print('QA states: ', qastates, file=fid)
             print('Classes: ', classes, file=fid)
