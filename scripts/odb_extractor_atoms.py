@@ -187,6 +187,7 @@ def autocorr_lag(x, plot=False):
 
 def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
     """Analyze a json observing sequence from the ODB and define atoms."""
+    observe_types = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
     classes = []
     guiding = []
@@ -216,20 +217,14 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
     poffsets_sky = []
     config = {'inst': '', 'fpu': [], 'disperser': [], 'filter': [], 'wavelength': []}
 
-
-    for ii, step in enumerate(sequence):
+    for idx, step in enumerate(sequence):
         step_keys = list(step.keys())
 
-        ## <--- END Instrument parsing ---->
-
         inst = step['instrument:instrument']
-        #     print(inst, fpuinst[inst])
+        # print(inst, fpuinst[inst])
         if inst == 'Visitor Instrument':
             inst = step['instrument:name'].split(' ')[0]
-            if inst in ["'Alopeke", "Zorro"]:
-                fpu = 'None'
-            else:
-                fpu = inst
+            fpu = 'None' if inst in ["'Alopeke", "Zorro"] else inst
         else:
             fpu = step[fpuinst[inst]]
         config['inst'] = inst
@@ -253,54 +248,39 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
         config['disperser'].append(disperser)
 
         if 'instrument:filter' in step_keys:
-            filter = step['instrument:filter']
+            filt = step['instrument:filter']
         elif inst == 'GPI':
-            filter = find_filter(fpu, gpi_filter_wav)
+            filt = find_filter(fpu, gpi_filter_wav)
         else:
             if inst == 'GNIRS':
-                filter = 'None'
+                filt = 'None'
             else:
-                filter = 'Unknown'
-        if inst == 'NIFS' and 'Same as Disperser' in filter:
+                filt = 'Unknown'
+        if inst == 'NIFS' and 'Same as Disperser' in filt:
             for filt in list(nifs_filter_wav.keys()):
                 if disperser[0] in filt:
-                    filter = filt
+                    filt = filt
                     break
-        config['filter'].append(filter)
+        config['filter'].append(filt)
 
         if inst == 'GPI':
-            wavelength = gpi_filter_wav[filter]
+            wavelength = gpi_filter_wav[filt]
         else:
             wavelength = float(step['instrument:observingWavelength'])
         config['wavelength'].append(wavelength)
 
-        #print('INSTRUMENT PARSING KDAOSDKAODK')
-        #print(fpu,disperser, filter, wavelength)
-        #input()
-
-        ## <--- END Instrument parsing ---->
-
-
+        # Just want exposures on sky for dither pattern analysis
         p = 0.0
         q = 0.0
-        # Just want exposures on sky for dither pattern analysis
-        if step['observe:observeType'].upper() not in ['FLAT', 'ARC', 'DARK', 'BIAS']:
-            if 'telescope:p' in step_keys:
-                p = float(step['telescope:p'])
-            else:
-                p = 0.0
+
+        if step['observe:observeType'].upper() not in observe_types:
+            p = float(step['telescope:p']) if 'telescope:p' in step_keys else 0.0
             poffsets_sky.append(p)
 
-            if 'telescope:q' in step_keys:
-                q = float(step['telescope:q'])
-            else:
-                q = 0.0
+            q = float(step['telescope:q']) if 'telescope:q' in step_keys else 0.0
             qoffsets_sky.append(q)
 
-        if 'observe:coadds' in step_keys:
-            ncoadds = int(step['observe:coadds'])
-        else:
-            ncoadds = 1
+        ncoadds = int(step['observe:coadds']) if 'observe:coadds' in step_keys else 1
         poffsets.append(p)
         qoffsets.append(q)
 
@@ -342,32 +322,31 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
             offset_lag = 0
 
         # Turn off offset groups if the length is longer than some limit
-    #     if offset_lag > 0 and plag > 0 and qlag > 0 and \
-    #        np.sum(np.asarray(exptimes[0:offset_lag]) * np.asarray(coadds[0:offset_lag])) > 600.:
-    #         offset_lag = 0
-
+        # if offset_lag > 0 and plag > 0 and qlag > 0 and \
+        #     np.sum(np.asarray(exptimes[0:offset_lag]) * np.asarray(coadds[0:offset_lag])) > 600.:
+        #     offset_lag = 0
 
     print('Offset lags: ', plag, qlag, offset_lag, file=fid)
 
     # Group by changes in exptimes/coadds?
     exptime_groups = False
-    #     if len(uniquelist(exptimes)) > 1 or len(uniquelist(coadds)) > 1:
-    #         exptime_groups = True
+    # if len(uniquelist(exptimes)) > 1 or len(uniquelist(coadds)) > 1:
+    #     exptime_groups = True
 
     # Group by changes in exptimes/coadds?
     # Write results to the Excel worksheet if given
+    columns = ['datalab', 'class', 'type', 'inst', 'exec_time', 'exptime', 'coadds', 'fpu', 'filter',
+               'disperser', 'wavelength', 'p', 'q', 'guiding', 'qa_state', 'atom']
+    row = 1
+
     if ws is not None:
-        # Columns
-        columns = ['datalab', 'class', 'type', 'inst', 'exec_time', 'exptime', 'coadds', 'fpu', 'filter',
-                   'disperser', 'wavelength', 'p', 'q', 'guiding', 'qa_state', 'atom']
-        row = 1
-        for jj, col in enumerate(columns):
-            _ = ws.cell(column=jj + 1, row=row, value="{0}".format(col))
+        for idx, col in enumerate(columns):
+            ws.cell(column=idx + 1, row=row, value=col)
         row += 1
 
     npattern = offset_lag
     noffsets = 0
-    for ii, step in enumerate(sequence):
+    for idx, step in enumerate(sequence):
         nextatom = False
 
         datalab = step['observe:dataLabel']
@@ -382,14 +361,14 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
 
         atomstr = 'Atom for: '
         # Any wavelength/filter change is a new atom
-        if ii == 0 or (ii > 0 and config['wavelength'][ii] != config['wavelength'][ii - 1]):
+        if idx == 0 or (idx > 0 and config['wavelength'][idx] != config['wavelength'][idx - 1]):
             nextatom = True
             atomstr += 'wavelength, '
 
         # A change in exposure time or coadds is a new atom for science exposures
         if step['observe:observeType'].upper() not in ['FLAT', 'ARC', 'DARK', 'BIAS']:
             if observe_class.upper() == 'SCIENCE' and \
-                    ii > 0 and (exptimes[ii] != exptimes[ii_prevobj] or coadds[ii] != coadds[ii_prevobj]):
+                    idx > 0 and (exptimes[idx] != exptimes[ii_prevobj] or coadds[idx] != coadds[ii_prevobj]):
                 nextatom = True
                 atomstr += 'exposure time change, '
 
@@ -399,10 +378,10 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
                 # For NIR imaging, need to have at least two offset positions if no repeating pattern
                 # New atom after every 2nd offset (noffsets is odd)
                 if mode == 'imaging' and offset_lag == 0 and all([w > 1.0 for w in config['wavelength']]):
-                    if ii == 0:
+                    if idx == 0:
                         noffsets += 1
                     else:
-                        if poffsets[ii] != poffsets[ii_prevobj] or qoffsets[ii] != qoffsets[ii_prevobj]:
+                        if poffsets[idx] != poffsets[ii_prevobj] or qoffsets[idx] != qoffsets[ii_prevobj]:
                             noffsets += 1
                     if noffsets % 2 == 1:
                         nextatom = True
@@ -414,7 +393,7 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
                         atomstr += 'offset pattern'
                         npattern = offset_lag - 1
 
-            ii_prevobj = ii
+            ii_prevobj = idx
 
         # New atom?
         if nextatom:
@@ -429,11 +408,11 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
                     print('Classes: ', classes, file=fid)
                     print('Guiding: ', guiding, file=fid)
                 atoms[-1]['guide_state'] = any(guiding)
-                atoms[-1]['wavelength'] = config['wavelength'][ii]
+                atoms[-1]['wavelength'] = config['wavelength'][idx]
                 atoms[-1]['required_resources']['inst'] = config['inst']
-                atoms[-1]['required_resources']['filter'] = config['filter'][ii]
-                atoms[-1]['required_resources']['disperser'] = config['disperser'][ii]
-                atoms[-1]['required_resources']['fpu'] = config['fpu'][ii]
+                atoms[-1]['required_resources']['filter'] = config['filter'][idx]
+                atoms[-1]['required_resources']['disperser'] = config['disperser'][idx]
+                atoms[-1]['required_resources']['fpu'] = config['fpu'][idx]
 
                 # Print basic atom info
                 print(" \t exec_time: {:7.2f}, prog_time: {:7.2f}, part_time: {:7.2f}, guide_state: {}".
@@ -472,18 +451,18 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
 
         print('{:17} {:3} {:7.2f} {:3d} {:10} {:12} {:10} {:12} {:6.4f} {:8.2f} {:8.2f} {:1} {:3d}'.format(
             short_id(datalab),
-            observe_class[0:3], exptimes[ii], coadds[ii], config['inst'], config['fpu'][ii],
-            config['filter'][ii], config['disperser'][ii], config['wavelength'][ii], poffsets[ii],
-            qoffsets[ii], guiding[-1], atomlabel),
+            observe_class[0:3], exptimes[idx], coadds[idx], config['inst'], config['fpu'][idx],
+            config['filter'][idx], config['disperser'][idx], config['wavelength'][idx], poffsets[idx],
+            qoffsets[idx], guiding[-1], atomlabel),
               file=fid)
         if ws is not None:
             # Columns
             #             columns = ['datalab', 'class', 'type', inst', 'exec_time', 'exptime', 'coadds', 'fpu', 'filter',
             #                        'disperser', 'wavelength', 'p', 'q', 'guiding', 'qa_state', 'atom']
             data = [datalab, observe_class.upper(), step['observe:observeType'].upper(), config['inst'],
-                    step_time, exptimes[ii], coadds[ii], config['fpu'][ii],
-                    config['filter'][ii], config['disperser'][ii], config['wavelength'][ii], poffsets[ii],
-                    qoffsets[ii], guiding[-1], qastate.upper(), atomlabel]
+                    step_time, exptimes[idx], coadds[idx], config['fpu'][idx],
+                    config['filter'][idx], config['disperser'][idx], config['wavelength'][idx], poffsets[idx],
+                    qoffsets[idx], guiding[-1], qastate.upper(), atomlabel]
             for jj in range(len(columns)):
                 _ = ws.cell(column=jj + 1, row=row, value=data[jj])
             row += 1
@@ -500,11 +479,11 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
             print('Classes: ', classes, file=fid)
             print('Guiding: ', guiding, file=fid)
         atoms[-1]['guide_state'] = any(guiding)
-        atoms[-1]['wavelength'] = config['wavelength'][ii]
+        atoms[-1]['wavelength'] = config['wavelength'][idx]
         atoms[-1]['required_resources']['inst'] = config['inst']
-        atoms[-1]['required_resources']['filter'] = config['filter'][ii]
-        atoms[-1]['required_resources']['disperser'] = config['disperser'][ii]
-        atoms[-1]['required_resources']['fpu'] = config['fpu'][ii]
+        atoms[-1]['required_resources']['filter'] = config['filter'][idx]
+        atoms[-1]['required_resources']['disperser'] = config['disperser'][idx]
+        atoms[-1]['required_resources']['fpu'] = config['fpu'][idx]
 
         # Print basic atom info
         print(" \t exec_time: {:7.2f}, prog_time: {:7.2f}, part_time: {:7.2f}, guide_state: {}".
