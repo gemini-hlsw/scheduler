@@ -299,7 +299,6 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
     # The lag is the length of any pattern, 0 means no repeating pattern
     plag = 0
     qlag = 0
-    offset_lag = 0
     if do_not_split:
         offset_lag = nsteps
     else:
@@ -346,6 +345,7 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
 
     npattern = offset_lag
     noffsets = 0
+    idx_prevobj = -1
     for idx, step in enumerate(sequence):
         nextatom = False
 
@@ -367,21 +367,21 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
 
         # A change in exposure time or coadds is a new atom for science exposures
         if step['observe:observeType'].upper() not in ['FLAT', 'ARC', 'DARK', 'BIAS']:
-            if observe_class.upper() == 'SCIENCE' and \
-                    idx > 0 and (exptimes[idx] != exptimes[ii_prevobj] or coadds[idx] != coadds[ii_prevobj]):
+            if (observe_class.upper() == 'SCIENCE' and idx > 0 and
+                    (exptimes[idx] != exptimes[idx_prevobj] or coadds[idx] != coadds[idx_prevobj])):
                 nextatom = True
                 atomstr += 'exposure time change, '
 
             # Offsets - a new offset pattern is a new atom
-            #         print('npattern: ', npattern)
-            if not (offset_lag == 0 and exptime_groups == True):
+            # print('npattern: ', npattern)
+            if offset_lag != 0 or not exptime_groups:
                 # For NIR imaging, need to have at least two offset positions if no repeating pattern
                 # New atom after every 2nd offset (noffsets is odd)
-                if mode == 'imaging' and offset_lag == 0 and all([w > 1.0 for w in config['wavelength']]):
+                if mode == 'imaging' and offset_lag == 0 and all(w > 1.0 for w in config['wavelength']):
                     if idx == 0:
                         noffsets += 1
                     else:
-                        if poffsets[idx] != poffsets[ii_prevobj] or qoffsets[idx] != qoffsets[ii_prevobj]:
+                        if poffsets[idx] != poffsets[idx_prevobj] or qoffsets[idx] != qoffsets[idx_prevobj]:
                             noffsets += 1
                     if noffsets % 2 == 1:
                         nextatom = True
@@ -393,7 +393,7 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
                         atomstr += 'offset pattern'
                         npattern = offset_lag - 1
 
-            ii_prevobj = idx
+            idx_prevobj = idx
 
         # New atom?
         if nextatom:
