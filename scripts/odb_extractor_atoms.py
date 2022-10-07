@@ -472,15 +472,12 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
             qoffsets[idx], guiding[-1], atomlabel),
               file=fid)
         if ws is not None:
-            # Columns
-            #             columns = ['datalab', 'class', 'type', inst', 'exec_time', 'exptime', 'coadds', 'fpu', 'filter',
-            #                        'disperser', 'wavelength', 'p', 'q', 'guiding', 'qa_state', 'atom']
             data = [datalab, observe_class.upper(), step['observe:observeType'].upper(), config['inst'],
                     step_time, exptimes[idx], coadds[idx], config['fpu'][idx],
                     config['filter'][idx], config['disperser'][idx], config['wavelength'][idx], poffsets[idx],
                     qoffsets[idx], guiding[-1], qastate.upper(), atomlabel]
-            for jj in range(len(columns)):
-                _ = ws.cell(column=jj + 1, row=row, value=data[jj])
+            for col_idx, col_data in enumerate(data):
+                ws.cell(column=col_idx + 1, row=row, value=col_data)
             row += 1
 
     #     print(atoms)
