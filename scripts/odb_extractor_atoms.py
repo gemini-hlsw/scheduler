@@ -631,52 +631,44 @@ def prog_proc(program,
         wb.save(filename=xls)
 
 
-def printseq(sequence, comment='', csv=False, path=''):
-    '''Print basic configuration information about a sequence, with an option to write to a csv file'''
-
+def printseq(sequence, comment: str = '', csv: bool = False, path: str = ''):
+    """
+    Print basic configuration information about a sequence, with an option to write to a csv file.
+    """
     atom = '1'
-    if csv and path != '':
+    if csv and path:
         obsid = sequence[0]['ocs:observationId']
         filename = os.path.join(path, obsid + '_seq.csv')
-        f = open(filename, 'w')
-        print('{},{}'.format('comment', comment), file=f)
-        print('{},{},{},{},{},{},{},{},{},{},{},{}'.format('datalab', 'class', 'exptime', 'coadds', 'inst', 'fpu',
-                                                        'filter_name', 'disperser', 'wavelength', 'p', 'q', 'atom'), file=f)
+        out_file = open(filename, 'w')
+        print(f'comment,{comment}', file=out_file)
+        print('datalab,class,exptime,coadds,inst,fpu,filter_name,disperser,wavelength,p,q,atom', file=out_file)
 
     for step in list(sequence):
         datalab = step['observe:dataLabel']
         observe_class = step['observe:class']
         exptime = step['observe:exposureTime']
         inst = step['instrument:instrument']
-    #     print(inst, fpuinst[inst])
+        # print(inst, fpuinst[inst])
         fpu = step[fpuinst[inst]]
-        if 'instrument:filter_name' in step.keys():
-            filter_name = step["instrument:filter_name"]
-        else:
-            filter_name = 'None'
+        filter_name = step["instrument:filter_name"] if 'instrument:filter_name' in step.keys() else 'None'
         wavelength = step['instrument:observingWavelength']
         if 'GMOS' in inst:
             coadds = '1'
             # convert wavelength to microns
-#             wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
+            # wavelength = '{:5.3f}'.format(float(wavelength) / 1000.)
         else:
             coadds = step['observe:coadds']
         disperser = step['instrument:disperser']
-        if 'telescope:p' in step.keys():
-            p = step['telescope:p']
-        else:
-            p = '0.0'
-        if 'telescope:q' in step.keys():
-            q = step['telescope:q']
-        else:
-            q = '0.0'    
-        print('{:25} {:10} {:7} {:3} {:10} {:20} {:12} {:12} {:7} {:5} {:5}'.format(datalab, observe_class, exptime, coadds,
-                                                                       inst, fpu, filter_name, disperser, wavelength, p, q))
-        if csv and path != '':
-            print('{},{},{},{},{},{},{},{},{},{},{},{}'.format(datalab, observe_class, exptime, coadds, inst, fpu,
-                                                               filter_name, disperser, wavelength, p, q, atom), file=f)
+        p = step['telescope:p'] if 'telescope:p' in step.keys() else '0.0'
+        q = step['telescope:q'] if 'telescope:q' in step.keys() else '0.0'
 
-    if csv and path != '':
+        print(f'{datalab:25} {observe_class:10} {exptime:7} {coadds:3} {inst:10} {fpu:20} {filter_name:12} '
+              f'{disperser:12} {wavelength:7} {p:5} {q:5}')
+        if csv and path:
+            print(f'{datalab},{observe_class},{exptime},{coadds},{inst},{fpu},{filter_name},{disperser},{wavelength},'
+                  f'{p},{q},{atom}', file=out_file)
+
+    if csv and path:
         f.close()
 
 
