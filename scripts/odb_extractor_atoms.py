@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import requests
-from typing import Dict, Optional, NoReturn, Sequence
+from typing import Dict, FrozenSet, Optional, NoReturn, Sequence
 
 from openpyxl import Workbook
 from openpyxl import load_workbook
@@ -184,7 +184,7 @@ def autocorr_lag(x, plot=False):
     return peaks[0] if any(peaks) else 0
 
 
-def findatoms(observation, verbose=False, ws=None, fid=sys.stdout):
+def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
     """Analyze a json observing sequence from the ODB and define atoms."""
 
     classes = []
@@ -515,9 +515,11 @@ def findatoms(observation, verbose=False, ws=None, fid=sys.stdout):
 # --------------
 
 
-def group_proc(group, sel_obs_class=['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL'],
-               sel_obs_status=['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION', 'ON_HOLD', 'READY',
-                               'ONGOING', 'OBSERVED', 'INACTIVE'], fid=sys.stdout, wb=None, verbose=False):
+def group_proc(group,
+               sel_obs_class: FrozenSet = frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL']),
+               sel_obs_status: FrozenSet = frozenset(['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION', 'ON_HOLD',
+                                                      'READY', 'ONGOING', 'OBSERVED', 'INACTIVE']),
+               fid=sys.stdout, wb=None, verbose=False):
     """Process observations within groups"""
 
     ws = None
@@ -548,7 +550,7 @@ def group_proc(group, sel_obs_class=['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 
                 #                     ws['A1'] = obsid
 
                 # Atoms in each sequence
-                atoms = findatoms(group[item], verbose=verbose, ws=ws, fid=fid)
+                atoms = find_atoms(group[item], verbose=verbose, ws=ws, fid=fid)
                 # Summary of atoms
                 #                 classes = []
                 #                 qastates = []
