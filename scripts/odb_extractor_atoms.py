@@ -725,65 +725,59 @@ def seqxlsx(sequence, comment: str = '', path: str = '') -> NoReturn:
     wb.save(filename)
 
 
-def readseq(file, path):
-    '''Read sequence information from a csv file'''
-
-    filename = os.path.join(path, file)
-    f = open(filename, 'r')
-    
+def readseq(file: str, path: str):
+    """
+    Read sequence information from a csv file.
+    """
     sequence = {}
-    
-    # Read and parse csv file: first line is a comment, second has column headings
-    nline = 0
-    for line in f:
-#         line = line.rstrip('\n')
-        values = line.rstrip('\n').split(',')
-        if nline == 0:
-            sequence['comment'] = values[1]
-        elif nline == 1:
-            columns = list(values)
-            print(columns)
-            for col in columns:
-                sequence[col.strip(' ')] = []
-        else:
-            for i, val in enumerate(values):
-                sequence[columns[i].strip(' ')].append(val.strip(' '))
-        nline += 1
-        
-    f.close()
+
+    with open(os.path.join(path, file), 'r') as f:
+        # Read and parse csv file: first line is a comment, second has column headings
+        nline = 0
+        for line in f:
+            values = line.rstrip('\n').split(',')
+            if nline == 0:
+                sequence['comment'] = values[1]
+            elif nline == 1:
+                columns = list(values)
+                print(columns)
+                for col in columns:
+                    sequence[col.strip(' ')] = []
+            else:
+                for i, val in enumerate(values):
+                    sequence[columns[i].strip(' ')].append(val.strip(' '))
+            nline += 1
     
     return sequence
 
 
-def xlsxseq(file, path):
-    '''Read sequence information from an Excel spreadsheet'''
-
-    filename = os.path.join(path, file)
-    
-    wb = load_workbook(filename=filename)
-    ws = wb.active
-    
+def xlsxseq(file: str, path: str):
+    """
+    Read sequence information from an Excel spreadsheet.
+    """
     sequence = {}
-    
+
+    wb = load_workbook(filename=os.path.join(path, file))
+    ws = wb.active
+
     row = 1
     sequence['comment'] = ws.cell(column=2, row=row).value
     row += 1
     
     columns = []
     # Eventually ready the number of columns in the sheet
-    for ii in range(26):
-        col = ws.cell(column=ii+1, row=row).value
+    for idx in range(26):
+        col = ws.cell(column=idx + 1, row=row).value
         if col is not None:
             columns.append(col)
             sequence[col] = []
         else:
             break
     row += 1
-#     print(columns)
 
     while ws.cell(column=1, row=row).value is not None:
-        for jj, col in enumerate(columns):
-            sequence[col].append(ws.cell(column=jj+1, row=row).value)
+        for col_idx, col in enumerate(columns):
+            sequence[col].append(ws.cell(column=col_idx + 1, row=row).value)
         row += 1
     
     return sequence
