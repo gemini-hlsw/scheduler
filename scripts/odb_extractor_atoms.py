@@ -167,52 +167,21 @@ def select_qastate(states: Sequence[QAState]) -> str:
     return ''
 
 
-def select_obsclass(classes):
-    """Return the obsclass based on precedence
-
-        classes: list of observe classes from the ODB extractor
-    """
-    obsclass = ''
-
-    # Precedence order for observation classes.
-    obsclass_order = ['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL']
-
-    # Set the obsclass for the entire observation based on obsclass precedence
-    for oclass in obsclass_order:
-        if oclass in classes:
-            obsclass = oclass
-            break
-
-    return obsclass
-
-# --------------
-
-
 def autocorr_lag(x, plot=False):
-    '''Test for patterns with auto-correlation'''
-
+    """
+    Test for patterns with auto-correlation.
+    """
     # Auto correlation
     result = np.correlate(x, x, mode='full')
     corrmax = np.max(result)
     if corrmax != 0.0:
         result = result / corrmax
-    #     print(result)
-    #     print(result.size, result.size//2)
     if plot:
         plt.plot(result[result.size // 2:])
 
     # Pattern offset using first prominent peak
-    # lag = np.argmax(result[result.size//2 + 1:]) + 1
     peaks, prop = find_peaks(result[result.size // 2:], height=(0, None), prominence=(0.25, None))
-    #     print(peaks)
-    #     print(prop)
-    lag = 0
-    if len(peaks) > 0:
-        lag = peaks[0]
-
-    return lag
-
-# --------------
+    return peaks[0] if any(peaks) else 0
 
 
 def findatoms(observation, verbose=False, ws=None, fid=sys.stdout):
@@ -918,7 +887,7 @@ def xlsxatoms(file, path, sheet='None', verbose=False):
                     atoms[-1]['qa_state'] = select_qastate(qastates)
                     if atoms[-1]['qa_state'] != 'NONE':
                         atoms[-1]['observed'] = True
-                    atoms[-1]['class'] = select_obsclass(classes)
+                    atoms[-1]['class'] = min(classes, default=None)
                     if verbose:
                         print('QA states: ', qastates)
                         print('Classes: ', classes)
@@ -964,7 +933,7 @@ def xlsxatoms(file, path, sheet='None', verbose=False):
             atoms[-1]['qa_state'] = select_qastate(qastates)
             if atoms[-1]['qa_state'] != 'NONE':
                 atoms[-1]['observed'] = True
-            atoms[-1]['class'] = select_obsclass(classes)
+            atoms[-1]['class'] = min(classes, default=None)
             if verbose:
                 print('QA states: ', qastates)
                 print('Classes: ', classes)
