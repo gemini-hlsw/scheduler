@@ -636,6 +636,7 @@ def printseq(sequence, comment: str = '', csv: bool = False, path: str = ''):
     Print basic configuration information about a sequence, with an option to write to a csv file.
     """
     atom = '1'
+    out_file = None
     if csv and path:
         obsid = sequence[0]['ocs:observationId']
         filename = os.path.join(path, obsid + '_seq.csv')
@@ -664,12 +665,12 @@ def printseq(sequence, comment: str = '', csv: bool = False, path: str = ''):
 
         print(f'{datalab:25} {observe_class:10} {exptime:7} {coadds:3} {inst:10} {fpu:20} {filter_name:12} '
               f'{disperser:12} {wavelength:7} {p:5} {q:5}')
-        if csv and path:
+        if out_file is not None:
             print(f'{datalab},{observe_class},{exptime},{coadds},{inst},{fpu},{filter_name},{disperser},{wavelength},'
                   f'{p},{q},{atom}', file=out_file)
 
-    if csv and path:
-        f.close()
+    if out_file is not None:
+        out_file.close()
 
 
 def seqxlsx(sequence, comment='', path=''):
