@@ -15,6 +15,8 @@ from openpyxl import Workbook
 from openpyxl import load_workbook
 from scipy.signal import find_peaks
 
+from definitions import ROOT_DIR
+
 T = TypeVar('T')
 
 fpuinst = {'GSAOI': 'instrument:utilityWheel', 'GPI': 'instrument:observingMode', 'Flamingos2': 'instrument:fpu',
@@ -912,7 +914,7 @@ def xlsxatoms(file: str, path: str, sheet: str = 'None', verbose=False):
 
 
 if __name__ == '__main__':
-    path = '../app/data'
+    path = os.path.join(ROOT_DIR, 'app', 'data')
     print(path)
 
     # programs = ['GN-2018B-Q-101', 'GN-2018B-Q-106', 'GN-2018B-FT-206', ]
