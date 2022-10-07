@@ -541,6 +541,7 @@ def group_proc(group,
                 # ws['A1'] = obsid
 
                 # Atoms in each sequence
+                # TODO: Return value is not used but if this is not called, obs_id is not set and an error occurs.
                 atoms = find_atoms(group[item], verbose=verbose, ws=ws, fid=fid)
                 # Summary of atoms
                 #                 classes = []
@@ -566,7 +567,6 @@ def group_proc(group,
                 #                         obs_program_used += float(group[item]['setupTime'])/1000.
                 #                     elif group[item]['obsClass'] in ['partnerCal']:
                 #                         obs_partner_used += float(group[item]['setupTime'])/1000.
-
                 #                 print(f" program_used: {obs_program_used}")
                 #                 print(f" partner_used: {obs_partner_used}")
                 print('', file=fid)
@@ -578,7 +578,7 @@ def prog_proc(program,
                                                          'ACQ', 'ACQCAL', 'DAYCAL']),
               sel_obs_status: FrozenSet[str] = frozenset(['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION',
                                                           'ON_HOLD', 'READY','ONGOING', 'OBSERVED', 'INACTIVE']),
-              fid=sys.stdout, xls=None):
+              fid=sys.stdout, xls=None) -> NoReturn:
     """
     Process top-level of program.
     """
@@ -590,6 +590,7 @@ def prog_proc(program,
         print(f"**** {program[prog]['programId']} ****", file=fid)
 
         # Excel output?
+        ws = None
         if xls is not None:
             wb = Workbook()
             ws = wb.active
@@ -600,22 +601,22 @@ def prog_proc(program,
                 if 'ATOM' in program[prog][item]['title']:
                     print(f"{program[prog][item]['title']}: {program[prog][item]['text']}\n", file=fid)
                     # Comment
-                    if xls is not None:
+                    if xls is not None and ws is not None:
                         ws['A1'] = program[prog]['programId']
                         ws['A2'] = 'ATOMS'
                         ws['B2'] = program[prog][item]['text']
             if 'GROUP' in item:
-                #                 print(item, program[prog][item]['name'])
-                #         print(program[prog][item])
+                # print(item, program[prog][item]['name'])
+                # print(program[prog][item])
                 grpnum.append(int(item.split('-')[1]))
                 grplist.append(item.split('-')[0])
 
         if len(grpnum) > 0:
             # Second pass to put the groups in the same order as in the program
-            #             print(grplist)
-            #             print(grpnum)
+            # print(grplist)
+            # print(grpnum)
             isrt = np.argsort(grpnum)
-            #     print(grpnum)
+            # print(grpnum)
             for ii in isrt:
                 group = str(grplist[ii]) + '-' + str(grpnum[ii])
                 print(group, program[prog][group]['name'], file=fid)
@@ -628,8 +629,6 @@ def prog_proc(program,
 
     if xls is not None:
         wb.save(filename=xls)
-
-    return
 
 
 def printseq(sequence, comment='', csv=False, path=''):
