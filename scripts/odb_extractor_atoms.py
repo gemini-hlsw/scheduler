@@ -16,6 +16,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import requests
+from typing import Dict, Optional
 
 from openpyxl import Workbook
 from openpyxl import load_workbook
@@ -29,66 +30,50 @@ gpi_filter_wav = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
 nifs_filter_wav = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
 
 
-def find_filter(input, filter_dict):
-    """Match input string with filter list (in dictionary)"""
-
-    filter = ''
-    filters = list(filter_dict.keys())
-    for filt in filters:
-        if filt in input:
-            filter = filt
-            break
-    return filter
-
-
-def uniquelist(seq):
-    """Make a list of unique values"""
-    # http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-python-whilst-preserving-order
-    seen = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
+def find_filter(input_filter: str, filter_dict: Dict[str, float]) -> Optional[str]:
+    """
+    Match input string with filter list (in dictionary).
+    """
+    return next((x for x in list(filter_dict.keys()) if x in input_filter), None)
 
 
 def searchlist(val, alist):
-    """Search for existence of val in any element of alist"""
-    found = False
-    for elem in alist:
-        if val in elem:
-            found = True
-            break
-    return found
+    """
+    Search for existence of val in any element of alist.
+    """
+    return any(elem for elem in alist if val in elem)
 
 
 def shortid(idin):
-    """Return short form of obsid or data label"""
+    """
+    Return short form of obsid or data label
+    """
     idsp = idin.split('-')
-    #         print(obsidsp)
     idout = idsp[0][1] + idsp[1][2:5] + '-' + idsp[2] + '-' + idsp[3] + '[' + idsp[4] + ']'
     if len(idsp) == 6:
         idout += '-' + idsp[5]
     return idout
 
 
-def odb_json(progid, path='None', overwrite=False, verbose=False):
+def odb_json(progid,
+             path=None,
+             overwrite=False):
     """
     Download json of ODB program information
 
     Parameters
-        progid:  Program ID of program to extract
-        path:    Path for json files
-        overwrite: Overwrite any existing json files?
-        verbose: Verbose output?
+        progid:     Program ID of program to extract
+        path:       Path for json files
+        overwrite:  Overwrite any existing json files
 
     Return
-        json_result:   JSON query result as a list of dictionaries
+        json_result: JSON query result as a list of dictionaries
     """
-
-    if progid == "":
-        print('odb_json: program id not given.')
+    if not progid:
         raise ValueError('Program id not given.')
 
     file = progid + '.json.gz'
-    if not overwrite and path != 'None' and os.path.exists(os.path.join(path, file)):
+    if path is not None and not overwrite and os.path.exists(os.path.join(path, file)):
         with gzip.open(os.path.join(path, file), 'r') as fin:
             json_bytes = fin.read()
 
@@ -100,27 +85,21 @@ def odb_json(progid, path='None', overwrite=False, verbose=False):
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as exc:
-            print('odb_json: request failed: {}'.format(response.text))
             raise exc
         else:
             json_result = response.json()
-            if (overwrite or not os.path.exists(os.path.join(path, file))) and path != 'None':
+            if path is not None and (overwrite or not os.path.exists(os.path.join(path, file))):
                 json_str = json.dumps(json_result, indent=2)
                 with gzip.open(os.path.join(path, file), 'wb') as fout:
                     fout.write(json_str.encode('utf-8'))
 
-        if verbose:
-            print(response.url)
-        # print(response.text)
-
     return json_result
 
-# --------------
 
-
-def obsmode(config):
-    """Determine the observation mode (e.g. imaging, longslit, mos, ifu,..."""
-
+def obsmode(config: Dict[str, str]) -> str:
+    """
+    Determine the observation mode (e.g. imaging, longslit, mos, ifu, etc.
+    """
     mode = 'unknown'
     if searchlist('GMOS', config['inst']):
         if 'MIRROR' in config['disperser']:
@@ -166,8 +145,6 @@ def obsmode(config):
             mode = 'ifu'
 
     return mode
-
-# --------------
 
 
 def guide_state(step):
@@ -1027,7 +1004,6 @@ def xlsxatoms(file, path, sheet='None', verbose=False):
 
 
 if __name__ == '__main__':
-
     path = '../app/data'
     print(path)
 
