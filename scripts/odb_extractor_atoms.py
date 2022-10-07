@@ -362,6 +362,7 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
     npattern = offset_lag
     noffsets = 0
     idx_prevobj = -1
+    idx = 0
     for idx, step in enumerate(sequence):
         nextatom = False
 
@@ -480,7 +481,6 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
                 ws.cell(column=col_idx + 1, row=row, value=col_data)
             row += 1
 
-    #     print(atoms)
     # Get class/state for last atom
     if natom > 0:
         atoms[-1]['qa_state'] = select_qastate(qastates)
@@ -516,29 +516,28 @@ def group_proc(group,
     ws = None
     obsnum = []
     for item in list(group.keys()):
-        obsid = ''
+        # obs_id = ''
         if 'OBSERVATION' in item:
-            obsid = group[item]['observationId']
+            # obs_id = group[item]['observationId']
             obsnum.append(int(item.split('-')[1]))
-
 
     if len(obsnum) > 0:
         isrt = np.argsort(obsnum)
         for ii in isrt:
-            obs_program_used = 0.0
-            obs_partner_used = 0.0
+            # obs_program_used = 0.0
+            # obs_partner_used = 0.0
             item = 'OBSERVATION_BASIC-' + str(obsnum[ii])
-            #     obsid = program[prog][group][item]['sequence'][0]['ocs:observationId']
-            obsid = group[item]['observationId']
-            print(f"{obsnum[ii], obsid}", file=fid)
+            # obs_id = program[prog][group][item]['sequence'][0]['ocs:observationId']
+            obs_id = group[item]['observationId']
+            print(f"{obsnum[ii], obs_id}", file=fid)
             obs_class = group[item]['obsClass'].upper()
-            phase2stat = group[item]['phase2Status'].upper()
+            # phase2stat = group[item]['phase2Status'].upper()
             obs_stat = group[item]['obsStatus'].upper()
-            #             print(obs_class, phase2stat, obs_stat)
+            # print(obs_class, phase2stat, obs_stat)
             if obs_class in sel_obs_class and obs_stat in sel_obs_status:
                 if wb is not None:
-                    ws = wb.create_sheet(title=obsid.split('-')[-1])
-                #                     ws['A1'] = obsid
+                    ws = wb.create_sheet(title=obs_id.split('-')[-1])
+                # ws['A1'] = obsid
 
                 # Atoms in each sequence
                 atoms = find_atoms(group[item], verbose=verbose, ws=ws, fid=fid)
