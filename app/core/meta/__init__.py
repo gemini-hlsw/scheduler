@@ -6,6 +6,7 @@ class Singleton(type):
     Thread-safe Singleton metaclass.
     """
     _instances = {}
+
     def __call__(cls, *args, **kwargs):
         if cls not in Singleton._instances:
             Singleton._instances[cls] = super().__call__(*args, **kwargs)
