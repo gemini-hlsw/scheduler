@@ -54,9 +54,13 @@ class ResourceMock(metaclass=Singleton):
         """
         Emulate a connection to a service and load the data.
         """
+        def suffix(site: Site, uc: bool = False) -> str:
+            sfx = 'n' if site == Site.GN else 's'
+            return sfx.upper() if uc else sfx
+
         for site in self._sites:
             # Load the mappings from the ITCD FPU values to the barcodes.
-            self._load_fpu_to_barcodes(f'gmos{site.name}_fpu_barcode.txt')
+            self._load_fpu_to_barcodes(site, f'gmos{suffix(site)}_fpu_barcode.txt')
 
             # TODO: Do we need this? As per discussion, this information is up to date in FPUr files.
             # Load the FPUs.
@@ -64,11 +68,12 @@ class ResourceMock(metaclass=Singleton):
 
             # Load the FPUrs.
             # This will put both the IFU and the FPU barcodes available on a given date as Resources.
-            self._load_csv(site, f'GMOS{site.name}_FPUr201789.txt', lambda r: {i.strip() for i in r[1:]})
+            self._load_csv(site, f'GMOS{"N" if site == Site.GN else "S"}_FPUr201789.txt',
+                           lambda r: {i.strip() for i in r[1:]})
 
             # Load the gratings.
             # This will put MIRROR and the grating names available on a given date as Resources.
-            self._load_csv(site, f'GMOS{site.name}_GRAT201789.txt',
+            self._load_csv(site, f'GMOS{"N" if site == Site.GN else "S"}_GRAT201789.txt',
                            lambda r: {'MIRROR'} | {i.strip().replace('+', '') for i in r[1:]})
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
@@ -91,7 +96,7 @@ class ResourceMock(metaclass=Singleton):
                 fpu, barcode = row.split()
 
                 # Only map if the FPU is a resource.
-                if fpu in self._all_resources:
+                if fpu is not None and fpu in self._all_resources:
                     self._fpu_to_barcode[site][self._all_resources[fpu]] = self._lookup_resource(barcode)
 
     def _load_csv(self, site: Site, name: str, c: Callable[[List[str]], Set[str]]) -> NoReturn:
@@ -113,15 +118,18 @@ class ResourceMock(metaclass=Singleton):
                 # Fill in any gaps by copying prev_row_date until we reach one less than row_date.
                 if prev_row_date is not None:
                     missing_row_date = prev_row_date + ResourceMock._day
-                    while row_date - missing_row_date <= ResourceMock._day:
+                    while missing_row_date < row_date:
                         # Make sure there is an entry and append to it to avoid overwriting anything already present.
                         date_set = self._resources[site].setdefault(missing_row_date, set())
                         date_set |= copy(self._resources[site][prev_row_date])
                         self._resources[site][missing_row_date] = date_set
                         missing_row_date += ResourceMock._day
 
+                # Create a set to append to if one does not exist.
                 date_set = self._resources[site].setdefault(row_date, set())
-                date_set |= {self._lookup_resource(r) for r in c(row[1:])}
+
+                # Filter out any empty entries in the row.
+                date_set |= {self._lookup_resource(r) for r in c(row[1:]) if r}
                 self._resources[site][row_date] = date_set
 
                 # Advance the previous row date where data was defined.
@@ -148,7 +156,10 @@ class ResourceMock(metaclass=Singleton):
                 row_date = row[0].value.date()
                 date_set = self._resources[site].setdefault(row_date, set())
                 lgs = str_to_bool(row[2].value)
-                instruments = {self._lookup_resource('Flamingos2' if c.value == 'F2' else c.value) for c in row[3:]}
+
+                # Filter out any ports that are empty.
+                instruments = {self._lookup_resource('Flamingos2' if c.value == 'F2' else c.value)
+                               for c in row[3:] if c.value is not None}
 
                 # TODO: Discuss with Bryan how to handle modes other than shutdowns?
                 # TODO: It doesn't seem correct to include the mode in the Resource set.
@@ -162,11 +173,16 @@ class ResourceMock(metaclass=Singleton):
         If it does, return it.
         If not, create it, add it to the list of all Resources, and then return it.
         """
+        if not resource_id:
+            raise ValueError('Empty resource ID specified')
         if resource_id not in self._all_resources:
             self._all_resources[resource_id] = Resource(id=resource_id)
         return self._all_resources[resource_id]
 
     def get_night_resources(self, sites: FrozenSet[Site], night_date: date) -> Dict[Site, FrozenSet[Resource]]:
+        missing_sites = [site for site in sites if site not in self._sites]
+        if missing_sites:
+            raise ValueError(f'Illegal sites for ResourceMock: accepted={self._sites}, requested={missing_sites}')
         return {site: frozenset(self._resources[site][night_date] if night_date in self._resources[site] else ())
                 for site in sites if site in self._sites}
 
@@ -237,3 +253,11 @@ class OcsFpuConverter(metaclass=Singleton):
         # TODO: Not in OCS?
         'PinholeC': 'PinholeC'
     }})
+
+
+# Preliminary testing.
+if __name__ == '__main__':
+    r = ResourceMock()
+    r.connect()
+    print(r.get_night_resources(frozenset([Site.GS]), date(year=2018, month=8, day=2)))
+    print(r.get_night_resources(frozenset([Site.GN]), date(year=2018, month=8, day=2)))
