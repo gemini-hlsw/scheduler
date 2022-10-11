@@ -16,6 +16,10 @@ from .resources import Resources
 
 
 class ResourceMock:
+    _extra_GS_fpus = ['11013104', '11013107', '11020601', '11022001', '11023313', '11023327', '11023328', '11023332',
+                      '11023341', '11023342', '10000009', '10005373', '10005372', '10005374', '10005375', '10005376',
+                      '10005390']
+
     def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
         self._sites = sites
         self._path = os.path.join(ROOT_DIR, 'mock', 'resource', 'data')
@@ -78,11 +82,14 @@ class ResourceMock:
         for site in self._sites:
             sheet = workbook[site.name]
             for row in sheet.iter_rows(min_row=2):
+                # TODO: Check this to make sure it is a date, and if not, convert.
                 row_date = row[0].value
                 date_set = self._resources[site].setdefault(row_date, set())
                 mode = self._lookup_resource(row[1].value)
                 lgs = str_to_bool(row[2].value)
                 instruments = {self._lookup_resource('Flamingos2' if c.value == 'F2' else c.value) for c in row[3:]}
+
+                # TODO: Discuss with Bryan how to handle mode?
                 date_set |= instruments | {mode}
                 self._resources[site][row_date] = date_set
                 self._lgs[site][row_date] = lgs
@@ -141,15 +148,10 @@ class ResourceMock:
             logging.warning(f'No information about {info} is stored')
             return None
 
-    def get_night_resources(self, sites, night_date):
-        def night_info(info_name: str):
-            return {site: self._get_info(info_name, site, night_date) for site in sites}
-
-        fpu = night_info('fpu')
-        fpur = night_info('fpur')
-        gratings = night_info('grat')
-        instruments = night_info('instr')
-        lgs = night_info('LGS')
-        modes = night_info('mode')
-        ifus = {'FPU': night_info('fpu-ifu'), 'FPUr': night_info('fpur-ifu')}
-        return Resources(fpu, fpur, gratings, instruments, lgs, modes, self.fpu_to_barcode, ifus)
+    def get_night_resources(self, sites: FrozenSet[Site], night_date: date) -> Dict[Site, FrozenSet[Resource]]:
+        return {site: frozenset(self._resources[site][night_date]) for site in sites}
+        # for site in sites:
+        #     night_resources[site] = self._resources[site][night_date]
+        # return self._reso
+        # def night_info(info_name: str):
+        #     return {site: self._get_info(info_name, site, night_date) for site in sites}
