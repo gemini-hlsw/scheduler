@@ -45,7 +45,7 @@ class ResourceMock(metaclass=Singleton):
         # Mapping from ITCD FPUs to barcodes. The mapping is site-dependent.
         # The ODB program extractor produces long versions of these names that must be run through the
         # OcsFpuConverter to get the ITCD FPU names.
-        self._fpu_to_barcode: Dict[Site, Dict[Resource, Resource]] = {}
+        self._fpu_to_barcode: Dict[Site, Dict[str, Resource]] = {}
 
         # Determines whether a night is a part of a laser run.
         self._lgs: Dict[Site, Dict[date, bool]] = {site: {} for site in self._sites}
@@ -72,9 +72,10 @@ class ResourceMock(metaclass=Singleton):
                            lambda r: {i.strip() for i in r[1:]})
 
             # Load the gratings.
-            # This will put MIRROR and the grating names available on a given date as Resources.
+            # This will put the mirror and the grating names available on a given date as Resources.
+            # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
             self._load_csv(site, f'GMOS{"N" if site == Site.GN else "S"}_GRAT201789.txt',
-                           lambda r: {'MIRROR'} | {i.strip().replace('+', '') for i in r[1:]})
+                           lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r[1:]})
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_spreadsheet('2018B-2019A Telescope Schedules.xlsx')
@@ -96,8 +97,8 @@ class ResourceMock(metaclass=Singleton):
                 fpu, barcode = row.split()
 
                 # Only map if the FPU is a resource.
-                if fpu is not None and fpu in self._all_resources:
-                    self._fpu_to_barcode[site][self._all_resources[fpu]] = self._lookup_resource(barcode)
+                if fpu is not None:
+                    self._fpu_to_barcode[site][fpu] = self._lookup_resource(barcode)
 
     def _load_csv(self, site: Site, name: str, c: Callable[[List[str]], Set[str]]) -> NoReturn:
         """
@@ -186,38 +187,36 @@ class ResourceMock(metaclass=Singleton):
         return {site: frozenset(self._resources[site][night_date] if night_date in self._resources[site] else ())
                 for site in sites if site in self._sites}
 
-    # TODO: ************************************************************************************
-    # TODO: All logic from here forward should be moved to OcsProgramProvider and handled there.
-    # TODO: ************************************************************************************
-    _decoder = {'A': '0', 'B': '1', 'Q': '0',
-                'C': '1', 'LP': '2', 'FT': '3',
-                'SV': '8', 'DD': '9'}
-    _pattern = '|'.join(_decoder.keys())
-
-    @staticmethod
-    def _decode_mask(mask_name: str) -> str:
-        return '1' + re.sub(f'({ResourceMock._pattern})',
-                            lambda m: ResourceMock._decoder[m.group()], mask_name).replace('-', '')[6:]
-
-    def is_mask_available(self, site: Site, fpu_mask: str) -> bool:
+    def fpu_to_barcode(self, site: Site, fpu_name: str) -> Optional[Resource]:
         """
-        This needs to be adapted and moved to OcsProgramProvider.
-        There is no date specified here as it was taken from Resources, which was associated with a date.
-        fpu_mask None handling is already managed by OcsProgramProvider as well.
-        We will have to make this class available to OcsProgramProvider.
+        Convert a long FPU name into the barcode, if it exists.
         """
-        barcode = None
-        if fpu_mask == 'None':
-            return True
-        if fpu_mask in self._fpu_to_barcode[site]:
-            barcode = self._fpu_to_barcode[site][self._lookup_resource(fpu_mask)]
-        elif '-' in fpu_mask:
-            barcode = ResourceMock._decode_mask(fpu_mask)
+        return self._fpu_to_barcode[site].get(fpu_name)
 
-        return barcode and barcode in self._resources[site]
+    # # TODO: **************************************************************
+    # # TODO: We are not using masks yet: just FPUs and dispersers for GMOS.
+    # # TODO: **************************************************************
+    # _decoder = {'A': '0', 'B': '1', 'Q': '0',
+    #             'C': '1', 'LP': '2', 'FT': '3',
+    #             'SV': '8', 'DD': '9'}
+    # _pattern = '|'.join(_decoder.keys())
+    #
+    # @staticmethod
+    # def _decode_mask(mask_name: str) -> str:
+    #     return '1' + re.sub(f'({ResourceMock._pattern})',
+    #                         lambda m: ResourceMock._decoder[m.group()], mask_name).replace('-', '')[6:]
+    #
+    # def is_mask_available(self, site: Site, fpu_mask: str) -> bool:
+    #     barcode = None
+    #     if fpu_mask == 'None':
+    #         return True
+    #     if fpu_mask in self._fpu_to_barcode[site]:
+    #         barcode = self._fpu_to_barcode[site][self._lookup_resource(fpu_mask)]
+    #     elif '-' in fpu_mask:
+    #         barcode = ResourceMock._decode_mask(fpu_mask)
+    #
+    #     return barcode and barcode in self._resources[site]
 
-
-class OcsFpuConverter(metaclass=Singleton):
     """
     These are the converters from the OCS FPU names to the ITCD FPU representations.
     For example, the ODB query extractor would return:
@@ -226,7 +225,7 @@ class OcsFpuConverter(metaclass=Singleton):
        * 'IFU-2'
     since these are the FPU names used in the GMOS[NS]-FPU(r?)######.txt files.
     """
-    gmosn_ifu_dict = MappingProxyType({
+    _gmosn_ifu_dict = MappingProxyType({
         'IFU 2 Slits': 'IFU-2',
         'IFU Left Slit (blue)': 'IFU-B',
         'IFU Right Slit (red)': 'IFU-R',
@@ -246,7 +245,7 @@ class OcsFpuConverter(metaclass=Singleton):
         'focus_array_new': 'focus_array_new'
     })
 
-    gmoss_ifu_dict = MappingProxyType({**gmosn_ifu_dict, **{
+    _gmoss_ifu_dict = MappingProxyType({**_gmosn_ifu_dict, **{
         'IFU N and S 2 Slits': 'IFU-NS-2',
         'IFU N and S Left Slit (blue)': 'IFU-NS-B',
         'IFU N and S Right Slit (red)': 'IFU-NS-R',
@@ -254,10 +253,19 @@ class OcsFpuConverter(metaclass=Singleton):
         'PinholeC': 'PinholeC'
     }})
 
+    def convert_fpu_to_barcode(self, site: Site, fpu_long_name: str) -> Optional[Resource]:
+        """
+        Convert a long FPU name in GMOS to the Resource consisting of a barcode.
+        """
+        itcd_name = self._convert_fpu_to_itcd_name(site, fpu_long_name)
+        return None if itcd_name is None else ResourceMock().fpu_to_barcode(site, itcd_name)
 
-# Preliminary testing.
-if __name__ == '__main__':
-    r = ResourceMock()
-    r.connect()
-    print(r.get_night_resources(frozenset([Site.GS]), date(year=2018, month=8, day=2)))
-    print(r.get_night_resources(frozenset([Site.GN]), date(year=2018, month=8, day=2)))
+    def _convert_fpu_to_itcd_name(self, site: Site, fpu_name: str) -> Optional[str]:
+        if Site.GN in self._sites and site == Site.GN:
+            return self._gmosn_ifu_dict.get(fpu_name)
+        if Site.GS in self._sites and site == Site.GS:
+            return self._gmoss_ifu_dict.get(fpu_name)
+        return None
+
+    def lookup_resource(self, resource_name: str) -> Optional[Resource]:
+        return self._all_resources.get(resource_name)
