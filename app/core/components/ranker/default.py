@@ -33,7 +33,7 @@ class RankerParameters:
     met_power: float = 1.0
     vis_power: float = 1.0
     wha_power: float = 1.0
-    comp_exp: int = 1
+    # comp_exp: int = 1
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = np.array([3., 0., -0.08])
@@ -70,7 +70,7 @@ def _default_band_params() -> RankerBandParameterMap:
     b1 = 1.2
 
     params = {Band.BAND4: RankerBandParameters(m1=0.00, b1=0.1, m2=0.00, b2=0.0, xb=0.8, xb0=0.0, xc0=0.0)}
-    for band in {Band.BAND3, Band.BAND2, Band.BAND1}:
+    for band in [Band.BAND3, Band.BAND2, Band.BAND1]:
         # Intercept for linear segment.
         b2 = b1 + 5. - m2[band]
 
@@ -119,7 +119,7 @@ class DefaultRanker(Ranker):
             band: integer array of bands for each program
             b3min: array of Band 3 minimum time fractions (Band 3 minimum time / Allocated program time)
             params: dictionary of parameters for the metric
-            comp_exp: exponent on completion, comp_exp=1 is linear, comp_exp=2 is parabolic
+            power: exponent on completion, power=1 is linear, power=2 is parabolic
         """
         # TODO: Add error checking to make sure arrays are the appropriate lengths?
         if len(band) != len(completion):
@@ -142,11 +142,11 @@ class DefaultRanker(Ranker):
                 # b2 = params[curr_band].b2
 
             # Determine the intercept for the second piece (b2) so that the functions are continuous
-            b2 = 0
-            if pow == 1:
+            b2 = 0.0
+            if self.params.power == 1:
                 b2 = (xb * (self.band_params[curr_band].m1 - self.band_params[curr_band].m2) +
                       self.band_params[curr_band].xb0 + self.band_params[curr_band].b1)
-            elif pow == 2:
+            elif self.params.power == 2:
                 b2 = self.band_params[curr_band].b2 + self.band_params[curr_band].xb0 + self.band_params[curr_band].b1
 
             # Finally, calculate piecewise the metric and slope.
@@ -154,10 +154,10 @@ class DefaultRanker(Ranker):
                 metric[idx] = 0.0
                 metric_slope[idx] = 0.0
             elif completion[idx] < xb:
-                metric[idx] = (self.band_params[curr_band].m1 * completion[idx] ** self.params.comp_exp
+                metric[idx] = (self.band_params[curr_band].m1 * completion[idx] **self.params.power
                                + self.band_params[curr_band].b1)
-                metric_slope[idx] = (self.params.comp_exp * self.band_params[curr_band].m1
-                                     * completion[idx] ** (self.params.comp_exp - 1.0))
+                metric_slope[idx] = (self.params.power * self.band_params[curr_band].m1
+                                     * completion[idx] ** (self.params.power - 1.0))
             elif completion[idx] < 1.0:
                 metric[idx] = self.band_params[curr_band].m2 * completion[idx] + b2
                 metric_slope[idx] = self.band_params[curr_band].m2
