@@ -33,7 +33,6 @@ class RankerParameters:
     met_power: float = 1.0
     vis_power: float = 1.0
     wha_power: float = 1.0
-    # comp_exp: int = 1
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = np.array([3., 0., -0.08])
