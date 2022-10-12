@@ -33,7 +33,7 @@ class RankerParameters:
     met_power: float = 1.0
     vis_power: float = 1.0
     wha_power: float = 1.0
-    comp_exp: int = 1
+    # comp_exp: int = 1
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = np.array([3., 0., -0.08])
@@ -119,7 +119,7 @@ class DefaultRanker(Ranker):
             band: integer array of bands for each program
             b3min: array of Band 3 minimum time fractions (Band 3 minimum time / Allocated program time)
             params: dictionary of parameters for the metric
-            comp_exp: exponent on completion, comp_exp=1 is linear, comp_exp=2 is parabolic
+            power: exponent on completion, power=1 is linear, power=2 is parabolic
         """
         # TODO: Add error checking to make sure arrays are the appropriate lengths?
         if len(band) != len(completion):
@@ -156,7 +156,7 @@ class DefaultRanker(Ranker):
             elif completion[idx] < xb:
                 metric[idx] = (self.band_params[curr_band].m1 * completion[idx] **self.params.power
                                + self.band_params[curr_band].b1)
-                metric_slope[idx] = (self.params.comp_exp * self.band_params[curr_band].m1
+                metric_slope[idx] = (self.params.power * self.band_params[curr_band].m1
                                      * completion[idx] ** (self.params.power - 1.0))
             elif completion[idx] < 1.0:
                 metric[idx] = self.band_params[curr_band].m2 * completion[idx] + b2
