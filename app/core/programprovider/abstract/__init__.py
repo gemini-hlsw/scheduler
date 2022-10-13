@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import List
 
 from lucupy.minimodel import AndGroup, Atom, Conditions, Constraints, Magnitude, NonsiderealTarget, Observation, \
-    OrGroup, Program, QAState, SiderealTarget, Target, TimeAllocation, TimingWindow
+    OrGroup, Program, QAState, SiderealTarget, Site, Target, TimeAllocation, TimingWindow
 
 
 class ProgramProvider(ABC):
@@ -194,7 +194,7 @@ class ProgramProvider(ABC):
 
     @staticmethod
     @abstractmethod
-    def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
+    def parse_atoms(site: Site, sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
         """
         Given a list of associative arrays from an observation that contain atom data,
         parse / process the atom data and populate a list of Atom objects.

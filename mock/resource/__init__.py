@@ -7,7 +7,6 @@ import os
 from datetime import date, datetime, timedelta
 from types import MappingProxyType
 from typing import Callable, Dict, FrozenSet, List, NoReturn, Optional, Set
-import re
 
 from lucupy.helpers import str_to_bool
 from lucupy.minimodel import ALL_SITES, Resource, Site
@@ -45,7 +44,7 @@ class ResourceMock(metaclass=Singleton):
         # Mapping from ITCD FPUs to barcodes. The mapping is site-dependent.
         # The ODB program extractor produces long versions of these names that must be run through the
         # OcsFpuConverter to get the ITCD FPU names.
-        self._fpu_to_barcode: Dict[Site, Dict[str, Resource]] = {}
+        self._fpu_to_barcode: Dict[Site, Dict[str, Resource]] = {site: {} for site in self._sites}
 
         # Determines whether a night is a part of a laser run.
         self._lgs: Dict[Site, Dict[date, bool]] = {site: {} for site in self._sites}
@@ -68,14 +67,17 @@ class ResourceMock(metaclass=Singleton):
 
             # Load the FPUrs.
             # This will put both the IFU and the FPU barcodes available on a given date as Resources.
+            # Note that for the IFU, we need to convert to a barcode, which is a Resource.
+            # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take
+            # its ID.
             self._load_csv(site, f'GMOS{"N" if site == Site.GN else "S"}_FPUr201789.txt',
-                           lambda r: {i.strip() for i in r[1:]})
+                           lambda r: {self._fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]})
 
             # Load the gratings.
             # This will put the mirror and the grating names available on a given date as Resources.
             # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
             self._load_csv(site, f'GMOS{"N" if site == Site.GN else "S"}_GRAT201789.txt',
-                           lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r[1:]})
+                           lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r})
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_spreadsheet('2018B-2019A Telescope Schedules.xlsx')
@@ -130,8 +132,8 @@ class ResourceMock(metaclass=Singleton):
                 date_set = self._resources[site].setdefault(row_date, set())
 
                 # Filter out any empty entries in the row.
-                date_set |= {self._lookup_resource(r) for r in c(row[1:]) if r}
-                self._resources[site][row_date] = date_set
+                new_entries = {self._lookup_resource(r) for r in c(row[1:]) if r}
+                self._resources[site][row_date] = date_set | new_entries
 
                 # Advance the previous row date where data was defined.
                 prev_row_date = row_date
@@ -253,13 +255,6 @@ class ResourceMock(metaclass=Singleton):
         'PinholeC': 'PinholeC'
     }})
 
-    def convert_fpu_to_barcode(self, site: Site, fpu_long_name: str) -> Optional[Resource]:
-        """
-        Convert a long FPU name in GMOS to the Resource consisting of a barcode.
-        """
-        itcd_name = self._convert_fpu_to_itcd_name(site, fpu_long_name)
-        return None if itcd_name is None else ResourceMock().fpu_to_barcode(site, itcd_name)
-
     def _convert_fpu_to_itcd_name(self, site: Site, fpu_name: str) -> Optional[str]:
         if Site.GN in self._sites and site == Site.GN:
             return self._gmosn_ifu_dict.get(fpu_name)
@@ -267,5 +262,30 @@ class ResourceMock(metaclass=Singleton):
             return self._gmoss_ifu_dict.get(fpu_name)
         return None
 
+    def convert_fpu_to_barcode(self, site: Site, fpu_long_name: str) -> Optional[Resource]:
+        """
+        Convert a long FPU name in GMOS to the Resource consisting of a barcode.
+        """
+        itcd_name = self._convert_fpu_to_itcd_name(site, fpu_long_name)
+        return None if itcd_name is None else self.fpu_to_barcode(site, itcd_name)
+
     def lookup_resource(self, resource_name: str) -> Optional[Resource]:
+        """
+        Given a resource name, look it up and retrieve the Resource object from the cache if it exists.
+        If not, None is returned.
+        """
         return self._all_resources.get(resource_name)
+
+
+# For Bryan: testing
+if __name__ == '__main__':
+    # To get the Resources for a specific site on a specific date, modify the following:
+    site = Site.GN
+    day = date(year=2018, month=11, day=30)
+
+    r = ResourceMock()
+    r.connect()
+    resources_available = r.get_night_resources(frozenset([site]), day)
+    print(f'*** Resources for site {site.name} for {day} ***')
+    for resource in sorted(resources_available[site], key=lambda x: x.id):
+        print(resource)
