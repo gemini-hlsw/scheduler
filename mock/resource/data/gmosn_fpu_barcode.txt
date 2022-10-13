@@ -1,0 +1,16 @@
+IFU-R           10000009
+IFU-2           10000007
+IFU-B           10000008
+focus_array_new 10005360
+0.25arcsec      10005351
+0.5arcsec       10005352
+0.75arcsec      10005353
+1.0arcsec       10005354
+1.5arcsec       10005355
+2.0arcsec       10005356
+5.0arcsec       10005357
+NS0.5arcsec     10005367
+NS0.75arcsec    10005368
+NS1.0arcsec     10005369
+NS1.5arcsec     10005358
+NS2.0arcsec     10005359

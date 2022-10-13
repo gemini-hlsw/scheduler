@@ -21,6 +21,7 @@ from lucupy.timeutils import sex2dec
 from scipy.signal import find_peaks
 
 from app.core.programprovider.abstract import ProgramProvider
+from mock.resource import ResourceMock
 
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
@@ -42,9 +43,9 @@ class OcsProgramProvider(ProgramProvider):
     Observing Database.
     """
 
-    GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
-    NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
-    OBSERVE_TYPES = ['FLAT', 'ARC', 'DARK', 'BIAS']
+    _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
+    _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
+    _OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
@@ -442,8 +443,8 @@ class OcsProgramProvider(ProgramProvider):
                 if OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
                     fpu = data[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
                 else:
-                    fpu = None
                     # TODO: Might need to raise an exception here. Check code with science.
+                    fpu = None
             else:
                 raise ValueError(f'Instrument {instrument} not supported')
 
@@ -467,21 +468,21 @@ class OcsProgramProvider(ProgramProvider):
         if OcsProgramProvider._AtomKeys.FILTER in data:
             filt = data[OcsProgramProvider._AtomKeys.FILTER]
         elif instrument == 'GPI':
-            filt = find_filter(fpu, OcsProgramProvider.GPI_FILTER_WAVELENGTHS)
+            filt = find_filter(fpu, OcsProgramProvider._GPI_FILTER_WAVELENGTHS)
         else:
             if instrument == 'GNIRS':
                 filt = None
             else:
                 filt = 'Unknown'
         if instrument == 'NIFS' and 'Same as Disperser' in filt:
-            filt = find_filter(disperser[0], OcsProgramProvider.NIFS_FILTER_WAVELENGTHS)
-        wavelength = (OcsProgramProvider.GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI'
+            filt = find_filter(disperser[0], OcsProgramProvider._NIFS_FILTER_WAVELENGTHS)
+        wavelength = (OcsProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI'
                       else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH]))
 
         return fpu, disperser, filt, wavelength
 
     @staticmethod
-    def parse_atoms(sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
+    def parse_atoms(site: Site, sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
         """
         Atom handling logic.
         """
@@ -573,10 +574,11 @@ class OcsProgramProvider(ProgramProvider):
         instrument = sequence[0][OcsProgramProvider._AtomKeys.INSTRUMENT]
         for step in sequence:
 
-            # Instrument configuration aka Resource
+            # Instrument configuration aka Resource.
+            # TODO: We don't have wavelengths as Resources right now.
             fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
 
-            # We don't want to allow FPU to be None or FPU_NONE, which are effectively the same thing.
+            # If FPU is None, 'None', or FPU_NONE, which are effectively the same thing, we ignore.
             if fpu is not None and fpu != 'None' and fpu != 'FPU_NONE':
                 fpus.append(fpu)
             dispersers.append(disperser)
@@ -588,7 +590,7 @@ class OcsProgramProvider(ProgramProvider):
             q = 0.0
 
             # Exposures on sky for dither pattern analysis
-            if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider.OBSERVE_TYPES:
+            if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
                 p = float(step[OcsProgramProvider._AtomKeys.OFFSET_P]) if OcsProgramProvider._AtomKeys.OFFSET_P in step else 0.0
                 q = float(step[OcsProgramProvider._AtomKeys.OFFSET_Q]) if OcsProgramProvider._AtomKeys.OFFSET_Q in step else 0.0
                 sky_p_offsets.append(p)
@@ -599,8 +601,20 @@ class OcsProgramProvider(ProgramProvider):
             p_offsets.append(p)
             q_offsets.append(q)
 
-        # Transform Resources
-        resources = frozenset(Resource(rid) for rid in fpus + dispersers + filters + [instrument])
+        # Transform Resources.
+        # TODO: For now, we focus on instruments, and GMOS FPUs and dispersers exclusively.
+        instrument_resources = frozenset([ResourceMock().lookup_resource(instrument)])
+        if 'GMOS' in instrument:
+            # Convert FPUs and dispersers to barcodes.
+            fpu_resources = frozenset([ResourceMock().fpu_to_barcode(site, fpu) for fpu in fpus])
+            disperser_resources = frozenset([ResourceMock().lookup_resource(disperser.split('_')[0])
+                                             for disperser in dispersers])
+            resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources])
+        else:
+            resources = instrument_resources
+
+        # Remove the None values.
+        resources = frozenset([res for res in resources if res is not None])
 
         mode = determine_mode(instrument)
         if instrument == 'GPI':
@@ -629,7 +643,7 @@ class OcsProgramProvider(ProgramProvider):
             offset_lag = q_lag
             if p_lag > 0 and p_lag != q_lag:
                 offset_lag = 0
-        # Group by changes in exptimes/coadds?
+        # Group by changes in exptimes / coadds?
         exp_time_groups = False
         n_offsets = 0
         n_pattern = offset_lag
@@ -645,7 +659,7 @@ class OcsProgramProvider(ProgramProvider):
                 next_atom = True
 
             # A change in exposure time or coadds is a new atom for science exposures
-            if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider.OBSERVE_TYPES:
+            if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
                 if (observe_class.upper() == ObservationClass.SCIENCE.name and step_id > 0 and
                         (exposure_times[step_id] != exposure_times[prev] or coadds[step_id] != coadds[prev])):
                     next_atom = True
@@ -699,7 +713,7 @@ class OcsProgramProvider(ProgramProvider):
                                   resources=resources,
                                   wavelengths=frozenset(wavelengths)))
 
-                if (step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider.OBSERVE_TYPES and
+                if (step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES and
                         n_pattern == 0):
                     n_pattern = offset_lag
                 n_offsets = 1
@@ -773,7 +787,7 @@ class OcsProgramProvider(ProgramProvider):
         qa_states = [QAState[log_entry[OcsProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
                      data[OcsProgramProvider._ObsKeys.LOG]]
 
-        atoms = OcsProgramProvider.parse_atoms(data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
+        atoms = OcsProgramProvider.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
         # exec_time = sum([atom.exec_time for atom in atoms], timedelta()) + acq_overhead
 
         # TODO: Should this be a list of all targets for the observation?
@@ -820,6 +834,7 @@ class OcsProgramProvider(ProgramProvider):
             if guide_group is not None:
                 for guide_data in guide_group[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE]:
                     guider = guide_data[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE_KEY]
+                    # TODO: We don't have guiders as resources in ResourceMock.
                     resource = Resource(id=guider)
                     target = OcsProgramProvider.parse_target(guide_data[OcsProgramProvider._TargetEnvKeys.TARGET])
                     guiding[resource] = target
