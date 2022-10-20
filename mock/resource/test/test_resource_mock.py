@@ -10,6 +10,11 @@ from lucupy.minimodel.site import Site
 from mock.resource import ResourceMock
 
 
+@pytest.fixture
+def year():
+    return timedelta(days=365)
+
+
 def test_specific_date_gn():
     expected = frozenset(
         [Resource(id='10000007'), Resource(id='10005351'), Resource(id='10005352'), Resource(id='10005353'),
@@ -38,14 +43,15 @@ def test_specific_date_gs():
     assert resources == expected
 
 
-def test_early_date():
+def test_early_date(year):
+    earliest_date = ResourceMock().date_range_for_site(Site.GN)[0]
     expected = frozenset()
-    resources = ResourceMock().get_resources(Site.GN, date(year=1800, month=1, day=1))
+    resources = ResourceMock().get_resources(Site.GN, earliest_date - year)
     assert resources == expected
 
 
-def test_late_date():
+def test_late_date(year):
     latest_date = ResourceMock().date_range_for_site(Site.GN)[1]
     expected = ResourceMock().get_resources(Site.GN, latest_date)
-    resources = ResourceMock().get_resources(Site.GN, latest_date + timedelta(weeks=52))
+    resources = ResourceMock().get_resources(Site.GN, latest_date + year)
     assert resources == expected
