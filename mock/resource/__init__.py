@@ -6,7 +6,7 @@ import csv
 import os
 from datetime import date, datetime, timedelta
 from types import MappingProxyType
-from typing import Callable, Collection, Dict, Final, FrozenSet, List, NoReturn, Optional, Set, final
+from typing import Callable, Collection, Dict, Final, FrozenSet, List, NoReturn, Optional, Set, Tuple, final
 
 from lucupy.helpers import str_to_bool
 from lucupy.minimodel import ALL_SITES, Resource, Site
@@ -115,6 +115,15 @@ class ResourceMock(metaclass=Singleton):
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_spreadsheet('2018B-2019A Telescope Schedules.xlsx')
 
+        # Record the earliest date for each site: any date before this will return an empty set of Resources.
+        # Record the latest date for each site: any date after this will return the Resources on this date.
+        self._earliest_date_per_site = {site: min(self._resources[site], default=None) for site in self._sites}
+        self._latest_date_per_site = {site: max(self._resources[site], default=None) for site in self._sites}
+        for site in self._sites:
+            # Only one of these checks should be necessary.
+            if self._earliest_date_per_site is None or self._latest_date_per_site[site] is None:
+                raise ValueError(f'No site resource data for {site.name}.')
+
     def _load_fpu_to_barcodes(self, site: Site, name: str) -> NoReturn:
         """
         FPUs at each site map to a unique barcode as defined in the files:
@@ -213,13 +222,30 @@ class ResourceMock(metaclass=Singleton):
             self._all_resources[resource_id] = Resource(id=resource_id)
         return self._all_resources[resource_id]
 
+    def date_range_for_site(self, site: Site) -> Tuple[date, date]:
+        """
+        Return the date range (inclusive) for which we have resource data for a site.
+        """
+        if site not in self._sites:
+            raise ValueError(f'Request for resource dates for illegal site: {site.name}')
+        return self._earliest_date_per_site[site], self._latest_date_per_site[site]
+
     def get_resources(self, site: Site, night_date: date) -> FrozenSet[Resource]:
         """
         For a site and a night date, return the set of available resources.
+        If the date falls before any resource data for the site, return the empty set.
+        If the date falls after any resource data for the site, return the last resource set.
         """
         if site not in self._sites:
-            raise ValueError(f'Request for resources for illegal site: {site}')
-        return frozenset(self._resources[site][night_date] if night_date in self._resources[site] else ())
+            raise ValueError(f'Request for resources for illegal site: {site.name}')
+
+        # If the date is before the first date, return an empty set.
+        if night_date < self._earliest_date_per_site[site]:
+            return frozenset()
+
+        # If the date is past the last date, return the resources on the last date.
+        actual_date = min(self._latest_date_per_site[site], night_date)
+        return frozenset(self._resources[site][actual_date])
 
     def get_resources_for_sites(self,
                                 sites: Collection[Site],
@@ -275,11 +301,11 @@ class ResourceMock(metaclass=Singleton):
 # For Bryan: testing
 if __name__ == '__main__':
     # To get the Resources for a specific site on a specific date, modify the following:
-    site = Site.GN
-    day = date(year=2018, month=11, day=30)
+    st = Site.GS
+    day = date(year=2017, month=5, day=7)
 
-    r = ResourceMock()
-    resources_available = r.get_resources(site, day)
-    print(f'*** Resources for site {site.name} for {day} ***')
+    rm = ResourceMock()
+    resources_available = rm.get_resources(st, day)
+    print(f'*** Resources for site {st.name} for {day} ***')
     for resource in sorted(resources_available, key=lambda x: x.id):
         print(resource)
