@@ -16,7 +16,6 @@ from app.core.components.collector import Collector
 from app.core.components.optimizer import Optimizer
 from app.core.components.optimizer.dummy import DummyOptimizer
 from app.core.components.selector import Selector
-from app.core.output import print_plans
 from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from definitions import ROOT_DIR
 from app.db.planmanager import PlanManager

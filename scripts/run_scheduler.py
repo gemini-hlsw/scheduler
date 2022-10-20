@@ -29,9 +29,9 @@ if __name__ == '__main__':
         end_time=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
         time_slot_length=TimeDelta(1.0 * u.min),
         sites=ALL_SITES,
-        semesters={Semester(2018, SemesterHalf.B)},
-        program_types={ProgramTypes.Q, ProgramTypes.LP, ProgramTypes.FT, ProgramTypes.DD},
-        obs_classes={ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL}
+        semesters=frozenset({Semester(2018, SemesterHalf.B)}),
+        program_types=frozenset({ProgramTypes.Q, ProgramTypes.LP, ProgramTypes.FT, ProgramTypes.DD}),
+        obs_classes=frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
     )
     collector.load_programs(program_provider=OcsProgramProvider(),
                             data=programs)
