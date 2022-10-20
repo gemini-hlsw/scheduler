@@ -71,7 +71,6 @@ class ResourceMock(metaclass=Singleton):
         """
         Create and initialize the ResourceMock object with the specified sites.
         """
-        print('Creating ResourceMock')
         self._sites = sites
         self._path = os.path.join(ROOT_DIR, 'mock', 'resource', 'data')
 
@@ -301,11 +300,12 @@ class ResourceMock(metaclass=Singleton):
 # For Bryan: testing
 if __name__ == '__main__':
     # To get the Resources for a specific site on a specific date, modify the following:
-    st = Site.GS
-    day = date(year=2017, month=5, day=7)
+    st = Site.GN
+    day = date(year=2018, month=11, day=8)
 
     rm = ResourceMock()
     resources_available = rm.get_resources(st, day)
     print(f'*** Resources for site {st.name} for {day} ***')
-    for resource in sorted(resources_available, key=lambda x: x.id):
-        print(resource)
+    # for resource in sorted(resources_available, key=lambda x: x.id):
+    #     print(resource)
+    print(', '.join([str(a) for a in sorted(resources_available, key=lambda x: x.id)]))
