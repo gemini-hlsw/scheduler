@@ -4,8 +4,8 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from lucupy.minimodel import AndGroup, Atom, Conditions, Constraints, Magnitude, NonsiderealTarget, Observation, \
-    OrGroup, Program, QAState, SiderealTarget, Site, Target, TimeAllocation, TimingWindow
+from lucupy.minimodel import (AndGroup, Atom, Conditions, Constraints, Magnitude, NonsiderealTarget, Observation,
+    OrGroup, Program, QAState, SiderealTarget, Site, Target, TimeAllocation, TimingWindow)
 
 
 class ProgramProvider(ABC):

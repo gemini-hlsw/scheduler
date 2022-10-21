@@ -394,7 +394,7 @@ class OcsProgramProvider(ProgramProvider):
 
         return SiderealTarget(
             name=name,
-            magnitudes=magnitudes,
+            magnitudes=frozenset(magnitudes),
             type=target_type,
             ra=ra,
             dec=dec,
@@ -415,7 +415,7 @@ class OcsProgramProvider(ProgramProvider):
         # TODO: ra and dec are last two parameters. Fill here or elsewhere?
         return NonsiderealTarget(
             name=name,
-            magnitudes=magnitudes,
+            magnitudes=frozenset(magnitudes),
             type=target_type,
             des=des,
             tag=tag,
@@ -591,8 +591,10 @@ class OcsProgramProvider(ProgramProvider):
 
             # Exposures on sky for dither pattern analysis
             if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
-                p = float(step[OcsProgramProvider._AtomKeys.OFFSET_P]) if OcsProgramProvider._AtomKeys.OFFSET_P in step else 0.0
-                q = float(step[OcsProgramProvider._AtomKeys.OFFSET_Q]) if OcsProgramProvider._AtomKeys.OFFSET_Q in step else 0.0
+                p = (float(step[OcsProgramProvider._AtomKeys.OFFSET_P]) if OcsProgramProvider._AtomKeys.OFFSET_P in step
+                     else 0.0)
+                q = (float(step[OcsProgramProvider._AtomKeys.OFFSET_Q]) if OcsProgramProvider._AtomKeys.OFFSET_Q in step
+                     else 0.0)
                 sky_p_offsets.append(p)
                 sky_q_offsets.append(q)
             coadds.append(int(step[OcsProgramProvider._AtomKeys.COADDS])

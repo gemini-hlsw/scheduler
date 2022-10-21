@@ -15,7 +15,7 @@ def time():
 
 @pytest.fixture
 def target():
-    return SiderealTarget('', set(), TargetType.OTHER,
+    return SiderealTarget('', frozenset(), TargetType.OTHER,
                           ra=78.85743749999999,
                           dec=15.630119444444444,
                           pm_ra=-5.718,

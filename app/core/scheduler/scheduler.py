@@ -6,7 +6,7 @@ import signal
 import shelve
 import astropy.units as u
 from astropy.time import Time, TimeDelta
-# These depdencies looks like are not being reference but are necesary in runtime when eval() is applied
+# These dependencies look like are not being referenced, but are necessary at runtime when eval() is applied.
 from lucupy.minimodel import Site, ALL_SITES, Semester, ProgramTypes, ObservationClass, SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
@@ -72,7 +72,7 @@ class Scheduler:
 
         # Save to database
         PlanManager.set_plans(plans)
-        #print(f'{PlanManager._plans=}')
+        # print(f'{PlanManager._plans=}')
 
 
 def build_scheduler():
