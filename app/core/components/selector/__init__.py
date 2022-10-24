@@ -202,11 +202,7 @@ class Selector(SchedulerComponent):
         # standards = ObservatoryProperties.determine_standard_time(required_res, obs.wavelengths(), obs)
         standards = 0.
 
-        res_night_availability = np.array([self._check_resource_availability(required_res, obs.site, night_idx)
-                                           for night_idx in ranker.night_indices])
-        print(obs.site, res_night_availability)
-        if obs.site == Site.GS:
-            print('SOUTH: ', required_res)
+        res_night_availability = self._check_resource_availability(required_res, obs.site, night_indices)
 
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
             # If we are science or progcal, then the neg HA value for a night is if the first HA for the night
@@ -369,14 +365,15 @@ class Selector(SchedulerComponent):
     def _check_resource_availability(self,
                                      required_resources: FrozenSet[Resource],
                                      site: Site,
-                                     night_idx: NightIndex) -> bool:
+                                     night_indices: npt.NDArray[NightIndex]) -> npt.NDArray[bool]:
         """
         Determine if the required resources as listed are available at
         the specified site during the given time_period, and if so, at what
-        intervals in the time period.
+        dates in the time period.
         """
-        available_resources = self.collector.available_resources(site, night_idx)
-        return required_resources.issubset(available_resources)
+        available_resources = self.collector.available_resources(site, night_indices)
+        a = np.array([required_resources.issubset(available_resources[night_idx]) for night_idx in night_indices])
+        return a
 
     @staticmethod
     def _wind_conditions(variant: Variant,

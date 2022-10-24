@@ -8,6 +8,7 @@ from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional
 
 import astropy.units as u
 import numpy as np
+import numpy.typing as npt
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import sky
@@ -437,13 +438,10 @@ class Collector(SchedulerComponent):
 
     def available_resources(self,
                             site: Site,
-                            night_idx: NightIndex) -> FrozenSet[Resource]:
+                            night_indices: npt.NDArray[NightIndex]) -> List[FrozenSet[Resource]]:
         """
         Return a set of available resources for the night under consideration.
-        TODO: Would be better if we returned a mapping of night_idx to FrozenSet[Resource] for performance?
         """
-        # TODO: Guiders are not yet included in required resources but it is assumed that they will be.
-        # TODO: Remove observatory-specific things from this, clearly.
         # ResourceMock works with dates and not night_idx, so we need to convert.
-        resource_date = self.get_night_events(site).time_grid[night_idx].datetime.date()
-        return ResourceMock().get_resources(site, resource_date)
+        return [ResourceMock().get_resources(site, self.get_night_events(site).time_grid[night_idx].datetime.date())
+                for night_idx in night_indices]
