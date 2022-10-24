@@ -18,7 +18,7 @@ from app.core.components.collector import Collector
 from app.core.components.ranker import DefaultRanker, Ranker
 from mock.environment import Env
 
-
+# Aliases to pass around resource availability information for sites and night indices.
 NightResourceAvailability = Dict[NightIndex, FrozenSet[Resource]]
 ResourceAvailability = Dict[Site, NightResourceAvailability]
 
@@ -435,7 +435,7 @@ class Selector(SchedulerComponent):
         actual_cc = np.asarray(actual_conditions.cc)
 
         # The mini-model manages the IQ, CC, WV, and SB being the same types and sizes
-        # so this check is a bit extraneous: if one has an ndim of 0, they all will.
+        # so this check is a bit extraneous: if one has a ndim of 0, they all will.
         scalar_input = actual_iq.ndim == 0 or actual_cc.ndim == 0
         if actual_iq.ndim == 0:
             actual_iq = actual_iq[None]
