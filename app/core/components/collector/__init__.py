@@ -20,6 +20,7 @@ from app.core.calculations import NightEvents, TargetInfo, TargetInfoMap, Target
 from app.core.components.base import SchedulerComponent
 from app.core.components.nighteventsmanager import NightEventsManager
 from app.core.programprovider.abstract import ProgramProvider
+from mock.resource import ResourceMock
 
 
 @dataclass
@@ -434,55 +435,15 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             logging.error(f'Could not parse {bad_program_count} programs.')
 
-    @staticmethod
-    def available_resources(site: Site,
+    def available_resources(self,
+                            site: Site,
                             night_idx: NightIndex) -> FrozenSet[Resource]:
         """
         Return a set of available resources for the night under consideration.
-        TODO: This should be an interface to connect with a mock service or with an actual service.
+        TODO: Would be better if we returned a mapping of night_idx to FrozenSet[Resource] for performance?
         """
         # TODO: Guiders are not yet included in required resources but it is assumed that they will be.
         # TODO: Remove observatory-specific things from this, clearly.
-        site_independent_resources = {
-            Resource(id='PWFS1'),
-            Resource(id='PWFS2'),
-            Resource(id='GMOS OIWFS'),
-            Resource(id='FII OIWFS'),
-
-            Resource(id='Mirror'),
-            Resource(id='Longslit 0.50 arcsec'),
-            Resource(id='Longslit 0.75 arcsec'),
-            Resource(id='Longslit 1.00 arcsec'),
-            Resource(id='Longslit 1.50 arcsec'),
-            Resource(id='IFU Right Slit (red)'),
-        }
-
-        if site == Site.GN:
-            return frozenset(site_independent_resources.union({
-                Resource(id='GMOS-N'),
-                Resource(id='R831_G5302'),
-                Resource(id='r_G0303'),
-                Resource(id='i_G0302'),
-                Resource(id='g_G0301'),
-
-                Resource(id='GNIRS'),
-                Resource(id='1.0 arcsec'),
-                Resource(id='32 l/mm SXD')
-            }))
-        elif site == Site.GS:
-            return frozenset(site_independent_resources.union({
-                Resource(id='GMOS-S'),
-                Resource(id='B600_G5323'),
-                Resource(id='B1200_G5321'),
-                Resource(id='R400_G5325'),
-                Resource(id='OG515_G0330'),
-                Resource(id='r_G0326'),
-                Resource(id='i_G0327'),
-                Resource(id='g_G0325'),
-
-                Resource(id='Flamingos2'),
-                Resource(id='IMAGING'),
-                Resource(id='K_SHORT'),
-                Resource(id='H'),
-                Resource(id='J')
-            }))
+        # ResourceMock works with dates and not night_idx, so we need to convert.
+        resource_date = self.get_night_events(site).time_grid[night_idx].datetime.date()
+        return ResourceMock().get_resources(site, resource_date)

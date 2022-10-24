@@ -3,7 +3,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import ClassVar, Dict, FrozenSet, Set, Optional
+from typing import ClassVar, Dict, FrozenSet, Optional
 
 import astropy.units as u
 import numpy as np
@@ -204,6 +204,9 @@ class Selector(SchedulerComponent):
 
         res_night_availability = np.array([self._check_resource_availability(required_res, obs.site, night_idx)
                                            for night_idx in ranker.night_indices])
+        print(obs.site, res_night_availability)
+        if obs.site == Site.GS:
+            print('SOUTH: ', required_res)
 
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
             # If we are science or progcal, then the neg HA value for a night is if the first HA for the night
@@ -363,8 +366,8 @@ class Selector(SchedulerComponent):
         """
         raise NotImplementedError(f'Selector does not yet handle OR groups: {group.id}')
 
-    @staticmethod
-    def _check_resource_availability(required_resources: Set[Resource],
+    def _check_resource_availability(self,
+                                     required_resources: FrozenSet[Resource],
                                      site: Site,
                                      night_idx: NightIndex) -> bool:
         """
@@ -372,7 +375,7 @@ class Selector(SchedulerComponent):
         the specified site during the given time_period, and if so, at what
         intervals in the time period.
         """
-        available_resources = Collector.available_resources(site, night_idx)
+        available_resources = self.collector.available_resources(site, night_idx)
         return required_resources.issubset(available_resources)
 
     @staticmethod
