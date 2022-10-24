@@ -19,6 +19,10 @@ from app.core.components.ranker import DefaultRanker, Ranker
 from mock.environment import Env
 
 
+NightResourceAvailability = Dict[NightIndex, FrozenSet[Resource]]
+ResourceAvailability = Dict[Site, NightResourceAvailability]
+
+
 @dataclass(frozen=True)
 class Selector(SchedulerComponent):
     """
@@ -79,6 +83,9 @@ class Selector(SchedulerComponent):
         if not np.array_equal(night_indices, ranker.night_indices):
             raise ValueError(f'The Ranker must have the same night indices as the Selector select method.')
 
+        # Calculate the site availability of resources in advance to avoid repeatedly calculating them.
+        resource_availability = {site: self.collector.available_resources(site, night_indices) for site in sites}
+
         # Create the structure to hold the mapping fom program ID to its group info.
         program_info: Dict[ProgramID, ProgramInfo] = {}
         for program_id in Collector.get_program_ids():
@@ -92,7 +99,11 @@ class Selector(SchedulerComponent):
             # info data inside it, i.e. feasible time slots for it in the plan.
             # We must check across all nights, hence the second for.
             # This will filter out all GroupInfo objects that do not have schedulable slots.
-            unfiltered_group_data_map = self._calculate_group(program.root_group, sites, night_indices, ranker)
+            unfiltered_group_data_map = self._calculate_group(program.root_group,
+                                                              sites,
+                                                              night_indices,
+                                                              resource_availability,
+                                                              ranker)
 
             # TODO BRYAN: keep unfiltered group info.
             for group_id, group_data in unfiltered_group_data_map.items():
@@ -137,6 +148,7 @@ class Selector(SchedulerComponent):
                          group: Group,
                          sites: FrozenSet[Site],
                          night_indices: npt.NDArray[NightIndex],
+                         resource_availability: ResourceAvailability,
                          ranker: Ranker,
                          group_data_map: GroupDataMap = None) -> GroupDataMap:
         """
@@ -154,12 +166,13 @@ class Selector(SchedulerComponent):
         else:
             raise ValueError(f'Could not process group {group.id}')
 
-        return processor(group, sites, night_indices, ranker, group_data_map)
+        return processor(group, sites, night_indices, resource_availability, ranker, group_data_map)
 
     def _calculate_observation_group(self,
                                      group: Group,
                                      sites: FrozenSet[Site],
                                      night_indices: npt.NDArray[NightIndex],
+                                     resource_availability: ResourceAvailability,
                                      ranker: Ranker,
                                      group_data_map: GroupDataMap) -> GroupDataMap:
         """
@@ -202,7 +215,9 @@ class Selector(SchedulerComponent):
         # standards = ObservatoryProperties.determine_standard_time(required_res, obs.wavelengths(), obs)
         standards = 0.
 
-        res_night_availability = self._check_resource_availability(required_res, obs.site, night_indices)
+        res_night_availability = Selector._check_resource_availability(required_res,
+                                                                       resource_availability[obs.site],
+                                                                       night_indices)
 
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
             # If we are science or progcal, then the neg HA value for a night is if the first HA for the night
@@ -272,6 +287,7 @@ class Selector(SchedulerComponent):
                              group: Group,
                              sites: FrozenSet[Site],
                              night_indices: npt.NDArray[NightIndex],
+                             resource_availability: ResourceAvailability,
                              ranker: Ranker,
                              group_data_map: GroupDataMap) -> GroupDataMap:
         """
@@ -286,7 +302,7 @@ class Selector(SchedulerComponent):
         # Process all subgroups and then process this group directly.
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
-            self._calculate_group(subgroup, sites, night_indices, ranker, group_data_map)
+            self._calculate_group(subgroup, sites, night_indices, resource_availability, ranker, group_data_map)
 
         # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
@@ -362,18 +378,16 @@ class Selector(SchedulerComponent):
         """
         raise NotImplementedError(f'Selector does not yet handle OR groups: {group.id}')
 
-    def _check_resource_availability(self,
-                                     required_resources: FrozenSet[Resource],
-                                     site: Site,
+    @staticmethod
+    def _check_resource_availability(required_resources: FrozenSet[Resource],
+                                     resource_availability: NightResourceAvailability,
                                      night_indices: npt.NDArray[NightIndex]) -> npt.NDArray[bool]:
         """
         Determine if the required resources as listed are available at
         the specified site during the given time_period, and if so, at what
         dates in the time period.
         """
-        available_resources = self.collector.available_resources(site, night_indices)
-        a = np.array([required_resources.issubset(available_resources[night_idx]) for night_idx in night_indices])
-        return a
+        return np.array([required_resources.issubset(resource_availability[night_idx]) for night_idx in night_indices])
 
     @staticmethod
     def _wind_conditions(variant: Variant,
