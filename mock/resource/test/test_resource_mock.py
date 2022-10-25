@@ -52,6 +52,6 @@ def test_early_date(year):
 
 def test_late_date(year):
     latest_date = ResourceMock().date_range_for_site(Site.GN)[1]
-    expected = ResourceMock().get_resources(Site.GN, latest_date)
+    expected = frozenset()
     resources = ResourceMock().get_resources(Site.GN, latest_date + year)
     assert resources == expected

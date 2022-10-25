@@ -238,13 +238,11 @@ class ResourceMock(metaclass=Singleton):
         if site not in self._sites:
             raise ValueError(f'Request for resources for illegal site: {site.name}')
 
-        # If the date is before the first date, return an empty set.
-        if night_date < self._earliest_date_per_site[site]:
+        # If the date is before the first date or after the last date, return the empty set.
+        if night_date < self._earliest_date_per_site[site] or night_date > self._latest_date_per_site[site]:
             return frozenset()
 
-        # If the date is past the last date, return the resources on the last date.
-        actual_date = min(self._latest_date_per_site[site], night_date)
-        return frozenset(self._resources[site][actual_date])
+        return frozenset(self._resources[site][night_date])
 
     def get_resources_for_sites(self,
                                 sites: Collection[Site],
