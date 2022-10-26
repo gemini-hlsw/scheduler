@@ -82,9 +82,9 @@ class Collector(SchedulerComponent):
     # Used in calculating proper motion.
     _EPOCH2TIME: ClassVar[Dict[float, Time]] = {}
 
-    # The default observations to clear in Validation mode.
-    _observations_to_clear: ClassVar[FrozenSet[ObservationStatus]] = (
-        frozenset([ObservationStatus.OBSERVED, ObservationStatus.ONGOING])
+    # The default observations to set to READY in Validation mode.
+    _obs_statuses_to_ready: ClassVar[FrozenSet[ObservationStatus]] = (
+        frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
     )
 
     def __post_init__(self):
@@ -369,7 +369,7 @@ class Collector(SchedulerComponent):
 
     @staticmethod
     def clear_observation_info(programs: Iterable[Program],
-                               observations_to_process: FrozenSet[ObservationStatus] = _observations_to_clear,
+                               obs_statuses_to_ready: FrozenSet[ObservationStatus] = _obs_statuses_to_ready,
                                program_filter: Optional[Callable[[Program], bool]] = None,
                                observation_filter: Optional[Callable[[Observation], bool]] = None) -> NoReturn:
         """
@@ -377,8 +377,8 @@ class Collector(SchedulerComponent):
         This is done when the Scheduler is run in Validation mode in order to start with a set of fresh Observations.
 
         This consists of:
-        1. Setting observation statuses that are ONGOING or OBSERVED to READY.
-        2. Setting times to 0.
+        1. Setting observation statuses that are in obs_statuses_to_ready to READY (default: ONGOING or OBSERVED).
+        2. Setting used times to 0 for observations.
 
         The Observations affected by this are those with statuses specified by the parameter observations_to_process.
         Additional filtering may be done by specifying optional filters for programs and a filter for observations.
@@ -387,15 +387,17 @@ class Collector(SchedulerComponent):
                               else (p for p in programs if program_filter(p)))
 
         for program in program_candidates:
-            observation_candidates = (o for o in program.observations()
-                                      if o.status in observations_to_process and
-                                      (observation_filter is None or observation_filter(o)))
-
+            observation_candidates = (program.observations() if observation_filter is None
+                                      else (o for o in program.observations() if observation_filter(o)))
             for observation in observation_candidates:
-                observation.status = ObservationStatus.READY
+                # Clear the time used across the sequence regardless of status.
                 for atom in observation.sequence:
                     atom.prog_time = timedelta()
                     atom.part_time = timedelta()
+
+                # Change the status of observations with indicated status to READY.
+                if observation.status in obs_statuses_to_ready:
+                    observation.status = ObservationStatus.READY
 
     def load_programs(self, program_provider: ProgramProvider, data: Iterable[dict]) -> NoReturn:
         """
