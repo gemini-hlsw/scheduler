@@ -297,15 +297,15 @@ class ResourceMock(metaclass=Singleton):
         return self._all_resources.get(resource_id)
 
 
-# For Bryan: testing
+# For Bryan and Kristin: testing instructions
 if __name__ == '__main__':
     # To get the Resources for a specific site on a specific date, modify the following:
     st = Site.GN
     day = date(year=2018, month=11, day=8)
 
-    rm = ResourceMock()
-    resources_available = rm.get_resources(st, day)
+    resources_available = ResourceMock().get_resources(st, day)
+
     print(f'*** Resources for site {st.name} for {day} ***')
-    # for resource in sorted(resources_available, key=lambda x: x.id):
-    #     print(resource)
-    print(', '.join([str(a) for a in sorted(resources_available, key=lambda x: x.id)]))
+    for resource in sorted(resources_available, key=lambda x: x.id):
+        print(resource)
+    # print(', '.join([str(a) for a in sorted(resources_available, key=lambda x: x.id)]))
