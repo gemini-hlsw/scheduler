@@ -1,10 +1,10 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from datetime import timedelta
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from datetime import timedelta
 from typing import Callable, ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple, final
 
 import astropy.units as u
