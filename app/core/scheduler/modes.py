@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from astropy.time import Time
 import os
 import signal
-
+from enum import Enum
 from app.config import config_collector
 from app.core.components.collector import Collector
 from app.core.components.optimizer import Optimizer
@@ -11,6 +11,7 @@ from app.core.components.selector import Selector
 from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from definitions import ROOT_DIR
 from app.db.planmanager import PlanManager
+
 
 
 class SchedulerMode(ABC):
@@ -60,9 +61,13 @@ class ValidationMode(SchedulerMode):
 
         # Save to database
         PlanManager.set_plans(plans)
-        #print(f'{PlanManager._plans=}')
 
 class OperationMode(SchedulerMode):
 
     def schedule(self):
        ...
+
+class SchedulerModes(Enum):
+    OPERATION = OperationMode()
+    SIMULATION = SimulationMode()
+    VALIDATION = ValidationMode()

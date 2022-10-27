@@ -1,6 +1,7 @@
 import uvicorn
 import os
 import logging
+from typing import Optional
 
 from app import app
 from .config import config
@@ -10,7 +11,7 @@ from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
 
-def dispatch(heroku_port:int = None):
+def dispatch(heroku_port: Optional[int] = None):
 
     if config.mode.upper() not in ['VALIDATION', 'SIMULATION', 'OPERATION']:
         raise ValueError('Mode is Invalid!')

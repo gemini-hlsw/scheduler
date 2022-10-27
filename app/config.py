@@ -41,15 +41,13 @@ def _parse_semesters(semester: str) -> Semester:
 
     year, half = semester[:-1], semester[-1]
 
-    if half == 'A':
-        e_half = SemesterHalf.A
-    elif half == 'B':
-        e_half = SemesterHalf.B
-    else:
+    try:
+        e_half = SemesterHalf[half]
+    except:
         ConfigurationError('Semester Half', half)
 
     try:
-        return Semester(int(year), e_half)
+        return Semester[int(year), e_half]
     except:
         raise ConfigurationError('Semester year', year)    
 
@@ -57,61 +55,34 @@ def _parse_obs_class(obs_class: str) -> ObservationClass:
     """Parse Observation class from config.yml
 
     Args:
-        obs_class (str): _description_
+        obs_class (str): Option from config
 
     Raises:
-        ConfigurationError: _description_
+        ConfigurationError: If class not in the Enum lookup
 
     Returns:
-        _type_: _description_
+        ObservationClass: Corresponding enum value
     """
-
-    if obs_class == 'SCIENCE':
-        return ObservationClass.SCIENCE
-    elif obs_class == 'PROGCAL':
-        return ObservationClass.PROGCAL
-    elif obs_class == 'PARTNERCAL':
-        return ObservationClass.PARTNERCAL
-    elif obs_class == 'ACQ':
-        return ObservationClass.ACQ
-    elif obs_class == 'ACQCAL':
-        return ObservationClass.ACQCAL
-    elif obs_class == 'DAYCAL':
-        return ObservationClass.DAYCAL
-    else:
+    try:
+        return ObservationClass[obs_class]
+    except:
         raise ConfigurationError('Observation class', obs_class)
-
+     
 def _parse_prg_types(prg_type: str) -> ProgramTypes:
     """Parse Program type from config.yml
 
     Args:
-        prg_type (str): Value from 
+        prg_type (str): Option on config
 
     Raises:
-        ConfigurationError: _description_
+        ConfigurationError: If type not in the Enum lookup
 
     Returns:
-        _type_: _description_
+        ProgramTypes: Enum value
     """
-    if prg_type == 'C':
-        return ProgramTypes.C
-    elif prg_type == 'CAL':
-        return ProgramTypes.CAL
-    elif prg_type == 'DD':
-        return ProgramTypes.DD
-    elif prg_type == 'DS':
-        return ProgramTypes.DS
-    elif prg_type== 'ENG':
-        return ProgramTypes.ENG
-    elif prg_type == 'FT':
-        return ProgramTypes.FT
-    elif prg_type == 'LP':
-        return ProgramTypes.LP
-    elif prg_type == 'Q':
-        return ProgramTypes.Q
-    elif prg_type == 'SV':
-        return ProgramTypes.SV
-    else:
+    try:
+        return ProgramTypes[prg_type]
+    except:
         raise ConfigurationError('Program type', prg_type)   
 
 def _parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
@@ -126,12 +97,11 @@ def _parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
     """
 
     def parse_site_specfic(site: str):
-        if site == 'GS':
-            return Site.GS
-        elif site == 'GN':
-            return Site.GN
-        else:
+        try:
+            return Site[site]
+        except:
             raise ConfigurationError('Missing site', site)
+    
     if sites == 'ALL_SITES':
     # In case of ALL_SITES option, return lucupy alias for the set of all Site enums
         return ALL_SITES 
@@ -143,7 +113,7 @@ def _parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
         return frozenset([parse_site_specfic(sites)])
 
 
-@dataclass
+@dataclass(frozen=True)
 class CollectorConfig:
     semesters: FrozenSet[Semester]
     obs_classes: FrozenSet[ObservationClass]
