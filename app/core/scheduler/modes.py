@@ -8,6 +8,10 @@ from enum import Enum
 
 from astropy.time import Time
 
+from typing import ClassVar, FrozenSet, Iterable, Callable, Optional, NoReturn
+from lucupy.minimodel.observation import ObservationStatus, Observation
+from lucupy.minimodel.program import Program
+
 from app.config import config_collector
 from app.core.components.collector import Collector
 from app.core.components.optimizer import Optimizer
@@ -45,9 +49,54 @@ class SimulationMode(SchedulerMode):
 
 
 class ValidationMode(SchedulerMode):
+    """
+    
+    """
+    
+    _obs_statuses_to_ready: ClassVar[FrozenSet[ObservationStatus]] = (
+        frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
+    )
+    """The default observations to set to READY in Validation mode.
+    """
 
-    def build_collector(self):
-        return 
+
+    @staticmethod
+    def clear_observation_info(programs: Iterable[Program],
+                               obs_statuses_to_ready: FrozenSet[ObservationStatus] = _obs_statuses_to_ready,
+                               program_filter: Optional[Callable[[Program], bool]] = None,
+                               observation_filter: Optional[Callable[[Observation], bool]] = None) -> NoReturn:
+        """
+        Iterate over the loaded programs and clear the information associated with the observations.
+        This is done when the Scheduler is run in Validation mode in order to start with a set of fresh Observations.
+
+        This consists of:
+        1. Setting observation statuses that are in obs_statuses_to_ready to READY (default: ONGOING or OBSERVED).
+        2. Setting used times to 0 for observations.
+
+        The Observations affected by this are those with statuses specified by the parameter observations_to_process.
+        Additional filtering may be done by specifying optional filters for programs and a filter for observations.
+        """
+        program_candidates = (programs if program_filter is None
+                              else (p for p in programs if program_filter(p)))
+
+        for program in program_candidates:
+            observation_candidates = (program.observations() if observation_filter is None
+                                      else (o for o in program.observations() if observation_filter(o)))
+            for observation in observation_candidates:
+                # Clear the time used across the sequence regardless of status.
+                for atom in observation.sequence:
+                    atom.prog_time = timedelta()
+                    atom.part_time = timedelta()
+
+                # Change the status of observations with indicated status to READY.
+                if observation.status in obs_statuses_to_ready:
+                    observation.status = ObservationStatus.READY
+
+    def build_collector(self, programs):
+        base_collector =  super().build_collector()
+        base_collector.load_programs(program_provider=OcsProgramProvider(),
+                                     data=programs)
+        ValidationMode.clear_observation_info(programs)    
 
     def schedule(self, start: Time, end: Time):
         signal.signal(signal.SIGINT, signal.SIG_IGN)

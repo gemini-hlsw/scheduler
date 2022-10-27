@@ -82,11 +82,6 @@ class Collector(SchedulerComponent):
     # Used in calculating proper motion.
     _EPOCH2TIME: ClassVar[Dict[float, Time]] = {}
 
-    # The default observations to set to READY in Validation mode.
-    _obs_statuses_to_ready: ClassVar[FrozenSet[ObservationStatus]] = (
-        frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
-    )
-
     def __post_init__(self):
         """
         Initializes the internal data structures for the Collector and populates them.
