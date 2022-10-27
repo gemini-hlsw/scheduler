@@ -617,7 +617,6 @@ class OcsProgramProvider(ProgramProvider):
 
         # Remove the None values.
         resources = frozenset([res for res in resources if res is not None])
-
         mode = determine_mode(instrument)
         if instrument == 'GPI':
             do_not_split = True
