@@ -6,21 +6,24 @@ from typing import Optional
 from app import app
 from .config import config
 from app.process_manager import ProcessManager
-
+from app.core.scheduler.modes import SchedulerModes
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
 
 def dispatch(heroku_port: Optional[int] = None):
 
-    if config.mode.upper() not in ['VALIDATION', 'SIMULATION', 'OPERATION']:
+    # Setup scheduler mode
+    try:
+        mode = SchedulerModes[config.mode.upper()]
+    except:
         raise ValueError('Mode is Invalid!')
 
     # Setup lucupy properties 
     ObservatoryProperties.set_properties(GeminiProperties)
 
     # Start process manager
-    if config.mode == 'Operation': 
+    if mode is SchedulerModes: 
         manager = ProcessManager(size=1, timeout=config.process_manager.timeout)
     else:
         manager = ProcessManager(size=config.process_manager.size,
