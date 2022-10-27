@@ -23,7 +23,7 @@ def dispatch(heroku_port: Optional[int] = None):
     ObservatoryProperties.set_properties(GeminiProperties)
 
     # Start process manager
-    if mode is SchedulerModes: 
+    if mode is SchedulerModes.OPERATION: 
         manager = ProcessManager(size=1, timeout=config.process_manager.timeout)
     else:
         manager = ProcessManager(size=config.process_manager.size,

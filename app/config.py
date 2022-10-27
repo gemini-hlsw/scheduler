@@ -47,7 +47,7 @@ def _parse_semesters(semester: str) -> Semester:
         ConfigurationError('Semester Half', half)
 
     try:
-        return Semester[int(year), e_half]
+        return Semester(int(year), e_half)
     except:
         raise ConfigurationError('Semester year', year)    
 
