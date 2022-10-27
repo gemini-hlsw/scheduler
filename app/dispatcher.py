@@ -14,7 +14,6 @@ def dispatch(heroku_port:int = None):
 
     if config.mode.upper() not in ['VALIDATION', 'SIMULATION', 'OPERATION']:
         raise ValueError('Mode is Invalid!')
-    logging.info(f'Scheduler staring on {config.mode} mode')
 
     # Setup lucupy properties 
     ObservatoryProperties.set_properties(GeminiProperties)

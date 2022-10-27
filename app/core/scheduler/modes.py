@@ -1,15 +1,9 @@
 from abc import ABC, abstractmethod
-import astropy.units as u
-from astropy.time import Time, TimeDelta
+from astropy.time import Time
 import os
 import signal
 
-# These depdencies looks like are not being reference but are necesary in runtime when eval() is applied
-from lucupy.minimodel import Site, ALL_SITES, Semester, ProgramTypes, ObservationClass, SemesterHalf
-from lucupy.observatory.abstract import ObservatoryProperties
-from lucupy.observatory.gemini import GeminiProperties
-
-from app.config import config
+from app.config import config_collector
 from app.core.components.collector import Collector
 from app.core.components.optimizer import Optimizer
 from app.core.components.optimizer.dummy import DummyOptimizer
@@ -42,34 +36,18 @@ class ValidationMode(SchedulerMode):
 
         # Create the Collector and load the programs.
         print('Loading programs...')
-        # Parse configs
-        time_slot_length = TimeDelta(config.scheduler.time_slot_length * u.min)
-        sites = frozenset(list(map(eval, config.scheduler.sites))) \
-            if isinstance(config.scheduler.sites, list) else eval(config.scheduler.sites)
-        semesters = set(map(eval, config.collector.semesters))
-        program_types = set(map(eval, config.collector.program_types))
-        obs_classes = set(map(eval, config.collector.observation_classes))
-
         collector = Collector(
             start_time=start,
             end_time=end,
-            time_slot_length=time_slot_length,
-            sites=sites,
-            semesters=frozenset(semesters),
-            program_types=frozenset(program_types),
-            obs_classes=frozenset(obs_classes)
+            time_slot_length=config_collector.time_slot_length,
+            sites=config_collector.sites,
+            semesters=config_collector.semesters,
+            program_types=config_collector.program_types,
+            obs_classes=config_collector.obs_classes
         )
         collector.load_programs(program_provider=OcsProgramProvider(),
                                 data=programs)
-
-        '''
-        if Site.GS in sites or Site.GN in sites:
-            ObservatoryProperties.set_properties(GeminiProperties)
-        else:
-            raise NotImplementedError('Only Gemini is supported.')
-        '''
-        
-
+ 
         selector = Selector(collector=collector)
 
         # Execute the Selector.

@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import logging
-from typing import NoReturn, Optional
+from typing import NoReturn
 from astropy.time import Time
 
 from app.config import config
@@ -15,7 +15,7 @@ class Scheduler:
         self.end_time = end_time
         self._mode = None
     
-    def set_mode(self, mode: SchedulerMode):
+    def set_mode(self, mode: SchedulerMode) -> NoReturn:
         self._mode = mode
 
     def __call__(self):
@@ -24,10 +24,7 @@ class Scheduler:
 
 
 def build_scheduler(start: Time = Time("2018-10-01 08:00:00", format='iso', scale='utc'),
-                    end: Time = Time("2018-10-03 08:00:00", format='iso', scale='utc')):
-    # TODO: Default values for now but this should be:
-    # start_time = Time(datetime.now(), scale='utc)
-    # end_time = Time(datetime.now() + rest_of_the_night, scale='utc')
+                    end: Time = Time("2018-10-03 08:00:00", format='iso', scale='utc')) -> Scheduler:
     
     # Set scheduler mode based on config
     scheduler = Scheduler(start, end)
