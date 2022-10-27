@@ -24,6 +24,17 @@ class SchedulerMode(ABC):
     def schedule(self, start: Time, end: Time):
         pass
 
+    def build_collector(self, start: Time, end: Time):
+        # Base collector
+        return Collector(
+            start_time=start,
+            end_time=end,
+            time_slot_length=config_collector.time_slot_length,
+            sites=config_collector.sites,
+            semesters=config_collector.semesters,
+            program_types=config_collector.program_types,
+            obs_classes=config_collector.obs_classes
+        )
     def __str__(self) -> str:
         return self.__class__.__name__
 
@@ -34,6 +45,10 @@ class SimulationMode(SchedulerMode):
 
 
 class ValidationMode(SchedulerMode):
+
+    def build_collector(self):
+        return 
+
     def schedule(self, start: Time, end: Time):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
