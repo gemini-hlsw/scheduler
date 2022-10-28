@@ -1,24 +1,15 @@
-process_manager:
-  size: 5
+mode: Validation # Modes: Validation, Simulation, Operation
+
+process_manager: 
+  size: 5 # Only valid for Simulation and Validation 
   timeout: 100
 
-scheduler:
-  time_slot_length: 1.0 # on minutes
-  # Sites allowed for the scheduler 
-  sites: ALL_SITES
 collector:
-  semesters: 
-    - Semester(2018, SemesterHalf.B)
-  # Classes of observation
-  observation_classes: 
-    - ObservationClass.SCIENCE
-    - ObservationClass.PROGCAL
-    - ObservationClass.PARTNERCAL 
-  program_types: 
-    - ProgramTypes.Q
-    - ProgramTypes.LP
-    - ProgramTypes.FT
-    - ProgramTypes.DD
+  semesters: [2018B]
+  observation_classes: [SCIENCE, PROGCAL, PARTNERCAL]
+  program_types: [Q, LP, FT, DD]
+  sites: ALL_SITES # Sites: GS, GN, ALL_SITES
+  time_slot_length: 1.0 # on minutes
 
 optimizer:
   name: Dummy
