@@ -1,17 +1,21 @@
-from abc import ABC, abstractmethod
-from astropy.time import Time
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import os
 import signal
+from abc import ABC, abstractmethod
 from enum import Enum
+
+from astropy.time import Time
+
 from app.config import config_collector
 from app.core.components.collector import Collector
 from app.core.components.optimizer import Optimizer
 from app.core.components.optimizer.dummy import DummyOptimizer
 from app.core.components.selector import Selector
 from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from definitions import ROOT_DIR
 from app.db.planmanager import PlanManager
-
+from definitions import ROOT_DIR
 
 
 class SchedulerMode(ABC):
@@ -19,17 +23,17 @@ class SchedulerMode(ABC):
     @abstractmethod
     def schedule(self, start: Time, end: Time):
         pass
-    
+
     def __str__(self) -> str:
         return self.__class__.__name__
 
-class SimulationMode(SchedulerMode):
 
-    def schedule(self):
-       pass
+class SimulationMode(SchedulerMode):
+    def schedule(self, start: Time, end: Time):
+        ...
+
 
 class ValidationMode(SchedulerMode):
-
     def schedule(self, start: Time, end: Time):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
@@ -48,7 +52,7 @@ class ValidationMode(SchedulerMode):
         )
         collector.load_programs(program_provider=OcsProgramProvider(),
                                 data=programs)
- 
+
         selector = Selector(collector=collector)
 
         # Execute the Selector.
@@ -62,10 +66,11 @@ class ValidationMode(SchedulerMode):
         # Save to database
         PlanManager.set_plans(plans)
 
-class OperationMode(SchedulerMode):
 
-    def schedule(self):
-       ...
+class OperationMode(SchedulerMode):
+    def schedule(self, start: Time, end: Time):
+        ...
+
 
 class SchedulerModes(Enum):
     OPERATION = OperationMode()

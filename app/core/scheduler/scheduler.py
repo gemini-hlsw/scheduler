@@ -3,10 +3,12 @@
 
 import logging
 from typing import NoReturn
+
 from astropy.time import Time
 
 from app.config import config
 from app.core.scheduler.modes import SimulationMode, ValidationMode, OperationMode, SchedulerMode
+
 
 class Scheduler:
 
