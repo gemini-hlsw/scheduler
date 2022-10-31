@@ -1,30 +1,32 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from dataclasses import dataclass
 import os
-from astropy.time import TimeDelta
-import astropy.units as u
-from omegaconf import OmegaConf
-
-from definitions import ROOT_DIR
+from dataclasses import dataclass
 from typing import FrozenSet, Union, List
 
+import astropy.units as u
+from astropy.time import TimeDelta
 from lucupy.minimodel.observation import ObservationClass
 from lucupy.minimodel.program import ProgramTypes
 from lucupy.minimodel.semester import Semester, SemesterHalf
 from lucupy.minimodel.site import Site, ALL_SITES
+from omegaconf import OmegaConf
+
+from definitions import ROOT_DIR
 
 
 class ConfigurationError(Exception):
     """Exception raised for errors in parsing configuration.
     
     Attributes:
-         config_type (str): Type of configuration that was being parse at the moment of the error.
+         config_type (str): Type of configuration that was being parsed at the moment of the error.
          value (str): Value that causes the error.
     """
+
     def __init__(self, config_type: str, value: str):
         super().__init__(f'Configuration error: {config_type} {value} is invalid.')
+
 
 def _parse_semesters(semester: str) -> Semester:
     """Parse semesters to schedule from config.yml
@@ -43,13 +45,14 @@ def _parse_semesters(semester: str) -> Semester:
 
     try:
         e_half = SemesterHalf[half]
-    except:
-        ConfigurationError('Semester Half', half)
+    except KeyError:
+        raise ConfigurationError('Semester Half', half)
 
     try:
         return Semester(int(year), e_half)
-    except:
-        raise ConfigurationError('Semester year', year)    
+    except ValueError:
+        raise ConfigurationError('Semester year', year)
+
 
 def _parse_obs_class(obs_class: str) -> ObservationClass:
     """Parse Observation class from config.yml
@@ -65,9 +68,10 @@ def _parse_obs_class(obs_class: str) -> ObservationClass:
     """
     try:
         return ObservationClass[obs_class]
-    except:
+    except KeyError:
         raise ConfigurationError('Observation class', obs_class)
-     
+
+
 def _parse_prg_types(prg_type: str) -> ProgramTypes:
     """Parse Program type from config.yml
 
@@ -82,8 +86,9 @@ def _parse_prg_types(prg_type: str) -> ProgramTypes:
     """
     try:
         return ProgramTypes[prg_type]
-    except:
-        raise ConfigurationError('Program type', prg_type)   
+    except KeyError:
+        raise ConfigurationError('Program type', prg_type)
+
 
 def _parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
     """Parse Sites in config.yml
@@ -96,21 +101,21 @@ def _parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
             corresponding to each site.
     """
 
-    def parse_site_specfic(site: str):
+    def parse_site_specific(site: str):
         try:
             return Site[site]
-        except:
+        except KeyError:
             raise ConfigurationError('Missing site', site)
-    
+
     if sites == 'ALL_SITES':
-    # In case of ALL_SITES option, return lucupy alias for the set of all Site enums
-        return ALL_SITES 
+        # In case of ALL_SITES option, return lucupy alias for the set of all Site enums
+        return ALL_SITES
 
     if isinstance(config.scheduler.sites, list):
-        return frozenset(list(map(parse_site_specfic, config.scheduler.sites)))
+        return frozenset(list(map(parse_site_specific, config.scheduler.sites)))
     else:
         # Single site case
-        return frozenset([parse_site_specfic(sites)])
+        return frozenset([parse_site_specific(sites)])
 
 
 @dataclass(frozen=True)
@@ -125,11 +130,9 @@ class CollectorConfig:
 path = os.path.join(ROOT_DIR, 'config.yaml')
 config = OmegaConf.load(path)
 
-config_collector = CollectorConfig(frozenset(map(_parse_semesters, config.collector.semesters)), 
-                   frozenset(map(_parse_obs_class, config.collector.observation_classes)),
-                   frozenset(map(_parse_prg_types, config.collector.program_types)),
-                   _parse_sites(config.collector.sites),
-                   TimeDelta(config.collector.time_slot_length * u.min)
-                   )
-
-
+config_collector = CollectorConfig(frozenset(map(_parse_semesters, config.collector.semesters)),
+                                   frozenset(map(_parse_obs_class, config.collector.observation_classes)),
+                                   frozenset(map(_parse_prg_types, config.collector.program_types)),
+                                   _parse_sites(config.collector.sites),
+                                   TimeDelta(config.collector.time_slot_length * u.min)
+                                   )

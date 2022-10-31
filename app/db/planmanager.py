@@ -2,14 +2,12 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from copy import deepcopy
-import shelve
-from threading import Lock
 from typing import List, NoReturn
+
 from app.core.plans import Plans
 from app.graphql.scalars import SPlans
-from .dbmanager import DBManager
 from definitions import ROOT_DIR
-from threading import Lock
+from .dbmanager import DBManager
 
 db = DBManager(f'{ROOT_DIR}/plans')
 DB_KEY = 'plans'
@@ -39,6 +37,6 @@ class PlanManager:
         Note that we are converting List[Plans] to List[SPlans].
         """
         calculated_plans = deepcopy(plans)
-        db.write([ 
-                    SPlans.from_computed_plans(p) for p in calculated_plans
-                 ])
+        db.write([
+            SPlans.from_computed_plans(p) for p in calculated_plans
+        ])
