@@ -27,8 +27,12 @@ def test_clear_observations():
     Collector.clear_observation_info(programs)
 
     # Check to make sure all data has been cleared.
-    for program in programs:
-        for o in program.observations():
+    for p in programs:
+        assert p.program_used() == zero
+        assert p.partner_used() == zero
+        assert p.total_used() == zero
+        for o in p.observations():
             assert o.status not in bad_status
             assert o.program_used() == zero
             assert o.partner_used() == zero
+            assert o.total_used() == zero
