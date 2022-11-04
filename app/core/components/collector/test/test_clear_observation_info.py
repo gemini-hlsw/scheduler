@@ -29,8 +29,6 @@ def test_clear_observations():
 
     # Check to make sure all data has been cleared.
     for p in programs:
-        if p.program_used() != zero:
-            print('hello')
         assert p.program_used() == zero
         assert p.partner_used() == zero
         assert p.total_used() == zero
