@@ -474,7 +474,8 @@ class Selector(SchedulerComponent):
             # better_idx = np.where(neg_ha[better_tmp_idx])[0]
             better_idx = np.where(array < value)[0] if neg_ha else np.array([])
             if len(better_idx) > 0 and (too_status is None or too_status not in {TooType.RAPID, TooType.INTERRUPT}):
-                cmatch[better_idx] = cmatch[better_idx] * array / value
+                # cmatch[better_idx] = cmatch[better_idx] * array / value
+                cmatch[better_idx] = cmatch[better_idx] * (1. - (value - array[better_idx]))
 
         adjuster(actual_iq, required_conditions.iq)
         adjuster(actual_cc, required_conditions.cc)
