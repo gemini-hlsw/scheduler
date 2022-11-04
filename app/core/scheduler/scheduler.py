@@ -7,6 +7,7 @@ from typing import NoReturn
 from astropy.time import Time
 
 from app.config import config
+from app import dispatcher
 from app.core.scheduler.modes import SimulationMode, ValidationMode, OperationMode, SchedulerMode
 
 
@@ -24,18 +25,10 @@ class Scheduler:
         logging.info(f'Running on mode {self._mode}')
         self._mode.schedule(self.start_time, self.end_time)
 
-
+@dispatcher.dispatch_with(config.mode)
 def build_scheduler(start: Time = Time("2018-10-01 08:00:00", format='iso', scale='utc'),
                     end: Time = Time("2018-10-03 08:00:00", format='iso', scale='utc')) -> Scheduler:
     
     # Set scheduler mode based on config
     scheduler = Scheduler(start, end)
-    if config.mode == 'Operation':
-        mode = OperationMode()
-    elif config.mode == 'Validation':
-        mode = ValidationMode()
-    else:
-        mode = SimulationMode()
-
-    scheduler.set_mode(mode)
     return scheduler

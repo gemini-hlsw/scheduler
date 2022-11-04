@@ -9,7 +9,7 @@ from astropy.time import Time
 from lucupy.minimodel import Site
 
 from app.core.scheduler import build_scheduler
-from app.process_manager import ProcessManager
+from app.process_manager import setup_manager
 from app.process_manager import TaskType
 from app.db.planmanager import PlanManager
 from .scalars import CreateNewScheduleInput, SPlans, NewScheduleResponse, NewScheduleError, NewScheduleSuccess
@@ -29,7 +29,8 @@ class Mutation:
             # TODO: log this error
             return NewScheduleError(error='Invalid time format. Must be ISO8601.')
         else:
-            ProcessManager().add_task(datetime.now(), scheduler, TaskType.STANDARD)
+            pm = setup_manager()
+            pm.add_task(datetime.now(), scheduler, TaskType.STANDARD)
             # await asyncio.sleep(10) # Use if you want to wait for the scheduler to finish
             return NewScheduleSuccess(success=True)
 
