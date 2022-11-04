@@ -240,9 +240,6 @@ class Collector(SchedulerComponent):
         time remaining for the observation to the total visibility time for the target from a night through
         to the end of the period.
         """
-        if obs.id == 'GN-2018B-Q-1385':
-            print("Uhoh")
-
         # Get the night events.
         night_events = self.night_events[obs.site]
 
@@ -368,36 +365,28 @@ class Collector(SchedulerComponent):
         return target_info
 
     @staticmethod
-    def clear_observation_info(programs: Iterable[Program],
+    def clear_observation_info(obs: Observation,
                                obs_statuses_to_ready: FrozenSet[ObservationStatus] = _obs_statuses_to_ready,
-                               program_filter: Optional[Callable[[Program], bool]] = None,
                                observation_filter: Optional[Callable[[Observation], bool]] = None) -> NoReturn:
         """
-        Iterate over the loaded programs and clear the information associated with the observations.
-        This is done when the Scheduler is run in Validation mode in order to start with a set of fresh Observations.
+        Given a single observation, clear the information associated with the observation.
+        This is done when the Scheduler is run in Validation mode in order to start with a fresh observation.
 
         This consists of:
-        1. Setting observation statuses that are in obs_statuses_to_ready to READY (default: ONGOING or OBSERVED).
-        2. Setting used times to 0 for observations.
+        1. Setting an observation status that is in obs_statuses_to_ready to READY (default: ONGOING or OBSERVED).
+        2. Setting used times to 0 for the observation.
 
-        The Observations affected by this are those with statuses specified by the parameter observations_to_process.
-        Additional filtering may be done by specifying optional filters for programs and a filter for observations.
+        Additional filtering may be done by specifying an optional filter for observations.
         """
-        program_candidates = (programs if program_filter is None
-                              else (p for p in programs if program_filter(p)))
+        if observation_filter is not None and not observation_filter(obs):
+            return
 
-        for program in program_candidates:
-            observation_candidates = (program.observations() if observation_filter is None
-                                      else (o for o in program.observations() if observation_filter(o)))
-            for observation in observation_candidates:
-                # Clear the time used across the sequence regardless of status.
-                for atom in observation.sequence:
-                    atom.prog_time = timedelta()
-                    atom.part_time = timedelta()
+        for atom in obs.sequence:
+            atom.prog_time = timedelta()
+            atom.part_time = timedelta()
 
-                # Change the status of observations with indicated status to READY.
-                if observation.status in obs_statuses_to_ready:
-                    observation.status = ObservationStatus.READY
+        if obs.status in obs_statuses_to_ready:
+            obs.status = ObservationStatus.READY
 
     def load_programs(self, program_provider: ProgramProvider, data: Iterable[dict]) -> NoReturn:
         """
@@ -451,6 +440,10 @@ class Collector(SchedulerComponent):
                 Collector._observations_per_program[program.id] = frozenset(obs.id for obs in good_obs)
 
                 for obs in good_obs:
+                    # TODO: When the Collector can determine what mode the Scheduler is running in, for Validation mode,
+                    # TODO: this should be changed as per SCHED-245. Right now, we do it regardless.
+                    Collector.clear_observation_info(obs)
+
                     # Retrieve tne base target, if any. If not, we cannot process.
                     base = obs.base_target()
 
@@ -472,11 +465,6 @@ class Collector(SchedulerComponent):
             except ValueError as e:
                 bad_program_count += 1
                 logging.warning(f'Could not parse program: {e}')
-
-        # TODO: When the Collector can determine what mode the Scheduler is running in, this should be changed
-        # TODO: as per SCHED-245. Right now, we do it regardless.
-        # Clear the observation status and time data.
-        Collector.clear_observation_info(self._programs.values())
 
         if bad_program_count:
             logging.error(f'Could not parse {bad_program_count} programs.')
