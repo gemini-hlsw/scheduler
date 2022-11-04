@@ -47,6 +47,8 @@ class SimulationMode(SchedulerMode):
     def schedule(self, start: Time, end: Time):
         ...
 
+    def schedule(self, start: Time, end: Time):
+       pass
 
 class ValidationMode(SchedulerMode):
     """
@@ -135,6 +137,8 @@ class OperationMode(SchedulerMode):
     def schedule(self, start: Time, end: Time):
         ...
 
+    def schedule (self, start: Time, end: Time):
+       pass
 
 class SchedulerModes(Enum):
     OPERATION = OperationMode()

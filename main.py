@@ -4,9 +4,12 @@
 import uvicorn
 from fastapi.responses import JSONResponse
 import os
+
+from lucupy.observatory.abstract import ObservatoryProperties
+from lucupy.observatory.gemini import GeminiProperties
+
 from app import app
 from app.config import config
-from app.process_manager import ProcessManager
 
 heroku_port = os.environ.get("PORT")
 
@@ -16,9 +19,13 @@ def root() -> JSONResponse:
     return JSONResponse(status_code=200,
                         content={
                             "message": "Welcome to Server"})
+def main():
+    # Setup lucupy properties 
+    # TODO: This should be dynamic but since we are just working with Gemini right now
+    #       should not be an issue.
+    ObservatoryProperties.set_properties(GeminiProperties)
+    uvicorn.run(app, host=config.server.host, port= heroku_port if heroku_port else config.server.port)
 
 
 if __name__ == "__main__":
-    manager = ProcessManager(size=config.process_manager.size,
-                             timeout=config.process_manager.timeout)
-    uvicorn.run(app, host=config.server.host, port= heroku_port if heroku_port else config.server.port)
+    main()
