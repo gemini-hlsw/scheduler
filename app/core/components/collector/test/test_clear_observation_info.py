@@ -23,8 +23,9 @@ def test_clear_observations():
     program_data = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
     programs = [program_provider.parse_program(data['PROGRAM_BASIC']) for data in program_data]
 
-    # Clear the observations.
-    Collector.clear_observation_info(programs)
+    for program in programs:
+        for obs in program.observations():
+            Collector.clear_observation_info(obs)
 
     # Check to make sure all data has been cleared.
     for p in programs:
