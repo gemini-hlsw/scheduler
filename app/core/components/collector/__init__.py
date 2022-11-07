@@ -4,8 +4,7 @@
 import logging
 import time
 from dataclasses import dataclass
-from datetime import timedelta
-from typing import Callable, ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple, final
+from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple, final
 
 import astropy.units as u
 import numpy as np
@@ -128,6 +127,10 @@ class Collector(SchedulerComponent):
         Otherwise, return None.
         """
         return Collector._programs.get(program_id, None)
+
+    @staticmethod
+    def get_all_programs() -> Iterable[Program]:
+        return Collector._programs.values()
 
     @staticmethod
     def get_observation_ids(program_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
