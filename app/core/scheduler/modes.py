@@ -3,16 +3,12 @@
 
 import os
 import signal
-from abc import ABC, abstractmethod
-from enum import Enum
-
-from astropy.time import Time
-
+from datetime import timedelta
 from typing import ClassVar, FrozenSet, Iterable, Callable, Optional, NoReturn
 from lucupy.minimodel.observation import ObservationStatus, Observation
 from lucupy.minimodel.program import Program
 
-from app.config import config_collector
+from app.core.components.builder import Blueprints
 from app.core.components.collector import Collector
 from app.core.components.optimizer import Optimizer
 from app.core.components.optimizer.dummy import DummyOptimizer
@@ -39,6 +35,7 @@ class SchedulerMode(ABC):
             program_types=config_collector.program_types,
             obs_classes=config_collector.obs_classes
         )
+    
     def __str__(self) -> str:
         return self.__class__.__name__
 
@@ -51,22 +48,22 @@ class SimulationMode(SchedulerMode):
        pass
 
 class ValidationMode(SchedulerMode):
-    """
-    
+    """Validation mode is used for validate the proper functioning
+
+    Attributes:
+        _obs_statuses_to_ready (ClassVar[FrozenSet[ObservationStatus]]): 
+            A set of statuses that show the observation is Ready. 
     """
     
     _obs_statuses_to_ready: ClassVar[FrozenSet[ObservationStatus]] = (
         frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
     )
-    """The default observations to set to READY in Validation mode.
-    """
-
 
     @staticmethod
-    def clear_observation_info(programs: Iterable[Program],
+    def clear_observation_info(collector: Collector,
                                obs_statuses_to_ready: FrozenSet[ObservationStatus] = _obs_statuses_to_ready,
                                program_filter: Optional[Callable[[Program], bool]] = None,
-                               observation_filter: Optional[Callable[[Observation], bool]] = None) -> NoReturn:
+                               observation_filter: Optional[Callable[[Observation], bool]] = None) -> Collector:
         """
         Iterate over the loaded programs and clear the information associated with the observations.
         This is done when the Scheduler is run in Validation mode in order to start with a set of fresh Observations.
@@ -78,6 +75,7 @@ class ValidationMode(SchedulerMode):
         The Observations affected by this are those with statuses specified by the parameter observations_to_process.
         Additional filtering may be done by specifying optional filters for programs and a filter for observations.
         """
+        programs = collector.get_all_programs()
         program_candidates = (programs if program_filter is None
                               else (p for p in programs if program_filter(p)))
 
@@ -93,12 +91,14 @@ class ValidationMode(SchedulerMode):
                 # Change the status of observations with indicated status to READY.
                 if observation.status in obs_statuses_to_ready:
                     observation.status = ObservationStatus.READY
+        return collector
 
     def build_collector(self, programs):
         base_collector =  super().build_collector()
         base_collector.load_programs(program_provider=OcsProgramProvider(),
                                      data=programs)
-        ValidationMode.clear_observation_info(programs)    
+        ValidationMode.clear_observation_info(base_collector)    
+        return base_collector
 
     def schedule(self, start: Time, end: Time):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -107,15 +107,7 @@ class ValidationMode(SchedulerMode):
 
         # Create the Collector and load the programs.
         print('Loading programs...')
-        collector = Collector(
-            start_time=start,
-            end_time=end,
-            time_slot_length=config_collector.time_slot_length,
-            sites=config_collector.sites,
-            semesters=config_collector.semesters,
-            program_types=config_collector.program_types,
-            obs_classes=config_collector.obs_classes
-        )
+        collector = Collector(*Blueprints.collector)
         collector.load_programs(program_provider=OcsProgramProvider(),
                                 data=programs)
 
@@ -131,6 +123,7 @@ class ValidationMode(SchedulerMode):
 
         # Save to database
         PlanManager.set_plans(plans)
+    
 
 
 class OperationMode(SchedulerMode):
