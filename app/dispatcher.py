@@ -1,12 +1,5 @@
 import functools
-
-from .config import config
-
 from app.core.scheduler.modes import SchedulerModes
-
-from app import app
-from app.core.scheduler.modes import SchedulerModes
-from app.process_manager import ProcessManager
 from .config import config
 
 def dispatch_with(mode: SchedulerModes):

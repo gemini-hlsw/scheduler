@@ -129,8 +129,8 @@ class Collector(SchedulerComponent):
         return Collector._programs.get(program_id, None)
 
     @staticmethod
-    def get_all_programs() -> Iterable[Program]:
-        return Collector._programs.values()
+    def get_all_observations() -> Iterable[Observation]:
+        return Collector._observations.values()
 
     @staticmethod
     def get_observation_ids(program_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
@@ -362,30 +362,6 @@ class Collector(SchedulerComponent):
         # Return all the target info for the base target in the Observation across the nights of interest.
         return target_info
 
-    @staticmethod
-    def clear_observation_info(obs: Observation,
-                               obs_statuses_to_ready: FrozenSet[ObservationStatus] = _obs_statuses_to_ready,
-                               observation_filter: Optional[Callable[[Observation], bool]] = None) -> NoReturn:
-        """
-        Given a single observation, clear the information associated with the observation.
-        This is done when the Scheduler is run in Validation mode in order to start with a fresh observation.
-
-        This consists of:
-        1. Setting an observation status that is in obs_statuses_to_ready to READY (default: ONGOING or OBSERVED).
-        2. Setting used times to 0 for the observation.
-
-        Additional filtering may be done by specifying an optional filter for observations.
-        """
-        if observation_filter is not None and not observation_filter(obs):
-            return
-
-        for atom in obs.sequence:
-            atom.prog_time = timedelta()
-            atom.part_time = timedelta()
-
-        if obs.status in obs_statuses_to_ready:
-            obs.status = ObservationStatus.READY
-
     def load_programs(self, program_provider: ProgramProvider, data: Iterable[dict]) -> NoReturn:
         """
         Load the programs provided as JSON into the Collector.
@@ -438,9 +414,6 @@ class Collector(SchedulerComponent):
                 Collector._observations_per_program[program.id] = frozenset(obs.id for obs in good_obs)
 
                 for obs in good_obs:
-                    # TODO: When the Collector can determine what mode the Scheduler is running in, for Validation mode,
-                    # TODO: this should be changed as per SCHED-245. Right now, we do it regardless.
-                    Collector.clear_observation_info(obs)
 
                     # Retrieve tne base target, if any. If not, we cannot process.
                     base = obs.base_target()

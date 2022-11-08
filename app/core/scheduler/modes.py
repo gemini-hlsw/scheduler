@@ -3,8 +3,14 @@
 
 import os
 import signal
+import functools
+from abc import ABC, abstractmethod
 from datetime import timedelta
+from enum import Enum
 from typing import ClassVar, FrozenSet, Iterable, Callable, Optional, NoReturn
+
+from astropy.time import Time
+
 from lucupy.minimodel.observation import ObservationStatus, Observation
 from lucupy.minimodel.program import Program
 
@@ -23,27 +29,12 @@ class SchedulerMode(ABC):
     @abstractmethod
     def schedule(self, start: Time, end: Time):
         pass
-
-    def build_collector(self, start: Time, end: Time):
-        # Base collector
-        return Collector(
-            start_time=start,
-            end_time=end,
-            time_slot_length=config_collector.time_slot_length,
-            sites=config_collector.sites,
-            semesters=config_collector.semesters,
-            program_types=config_collector.program_types,
-            obs_classes=config_collector.obs_classes
-        )
     
     def __str__(self) -> str:
         return self.__class__.__name__
 
 
 class SimulationMode(SchedulerMode):
-    def schedule(self, start: Time, end: Time):
-        ...
-
     def schedule(self, start: Time, end: Time):
        pass
 
@@ -54,51 +45,35 @@ class ValidationMode(SchedulerMode):
         _obs_statuses_to_ready (ClassVar[FrozenSet[ObservationStatus]]): 
             A set of statuses that show the observation is Ready. 
     """
-    
+
+    # The default observations to set to READY in Validation mode.
     _obs_statuses_to_ready: ClassVar[FrozenSet[ObservationStatus]] = (
         frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
     )
 
-    @staticmethod
-    def clear_observation_info(collector: Collector,
-                               obs_statuses_to_ready: FrozenSet[ObservationStatus] = _obs_statuses_to_ready,
-                               program_filter: Optional[Callable[[Program], bool]] = None,
-                               observation_filter: Optional[Callable[[Observation], bool]] = None) -> Collector:
+    def _clear_observation_info(obs: Iterable[Observation],
+                                obs_statuses_to_ready: FrozenSet[ObservationStatus],
+                                observation_filter: Optional[Callable[[Observation], bool]] = None) -> NoReturn:
         """
-        Iterate over the loaded programs and clear the information associated with the observations.
-        This is done when the Scheduler is run in Validation mode in order to start with a set of fresh Observations.
+        Given a single observation, clear the information associated with the observation.
+        This is done when the Scheduler is run in Validation mode in order to start with a fresh observation.
 
         This consists of:
-        1. Setting observation statuses that are in obs_statuses_to_ready to READY (default: ONGOING or OBSERVED).
-        2. Setting used times to 0 for observations.
+        1. Setting an observation status that is in obs_statuses_to_ready to READY (default: ONGOING or OBSERVED).
+        2. Setting used times to 0 for the observation.
 
-        The Observations affected by this are those with statuses specified by the parameter observations_to_process.
-        Additional filtering may be done by specifying optional filters for programs and a filter for observations.
+        Additional filtering may be done by specifying an optional filter for observations.
         """
-        programs = collector.get_all_programs()
-        program_candidates = (programs if program_filter is None
-                              else (p for p in programs if program_filter(p)))
+        if observation_filter is not None and not observation_filter(obs):
+            return
 
-        for program in program_candidates:
-            observation_candidates = (program.observations() if observation_filter is None
-                                      else (o for o in program.observations() if observation_filter(o)))
-            for observation in observation_candidates:
-                # Clear the time used across the sequence regardless of status.
-                for atom in observation.sequence:
-                    atom.prog_time = timedelta()
-                    atom.part_time = timedelta()
+        for o in obs:
+            for atom in o.sequence:
+                atom.prog_time = timedelta()
+                atom.part_time = timedelta()
 
-                # Change the status of observations with indicated status to READY.
-                if observation.status in obs_statuses_to_ready:
-                    observation.status = ObservationStatus.READY
-        return collector
-
-    def build_collector(self, programs):
-        base_collector =  super().build_collector()
-        base_collector.load_programs(program_provider=OcsProgramProvider(),
-                                     data=programs)
-        ValidationMode.clear_observation_info(base_collector)    
-        return base_collector
+            if o.status in obs_statuses_to_ready:
+                o.status = ObservationStatus.READY
 
     def schedule(self, start: Time, end: Time):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -110,7 +85,7 @@ class ValidationMode(SchedulerMode):
         collector = Collector(*Blueprints.collector)
         collector.load_programs(program_provider=OcsProgramProvider(),
                                 data=programs)
-
+        ValidationMode._clear_observation_info(collector.get_all_observations(), ValidationMode._obs_statuses_to_ready)
         selector = Selector(collector=collector)
 
         # Execute the Selector.
@@ -127,8 +102,6 @@ class ValidationMode(SchedulerMode):
 
 
 class OperationMode(SchedulerMode):
-    def schedule(self, start: Time, end: Time):
-        ...
 
     def schedule (self, start: Time, end: Time):
        pass
