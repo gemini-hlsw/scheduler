@@ -303,7 +303,7 @@ class Collector(SchedulerComponent):
 
             # In the case where an observation has no constraint information or an elevation constraint
             # type of None, we use airmass default values.
-            if obs.constraints:
+            if obs.constraints and obs.constraints.elevation_type != ElevationType.NONE:
                 targ_prop = hourangle if obs.constraints.elevation_type is ElevationType.HOUR_ANGLE else airmass
                 elev_min = obs.constraints.elevation_min
                 elev_max = obs.constraints.elevation_max
