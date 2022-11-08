@@ -9,17 +9,9 @@ class ComponentBuilder(ABC):
         """Build a component based on a Blueprint.
         """
         pass
-
-    @abstractmethod
-    def post_build(self):
-        """Modifies the behavior of the Component after the build is done. 
-        """
-        pass
     
-
 
 class CollectorBuilder(ComponentBuilder):
-    
     def build(self, blueprint: Blueprint) -> Collector:
-        return Collector(*self.blueprint)
-    
+        return Collector(*blueprint)
+

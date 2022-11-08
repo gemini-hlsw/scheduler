@@ -25,7 +25,7 @@ class CollectorBlueprint(Blueprint):
         self.semesters: FrozenSet[Semester] =  frozenset(map(CollectorBlueprint._parse_semesters, semesters))
         self.obs_classes: FrozenSet[ObservationClass] = frozenset(map(CollectorBlueprint._parse_obs_class, obs_class))
         self.program_types: FrozenSet[ProgramTypes] = frozenset(map(CollectorBlueprint._parse_prg_types,prg_type))
-        self.sites: FrozenSet[Site] = frozenset(map(CollectorBlueprint._parse_sites, sites))
+        self.sites: FrozenSet[Site] = CollectorBlueprint._parse_sites(sites)
         self.time_slot_length: TimeDelta = TimeDelta(time_slot_length * u.min)
 
     @staticmethod
@@ -142,8 +142,8 @@ class CollectorBlueprint(Blueprint):
         # In case of ALL_SITES option, return lucupy alias for the set of all Site enums
             return ALL_SITES 
 
-        if isinstance(config.scheduler.sites, list):
-            return frozenset(list(map(parse_site_specfic, config.scheduler.sites)))
+        if isinstance(sites, list):
+            return frozenset(list(map(parse_site_specfic, sites)))
         else:
             # Single site case
             return frozenset([parse_site_specfic(sites)])
@@ -154,6 +154,7 @@ class CollectorBlueprint(Blueprint):
 
 class Blueprints:
     collector: ClassVar[CollectorBlueprint] = CollectorBlueprint(config.collector.semesters,
-                                                       config.collector.obs_clasess,
+                                                       config.collector.observation_classes,
                                                        config.collector.program_types,
-                                                       config.collector.sites)
+                                                       config.collector.sites,
+                                                       config.collector.time_slot_length)
