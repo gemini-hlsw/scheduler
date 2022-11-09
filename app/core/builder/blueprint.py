@@ -1,5 +1,6 @@
-from dataclasses import dataclass
-from typing import FrozenSet, Union, List, ClassVar
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+from typing import FrozenSet, Union, List, Iterable
 
 from astropy.time import TimeDelta
 import astropy.units as u
@@ -10,18 +11,23 @@ from lucupy.minimodel.semester import Semester, SemesterHalf
 from lucupy.minimodel.site import Site, ALL_SITES
 
 from app.config import config, ConfigurationError
+from app.core.components.optimizer.dummy import DummyOptimizer
 
 class Blueprint:
+    """Base class for Blueprint
+    """
     pass
 
 class CollectorBlueprint(Blueprint):
-
-    def __init__(self, 
-                semesters: str, 
-                obs_class: str, 
-                prg_type: str, 
-                sites: str, 
-                time_slot_length: float) -> None:
+    """Blueprint for the Collector.
+    This is based on the configuration in config.yml.
+    """
+    def __init__(self,
+                 semesters: str,
+                 obs_class: str,
+                 prg_type: str,
+                 sites: str,
+                 time_slot_length: float) -> None:
         self.semesters: FrozenSet[Semester] =  frozenset(map(CollectorBlueprint._parse_semesters, semesters))
         self.obs_classes: FrozenSet[ObservationClass] = frozenset(map(CollectorBlueprint._parse_obs_class, obs_class))
         self.program_types: FrozenSet[ProgramTypes] = frozenset(map(CollectorBlueprint._parse_prg_types,prg_type))
@@ -149,12 +155,35 @@ class CollectorBlueprint(Blueprint):
             return frozenset([parse_site_specfic(sites)])
 
     def __iter__(self):
-        return (self.semesters, self.obs_classes, self.program_types, self.sites, self.time_slot_length)
+        return iter((self.time_slot_length,
+                     self.sites,
+                     self.semesters, 
+                     self.program_types,
+                     self.obs_classes))
 
+class OptimizerBlueprint(Blueprint):
+    """Blueprint for the Collector.
+    This is based on the configuration in config.yml.
+    """
+    
+    def __init__(self, algorithm: str) -> None:
+        self.algorithm = OptimizerBlueprint._parse_optimizer(algorithm)
+    
+    @staticmethod
+    def _parse_optimizer(algorithm_name: str):
+        # TODO: Enums are needed but for now is just Dummy
+        # TODO: When GMax is ready we can expand
+        if algorithm_name in 'Dummy':
+            return DummyOptimizer()
+        else:
+            raise ConfigurationError('Optimizer', config.optimizer.name)
+    def __iter__(self):
+        return iter((self.algorithm))
 
 class Blueprints:
-    collector: ClassVar[CollectorBlueprint] = CollectorBlueprint(config.collector.semesters,
+    collector: CollectorBlueprint = CollectorBlueprint(config.collector.semesters,
                                                        config.collector.observation_classes,
                                                        config.collector.program_types,
                                                        config.collector.sites,
                                                        config.collector.time_slot_length)
+    optimizer: OptimizerBlueprint = OptimizerBlueprint(config.optimizer.name)
