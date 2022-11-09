@@ -6,7 +6,7 @@ import os
 
 from lucupy.minimodel.observation import ObservationStatus
 
-from app.core.components.collector import Collector
+from app.core.scheduler.modes import ValidationMode
 from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from definitions import ROOT_DIR
 
@@ -24,8 +24,8 @@ def test_clear_observations():
     programs = [program_provider.parse_program(data['PROGRAM_BASIC']) for data in program_data]
 
     for program in programs:
-        for obs in program.observations():
-            Collector.clear_observation_info(obs)
+        ValidationMode._clear_observation_info(program.observations(),  
+                                               ValidationMode._obs_statuses_to_ready)
 
     # Check to make sure all data has been cleared.
     for p in programs:
