@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 from typing import FrozenSet, Union, List, Iterable
+from enum import Enum
 
 from astropy.time import TimeDelta
 import astropy.units as u
@@ -12,6 +13,8 @@ from lucupy.minimodel.site import Site, ALL_SITES
 
 from app.config import config, ConfigurationError
 from app.core.components.optimizer.dummy import DummyOptimizer
+from mock.resource import ResourceMock
+from mock.environment import Env
 
 class Blueprint:
     """Base class for Blueprint
@@ -178,6 +181,38 @@ class OptimizerBlueprint(Blueprint):
     def __iter__(self):
         return iter((self.algorithm))
 
+class SourcesBlueprint(Blueprint):
+    
+    class ResourceSources(Enum):
+        MOCK = ResourceMock()
+        # TODO: As in full fledge service? I'm not sure about this name 
+        # so suggestions are welcome. 
+        FULL = None
+    class EnvSources(Enum):
+        MOCK = Env()
+        # TODO: This need to be hookup to the real service.
+        FULL = None 
+
+
+    def __init__(self, resource_source: str, env_source: str):
+        self.resource = SourcesBlueprint._parse_resource(resource_source)
+        self.environment = SourcesBlueprint._parse_env(env_source)
+    
+    @staticmethod
+    def _parse_resource(resource_source: str):
+        try:
+            return SourcesBlueprint.ResourceSources[resource_source].value
+        except ValueError:
+            raise ConfigurationError('Source for resource', resource_source)
+    
+    @staticmethod
+    def _parse_env(env_source:str):
+        try:
+            return SourcesBlueprint.EnvSources[env_source].value
+        except ValueError:
+            raise ConfigurationError('Source for resource', env_source)
+
+
 class Blueprints:
     collector: CollectorBlueprint = CollectorBlueprint(config.collector.semesters,
                                                        config.collector.observation_classes,
@@ -185,3 +220,5 @@ class Blueprints:
                                                        config.collector.sites,
                                                        config.collector.time_slot_length)
     optimizer: OptimizerBlueprint = OptimizerBlueprint(config.optimizer.name)
+
+    sources: SourcesBlueprint = SourcesBlueprint(config.sources.resource, config.sources.environment)
