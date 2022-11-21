@@ -171,7 +171,7 @@ class OptimizerBlueprint(Blueprint):
     def _parse_optimizer(algorithm_name: str):
         # TODO: Enums are needed but for now is just Dummy
         # TODO: When GMax is ready we can expand
-        if algorithm_name in 'Dummy':
+        if algorithm_name in 'DUMMY':
             return DummyOptimizer()
         else:
             raise ConfigurationError('Optimizer', config.optimizer.name)

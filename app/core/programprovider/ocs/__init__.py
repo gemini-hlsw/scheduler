@@ -21,8 +21,8 @@ from lucupy.timeutils import sex2dec
 from scipy.signal import find_peaks
 
 from app.core.programprovider.abstract import ProgramProvider
+from app.config import config
 from mock.resource import ResourceMock
-
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
     """
