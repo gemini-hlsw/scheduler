@@ -6,7 +6,7 @@ from abc import ABC
 from datetime import timedelta
 from enum import Enum
 from typing import ClassVar, FrozenSet, Iterable, Callable, Optional, NoReturn
-from app.config import config
+from app.config import ConfigurationError, config
 
 from lucupy.minimodel.observation import ObservationStatus, Observation
 
@@ -52,10 +52,12 @@ class ValidationMode(SchedulerMode):
 
         Additional filtering may be done by specifying an optional filter for observations.
         """
-        if observation_filter is not None and not observation_filter(obs):
-            return
+        if observation_filter is not None:
+            filtered_obs = (o for o in obs if observation_filter(o))
+        else:
+            filtered_obs = obs
 
-        for o in obs:
+        for o in filtered_obs:
             for atom in o.sequence:
                 atom.prog_time = timedelta()
                 atom.part_time = timedelta()
@@ -115,7 +117,7 @@ def dispatch_with(mode: str):
     try:
         mode = SchedulerModes[config.mode.upper()]
     except ValueError:
-        raise ValueError('Mode is Invalid!')
+        raise ConfigurationError(f'Mode "{config.mode}" is invalid.')
 
     def decorator_dispatcher(cls):
         @functools.wraps(cls)

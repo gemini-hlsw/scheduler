@@ -50,16 +50,14 @@ class CollectorBlueprint(Blueprint):
 
         year, half = semester[:-1], semester[-1]
 
-        if half == 'A':
-            e_half = SemesterHalf.A
-        elif half == 'B':
-            e_half = SemesterHalf.B
-        else:
-            ConfigurationError('Semester Half', half)
+        try:
+            e_half = SemesterHalf[half]
+        except KeyError:
+            raise ConfigurationError('Semester Half', half)
 
         try:
             return Semester(int(year), e_half)
-        except:
+        except ValueError:
             raise ConfigurationError('Semester year', year)    
 
     @staticmethod
@@ -137,7 +135,7 @@ class CollectorBlueprint(Blueprint):
                 corresponding to each site.
         """
 
-        def parse_site_specfic(site: str):
+        def parse_specific_site(site: str):
             if site == 'GS':
                 return Site.GS
             elif site == 'GN':
@@ -149,10 +147,10 @@ class CollectorBlueprint(Blueprint):
             return ALL_SITES 
 
         if isinstance(sites, list):
-            return frozenset(list(map(parse_site_specfic, sites)))
+            return frozenset(map(parse_specific_site, sites))
         else:
             # Single site case
-            return frozenset([parse_site_specfic(sites)])
+            return frozenset([parse_specific_site(sites)])
 
     def __iter__(self):
         return iter((self.time_slot_length,
@@ -162,7 +160,7 @@ class CollectorBlueprint(Blueprint):
                      self.obs_classes))
 
 class OptimizerBlueprint(Blueprint):
-    """Blueprint for the Collector.
+    """Blueprint for the Selector.
     This is based on the configuration in config.yml.
     """
     
