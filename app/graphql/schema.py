@@ -9,8 +9,7 @@ from astropy.time import Time
 from lucupy.minimodel import Site
 
 from app.core.scheduler import build_scheduler
-from app.process_manager import setup_manager
-from app.process_manager import TaskType
+from app.process_manager import setup_manager, TaskType
 from app.db.planmanager import PlanManager
 from .scalars import CreateNewScheduleInput, SPlans, NewScheduleResponse, NewScheduleError, NewScheduleSuccess
 
