@@ -40,7 +40,7 @@ class SPlan:
     """
     A nightly Plan for a specific site.
     """
-    site: Site
+    site: strawberry.enum(Site)
     start_time: datetime
     end_time: datetime
     visits: List[SVisit]
@@ -63,7 +63,7 @@ class SPlans:
     # TODO: Change this to date in UTC
     night_idx: int
     plans_per_site: List[SPlan]
-    site = strawberry.enum(Site)
+    site: strawberry.enum(Site)
 
     @staticmethod
     def from_computed_plans(plans: Plans) -> 'SPlans':

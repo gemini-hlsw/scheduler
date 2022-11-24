@@ -1,78 +1,129 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os
-import signal
-from abc import ABC, abstractmethod
+import functools
+from abc import ABC
+from datetime import timedelta
 from enum import Enum
+from typing import ClassVar, FrozenSet, Iterable, Callable, Optional, NoReturn
+from app.config import ConfigurationError, config
 
-from astropy.time import Time
-
-from app.config import config_collector
-from app.core.components.collector import Collector
-from app.core.components.optimizer import Optimizer
-from app.core.components.optimizer.dummy import DummyOptimizer
-from app.core.components.selector import Selector
-from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from app.db.planmanager import PlanManager
-from definitions import ROOT_DIR
+from lucupy.minimodel.observation import ObservationStatus, Observation
 
 
 class SchedulerMode(ABC):
+    """Base Scheduler Mode.
 
-    @abstractmethod
-    def schedule(self, start: Time, end: Time):
-        pass
-
+    Right now the magic method `__str__` is the only thing that inheritance from this.
+    Also good for duck typing.
+    """
     def __str__(self) -> str:
         return self.__class__.__name__
 
 
 class SimulationMode(SchedulerMode):
-    def schedule(self, start: Time, end: Time):
-        ...
+    pass
 
 
 class ValidationMode(SchedulerMode):
-    def schedule(self, start: Time, end: Time):
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
+    """Validation mode is used for validate the proper functioning
 
-        programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
+    Attributes:
+        _obs_statuses_to_ready (ClassVar[FrozenSet[ObservationStatus]]): 
+            A set of statuses that show the observation is Ready.
+    """
 
-        # Create the Collector and load the programs.
-        print('Loading programs...')
-        collector = Collector(
-            start_time=start,
-            end_time=end,
-            time_slot_length=config_collector.time_slot_length,
-            sites=config_collector.sites,
-            semesters=config_collector.semesters,
-            program_types=config_collector.program_types,
-            obs_classes=config_collector.obs_classes
-        )
-        collector.load_programs(program_provider=OcsProgramProvider(),
-                                data=programs)
+    # The default observations to set to READY in Validation mode.
+    _obs_statuses_to_ready: ClassVar[FrozenSet[ObservationStatus]] = (
+        frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
+    )
 
-        selector = Selector(collector=collector)
+    @staticmethod
+    def _clear_observation_info(obs: Iterable[Observation],
+                                obs_statuses_to_ready: FrozenSet[ObservationStatus],
+                                observation_filter: Optional[Callable[[Observation], bool]] = None) -> NoReturn:
+        """
+        Given a single observation, clear the information associated with the observation.
+        This is done when the Scheduler is run in Validation mode in order to start with a fresh observation.
 
-        # Execute the Selector.
-        # Not sure the best way to display the output.
-        selection = selector.select()
-        # Execute the Optimizer.
-        dummy = DummyOptimizer()
-        optimizer = Optimizer(selection, algorithm=dummy)
-        plans = optimizer.schedule()
+        This consists of:
+        1. Setting an observation status that is in obs_statuses_to_ready to READY (default: ONGOING or OBSERVED).
+        2. Setting used times to 0 for the observation.
 
-        # Save to database
-        PlanManager.set_plans(plans)
+        Additional filtering may be done by specifying an optional filter for observations.
+        """
+        if observation_filter is not None:
+            filtered_obs = (o for o in obs if observation_filter(o))
+        else:
+            filtered_obs = obs
+
+        for o in filtered_obs:
+            for atom in o.sequence:
+                atom.prog_time = timedelta()
+                atom.part_time = timedelta()
+
+            if o.status in obs_statuses_to_ready:
+                o.status = ObservationStatus.READY
+
+    @staticmethod
+    def build_collector_with_clear_info(func: Callable):
+        """Decorator that modifies the build_collector method in SchedulerBuilder.
+
+        Args:
+            func (Callable): SchedulerBuilder.build_collector original method
+        Returns:
+            collector (Collector): Returns modified collector with clear info in the observations.
+        """
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            collector = func(*args, **kwargs)
+            ValidationMode._clear_observation_info(collector.get_all_observations(),
+                                                   ValidationMode._obs_statuses_to_ready)
+            return collector
+        return wrapper
 
 
 class OperationMode(SchedulerMode):
-    def schedule(self, start: Time, end: Time):
-        ...
+    pass
 
 
 class SchedulerModes(Enum):
+    """Scheduler modes available:
+
+    - OPERATION
+    - SIMULATION
+    - VALIDATION
+
+    """
     OPERATION = OperationMode()
     SIMULATION = SimulationMode()
     VALIDATION = ValidationMode()
+
+
+def dispatch_with(mode: str):
+    """Decorator that allows different behavior on the whole or parts of
+    the Scheduler by modifying the building methods in the SchedulerBuilder.
+
+    Args:
+        mode (str): Mode string from config.yml.
+
+    Raises:
+        ValueError: If config name is not found in SchedulerModes.
+
+    Returns:
+        SchedulerBuild: Modify version of the SchedulerBuild depending on the mode. 
+    """
+    # Setup scheduler mode
+    try:
+        mode = SchedulerModes[config.mode.upper()]
+    except ValueError:
+        raise ConfigurationError(f'Mode "{config.mode}" is invalid.')
+
+    def decorator_dispatcher(cls):
+        @functools.wraps(cls)
+        def scheduler_wrapper(*args, **kwargs):
+            if mode is SchedulerModes.VALIDATION:
+                cls.build_collector = mode.value.build_collector_with_clear_info(cls.build_collector)
+            return scheduler_wrapper
+        return scheduler_wrapper
+    return decorator_dispatcher

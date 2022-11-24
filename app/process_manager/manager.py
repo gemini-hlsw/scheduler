@@ -3,6 +3,7 @@
 
 import asyncio
 import signal
+import functools
 from datetime import datetime
 from multiprocessing import Process
 from random import randint
@@ -10,6 +11,9 @@ from typing import NoReturn
 
 from app.core.meta import Singleton
 from app.core.scheduler import Scheduler
+from app.core.scheduler.modes import SchedulerModes
+from app.config import config
+
 from .runner import StandardRunner
 from .task import SchedulerTask, TaskType
 
@@ -31,8 +35,6 @@ class ProcessManager(metaclass=Singleton):
         """
         Schedule a task with the corresponding runner for the given mode.
         """
-        # TODO: Probably good for enums but right now the original input is a string
-        # so it seems unnecessary to use enums?
         if mode == TaskType.REALTIME:
             return self.realtime_runner.schedule(Process(target=task.target), task.timeout)
         elif mode == TaskType.STANDARD:
@@ -70,3 +72,36 @@ class ProcessManager(metaclass=Singleton):
         """
         self.realtime_runner.terminate_all()
         self.standard_runner.terminate_all()
+
+def setup_with(mode: SchedulerModes):
+    # Setup scheduler mode
+    try:
+        mode = SchedulerModes[config.mode.upper()]
+    except:
+        raise ValueError('Mode is Invalid!')
+    def decorator_setup(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            pm = func(*args, **kwargs)
+            if mode is SchedulerModes.OPERATION:
+                pm.size = 1
+            else:
+                pm.size = config.process_manager.size
+            return pm
+        return wrapper
+    return decorator_setup
+
+@setup_with(config.mode)
+def setup_manager():
+    """Setup the manager based on the mode using setup_with decorator.
+
+    Default values:
+        TIMEOUT = 10 seconds
+        SIZE = 5 task at the same time (Not valid for Operation).
+
+    Returns:
+        ProcessManager: Default Process Manager if timeout is not set.
+    """
+    if config.process_manager.timeout:
+        return ProcessManager(timeout=config.process_manager.timeout)
+    return ProcessManager()
