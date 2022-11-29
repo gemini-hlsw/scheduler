@@ -15,8 +15,6 @@ from app.core.plans import Plan, Plans, Visit
 # Strawberry classes and converters.
 
 
-
-
 @strawberry.type
 class SVisit:
     """
@@ -63,7 +61,6 @@ class SPlans:
     # TODO: Change this to date in UTC
     night_idx: int
     plans_per_site: List[SPlan]
-    site: strawberry.enum(Site)
 
     @staticmethod
     def from_computed_plans(plans: Plans) -> 'SPlans':
@@ -104,4 +101,4 @@ class NewScheduleError:
     error: str
 
 
-NewScheduleResponse = strawberry.union("NewScheduleResponse", [NewScheduleSuccess, NewScheduleError])
+NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError))
