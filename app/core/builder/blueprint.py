@@ -41,6 +41,7 @@ class Blueprint:
     """
     pass
 
+
 class CollectorBlueprint(Blueprint):
     """Blueprint for the Collector.
     This is based on the configuration in config.yml.

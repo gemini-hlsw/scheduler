@@ -6,6 +6,7 @@ import json
 import logging
 import zipfile
 from datetime import datetime, timedelta
+from more_itertools import partition
 from pathlib import Path
 from typing import Iterable, NoReturn, Tuple, List, Optional, Mapping
 
@@ -47,6 +48,9 @@ class OcsProgramProvider(ProgramProvider):
     _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
+
+    # These are the ObsClasses that we want to filter out when we are reading in programs:
+    _OBSCLASS_FILTERED = frozenset([ObservationClass.ACQ, ObservationClass.ACQCAL, ObservationClass.DAYCAL])
 
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
@@ -941,8 +945,15 @@ class OcsProgramProvider(ProgramProvider):
         obs_data_blocks = top_level_obsdata + org_folders_obsdata
 
         # Parse out all the top level observations in this group.
-        observations = [OcsProgramProvider.parse_observation(obs_data, int(obs_key.split('-')[-1]))
-                        for obs_key, obs_data in obs_data_blocks]
+        observations = (OcsProgramProvider.parse_observation(obs_data, int(obs_key.split('-')[-1]))
+                        for obs_key, obs_data in obs_data_blocks)
+
+        # Parse out all the undesirable Observation Classes.
+        bad_obs, good_obs = partition(lambda x: x.obs_class in OcsProgramProvider._OBSCLASS_FILTERED, observations)
+
+        for obs in bad_obs:
+            name = obs.obs_class.name
+            logging.warning(f'Observation {obs.id} not in a specified class (skipping): {name}.')
 
         # Put all the observations in trivial AND groups.
         trivial_groups = [
@@ -954,7 +965,7 @@ class OcsProgramProvider(ProgramProvider):
                 delay_max=delay_max,
                 children=obs,
                 group_option=AndOption.ANYORDER)
-            for obs in observations]
+            for obs in good_obs]
         children.extend(trivial_groups)
 
         number_to_observe = len(children)

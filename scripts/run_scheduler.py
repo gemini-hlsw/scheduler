@@ -44,6 +44,10 @@ if __name__ == '__main__':
     # Execute the Selector.
     # Not sure the best way to display the output.
     selection = selector.select()
+    for pid, pinfo in selection.program_info.items():
+        for gid, gdata in pinfo.group_data.items():
+            group = gdata.group
+            print(f'PID: {pid}, GID: {gid}, observation: {group.is_observation_group()}, sched: {group.is_scheduling_group()}')
     program_data = selection.program_info['GN-2018B-Q-104']
     group_data = program_data.group_data['GN-2018B-Q-104-11']
     group = group_data.group
