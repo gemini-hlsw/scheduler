@@ -36,6 +36,7 @@ def parse_configuration(enum: Enum, value: str) -> Any:
     except ValueError:
         raise ConfigurationError(enum.name, value)
 
+
 class Blueprint:
     """Base class for Blueprint
     """
