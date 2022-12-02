@@ -40,7 +40,7 @@ class ValidationMode(SchedulerMode):
 
     @staticmethod
     def _clear_observation_info(obs: Iterable[Observation],
-                                obs_statuses_to_ready: FrozenSet[ObservationStatus],
+                                obs_statuses_to_ready: FrozenSet[ObservationStatus] = _obs_statuses_to_ready,
                                 observation_filter: Optional[Callable[[Observation], bool]] = None) -> NoReturn:
         """
         Given a single observation, clear the information associated with the observation.

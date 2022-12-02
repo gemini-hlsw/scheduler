@@ -21,6 +21,8 @@ from app.core.calculations import NightEvents, TargetInfo, TargetInfoMap, Target
 from app.core.components.base import SchedulerComponent
 from app.core.components.nighteventsmanager import NightEventsManager
 from app.core.programprovider.abstract import ProgramProvider
+# TODO REMOVE HACK: This is a hack since Bryan cannot zero out the observation times in the current architecture.
+from app.core.scheduler.modes import ValidationMode
 from mock.resource import ResourceMock
 
 
@@ -130,7 +132,7 @@ class Collector(SchedulerComponent):
 
     @staticmethod
     def get_all_observations() -> Iterable[Observation]:
-        return Collector._observations.values()
+        return [obs_data[0] for obs_data in Collector._observations.values()]
 
     @staticmethod
     def get_observation_ids(program_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
@@ -400,6 +402,9 @@ class Collector(SchedulerComponent):
                     logging.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
                 Collector._programs[program.id] = program
 
+                # TODO HACK: Zero out times for Bryan.
+                ValidationMode._clear_observation_info(program.observations())
+
                 # Collect the observations in the program and sort them by site.
                 # Filter out here any observation classes that have not been specified to the Collector.
                 bad_obs, good_obs = partition(lambda x: x.obs_class in self.obs_classes, program.observations())
@@ -414,7 +419,6 @@ class Collector(SchedulerComponent):
                 Collector._observations_per_program[program.id] = frozenset(obs.id for obs in good_obs)
 
                 for obs in good_obs:
-
                     # Retrieve tne base target, if any. If not, we cannot process.
                     base = obs.base_target()
 
