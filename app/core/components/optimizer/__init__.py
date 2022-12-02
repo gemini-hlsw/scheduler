@@ -5,7 +5,7 @@ from typing import List
 
 from app.core.calculations.selection import Selection
 from app.core.plans import Plans
-from .greedymax import GreedyMax
+from .greedymax import GreedyMaxOptimizer
 
 
 class Optimizer:
