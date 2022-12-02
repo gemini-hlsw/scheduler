@@ -71,8 +71,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # else:
             #     print('group not added')
 
-            max_score = 0.0         # maximum score in time interval
-            max_group = {}
             maxscores = []
             groups = []
             ids = [] # group index for the scores
@@ -89,6 +87,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # print(group.group.id, group.group.exec_time(), smax)
 
             # sort
+            max_score = 0.0  # maximum score in time interval
+            max_group = {}
             jj = np.flip(np.argsort(maxscores))
             for ii in range(len(jj)):
                 max_score = maxscores[jj[ii]]
