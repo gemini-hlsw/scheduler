@@ -1,8 +1,4 @@
-mode: VALIDATION # Modes: Validation, Simulation, Operation
-
-sources:
-  environment: MOCK
-  resource: MOCK
+mode: Validation # Modes: Validation, Simulation, Operation
 
 process_manager: 
   size: 5 # Only valid for Simulation and Validation 
@@ -16,7 +12,7 @@ collector:
   time_slot_length: 1.0 # on minutes
 
 optimizer:
-  name: DUMMY
+  name: Dummy
 
 server:
   port: 8000

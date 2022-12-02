@@ -1,7 +1,6 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-from typing import FrozenSet, Union, List, Any
-from enum import Enum
+from typing import FrozenSet, Union, List, Iterable
 
 from astropy.time import TimeDelta
 import astropy.units as u
@@ -13,28 +12,6 @@ from lucupy.minimodel.site import Site, ALL_SITES
 
 from app.config import config, ConfigurationError
 from app.core.components.optimizer.dummy import DummyOptimizer
-from mock.resource import ResourceMock
-from mock.environment import Env
-
-
-def parse_configuration(enum: Enum, value: str) -> Any:
-    """General parser for config.yml
-
-
-    Args:
-        enum (Enum): Enum corresponding to the setting to parse
-        value (str): Value on config.yml
-
-    Raises:
-        ConfigurationError: General configuration error in case the string
-
-    Returns:
-        Any: The represent selection on the Enum.
-    """
-    try:
-        return enum[value]
-    except ValueError:
-        raise ConfigurationError(enum.name, value)
 
 class Blueprint:
     """Base class for Blueprint
@@ -46,14 +23,14 @@ class CollectorBlueprint(Blueprint):
     This is based on the configuration in config.yml.
     """
     def __init__(self,
-                 semesters: List[str],
-                 obs_class: List[str],
-                 prg_type: List[str],
-                 sites: Union[str,List[str]],
+                 semesters: str,
+                 obs_class: str,
+                 prg_type: str,
+                 sites: str,
                  time_slot_length: float) -> None:
         self.semesters: FrozenSet[Semester] =  frozenset(map(CollectorBlueprint._parse_semesters, semesters))
-        self.obs_classes: FrozenSet[ObservationClass] = frozenset(map(lambda x: parse_configuration(ObservationClass, x), obs_class))
-        self.program_types: FrozenSet[ProgramTypes] = frozenset(map(lambda x: parse_configuration(ProgramTypes, x), prg_type))
+        self.obs_classes: FrozenSet[ObservationClass] = frozenset(map(CollectorBlueprint._parse_obs_class, obs_class))
+        self.program_types: FrozenSet[ProgramTypes] = frozenset(map(CollectorBlueprint._parse_prg_types,prg_type))
         self.sites: FrozenSet[Site] = CollectorBlueprint._parse_sites(sites)
         self.time_slot_length: TimeDelta = TimeDelta(time_slot_length * u.min)
 
@@ -62,13 +39,13 @@ class CollectorBlueprint(Blueprint):
         """Parse semesters to schedule from config.yml
 
         Args:
-            semester (str): Semester string value representation.
+            semester (str): _description_
 
         Raises:
-            ConfigurationError: If the semester half is not encounter.
+            ConfigurationError: _description_
 
         Returns:
-            Semester: Minimodel representation of Semester.
+            Semester: _description_
         """
 
         year, half = semester[:-1], semester[-1]
@@ -82,6 +59,69 @@ class CollectorBlueprint(Blueprint):
             return Semester(int(year), e_half)
         except ValueError:
             raise ConfigurationError('Semester year', year)    
+
+    @staticmethod
+    def _parse_obs_class(obs_class: str) -> ObservationClass:
+        """Parse Observation class from config.yml
+
+        Args:
+            obs_class (str): _description_
+
+        Raises:
+            ConfigurationError: _description_
+
+        Returns:
+            _type_: _description_
+        """
+
+        if obs_class == 'SCIENCE':
+            return ObservationClass.SCIENCE
+        elif obs_class == 'PROGCAL':
+            return ObservationClass.PROGCAL
+        elif obs_class == 'PARTNERCAL':
+            return ObservationClass.PARTNERCAL
+        elif obs_class == 'ACQ':
+            return ObservationClass.ACQ
+        elif obs_class == 'ACQCAL':
+            return ObservationClass.ACQCAL
+        elif obs_class == 'DAYCAL':
+            return ObservationClass.DAYCAL
+        else:
+            raise ConfigurationError('Observation class', obs_class)
+
+    @staticmethod
+    def _parse_prg_types(prg_type: str) -> ProgramTypes:
+        """Parse Program type from config.yml
+
+        Args:
+            prg_type (str): Value from 
+
+        Raises:
+            ConfigurationError: _description_
+
+        Returns:
+            _type_: _description_
+        """
+        if prg_type == 'C':
+            return ProgramTypes.C
+        elif prg_type == 'CAL':
+            return ProgramTypes.CAL
+        elif prg_type == 'DD':
+            return ProgramTypes.DD
+        elif prg_type == 'DS':
+            return ProgramTypes.DS
+        elif prg_type== 'ENG':
+            return ProgramTypes.ENG
+        elif prg_type == 'FT':
+            return ProgramTypes.FT
+        elif prg_type == 'LP':
+            return ProgramTypes.LP
+        elif prg_type == 'Q':
+            return ProgramTypes.Q
+        elif prg_type == 'SV':
+            return ProgramTypes.SV
+        else:
+            raise ConfigurationError('Program type', prg_type)   
 
     @staticmethod
     def _parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
@@ -131,31 +171,12 @@ class OptimizerBlueprint(Blueprint):
     def _parse_optimizer(algorithm_name: str):
         # TODO: Enums are needed but for now is just Dummy
         # TODO: When GMax is ready we can expand
-        if algorithm_name in 'DUMMY':
+        if algorithm_name in 'Dummy':
             return DummyOptimizer()
         else:
             raise ConfigurationError('Optimizer', config.optimizer.name)
     def __iter__(self):
         return iter((self.algorithm))
-
-class SourcesBlueprint(Blueprint):
-    
-    class ResourceSources(Enum):
-        MOCK = ResourceMock()
-        # TODO: As in full fledge service? I'm not sure about this name 
-        # so suggestions are welcome. 
-        FULL = None
-    
-    class EnvSources(Enum):
-        MOCK = Env()
-        # TODO: This need to be hookup to the real service.
-        FULL = None 
-
-
-    def __init__(self, resource_source: str, env_source: str):
-        self.resource = parse_configuration(SourcesBlueprint.ResourceSources, resource_source).value
-        self.environment = parse_configuration(SourcesBlueprint.EnvSources, env_source).value
-    
 
 class Blueprints:
     collector: CollectorBlueprint = CollectorBlueprint(config.collector.semesters,
@@ -164,5 +185,3 @@ class Blueprints:
                                                        config.collector.sites,
                                                        config.collector.time_slot_length)
     optimizer: OptimizerBlueprint = OptimizerBlueprint(config.optimizer.name)
-
-    sources: SourcesBlueprint = SourcesBlueprint(config.sources.resource, config.sources.environment)

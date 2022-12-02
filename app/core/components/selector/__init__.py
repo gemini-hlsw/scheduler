@@ -16,9 +16,7 @@ from app.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInf
 from app.core.components.base import SchedulerComponent
 from app.core.components.collector import Collector
 from app.core.components.ranker import DefaultRanker, Ranker
-from app.core.builder.blueprint import Blueprints
-ENV = Blueprints.sources.environment
-#from mock.environment import Env
+from mock.environment import Env
 
 # Aliases to pass around resource availability information for sites and night indices.
 NightResourceAvailability = Dict[NightIndex, FrozenSet[Resource]]
@@ -240,7 +238,7 @@ class Selector(SchedulerComponent):
         for night_idx in ranker.night_indices:
             # TODO: Use Selector._env when the get actual conditions variant method doesn't return static data.
             # actual_conditions = Selector._env.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
-            actual_conditions = ENV.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
+            actual_conditions = Env.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
 
             # If we can obtain the conditions variant, calculate the conditions and wind mapping.
             # Otherwise, use arrays of all zeros to indicate that we cannot calculate this information.
