@@ -115,7 +115,7 @@ def dispatch_with(mode: str):
     """
     # Setup scheduler mode
     try:
-        mode = SchedulerModes[config.mode.upper()]
+        mode = SchedulerModes[config.mode]
     except ValueError:
         raise ConfigurationError(f'Mode "{config.mode}" is invalid.')
 

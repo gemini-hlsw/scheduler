@@ -21,7 +21,8 @@ from lucupy.timeutils import sex2dec
 from scipy.signal import find_peaks
 
 from app.core.programprovider.abstract import ProgramProvider
-from mock.resource import ResourceMock
+from app.core.builder.blueprint import Blueprints
+RESOURCE = Blueprints.sources.resource
 
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
@@ -605,11 +606,11 @@ class OcsProgramProvider(ProgramProvider):
 
         # Transform Resources.
         # TODO: For now, we focus on instruments, and GMOS FPUs and dispersers exclusively.
-        instrument_resources = frozenset([ResourceMock().lookup_resource(instrument)])
+        instrument_resources = frozenset([RESOURCE.lookup_resource(instrument)])
         if 'GMOS' in instrument:
             # Convert FPUs and dispersers to barcodes.
-            fpu_resources = frozenset([ResourceMock().fpu_to_barcode(site, fpu) for fpu in fpus])
-            disperser_resources = frozenset([ResourceMock().lookup_resource(disperser.split('_')[0])
+            fpu_resources = frozenset([RESOURCE.fpu_to_barcode(site, fpu) for fpu in fpus])
+            disperser_resources = frozenset([RESOURCE.lookup_resource(disperser.split('_')[0])
                                              for disperser in dispersers])
             resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources])
         else:
