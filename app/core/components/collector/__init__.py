@@ -333,6 +333,11 @@ class Collector(SchedulerComponent):
                 )[0]
                 visibility_slot_idx = np.append(visibility_slot_idx, sa_idx[c_idx[tw_idx]])
 
+            # Create a visibility filter that has an entry for every time slot over the night,
+            # with 0 if the target is not visible and 1 if it is visible.
+            visibility_slot_filter = np.zeros(len(night_events.times[night_idx]))
+            visibility_slot_filter.put(visibility_slot_idx, 1.0)
+
             # TODO: Guide star availability for moving targets and parallactic angle modes.
 
             # Calculate the visibility time, the ongoing summed remaining visibility time, and
@@ -356,6 +361,7 @@ class Collector(SchedulerComponent):
                 airmass=airmass,
                 sky_brightness=sb,
                 visibility_slot_idx=visibility_slot_idx,
+                visibility_slot_filter=visibility_slot_filter,
                 visibility_time=visibility_time,
                 rem_visibility_time=rem_visibility_time,
                 rem_visibility_frac=rem_visibility_frac

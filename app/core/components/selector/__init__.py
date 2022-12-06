@@ -342,6 +342,7 @@ class Selector(SchedulerComponent):
                                      for sg in group.children]
             wind_score.append(np.multiply.reduce(wind_scores_for_night))
 
+        # The
         # The schedulable slot indices are the products of the schedulable slot indices for each subgroup across
         # each night.
         schedulable_slot_indices = []

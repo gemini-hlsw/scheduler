@@ -949,7 +949,8 @@ class OcsProgramProvider(ProgramProvider):
                         for obs_key, obs_data in obs_data_blocks)
 
         # Parse out all the undesirable Observation Classes.
-        bad_obs, good_obs = partition(lambda x: x.obs_class in OcsProgramProvider._OBSCLASS_FILTERED, observations)
+        # partition returns a pair where of items where the predicate is False, and then where it is True.
+        good_obs, bad_obs = partition(lambda x: x.obs_class in OcsProgramProvider._OBSCLASS_FILTERED, observations)
 
         for obs in bad_obs:
             name = obs.obs_class.name
