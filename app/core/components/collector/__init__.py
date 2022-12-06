@@ -453,5 +453,5 @@ class Collector(SchedulerComponent):
         Return a set of available resources for the night under consideration.
         """
         # ResourceMock works with dates and not night_idx, so we need to convert.
-        return [ResourceMock().get_resources(site, self.get_night_events(site).time_grid[night_idx].datetime.date())
+        return [ResourceMock().get_resources(site, self.get_night_events(site).time_grid[night_idx].datetime)
                 for night_idx in night_indices]
