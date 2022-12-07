@@ -1,6 +1,6 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-from typing import Any, FrozenSet, List, Type, Union, TypeVar
+from typing import Any, FrozenSet, List, Type, Union
 from enum import Enum
 
 from astropy.time import TimeDelta
@@ -16,12 +16,9 @@ from app.core.components.optimizer.dummy import DummyOptimizer
 from mock.resource import ResourceMock
 from mock.environment import Env
 
-T = TypeVar('T')
 
-
-def parse_configuration(enum_class: Type[T], value: str) -> Any:
+def parse_configuration(enum_class: Type[Enum], value: str) -> Any:
     """General parser for config.yml
-
 
     Args:
         enum_class (Type): Enum corresponding to the setting to parse
