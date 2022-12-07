@@ -221,7 +221,7 @@ class ResourceMock(metaclass=Singleton):
             self._all_resources[resource_id] = Resource(id=resource_id)
         return self._all_resources[resource_id]
 
-    def date_range_for_site(self, site: Site) -> Tuple[datetime, datetime]:
+    def date_range_for_site(self, site: Site) -> Tuple[date, date]:
         """
         Return the date range (inclusive) for which we have resource data for a site.
         """
@@ -229,28 +229,26 @@ class ResourceMock(metaclass=Singleton):
             raise ValueError(f'Request for resource dates for illegal site: {site.name}')
         return self._earliest_date_per_site[site], self._latest_date_per_site[site]
 
-    def get_resources(self, site: Site, night_date: datetime) -> FrozenSet[Resource]:
+    def get_resources(self, site: Site, night_date: date) -> FrozenSet[Resource]:
         """
-        For a site and a night date (expressed as a datetime in UTC), return the set of available resources.
-        The datetime will be converted to a local date, as the data in this are represented by local dates.
+        For a site and a local date, return the set of available resources.
+        The date is currently the truncation to day of the astropy Time objects in the time_grid, which are in UTC
+           and have times of 8:00 am, so to get local dates, in the Collector we subtract one day.
         If the date falls before any resource data for the site, return the empty set.
         If the date falls after any resource data for the site, return the last resource set.
         """
         if site not in self._sites:
             raise ValueError(f'Request for resources for illegal site: {site.name}')
 
-        # Convert the night_date to the local date for the site.
-        local_night_date = night_date.astimezone(site.timezone).date()
-
         # If the date is before the first date or after the last date, return the empty set.
-        if local_night_date < self._earliest_date_per_site[site] or local_night_date > self._latest_date_per_site[site]:
+        if night_date < self._earliest_date_per_site[site] or night_date > self._latest_date_per_site[site]:
             return frozenset()
 
-        return frozenset(self._resources[site][local_night_date])
+        return frozenset(self._resources[site][night_date])
 
     def get_resources_for_sites(self,
                                 sites: Collection[Site],
-                                night_date: datetime) -> Dict[Site, FrozenSet[Resource]]:
+                                night_date: date) -> Dict[Site, FrozenSet[Resource]]:
         """
         For a collection of sites and a night date, return the set of available resources.
         """
@@ -258,7 +256,7 @@ class ResourceMock(metaclass=Singleton):
 
     def get_resources_for_dates(self,
                                 site: Site,
-                                night_dates: Collection[datetime]) -> Dict[date, FrozenSet[Resource]]:
+                                night_dates: Collection[date]) -> Dict[date, FrozenSet[Resource]]:
         """
         For a site and a collection of night dates, return the set of available resources.
         """
@@ -267,8 +265,7 @@ class ResourceMock(metaclass=Singleton):
 
     def get_resources_for_sites_and_dates(self,
                                           sites: Collection[Site],
-                                          night_dates: Collection[datetime])\
-            -> Dict[Site, Dict[date, FrozenSet[Resource]]]:
+                                          night_dates: Collection[date]) -> Dict[Site, Dict[date, FrozenSet[Resource]]]:
         """
         For a collection of sites and night dates, return the set of available resources.
         """
@@ -302,9 +299,9 @@ class ResourceMock(metaclass=Singleton):
 
 # For Bryan and Kristin: testing instructions
 if __name__ == '__main__':
-    # To get the Resources for a specific site on a specific date (UTC noon), modify the following:
+    # To get the Resources for a specific site on a specific local date, modify the following.
     st = Site.GN
-    day = datetime(year=2018, month=11, day=8, hour=12)
+    day = date(year=2018, month=11, day=8)
 
     resources_available = ResourceMock().get_resources(st, day)
 
