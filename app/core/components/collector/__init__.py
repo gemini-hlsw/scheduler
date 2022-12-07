@@ -5,6 +5,7 @@ from inspect import isclass
 import logging
 import time
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple, Type, final
 
 import astropy.units as u
@@ -21,7 +22,7 @@ from app.core.calculations import NightEvents, TargetInfo, TargetInfoMap, Target
 from app.core.components.base import SchedulerComponent
 from app.core.components.nighteventsmanager import NightEventsManager
 from app.core.programprovider.abstract import ProgramProvider
-# TODO HACK: This is a hack since Bryan cannot zero out the observation times in the current architecture.
+# TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
 from app.core.scheduler.modes import ValidationMode
 from mock.resource import ResourceMock
 
@@ -66,6 +67,9 @@ class Collector(SchedulerComponent):
     # We want the ObservationID in here so that any target sharing in GPP is deliberately split here, since
     # the target info is observation-specific due to the constraints and site.
     _target_info: ClassVar[TargetInfoMap] = {}
+
+    # Definition of a day to be used to get local dates for resources.
+    _DAY: ClassVar[timedelta] = timedelta(days=1)
 
     # The default timeslot length currently used.
     DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min
@@ -452,6 +456,12 @@ class Collector(SchedulerComponent):
         """
         Return a set of available resources for the night under consideration.
         """
-        # ResourceMock works with dates and not night_idx, so we need to convert.
-        return [ResourceMock().get_resources(site, self.get_night_events(site).time_grid[night_idx].datetime.date())
+        # ResourceMock works with local dates and not UTC datetimes in the time_grid, so we need to convert.
+        # This is done by truncating the time and subtracting one day.
+        # TODO: In future, if we plan to extend to more observatories, we may have to rethink this strategy.
+
+        # Get singleton for convenience.
+        rm = ResourceMock()
+        return [rm.get_resources(site,
+                                 self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY)
                 for night_idx in night_indices]

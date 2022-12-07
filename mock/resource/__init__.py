@@ -231,7 +231,9 @@ class ResourceMock(metaclass=Singleton):
 
     def get_resources(self, site: Site, night_date: date) -> FrozenSet[Resource]:
         """
-        For a site and a night date, return the set of available resources.
+        For a site and a local date, return the set of available resources.
+        The date is currently the truncation to day of the astropy Time objects in the time_grid, which are in UTC
+           and have times of 8:00 am, so to get local dates, in the Collector we subtract one day.
         If the date falls before any resource data for the site, return the empty set.
         If the date falls after any resource data for the site, return the last resource set.
         """
@@ -297,7 +299,7 @@ class ResourceMock(metaclass=Singleton):
 
 # For Bryan and Kristin: testing instructions
 if __name__ == '__main__':
-    # To get the Resources for a specific site on a specific date, modify the following:
+    # To get the Resources for a specific site on a specific local date, modify the following.
     st = Site.GN
     day = date(year=2018, month=11, day=8)
 
@@ -306,4 +308,3 @@ if __name__ == '__main__':
     print(f'*** Resources for site {st.name} for {day} ***')
     for resource in sorted(resources_available, key=lambda x: x.id):
         print(resource)
-    # print(', '.join([str(a) for a in sorted(resources_available, key=lambda x: x.id)]))
