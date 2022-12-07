@@ -6,10 +6,11 @@ import os
 from datetime import datetime, timedelta
 
 from lucupy.helpers import dmsstr2deg
-from lucupy.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
-    ImageQuality, Magnitude, MagnitudeBands, Observation, ObservationClass, ObservationStatus, Priority, Program, \
-    ProgramMode, ProgramTypes, QAState, Resource, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, \
-    SkyBackground, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor
+from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
+                              ImageQuality, Magnitude, MagnitudeBands, Observation, ObservationClass, ObservationStatus,
+                              Priority, Program, ProgramMode, ProgramTypes, QAState, Resource, Semester, SemesterHalf,
+                              SetupTimeType, SiderealTarget, Site, SkyBackground, TargetType, TimeAccountingCode,
+                              TimeAllocation, TimingWindow, TooType, WaterVapor)
 from lucupy.timeutils import sex2dec
 
 from app.core.programprovider.ocs import OcsProgramProvider
@@ -21,7 +22,8 @@ def get_api_program() -> Program:
     """
     with open(os.path.join('app', 'core', 'programprovider', 'ocs', 'test', 'GN-2022A-Q-999.json'), 'r') as f:
         data = json.loads(f.read())
-        return OcsProgramProvider.parse_program(data['PROGRAM_BASIC'])
+        obs_classes = frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
+        return OcsProgramProvider(obs_classes).parse_program(data['PROGRAM_BASIC'])
 
 
 def create_minimodel_program() -> Program:
@@ -59,10 +61,10 @@ def create_minimodel_program() -> Program:
 
     gmosn2_target_1 = SiderealTarget(
         name='M11',
-        magnitudes={
+        magnitudes=frozenset({
             Magnitude(MagnitudeBands.B, 6.32),
             Magnitude(MagnitudeBands.V, 5.8)
-        },
+        }),
         type=TargetType.BASE,
         ra=sex2dec('18:51:03.840', todegree=True),
         dec=dmsstr2deg('353:43:40.80'),
@@ -73,7 +75,7 @@ def create_minimodel_program() -> Program:
 
     gmosn2_target_2 = SiderealTarget(
         name='419-102509',
-        magnitudes={
+        magnitudes=frozenset({
             Magnitude(MagnitudeBands.B, 12.261),
             Magnitude(MagnitudeBands.g, 12.046),
             Magnitude(MagnitudeBands.V, 11.983),
@@ -83,7 +85,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.J, 11.11),
             Magnitude(MagnitudeBands.H, 11.0),
             Magnitude(MagnitudeBands.K, 10.894)
-        },
+        }),
         type=TargetType.GUIDESTAR,
         ra=sex2dec('18:50:50.990', todegree=True),
         dec=dmsstr2deg('353:44:28.68'),
@@ -106,8 +108,8 @@ def create_minimodel_program() -> Program:
             observed=False,
             qa_state=QAState.NONE,
             guide_state=False,
-            resources={gmosn},
-            wavelengths={0.475}
+            resources=frozenset({gmosn}),
+            wavelengths=frozenset({0.475})
         )
     ]
 
@@ -167,11 +169,11 @@ def create_minimodel_program() -> Program:
 
     gnirs2_target_1 = SiderealTarget(
         name='M22',
-        magnitudes={
+        magnitudes=frozenset({
             Magnitude(MagnitudeBands.B, 7.16),
             Magnitude(MagnitudeBands.V, 6.17),
             Magnitude(MagnitudeBands.K, 1.71)
-        },
+        }),
         type=TargetType.BASE,
         ra=sex2dec('18:36:23.940', todegree=True),
         dec=dmsstr2deg('336:05:42.90'),
@@ -182,7 +184,7 @@ def create_minimodel_program() -> Program:
 
     gnirs2_target_2 = SiderealTarget(
         name='331-171970',
-        magnitudes={
+        magnitudes=frozenset({
             Magnitude(MagnitudeBands.B, 12.888),
             Magnitude(MagnitudeBands.g, 11.93),
             Magnitude(MagnitudeBands.V, 11.051),
@@ -192,7 +194,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.J, 7.754),
             Magnitude(MagnitudeBands.H, 6.993),
             Magnitude(MagnitudeBands.K, 6.769)
-        },
+        }),
         type=TargetType.GUIDESTAR,
         ra=sex2dec('18:36:36.196', todegree=True),
         dec=dmsstr2deg('336:00:20.55'),
@@ -216,8 +218,8 @@ def create_minimodel_program() -> Program:
             observed=False,
             qa_state=QAState.NONE,
             guide_state=False,
-            resources={gnirs},
-            wavelengths={2.2}
+            resources=frozenset({gnirs}),
+            wavelengths=frozenset({2.2})
         )
     ]
 
@@ -281,11 +283,11 @@ def create_minimodel_program() -> Program:
 
     gnirs1_target_1 = SiderealTarget(
         name='M10',
-        magnitudes={
+        magnitudes=frozenset({
             Magnitude(MagnitudeBands.g, value=6.842),
             Magnitude(MagnitudeBands.V, value=4.98),
             Magnitude(MagnitudeBands.K, value=3.6)
-        },
+        }),
         type=TargetType.BASE,
         ra=sex2dec('16:57:09.050', todegree=True),
         dec=dmsstr2deg('355:53:58.88'),
@@ -296,7 +298,7 @@ def create_minimodel_program() -> Program:
 
     gnirs1_target_2 = SiderealTarget(
         name='430-067087',
-        magnitudes={
+        magnitudes=frozenset({
             Magnitude(MagnitudeBands.V, value=11.78),
             Magnitude(MagnitudeBands.K, value=8.916),
             Magnitude(MagnitudeBands.i, value=11.04),
@@ -306,7 +308,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.r, value=11.389),
             Magnitude(MagnitudeBands.H, value=9.082),
             Magnitude(MagnitudeBands.J, value=9.628)
-        },
+        }),
         type=TargetType.GUIDESTAR,
         ra=sex2dec('16:57:12.230', todegree=True),
         dec=dmsstr2deg('355:48:33.04'),
@@ -330,8 +332,8 @@ def create_minimodel_program() -> Program:
             observed=False,
             qa_state=QAState.NONE,
             guide_state=False,
-            resources={gnirs},
-            wavelengths={2.2}
+            resources=frozenset({gnirs}),
+            wavelengths=frozenset({2.2})
         )
     ]
 
@@ -411,13 +413,13 @@ def create_minimodel_program() -> Program:
 
     gmosn1_target_1 = SiderealTarget(
         name='M15',
-        magnitudes={
+        magnitudes=frozenset({
             Magnitude(MagnitudeBands.z, value=6.288),
             Magnitude(MagnitudeBands.r, value=6.692),
             Magnitude(MagnitudeBands.B, value=3.0),
             Magnitude(MagnitudeBands.i, value=6.439),
             Magnitude(MagnitudeBands.g, value=7.101)
-        },
+        }),
         type=TargetType.BASE,
         ra=sex2dec('21:29:58.330', todegree=True),
         dec=dmsstr2deg('12:10:01.20'),
@@ -428,7 +430,7 @@ def create_minimodel_program() -> Program:
 
     gmosn1_target_2 = SiderealTarget(
         name='512-132424',
-        magnitudes={
+        magnitudes=frozenset({
             Magnitude(MagnitudeBands.i, value=11.833),
             Magnitude(MagnitudeBands.J, value=10.455),
             Magnitude(MagnitudeBands.H, value=9.796),
@@ -438,7 +440,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.K, value=9.695),
             Magnitude(MagnitudeBands.g, value=13.473),
             Magnitude(MagnitudeBands.V, value=12.834)
-        },
+        }),
         type=TargetType.GUIDESTAR,
         ra=sex2dec('21:29:54.924', todegree=True),
         dec=dmsstr2deg('12:13:22.47'),
@@ -449,7 +451,7 @@ def create_minimodel_program() -> Program:
 
     gmosn1_target_3 = SiderealTarget(
         name='512-132390',
-        magnitudes={
+        magnitudes=frozenset({
             Magnitude(MagnitudeBands.g, value=16.335),
             Magnitude(MagnitudeBands.B, value=16.708),
             Magnitude(MagnitudeBands.H, value=13.997),
@@ -458,7 +460,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.K, value=13.845),
             Magnitude(MagnitudeBands.r, value=15.77),
             Magnitude(MagnitudeBands.J, value=14.455)
-        },
+        }),
         type=TargetType.TUNING_STAR,
         ra=sex2dec('21:29:46.873', todegree=True),
         dec=dmsstr2deg('12:12:57.61'),
@@ -469,12 +471,12 @@ def create_minimodel_program() -> Program:
 
     gmosn1_target_4 = SiderealTarget(
         name='511-136970',
-        magnitudes={
+        magnitudes=frozenset({
             Magnitude(MagnitudeBands.H, 13.003),
             Magnitude(MagnitudeBands.K, 12.884),
             Magnitude(MagnitudeBands.UC, 14.91),
             Magnitude(MagnitudeBands.J, 13.504)
-        },
+        }),
         type=TargetType.BLIND_OFFSET,
         ra=sex2dec('21:29:42.967', todegree=True),
         dec=dmsstr2deg('12:09:53.42'),
@@ -501,8 +503,8 @@ def create_minimodel_program() -> Program:
             observed=False,
             qa_state=QAState.NONE,
             guide_state=False,
-            resources={gmosn},
-            wavelengths={0.475}
+            resources=frozenset({gmosn}),
+            wavelengths=frozenset({0.475})
         )
     ]
 
@@ -567,7 +569,7 @@ def create_minimodel_program() -> Program:
         partner_used=timedelta()
     )
 
-    time_allocation = {time_allocation_us, time_allocation_ca}
+    time_allocation = frozenset({time_allocation_us, time_allocation_ca})
 
     # *** PROGRAM ***
     return Program(

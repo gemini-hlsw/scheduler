@@ -4,7 +4,7 @@
 from datetime import timedelta
 import os
 
-from lucupy.minimodel.observation import ObservationStatus
+from lucupy.minimodel.observation import ObservationClass, ObservationStatus
 
 from app.core.scheduler.modes import ValidationMode
 from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
@@ -15,7 +15,8 @@ def test_clear_observations():
     """
     Ensure the Collector clear_observation_info does as specified.
     """
-    program_provider = OcsProgramProvider()
+    obs_classes = frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
+    program_provider = OcsProgramProvider(obs_classes)
     bad_status = frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
     zero = timedelta()
 
