@@ -2,10 +2,11 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import FrozenSet, List
 
 from lucupy.minimodel import (AndGroup, Atom, Conditions, Constraints, Magnitude, NonsiderealTarget, Observation,
-    OrGroup, Program, QAState, SiderealTarget, Site, Target, TimeAllocation, TimingWindow)
+                              ObservationClass, OrGroup, Program, QAState, SiderealTarget, Site, Target, TimeAllocation,
+                              TimingWindow)
 
 
 class ProgramProvider(ABC):
@@ -25,9 +26,11 @@ class ProgramProvider(ABC):
     * NotImplementedError if the feature is not offered in this provider
     """
 
-    @staticmethod
+    def __init__(self, obs_classes: FrozenSet[ObservationClass]):
+        self._obs_classes = obs_classes
+
     @abstractmethod
-    def parse_program(data: dict) -> Program:
+    def parse_program(self, data: dict) -> Program:
         """
         Given an associative array that contains program data, retrieve the data
         and populate a top-level Program object.
@@ -40,9 +43,8 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_or_group(data: dict, group_id: str) -> OrGroup:
+    def parse_or_group(self, data: dict, group_id: str) -> OrGroup:
         """
         Given an associative array that contains the data needed for an OR group,
         retrieve the data and populate the OrGroup.
@@ -58,9 +60,8 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_and_group(data: dict, group_id: str) -> AndGroup:
+    def parse_and_group(self, data: dict, group_id: str) -> AndGroup:
         """
         Given an associative array that contains the data needed for an AND group,
         retrieve the data and populate the AndGroup.
@@ -76,9 +77,8 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_observation(data: dict, num: int) -> Observation:
+    def parse_observation(self, data: dict, num: int) -> Observation:
         """
         Given an associative array that contains observation data, retrieve the data
         and populate an Observation object.
@@ -94,9 +94,8 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_target(data: dict) -> Target:
+    def parse_target(self, data: dict) -> Target:
         """
         Given an associative array that contains common target data, retrieve the general
         data and populate a Target object.
@@ -112,9 +111,8 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_sidereal_target(data: dict) -> SiderealTarget:
+    def parse_sidereal_target(self, data: dict) -> SiderealTarget:
         """
         Given an associative array that contains sidereal target data, retrieve the sidereal
         data and populate a SiderealTarget object.
@@ -123,9 +121,8 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_nonsidereal_target(data: dict) -> NonsiderealTarget:
+    def parse_nonsidereal_target(self, data: dict) -> NonsiderealTarget:
         """
         Given an associative array that contains nonsidereal target data, retrieve the nonsidereal
         data and populate a NonsiderealTarget object.
@@ -134,18 +131,16 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_magnitude(data: dict) -> Magnitude:
+    def parse_magnitude(self, data: dict) -> Magnitude:
         """
         Given an associative array that contains magnitude data, retrieve the data
         and populate a Magnitude object.
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_constraints(data: dict) -> Constraints:
+    def parse_constraints(self, data: dict) -> Constraints:
         """
         Given an associative array that contains constraints data, retrieve the data
         and populate a Constraints object.
@@ -156,9 +151,8 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_conditions(data: dict) -> Conditions:
+    def parse_conditions(self, data: dict) -> Conditions:
         """
         Given an associative array that contains conditions data, retrieve the data and
         populate a Conditions object.
@@ -168,9 +162,8 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_timing_window(data: dict) -> TimingWindow:
+    def parse_timing_window(self, data: dict) -> TimingWindow:
         """
         Given an associative array that contains the data for a single timing window,
         retrieve the data and populate a TimingWindow object.
@@ -180,9 +173,8 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_time_allocation(data: dict) -> TimeAllocation:
+    def parse_time_allocation(self, data: dict) -> TimeAllocation:
         """
         Given an associative array that contains the data for a single time allocation,
         retrieve the data and populate a TimeAllocation object.
@@ -192,9 +184,8 @@ class ProgramProvider(ABC):
         """
         ...
 
-    @staticmethod
     @abstractmethod
-    def parse_atoms(site: Site, sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
+    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
         """
         Given a list of associative arrays from an observation that contain atom data,
         parse / process the atom data and populate a list of Atom objects.

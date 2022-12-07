@@ -33,7 +33,7 @@ if __name__ == '__main__':
         program_types=frozenset({ProgramTypes.Q, ProgramTypes.LP, ProgramTypes.FT, ProgramTypes.DD}),
         obs_classes=frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
     )
-    collector.load_programs(program_provider=OcsProgramProvider(),
+    collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
 
     # Output the state of and information calculated by the Collector.
@@ -44,13 +44,19 @@ if __name__ == '__main__':
     # Execute the Selector.
     # Not sure the best way to display the output.
     selection = selector.select()
+
+    # Print out the basic selection information, consisting of the programs that have been selected
+    # and whether they are observation or scheduling groups.
     for pid, pinfo in selection.program_info.items():
+        print(f'Program {pid}')
         for gid, gdata in pinfo.group_data.items():
             group = gdata.group
-            print(f'PID: {pid}, GID: {gid}, observation: {group.is_observation_group()}, sched: {group.is_scheduling_group()}')
-    program_data = selection.program_info['GN-2018B-Q-104']
-    group_data = program_data.group_data['GN-2018B-Q-104-11']
-    group = group_data.group
+            is_obs_group = group.is_observation_group()
+            print(f'\tGroup {gid} ({"Observation Group" if is_obs_group else "Scheduling Group"})')
+
+    # program_data = selection.program_info['GN-2018B-Q-104']
+    # group_data = program_data.group_data['GN-2018B-Q-104-11']
+    # group = group_data.group
     # print(group.exec_time())
     # print(group.total_used())
     # print(group.instruments())

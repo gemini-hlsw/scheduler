@@ -8,7 +8,7 @@ import zipfile
 from datetime import datetime, timedelta
 from more_itertools import partition
 from pathlib import Path
-from typing import Iterable, NoReturn, Tuple, List, Optional, Mapping
+from typing import FrozenSet, Iterable, List, Mapping, NoReturn, Optional, Tuple
 
 import numpy as np
 from lucupy.helpers import dmsstr2deg
@@ -48,9 +48,6 @@ class OcsProgramProvider(ProgramProvider):
     _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
-
-    # These are the ObsClasses that we want to filter out when we are reading in programs:
-    _OBSCLASS_FILTERED = frozenset([ObservationClass.ACQ, ObservationClass.ACQCAL, ObservationClass.DAYCAL])
 
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
@@ -184,8 +181,10 @@ class OcsProgramProvider(ProgramProvider):
                           'GMOS-S': _FPUKeys.GMOSS,
                           'NIRI': _FPUKeys.NIRI}
 
-    @staticmethod
-    def parse_magnitude(data: dict) -> Magnitude:
+    def __init__(self, obs_classes: FrozenSet[ObservationClass]):
+        super().__init__(obs_classes)
+
+    def parse_magnitude(self, data: dict) -> Magnitude:
         band = MagnitudeBands[data[OcsProgramProvider._MagnitudeKeys.NAME]]
         value = data[OcsProgramProvider._MagnitudeKeys.VALUE]
         return Magnitude(
@@ -292,8 +291,7 @@ class OcsProgramProvider(ProgramProvider):
         # Account for the flexible boundary on programs.
         return start_date - Program.FUZZY_BOUNDARY, end_date + Program.FUZZY_BOUNDARY
 
-    @staticmethod
-    def parse_timing_window(data: dict) -> TimingWindow:
+    def parse_timing_window(self, data: dict) -> TimingWindow:
         start = datetime.utcfromtimestamp(data[OcsProgramProvider._TimingWindowKeys.START] / 1000.0)
 
         duration_info = data[OcsProgramProvider._TimingWindowKeys.DURATION]
@@ -319,8 +317,7 @@ class OcsProgramProvider(ProgramProvider):
             repeat=repeat,
             period=period)
 
-    @staticmethod
-    def parse_conditions(data: dict) -> Conditions:
+    def parse_conditions(self, data: dict) -> Conditions:
         def to_value(cond: str) -> float:
             """
             Parse the conditions value as a float out of the string passed by the OCS program extractor.
@@ -340,13 +337,12 @@ class OcsProgramProvider(ProgramProvider):
                (SkyBackground, OcsProgramProvider._ConstraintKeys.SB),
                (WaterVapor, OcsProgramProvider._ConstraintKeys.WV)]])
 
-    @staticmethod
-    def parse_constraints(data: dict) -> Constraints:
+    def parse_constraints(self, data: dict) -> Constraints:
         # Get the conditions
-        conditions = OcsProgramProvider.parse_conditions(data)
+        conditions = self.parse_conditions(data)
 
         # Parse the timing windows.
-        timing_windows = [OcsProgramProvider.parse_timing_window(tw_data)
+        timing_windows = [self.parse_timing_window(tw_data)
                           for tw_data in data[OcsProgramProvider._ConstraintKeys.TIMING_WINDOWS]]
 
         # Get the elevation data.
@@ -363,14 +359,13 @@ class OcsProgramProvider(ProgramProvider):
             timing_windows=timing_windows,
             strehl=None)
 
-    @staticmethod
-    def _parse_target_header(data: dict) -> Tuple[str, set[Magnitude], TargetType]:
+    def _parse_target_header(self, data: dict) -> Tuple[str, set[Magnitude], TargetType]:
         """
         Parse the common target header information out of a target.
         """
         name = data[OcsProgramProvider._TargetKeys.NAME]
         magnitude_data = data.setdefault(OcsProgramProvider._TargetKeys.MAGNITUDES, [])
-        magnitudes = {OcsProgramProvider.parse_magnitude(m) for m in magnitude_data}
+        magnitudes = {self.parse_magnitude(m) for m in magnitude_data}
 
         target_type_data = data[OcsProgramProvider._TargetKeys.TYPE].replace('-', '_').replace(' ', '_').upper()
         try:
@@ -381,16 +376,13 @@ class OcsProgramProvider(ProgramProvider):
 
         return name, magnitudes, target_type
 
-    @staticmethod
-    def parse_sidereal_target(data: dict) -> SiderealTarget:
-        name, magnitudes, target_type = OcsProgramProvider._parse_target_header(data)
+    def parse_sidereal_target(self, data: dict) -> SiderealTarget:
+        name, magnitudes, target_type = self._parse_target_header(data)
         ra_hhmmss = data[OcsProgramProvider._TargetKeys.RA]
         dec_ddmmss = data[OcsProgramProvider._TargetKeys.DEC]
 
         # TODO: Is this the proper way to handle conversions from hms and dms?
         ra = sex2dec(ra_hhmmss, todegree=True)
-        # dec = sex2dec(dec_ddmmss, todegree=False)
-        # ra = hmsstr2deg(ra_hhmmss)
         dec = dmsstr2deg(dec_ddmmss)
 
         pm_ra = data.setdefault(OcsProgramProvider._TargetKeys.DELTA_RA, 0.0)
@@ -407,13 +399,12 @@ class OcsProgramProvider(ProgramProvider):
             pm_dec=pm_dec,
             epoch=epoch)
 
-    @staticmethod
-    def parse_nonsidereal_target(data: dict) -> NonsiderealTarget:
+    def parse_nonsidereal_target(self, data: dict) -> NonsiderealTarget:
         """
         TODO: Retrieve the Ephemeris data.
         TODO: Should we be doing this here, or in the Collector?
         """
-        name, magnitudes, target_type = OcsProgramProvider._parse_target_header(data)
+        name, magnitudes, target_type = self._parse_target_header(data)
         des = data[OcsProgramProvider._TargetKeys.DES]
         tag = data[OcsProgramProvider._TargetKeys.TAG]
 
@@ -486,8 +477,7 @@ class OcsProgramProvider(ProgramProvider):
 
         return fpu, disperser, filt, wavelength
 
-    @staticmethod
-    def parse_atoms(site: Site, sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
+    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
         """
         Atom handling logic.
         """
@@ -750,23 +740,21 @@ class OcsProgramProvider(ProgramProvider):
 
         return atoms
 
-    @staticmethod
-    def parse_target(data: dict) -> Target:
+    def parse_target(self, data: dict) -> Target:
         """
         Parse a general target - either sidereal or nonsidereal - from the supplied data.
         If we are a ToO, we don't have a target, and thus we don't have a tag. Thus, this raises a KeyError.
         """
         tag = data[OcsProgramProvider._TargetKeys.TAG]
         if tag == 'sidereal':
-            return OcsProgramProvider.parse_sidereal_target(data)
+            return self.parse_sidereal_target(data)
         elif tag == 'nonsidereal':
-            return OcsProgramProvider.parse_nonsidereal_target(data)
+            return self.parse_nonsidereal_target(data)
         else:
             msg = f'Illegal target tag type: {tag}.'
             raise ValueError(msg)
 
-    @staticmethod
-    def parse_observation(data: dict, num: int) -> Observation:
+    def parse_observation(self, data: dict, num: int) -> Observation:
         """
         In the current list of observations, we are parsing the data for:
         OBSERVATION_BASIC-{num}. Note that these numbers ARE in the correct order
@@ -786,14 +774,14 @@ class OcsProgramProvider(ProgramProvider):
         obs_class = ObservationClass[data[OcsProgramProvider._ObsKeys.OBS_CLASS].upper()]
 
         find_constraints = [data[key] for key in data.keys() if key.startswith(OcsProgramProvider._ConstraintKeys.KEY)]
-        constraints = OcsProgramProvider.parse_constraints(find_constraints[0]) if find_constraints else None
+        constraints = self.parse_constraints(find_constraints[0]) if find_constraints else None
 
         # TODO: Do we need this? It is being passed to the parse_atoms method.
         # TODO: We have a qaState on the Observation as well.
         qa_states = [QAState[log_entry[OcsProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
                      data[OcsProgramProvider._ObsKeys.LOG]]
 
-        atoms = OcsProgramProvider.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
+        atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
         # exec_time = sum([atom.exec_time for atom in atoms], timedelta()) + acq_overhead
 
         # TODO: Should this be a list of all targets for the observation?
@@ -809,7 +797,7 @@ class OcsProgramProvider(ProgramProvider):
         target_env = data[target_env_keys[0]]
 
         # Get the base.
-        base = OcsProgramProvider.parse_target(target_env[OcsProgramProvider._TargetKeys.BASE])
+        base = self.parse_target(target_env[OcsProgramProvider._TargetKeys.BASE])
         targets.append(base)
 
         # Parse the guide stars if guide star data is supplied.
@@ -842,7 +830,7 @@ class OcsProgramProvider(ProgramProvider):
                     guider = guide_data[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE_KEY]
                     # TODO: We don't have guiders as resources in ResourceMock.
                     resource = Resource(id=guider)
-                    target = OcsProgramProvider.parse_target(guide_data[OcsProgramProvider._TargetEnvKeys.TARGET])
+                    target = self.parse_target(guide_data[OcsProgramProvider._TargetEnvKeys.TARGET])
                     guiding[resource] = target
                     targets.append(target)
 
@@ -852,7 +840,7 @@ class OcsProgramProvider(ProgramProvider):
         # Process the user targets.
         user_targets_data = target_env.setdefault(OcsProgramProvider._TargetEnvKeys.USER_TARGETS, [])
         for user_target_data in user_targets_data:
-            user_target = OcsProgramProvider.parse_target(user_target_data)
+            user_target = self.parse_target(user_target_data)
             targets.append(user_target)
 
         # If the ToO override rapid setting is in place, set to RAPID.
@@ -881,8 +869,7 @@ class OcsProgramProvider(ProgramProvider):
             constraints=constraints,
             too_type=too_type)
 
-    @staticmethod
-    def parse_time_allocation(data: dict) -> TimeAllocation:
+    def parse_time_allocation(self, data: dict) -> TimeAllocation:
         category = TimeAccountingCode(data[OcsProgramProvider._TAKeys.CATEGORY])
         program_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PROG_TIME])
         partner_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PART_TIME])
@@ -896,16 +883,14 @@ class OcsProgramProvider(ProgramProvider):
             program_used=program_used,
             partner_used=partner_used)
 
-    @staticmethod
-    def parse_or_group(data: dict, group_id: str) -> OrGroup:
+    def parse_or_group(self, data: dict, group_id: str) -> OrGroup:
         """
         There are no OR groups in the OCS, so this method simply throws a
         NotImplementedError if it is called.
         """
         raise NotImplementedError('OCS does not support OR groups.')
 
-    @staticmethod
-    def parse_and_group(data: dict, group_id: str) -> AndGroup:
+    def parse_and_group(self, data: dict, group_id: str) -> AndGroup:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -928,7 +913,7 @@ class OcsProgramProvider(ProgramProvider):
         # Parse out the scheduling groups recursively.
         scheduling_group_keys = sorted(key for key in data
                                        if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
-        children = [OcsProgramProvider.parse_and_group(data[key], key.split('-')[-1]) for key in scheduling_group_keys]
+        children = [self.parse_and_group(data[key], key.split('-')[-1]) for key in scheduling_group_keys]
 
         # Grab the observation data from the complete data.
         top_level_obsdata = [(key, data[key]) for key in data
@@ -945,16 +930,15 @@ class OcsProgramProvider(ProgramProvider):
         obs_data_blocks = top_level_obsdata + org_folders_obsdata
 
         # Parse out all the top level observations in this group.
-        observations = (OcsProgramProvider.parse_observation(obs_data, int(obs_key.split('-')[-1]))
+        observations = (self.parse_observation(obs_data, int(obs_key.split('-')[-1]))
                         for obs_key, obs_data in obs_data_blocks)
 
-        # Parse out all the undesirable Observation Classes.
+        # Filter out all desirable Observation Classes.
         # partition returns a pair where of items where the predicate is False, and then where it is True.
-        good_obs, bad_obs = partition(lambda x: x.obs_class in OcsProgramProvider._OBSCLASS_FILTERED, observations)
+        bad_obs, good_obs = partition(lambda x: x.obs_class in self._obs_classes, observations)
 
         for obs in bad_obs:
-            name = obs.obs_class.name
-            logging.warning(f'Observation {obs.id} not in a specified class (skipping): {name}.')
+            logging.warning(f'Observation {obs.id} not in a specified class (skipping): {obs.obs_class.name}.')
 
         # Put all the observations in trivial AND groups.
         trivial_groups = [
@@ -982,8 +966,7 @@ class OcsProgramProvider(ProgramProvider):
             # TODO: Should this be ANYORDER OR CONSEC_ORDERED?
             group_option=AndOption.CONSEC_ORDERED)
 
-    @staticmethod
-    def parse_program(data: dict) -> Program:
+    def parse_program(self, data: dict) -> Program:
         """
         Parse the program-level details from the JSON data.
 
@@ -1023,7 +1006,7 @@ class OcsProgramProvider(ProgramProvider):
 
         # Parse the time accounting allocation data.
         time_act_alloc_data = data[OcsProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
-        time_act_alloc = frozenset(OcsProgramProvider.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
+        time_act_alloc = frozenset(self.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
 
         # Now we parse the groups. For this, we need:
         # 1. A list of Observations at the root level.
@@ -1031,7 +1014,7 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
-        root_group = OcsProgramProvider.parse_and_group(data, 'Root')
+        root_group = self.parse_and_group(data, 'Root')
 
         too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
