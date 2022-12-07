@@ -6,7 +6,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple, final
+from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple, Type, final
 
 import astropy.units as u
 import numpy as np
