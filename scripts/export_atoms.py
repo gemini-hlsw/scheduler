@@ -29,7 +29,7 @@ if __name__ == '__main__':
         program_types=frozenset({ProgramTypes.Q, ProgramTypes.LP, ProgramTypes.FT, ProgramTypes.DD}),
         obs_classes=frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
     )
-    collector.load_programs(program_provider=OcsProgramProvider(),
+    collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
 
     # Output the state of and information calculated by the Collector.

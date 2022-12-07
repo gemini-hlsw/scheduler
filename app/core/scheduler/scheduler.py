@@ -24,7 +24,7 @@ class Scheduler:
         
         # Retrieve observations from Collector
         collector = builder.build_collector(self.start_time, self.end_time, Blueprints.collector)
-        collector.load_programs(program_provider=OcsProgramProvider(),
+        collector.load_programs(program_provider_class=OcsProgramProvider,
                                 data=programs)
         # Create selection from Selector
         selector = builder.build_selector(collector)

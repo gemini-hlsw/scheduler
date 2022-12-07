@@ -342,13 +342,17 @@ class Selector(SchedulerComponent):
                                      for sg in group.children]
             wind_score.append(np.multiply.reduce(wind_scores_for_night))
 
-        # The schedulable slot indices are the products of the schedulable slot indices for each subgroup across
-        # each night.
-        schedulable_slot_indices = []
-        for night_idx in night_indices:
-            schedulable_slot_indices_for_night = [group_data_map[sg.id].group_info.schedulable_slot_indices[night_idx]
-                                                  for sg in group.children]
-            schedulable_slot_indices.append(np.multiply.reduce(schedulable_slot_indices_for_night))
+        # The schedulable slot indices are the unions of the schedulable slot indices for each subgroup
+        # across each night.
+        schedulable_slot_indices = [
+            # For each night, take the concatenation of the schedulable time slots for all children of the group
+            # and make it unique, which also puts it in sorted order.
+            np.unique(np.concatenate([
+                group_data_map[sg.id].group_info.schedulable_slot_indices[night_idx]
+                for sg in group.children
+            ]))
+            for night_idx in night_indices
+        ]
 
         # Calculate the scores for the group across all nights across all timeslots.
         scores = ranker.score_group(group)

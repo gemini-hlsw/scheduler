@@ -1,5 +1,6 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from typing import Iterable
 
 from astropy.time import Time
@@ -11,6 +12,7 @@ from app.core.components.selector import Selector
 from app.core.components.optimizer import Optimizer
 from app.core.scheduler.modes import dispatch_with
 from app.config import config
+
 
 @dispatch_with(config.mode)
 class SchedulerBuilder:
