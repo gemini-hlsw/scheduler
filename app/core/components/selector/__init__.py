@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+from copy import deepcopy
 import logging
 from dataclasses import dataclass
 from typing import ClassVar, Dict, FrozenSet, List, Optional
@@ -150,9 +151,9 @@ class Selector(SchedulerComponent):
                                 if group_data.group.is_observation_group()}
                 target_info = {obs_id: self.collector.get_target_info(obs_id) for obs_id, obs in observations.items()}
                 program_info[program.id] = ProgramInfo(
-                    program=program,
+                    program=deepcopy(program),
                     group_data=group_data_map,
-                    observations=observations,
+                    observations=deepcopy(observations),
                     target_info=target_info
                 )
 
