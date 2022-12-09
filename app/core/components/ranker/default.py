@@ -20,7 +20,8 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
     """
     The default function used to combine scores for Groups.
     """
-    return np.array([np.max(x)]) if 0 not in x else np.array([0])
+    # Note we need to use 0. or applying this function results in an array of int instead of float.
+    return np.array([np.max(x)]) if 0 not in x else np.array([0.])
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -90,6 +91,7 @@ class DefaultRanker(Ranker):
     the given night indices and then stores this information here and uses
     it to agglomerate the scores for a specified Group.
     """
+
     def __init__(self,
                  collector: Collector,
                  night_indices: npt.NDArray[NightIndex],
@@ -153,7 +155,7 @@ class DefaultRanker(Ranker):
                 metric[idx] = 0.0
                 metric_slope[idx] = 0.0
             elif completion[idx] < xb:
-                metric[idx] = (self.band_params[curr_band].m1 * completion[idx] **self.params.power
+                metric[idx] = (self.band_params[curr_band].m1 * completion[idx] ** self.params.power
                                + self.band_params[curr_band].b1)
                 metric_slope[idx] = (self.params.power * self.band_params[curr_band].m1
                                      * completion[idx] ** (self.params.power - 1.0))
@@ -241,17 +243,25 @@ class DefaultRanker(Ranker):
         # TODO: an OR group, but check before changing the score to be per site as well.
         if len(group.sites()) != 1:
             raise ValueError(f'AND group {group.group_name} has too many sites: {len(group.sites())}')
-        night_events = self.collector.get_night_events(list(group.sites())[0])
+
+        # Determine the length of the nights and create an empty score array for each night.
+        site = list(group.sites())[0]
+        night_events = self.collector.get_night_events(site)
         group_scores = [np.empty((0, len(night_events.times[night_idx])), dtype=float)
                         for night_idx in self.night_indices]
 
         # For each night, calculate the score for the group over its observations.
         for night_idx in self.night_indices:
+            # What we want for the night is a numpy array of size (#obs, #timeslots in night)
+            # where the rows are the observation scores. Then we will combine them.
             for obs in group.observations():
-                obs_score = self.get_observation_scores(obs.id)[night_idx]
-                group_scores[night_idx] = np.append(group_scores[night_idx], np.array([obs_score]), axis=0)
+                # To get this, we turn the observation scores into a (1, #timeslots in night) array to append
+                # to the numpy array for the night.
+                obs_score_array = np.array([self.get_observation_scores(obs.id)[night_idx]])
+                group_scores[night_idx] = np.append(group_scores[night_idx], obs_score_array, axis=0)
 
         # Combine the scores as per the score_combiner and return.
+        # apply_along_axis results in a (1, #timeslots in night) array, so we have to take index 0.
         return [np.apply_along_axis(self.params.score_combiner, 0, group_scores[night_idx])[0]
                 for night_idx in self.night_indices]
 

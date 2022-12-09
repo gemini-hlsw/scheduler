@@ -72,7 +72,6 @@ class Ranker:
         """
         Calculate the scores for each night and time slot of an AND Group.
         """
-        raise NotImplementedError
 
     @abstractmethod
     def _score_or_group(self, group: OrGroup) -> Scores:
@@ -81,4 +80,3 @@ class Ranker:
         TODO: This is TBD and requires more design work.
         TODO: In fact, OcsProgramProvider does not even support OR Groups.
         """
-        raise NotImplementedError
