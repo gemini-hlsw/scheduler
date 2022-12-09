@@ -13,7 +13,7 @@ from definitions import ROOT_DIR
 
 def test_clear_observations():
     """
-    Ensure the Collector clear_observation_info does as specified.
+    Ensure the Validation clear_observation_info does as specified.
     """
     obs_classes = frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
     program_provider = OcsProgramProvider(obs_classes)
