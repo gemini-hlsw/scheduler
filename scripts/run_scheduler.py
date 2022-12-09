@@ -47,12 +47,17 @@ if __name__ == '__main__':
 
     # Print out the basic selection information, consisting of the programs that have been selected
     # and whether they are observation or scheduling groups.
-    for pid, pinfo in selection.program_info.items():
-        print(f'Program {pid}')
-        for gid, gdata in pinfo.group_data.items():
-            group = gdata.group
-            is_obs_group = group.is_observation_group()
-            print(f'\tGroup {gid} ({"Observation Group" if is_obs_group else "Scheduling Group"})')
+    # for pid, pinfo in selection    .program_info.items():
+    #     print(f'Program {pid}')
+    #     for gid, gdata in pinfo.group_data.items():
+    #         group = gdata.group
+    #         is_obs_group = group.is_observation_group()
+    #         print(f'\tGroup {gid} ({"Observation Group" if is_obs_group else "Scheduling Group"})')
+
+    print()
+    print('--- SELECTION ---')
+    selection.show()
+    print()
 
     # program_data = selection.program_info['GN-2018B-Q-104']
     # group_data = program_data.group_data['GN-2018B-Q-104-11']
