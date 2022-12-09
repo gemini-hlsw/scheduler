@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 import numpy.typing as npt
-from lucupy.minimodel import Conditions, Group, GroupID
+from lucupy.minimodel import Conditions, Group, GroupID, ProgramID
 
 from .scores import Scores
 
@@ -46,4 +46,6 @@ class GroupData:
 
 
 # Map to access GroupData from a GroupID in the ProgramInfo.
+# Since scheduling groups get integer names from OCS, they will overwrite each other if two programs have
+# a scheduling group with the same GroupID, so we must make the key include the ProgramID.
 GroupDataMap = Dict[GroupID, GroupData]

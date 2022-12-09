@@ -58,6 +58,8 @@ if __name__ == '__main__':
     print('--- SELECTION ---')
     selection.show()
     print()
+    print('--- GROUPS ---')
+    selection.show_groups()
 
     # program_data = selection.program_info['GN-2018B-Q-104']
     # group_data = program_data.group_data['GN-2018B-Q-104-11']

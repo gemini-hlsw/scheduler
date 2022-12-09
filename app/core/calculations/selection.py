@@ -23,5 +23,11 @@ class Selection:
         for prog_info in self.program_info.values():
             prog_info.program.show()
 
+    def show_groups(self) -> NoReturn:
+        for prog_info in self.program_info.values():
+            print(f'*** PROGRAM {prog_info.program.id}')
+            for group_id in prog_info.group_data.keys():
+                print(f'    {group_id}')
+
     def __post_init__(self):
         object.__setattr__(self, 'program_ids', frozenset(self.program_info.keys()))
