@@ -933,9 +933,15 @@ class OcsProgramProvider(ProgramProvider):
         observations = (self.parse_observation(obs_data, int(obs_key.split('-')[-1]))
                         for obs_key, obs_data in obs_data_blocks)
 
+        # Remove inactive observations.
+        inactive_obs, active_obs = partition(lambda x: x.active, observations)
+
+        for obs in inactive_obs:
+            logging.warning(f"Observation {obs.id} is inactive (skipping).")
+
         # Filter out all desirable Observation Classes.
         # partition returns a pair where of items where the predicate is False, and then where it is True.
-        bad_obs, good_obs = partition(lambda x: x.obs_class in self._obs_classes, observations)
+        bad_obs, good_obs = partition(lambda x: x.obs_class in self._obs_classes, active_obs)
 
         for obs in bad_obs:
             logging.warning(f'Observation {obs.id} not in a specified class (skipping): {obs.obs_class.name}.')
