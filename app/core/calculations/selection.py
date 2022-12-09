@@ -2,9 +2,9 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Mapping, NoReturn
 
-from lucupy.minimodel import ProgramID, Site
+from lucupy.minimodel import Group, ProgramID, Site
 
 from .nightevents import NightEvents
 from .programinfo import ProgramInfo
@@ -18,6 +18,10 @@ class Selection:
     """
     program_info: Mapping[ProgramID, ProgramInfo]
     night_events: Mapping[Site, NightEvents]
+
+    def show(self) -> NoReturn:
+        for prog_info in self.program_info.values():
+            prog_info.program.show()
 
     def __post_init__(self):
         object.__setattr__(self, 'program_ids', frozenset(self.program_info.keys()))
