@@ -18,6 +18,7 @@ from app.core.components.collector import Collector
 from app.core.components.ranker import DefaultRanker, Ranker
 from app.core.builder.blueprint import Blueprints
 ENV = Blueprints.sources.environment
+#from mock.environment import Env
 
 # Aliases to pass around resource availability information for sites and night indices.
 NightResourceAvailability = Dict[NightIndex, FrozenSet[Resource]]
@@ -100,8 +101,7 @@ class Selector(SchedulerComponent):
             # info data inside it, i.e. feasible time slots for it in the plan.
             # We must check across all nights, hence the second for.
             # This will filter out all GroupInfo objects that do not have schedulable slots.
-            unfiltered_group_data_map = self._calculate_group(program.id,
-                                                              program.root_group,
+            unfiltered_group_data_map = self._calculate_group(program.root_group,
                                                               sites,
                                                               night_indices,
                                                               resource_availability,
@@ -147,7 +147,6 @@ class Selector(SchedulerComponent):
         return self._group_info_map[group_id]
 
     def _calculate_group(self,
-                         program_id: ProgramID,
                          group: Group,
                          sites: FrozenSet[Site],
                          night_indices: npt.NDArray[NightIndex],
@@ -169,10 +168,9 @@ class Selector(SchedulerComponent):
         else:
             raise ValueError(f'Could not process group {group.id}')
 
-        return processor(program_id, group, sites, night_indices, resource_availability, ranker, group_data_map)
+        return processor(group, sites, night_indices, resource_availability, ranker, group_data_map)
 
     def _calculate_observation_group(self,
-                                     program_id: ProgramID,
                                      group: Group,
                                      sites: FrozenSet[Site],
                                      night_indices: npt.NDArray[NightIndex],
@@ -284,14 +282,10 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.id] = GroupData(
-            program_id=program_id,
-            group=group,
-            group_info=group_info)
+        group_data_map[group.id] = GroupData(group, group_info)
         return group_data_map
 
     def _calculate_and_group(self,
-                             program_id: ProgramID,
                              group: Group,
                              sites: FrozenSet[Site],
                              night_indices: npt.NDArray[NightIndex],
@@ -310,13 +304,7 @@ class Selector(SchedulerComponent):
         # Process all subgroups and then process this group directly.
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
-            self._calculate_group(program_id,
-                                  subgroup,
-                                  sites,
-                                  night_indices,
-                                  resource_availability,
-                                  ranker,
-                                  group_data_map)
+            self._calculate_group(subgroup, sites, night_indices, resource_availability, ranker, group_data_map)
 
         # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
@@ -380,10 +368,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.id] = GroupData(
-            program_id=program_id,
-            group=group,
-            group_info=group_info)
+        group_data_map[group.id] = GroupData(group, group_info)
         return group_data_map
 
     def _calculate_or_group(self,

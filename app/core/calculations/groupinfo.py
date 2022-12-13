@@ -41,7 +41,6 @@ class GroupData:
     """
     Associates Groups with their GroupInfo.
     """
-    program_id: ProgramID
     group: Group
     group_info: GroupInfo
 
