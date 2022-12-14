@@ -41,21 +41,24 @@ class Selector(SchedulerComponent):
     @staticmethod
     def _get_top_level_groups(group_data_map: GroupDataMap) -> List[GroupData]:
         """
-        Given a GroupDataMap for a Program, filter to get the GroupData for the top-level Groups
-        except the root group.
-
-        A Group G is a top-level group if:
-        1. G is not the root group.
-        2. For any scheduling Group H in the GroupDataMap (except the root group), G is not a child of H.
+        Given a GroupDataMap for a program, what we want is:
+        The subset of groups that we are interested in is the swt of groups whose parent
+        group (not including the root) does not appear in the groups here.
         """
-        # Get all scheduling groups not including the root.
+        # Get all scheduling groups excluding the root.
         scheduling_groups = [group for (group, _) in group_data_map.values()
                              if group.id != 'root' and group.is_scheduling_group()]
+
+        # Extract the children's names of all scheduling groups except the root into a set.
+        # This way, we only have to check IDs for equality instead of the entire group structure.
+        scheduling_group_children_names = {
+            child.id for group in scheduling_groups for child in group.children
+        }
 
         # Find the group_data for groups that are not the root group and are not in any scheduling_group.
         return [group_data for group_data in group_data_map.values()
                 if (group_data.group.id != 'root' and
-                    all(group_data.group not in other.children for other in scheduling_groups))]
+                    group_data.group.id not in scheduling_group_children_names)]
 
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
