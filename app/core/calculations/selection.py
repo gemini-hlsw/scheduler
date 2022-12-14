@@ -4,8 +4,9 @@
 from dataclasses import dataclass
 from typing import Mapping, NoReturn
 
-from lucupy.minimodel import Group, ProgramID, Site
+from lucupy.minimodel import ProgramID, Site, UniqueGroupID
 
+from .groupinfo import GroupData
 from .nightevents import NightEvents
 from .programinfo import ProgramInfo
 
@@ -18,10 +19,7 @@ class Selection:
     """
     program_info: Mapping[ProgramID, ProgramInfo]
     night_events: Mapping[Site, NightEvents]
-
-    def show(self) -> NoReturn:
-        for prog_info in self.program_info.values():
-            prog_info.program.show()
+    schedulable_groups: Mapping[UniqueGroupID, GroupData]
 
     def show_groups(self) -> NoReturn:
         for prog_info in self.program_info.values():

@@ -55,9 +55,6 @@ if __name__ == '__main__':
     #         print(f'\tGroup {gid} ({"Observation Group" if is_obs_group else "Scheduling Group"})')
 
     print()
-    print('--- SELECTION ---')
-    selection.show()
-    print()
     print('--- GROUPS ---')
     selection.show_groups()
 

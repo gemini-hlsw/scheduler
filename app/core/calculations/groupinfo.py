@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 import numpy.typing as npt
-from lucupy.minimodel import Conditions, Group, GroupID, ProgramID
+from lucupy.minimodel import Conditions, Group, GroupID
 
 from .scores import Scores
 
@@ -43,6 +43,10 @@ class GroupData:
     """
     group: Group
     group_info: GroupInfo
+
+    def __iter__(self):
+        # Make GroupData unpackable.
+        return iter((self.group, self.group_info))
 
 
 # Map to access GroupData from a GroupID in the ProgramInfo.
