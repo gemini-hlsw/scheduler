@@ -12,11 +12,12 @@ from typing import FrozenSet, Iterable, List, Mapping, NoReturn, Optional, Tuple
 
 import numpy as np
 from lucupy.helpers import dmsstr2deg
-from lucupy.minimodel import AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType, \
-    Group, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation, ObservationClass, ObservationMode, \
-    ObservationStatus, OrGroup, Priority, Program, ProgramMode, ProgramTypes, QAState, Resource, Semester, \
-    SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType, TimeAccountingCode, \
-    TimeAllocation, TimingWindow, TooType, WaterVapor
+from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
+                              Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
+                              ObservationClass, ObservationMode, ObservationStatus, OrGroup, Priority, Program,
+                              ProgramID, ProgramMode, ProgramTypes, QAState, Resource, Semester, SemesterHalf,
+                              SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType,
+                              TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 from scipy.signal import find_peaks
@@ -883,14 +884,14 @@ class OcsProgramProvider(ProgramProvider):
             program_used=program_used,
             partner_used=partner_used)
 
-    def parse_or_group(self, data: dict, group_id: str) -> OrGroup:
+    def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> OrGroup:
         """
         There are no OR groups in the OCS, so this method simply throws a
         NotImplementedError if it is called.
         """
         raise NotImplementedError('OCS does not support OR groups.')
 
-    def parse_and_group(self, data: dict, group_id: str) -> AndGroup:
+    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> AndGroup:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -908,12 +909,12 @@ class OcsProgramProvider(ProgramProvider):
         if OcsProgramProvider._GroupKeys.GROUP_NAME in data:
             group_name = data[OcsProgramProvider._GroupKeys.GROUP_NAME]
         else:
-            group_name = 'Root'
+            group_name = 'root'
 
         # Parse out the scheduling groups recursively.
         scheduling_group_keys = sorted(key for key in data
                                        if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
-        children = [self.parse_and_group(data[key], key.split('-')[-1]) for key in scheduling_group_keys]
+        children = [self.parse_and_group(data[key], program_id, key.split('-')[-1]) for key in scheduling_group_keys]
 
         # Grab the observation data from the complete data.
         top_level_obsdata = [(key, data[key]) for key in data
@@ -950,6 +951,7 @@ class OcsProgramProvider(ProgramProvider):
         trivial_groups = [
             AndGroup(
                 id=obs.id,
+                program_id=program_id,
                 group_name=obs.title,
                 number_to_observe=1,
                 delay_min=delay_min,
@@ -964,6 +966,7 @@ class OcsProgramProvider(ProgramProvider):
         # Put all the observations in the one big AND group and return it.
         return AndGroup(
             id=group_id,
+            program_id=program_id,
             group_name=group_name,
             number_to_observe=number_to_observe,
             delay_min=delay_min,
@@ -1020,7 +1023,7 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
-        root_group = self.parse_and_group(data, 'Root')
+        root_group = self.parse_and_group(data, program_id, 'root')
 
         too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None

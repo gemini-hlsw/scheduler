@@ -9,8 +9,8 @@ import astropy.units as u
 import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
-from lucupy.minimodel import ALL_SITES, AndGroup, Conditions, Group, GroupID, Observation, ObservationClass, \
-    ObservationStatus, ProgramID, Resource, Site, TooType, NightIndex, Variant
+from lucupy.minimodel import (ALL_SITES, AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus,
+                              ProgramID, Resource, Site, TooType, NightIndex, UniqueGroupID, Variant)
 
 from app.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
 from app.core.components.base import SchedulerComponent
@@ -18,7 +18,6 @@ from app.core.components.collector import Collector
 from app.core.components.ranker import DefaultRanker, Ranker
 from app.core.builder.blueprint import Blueprints
 ENV = Blueprints.sources.environment
-#from mock.environment import Env
 
 # Aliases to pass around resource availability information for sites and night indices.
 NightResourceAvailability = Dict[NightIndex, FrozenSet[Resource]]
@@ -36,9 +35,6 @@ class Selector(SchedulerComponent):
     information is statically determined.
     """
     collector: Collector
-
-    # TODO: Add when Env is complete.
-    # _env: ClassVar[Env] = Env()
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
 
@@ -71,7 +67,7 @@ class Selector(SchedulerComponent):
         TODO: determine the time slots at which they can be scheduled.
         """
         # TODO BRYAN: wants all of the group info available.
-        _group_info_map: Dict[GroupID, GroupInfo] = {}
+        _group_info_map: Dict[UniqueGroupID, GroupInfo] = {}
 
         # If no night indices are specified, assume all night indices.
         if night_indices is None:
@@ -108,8 +104,8 @@ class Selector(SchedulerComponent):
                                                               ranker)
 
             # TODO BRYAN: keep unfiltered group info.
-            for group_id, group_data in unfiltered_group_data_map.items():
-                _group_info_map[group_id] = group_data.group_info
+            for group_data in unfiltered_group_data_map.values():
+                _group_info_map[group_data.group.unique_id()] = group_data.group_info
 
             group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
                               if any(len(indices) > 0 for indices in gp_data.group_info.schedulable_slot_indices)}
@@ -139,12 +135,13 @@ class Selector(SchedulerComponent):
             night_events={site: self.collector.get_night_events(site) for site in sites}
         )
 
-    def get_group_info(self, group_id: GroupID) -> Optional[GroupInfo]:
+    def get_group_info(self, unique_group_id: UniqueGroupID) -> Optional[GroupInfo]:
         """
         Check to see if the group_id has group_info associated with it, and if so, return it.
         Else return None.
         """
-        return self._group_info_map[group_id]
+        logging.warning('Selector.get_group_info should NOT be used in production code.')
+        return self._group_info_map[unique_group_id]
 
     def _calculate_group(self,
                          group: Group,
