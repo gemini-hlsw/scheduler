@@ -4,9 +4,9 @@
 from abc import ABC, abstractmethod
 from typing import FrozenSet, List
 
-from lucupy.minimodel import (AndGroup, Atom, Conditions, Constraints, Magnitude, NonsiderealTarget, Observation,
-                              ObservationClass, OrGroup, Program, QAState, SiderealTarget, Site, Target, TimeAllocation,
-                              TimingWindow)
+from lucupy.minimodel import (AndGroup, Atom, Conditions, Constraints, GroupID, Magnitude, NonsiderealTarget,
+                              Observation, ObservationClass, OrGroup, Program, ProgramID, QAState, SiderealTarget,
+                              Site, Target, TimeAllocation, TimingWindow)
 
 
 class ProgramProvider(ABC):
@@ -44,7 +44,7 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_or_group(self, data: dict, group_id: str) -> OrGroup:
+    def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> OrGroup:
         """
         Given an associative array that contains the data needed for an OR group,
         retrieve the data and populate the OrGroup.
@@ -61,7 +61,7 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_and_group(self, data: dict, group_id: str) -> AndGroup:
+    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> AndGroup:
         """
         Given an associative array that contains the data needed for an AND group,
         retrieve the data and populate the AndGroup.

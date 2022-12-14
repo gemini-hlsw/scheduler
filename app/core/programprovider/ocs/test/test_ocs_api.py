@@ -135,6 +135,7 @@ def create_minimodel_program() -> Program:
     # Create the trivial AND group containing the GMOSN-2 observation.
     gmosn2_group = AndGroup(
         id=gmosn2.id,
+        program_id=program_id,
         group_name=gmosn2.title,
         number_to_observe=1,
         delay_min=timedelta.min,
@@ -245,6 +246,7 @@ def create_minimodel_program() -> Program:
     # Create the trivial AND group containing the GNIRS-2 observation.
     gnirs2_group = AndGroup(
         id=gnirs2.id,
+        program_id=program_id,
         group_name=gnirs2.title,
         number_to_observe=1,
         delay_min=timedelta.min,
@@ -256,6 +258,7 @@ def create_minimodel_program() -> Program:
     # *** AND GROUP CONTAINING THE GMOSN-2 AND GNIRS-2 GROUPS ***
     sched_group = AndGroup(
         id='2',
+        program_id=program_id,
         group_name='TestGroup',
         number_to_observe=2,
         delay_min=timedelta.min,
@@ -359,6 +362,7 @@ def create_minimodel_program() -> Program:
     # Create the trivial AND group containing the gnirs1 observation.
     gnirs1_group = AndGroup(
         id=gnirs1_observation.id,
+        program_id=program_id,
         group_name='GNIRS-1',
         number_to_observe=1,
         delay_min=timedelta.min,
@@ -530,6 +534,7 @@ def create_minimodel_program() -> Program:
     # Create the trivial AND group containing the gnirs1 observation.
     gmosn1_group = AndGroup(
         id=gmosn1_observation.id,
+        program_id=program_id,
         group_name='GMOSN-1',
         number_to_observe=1,
         delay_min=timedelta.min,
@@ -543,8 +548,9 @@ def create_minimodel_program() -> Program:
     # root_children = [sched_group, gmosn1_group, gnirs1_group]
 
     root_group = AndGroup(
-        id='Root',
-        group_name='Root',
+        id='root',
+        program_id=program_id,
+        group_name='root',
         number_to_observe=3,
         delay_min=timedelta.min,
         delay_max=timedelta.max,
