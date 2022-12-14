@@ -3,7 +3,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import ClassVar, Dict, FrozenSet, Optional
+from typing import ClassVar, Dict, FrozenSet, List, Optional
 
 import astropy.units as u
 import numpy as np
@@ -37,6 +37,25 @@ class Selector(SchedulerComponent):
     collector: Collector
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
+
+    @staticmethod
+    def _get_top_level_groups(group_data_map: GroupDataMap) -> List[GroupData]:
+        """
+        Given a GroupDataMap for a Program, filter to get the GroupData for the top-level Groups
+        except the root group.
+
+        A Group G is a top-level group if:
+        1. G is not the root group.
+        2. For any scheduling Group H in the GroupDataMap (except the root group), G is not a child of H.
+        """
+        # Get all scheduling groups not including the root.
+        scheduling_groups = [group for (group, _) in group_data_map.values()
+                             if group.id != 'root' and group.is_scheduling_group()]
+
+        # Find the group_data for groups that are not the root group and are not in any scheduling_group.
+        return [group_data for group_data in group_data_map.values()
+                if (group_data.group.id != 'root' and
+                    all(group_data.group not in other.children for other in scheduling_groups))]
 
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
@@ -86,6 +105,10 @@ class Selector(SchedulerComponent):
 
         # Create the structure to hold the mapping fom program ID to its group info.
         program_info: Dict[ProgramID, ProgramInfo] = {}
+
+        # A flat top-level list of GroupData indexed by UniqueGroupID.
+        schedulable_groups: Dict[UniqueGroupID, GroupData] = {}
+
         for program_id in Collector.get_program_ids():
             program = Collector.get_program(program_id)
             if program is None:
@@ -112,6 +135,11 @@ class Selector(SchedulerComponent):
 
             # This filters out any programs that have no groups with any schedulable slots.
             if group_data_map:
+                # Get the top-level groups (excluding root) in group_data_map and add to the schedulable_groups map.
+                top_level_group_data = Selector._get_top_level_groups(group_data_map)
+                for group_data in top_level_group_data:
+                    schedulable_groups[group_data.group.unique_id()] = group_data
+
                 # Remember that in an observation group, the only child is an Observation: hence references here
                 # to group.children are simply the Observation.
                 observations = {group_data.group.children.id: group_data.group.children
@@ -132,7 +160,8 @@ class Selector(SchedulerComponent):
         # at least one GroupInfo has schedulable slots.
         return Selection(
             program_info=program_info,
-            night_events={site: self.collector.get_night_events(site) for site in sites}
+            night_events={site: self.collector.get_night_events(site) for site in sites},
+            schedulable_groups=schedulable_groups
         )
 
     def get_group_info(self, unique_group_id: UniqueGroupID) -> Optional[GroupInfo]:
