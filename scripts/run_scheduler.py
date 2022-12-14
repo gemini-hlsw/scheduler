@@ -45,26 +45,6 @@ if __name__ == '__main__':
     # Not sure the best way to display the output.
     selection = selector.select()
 
-    # Print out the basic selection information, consisting of the programs that have been selected
-    # and whether they are observation or scheduling groups.
-    # for pid, pinfo in selection    .program_info.items():
-    #     print(f'Program {pid}')
-    #     for gid, gdata in pinfo.group_data.items():
-    #         group = gdata.group
-    #         is_obs_group = group.is_observation_group()
-    #         print(f'\tGroup {gid} ({"Observation Group" if is_obs_group else "Scheduling Group"})')
-
-    print()
-    print('--- GROUPS ---')
-    selection.show_groups()
-
-    # program_data = selection.program_info['GN-2018B-Q-104']
-    # group_data = program_data.group_data['GN-2018B-Q-104-11']
-    # group = group_data.group
-    # print(group.exec_time())
-    # print(group.total_used())
-    # print(group.instruments())
-
     # Notes for data access:
     # The Selector returns all the data that an Optimizer needs in order to generate plans.
     # This comprises a Selection object, which has fields:
@@ -163,12 +143,6 @@ if __name__ == '__main__':
     #
     # selector.get_group_info(group_id).scores
     # selection.program_info(program_id).group_data(group_id).group_info.scores
-
-    # Sergio preliminary work:
-    # Output the data in a spreadsheet.
-    # for program in collector._programs.values():
-    #    if program.id == 'GS-2018B-Q-101':
-    #        atoms_to_sheet(program)
 
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
     # print(selection.program_info)

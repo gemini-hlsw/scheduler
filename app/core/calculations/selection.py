@@ -21,11 +21,5 @@ class Selection:
     night_events: Mapping[Site, NightEvents]
     schedulable_groups: Mapping[UniqueGroupID, GroupData]
 
-    def show_groups(self) -> NoReturn:
-        for prog_info in self.program_info.values():
-            print(f'*** PROGRAM {prog_info.program.id}')
-            for group_info in prog_info.group_data.values():
-                print(f'    {group_info.group.unique_id()}')
-
     def __post_init__(self):
         object.__setattr__(self, 'program_ids', frozenset(self.program_info.keys()))

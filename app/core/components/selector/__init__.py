@@ -39,7 +39,7 @@ class Selector(SchedulerComponent):
     _wind_sep: ClassVar[Angle] = 20. * u.deg
 
     @staticmethod
-    def _get_top_level_groups(group_data_map: GroupDataMap, program_id) -> List[GroupData]:
+    def _get_top_level_groups(group_data_map: GroupDataMap) -> List[GroupData]:
         """
         Given a GroupDataMap for a Program, filter to get the GroupData for the top-level Groups
         except the root group.
@@ -48,16 +48,14 @@ class Selector(SchedulerComponent):
         1. G is not the root group.
         2. For any scheduling Group H in the GroupDataMap (except the root group), G is not a child of H.
         """
-        print(f'*** SHRINKING {program_id} GROUPS ***')
-        print(f'Original: {sorted([group.unique_id() for (group, _) in group_data_map.values()])}')
+        # Get all scheduling groups not including the root.
         scheduling_groups = [group for (group, _) in group_data_map.values()
                              if group.id != 'root' and group.is_scheduling_group()]
-        shrunk = [group_data for group_data in group_data_map.values()
-                  if (group_data.group.id != 'root' and
-                      all(group_data.group not in other.children for other in scheduling_groups))]
-        print(f'Shrunk: {sorted([group.unique_id() for (group, _) in shrunk])}')
-        print('*************************************')
-        return shrunk
+
+        # Find the group_data for groups that are not the root group and are not in any scheduling_group.
+        return [group_data for group_data in group_data_map.values()
+                if (group_data.group.id != 'root' and
+                    all(group_data.group not in other.children for other in scheduling_groups))]
 
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
@@ -138,7 +136,7 @@ class Selector(SchedulerComponent):
             # This filters out any programs that have no groups with any schedulable slots.
             if group_data_map:
                 # Get the top-level groups (excluding root) in group_data_map and add to the schedulable_groups map.
-                top_level_group_data = Selector._get_top_level_groups(group_data_map, program_id)
+                top_level_group_data = Selector._get_top_level_groups(group_data_map)
                 for group_data in top_level_group_data:
                     schedulable_groups[group_data.group.unique_id()] = group_data
 
