@@ -17,6 +17,7 @@ class Visit:
     obs_id: ObservationID
     atom_start_idx: int
     atom_end_idx: int
+    time_slots: int
 
 
 @dataclass
@@ -35,10 +36,12 @@ class Plan:
         self.is_full = False
 
     def time2slots(self, time: timedelta) -> int:
-        return ceil((time.total_seconds() / self.time_slot_length.total_seconds()) / 60)
+        # return ceil((time.total_seconds() / self.time_slot_length.total_seconds()) / 60)
+        # return ceil((time.total_seconds() / self.time_slot_length.total_seconds()))
+        return ceil(time / self.time_slot_length)
 
     def add(self, obs: Observation, start: datetime, time_slots: int) -> NoReturn:
-        visit = Visit(start, obs.id, obs.sequence[0].id, obs.sequence[-1].id)
+        visit = Visit(start, obs.id, obs.sequence[0].id, obs.sequence[-1].id, time_slots)
         self.visits.append(visit)
         self._time_slots_left -= time_slots
 

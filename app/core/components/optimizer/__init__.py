@@ -5,7 +5,7 @@ from typing import List
 
 from app.core.calculations.selection import Selection
 from app.core.plans import Plans
-from .greedymax import GreedyMax
+from .greedymax import GreedyMaxOptimizer
 
 
 class Optimizer:
@@ -15,7 +15,7 @@ class Optimizer:
     """
 
     def __init__(self, selection: Selection, algorithm=None):
-        self.algorithm = algorithm.setup(selection.program_info)
+        self.algorithm = algorithm.setup(selection)
         self.night_events = selection.night_events
         # TODO: Assumes that all sites schedule the same amount of nights
         self.period = len(list(self.night_events.values())[0].time_grid)

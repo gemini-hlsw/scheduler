@@ -9,6 +9,7 @@ from typing import Mapping
 
 from lucupy.minimodel.program import ProgramID
 
+from app.core.calculations.selection import Selection
 from app.core.calculations import GroupData, ProgramInfo
 from app.core.plans import Plan, Plans
 from .base import BaseOptimizer
@@ -29,9 +30,11 @@ class DummyOptimizer(BaseOptimizer):
         """
         # Get first available slot
         start = plan.start
-        for v in plan.visits:
-            delta = v.start_time - start + obs_time
-            start += delta
+        if len(plan.visits) > 0:
+            start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
+        # for v in plan.visits:
+        #     delta = v.start_time - start + obs_time
+        #     start += delta
         return start
 
     def _run(self, plans: Plans):
@@ -49,12 +52,12 @@ class DummyOptimizer(BaseOptimizer):
             else:
                 print('group not added')
 
-    def setup(self, program_info: Mapping[ProgramID, ProgramInfo]) -> DummyOptimizer:
+    def setup(self, selection: Selection) -> DummyOptimizer:
         """
         Preparation for the optimizer e.g. create chromosomes, etc.
         """
         self.groups = []
-        for p in program_info.values():
+        for p in selection.program_info.values():
             self.groups.extend([g for g in p.group_data.values() if g.group.is_observation_group()])
         return self
 
@@ -68,9 +71,9 @@ class DummyOptimizer(BaseOptimizer):
         for observation in group.group.observations():
             plan = plans[observation.site]
             if not plan.is_full and plan.site == observation.site:
-                obs_len = plan.time2slots(observation.total_used())
+                obs_len = plan.time2slots(observation.exec_time())
                 if (plan.time_left() >= obs_len) and not plan.has(observation):
-                    start = DummyOptimizer._allocate_time(plan, observation.total_used())
+                    start = DummyOptimizer._allocate_time(plan, observation.exec_time())
                     plan.add(observation, start, obs_len)
                     return True
                 else:
