@@ -9,6 +9,7 @@ from typing import Mapping
 
 from lucupy.minimodel.program import ProgramID
 
+from app.core.calculations.selection import Selection
 from app.core.calculations import GroupData, ProgramInfo
 from app.core.plans import Plan, Plans
 from .base import BaseOptimizer
@@ -51,12 +52,12 @@ class DummyOptimizer(BaseOptimizer):
             else:
                 print('group not added')
 
-    def setup(self, program_info: Mapping[ProgramID, ProgramInfo]) -> DummyOptimizer:
+    def setup(self, selection: Selection) -> DummyOptimizer:
         """
         Preparation for the optimizer e.g. create chromosomes, etc.
         """
         self.groups = []
-        for p in program_info.values():
+        for p in selection.program_info.values():
             self.groups.extend([g for g in p.group_data.values() if g.group.is_observation_group()])
         return self
 

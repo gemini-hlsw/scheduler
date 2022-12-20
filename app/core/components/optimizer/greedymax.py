@@ -8,6 +8,7 @@ from typing import Mapping
 
 from lucupy.minimodel.program import ProgramID
 
+from app.core.calculations.selection import Selection
 from app.core.calculations import GroupData, ProgramInfo
 from app.core.plans import Plan, Plans
 from .base import BaseOptimizer
@@ -34,48 +35,32 @@ class GreedyMaxOptimizer(BaseOptimizer):
         start = plan.start
         if len(plan.visits) > 0:
             start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
-        # for v in plan.visits:
-        #     # delta = v.start_time - start + obs_time
-        #     start = v.start_time + v.time_slots * plan.time_slot_length
+
         return start
 
-
-    def setup(self, program_info: Mapping[ProgramID, ProgramInfo]) -> GreedyMaxOptimizer:
+    def setup(self, selection: Selection) -> GreedyMaxOptimizer:
         """
         Preparation for the optimizer e.g. create chromosomes, etc.
         """
         self.groups = []
         # self.scores = []
-        for p in program_info.values():
-            self.groups.extend([g for g in p.group_data.values() if g.group.is_observation_group()])
-            # Suggestion from Seb
-            # self.groups.extend([g for g in p.group_data.values() if all(x.is_observation_group() for x in g.group.children)])
-            # self.scores.extend([s for s in p.group_data])
+        for gid, group_data in selection.schedulable_groups.items():
+            self.groups.append(group_data)
+
         return self
 
     def _run(self, plans: Plans):
 
         print()
+        # Fill all plans
         while not plans.all_done() and len(self.groups) > 0:
-            # for plan in plans:
-            #     print(plan.site, plan.is_full)
-        # if len(self.groups) > 0:
 
             print('Night ', plans.night + 1)
-            # just take the first group available
-            # group = self.groups[0]
-            # if self.add(group, plans):
-            #     # TODO: All observations in the group are being inserted so the whole group
-            #     # can be removed
-            #     self.groups.remove(group)
-            # else:
-            #     print('group not added')
-
             maxscores = []
             groups = []
             ids = [] # group index for the scores
             ii = 0
-            # Collect scores
+            # Make a list of scores in the remaining groups
             for group in self.groups:
                 site = group.group.observations()[0].site
                 if not plans[site].is_full:
@@ -86,11 +71,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     ii += 1
                     # print(group.group.id, group.group.exec_time(), smax)
 
-            # sort
+            # sort scores from high to low
             max_score = 0.0  # maximum score in time interval
             max_group = {}
             jj = np.flip(np.argsort(maxscores))
-            for ii in range(len(jj)):
+            ii = 0
+            added = False
+            # Find the group with the maximum score that will fit in the remaining time
+            while not added and ii < len(jj):
                 max_score = maxscores[jj[ii]]
                 max_group = groups[jj[ii]]
                 # for obs in group.group.observations():
@@ -98,42 +86,44 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 #     for atom in obs.sequence:
                 #         print(f'\t\t {atom.id} {atom.exec_time}')
                 if max_score > 0.0:
-                    if self.add(max_group, plans):
+                    # Try to add group
+                    added = self.add(max_group, plans)
+                    if added:
                         # TODO: All observations in the group are being inserted so the whole group
-                        # can be removed
-                        print(f'{max_group.group.id} with max score {max_score} added.')
+                        # can be removed from the active group list
+                        print(f'{max_group.group.unique_id()} with max score {max_score} added.')
                         self.groups.remove(max_group)
-                        break
                     else:
-                        # print('group not added')
-                        print(f'{max_group.group.id} with max score {max_score} not added.')
+                        print(f'{max_group.group.unique_id()} with max score {max_score} not added.')
                 else:
-                    # # Finished, nothing more to schedule
-                    # for plan in plans:
-                    #     plan.is_full = True
-                    break
+                    # Finished, nothing more to schedule
+                    for plan in plans:
+                        plan.is_full = True
+                ii += 1
+            if not added and ii == len(jj):
+                # Nothing remaining can be scheduled
+                for plan in plans:
+                    plan.is_full = True
+
             print('')
 
     def add(self, group: GroupData, plans: Plans) -> bool:
         """
         Add a group to a Plan
-        This is called when a new group is added to the program
+        This is called when a new group is added to the plan
         """
         # TODO: Missing different logic for different AND/OR GROUPS
         # Add method should handle those
-        for observation in group.group.observations():
-            plan = plans[observation.site]
-            if not plan.is_full:
-                obs_len = plan.time2slots(observation.exec_time())
-                print(plan.time_left(), obs_len, observation.exec_time())
-                if (plan.time_left() >= obs_len) and not plan.has(observation):
-                    start = self._allocate_time(plan, observation.exec_time())
-                    plan.add(observation, start, obs_len)
-                    return True
-                else:
-                    # TODO: DO a partial insert
-                    # Splitting groups is not yet implemented
-                    # Right now we are just going to finish the plan
-                    plan.is_full = True
-                    print(plan.site, plan.is_full)
-                    return False
+        plan = plans[group.group.observations()[0].site]
+        if not plan.is_full:
+            grp_len = plan.time2slots(group.group.exec_time())
+            print(plan.time_left(), grp_len, group.group.exec_time())
+            if plan.time_left() >= grp_len:
+                for observation in group.group.observations():
+                    if not plan.has(observation):
+                        obs_len = plan.time2slots(observation.exec_time())
+                        start = self._allocate_time(plan, observation.exec_time())
+                        plan.add(observation, start, obs_len)
+                return True
+            else:
+                return False
