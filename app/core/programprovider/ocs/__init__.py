@@ -15,8 +15,8 @@ from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
                               ObservationClass, ObservationMode, ObservationStatus, OrGroup, Priority, Program,
-                              ProgramID, ProgramMode, ProgramTypes, QAState, Resource, Semester, SemesterHalf,
-                              SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType,
+                              ProgramID, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
+                              SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType,
                               TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
@@ -905,11 +905,11 @@ class OcsProgramProvider(ProgramProvider):
         delay_min = timedelta.min
         delay_max = timedelta.max
 
-        # Get the group name: Root if the root group and otherwise the name.
+        # Get the group name: ROOT_GROUP_ID if the root group and otherwise the name.
         if OcsProgramProvider._GroupKeys.GROUP_NAME in data:
             group_name = data[OcsProgramProvider._GroupKeys.GROUP_NAME]
         else:
-            group_name = 'root'
+            group_name = ROOT_GROUP_ID
 
         # Parse out the scheduling groups recursively.
         scheduling_group_keys = sorted(key for key in data
@@ -1023,7 +1023,7 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
-        root_group = self.parse_and_group(data, program_id, 'root')
+        root_group = self.parse_and_group(data, program_id, ROOT_GROUP_ID)
 
         too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
