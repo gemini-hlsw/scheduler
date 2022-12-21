@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 from lucupy.minimodel import AndGroup, OrGroup, ObservationID, Group, Program, Observation, NightIndex, ALL_SITES, Site
 
-from app.core.calculations import Scores
+from app.core.calculations import Scores, GroupDataMap
 from app.core.components.collector import Collector
 
 
@@ -40,7 +40,7 @@ class Ranker:
     def get_observation_scores(self, obs_id: ObservationID) -> Scores:
         return self._observation_scores.get(obs_id)
 
-    def score_group(self, group: Group) -> Scores:
+    def score_group(self, group: Group, group_data_map: GroupDataMap) -> Scores:
         """
         Calculate the score of a Group.
         This is reliant on all the Observations in the Group being scored, which
@@ -53,9 +53,9 @@ class Ranker:
         # Determine if we are working with and AND or OR group.
         # We check isinstance instead of is_and_group or is_or_group because otherwise, we get warnings.
         if isinstance(group, AndGroup):
-            return self._score_and_group(group)
+            return self._score_and_group(group, group_data_map)
         elif isinstance(group, OrGroup):
-            return self._score_or_group(group)
+            return self._score_or_group(group, group_data_map)
         else:
             raise ValueError('Ranker group scoring can only score groups.')
 
@@ -68,13 +68,13 @@ class Ranker:
         """
 
     @abstractmethod
-    def _score_and_group(self, group: AndGroup) -> Scores:
+    def _score_and_group(self, group: AndGroup, group_data_map: GroupDataMap) -> Scores:
         """
         Calculate the scores for each night and time slot of an AND Group.
         """
 
     @abstractmethod
-    def _score_or_group(self, group: OrGroup) -> Scores:
+    def _score_or_group(self, group: OrGroup, group_data_map: GroupDataMap) -> Scores:
         """
         Calculate the scores for each night and time slot of an OR Group.
         TODO: This is TBD and requires more design work.

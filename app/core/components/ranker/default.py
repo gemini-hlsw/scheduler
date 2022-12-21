@@ -11,7 +11,7 @@ import numpy.typing as npt
 from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndex, Observation, Program, Site, OrGroup
 from lucupy.types import ListOrNDArray
 
-from app.core.calculations import Scores
+from app.core.calculations import Scores, GroupDataMap
 from app.core.components.collector import Collector
 from .base import Ranker
 
@@ -243,7 +243,7 @@ class DefaultRanker(Ranker):
 
     # TODO: Should we be considering the scores of the subgroups or the scores of the
     # TODO: observations when calculating the score of this group?
-    def _score_and_group(self, group: AndGroup) -> Scores:
+    def _score_and_group(self, group: AndGroup, group_data_map: GroupDataMap) -> Scores:
         """
         Calculate the scores for each night and time slot of an AND Group.
         """
@@ -258,20 +258,22 @@ class DefaultRanker(Ranker):
         group_scores = [np.empty((0, len(night_events.times[night_idx])), dtype=float)
                         for night_idx in self.night_indices]
 
-        # For each night, calculate the score for the group over its observations.
+        # For each night, calculate the score for the group over its subgroups.
+        # This may not be the same as using the observation scoring, since for groups, the score has been adjusted in
+        # the Selector for things like wind, conditions matching, etc.
         for night_idx in self.night_indices:
             # What we want for the night is a numpy array of size (#obs, #timeslots in night)
             # where the rows are the observation scores. Then we will combine them.
-            for obs in group.observations():
-                # To get this, we turn the observation scores into a (1, #timeslots in night) array to append
+            for group_id in (g.id for g in group.children):
+                # To get this, we turn the scores of the childreninto a (1, #timeslots in night) array to append
                 # to the numpy array for the night.
-                obs_score_array = np.array([self.get_observation_scores(obs.id)[night_idx]])
-                group_scores[night_idx] = np.append(group_scores[night_idx], obs_score_array, axis=0)
+                subgroup_scores = np.array([group_data_map[group_id].group_info.scores[night_idx]])
+                group_scores[night_idx] = np.append(group_scores[night_idx], subgroup_scores, axis=0)
 
         # Combine the scores as per the score_combiner and return.
         # apply_along_axis results in a (1, #timeslots in night) array, so we have to take index 0.
         return [np.apply_along_axis(self.params.score_combiner, 0, group_scores[night_idx])[0]
                 for night_idx in self.night_indices]
 
-    def _score_or_group(self, group: OrGroup) -> Scores:
+    def _score_or_group(self, group: OrGroup, group_data_map: GroupDataMap) -> Scores:
         raise NotImplementedError

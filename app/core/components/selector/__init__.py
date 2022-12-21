@@ -300,6 +300,8 @@ class Selector(SchedulerComponent):
         # This generates a warning about ragged array deprecation, but seems to produce the right shape of structure.
         scores = np.multiply(np.multiply(conditions_score, ranker.get_observation_scores(obs.id)), wind_score)
 
+        # These scores might differ from the observation score in the ranker since they have been adjusted for
+        # conditions and wind.
         group_info = GroupInfo(
             minimum_conditions=mrc,
             is_splittable=is_splittable,
@@ -384,7 +386,7 @@ class Selector(SchedulerComponent):
         ]
 
         # Calculate the scores for the group across all nights across all timeslots.
-        scores = ranker.score_group(group)
+        scores = ranker.score_group(group, group_data_map)
 
         group_info = GroupInfo(
             minimum_conditions=mrc,
