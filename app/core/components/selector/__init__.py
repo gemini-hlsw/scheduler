@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
 from lucupy.minimodel import (ALL_SITES, AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus,
-                              ProgramID, Resource, Site, TooType, NightIndex, UniqueGroupID, Variant)
+                              ProgramID, Resource, ROOT_GROUP_ID, Site, TooType, NightIndex, UniqueGroupID, Variant)
 
 from app.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
 from app.core.components.base import SchedulerComponent
@@ -47,7 +47,7 @@ class Selector(SchedulerComponent):
         """
         # Get all scheduling groups excluding the root.
         scheduling_groups = [group for (group, _) in group_data_map.values()
-                             if group.id != 'root' and group.is_scheduling_group()]
+                             if group.id != ROOT_GROUP_ID and group.is_scheduling_group()]
 
         # Extract the children's names of all scheduling groups except the root into a set.
         # This way, we only have to check IDs for equality instead of the entire group structure.
@@ -57,7 +57,7 @@ class Selector(SchedulerComponent):
 
         # Find the group_data for groups that are not the root group and are not in any scheduling_group.
         return [group_data for group_data in group_data_map.values()
-                if (group_data.group.id != 'root' and
+                if (group_data.group.id != ROOT_GROUP_ID and
                     group_data.group.id not in scheduling_group_children_names)]
 
     def select(self,

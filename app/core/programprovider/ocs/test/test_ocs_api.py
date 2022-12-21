@@ -8,9 +8,9 @@ from datetime import datetime, timedelta
 from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               ImageQuality, Magnitude, MagnitudeBands, Observation, ObservationClass, ObservationStatus,
-                              Priority, Program, ProgramMode, ProgramTypes, QAState, Resource, Semester, SemesterHalf,
-                              SetupTimeType, SiderealTarget, Site, SkyBackground, TargetType, TimeAccountingCode,
-                              TimeAllocation, TimingWindow, TooType, WaterVapor)
+                              Priority, Program, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
+                              SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, TargetType,
+                              TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
 from lucupy.timeutils import sex2dec
 
 from app.core.programprovider.ocs import OcsProgramProvider
@@ -545,12 +545,11 @@ def create_minimodel_program() -> Program:
 
     # *** ROOT GROUP ***
     root_children = [sched_group, gnirs1_group, gmosn1_group]
-    # root_children = [sched_group, gmosn1_group, gnirs1_group]
 
     root_group = AndGroup(
-        id='root',
+        id=ROOT_GROUP_ID,
         program_id=program_id,
-        group_name='root',
+        group_name=ROOT_GROUP_ID,
         number_to_observe=3,
         delay_min=timedelta.min,
         delay_max=timedelta.max,
