@@ -40,8 +40,11 @@ class GroupInfo:
 class GroupData:
     """
     Associates Groups with their GroupInfo.
+    group is a deep copy.
     """
+    # Deep-copied.
     group: Group
+
     group_info: GroupInfo
 
     def __iter__(self):

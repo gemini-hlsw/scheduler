@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import ClassVar, Dict, FrozenSet, List, Optional
 
 import astropy.units as u
@@ -38,6 +38,9 @@ class Selector(SchedulerComponent):
     collector: Collector
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
+
+    # TODO BRYAN: store the group info map of info for all groups.
+    _group_info_map: Dict[UniqueGroupID, GroupInfo] = field(init=False, repr=False, compare=False)
 
     @staticmethod
     def _get_top_level_groups(group_data_map: GroupDataMap) -> List[GroupData]:
@@ -312,7 +315,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.id] = GroupData(group, group_info)
+        group_data_map[group.id] = GroupData(deepcopy(group), group_info)
         return group_data_map
 
     def _calculate_and_group(self,
@@ -398,7 +401,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.id] = GroupData(group, group_info)
+        group_data_map[group.id] = GroupData(deepcopy(group), group_info)
         return group_data_map
 
     def _calculate_or_group(self,

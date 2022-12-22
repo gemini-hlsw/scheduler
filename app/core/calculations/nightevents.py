@@ -1,7 +1,8 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import ClassVar, List, Tuple
 
 import astropy.units as u
@@ -35,8 +36,31 @@ class NightEvents:
     moonset: Time
 
     # Information for Julian years.
-    _JULIAN_BASIS: ClassVar[float] = 2451545.0
-    _JULIAN_YEAR_LENGTH: ClassVar[float] = 365.25
+    _JULIAN_BASIS: ClassVar[float] = field(default=2451545.0, init=False, repr=False, compare=False)
+    _JULIAN_YEAR_LENGTH: ClassVar[float] = field(default=365.25, init=False, repr=False, compare=False)
+
+    # post-init calculated values.
+    night_length: TimeDelta = field(init=False)
+    times: List[npt.NDArray[float]] = field(init=False)
+    utc_times: List[List[datetime]] = field(init=False)
+    local_times: List[List[datetime]] = field(init=False)
+    local_sidereal_times: List[Angle] = field(init=False)
+
+    sun_pos: List[SkyCoord] = field(init=False)
+    sun_alt: List[npt.NDArray[Angle]] = field(init=False)
+    sun_az: List[npt.NDArray[Angle]] = field(init=False)
+    sun_par_ang: List[npt.NDArray[Angle]] = field(init=False)
+    sun_alt_indices: List[npt.NDArray[int]] = field(init=False)
+
+    moon_pos: List[SkyCoord] = field(init=False)
+    moon_dist: List[float] = field(init=False)
+    moon_alt: List[npt.NDArray[Angle]] = field(init=False)
+    moon_az: List[npt.NDArray[Angle]] = field(init=False)
+    moon_par_ang: List[npt.NDArray[Angle]] = field(init=False)
+
+    sun_moon_ang: List[Angle] = field(init=False)
+
+    pm_array: List[npt.NDArray[float]] = field(init=False)
 
     def __post_init__(self):
         # Calculate the length of each night at this site, i.e. time between twilights.
