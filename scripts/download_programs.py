@@ -116,7 +116,7 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
             logging.log(EXTRACT, f'Extracting {program_name}')
             output_file = f'{program_name}.json'
             params = {'id': program_name}
-            r = requests.get(f'http://{server.name}:{server.read_port}/programexport', params)
+            r = requests.get(f'http://{server.name}:{server.read_port}/programexport', params) # noqa
             with open(output_file, 'w') as f:
                 if r.status_code == 200:
                     f.write(r.text)

@@ -418,7 +418,7 @@ class Collector(SchedulerComponent):
                 Collector._programs[program.id] = program
 
                 # TODO HACK: Zero out times for Bryan.
-                ValidationMode._clear_observation_info(program.observations())
+                ValidationMode._clear_observation_info(program.observations()) # noqa
 
                 # Set the observation IDs for this program.
                 # Collector._observations_per_program[program.id] = frozenset(obs.id for obs in good_obs)

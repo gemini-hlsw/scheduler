@@ -117,11 +117,11 @@ def dispatch_with(mode: str):
     try:
         mode = SchedulerModes[config.mode]
     except ValueError:
-        raise ConfigurationError(f'Mode "{config.mode}" is invalid.')
+        raise ConfigurationError('mode', config.mode)
 
     def decorator_dispatcher(cls):
         @functools.wraps(cls)
-        def scheduler_wrapper(*args, **kwargs):
+        def scheduler_wrapper(*args, **kwargs): # noqa
             if mode is SchedulerModes.VALIDATION:
                 cls.build_collector = mode.value.build_collector_with_clear_info(cls.build_collector)
             return scheduler_wrapper

@@ -16,3 +16,5 @@ strawberry-graphql[fastapi]
 uvicorn[standard]
 lucupy
 pytest-asyncio
+gelidum
+python-dateutil

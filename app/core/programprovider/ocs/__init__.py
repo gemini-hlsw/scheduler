@@ -547,7 +547,7 @@ class OcsProgramProvider(ProgramProvider):
             result = np.correlate(x, x, mode='full')
             corrmax = np.max(result)
             if corrmax != 0.0:
-                result = result / corrmax
+                result /= corrmax
             peaks, _ = find_peaks(result[result.size // 2:], height=(0, None), prominence=(0.25, None))
             return peaks[0] if len(peaks) > 0 else 0
 

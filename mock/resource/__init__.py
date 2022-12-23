@@ -5,9 +5,9 @@ from copy import copy
 import csv
 import os
 from datetime import date, datetime, timedelta
-from types import MappingProxyType
 from typing import Callable, Collection, Dict, Final, FrozenSet, List, NoReturn, Optional, Set, Tuple, final
 
+from gelidum import freeze
 from lucupy.helpers import str_to_bool
 from lucupy.minimodel import ALL_SITES, Resource, Site
 from openpyxl import load_workbook
@@ -39,7 +39,7 @@ class ResourceMock(metaclass=Singleton):
     # which we would want to convert to:
     #    * 'IFU-2'
     # since these are the FPU names used in the GMOS[NS]-FPUr######.txt files.
-    _gmosn_ifu_dict = MappingProxyType({
+    _gmosn_ifu_dict: Dict[str, str] = freeze({
         'IFU 2 Slits': 'IFU-2',
         'IFU Left Slit (blue)': 'IFU-B',
         'IFU Right Slit (red)': 'IFU-R',
@@ -55,11 +55,10 @@ class ResourceMock(metaclass=Singleton):
         'N and S 1.00 arcsec': 'NS1.0arcsec',
         'N and S 1.50 arcsec': 'NS1.5arcsec',
         'N and S 2.00 arcsec': 'NS2.0arcsec',
-        # TODO: Not in OCS?
         'focus_array_new': 'focus_array_new'
     })
 
-    _gmoss_ifu_dict = MappingProxyType({**_gmosn_ifu_dict, **{
+    _gmoss_ifu_dict: Dict[str, str] = freeze({**_gmosn_ifu_dict, **{
         'IFU N and S 2 Slits': 'IFU-NS-2',
         'IFU N and S Left Slit (blue)': 'IFU-NS-B',
         'IFU N and S Right Slit (red)': 'IFU-NS-R',

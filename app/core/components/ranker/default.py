@@ -188,7 +188,6 @@ class DefaultRanker(Ranker):
         if target_info is None:
             return scores
 
-        # TODO: Check this for correctness in mapping from old calcs to new.
         remaining = obs.exec_time() - obs.total_used()
         cplt = (program.total_used() + remaining) / program.total_awarded()
 
@@ -196,11 +195,10 @@ class DefaultRanker(Ranker):
                                               np.ones(1, dtype=int) * program.band,
                                               np.ones(1) * 0.8,
                                               program.thesis)
-        print(f'{obs.id:20}  exec: {obs.exec_time().total_seconds() / 3600.:.2f} '\
-                f'used: {obs.total_used().total_seconds() / 3600.:.2f} '\
-                f'prog awarded: {program.total_awarded().total_seconds() / 3600.:.2f} ' \
-                f'prog used: {program.total_used().total_seconds() / 3600.:.2f} ' \
-              )
+        print(f'{obs.id:20}  exec: {obs.exec_time().total_seconds() / 3600.:.2f} '
+              f'used: {obs.total_used().total_seconds() / 3600.:.2f} '
+              f'prog awarded: {program.total_awarded().total_seconds() / 3600.:.2f} '
+              f'prog used: {program.total_used().total_seconds() / 3600.:.2f} ')
         print(f'   cplt: {cplt:.2f}  metric: {metric[0]:.2f}')
 
         # Declination for the base target per night.

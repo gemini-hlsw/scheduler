@@ -16,7 +16,7 @@ MIN_VALUE = 90 * np.pi / 180
 
 @pytest.fixture
 def target():
-    return NonsiderealTarget('Jupiter', set(), type=TargetType.BASE,
+    return NonsiderealTarget('Jupiter', frozenset(), type=TargetType.BASE,
                              tag=TargetTag.MAJOR_BODY, des='jupiter', ra=np.array([]), dec=np.array([]))
 
 
@@ -135,8 +135,8 @@ def test_horizons_client_query(target: NonsiderealTarget,
     """
     HorizonsClient.query should return a list of Coordinates
     """
-    with horizons_session(*session_parameters) as session:
-        eph = session.get_ephemerides(target)
+    with horizons_session(*session_parameters) as client:
+        eph = client.get_ephemerides(target)
         assert isinstance(eph.coordinates, list)
         assert isinstance(eph.coordinates[0], Coordinates)
         assert eph.coordinates[0].ra == 4.476586331426079

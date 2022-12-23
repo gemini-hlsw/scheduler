@@ -7,9 +7,11 @@ from typing import Dict, Tuple
 import numpy.typing as npt
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import TimeDelta
+from lucupy.decorators import immutable
 from lucupy.minimodel import NightIndex, ObservationID, SkyBackground, TargetName
 
 
+@immutable
 @dataclass(frozen=True)
 class TargetInfo:
     """

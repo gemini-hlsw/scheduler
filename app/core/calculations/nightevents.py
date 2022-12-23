@@ -1,8 +1,9 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from dataclasses import dataclass
-from typing import ClassVar, List, Tuple
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import List, Tuple
 
 import astropy.units as u
 import numpy as np
@@ -11,9 +12,12 @@ import pytz
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import helpers, sky
+from lucupy.decorators import immutable
 from lucupy.minimodel import Site
+from lucupy.sky.constants import JYEAR, J2000
 
 
+@immutable
 @dataclass(frozen=True)
 class NightEvents:
     """
@@ -34,9 +38,28 @@ class NightEvents:
     moonrise: Time
     moonset: Time
 
-    # Information for Julian years.
-    _JULIAN_BASIS: ClassVar[float] = 2451545.0
-    _JULIAN_YEAR_LENGTH: ClassVar[float] = 365.25
+    # post-init calculated values.
+    night_length: TimeDelta = field(init=False)
+    times: List[npt.NDArray[float]] = field(init=False)
+    utc_times: List[List[datetime]] = field(init=False)
+    local_times: List[List[datetime]] = field(init=False)
+    local_sidereal_times: List[Angle] = field(init=False)
+
+    sun_pos: List[SkyCoord] = field(init=False)
+    sun_alt: List[npt.NDArray[Angle]] = field(init=False)
+    sun_az: List[npt.NDArray[Angle]] = field(init=False)
+    sun_par_ang: List[npt.NDArray[Angle]] = field(init=False)
+    sun_alt_indices: List[npt.NDArray[int]] = field(init=False)
+
+    moon_pos: List[SkyCoord] = field(init=False)
+    moon_dist: List[float] = field(init=False)
+    moon_alt: List[npt.NDArray[Angle]] = field(init=False)
+    moon_az: List[npt.NDArray[Angle]] = field(init=False)
+    moon_par_ang: List[npt.NDArray[Angle]] = field(init=False)
+
+    sun_moon_ang: List[Angle] = field(init=False)
+
+    pm_array: List[npt.NDArray[float]] = field(init=False)
 
     def __post_init__(self):
         # Calculate the length of each night at this site, i.e. time between twilights.
@@ -117,5 +140,5 @@ class NightEvents:
         object.__setattr__(self, 'sun_moon_ang', sun_moon_ang)
 
         # List of numpy arrays used to calculate proper motion of sidereal targets for the night.
-        pm_array = [(t.value - NightEvents._JULIAN_BASIS) / NightEvents._JULIAN_YEAR_LENGTH for t in times]
+        pm_array = [(t.value - J2000) / JYEAR for t in times]
         object.__setattr__(self, 'pm_array', pm_array)

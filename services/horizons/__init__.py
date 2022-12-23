@@ -6,7 +6,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Tuple, List
+from typing import Final, List, Tuple, final
 
 import dateutil.parser
 import numpy as np
@@ -16,12 +16,13 @@ from lucupy.helpers import dms2rad, hms2rad
 from lucupy.minimodel import NonsiderealTarget, TargetTag, Site
 
 
+@final
 @dataclass
 class HorizonsAngle:
     """
     Angle in radians.
     """
-    microarcsecsPerDegree: float = 60 * 60 * 1000 * 1000
+    MICROARCSECS_PER_DEGREE: Final[float] = 60 * 60 * 1000 * 1000
 
     @staticmethod
     def to_signed_microarcseconds(angle: float) -> float:
@@ -31,7 +32,7 @@ class HorizonsAngle:
         degrees = HorizonsAngle.to_degrees(angle)
         if degrees > 180:
             degrees -= 360
-        return degrees * HorizonsAngle.microarcsecsPerDegree
+        return degrees * HorizonsAngle.MICROARCSECS_PER_DEGREE
 
     @staticmethod
     def to_degrees(angle: float) -> float:
@@ -45,9 +46,10 @@ class HorizonsAngle:
         """
         Convert an angle in radians to a signed microarcsecond angle.
         """
-        return HorizonsAngle.to_degrees(angle) * HorizonsAngle.microarcsecsPerDegree
+        return HorizonsAngle.to_degrees(angle) * HorizonsAngle.MICROARCSECS_PER_DEGREE
 
 
+@final
 class Coordinates:
     """
     Both ra and dec are in radians.
@@ -96,6 +98,7 @@ class Coordinates:
         return f'Coordinates(ra={self.ra}, dec={self.dec})'
 
 
+@final
 @dataclass
 class EphemerisCoordinates:
     """
@@ -124,6 +127,7 @@ class EphemerisCoordinates:
         return self.coordinates[i_a].interpolate(self.coordinates[i_b], factor)
 
 
+@final
 class HorizonsClient:
     """
     API to interact with the Horizons service
@@ -293,7 +297,7 @@ class HorizonsClient:
 
 
 @contextlib.contextmanager
-def horizons_session(site, start, end, airmass):
+def horizons_session(site, start, end, airmass) -> HorizonsClient:
     client = HorizonsClient(site, start=start, end=end, airmass=airmass)
     try:
         yield client

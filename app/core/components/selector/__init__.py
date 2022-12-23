@@ -1,8 +1,9 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+from copy import deepcopy
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import ClassVar, Dict, FrozenSet, List, Optional
 
 import astropy.units as u
@@ -37,6 +38,9 @@ class Selector(SchedulerComponent):
     collector: Collector
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
+
+    # TODO BRYAN: store the group info map of info for all groups.
+    _group_info_map: Dict[UniqueGroupID, GroupInfo] = field(init=False, repr=False, compare=False)
 
     @staticmethod
     def _get_top_level_groups(group_data_map: GroupDataMap) -> List[GroupData]:
@@ -150,9 +154,9 @@ class Selector(SchedulerComponent):
                                 if group_data.group.is_observation_group()}
                 target_info = {obs_id: self.collector.get_target_info(obs_id) for obs_id, obs in observations.items()}
                 program_info[program.id] = ProgramInfo(
-                    program=program,
+                    program=deepcopy(program),
                     group_data=group_data_map,
-                    observations=observations,
+                    observations=deepcopy(observations),
                     target_info=target_info
                 )
 
@@ -313,7 +317,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.id] = GroupData(group, group_info)
+        group_data_map[group.id] = GroupData(deepcopy(group), group_info)
         return group_data_map
 
     def _calculate_and_group(self,
@@ -399,7 +403,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.id] = GroupData(group, group_info)
+        group_data_map[group.id] = GroupData(deepcopy(group), group_info)
         return group_data_map
 
     def _calculate_or_group(self,
