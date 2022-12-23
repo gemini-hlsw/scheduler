@@ -14,7 +14,7 @@ from lucupy.minimodel import Site, Variant, CloudCover, ImageQuality
 
 class Env:
     @staticmethod
-    def get_actual_conditions_variant(site: Site,
+    def get_actual_conditions_variant(site: Site, # noqa
                                       times: Time) -> Optional[Variant]:
         """
         Return the weather variant.

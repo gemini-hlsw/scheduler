@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import ClassVar, List, Tuple
+from typing import List, Tuple
 
 import astropy.units as u
 import numpy as np
@@ -12,9 +12,12 @@ import pytz
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import helpers, sky
+from lucupy.decorators import immutable
 from lucupy.minimodel import Site
+from lucupy.sky.constants import JYEAR, J2000
 
 
+@immutable
 @dataclass(frozen=True)
 class NightEvents:
     """
@@ -34,10 +37,6 @@ class NightEvents:
     twilight_morning_12: Time
     moonrise: Time
     moonset: Time
-
-    # Information for Julian years.
-    _JULIAN_BASIS: ClassVar[float] = field(default=2451545.0, init=False, repr=False, compare=False)
-    _JULIAN_YEAR_LENGTH: ClassVar[float] = field(default=365.25, init=False, repr=False, compare=False)
 
     # post-init calculated values.
     night_length: TimeDelta = field(init=False)
@@ -141,5 +140,5 @@ class NightEvents:
         object.__setattr__(self, 'sun_moon_ang', sun_moon_ang)
 
         # List of numpy arrays used to calculate proper motion of sidereal targets for the night.
-        pm_array = [(t.value - NightEvents._JULIAN_BASIS) / NightEvents._JULIAN_YEAR_LENGTH for t in times]
+        pm_array = [(t.value - J2000) / JYEAR for t in times]
         object.__setattr__(self, 'pm_array', pm_array)

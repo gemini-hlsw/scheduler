@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List
 
 import pytz
-import strawberry
+import strawberry # noqa
 from lucupy.minimodel import ObservationID, Site
 
 from app.core.plans import Plan, Plans, Visit
@@ -101,4 +101,4 @@ class NewScheduleError:
     error: str
 
 
-NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError))
+NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError)) # noqa

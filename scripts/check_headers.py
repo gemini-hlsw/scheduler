@@ -9,12 +9,11 @@ from definitions import ROOT_DIR
 
 if __name__ == '__main__':
     COPYRIGHT = '# Copyright'
-    COPYRIGHT_LEN = len(COPYRIGHT)
 
     bad_files = []
     for path in Path(ROOT_DIR).rglob('*.py'):
         with open(path, 'r') as f:
-            if f.readline()[:COPYRIGHT_LEN] != COPYRIGHT:
+            if not f.readline().startswith(COPYRIGHT):
                 bad_files.append(path)
 
     if bad_files:

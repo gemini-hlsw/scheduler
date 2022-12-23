@@ -4,13 +4,10 @@
 from __future__ import annotations
 
 import random
-from datetime import datetime, timedelta
-from typing import Mapping
-
-from lucupy.minimodel.program import ProgramID
+from datetime import datetime
 
 from app.core.calculations.selection import Selection
-from app.core.calculations import GroupData, ProgramInfo
+from app.core.calculations import GroupData
 from app.core.plans import Plan, Plans
 from .base import BaseOptimizer
 
@@ -23,7 +20,7 @@ class DummyOptimizer(BaseOptimizer):
         self.groups = []
 
     @staticmethod
-    def _allocate_time(plan: Plan, obs_time: timedelta) -> datetime:
+    def _allocate_time(plan: Plan) -> datetime:
         """
         Allocate time for an observation inside a Plan
         This should be handled by the optimizer as can vary from algorithm to algorithm
@@ -73,7 +70,8 @@ class DummyOptimizer(BaseOptimizer):
             if not plan.is_full and plan.site == observation.site:
                 obs_len = plan.time2slots(observation.exec_time())
                 if (plan.time_left() >= obs_len) and not plan.has(observation):
-                    start = DummyOptimizer._allocate_time(plan, observation.exec_time())
+                    # start = DummyOptimizer._allocate_time(plan, observation.exec_time())
+                    start = DummyOptimizer._allocate_time(plan)
                     plan.add(observation, start, obs_len)
                     return True
                 else:

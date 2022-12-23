@@ -22,7 +22,7 @@ class HorizonsAngle:
     """
     Angle in radians.
     """
-    MicroarcsecsPerDegree: Final[float] = 60 * 60 * 1000 * 1000
+    MICROARCSECS_PER_DEGREE: Final[float] = 60 * 60 * 1000 * 1000
 
     @staticmethod
     def to_signed_microarcseconds(angle: float) -> float:
@@ -32,7 +32,7 @@ class HorizonsAngle:
         degrees = HorizonsAngle.to_degrees(angle)
         if degrees > 180:
             degrees -= 360
-        return degrees * HorizonsAngle.MicroarcsecsPerDegree
+        return degrees * HorizonsAngle.MICROARCSECS_PER_DEGREE
 
     @staticmethod
     def to_degrees(angle: float) -> float:
@@ -46,7 +46,7 @@ class HorizonsAngle:
         """
         Convert an angle in radians to a signed microarcsecond angle.
         """
-        return HorizonsAngle.to_degrees(angle) * HorizonsAngle.MicroarcsecsPerDegree
+        return HorizonsAngle.to_degrees(angle) * HorizonsAngle.MICROARCSECS_PER_DEGREE
 
 
 @final

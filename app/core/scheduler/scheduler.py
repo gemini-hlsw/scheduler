@@ -1,7 +1,6 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import logging
 import os
 import signal
 
@@ -12,6 +11,7 @@ from app.core.builder import SchedulerBuilder, Blueprints
 from app.db.planmanager import PlanManager
 from definitions import ROOT_DIR
 
+
 class Scheduler:
     def __init__(self, start_time: Time, end_time: Time):
         self.start_time = start_time
@@ -19,7 +19,7 @@ class Scheduler:
  
     def __call__(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-        builder = SchedulerBuilder() # To trigger the decorator
+        builder = SchedulerBuilder()  # To trigger the decorator
         programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
         
         # Retrieve observations from Collector

@@ -4,12 +4,14 @@
 from dataclasses import dataclass
 from typing import Dict, List
 
-import numpy.typing as npt
+from lucupy.decorators import immutable
 from lucupy.minimodel import Conditions, Group, GroupID
+import numpy.typing as npt
 
 from .scores import Scores
 
 
+@immutable
 @dataclass(frozen=True)
 class GroupInfo:
     """
@@ -36,6 +38,7 @@ class GroupInfo:
     scores: Scores
 
 
+# Leave this non-immutable as group might change, and we want that change to perpetuate.
 @dataclass(frozen=True)
 class GroupData:
     """

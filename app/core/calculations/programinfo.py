@@ -10,6 +10,7 @@ from .groupinfo import GroupDataMap
 from .targetinfo import TargetInfoNightIndexMap
 
 
+# Leave this as non-immutable, as program, group_data, and observations all might change.
 @dataclass(frozen=True)
 class ProgramInfo:
     """

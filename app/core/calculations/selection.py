@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from typing import Mapping, NoReturn
+from typing import Mapping
 
 from lucupy.minimodel import ProgramID, Site, UniqueGroupID
 
