@@ -1,8 +1,8 @@
-name: PyTest 
+name: Run tests
 on: push
 
 jobs:
-  tests:
+  pytest:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
