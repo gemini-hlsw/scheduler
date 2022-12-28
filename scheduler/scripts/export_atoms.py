@@ -8,9 +8,9 @@ import astropy.units as u
 from astropy.time import Time, TimeDelta
 from lucupy.minimodel import ALL_SITES, ObservationClass, ProgramTypes, Semester, SemesterHalf
 
-from app.core.components.collector import Collector
-from app.core.output import atoms_to_sheet
-from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from scheduler.core.components.collector import Collector
+from scheduler.core.output import atoms_to_sheet
+from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from definitions import ROOT_DIR
 
 if __name__ == '__main__':

@@ -6,8 +6,8 @@ import os
 
 from lucupy.minimodel.observation import ObservationClass, ObservationStatus
 
-from scheduler.app.core.service.modes import ValidationMode
-from scheduler.app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from scheduler.core.service.modes import ValidationMode
+from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from definitions import ROOT_DIR
 
 
@@ -21,7 +21,7 @@ def test_clear_observations():
     zero = timedelta()
 
     # Read in a list of JSON data and parse into programs.
-    program_data = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
+    program_data = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
     programs = [program_provider.parse_program(data['PROGRAM_BASIC']) for data in program_data]
 
     for program in programs:

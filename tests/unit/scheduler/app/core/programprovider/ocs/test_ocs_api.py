@@ -13,7 +13,7 @@ from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Condi
                               TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
 from lucupy.timeutils import sex2dec
 
-from scheduler.app.core.programprovider.ocs import OcsProgramProvider
+from scheduler.core.programprovider.ocs import OcsProgramProvider
 
 
 def get_api_program() -> Program:

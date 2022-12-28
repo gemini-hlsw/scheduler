@@ -5,7 +5,7 @@ import pytest
 from astropy.time import Time
 from lucupy.minimodel import SiderealTarget, TargetType
 
-from scheduler.app.core.components.collector import Collector
+from scheduler.core.components.collector import Collector
 
 
 @pytest.fixture

@@ -7,14 +7,14 @@ from lucupy.minimodel import *
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
-from app.core.components.collector import *
-from app.core.components.optimizer import Optimizer
-from app.core.components.optimizer.dummy import DummyOptimizer
-from app.core.components.selector import Selector
-from app.core.output import print_collector_info, print_plans
-from app.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from scheduler.core.components.collector import *
+from scheduler.core.components.optimizer import Optimizer
+from scheduler.core.components.optimizer.dummy import DummyOptimizer
+from scheduler.core.components.selector import Selector
+from scheduler.core.output import print_collector_info, print_plans
+from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from definitions import ROOT_DIR
-from app.db.planmanager import PlanManager
+from scheduler.db.planmanager import PlanManager
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

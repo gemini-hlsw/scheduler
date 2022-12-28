@@ -8,8 +8,8 @@ from fastapi.responses import JSONResponse
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
-from app import app
-from app.config import config
+from scheduler.app import app
+from scheduler.config import config
 
 heroku_port = os.environ.get("PORT")
 

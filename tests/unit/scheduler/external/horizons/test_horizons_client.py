@@ -8,7 +8,7 @@ import pytest
 from hypothesis import given, strategies as st
 from lucupy.minimodel import Site, NonsiderealTarget, TargetTag, TargetType
 
-from services.horizons import Coordinates, HorizonsAngle, horizons_session
+from scheduler.external.horizons import Coordinates, HorizonsAngle, horizons_session
 
 MAX_VALUE = 270 * np.pi / 180
 MIN_VALUE = 90 * np.pi / 180

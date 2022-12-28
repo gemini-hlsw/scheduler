@@ -12,7 +12,7 @@ from lucupy.helpers import str_to_bool
 from lucupy.minimodel import ALL_SITES, Resource, Site
 from openpyxl import load_workbook
 
-from app.core.meta import Singleton
+from scheduler.core.meta import Singleton
 from definitions import ROOT_DIR
 
 
