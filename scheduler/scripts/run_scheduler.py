@@ -3,46 +3,47 @@
 
 import os
 
-from lucupy.minimodel import *
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
+from definitions import ROOT_DIR
+from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBlueprint
+from scheduler.core.builder.builder import SchedulerBuilder
 from scheduler.core.components.collector import *
-from scheduler.core.components.optimizer import Optimizer
-from scheduler.core.components.optimizer.dummy import DummyOptimizer
 from scheduler.core.components.selector import Selector
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from definitions import ROOT_DIR
-from scheduler.db.planmanager import PlanManager
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
     # Read in a list of JSON data
-    programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
+    programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
-    # Create the Collector and load the programs.
-    collector = Collector(
-        start_time=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
-        end_time=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
-        time_slot_length=TimeDelta(1.0 * u.min),
-        sites=ALL_SITES,
-        semesters=frozenset({Semester(2018, SemesterHalf.B)}),
-        program_types=frozenset({ProgramTypes.Q, ProgramTypes.LP, ProgramTypes.FT, ProgramTypes.DD}),
-        obs_classes=frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
+    collector_blueprint = CollectorBlueprint(
+        ['2018B'],
+        ['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
+        ['Q', 'LP', 'FT', 'DD'],
+        ['GN', 'GS'],
+        1.0
     )
+
+    collector = SchedulerBuilder.build_collector(
+        start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
+        end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+        blueprint=collector_blueprint
+    )
+    # Create the Collector and load the programs.
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
 
     # Output the state of and information calculated by the Collector.
     print_collector_info(collector, samples=60)
 
-    selector = Selector(collector=collector)
-
     # Execute the Selector.
     # Not sure the best way to display the output.
+    selector = SchedulerBuilder.build_selector(collector)
     selection = selector.select()
 
     # Notes for data access:
@@ -146,13 +147,14 @@ if __name__ == '__main__':
 
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
     # print(selection.program_info)
-    dummy = DummyOptimizer()
-    optimizer = Optimizer(selection, algorithm=dummy)
+    optimizer_blueprint = OptimizerBlueprint(
+        "DUMMY"
+    )
+    optimizer = SchedulerBuilder.build_optimizer(
+        selection=selection,
+        blueprint=optimizer_blueprint
+    )
     plans = optimizer.schedule()
-    PlanManager.set_plans(plans)
     print_plans(plans)
-
-    print('\nPlanManager contents:')
-    print(PlanManager.get_plans())
 
     print('DONE')
