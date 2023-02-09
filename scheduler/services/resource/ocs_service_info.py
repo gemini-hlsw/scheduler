@@ -3,7 +3,7 @@
 
 from abc import ABC
 from dataclasses import dataclass
-from typing import Callable, FrozenSet, Optional, final, Any
+from typing import Callable, FrozenSet, Optional, final
 
 from lucupy.minimodel import Group, Program, ProgramID, Resource, TimeAccountingCode
 
