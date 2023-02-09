@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 from lucupy.minimodel.resource import Resource
 from lucupy.minimodel.site import Site
-from scheduler.external.resource import ResourceMock
+from scheduler.services.resource import OcsResourceService
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def test_specific_date_gn():
          Resource(id='11201501'), Resource(id='Altair'), Resource(id='B1200'), Resource(id='GCAL'),
          Resource(id='GMOS-N'), Resource(id='GNIRS'), Resource(id='Mirror'), Resource(id='NIRI'),
          Resource(id='R150'), Resource(id='R400')])
-    resources = ResourceMock().get_resources(Site.GN, date(year=2018, month=11, day=8))
+    resources = OcsResourceService().get_resources(Site.GN, date(year=2018, month=11, day=8))
     assert resources == expected
 
 
@@ -39,19 +39,19 @@ def test_specific_date_gs():
          Resource(id='Mirror'), Resource(id='B600'), Resource(id='R150'), Resource(id='R400'),
          Resource(id='Canopus'), Resource(id='Flamingos2'), Resource(id='GCAL'), Resource(id='GMOS-S'),
          Resource(id='GPI')])
-    resources = ResourceMock().get_resources(Site.GS, date(year=2018, month=12, day=30))
+    resources = OcsResourceService().get_resources(Site.GS, date(year=2018, month=12, day=30))
     assert resources == expected
 
 
 def test_early_date(year):
-    earliest_date = ResourceMock().date_range_for_site(Site.GN)[0]
+    earliest_date = OcsResourceService().date_range_for_site(Site.GN)[0]
     expected = frozenset()
-    resources = ResourceMock().get_resources(Site.GN, earliest_date - year)
+    resources = OcsResourceService().get_resources(Site.GN, earliest_date - year)
     assert resources == expected
 
 
 def test_late_date(year):
-    latest_date = ResourceMock().date_range_for_site(Site.GN)[1]
+    latest_date = OcsResourceService().date_range_for_site(Site.GN)[1]
     expected = frozenset()
-    resources = ResourceMock().get_resources(Site.GN, latest_date + year)
+    resources = OcsResourceService().get_resources(Site.GN, latest_date + year)
     assert resources == expected

@@ -24,7 +24,7 @@ from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.programprovider.abstract import ProgramProvider
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
 from scheduler.core.service.modes import ValidationMode
-from scheduler.external.resource import ResourceMock
+from scheduler.services.resource import OcsResourceService
 
 
 @final
@@ -461,7 +461,7 @@ class Collector(SchedulerComponent):
         # TODO: In future, if we plan to extend to more observatories, we may have to rethink this strategy.
 
         # Get singleton for convenience.
-        rm = ResourceMock()
+        rm = OcsResourceService()
         return [rm.get_resources(site,
                                  self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY)
                 for night_idx in night_indices]

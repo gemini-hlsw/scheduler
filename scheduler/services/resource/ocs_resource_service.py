@@ -3,21 +3,24 @@
 
 from copy import copy
 import csv
-import os
 from datetime import date, datetime, timedelta
+import logging
+import os
 from typing import Callable, Collection, Dict, Final, FrozenSet, List, NoReturn, Optional, Set, Tuple, final
 
-from gelidum import freeze
+import gelidum
+import requests
 from lucupy.helpers import str_to_bool
 from lucupy.minimodel import ALL_SITES, Resource, Site
 from openpyxl import load_workbook
 
 from scheduler.core.meta import Singleton
 from definitions import ROOT_DIR
+from google_drive_downloader import GoogleDriveDownloader
 
 
 @final
-class ResourceMock(metaclass=Singleton):
+class OcsResourceService(metaclass=Singleton):
     """
     This is a mock for the future Resource service, used for OCS.
     It reads data regarding availability of instruments, IFUs, FPUs, MOS masks, etc. at each Site for given dates.
@@ -30,6 +33,15 @@ class ResourceMock(metaclass=Singleton):
 
     Note that this is a Singleton class, so new instances do not need to be created.
     """
+    # Name of the service for exception handling information.
+    _RESOURCE_SERVICE_NAME: Final[str] = gelidum.Final('OcsResourceService')
+
+    # The Google ID of the telescope configuration file.
+    _SITE_CONFIG_GOOGLE_ID: Final[str] = gelidum.Final('1QRalQNEaX-bcyrPG6mfKnv01JVMaGHwy')
+
+    # Name of the spreadsheet file containing telescope configurations.
+    _SITE_CONFIG_FILE: Final[str] = gelidum.Final('telescope_schedules.xlsx')
+
     # Definition of a day to not have to redeclare constantly.
     _day: Final[timedelta] = timedelta(days=1)
 
@@ -39,7 +51,7 @@ class ResourceMock(metaclass=Singleton):
     # which we would want to convert to:
     #    * 'IFU-2'
     # since these are the FPU names used in the GMOS[NS]-FPUr######.txt files.
-    _gmosn_ifu_dict: Dict[str, str] = freeze({
+    _gmosn_ifu_dict: Dict[str, str] = gelidum.freeze({
         'IFU 2 Slits': 'IFU-2',
         'IFU Left Slit (blue)': 'IFU-B',
         'IFU Right Slit (red)': 'IFU-R',
@@ -58,7 +70,7 @@ class ResourceMock(metaclass=Singleton):
         'focus_array_new': 'focus_array_new'
     })
 
-    _gmoss_ifu_dict: Dict[str, str] = freeze({**_gmosn_ifu_dict, **{
+    _gmoss_ifu_dict: Dict[str, str] = gelidum.freeze({**_gmosn_ifu_dict, **{
         'IFU N and S 2 Slits': 'IFU-NS-2',
         'IFU N and S Left Slit (blue)': 'IFU-NS-B',
         'IFU N and S Right Slit (red)': 'IFU-NS-R',
@@ -71,7 +83,7 @@ class ResourceMock(metaclass=Singleton):
         Create and initialize the ResourceMock object with the specified sites.
         """
         self._sites = sites
-        self._path = os.path.join(ROOT_DIR, 'scheduler', 'external', 'resource', 'data')
+        self._path = os.path.join(ROOT_DIR, 'scheduler', 'services', 'resource', 'data')
 
         # This is to avoid recreating repetitive resources.
         # When we first get a resource ID string, create a Resource for it and store it here.
@@ -92,7 +104,7 @@ class ResourceMock(metaclass=Singleton):
 
         for site in self._sites:
             suffix = 's' if site == Site.GS else 'n'
-            usuffix = suffix.upper()
+            upper_suffix = suffix.upper()
 
             # Load the mappings from the ITCD FPU values to the barcodes.
             self._load_fpu_to_barcodes(site, f'gmos{suffix}_fpu_barcode.txt')
@@ -101,17 +113,17 @@ class ResourceMock(metaclass=Singleton):
             # This will put both the IFU and the FPU barcodes available on a given date as Resources.
             # Note that for the IFU, we need to convert to a barcode, which is a Resource.
             # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take its ID.
-            self._load_csv(site, f'GMOS{usuffix}_FPUr201789.txt',
+            self._load_csv(site, f'GMOS{upper_suffix}_FPUr201789.txt',
                            lambda r: {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]})
 
             # Load the gratings.
             # This will put the mirror and the grating names available on a given date as Resources.
             # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
-            self._load_csv(site, f'GMOS{usuffix}_GRAT201789.txt',
+            self._load_csv(site, f'GMOS{upper_suffix}_GRAT201789.txt',
                            lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r})
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
-        self._load_spreadsheet('2018B-2019A Telescope Schedules.xlsx')
+        self._load_spreadsheet()
 
         # Record the earliest date for each site: any date before this will return an empty set of Resources.
         # Record the latest date for each site: any date after this will return the Resources on this date.
@@ -155,12 +167,12 @@ class ResourceMock(metaclass=Singleton):
 
                 # Fill in any gaps by copying prev_row_date until we reach one less than row_date.
                 if prev_row_date is not None:
-                    missing_row_date = prev_row_date + ResourceMock._day
+                    missing_row_date = prev_row_date + OcsResourceService._day
                     while missing_row_date < row_date:
                         # Make sure there is an entry and append to it to avoid overwriting anything already present.
                         date_set = self._resources[site].setdefault(missing_row_date, set())
                         self._resources[site][missing_row_date] = date_set | copy(self._resources[site][prev_row_date])
-                        missing_row_date += ResourceMock._day
+                        missing_row_date += OcsResourceService._day
 
                 # Get or create date_set for the date, and append new resources from table, ignoring blank entries.
                 date_set = self._resources[site].setdefault(row_date, set())
@@ -177,9 +189,25 @@ class ResourceMock(metaclass=Singleton):
         The Excel spreadsheets have information available for every date, so we do not have to concern ourselves
         as in the _load_csv file above.
         """
-        workbook = load_workbook(filename=os.path.join(self._path, name))
+        filename = os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE)
+
+        logging.info('Retrieving site configuration file from Google Drive...')
+        try:
+            GoogleDriveDownloader.download_file_from_google_drive(file_id=OcsResourceService._SITE_CONFIG_GOOGLE_ID,
+                                                                  overwrite=True,
+                                                                  dest_path=filename)
+        except requests.RequestException:
+            logging.warning('Could not retrieve site configuration file from Google Drive.')
+
+        if not os.path.exists(filename):
+            raise RuntimeError(f'No site configuration data available for {__class__.__name__}.')
+
+        workbook = load_workbook(filename=filename)
         for site in self._sites:
-            sheet = workbook[site.name]
+            try:
+                sheet = workbook[site.name]
+            except KeyError:
+                raise RuntimeError(f'Could not find configuration data for {site.name}.')
 
             # Read the sheet, skipping the header row (row 1).
             for row in sheet.iter_rows(min_row=2):
@@ -294,16 +322,3 @@ class ResourceMock(metaclass=Singleton):
         If not, None is returned.
         """
         return self._all_resources.get(resource_id)
-
-
-# For Bryan and Kristin: testing instructions
-if __name__ == '__main__':
-    # To get the Resources for a specific site on a specific local date, modify the following.
-    st = Site.GN
-    day = date(year=2018, month=11, day=8)
-
-    resources_available = ResourceMock().get_resources(st, day)
-
-    print(f'*** Resources for site {st.name} for {day} ***')
-    for resource in sorted(resources_available, key=lambda x: x.id):
-        print(resource)
