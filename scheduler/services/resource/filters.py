@@ -151,6 +151,29 @@ class NothingFilter:
 
 @final
 @dataclass(frozen=True)
+class TooFilter:
+    """
+    This filter should be used in the negative case.
+    It indicates that ToOs should be permitted, which is the default.
+    """
+    @property
+    def program_filter(self) -> Optional[ProgramFilter]:
+        return lambda p: p.too_type is not None
+
+
+@final
+@dataclass(frozen=True)
+class LgsFilter:
+    """
+    This filter should be used in the negative case.
+    It indicates that LGS programs should be filtered out.
+    TODO: Not sure how to do this yet.
+    """
+    pass
+
+
+@final
+@dataclass(frozen=True)
 class CompositeFilter:
     """
     Contains composite filters, both positive and negative, and returns the result of executing
