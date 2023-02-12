@@ -6,15 +6,16 @@ import csv
 from datetime import datetime, timedelta
 import logging
 import os
-from typing import Callable, Collection, Dict, Final, FrozenSet, List, NoReturn, Optional, Set, Tuple
+from typing import Collection, Dict, Final, List, NoReturn, Set, Tuple
 
 import gelidum
 import requests
 from lucupy.helpers import str_to_bool
-from lucupy.minimodel import ALL_SITES, ProgramID, Resource, Site, TimeAccountingCode
+from lucupy.minimodel import ALL_SITES
 from openpyxl import load_workbook
 
 from definitions import ROOT_DIR
+from filters import *
 from google_drive_downloader import GoogleDriveDownloader
 from night_resource_configuration import *
 from ocs_resource_service_exceptions import *
@@ -108,7 +109,10 @@ class OcsResourceService(metaclass=Singleton):
 
         # Modes for a night. Note that if the telescope is closed or the mode is shutdown, there is no value.
         self._modes: Dict[Site, Dict[date, TelescopeMode]] = {site: {} for site in self._sites}
-        
+
+        # Determines which nights are blocked.
+        self._blocked: Dict[Site, Set[date]] = {site: {} for site in self._sites}
+
         # Determines whether a night is a part of a laser run.
         self._lgs: Dict[Site, Dict[date, bool]] = {site: {} for site in self._sites}
 
@@ -119,6 +123,12 @@ class OcsResourceService(metaclass=Singleton):
         # have been processed.
         self._positive_filters: Dict[Site, Dict[date, Set[AbstractFilter]]] = {site: {} for site in self._sites}
         self._negative_filters: Dict[Site, Dict[date, Set[AbstractFilter]]] = {site: {} for site in self._sites}
+
+        # The final combined filters for each night.
+        self._filters: Dict[Site, Dict[date, AbstractFilter]] = {site: {} for site in self._sites}
+
+        # The final output from this class: the configuration per night.
+        self._night_configurations: Dict[Site, Dict[date, NightConfiguration]] = {site: {} for site in self._sites}
 
         for site in self._sites:
             suffix = ('s' if site == Site.GS else 'n').upper()
@@ -150,6 +160,28 @@ class OcsResourceService(metaclass=Singleton):
             # Only one of these checks should be necessary.
             if self._earliest_date_per_site is None or self._latest_date_per_site[site] is None:
                 raise ValueError(f'No site resource data for {site.name}.')
+
+        # Finalize the filters and create the night configurations.
+        for site in self._sites:
+            d = self._earliest_date_per_site[site]
+            while d <= self._latest_date_per_site[site]:
+                # Now that we have a complete set of resources per night, add the ResourceFilter if the night is
+                # not blocked.
+                if d not in self._blocked[site]:
+                    self._positive_filters[site][d].add(ResourceFilter(frozenset(self._resources[site][d])))
+                composite_filter = CompositeFilter(positive_filters=frozenset(self._positive_filters[site][d]),
+                                                   negative_filters=frozenset(self._positive_filters[site][d]))
+
+                self._night_configurations[site][d] = NightConfiguration(
+                    site=site,
+                    local_date=d,
+                    is_lgs=(d not in self._blocked[site] and self._lgs[site][d]),
+                    too_status=(d not in self._blocked[site] and self._too[site][d]),
+                    filter=composite_filter,
+                    resources=frozenset(self._resources[site][d])
+                )
+
+                d += OcsResourceService._day
 
     def _load_fpu_to_barcodes(self, site: Site, name: str) -> NoReturn:
         """
@@ -244,10 +276,8 @@ class OcsResourceService(metaclass=Singleton):
             except KeyError:
                 raise SiteMissingException(__class__.__name__, site)
 
+            # A set consisting of the dates that are not blocked.
             dates: Set[date] = set()
-
-            # Blocked nights occur when the telescope status is Closed or the mode is Shutdown.
-            blocked_nights: Set[date] = set()
 
             # We need to determine what programs are prohibited from what nights.
             # PV programs can only be done on PV nights or later, so we store the night they first appear.
@@ -288,15 +318,16 @@ class OcsResourceService(metaclass=Singleton):
                 idx = idxOffset + 2
 
                 # The error and logging messages all start with:
-                msg = f'Configuration file for site {site} row {row}'
+                msg = f'Configuration file for site {site} row {idx}'
+
                 # Read the date and create an entry for the site and date.
                 row_date = row[0].value.date()
-                dates.add(row_date)
 
                 # Check the telescope status. If it is closed, we ignore the rest of the row.
                 status = row[1].value.upper().trim()
                 if status == 'CLOSED':
-                    blocked_nights.add(row_date)
+                    self._blocked[site].add(row_date)
+
                     continue
                 elif status != 'OPEN':
                     raise ValueError(f'{msg} has illegal value in Telescope column: {status}.')
@@ -313,13 +344,15 @@ class OcsResourceService(metaclass=Singleton):
                 # 5. Classical: <prog-id-list>
                 # 6. Priority: <prog-id-list>
                 if mode in {'ENGINEERING', 'SHUTDOWN'}:
-                    blocked_nights.add(row_date)
+                    self._blocked[site].add(row_date)
                     continue
 
-                elif mode.startswith('VISITOR BLOCK:'):
+                # Now we can add the date to dates since it will require further processing.
+                dates.add(row_date)
+
+                if mode.startswith('VISITOR BLOCK:'):
                     instrument = self._lookup_resource(original_mode[14:].trim())
-                    dates = instrument_run.setdefault(instrument, set())
-                    dates.add(row_date)
+                    instrument_run.setdefault(instrument, set()).add(row_date)
 
                 elif (start := mode.find('BLOCK')) != -1:
                     try:
@@ -387,18 +420,60 @@ class OcsResourceService(metaclass=Singleton):
                 # Add the resource data to the dates. Union returns a new set.
                 self._resources[site][row_date] = self._resources[site].setdefault(row_date, set()).union(resources)
 
-            # Create the filters for each night based on PV, Classical, partner, and instrument blocks..
-            for pv_program_id, dates in pv_programs:
-                starting_date = min(dates)
-                prohibited_dates = {d for d in dates if d < starting_date}
+            # Block out the blocked dates.
+            for d in self._blocked[site]:
+                self._positive_filters[site][d].add(NothingFilter())
 
-            for curr_date in dates:
-                # For each PV program, if the PV program occurs after the date, it is prohibited.
-                for pv_program_id, dates in pv_programs:
-                    if min(dates) > curr_date:
-                        filters.add()
+            # PV rules:
+            for pv_program_id, pv_dates in pv_programs:
+                pv_starting_date = min(pv_dates)
 
+                # 1. PV programs get priority on the nights they are listed.
+                for d in pv_dates:
+                    self._positive_filters[site][d].add(ProgramPriorityFilter(frozenset(pv_program_id)))
 
+                # 2. PV programs are not allowed in nights before they are first listed.
+                pv_prohibited_dates = {d for d in dates if d < pv_starting_date}
+                for d in pv_prohibited_dates:
+                    self._negative_filters[site][d].add(ProgramPermissionFilter(frozenset(pv_program_id)))
+
+            # Classical rules:
+            for classical_program_id, classical_dates in classical_programs:
+                for d in dates:
+                    # Classical programs can only be performed in their designated blocks.
+                    if d in classical_dates:
+                        self._positive_filters[site][d].add(ProgramPriorityFilter(frozenset(classical_program_id)))
+                    else:
+                        self._negative_filters[site][d].add(ProgramPermissionFilter(frozenset(classical_program_id)))
+
+            # Priority rules:
+            for priority_program_id, priority_dates in score_boost:
+                # Priority is given to programs in the priority block.
+                for d in priority_dates:
+                    self._positive_filters[site][d].add(ProgramPriorityFilter(frozenset(priority_program_id)))
+
+            # Partner rules:
+            for d, partner_code in partner_blocks:
+                # On a partner night, we only allow programs that include the partner.
+                self._positive_filters[site][d].add(TimeAccountingCodeFilter(frozenset(partner_code)))
+
+            # Visitor instrument rules:
+            for resource, resource_dates in instrument_run:
+                # Priority is given to scheduling blocks using the resource.
+                for d in resource_dates:
+                    self._positive_filters[site][d].add(ResourcePriorityFilter(frozenset(resource)))
+
+            # ToO rules:
+            for d in dates:
+                # Block ToOs on nights where they are not allowed.
+                if not self._too[site][d]:
+                    self._negative_filters[site][d].add(TooFilter())
+
+            # LGS rules:
+            for d in dates:
+                # Block LGS on nights where they are not allowed
+                if not self._lgs[site][d]:
+                    self._negative_filters[site][d].add(LgsFilter())
 
     def _lookup_resource(self, resource_id: str) -> Optional[Resource]:
         """

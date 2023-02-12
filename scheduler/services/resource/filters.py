@@ -7,6 +7,8 @@ from typing import Callable, FrozenSet, Optional, final
 
 from lucupy.minimodel import Group, Program, ProgramID, Resource, TimeAccountingCode
 
+from scheduler.core.meta import Singleton
+
 
 # A filter applied to the programs for the night.
 ProgramFilter = Callable[[Program], bool]
@@ -64,7 +66,7 @@ class ResourceFilter(AbstractFilter):
 
 @final
 @dataclass(frozen=True)
-class TimeAccountingCodeFilter:
+class TimeAccountingCodeFilter(AbstractFilter):
     """
     A program-level filter.
 
@@ -80,10 +82,10 @@ class TimeAccountingCodeFilter:
 
 @final
 @dataclass(frozen=True)
-class ProgramPermissionFilter:
+class ProgramPermissionFilter(AbstractFilter):
     """
     A program-level filter.
-
+    This is typically used as a negative filter.
     Contains a list of ProgramIDs that are permitted.
     """
     program_ids: FrozenSet[ProgramID]
@@ -95,7 +97,7 @@ class ProgramPermissionFilter:
 
 @final
 @dataclass(frozen=True)
-class ProgramPriorityFilter:
+class ProgramPriorityFilter(AbstractFilter):
     """
     A program-level priority filter.
 
@@ -110,7 +112,7 @@ class ProgramPriorityFilter:
 
 @final
 @dataclass(frozen=True)
-class ResourcePriorityFilter:
+class ResourcePriorityFilter(AbstractFilter):
     """
     A group-level filter.
 
@@ -126,12 +128,11 @@ class ResourcePriorityFilter:
 
 @final
 @dataclass(frozen=True)
-class NothingFilter:
+class NothingFilter(AbstractFilter, Singleton):
     """
-    A filter that rejects all programs and groups.
+    A singleton filter that rejects all programs and groups.
     This can be used, for example, in shutdowns.
     """
-
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
         return lambda _: False
@@ -151,9 +152,9 @@ class NothingFilter:
 
 @final
 @dataclass(frozen=True)
-class TooFilter:
+class TooFilter(AbstractFilter, Singleton):
     """
-    This filter should be used in the negative case.
+    This singleton filter should be used in the negative case.
     It indicates that ToOs should be permitted, which is the default.
     """
     @property
@@ -163,7 +164,7 @@ class TooFilter:
 
 @final
 @dataclass(frozen=True)
-class LgsFilter:
+class LgsFilter(AbstractFilter, Singleton):
     """
     This filter should be used in the negative case.
     It indicates that LGS programs should be filtered out.
@@ -174,7 +175,7 @@ class LgsFilter:
 
 @final
 @dataclass(frozen=True)
-class CompositeFilter:
+class CompositeFilter(AbstractFilter):
     """
     Contains composite filters, both positive and negative, and returns the result of executing
     all filters on a program or group, both with respect to inclusion and priority.

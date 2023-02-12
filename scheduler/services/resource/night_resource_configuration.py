@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum, auto
-from typing import FrozenSet, Optional
+from typing import FrozenSet
 
 from filters import AbstractFilter
 
@@ -20,7 +20,7 @@ class TelescopeMode(Enum):
     PARTNER_BLOCK = auto()
 
 
-# An instance of this class only exists if the telescope is open for a night.
+# An instance of this class exists for every night in the configuration file.
 @dataclass(frozen=True)
 class NightConfiguration:
     site: Site
@@ -37,7 +37,7 @@ class NightConfiguration:
     # 2. Prohibited programs.
     # 3. Highest priority scheduling groups.
     # 4. Prohibited scheduling groups.
-    filter: Optional[AbstractFilter]
+    filter: AbstractFilter
 
     # The list of resources available for the night.
     resources: FrozenSet[Resource]
