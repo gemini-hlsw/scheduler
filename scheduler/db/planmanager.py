@@ -31,8 +31,8 @@ class PlanManager:
         try:
             plans = deepcopy(db.read())
             return plans
-        except Exception as err:
-            raise Exception(f'Error on read: {err}')
+        except KeyError:
+            raise KeyError(f'Error on read!')
 
     @staticmethod
     def set_plans(plans: List[Plans]) -> NoReturn:
@@ -44,5 +44,5 @@ class PlanManager:
             db.write([
                 SPlans.from_computed_plans(p) for p in calculated_plans
             ])
-        except Exception as err:
-            raise Exception(f'Error on write: {err}')
+        except KeyError:
+            raise KeyError(f'Error on read!')

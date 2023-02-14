@@ -23,7 +23,7 @@ class DBManager:
     def __init__(self, db_path):
         self.db_path = db_path
 
-    def read(self) :
+    def read(self) -> List[SPlans]:
         with locking(f'{self.db_path}.lock', LOCK_SH):
             with shelve.open(self.db_path) as db:
                 if 'plans' not in db:
