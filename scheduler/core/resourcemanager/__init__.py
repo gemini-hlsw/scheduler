@@ -1,14 +1,13 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import Dict, Optional, final
+from typing import Dict, Optional
 
 from lucupy.minimodel import Resource
 
 from scheduler.core.meta import Singleton
 
 
-@final
 class ResourceManager(metaclass=Singleton):
     """
     This is to avoid recreating repetitive resources.

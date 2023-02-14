@@ -24,7 +24,7 @@ from scheduler.core.resourcemanager import ResourceManager
 
 
 @final
-class OcsResourceService(metaclass=Singleton):
+class OcsResourceService(ResourceManager, metaclass=Singleton):
     """
     This is a mock for the future Resource service, used for OCS.
     It reads data regarding availability of instruments, IFUs, FPUs, MOS masks, etc. at each Site for given dates.
@@ -89,6 +89,7 @@ class OcsResourceService(metaclass=Singleton):
         """
         Create and initialize the ResourceMock object with the specified sites.
         """
+        super().__init__()
         self._sites = sites
         self._path = os.path.join(ROOT_DIR, 'scheduler', 'services', 'resource', 'data')
 
@@ -196,7 +197,7 @@ class OcsResourceService(metaclass=Singleton):
 
                 # Only map if the FPU is a resource.
                 if fpu is not None:
-                    self._itcd_fpu_to_barcode[site][fpu] = ResourceManager().lookup_resource(barcode)
+                    self._itcd_fpu_to_barcode[site][fpu] = self.lookup_resource(barcode)
 
     def _load_csv(self, site: Site, name: str, c: Callable[[List[str]], Set[str]]) -> NoReturn:
         """
@@ -226,7 +227,7 @@ class OcsResourceService(metaclass=Singleton):
 
                 # Get or create date_set for the date, and append new resources from table, ignoring blank entries.
                 date_set = self._resources[site].setdefault(row_date, set())
-                new_entries = {ResourceManager().lookup_resource(r) for r in c(row[1:]) if r}
+                new_entries = {self.lookup_resource(r) for r in c(row[1:]) if r}
                 self._resources[site][row_date] = date_set | new_entries
 
                 # Advance the previous row date where data was defined.
@@ -363,7 +364,7 @@ class OcsResourceService(metaclass=Singleton):
                 dates.add(row_date)
 
                 if mode.startswith('VISITOR:'):
-                    instrument = ResourceManager().lookup_resource(original_mode[8:].strip())
+                    instrument = self.lookup_resource(original_mode[8:].strip())
                     instrument_run.setdefault(instrument, set()).add(row_date)
 
                 elif mode.startswith('PARTNER:'):
@@ -418,7 +419,7 @@ class OcsResourceService(metaclass=Singleton):
                         # This happens if the row ends prematurely.
                         instrument_status = ''
                     if instrument_status == OcsResourceService._SCIENCE:
-                        resources.add(ResourceManager().lookup_resource(name))
+                        resources.add(self.lookup_resource(name))
                     elif not instrument_status:
                         logging.warning(f'{msg} contains no instrument status. Using default of Not Available.')
                     elif instrument_status not in [OcsResourceService._NOT_AVAILABLE,
@@ -435,7 +436,7 @@ class OcsResourceService(metaclass=Singleton):
                         # This happens if the row ends prematurely.
                         wfs_status = ''
                     if wfs_status == OcsResourceService._SCIENCE:
-                        resources.add(ResourceManager().lookup_resource(name))
+                        resources.add(self.lookup_resource(name))
                     elif not wfs_status or wfs_status:
                         logging.warning(f'{msg} for WFS {name} contains no status. Using default of Not Available.')
                     elif wfs_status not in [OcsResourceService._NOT_AVAILABLE, OcsResourceService._ENGINEERING]:
