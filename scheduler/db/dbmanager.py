@@ -27,7 +27,7 @@ class DBManager:
         with locking(f'{self.db_path}.lock', LOCK_SH):
             with shelve.open(self.db_path) as db:
                 if 'plans' not in db:
-                    raise KeyError("Empty DB! Run mutation to access data")
+                    db['plans'] = []
                 return db['plans']
 
     def write(self, plans: List[SPlans]) -> NoReturn:
