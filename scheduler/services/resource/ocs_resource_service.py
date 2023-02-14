@@ -100,6 +100,10 @@ class OcsResourceService(metaclass=Singleton):
         # OcsFpuConverter to get the ITCD FPU names.
         self._itcd_fpu_to_barcode: Dict[Site, Dict[str, Resource]] = {site: {} for site in self._sites}
 
+        # Earliest and latest dates per site.
+        self._earliest_date_per_site: Dict[Site, date] = {site: date.max for site in self._sites}
+        self._latest_date_per_site: Dict[Site, date] = {site: date.min for site in self._sites}
+
         # Modes for a night. Note that if the telescope is closed or the mode is shutdown, there is no value.
         self._modes: Dict[Site, Dict[date, TelescopeMode]] = {site: {} for site in self._sites}
 
@@ -145,25 +149,29 @@ class OcsResourceService(metaclass=Singleton):
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_spreadsheet()
 
+        # TODO: Remove this after discussion with science.
+        # TODO: There are entries here outside of the Telescope Schedules Spreadsheet.
         # Record the earliest date for each site: any date before this will return an empty set of Resources.
         # Record the latest date for each site: any date after this will return the Resources on this date.
-        self._earliest_date_per_site = {site: min(self._resources[site], default=None) for site in self._sites}
-        self._latest_date_per_site = {site: max(self._resources[site], default=None) for site in self._sites}
+        # self._earliest_date_per_site = {site: min(self._resources[site], default=None) for site in self._sites}
+        # self._latest_date_per_site = {site: max(self._resources[site], default=None) for site in self._sites}
         for site in self._sites:
             # Only one of these checks should be necessary.
-            if self._earliest_date_per_site is None or self._latest_date_per_site[site] is None:
+            if self._earliest_date_per_site[site] == date.max or self._latest_date_per_site[site] == date.min:
                 raise ValueError(f'No site resource data for {site.name}.')
 
         # Finalize the filters and create the night configurations.
         for site in self._sites:
             d = self._earliest_date_per_site[site]
             while d <= self._latest_date_per_site[site]:
-                # Now that we have a complete set of resources per night, add the ResourceFilter if the night is
-                # not blocked.
-                if d not in self._blocked[site]:
-                    self._positive_filters[site][d].add(ResourceFilter(frozenset(self._resources[site][d])))
-                composite_filter = CompositeFilter(positive_filters=frozenset(self._positive_filters[site][d]),
-                                                   negative_filters=frozenset(self._positive_filters[site][d]))
+                # Now that we have a complete set of resources per night:
+                # 1. Make sure that there are entries in the positive_filters and negative_filters for the date.
+                # 2. Add the ResourceFilter to the positive filters.
+                # 2. Combine into a composite filter.
+                pf = self._positive_filters[site].setdefault(d, set())
+                nf = self._negative_filters[site].setdefault(d, set())
+                pf.add(ResourceFilter(frozenset(self._resources[site][d])))
+                composite_filter = CompositeFilter(frozenset(pf), frozenset(nf))
 
                 self._night_configurations[site][d] = NightConfiguration(
                     site=site,
@@ -325,10 +333,7 @@ class OcsResourceService(metaclass=Singleton):
                 msg = f'Configuration file for site {site} row {idx}'
 
                 # Read the date and create an entry for the site and date.
-                try:
-                    row_date = row[0].value.date()
-                except:
-                    pass
+                row_date = row[0].value.date()
 
                 # Check the telescope status. If it is closed, we ignore the rest of the row.
                 status = row[1].value.upper().strip()
@@ -438,6 +443,10 @@ class OcsResourceService(metaclass=Singleton):
 
                 # Add the resource data to the dates. Union returns a new set.
                 self._resources[site][row_date] = self._resources[site].setdefault(row_date, set()).union(resources)
+
+            # Determine the earliest and latest date for the site.
+            self._earliest_date_per_site[site] = min(dates.union(self._blocked[site]))
+            self._latest_date_per_site[site] = max(dates.union(self._blocked[site]))
 
             # Block out the blocked dates.
             for d in self._blocked[site]:
