@@ -28,15 +28,21 @@ class PlanManager:
         This is to ensure that the plans are not corrupted after the
         lock is released.
         """
-        plans = deepcopy(db.read())
-        return plans
+        try:
+            plans = deepcopy(db.read())
+            return plans
+        except KeyError:
+            raise KeyError(f'Error on read!')
 
     @staticmethod
     def set_plans(plans: List[Plans]) -> NoReturn:
         """
         Note that we are converting List[Plans] to List[SPlans].
         """
-        calculated_plans = deepcopy(plans)
-        db.write([
-            SPlans.from_computed_plans(p) for p in calculated_plans
-        ])
+        try:
+            calculated_plans = deepcopy(plans)
+            db.write([
+                SPlans.from_computed_plans(p) for p in calculated_plans
+            ])
+        except KeyError:
+            raise KeyError(f'Error on read!')
