@@ -1,12 +1,12 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from copy import copy
 import csv
-from datetime import datetime, timedelta
 import logging
 import os
-from typing import Collection, Dict, Final, List, NoReturn, Set, Tuple
+from copy import copy
+from datetime import datetime, timedelta
+from typing import Dict, Final, List, NoReturn, Set, Tuple
 
 import gelidum
 import requests
@@ -37,9 +37,6 @@ class OcsResourceService(metaclass=Singleton):
 
     Note that this is a Singleton class, so new instances do not need to be created.
     """
-    # Name of the service for exception handling information.
-    _RESOURCE_SERVICE_NAME: Final[str] = gelidum.Final('OcsResourceService')
-
     # The Google ID of the telescope configuration file.
     _SITE_CONFIG_GOOGLE_ID: Final[str] = gelidum.Final('1QRalQNEaX-bcyrPG6mfKnv01JVMaGHwy')
 
@@ -351,7 +348,7 @@ class OcsResourceService(metaclass=Singleton):
 
                 elif (start := mode.find('BLOCK')) != -1:
                     try:
-                        partner = TimeAccountingCode[mode[:start-1]]
+                        partner = TimeAccountingCode[mode[:start - 1]]
                     except KeyError as ex:
                         raise KeyError(f'{msg} has illegal time account {ex} in mode: {mode}.')
                     partner_blocks[row_date] = partner
@@ -478,6 +475,17 @@ class OcsResourceService(metaclass=Singleton):
             raise ValueError(f'Request for resource dates for illegal site: {site.name}')
         return self._earliest_date_per_site[site], self._latest_date_per_site[site]
 
+    def get_night_configuration(self, site: Site, local_date: date) -> NightConfiguration:
+        """
+        Returns the NightConfiguration object for the site for the given local date,
+        which contains the filters and resources for the night.
+        """
+        if site not in self._sites:
+            raise ValueError(f'Request for night configuration for illegal site: {site.name}')
+        if local_date < self._earliest_date_per_site[site] or local_date > self._latest_date_per_site[site]:
+            raise ValueError(f'Request for night configuration for site {site.name} for illeegal date: {local_date}')
+        return self._night_configurations[site][local_date]
+
     def get_resources(self, site: Site, night_date: date) -> FrozenSet[Resource]:
         """
         For a site and a local date, return the set of available resources.
@@ -494,32 +502,6 @@ class OcsResourceService(metaclass=Singleton):
             return frozenset()
 
         return frozenset(self._resources[site][night_date])
-
-    def get_resources_for_sites(self,
-                                sites: Collection[Site],
-                                night_date: date) -> Dict[Site, FrozenSet[Resource]]:
-        """
-        For a collection of sites and a night date, return the set of available resources.
-        """
-        return {site: self.get_resources(site, night_date) for site in sites}
-
-    def get_resources_for_dates(self,
-                                site: Site,
-                                night_dates: Collection[date]) -> Dict[date, FrozenSet[Resource]]:
-        """
-        For a site and a collection of night dates, return the set of available resources.
-        """
-        night_date_set = frozenset((d for d in night_dates))
-        return {d: self.get_resources(site, d) for d in night_date_set}
-
-    def get_resources_for_sites_and_dates(self,
-                                          sites: Collection[Site],
-                                          night_dates: Collection[date]) -> Dict[Site, Dict[date, FrozenSet[Resource]]]:
-        """
-        For a collection of sites and night dates, return the set of available resources.
-        """
-        site_set = frozenset((site for site in sites))
-        return {site: self.get_resources_for_dates(site, night_dates) for site in site_set}
 
     def fpu_to_barcode(self, site: Site, fpu_name: str) -> Optional[Resource]:
         """
