@@ -10,7 +10,6 @@ from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBlueprint
 from scheduler.core.builder.builder import SchedulerBuilder
 from scheduler.core.components.collector import *
-from scheduler.core.components.selector import Selector
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 

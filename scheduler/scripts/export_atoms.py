@@ -17,7 +17,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     # Read in a list of JSON data
-    programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'app', 'data', '2018B_program_samples.zip'))
+    programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
     # Create the Collector and load the programs.
     collector = Collector(

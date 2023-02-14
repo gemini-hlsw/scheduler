@@ -11,6 +11,7 @@ from scheduler.services.resource import OcsResourceService
 
 
 # Sets are notoriously difficult to compare since the order changes drastically if there is a small difference.
+# Because of this, we sort them.
 @pytest.fixture
 def year():
     return timedelta(days=365)
@@ -94,11 +95,11 @@ def test_early_date(year):
     earliest_date = OcsResourceService().date_range_for_site(Site.GN)[0]
     expected = frozenset()
     resources = OcsResourceService().get_resources(Site.GN, earliest_date - year)
-    assert resources == expected
+    assert expected == resources
 
 
 def test_late_date(year):
     latest_date = OcsResourceService().date_range_for_site(Site.GN)[1]
     expected = frozenset()
     resources = OcsResourceService().get_resources(Site.GN, latest_date + year)
-    assert resources == expected
+    assert expected == resources
