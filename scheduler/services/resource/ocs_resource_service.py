@@ -15,10 +15,10 @@ from lucupy.minimodel import ALL_SITES
 from openpyxl import load_workbook
 
 from definitions import ROOT_DIR
-from filters import *
-from google_drive_downloader import GoogleDriveDownloader
-from night_resource_configuration import *
-from ocs_resource_service_exceptions import *
+from .filters import *
+from .google_drive_downloader import GoogleDriveDownloader
+from .night_resource_configuration import *
+from .ocs_resource_service_exceptions import *
 from scheduler.core.meta import Singleton
 from scheduler.core.resourcemanager import ResourceManager
 
@@ -38,10 +38,10 @@ class OcsResourceService(metaclass=Singleton):
     Note that this is a Singleton class, so new instances do not need to be created.
     """
     # The Google ID of the telescope configuration file.
-    _SITE_CONFIG_GOOGLE_ID: Final[str] = gelidum.Final('1QRalQNEaX-bcyrPG6mfKnv01JVMaGHwy')
+    _SITE_CONFIG_GOOGLE_ID: Final[str] = '1QRalQNEaX-bcyrPG6mfKnv01JVMaGHwy'
 
     # Name of the spreadsheet file containing telescope configurations.
-    _SITE_CONFIG_FILE: Final[str] = gelidum.Final('telescope_schedules.xlsx')
+    _SITE_CONFIG_FILE: Final[str] = 'telescope_schedules.xlsx'
 
     # Definition of a day to not have to redeclare constantly.
     _day: Final[timedelta] = timedelta(days=1)
@@ -49,7 +49,8 @@ class OcsResourceService(metaclass=Singleton):
     # Statuses of instruments and WFS.
     _SCIENCE: Final[str] = 'SCIENCE'
     _ENGINEERING: Final[str] = 'ENGINEERING'
-    _NOT_AVAILABLE: Final[str] = 'NOT_AVAILABLE'
+    _NOT_AVAILABLE: Final[str] = 'NOT AVAILABLE'
+    _CALIBRATION: Final[str] = 'CALIBRATION'
 
     # These are the converters from the OCS FPU names to the ITCD FPU representations.
     # For example, the ODB query extractor would return:
@@ -103,7 +104,7 @@ class OcsResourceService(metaclass=Singleton):
         self._modes: Dict[Site, Dict[date, TelescopeMode]] = {site: {} for site in self._sites}
 
         # Determines which nights are blocked.
-        self._blocked: Dict[Site, Set[date]] = {site: {} for site in self._sites}
+        self._blocked: Dict[Site, Set[date]] = {site: set() for site in self._sites}
 
         # Determines whether a night is a part of a laser run.
         self._lgs: Dict[Site, Dict[date, bool]] = {site: {} for site in self._sites}
@@ -248,6 +249,9 @@ class OcsResourceService(metaclass=Singleton):
         The Excel spreadsheets have information available for every date, so we do not have to concern ourselves
         as in the _load_csv file above.
         """
+        def none_to_str(value) -> str:
+            return '' if value is None else value
+
         filename = os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE)
 
         logging.info('Retrieving site configuration file from Google Drive...')
@@ -295,15 +299,23 @@ class OcsResourceService(metaclass=Singleton):
             instrument_column_mapping: Dict[str, int] = {}
             wfs_columns: Dict[int, str] = {}
 
-            column_idx = 10
-            max_column_idx = sheet.max_column
+            column_idx = 11
 
-            while (cell := sheet.cell(row=1, column=column_idx)).value != 'PWFS':
-                instrument_column_mapping[cell.value] = column_idx
+            # sheet.max_column is returning None, probably because of missing data in PWFS columns,
+            # so we loop over the header row to calculate the max column.
+            max_column_idx = 0
+            while sheet.cell(row=1, column=max_column_idx+1).value is not None:
+                max_column_idx += 1
+
+            # Subtract one from column_idx since we will be iterating over a row, which is a 0-based
+            # list, even though getting cells is a 1-based operation.
+            while (cell := sheet.cell(row=1, column=column_idx)).value != 'PWFS1':
+                instrument_column_mapping[cell.value] = column_idx - 1
                 column_idx += 1
 
             while column_idx <= max_column_idx:
-                wfs_columns[column_idx] = sheet.cell(row=1, column=column_idx).value
+                wfs_columns[column_idx - 1] = sheet.cell(row=1, column=column_idx).value
+                column_idx += 1
 
             # Skip the header row (row 1).
             for idxOffset, row in enumerate(sheet.iter_rows(min_row=2)):
@@ -313,10 +325,13 @@ class OcsResourceService(metaclass=Singleton):
                 msg = f'Configuration file for site {site} row {idx}'
 
                 # Read the date and create an entry for the site and date.
-                row_date = row[0].value.date()
+                try:
+                    row_date = row[0].value.date()
+                except:
+                    pass
 
                 # Check the telescope status. If it is closed, we ignore the rest of the row.
-                status = row[1].value.upper().trim()
+                status = row[1].value.upper().strip()
                 if status == 'CLOSED':
                     self._blocked[site].add(row_date)
 
@@ -326,7 +341,7 @@ class OcsResourceService(metaclass=Singleton):
 
                 # Process the mode.
                 original_mode = row[2].value
-                mode = original_mode.upper().trim()
+                mode = original_mode.upper().strip()
 
                 # We process the modes in the following order:
                 # 1. Engineering / Shutdown (terminates)
@@ -335,20 +350,20 @@ class OcsResourceService(metaclass=Singleton):
                 # 4. PV: <prog-id-list>
                 # 5. Classical: <prog-id-list>
                 # 6. Priority: <prog-id-list>
-                if mode in {'ENGINEERING', 'SHUTDOWN'}:
+                if mode in {OcsResourceService._ENGINEERING, 'SHUTDOWN'}:
                     self._blocked[site].add(row_date)
                     continue
 
                 # Now we can add the date to dates since it will require further processing.
                 dates.add(row_date)
 
-                if mode.startswith('VISITOR BLOCK:'):
-                    instrument = ResourceManager().lookup_resource(original_mode[14:].trim())
+                if mode.startswith('VISITOR:'):
+                    instrument = ResourceManager().lookup_resource(original_mode[8:].strip())
                     instrument_run.setdefault(instrument, set()).add(row_date)
 
-                elif (start := mode.find('BLOCK')) != -1:
+                elif mode.startswith('PARTNER:'):
                     try:
-                        partner = TimeAccountingCode[mode[:start - 1]]
+                        partner = TimeAccountingCode[mode[8:].strip()]
                     except KeyError as ex:
                         raise KeyError(f'{msg} has illegal time account {ex} in mode: {mode}.')
                     partner_blocks[row_date] = partner
@@ -362,20 +377,20 @@ class OcsResourceService(metaclass=Singleton):
                 elif mode.startswith('PRIORITY:'):
                     OcsResourceService._add_dates_to_dict(score_boost, mode[9:], row_date)
 
-                else:
+                elif mode != 'QUEUE':
                     raise ValueError(f'{msg} has illegal mode: {mode}.')
 
                 # Get the LGS status of the row. The default, if no LGS is specified, is False.
-                lgs = str_to_bool(row[2].value)
-                if not row[2].value:
+                lgs = str_to_bool(row[3].value)
+                if not row[3].value:
                     logging.warning(f'{msg} has no LGS entry. Using default value of No.')
                     self._lgs[site][row_date] = False
                 else:
                     self._lgs[site][row_date] = lgs
 
                 # Get the ToO status for the night..
-                too = str_to_bool(row[3].value)
-                if not row[3].value:
+                too = str_to_bool(row[4].value)
+                if not row[4].value:
                     logging.warning(f'{msg} has no ToO entry. Using default value of Yes.')
                     self._too[site][row_date] = True
                 else:
@@ -387,25 +402,37 @@ class OcsResourceService(metaclass=Singleton):
                 # The next five entries contain instrument ports.
                 # Filter out any ports that are not empty.
                 # We then have to check to see what the status of the instrument is for the night.
-                instrument_names = {row[i].value for i in range(10, 15) if row[i].value is not None and row[i].value}
+                instrument_names = {row[i].value for i in range(5, 10) if row[i].value is not None and row[i].value}
 
                 for name in instrument_names:
                     if name not in instrument_column_mapping:
                         raise KeyError(f'{msg} contains illegal instrument name: {name}.')
-                    instrument_status = row[instrument_column_mapping[name]].value.trim().toupper()
+                    try:
+                        instrument_status = none_to_str(row[instrument_column_mapping[name]].value).strip().upper()
+                    except IndexError:
+                        # This happens if the row ends prematurely.
+                        instrument_status = ''
                     if instrument_status == OcsResourceService._SCIENCE:
                         resources.add(ResourceManager().lookup_resource(name))
                     elif not instrument_status:
                         logging.warning(f'{msg} contains no instrument status. Using default of Not Available.')
-                    elif instrument_status not in [OcsResourceService._NOT_AVAILABLE, OcsResourceService._ENGINEERING]:
+                    elif instrument_status not in [OcsResourceService._NOT_AVAILABLE,
+                                                   OcsResourceService._ENGINEERING,
+                                                   OcsResourceService._CALIBRATION]:
                         raise ValueError(f'{msg} for instrument {name} '
                                          f'contains illegal status: {instrument_status}.')
 
                 # The remaining columns are WFS. Check the status and if available, add to resources.
-                for idx, name in wfs_columns:
-                    wfs_status = row[idx].value.trim().toupper()
+                for idx, name in wfs_columns.items():
+                    try:
+                        wfs_status = none_to_str(row[idx].value).strip().upper()
+                    except IndexError:
+                        # This happens if the row ends prematurely.
+                        wfs_status = ''
                     if wfs_status == OcsResourceService._SCIENCE:
                         resources.add(ResourceManager().lookup_resource(name))
+                    elif not wfs_status or wfs_status:
+                        logging.warning(f'{msg} for WFS {name} contains no status. Using default of Not Available.')
                     elif wfs_status not in [OcsResourceService._NOT_AVAILABLE, OcsResourceService._ENGINEERING]:
                         raise ValueError(f'{msg} for WFS {name} contains illegal status: {wfs_status}.')
 
@@ -414,58 +441,68 @@ class OcsResourceService(metaclass=Singleton):
 
             # Block out the blocked dates.
             for d in self._blocked[site]:
-                self._positive_filters[site][d].add(NothingFilter())
+                s = self._positive_filters[site].setdefault(d, set())
+                s.add(NothingFilter())
 
             # PV rules:
-            for pv_program_id, pv_dates in pv_programs:
+            for pv_program_id, pv_dates in pv_programs.items():
                 pv_starting_date = min(pv_dates)
 
                 # 1. PV programs get priority on the nights they are listed.
                 for d in pv_dates:
-                    self._positive_filters[site][d].add(ProgramPriorityFilter(frozenset(pv_program_id)))
+                    s = self._positive_filters[site].setdefault(d, set())
+                    s.add(ProgramPriorityFilter(frozenset(pv_program_id)))
 
                 # 2. PV programs are not allowed in nights before they are first listed.
                 pv_prohibited_dates = {d for d in dates if d < pv_starting_date}
                 for d in pv_prohibited_dates:
-                    self._negative_filters[site][d].add(ProgramPermissionFilter(frozenset(pv_program_id)))
+                    s = self._negative_filters[site].setdefault(d, set())
+                    s.add(ProgramPermissionFilter(frozenset(pv_program_id)))
 
             # Classical rules:
-            for classical_program_id, classical_dates in classical_programs:
+            for classical_program_id, classical_dates in classical_programs.items():
                 for d in dates:
                     # Classical programs can only be performed in their designated blocks.
                     if d in classical_dates:
-                        self._positive_filters[site][d].add(ProgramPriorityFilter(frozenset(classical_program_id)))
+                        s = self._positive_filters[site].setdefault(d, set())
+                        s.add(ProgramPriorityFilter(frozenset(classical_program_id)))
                     else:
-                        self._negative_filters[site][d].add(ProgramPermissionFilter(frozenset(classical_program_id)))
+                        s = self._negative_filters[site].setdefault(d, set())
+                        s.add(ProgramPermissionFilter(frozenset(classical_program_id)))
 
             # Priority rules:
-            for priority_program_id, priority_dates in score_boost:
+            for priority_program_id, priority_dates in score_boost.items():
                 # Priority is given to programs in the priority block.
                 for d in priority_dates:
-                    self._positive_filters[site][d].add(ProgramPriorityFilter(frozenset(priority_program_id)))
+                    s = self._positive_filters[site].setdefault(d, set())
+                    s.add(ProgramPriorityFilter(frozenset(priority_program_id)))
 
             # Partner rules:
-            for d, partner_code in partner_blocks:
+            for d, partner_code in partner_blocks.items():
                 # On a partner night, we only allow programs that include the partner.
-                self._positive_filters[site][d].add(TimeAccountingCodeFilter(frozenset(partner_code)))
+                s = self._positive_filters[site].setdefault(d, set())
+                s.add(TimeAccountingCodeFilter(frozenset(partner_code)))
 
             # Visitor instrument rules:
-            for resource, resource_dates in instrument_run:
+            for resource, resource_dates in instrument_run.items():
                 # Priority is given to scheduling blocks using the resource.
                 for d in resource_dates:
-                    self._positive_filters[site][d].add(ResourcePriorityFilter(frozenset(resource)))
+                    s = self._positive_filters[site].setdefault(d, set())
+                    s.add(ResourcePriorityFilter(frozenset({resource})))
 
             # ToO rules:
             for d in dates:
                 # Block ToOs on nights where they are not allowed.
                 if not self._too[site][d]:
-                    self._negative_filters[site][d].add(TooFilter())
+                    s = self._negative_filters[site].setdefault(d, set())
+                    s.add(TooFilter())
 
             # LGS rules:
             for d in dates:
                 # Block LGS on nights where they are not allowed
                 if not self._lgs[site][d]:
-                    self._negative_filters[site][d].add(LgsFilter())
+                    s = self._negative_filters[site].setdefault(d, set())
+                    s.add(LgsFilter())
 
     def date_range_for_site(self, site: Site) -> Tuple[date, date]:
         """

@@ -1,8 +1,7 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from ocs_resource_service import *
-from ocs_resource_service_exceptions import *
+from .ocs_resource_service import *
 
 # For Bryan and Kristin: testing instructions
 if __name__ == '__main__':

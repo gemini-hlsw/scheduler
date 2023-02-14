@@ -6,7 +6,7 @@ from datetime import date
 from enum import Enum, auto
 from typing import FrozenSet
 
-from filters import AbstractFilter
+from .filters import AbstractFilter
 
 from lucupy.minimodel import Resource, Site
 

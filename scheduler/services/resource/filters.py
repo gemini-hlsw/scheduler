@@ -7,8 +7,6 @@ from typing import Callable, FrozenSet, Optional, final
 
 from lucupy.minimodel import Group, Program, ProgramID, Resource, TimeAccountingCode
 
-from scheduler.core.meta import Singleton
-
 
 # A filter applied to the programs for the night.
 ProgramFilter = Callable[[Program], bool]
@@ -128,7 +126,7 @@ class ResourcePriorityFilter(AbstractFilter):
 
 @final
 @dataclass(frozen=True)
-class NothingFilter(AbstractFilter, metaclass=Singleton):
+class NothingFilter(AbstractFilter):
     """
     A singleton filter that rejects all programs and groups.
     This can be used, for example, in shutdowns.
@@ -152,7 +150,7 @@ class NothingFilter(AbstractFilter, metaclass=Singleton):
 
 @final
 @dataclass(frozen=True)
-class TooFilter(AbstractFilter, metaclass=Singleton):
+class TooFilter(AbstractFilter):
     """
     This singleton filter should be used in the negative case.
     It indicates that ToOs should be permitted, which is the default.
@@ -164,7 +162,7 @@ class TooFilter(AbstractFilter, metaclass=Singleton):
 
 @final
 @dataclass(frozen=True)
-class LgsFilter(AbstractFilter, metaclass=Singleton):
+class LgsFilter(AbstractFilter):
     """
     This filter should be used in the negative case.
     It indicates that LGS programs should be filtered out.
