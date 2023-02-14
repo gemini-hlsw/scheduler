@@ -24,7 +24,7 @@ from scipy.signal import find_peaks
 
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.builder.blueprint import Blueprints
-RESOURCE = Blueprints.sources.resource
+RESOURCE = Blueprints.sources.resource()
 
 
 def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:

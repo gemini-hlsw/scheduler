@@ -20,6 +20,7 @@ from google_drive_downloader import GoogleDriveDownloader
 from night_resource_configuration import *
 from ocs_resource_service_exceptions import *
 from scheduler.core.meta import Singleton
+from scheduler.core.resourcemanager import ResourceManager
 
 
 @final
@@ -92,12 +93,6 @@ class OcsResourceService(metaclass=Singleton):
         """
         self._sites = sites
         self._path = os.path.join(ROOT_DIR, 'scheduler', 'services', 'resource', 'data')
-
-        # This is to avoid recreating repetitive resources.
-        # When we first get a resource ID string, create a Resource for it and store it here.
-        # Then fetch the Resources from here if they exist, and if they do not, then create a new one as per
-        # the _lookup_resource method.
-        self._all_resources: Dict[str, Resource] = {}
 
         # The map from site and date to the set of resources.
         self._resources: Dict[Site, Dict[date, Set[Resource]]] = {site: {} for site in self._sites}
@@ -195,7 +190,7 @@ class OcsResourceService(metaclass=Singleton):
 
                 # Only map if the FPU is a resource.
                 if fpu is not None:
-                    self._itcd_fpu_to_barcode[site][fpu] = self._lookup_resource(barcode)
+                    self._itcd_fpu_to_barcode[site][fpu] = ResourceManager().lookup_resource(barcode)
 
     def _load_csv(self, site: Site, name: str, c: Callable[[List[str]], Set[str]]) -> NoReturn:
         """
@@ -225,7 +220,7 @@ class OcsResourceService(metaclass=Singleton):
 
                 # Get or create date_set for the date, and append new resources from table, ignoring blank entries.
                 date_set = self._resources[site].setdefault(row_date, set())
-                new_entries = {self._lookup_resource(r) for r in c(row[1:]) if r}
+                new_entries = {ResourceManager().lookup_resource(r) for r in c(row[1:]) if r}
                 self._resources[site][row_date] = date_set | new_entries
 
                 # Advance the previous row date where data was defined.
@@ -351,7 +346,7 @@ class OcsResourceService(metaclass=Singleton):
                 dates.add(row_date)
 
                 if mode.startswith('VISITOR BLOCK:'):
-                    instrument = self._lookup_resource(original_mode[14:].trim())
+                    instrument = ResourceManager().lookup_resource(original_mode[14:].trim())
                     instrument_run.setdefault(instrument, set()).add(row_date)
 
                 elif (start := mode.find('BLOCK')) != -1:
@@ -402,7 +397,7 @@ class OcsResourceService(metaclass=Singleton):
                         raise KeyError(f'{msg} contains illegal instrument name: {name}.')
                     instrument_status = row[instrument_column_mapping[name]].value.trim().toupper()
                     if instrument_status == OcsResourceService._SCIENCE:
-                        resources.add(self._lookup_resource(name))
+                        resources.add(ResourceManager().lookup_resource(name))
                     elif not instrument_status:
                         logging.warning(f'{msg} contains no instrument status. Using default of Not Available.')
                     elif instrument_status not in [OcsResourceService._NOT_AVAILABLE, OcsResourceService._ENGINEERING]:
@@ -413,7 +408,7 @@ class OcsResourceService(metaclass=Singleton):
                 for idx, name in wfs_columns:
                     wfs_status = row[idx].value.trim().toupper()
                     if wfs_status == OcsResourceService._SCIENCE:
-                        resources.add(self._lookup_resource(name))
+                        resources.add(ResourceManager().lookup_resource(name))
                     elif wfs_status not in [OcsResourceService._NOT_AVAILABLE, OcsResourceService._ENGINEERING]:
                         raise ValueError(f'{msg} for WFS {name} contains illegal status: {wfs_status}.')
 
@@ -474,26 +469,6 @@ class OcsResourceService(metaclass=Singleton):
                 # Block LGS on nights where they are not allowed
                 if not self._lgs[site][d]:
                     self._negative_filters[site][d].add(LgsFilter())
-
-    def _lookup_resource(self, resource_id: str) -> Optional[Resource]:
-        """
-        Function to perform Resource caching and minimize the number of Resource objects by attempting to reuse
-        Resource objects with the same ID.
-
-        If resource_id evaluates to False, return None.
-        Otherwise, check if a Resource with id already exists.
-        If it does, return it.
-        If not, create it, add it to the map of all Resources, and then return it.
-
-        Note that even if multiple objects do exist with the same ID, they will be considered equal by the
-        Resource equality comparator.
-        """
-        # The Resource constructor raises an exception for id None or containing any capitalization of "none".
-        if not resource_id:
-            return None
-        if resource_id not in self._all_resources:
-            self._all_resources[resource_id] = Resource(id=resource_id)
-        return self._all_resources[resource_id]
 
     def date_range_for_site(self, site: Site) -> Tuple[date, date]:
         """
@@ -562,10 +537,3 @@ class OcsResourceService(metaclass=Singleton):
         if Site.GS in self._sites and site == Site.GS:
             return self._gmoss_ifu_dict.get(fpu_name)
         return None
-
-    def lookup_resource(self, resource_id: str) -> Optional[Resource]:
-        """
-        Given a resource ID, look it up and retrieve the Resource object from the cache if it exists.
-        If not, None is returned.
-        """
-        return self._all_resources.get(resource_id)

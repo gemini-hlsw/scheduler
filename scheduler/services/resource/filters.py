@@ -128,7 +128,7 @@ class ResourcePriorityFilter(AbstractFilter):
 
 @final
 @dataclass(frozen=True)
-class NothingFilter(AbstractFilter, Singleton):
+class NothingFilter(AbstractFilter, metaclass=Singleton):
     """
     A singleton filter that rejects all programs and groups.
     This can be used, for example, in shutdowns.
@@ -152,7 +152,7 @@ class NothingFilter(AbstractFilter, Singleton):
 
 @final
 @dataclass(frozen=True)
-class TooFilter(AbstractFilter, Singleton):
+class TooFilter(AbstractFilter, metaclass=Singleton):
     """
     This singleton filter should be used in the negative case.
     It indicates that ToOs should be permitted, which is the default.
@@ -164,7 +164,7 @@ class TooFilter(AbstractFilter, Singleton):
 
 @final
 @dataclass(frozen=True)
-class LgsFilter(AbstractFilter, Singleton):
+class LgsFilter(AbstractFilter, metaclass=Singleton):
     """
     This filter should be used in the negative case.
     It indicates that LGS programs should be filtered out.

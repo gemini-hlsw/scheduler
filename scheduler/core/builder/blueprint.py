@@ -13,7 +13,7 @@ from lucupy.minimodel.site import Site, ALL_SITES
 
 from scheduler.config import config, ConfigurationError
 from scheduler.core.components.optimizer.dummy import DummyOptimizer
-from scheduler.services.resource import OcsResourceService
+from scheduler.core.resourcemanager import ResourceManager
 from scheduler.services.environment import Env
 
 
@@ -153,7 +153,7 @@ class OptimizerBlueprint(Blueprint):
 
 class SourcesBlueprint(Blueprint):
     class ResourceSources(Enum):
-        MOCK = OcsResourceService()
+        MOCK = ResourceManager()
         # TODO: As in full fledge service? I'm not sure about this name 
         # so suggestions are welcome. 
         FULL = None
