@@ -11,7 +11,6 @@ from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
-import deprecation
 from lucupy import sky
 from lucupy.minimodel import (Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,
                               ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget,
@@ -49,6 +48,10 @@ class Collector(SchedulerComponent):
 
     # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
     _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
+
+    # OCS Resource service.
+    # TODO: This will need modification when GPP is out.
+    _ocs_resource_manager: ClassVar[OcsResourceService] = OcsResourceService()
 
     # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
     # This is a list of the programs as read in.
@@ -453,33 +456,13 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             logging.error(f'Could not parse {bad_program_count} programs.')
 
-    @deprecation.deprecated('Use night_configurations to get NightConfigurations instead.')
-    def available_resources(self,
-                            site: Site,
-                            night_indices: npt.NDArray[NightIndex]) -> List[FrozenSet[Resource]]:
-        """
-        Return a set of available resources for the site and nights under consideration.
-        """
-        # ResourceMock works with local dates and not UTC datetimes in the time_grid, so we need to convert.
-        # This is done by truncating the time and subtracting one day.
-        # TODO: In future, if we plan to extend to more observatories, we may have to rethink this strategy.
-
-        # TODO: This should be configurable and not set to use OcsResourceService.
-        # Get singleton for convenience.
-        rm = OcsResourceService()
-        return [rm.get_resources(site,
-                                 self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY)
-                for night_idx in night_indices]
-
     def night_configurations(self,
                              site: Site,
                              night_indices: npt.NDArray[NightIndex]) -> List[NightConfiguration]:
         """
         Return the list of NightConfiguration for the site and nights under configuration.
         """
-
-        rm = OcsResourceService()
-        return [rm.get_night_configuration(
+        return [Collector._ocs_resource_manager.get_night_configuration(
             site,
             self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY)
             for night_idx in night_indices]

@@ -18,4 +18,3 @@ lucupy
 pytest-asyncio
 gelidum
 python-dateutil
-deprecation
