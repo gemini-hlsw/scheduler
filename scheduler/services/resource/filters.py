@@ -209,20 +209,24 @@ class CompositeFilter(AbstractFilter):
 
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
-        return (lambda p: all(pf.program_filter(p) for pf in self.positive_filters) and
-                not any(nf.program_filter(p) for nf in self.negative_filters))
+        return (lambda p: all(pf.program_filter(p) for pf in self.positive_filters if pf.program_filter is not None) and
+                not any(nf.program_filter(p) for nf in self.negative_filters if nf.program_filter is not None))
 
     @property
     def program_priority_filter(self) -> Optional[ProgramFilter]:
-        return (lambda p: all(pf.program_priority_filter(p) for pf in self.positive_filters) and
-                not any(nf.program_priority_filter(p) for nf in self.negative_filters))
+        return (lambda p: all(pf.program_priority_filter(p) for pf in self.positive_filters
+                              if pf.program_priority_filter is not None) and
+                not any(nf.program_priority_filter(p) for nf in self.negative_filters
+                        if nf.program_priority_filter is not None))
 
     @property
     def group_filter(self) -> Optional[GroupFilter]:
-        return (lambda g: all(pf.group_filter(g) for pf in self.positive_filters) and
-                not any(nf.group_filter(g) for nf in self.negative_filters))
+        return (lambda g: all(pf.group_filter(g) for pf in self.positive_filters if pf.group_filter is not None) and
+                not any(nf.group_filter(g) for nf in self.negative_filters if nf.group_filter is not None))
 
     @property
     def group_priority_filter(self) -> Optional[GroupFilter]:
-        return (lambda g: all(pf.group_priority_filter(g) for pf in self.positive_filters) and
-                not any(nf.group_priority_filter(g) for nf in self.negative_filters))
+        return (lambda g: all(pf.group_priority_filter(g) for pf in self.positive_filters
+                              if pf.program_priority_filter is not None) and
+                not any(nf.group_priority_filter(g) for nf in self.negative_filters
+                        if nf.program_priority_filter is not None))
