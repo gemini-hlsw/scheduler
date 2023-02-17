@@ -63,10 +63,7 @@ class ResourcesAvailableFilter(AbstractFilter):
 
     @property
     def group_filter(self) -> Optional[GroupFilter]:
-        try:
-            return lambda g: self.resources.issuperset(g.required_resources())
-        except TypeError:
-            print("Uh oh...")
+        return lambda g: self.resources.issuperset(g.required_resources())
 
 
 @final
