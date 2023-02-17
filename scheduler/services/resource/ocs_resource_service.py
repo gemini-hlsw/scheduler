@@ -171,7 +171,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 # 2. Combine into a composite filter.
                 pf = self._positive_filters[site].setdefault(d, set())
                 nf = self._negative_filters[site].setdefault(d, set())
-                pf.add(ResourceFilter(frozenset(self._resources[site][d])))
+                pf.add(ResourcesAvailableFilter(frozenset(self._resources[site][d])))
                 composite_filter = CompositeFilter(frozenset(pf), frozenset(nf))
 
                 self._night_configurations[site][d] = NightConfiguration(
@@ -467,7 +467,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 pv_prohibited_dates = {d for d in dates if d < pv_starting_date}
                 for d in pv_prohibited_dates:
                     s = self._negative_filters[site].setdefault(d, set())
-                    s.add(ProgramPermissionFilter(frozenset(pv_program_id)))
+                    s.add(ProgramPermissionFilter(frozenset([pv_program_id])))
 
             # Classical rules:
             for classical_program_id, classical_dates in classical_programs.items():
@@ -475,10 +475,10 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     # Classical programs can only be performed in their designated blocks.
                     if d in classical_dates:
                         s = self._positive_filters[site].setdefault(d, set())
-                        s.add(ProgramPriorityFilter(frozenset(classical_program_id)))
+                        s.add(ProgramPriorityFilter(frozenset([classical_program_id])))
                     else:
                         s = self._negative_filters[site].setdefault(d, set())
-                        s.add(ProgramPermissionFilter(frozenset(classical_program_id)))
+                        s.add(ProgramPermissionFilter(frozenset([classical_program_id])))
 
             # Priority rules:
             for priority_program_id, priority_dates in score_boost.items():

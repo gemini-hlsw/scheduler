@@ -9,19 +9,22 @@ from datetime import timedelta
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple, Type, final
 
 import astropy.units as u
-import numpy as np
-import numpy.typing as npt
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
+import deprecation
 from lucupy import sky
 from lucupy.minimodel import (Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,
                               ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget,
                               Site, SkyBackground, Target)
+import numpy as np
+import numpy.typing as npt
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.programprovider.abstract import ProgramProvider
+from scheduler.services.resource import NightConfiguration
+
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
 from scheduler.core.service.modes import ValidationMode
 from scheduler.services.resource import OcsResourceService
@@ -450,18 +453,33 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             logging.error(f'Could not parse {bad_program_count} programs.')
 
+    @deprecation.deprecated('Use night_configurations to get NightConfigurations instead.')
     def available_resources(self,
                             site: Site,
                             night_indices: npt.NDArray[NightIndex]) -> List[FrozenSet[Resource]]:
         """
-        Return a set of available resources for the night under consideration.
+        Return a set of available resources for the site and nights under consideration.
         """
         # ResourceMock works with local dates and not UTC datetimes in the time_grid, so we need to convert.
         # This is done by truncating the time and subtracting one day.
         # TODO: In future, if we plan to extend to more observatories, we may have to rethink this strategy.
 
+        # TODO: This should be configurable and not set to use OcsResourceService.
         # Get singleton for convenience.
         rm = OcsResourceService()
         return [rm.get_resources(site,
                                  self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY)
                 for night_idx in night_indices]
+
+    def night_configurations(self,
+                             site: Site,
+                             night_indices: npt.NDArray[NightIndex]) -> List[NightConfiguration]:
+        """
+        Return the list of NightConfiguration for the site and nights under configuration.
+        """
+
+        rm = OcsResourceService()
+        return [rm.get_night_configuration(
+            site,
+            self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY)
+            for night_idx in night_indices]

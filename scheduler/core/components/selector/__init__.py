@@ -11,18 +11,19 @@ import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
 from lucupy.minimodel import (ALL_SITES, AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus,
-                              ProgramID, Resource, ROOT_GROUP_ID, Site, TooType, NightIndex, UniqueGroupID, Variant)
+                              ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, UniqueGroupID, Variant)
 
 from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.ranker import DefaultRanker, Ranker
 from scheduler.core.builder.blueprint import Blueprints
+from scheduler.services.resource import NightConfiguration
 ENV = Blueprints.sources.environment
 
 # Aliases to pass around resource availability information for sites and night indices.
-NightResourceAvailability = Dict[NightIndex, FrozenSet[Resource]]
-ResourceAvailability = Dict[Site, NightResourceAvailability]
+NightConfigurations = Dict[NightIndex, NightConfiguration]
+NightConfigurationData = Dict[Site, NightConfigurations]
 
 
 @dataclass(frozen=True)
@@ -107,8 +108,8 @@ class Selector(SchedulerComponent):
         if not np.array_equal(night_indices, ranker.night_indices):
             raise ValueError(f'The Ranker must have the same night indices as the Selector select method.')
 
-        # Calculate the site availability of resources in advance to avoid repeatedly calculating them.
-        resource_availability = {site: self.collector.available_resources(site, night_indices) for site in sites}
+        # Get the night configuration for all nights.
+        night_configurations = {site: self.collector.night_configurations(site, night_indices) for site in sites}
 
         # Create the structure to hold the mapping fom program ID to its group info.
         program_info: Dict[ProgramID, ProgramInfo] = {}
@@ -130,7 +131,7 @@ class Selector(SchedulerComponent):
             unfiltered_group_data_map = self._calculate_group(program.root_group,
                                                               sites,
                                                               night_indices,
-                                                              resource_availability,
+                                                              night_configurations,
                                                               ranker)
 
             # TODO BRYAN: keep unfiltered group info.
@@ -183,7 +184,7 @@ class Selector(SchedulerComponent):
                          group: Group,
                          sites: FrozenSet[Site],
                          night_indices: npt.NDArray[NightIndex],
-                         resource_availability: ResourceAvailability,
+                         night_configurations: NightConfigurationData,
                          ranker: Ranker,
                          group_data_map: GroupDataMap = None) -> GroupDataMap:
         """
@@ -201,13 +202,13 @@ class Selector(SchedulerComponent):
         else:
             raise ValueError(f'Could not process group {group.id}')
 
-        return processor(group, sites, night_indices, resource_availability, ranker, group_data_map)
+        return processor(group, sites, night_indices, night_configurations, ranker, group_data_map)
 
     def _calculate_observation_group(self,
                                      group: Group,
                                      sites: FrozenSet[Site],
                                      night_indices: npt.NDArray[NightIndex],
-                                     resource_availability: ResourceAvailability,
+                                     night_configurations: NightConfigurationData,
                                      ranker: Ranker,
                                      group_data_map: GroupDataMap) -> GroupDataMap:
         """
@@ -241,18 +242,16 @@ class Selector(SchedulerComponent):
         mrc = obs.constraints.conditions
         is_splittable = len(obs.sequence) > 1
 
-        # Calculate a numpy array of bool indexed by night to determine the resource availability.
-        required_res = obs.required_resources()
-
         # TODO: Do we need standards?
         # TODO: By the old Visit code, we had them and handled as per comment.
         # TODO: How do we handle them now?
         # standards = ObservatoryProperties.determine_standard_time(required_res, obs.wavelengths(), obs)
         standards = 0.
 
-        res_night_availability = Selector._check_resource_availability(required_res,
-                                                                       resource_availability[obs.site],
-                                                                       night_indices)
+        # Calculate a numpy array of bool indexed by night to determine when the group can be added to the plan
+        # based on the night configuration filtering.
+        night_filtering = np.array([night_configurations[obs.site][night_idx].filter.group_filter(group)
+                                    for night_idx in night_indices])
 
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
             # If we are science or progcal, then the neg HA value for a night is if the first HA for the night
@@ -293,7 +292,7 @@ class Selector(SchedulerComponent):
         schedulable_slot_indices = []
         for night_idx in ranker.night_indices:
             vis_idx = target_info[night_idx].visibility_slot_idx
-            if res_night_availability[night_idx]:
+            if night_filtering[night_idx]:
                 schedulable_slot_indices.append(np.where(conditions_score[night_idx][vis_idx] > 0)[0])
             else:
                 schedulable_slot_indices.append(np.array([]))
@@ -310,7 +309,7 @@ class Selector(SchedulerComponent):
             minimum_conditions=mrc,
             is_splittable=is_splittable,
             standards=standards,
-            resource_night_availability=res_night_availability,
+            night_filtering=night_filtering,
             conditions_score=conditions_score,
             wind_score=wind_score,
             schedulable_slot_indices=schedulable_slot_indices,
@@ -324,7 +323,7 @@ class Selector(SchedulerComponent):
                              group: Group,
                              sites: FrozenSet[Site],
                              night_indices: npt.NDArray[NightIndex],
-                             resource_availability: ResourceAvailability,
+                             night_configurations: NightConfigurationData,
                              ranker: Ranker,
                              group_data_map: GroupDataMap) -> GroupDataMap:
         """
@@ -339,7 +338,7 @@ class Selector(SchedulerComponent):
         # Process all subgroups and then process this group directly.
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
-            self._calculate_group(subgroup, sites, night_indices, resource_availability, ranker, group_data_map)
+            self._calculate_group(subgroup, sites, night_indices, night_configurations, ranker, group_data_map)
 
         # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
@@ -358,10 +357,9 @@ class Selector(SchedulerComponent):
         # standards = np.sum([group_info_map[sg.id].standards for sg in group.children])
         standards = 0.
 
-        # The availability of resources for this group is the product of resource availability for the subgroups.
-        sg_res_night_availability = [group_data_map[sg.id].group_info.resource_night_availability
-                                     for sg in group.children]
-        res_night_availability = np.multiply.reduce(sg_res_night_availability).astype(bool)
+        # The filtering for this group is the product of filtering for the subgroups.
+        sg_night_filtering = [group_data_map[sg.id].group_info.night_filtering for sg in group.children]
+        night_filtering = np.multiply.reduce(sg_night_filtering).astype(bool)
 
         # The conditions score is the product of the conditions scores for each subgroup across each night.
         conditions_score = []
@@ -396,7 +394,7 @@ class Selector(SchedulerComponent):
             minimum_conditions=mrc,
             is_splittable=is_splittable,
             standards=standards,
-            resource_night_availability=res_night_availability,
+            night_filtering=night_filtering,
             conditions_score=conditions_score,
             wind_score=wind_score,
             schedulable_slot_indices=schedulable_slot_indices,
@@ -418,17 +416,6 @@ class Selector(SchedulerComponent):
         Not yet implemented.
         """
         raise NotImplementedError(f'Selector does not yet handle OR groups: {group.id}')
-
-    @staticmethod
-    def _check_resource_availability(required_resources: FrozenSet[Resource],
-                                     resource_availability: NightResourceAvailability,
-                                     night_indices: npt.NDArray[NightIndex]) -> npt.NDArray[bool]:
-        """
-        Determine if the required resources as listed are available at
-        the specified site during the given time_period, and if so, at what
-        dates in the time period.
-        """
-        return np.array([required_resources.issubset(resource_availability[night_idx]) for night_idx in night_indices])
 
     @staticmethod
     def _wind_conditions(variant: Variant,
@@ -497,8 +484,8 @@ class Selector(SchedulerComponent):
         bad_cc = actual_cc > required_conditions.cc
 
         bad_cond_idx = np.where(np.logical_or(bad_iq, bad_cc))[0]
-        cmatch = np.ones(length)
-        cmatch[bad_cond_idx] = 0
+        cond_match = np.ones(length)
+        cond_match[bad_cond_idx] = 0
 
         # Penalize for using IQ / CC that is better than needed:
         # Multiply the weights by actual value / value where value is better than required and target
@@ -515,11 +502,11 @@ class Selector(SchedulerComponent):
             # better_idx = np.where(neg_ha[better_tmp_idx])[0]
             better_idx = np.where(array < value)[0] if neg_ha else np.array([])
             if len(better_idx) > 0 and (too_status is None or too_status not in {TooType.RAPID, TooType.INTERRUPT}):
-                cmatch[better_idx] = cmatch[better_idx] * array / value
+                cond_match[better_idx] = cond_match[better_idx] * array / value
 
         adjuster(actual_iq, required_conditions.iq)
         adjuster(actual_cc, required_conditions.cc)
 
         if scalar_input:
-            cmatch = np.squeeze(cmatch)
-        return cmatch
+            cond_match = np.squeeze(cond_match)
+        return cond_match

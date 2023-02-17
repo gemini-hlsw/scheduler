@@ -51,25 +51,34 @@ class AbstractFilter(ABC):
 
 @final
 @dataclass(frozen=True)
-class ResourceFilter(AbstractFilter):
+class ResourcesAvailableFilter(AbstractFilter):
     """
-    A filter that determines which scheduling groups can be run based on the resources available.
+    Filter level: Group.
+
+    Cases:
+    * Positive (primary): Used to filter in scheduling groups whose resource needs are met.
+    * Negative: Can be used if there is, e.g., a fault and a Resource is no longer available.
     """
     resources: FrozenSet[Resource]
 
     @property
     def group_filter(self) -> Optional[GroupFilter]:
-        return lambda g: self.resources.issuperset(g.required_resources())
+        try:
+            return lambda g: self.resources.issuperset(g.required_resources())
+        except TypeError:
+            print("Uh oh...")
 
 
 @final
 @dataclass(frozen=True)
 class TimeAccountingCodeFilter(AbstractFilter):
     """
-    A program-level filter.
+    Filter level: Program
 
-    A block associated with a partner / time accounting code.
-    Only programs that have one of the specified time accounting codes are permitted.
+    Cases:
+    * Positive (primary): Filter in programs who contain the one of the time accounting codes.
+                          Represents, for example, South Korea (ROK) blocks.
+    * Negative: No current use cases.
     """
     codes: FrozenSet[TimeAccountingCode]
 
@@ -82,9 +91,11 @@ class TimeAccountingCodeFilter(AbstractFilter):
 @dataclass(frozen=True)
 class ProgramPermissionFilter(AbstractFilter):
     """
-    A program-level filter.
-    This is typically used as a negative filter.
-    Contains a list of ProgramIDs that are permitted.
+    Filter level: Program
+
+    Cases:
+    * Positive: The program ID must be in the list to be filtered in.
+    * Negative (primary): The program ID must not be in the list to be filtered in.
     """
     program_ids: FrozenSet[ProgramID]
 
@@ -97,9 +108,11 @@ class ProgramPermissionFilter(AbstractFilter):
 @dataclass(frozen=True)
 class ProgramPriorityFilter(AbstractFilter):
     """
-    A program-level priority filter.
+    Filter level: Program Priority
 
-    Contains a list of ProgramIDs that should be given priority.
+    Cases:
+    * Positive (primary): Priority is assigned to the programs with the given IDs.
+    * Negative: No current use cases.
     """
     program_ids: FrozenSet[ProgramID]
 
@@ -112,10 +125,11 @@ class ProgramPriorityFilter(AbstractFilter):
 @dataclass(frozen=True)
 class ResourcePriorityFilter(AbstractFilter):
     """
-    A group-level filter.
+    Filter level: Group Priority
 
-    Contains a set of Resource such that the set of scheduling groups requires one of those resources
-    should be considered a higher priority than any other scheduling group.
+    Cases:
+    * Positive (primary): Priority is assigned to the groups that contain one of the listed resources.
+    * Negative: No current use cases.
     """
     resources: FrozenSet[Resource]
 
@@ -128,8 +142,11 @@ class ResourcePriorityFilter(AbstractFilter):
 @dataclass(frozen=True)
 class NothingFilter(AbstractFilter):
     """
-    A singleton filter that rejects all programs and groups.
-    This can be used, for example, in shutdowns.
+    Filter level: All.
+
+    Cases:
+    * Positive (primary): Everything is rejected.
+    * Negative: Serves no purpose.
     """
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
@@ -152,8 +169,11 @@ class NothingFilter(AbstractFilter):
 @dataclass(frozen=True)
 class TooFilter(AbstractFilter):
     """
-    This singleton filter should be used in the negative case.
-    It indicates that ToOs should be permitted, which is the default.
+    Filter level: Program
+
+    Cases:
+    * Positive: Filter in programs that do not have a ToO type of None.
+    * Negative (primary): Only allow programs that are not ToO programs. Used in nights where ToOs are not allowed.
     """
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
@@ -164,9 +184,12 @@ class TooFilter(AbstractFilter):
 @dataclass(frozen=True)
 class LgsFilter(AbstractFilter):
     """
-    This filter should be used in the negative case.
-    It indicates that LGS programs should be filtered out.
-    TODO: Not sure how to do this yet.
+    Filter level: TODO
+
+    Cases:
+    * Positive: TODO
+    * Negative (primary): Filter out programs that require LGS.
+    TODO: Unsure of how to implement this.
     """
     pass
 
@@ -175,8 +198,11 @@ class LgsFilter(AbstractFilter):
 @dataclass(frozen=True)
 class CompositeFilter(AbstractFilter):
     """
-    Contains composite filters, both positive and negative, and returns the result of executing
-    all filters on a program or group, both with respect to inclusion and priority.
+    Filter level: All
+
+    Case:
+    * Special: Contains both positive and negative filters, and returns the result of executing
+        all filters on program or groups, both with respect to inclusion and priority.
     """
     positive_filters: FrozenSet[AbstractFilter]
     negative_filters: FrozenSet[AbstractFilter]

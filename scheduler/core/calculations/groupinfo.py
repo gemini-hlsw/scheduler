@@ -22,16 +22,21 @@ class GroupInfo:
 
     This comprises:
     1. The most restrictive Conditions required for the group as per all its subgroups.
-    2. The slots in which the group can be scheduled based on resources and environmental conditions.
-    3. The score assigned to the group.
-    4. The standards time associated with the group, in hours.
-    5. A flag to indicate if the group can be split.
+    2. A flag to indicate if the group can be split.
+    3. The standards time associated with the group, in hours.
+    4. The nights in which the group can be scheduled based on filtering computed from resource and telescope
+       configuration data.
+    5. Scoring based on how close the conditions for the group are to the actual conditions.
+    6. Scoring based on how the wind affects the group.
+    7. A list of indices of the time slots across the nights as to when the group can be scheduled.
+    8. The score assigned to the group.
+
     A group can be split if and only if it contains more than one observation.
     """
     minimum_conditions: Conditions
     is_splittable: bool
     standards: float
-    resource_night_availability: npt.NDArray[bool]
+    night_filtering: npt.NDArray[bool]
     conditions_score: List[npt.NDArray[float]]
     wind_score: List[npt.NDArray[float]]
     schedulable_slot_indices: List[npt.NDArray[int]]
