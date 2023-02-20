@@ -9,22 +9,24 @@ from datetime import timedelta
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple, Type, final
 
 import astropy.units as u
-import numpy as np
-import numpy.typing as npt
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import sky
 from lucupy.minimodel import (Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,
                               ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget,
                               Site, SkyBackground, Target)
+import numpy as np
+import numpy.typing as npt
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.programprovider.abstract import ProgramProvider
+from scheduler.services.resource import NightConfiguration
+
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
 from scheduler.core.service.modes import ValidationMode
-from scheduler.external.resource import ResourceMock
+from scheduler.services.resource import OcsResourceService
 
 
 @final
@@ -46,6 +48,10 @@ class Collector(SchedulerComponent):
 
     # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
     _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
+
+    # OCS Resource service.
+    # TODO: This will need modification when GPP is out.
+    _ocs_resource_manager: ClassVar[OcsResourceService] = OcsResourceService()
 
     # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
     # This is a list of the programs as read in.
@@ -450,18 +456,13 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             logging.error(f'Could not parse {bad_program_count} programs.')
 
-    def available_resources(self,
-                            site: Site,
-                            night_indices: npt.NDArray[NightIndex]) -> List[FrozenSet[Resource]]:
+    def night_configurations(self,
+                             site: Site,
+                             night_indices: npt.NDArray[NightIndex]) -> List[NightConfiguration]:
         """
-        Return a set of available resources for the night under consideration.
+        Return the list of NightConfiguration for the site and nights under configuration.
         """
-        # ResourceMock works with local dates and not UTC datetimes in the time_grid, so we need to convert.
-        # This is done by truncating the time and subtracting one day.
-        # TODO: In future, if we plan to extend to more observatories, we may have to rethink this strategy.
-
-        # Get singleton for convenience.
-        rm = ResourceMock()
-        return [rm.get_resources(site,
-                                 self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY)
-                for night_idx in night_indices]
+        return [Collector._ocs_resource_manager.get_night_configuration(
+            site,
+            self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY)
+            for night_idx in night_indices]

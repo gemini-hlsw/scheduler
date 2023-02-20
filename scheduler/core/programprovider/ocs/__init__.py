@@ -24,6 +24,8 @@ from scipy.signal import find_peaks
 
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.builder.blueprint import Blueprints
+
+# This is the singleton of OcsResourceManager.
 RESOURCE = Blueprints.sources.resource
 
 
