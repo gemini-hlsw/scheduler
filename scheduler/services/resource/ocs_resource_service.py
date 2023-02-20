@@ -18,7 +18,6 @@ from definitions import ROOT_DIR
 from .filters import *
 from .google_drive_downloader import GoogleDriveDownloader
 from .night_resource_configuration import *
-from .ocs_resource_service_exceptions import *
 from scheduler.core.meta import Singleton
 from scheduler.core.resourcemanager import ResourceManager
 
@@ -279,7 +278,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
             try:
                 sheet = workbook[site.name]
             except KeyError:
-                raise SiteMissingException(__class__.__name__, site)
+                # Make the KeyError more clear.
+                raise KeyError(f'{__class__.__name__}: No tab for {site.name} in the '
+                               'telescope schedule configuration spreadsheet.')
 
             # A set consisting of the dates that are not blocked.
             dates: Set[date] = set()
