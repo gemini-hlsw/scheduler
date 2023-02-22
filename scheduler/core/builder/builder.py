@@ -2,6 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from astropy.time import Time
+from lucupy.minimodel import Site
+from typing import FrozenSet
 
 from .blueprint import CollectorBlueprint, OptimizerBlueprint
 from scheduler.core.calculations import Selection
@@ -18,8 +20,8 @@ class SchedulerBuilder:
 
     """
     @staticmethod
-    def build_collector(start: Time, end: Time, blueprint: CollectorBlueprint) -> Collector:
-        return Collector(start, end, *blueprint)
+    def build_collector(start: Time, end: Time, sites:FrozenSet[Site], blueprint: CollectorBlueprint) -> Collector:
+        return Collector(start, end, sites, *blueprint)
     
     @staticmethod
     def build_selector(collector: Collector):

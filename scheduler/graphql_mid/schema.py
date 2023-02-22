@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import asyncio
 from datetime import datetime
 from typing import List
 import strawberry # noqa
@@ -23,15 +24,19 @@ class Mutation:
         try:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                          Time(new_schedule_input.end_time, format='iso', scale='utc')
-            scheduler = build_scheduler(start, end)
+            scheduler = build_scheduler(start, end, new_schedule_input.site)
         except ValueError:
             # TODO: log this error
             return NewScheduleError(error='Invalid time format. Must be ISO8601.')
         else:
-            pm = setup_manager()
-            pm.add_task(datetime.now(), scheduler, TaskType.STANDARD)
-            # await asyncio.sleep(10) # Use if you want to wait for the scheduler to finish
-            return NewScheduleSuccess(success=True)
+            try:
+                pm = setup_manager()
+                pm.add_task(datetime.now(), scheduler, TaskType.STANDARD)
+                await asyncio.sleep(10) # Use if you want to wait for the scheduler to finish
+            except ValueError:
+                return NewScheduleError(error='Error to execute Scheduler process')
+            else:
+                return NewScheduleSuccess(success=True)
 
 
 @strawberry.type

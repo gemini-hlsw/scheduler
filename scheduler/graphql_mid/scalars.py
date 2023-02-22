@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from datetime import datetime
-from typing import List
+from typing import List, FrozenSet, Union, NewType
 
 import pytz
 import strawberry # noqa
@@ -76,6 +76,40 @@ class SPlans:
         )
 
 
+def parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
+    """Parse Sites from Sites scalar
+
+        Args:
+            sites (Union[str, List[str]]): Option can be a list of sites or a single one
+
+        Returns:
+            FrozenSet[Site]: a frozen site that contains lucupy Site enums
+                corresponding to each site.
+        """
+
+    def parse_specific_site(site: str):
+        if site == 'GS':
+            return Site.GS
+        elif site == 'GN':
+            return Site.GN
+        else:
+            raise ConfigurationError('Missing site', site)
+
+    if sites == 'ALL_SITES':
+        # In case of ALL_SITES option, return lucupy alias for the set of all Site enums
+        return ALL_SITES
+
+    if isinstance(sites, list):
+        return frozenset(map(parse_specific_site, sites))
+    else:
+        # Single site case
+        return frozenset([parse_specific_site(sites)])
+
+Sites = strawberry.scalar(NewType("Sites", FrozenSet[Site]),
+                          description="Depiction of the sites that can be load to the collector",
+                          serialize= lambda x: x,
+                          parse_value= lambda x: parse_sites(x))
+
 @strawberry.input
 class CreateNewScheduleInput:
     """
@@ -83,6 +117,7 @@ class CreateNewScheduleInput:
     """
     start_time: str
     end_time: str
+    site: Sites
 
 
 @strawberry.type
