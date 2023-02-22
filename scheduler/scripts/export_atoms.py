@@ -1,7 +1,6 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import logging
 import os
 
 import astropy.units as u
@@ -11,11 +10,13 @@ from lucupy.minimodel import ALL_SITES, ObservationClass, ProgramTypes, Semester
 from scheduler.core.components.collector import Collector
 from scheduler.core.output import atoms_to_sheet
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from scheduler.services import logger_factory
 from definitions import ROOT_DIR
 
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+logger = logger_factory.create_logger(__name__)
 
+
+if __name__ == '__main__':
     # Read in a list of JSON data
     programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 

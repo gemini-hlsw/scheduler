@@ -3,7 +3,6 @@
 
 import calendar
 import json
-import logging
 import zipfile
 from datetime import datetime, timedelta
 from more_itertools import partition
@@ -25,6 +24,10 @@ from scipy.signal import find_peaks
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.builder.blueprint import Blueprints
 
+from scheduler.services import logger_factory
+
+logger = logger_factory.create_logger(__name__)
+
 # This is the singleton of OcsResourceManager.
 RESOURCE = Blueprints.sources.resource
 
@@ -38,7 +41,7 @@ def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
         for filename in zf.namelist():
             with zf.open(filename) as f:
                 contents = f.read().decode('utf-8')
-                logging.info(f'Adding program {Path(filename).with_suffix("")}.')
+                logger.info(f'Adding program {Path(filename).with_suffix("")}.')
                 yield json.loads(contents)
 
 
@@ -662,7 +665,7 @@ class OcsProgramProvider(ProgramProvider):
                 if (observe_class.upper() == ObservationClass.SCIENCE.name and step_id > 0 and
                         (exposure_times[step_id] != exposure_times[prev] or coadds[step_id] != coadds[prev])):
                     next_atom = True
-                    # logging.info('Atom for exposure time change')
+                    # logger.info('Atom for exposure time change')
 
                 # Offsets - a new offset pattern is a new atom
                 if offset_lag != 0 or not exp_time_groups:
@@ -676,12 +679,12 @@ class OcsProgramProvider(ProgramProvider):
                                 n_offsets += 1
                         if n_offsets % 2 == 1:
                             next_atom = True
-                            # logging.info('Atom for offset pattern')
+                            # logger.info('Atom for offset pattern')
                     else:
                         n_pattern -= 1
                         if n_pattern < 0:
                             next_atom = True
-                            # logging.info('Atom for exposure time change')
+                            # logger.info('Atom for exposure time change')
                             n_pattern = offset_lag - 1
                 prev = step_id
 
@@ -940,14 +943,14 @@ class OcsProgramProvider(ProgramProvider):
         inactive_obs, active_obs = partition(lambda x: x.active, observations)
 
         for obs in inactive_obs:
-            logging.warning(f"Observation {obs.id} is inactive (skipping).")
+            logger.warning(f"Observation {obs.id} is inactive (skipping).")
 
         # Filter out all desirable Observation Classes.
         # partition returns a pair where of items where the predicate is False, and then where it is True.
         bad_obs, good_obs = partition(lambda x: x.obs_class in self._obs_classes, active_obs)
 
         for obs in bad_obs:
-            logging.warning(f'Observation {obs.id} not in a specified class (skipping): {obs.obs_class.name}.')
+            logger.warning(f'Observation {obs.id} not in a specified class (skipping): {obs.obs_class.name}.')
 
         # Put all the observations in trivial AND groups.
         trivial_groups = [
@@ -1000,7 +1003,7 @@ class OcsProgramProvider(ProgramProvider):
             semester = Semester(year=semester_year, half=semester_half)
             program_type = ProgramTypes[id_split[2]]
         except (IndexError, ValueError) as e:
-            logging.warning(f'Program ID {program_id} cannot be parsed: {e}.')
+            logger.warning(f'Program ID {program_id} cannot be parsed: {e}.')
 
         band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
         thesis = data[OcsProgramProvider._ProgramKeys.THESIS]

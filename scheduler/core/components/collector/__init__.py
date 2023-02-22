@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from inspect import isclass
-import logging
 import time
 from dataclasses import dataclass
 from datetime import timedelta
@@ -13,8 +12,8 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import sky
 from lucupy.minimodel import (Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,
-                              ObservationClass, Program, ProgramID, ProgramTypes, Resource, Semester, SiderealTarget,
-                              Site, SkyBackground, Target)
+                              ObservationClass, Program, ProgramID, ProgramTypes, Semester, SiderealTarget, Site,
+                              SkyBackground, Target)
 import numpy as np
 import numpy.typing as npt
 
@@ -26,7 +25,10 @@ from scheduler.services.resource import NightConfiguration
 
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
 from scheduler.core.service.modes import ValidationMode
+from scheduler.services import logger_factory
 from scheduler.services.resource import OcsResourceService
+
+logger = logger_factory.create_logger(__name__)
 
 
 @final
@@ -415,12 +417,12 @@ class Collector(SchedulerComponent):
 
                 # If program not in specified semester, then skip.
                 if program.semester is None or program.semester not in self.semesters:
-                    logging.warning(f'Program {program.id} not in a specified semester (skipping): {program.semester}.')
+                    logger.warning(f'Program {program.id} not in a specified semester (skipping): {program.semester}.')
                     continue
 
                 # If a program ID is repeated, warn and overwrite.
                 if program.id in Collector._programs.keys():
-                    logging.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
+                    logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
                 Collector._programs[program.id] = program
 
                 # TODO HACK: Zero out times for Bryan.
@@ -438,23 +440,23 @@ class Collector(SchedulerComponent):
                     Collector._observations[obs.id] = obs, base
 
                     if base is None:
-                        logging.warning(f'No base target found for observation {obs.id} (skipping).')
+                        logger.warning(f'No base target found for observation {obs.id} (skipping).')
                         continue
 
                     # Compute the timing window expansion for the observation and then calculate the target information.
                     tw = self._process_timing_windows(program, obs)
                     ti = self._calculate_target_info(obs, base, tw)
-                    logging.info(f'Processed observation {obs.id}.')
+                    logger.info(f'Processed observation {obs.id}.')
 
                     # Compute the TargetInfo.
                     Collector._target_info[(base.name, obs.id)] = ti
 
             except ValueError as e:
                 bad_program_count += 1
-                logging.warning(f'Could not parse program: {e}')
+                logger.warning(f'Could not parse program: {e}')
 
         if bad_program_count:
-            logging.error(f'Could not parse {bad_program_count} programs.')
+            logger.error(f'Could not parse {bad_program_count} programs.')
 
     def night_configurations(self,
                              site: Site,

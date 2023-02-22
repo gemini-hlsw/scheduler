@@ -3,14 +3,16 @@
 
 import dataclasses
 import functools
-import logging
 from itertools import count
 from multiprocessing import Process
 from typing import NoReturn
 
+from scheduler.services import logger_factory
 from .process import ProcessTask, Result
 
 job_counter = count()
+
+logger = logger_factory.create_logger(__name__)
 
 
 @dataclasses.dataclass(order=True)
@@ -55,14 +57,14 @@ class StandardRunner:
             # don't need to do anything else about them.
             # The others need a bit more of work
             if res == Result.TIMEOUT:
-                logging.warning(f"  - Task {job} timed out!")
+                logger.warning(f"  - Task {job} timed out!")
             else:
-                logging.info(f"  - Task {job} is done")
+                logger.info(f"  - Task {job} is done")
 
             try:
                 del self.jobs[self.jobs.index(job)]
             except ValueError:
-                logging.warning(f"  - Job {job} was not in the heap any longer!")
+                logger.warning(f"  - Job {job} was not in the heap any longer!")
 
             # Notify that we're ready to queue something new
             for callback in self.callbacks:
@@ -90,9 +92,9 @@ class StandardRunner:
             job = self.jobs[-1]
             job.process.terminate()
             del self.jobs[-1]
-            logging.info(f"  - Task {job} was evicted")
+            logger.info(f"  - Task {job} was evicted")
         except ValueError:
-            logging.warning(f"  - No jobs to evict!")
+            logger.warning(f"  - No jobs to evict!")
 
     def terminate(self, task: ProcessTask) -> NoReturn:
         """
@@ -103,7 +105,7 @@ class StandardRunner:
             job.process.terminate()
             del self.jobs[self.jobs.index(task)]
         except ValueError:
-            logging.warning(f"  - Task {task} was not in the heap any longer!")
+            logger.warning(f"  - Task {task} was not in the heap any longer!")
 
     def schedule(self, process: Process, timeout: int) -> bool:
         """

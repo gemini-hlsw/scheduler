@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import contextlib
-import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,6 +13,10 @@ import numpy.typing as npt
 import requests
 from lucupy.helpers import dms2rad, hms2rad
 from lucupy.minimodel import NonsiderealTarget, TargetTag, Site
+
+from scheduler.services import logger_factory
+
+logger = logger_factory.create_logger(__name__)
 
 
 @final
@@ -122,7 +125,7 @@ class EphemerisCoordinates:
         # Find indexes for each bound
         i_a, i_b = np.where(self.time == a)[0][0], np.where(self.time == b)[0][0]
         factor = (time.timestamp() - a.timestamp() / b.timestamp() - a.timestamp()) * 1000
-        logging.info(f'Interpolating by factor: {factor}')
+        logger.info(f'Interpolating by factor: {factor}')
 
         return self.coordinates[i_a].interpolate(self.coordinates[i_b], factor)
 
@@ -248,7 +251,7 @@ class HorizonsClient:
                         overwrite: bool = False) -> EphemerisCoordinates:
 
         horizons_name = self._form_horizons_name(target.tag, target.des)
-        logging.info(f'{target.des}')
+        logger.info(f'{target.des}')
 
         if target.tag is not TargetTag.MAJOR_BODY:
             file = self._get_ephemeris_file(target.des)
@@ -256,11 +259,11 @@ class HorizonsClient:
             file = self._get_ephemeris_file(horizons_name)
 
         if not overwrite and os.path.exists(file):
-            logging.info(f'Saving ephemerides file for {target.des}')
+            logger.info(f'Saving ephemerides file for {target.des}')
             with open(file, 'r') as f:
                 lines = list(map(lambda x: x.strip('\n'), f.readlines()))
         else:
-            logging.info(f'Querying JPL/Horizons for {horizons_name}')
+            logger.info(f'Querying JPL/Horizons for {horizons_name}')
             res = self.query(horizons_name)
             lines = res.text.splitlines()
             if file is not None:
@@ -289,8 +292,7 @@ class HorizonsClient:
                     coords.append(Coordinates(hms2rad(rah, ram, ras), dms2rad(decd, decm, decs, decg)))
 
         except ValueError as e:
-            logging.error(f'Error parsing ephemerides file for {target.des}')
-            logging.error(e)
+            logger.error(f'Error parsing ephemerides file for {target.des}.')
             raise e
 
         return EphemerisCoordinates(coords, np.array(time))

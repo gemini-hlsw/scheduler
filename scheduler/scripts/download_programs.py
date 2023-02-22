@@ -1,7 +1,6 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import logging
 import os
 import telnetlib
 import tempfile
@@ -12,8 +11,9 @@ from typing import Mapping, NoReturn, FrozenSet
 import requests
 from lucupy.minimodel import ProgramTypes, Site, SemesterHalf
 
-# Add level to the logger for more informative logging.
-EXTRACT = logging.WARN
+from scheduler.services import logger_factory
+
+logger = logger_factory.create_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -82,26 +82,26 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
         program_names = [name.decode('ascii') for name in tn.read_until(b'g! ').split()]
 
         # Filter based on program type.
-        # We are interested in programs of the form Gs-yyyys-T-nnn
+        # We are interested in programs of the form G[NS]-yyyy[AB]-T-###
         # where T is the program type.
         filtered_programs = []
         for program_name in program_names:
             program_info = program_name.split('-')
             if len(program_info) != 4:
-                logging.info(f'Skipping {program_name}: not a recognized program')
+                logger.info(f'Skipping {program_name}: not a recognized program')
             elif program_info[0] not in sites:
-                logging.info(f'Skipping {program_name}: {program_info[0]} is not a site of interest')
+                logger.info(f'Skipping {program_name}: {program_info[0]} is not a site of interest')
             elif program_info[1] not in semesters[Site[program_info[0]]]:
-                logging.info(f'Skipping {program_name}: site {program_info[0]}, semester {program_info[1]} '
+                logger.info(f'Skipping {program_name}: site {program_info[0]}, semester {program_info[1]} '
                              'is not a semester of interest')
             elif program_info[2] not in program_codes:
-                logging.info(f'Skipping {program_name}: {program_info[2]} is not a selected program type')
+                logger.info(f'Skipping {program_name}: {program_info[2]} is not a selected program type')
             else:
                 filtered_programs.append(program_name)
 
         # Sort for increased readability.
         filtered_programs.sort()
-        logging.log(EXTRACT, f'Found: {len(filtered_programs)} programs.')
+        logger.info(f'Found: {len(filtered_programs)} programs.')
 
         # Download all the programs we have filtered.
         cwd = os.getcwd()
@@ -113,7 +113,7 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
         downloaded_programs = []
 
         for program_name in list(filtered_programs):
-            logging.log(EXTRACT, f'Extracting {program_name}')
+            logger.info(f'Extracting {program_name}')
             output_file = f'{program_name}.json'
             params = {'id': program_name}
             r = requests.get(f'http://{server.name}:{server.read_port}/programexport', params) # noqa
@@ -122,7 +122,7 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
                     f.write(r.text)
                     downloaded_programs.append(output_file)
                 else:
-                    logging.warning(f'Could not retrieve program {program_name}, status code {r.status_code}')
+                    logger.warning(f'Could not retrieve program {program_name}, status code {r.status_code}')
 
         zip_file = os.path.join(cwd, zip_file)
         if os.path.isfile(zip_file):
@@ -140,7 +140,4 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
 
 
 if __name__ == '__main__':
-    # Uncomment to turn on the info logging.
-    # logging.basicConfig(level=logging.INFO)
-    logging.addLevelName(EXTRACT, "extract")
     download_programs()

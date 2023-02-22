@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
+import logging
 
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
@@ -12,9 +13,10 @@ from scheduler.core.builder.builder import SchedulerBuilder
 from scheduler.core.components.collector import *
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from scheduler.services import logger_factory
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logger = logger_factory.create_logger(__name__, logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
     # Read in a list of JSON data

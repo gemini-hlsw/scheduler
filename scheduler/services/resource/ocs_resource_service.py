@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import csv
-import logging
 import os
 from copy import copy
 from datetime import datetime, timedelta
@@ -15,11 +14,15 @@ from lucupy.minimodel import ALL_SITES
 from openpyxl import load_workbook
 
 from definitions import ROOT_DIR
+from scheduler.core.meta import Singleton
+from scheduler.core.resourcemanager import ResourceManager
+from scheduler.services import logger_factory
 from .filters import *
 from .google_drive_downloader import GoogleDriveDownloader
 from .night_resource_configuration import *
-from scheduler.core.meta import Singleton
-from scheduler.core.resourcemanager import ResourceManager
+
+
+logger = logger_factory.create_logger(__name__)
 
 
 @final
@@ -262,13 +265,13 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
 
         filename = os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE)
 
-        logging.info('Retrieving site configuration file from Google Drive...')
+        logger.info('Retrieving site configuration file from Google Drive...')
         try:
             GoogleDriveDownloader.download_file_from_google_drive(file_id=OcsResourceService._SITE_CONFIG_GOOGLE_ID,
                                                                   overwrite=True,
                                                                   dest_path=filename)
         except requests.RequestException:
-            logging.warning('Could not retrieve site configuration file from Google Drive.')
+            logger.warning('Could not retrieve site configuration file from Google Drive.')
 
         if not os.path.exists(filename):
             raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: {filename}')
@@ -390,7 +393,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 # Get the LGS status of the row. The default, if no LGS is specified, is False.
                 lgs = str_to_bool(row[3].value)
                 if not row[3].value:
-                    logging.warning(f'{msg} has no LGS entry. Using default value of No.')
+                    logger.warning(f'{msg} has no LGS entry. Using default value of No.')
                     self._lgs[site][row_date] = False
                 else:
                     self._lgs[site][row_date] = lgs
@@ -398,7 +401,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 # Get the ToO status for the night..
                 too = str_to_bool(row[4].value)
                 if not row[4].value:
-                    logging.warning(f'{msg} has no ToO entry. Using default value of Yes.')
+                    logger.warning(f'{msg} has no ToO entry. Using default value of Yes.')
                     self._too[site][row_date] = True
                 else:
                     self._too[site][row_date] = too
@@ -422,7 +425,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     if instrument_status == OcsResourceService._SCIENCE:
                         resources.add(self.lookup_resource(name))
                     elif not instrument_status:
-                        logging.warning(f'{msg} contains no instrument status. Using default of Not Available.')
+                        logger.warning(f'{msg} contains no instrument status. Using default of Not Available.')
                     elif instrument_status not in [OcsResourceService._NOT_AVAILABLE,
                                                    OcsResourceService._ENGINEERING,
                                                    OcsResourceService._CALIBRATION]:
@@ -439,7 +442,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     if wfs_status == OcsResourceService._SCIENCE:
                         resources.add(self.lookup_resource(name))
                     elif not wfs_status or wfs_status:
-                        logging.warning(f'{msg} for WFS {name} contains no status. Using default of Not Available.')
+                        logger.warning(f'{msg} for WFS {name} contains no status. Using default of Not Available.')
                     elif wfs_status not in [OcsResourceService._NOT_AVAILABLE, OcsResourceService._ENGINEERING]:
                         raise ValueError(f'{msg} for WFS {name} contains illegal status: {wfs_status}.')
 
