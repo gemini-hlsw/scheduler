@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from copy import deepcopy
-import logging
 from dataclasses import dataclass, field
 from typing import ClassVar, Dict, FrozenSet, List, Optional
 
@@ -18,8 +17,11 @@ from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.ranker import DefaultRanker, Ranker
 from scheduler.core.builder.blueprint import Blueprints
+from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 ENV = Blueprints.sources.environment
+
+logger = logger_factory.create_logger(__name__)
 
 # Aliases to pass around resource availability information for sites and night indices.
 NightConfigurations = Dict[NightIndex, NightConfiguration]
@@ -120,7 +122,7 @@ class Selector(SchedulerComponent):
         for program_id in Collector.get_program_ids():
             program = Collector.get_program(program_id)
             if program is None:
-                logging.error(f'Program {program_id} was not found in the Collector.')
+                logger.error(f'Program {program_id} was not found in the Collector.')
                 continue
 
             # TODO: We have to check across nights.
@@ -177,7 +179,7 @@ class Selector(SchedulerComponent):
         Check to see if the group_id has group_info associated with it, and if so, return it.
         Else return None.
         """
-        logging.warning('Selector.get_group_info should NOT be used in production code.')
+        logger.warning('Selector.get_group_info should NOT be used in production code.')
         return self._group_info_map[unique_group_id]
 
     def _calculate_group(self,
@@ -227,7 +229,7 @@ class Selector(SchedulerComponent):
         if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED}:
             return group_data_map
         if obs.site not in sites:
-            logging.warning(f'Selector skipping observation {obs.id} as not in a designated site.')
+            logger.warning(f'Selector skipping observation {obs.id} as not in a designated site.')
             return group_data_map
 
         # We ignore the Observation if:
