@@ -8,20 +8,21 @@ from scheduler.graphql_mid.server import  schema
 async def test_newschedule_mutation():
 
     mutation = """
-        mutation new_schedule {
+       mutation new_schedule {
             newSchedule(
                 newScheduleInput: {startTime: "2018-10-01 08:00:00",
-                                   endTime: "2018-10-03 08:00:00"}
+      						      endTime: "2018-10-03 08:00:00",
+    				              site: ["GS", "GN"]}
             ) {
-                __typename
-                ... on NewScheduleSuccess {
-                    success
-                }
-                ... on NewScheduleError {
-                    error
-                }
-            }
-        }
+             __typename
+    ... on NewScheduleSuccess {
+      success
+    }
+    ... on NewScheduleError {
+      error
+    }
+  }
+}
     """
 
 
