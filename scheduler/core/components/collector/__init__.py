@@ -42,8 +42,8 @@ class Collector(SchedulerComponent):
     """
     start_time: Time
     end_time: Time
-    time_slot_length: TimeDelta
     sites: FrozenSet[Site]
+    time_slot_length: TimeDelta
     semesters: FrozenSet[Semester]
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
