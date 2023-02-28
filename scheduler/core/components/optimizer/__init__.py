@@ -5,6 +5,7 @@ from typing import List
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.plans import Plans
+# from .greedymax import GreedyMaxOptimizer
 
 
 class Optimizer:
