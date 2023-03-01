@@ -53,6 +53,7 @@ class CollectorBlueprint(Blueprint):
                  semesters: List[str],
                  obs_class: List[str],
                  prg_type: List[str],
+                 sites: List[str],
                  time_slot_length: float) -> None:
         self.semesters: FrozenSet[Semester] = frozenset(map(CollectorBlueprint._parse_semesters, semesters))
         self.obs_classes: FrozenSet[ObservationClass] = frozenset(
@@ -61,6 +62,10 @@ class CollectorBlueprint(Blueprint):
         self.program_types: FrozenSet[ProgramTypes] = frozenset(
             map(lambda x: parse_configuration(ProgramTypes, x), prg_type)
         )
+<<<<<<< HEAD
+=======
+        self.sites: FrozenSet[Site] = CollectorBlueprint._parse_sites(sites)
+>>>>>>> 5114fbb (GreedyMax rebase, make build_collector and CollectorBlueprint consistent)
         self.time_slot_length: TimeDelta = TimeDelta(time_slot_length * u.min)
 
     @staticmethod
@@ -139,6 +144,7 @@ class Blueprints:
     collector: CollectorBlueprint = CollectorBlueprint(config.collector.semesters,
                                                        config.collector.observation_classes,
                                                        config.collector.program_types,
+                                                       config.collector.sites,
                                                        config.collector.time_slot_length)
     optimizer: OptimizerBlueprint = OptimizerBlueprint(config.optimizer.name)
 

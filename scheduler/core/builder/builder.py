@@ -19,9 +19,20 @@ class SchedulerBuilder:
     """Allows building different components individually and the general scheduler itself.
     """
     @staticmethod
+<<<<<<< HEAD
     def build_collector(start: Time, end: Time, sites: FrozenSet[Site], blueprint: CollectorBlueprint) -> Collector:
         return Collector(start, end, sites, *blueprint)
     
+=======
+    # def build_collector(start: Time, end: Time, sites:FrozenSet[Site], blueprint: CollectorBlueprint) -> Collector:
+    #     return Collector(start, end, sites, *blueprint)
+    # *blueprint doesn't include the sites for some reason. Send each variable explicitly to include sites
+    # and ensure the correct order since they are positional variables.
+    def build_collector(start: Time, end: Time, blueprint: CollectorBlueprint) -> Collector:
+        return Collector(start, end, blueprint.sites, blueprint.time_slot_length, blueprint.semesters,
+                         blueprint.program_types, blueprint.obs_classes)
+
+>>>>>>> 5114fbb (GreedyMax rebase, make build_collector and CollectorBlueprint consistent)
     @staticmethod
     def build_selector(collector: Collector):
         return Selector(collector=collector)
