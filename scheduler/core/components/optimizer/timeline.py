@@ -6,7 +6,7 @@ from typing import List, NoReturn, Mapping, Optional, Sized, Tuple
 from datetime import datetime, timedelta
 
 from lucupy.minimodel import Observation, ObservationID, Site
-from app.core.calculations.nightevents import NightEvents
+from scheduler.core.calculations.nightevents import NightEvents
 
 import numpy as np
 
