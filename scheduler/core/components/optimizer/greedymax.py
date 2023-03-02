@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Mapping
+# from typing import Mapping
 
-from lucupy.minimodel.program import ProgramID
+# from lucupy.minimodel.program import ProgramID
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.calculations import GroupData, ProgramInfo

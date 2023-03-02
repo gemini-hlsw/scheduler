@@ -13,6 +13,7 @@ from lucupy.minimodel.site import Site, ALL_SITES
 
 from scheduler.config import config, ConfigurationError
 from scheduler.core.components.optimizer.dummy import DummyOptimizer
+from scheduler.core.components.optimizer.greedymax import GreedyMaxOptimizer
 from scheduler.services.resource import OcsResourceService
 from scheduler.services.environment import Env
 
@@ -115,6 +116,8 @@ class OptimizerBlueprint(Blueprint):
         # TODO: When GMax is ready we can expand
         if algorithm_name.upper() == 'DUMMY':
             return DummyOptimizer()
+        elif algorithm_name.upper() == 'GREEDYMAX':
+            return GreedyMaxOptimizer()
         else:
             raise ConfigurationError('Optimizer', config.optimizer.name)
 
