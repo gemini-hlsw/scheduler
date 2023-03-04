@@ -17,10 +17,9 @@ from scheduler.config import config
 @dispatch_with(config.mode)
 class SchedulerBuilder:
     """Allows building different components individually and the general scheduler itself.
-
     """
     @staticmethod
-    def build_collector(start: Time, end: Time, sites:FrozenSet[Site], blueprint: CollectorBlueprint) -> Collector:
+    def build_collector(start: Time, end: Time, sites: FrozenSet[Site], blueprint: CollectorBlueprint) -> Collector:
         return Collector(start, end, sites, *blueprint)
     
     @staticmethod

@@ -19,6 +19,9 @@ if __name__ == '__main__':
     logger = logger_factory.create_logger(__name__, logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
+    # Configure and build the components.
+    builder = SchedulerBuilder()
+
     # Read in a list of JSON data
     programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
@@ -26,13 +29,13 @@ if __name__ == '__main__':
         ['2018B'],
         ['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
         ['Q', 'LP', 'FT', 'DD'],
-        ['GN', 'GS'],
         1.0
     )
 
     collector = SchedulerBuilder.build_collector(
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+        sites=frozenset([Site.GN, Site.GS]),
         blueprint=collector_blueprint
     )
     # Create the Collector and load the programs.

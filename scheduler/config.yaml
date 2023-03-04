@@ -2,7 +2,7 @@ mode: VALIDATION # Modes: Validation, Simulation, Operation
 
 sources:
   environment: MOCK
-  resource: MOCK
+  resource: OCS
 
 process_manager: 
   size: 5 # Only valid for Simulation and Validation 
@@ -12,7 +12,6 @@ collector:
   semesters: [2018B]
   observation_classes: [SCIENCE, PROGCAL, PARTNERCAL]
   program_types: [Q, LP, FT, DD]
-  sites: ALL_SITES # Sites: GS, GN, ALL_SITES
   time_slot_length: 1.0 # on minutes
 
 optimizer:
