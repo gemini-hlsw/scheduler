@@ -4,6 +4,7 @@
 import os
 import logging
 
+from lucupy.minimodel.site import ALL_SITES
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
@@ -35,7 +36,7 @@ if __name__ == '__main__':
     collector = SchedulerBuilder.build_collector(
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
-        sites=frozenset([Site.GN, Site.GS]),
+        sites=ALL_SITES,
         blueprint=collector_blueprint
     )
     # Create the Collector and load the programs.
