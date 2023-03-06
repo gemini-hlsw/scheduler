@@ -5,9 +5,10 @@ from datetime import datetime
 from typing import List, FrozenSet, Union, NewType
 
 import pytz
-import strawberry # noqa
-from lucupy.minimodel import ObservationID, Site
+import strawberry  # noqa
+from lucupy.minimodel import ObservationID, Site, ALL_SITES
 
+from scheduler.config import ConfigurationError
 from scheduler.core.plans import Plan, Plans, Visit
 
 
@@ -88,11 +89,9 @@ def parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
         """
 
     def parse_specific_site(site: str):
-        if site == 'GS':
-            return Site.GS
-        elif site == 'GN':
-            return Site.GN
-        else:
+        try:
+            return Site[site]
+        except KeyError:
             raise ConfigurationError('Missing site', site)
 
     if sites == 'ALL_SITES':
@@ -105,10 +104,12 @@ def parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
         # Single site case
         return frozenset([parse_specific_site(sites)])
 
+
 Sites = strawberry.scalar(NewType("Sites", FrozenSet[Site]),
                           description="Depiction of the sites that can be load to the collector",
-                          serialize= lambda x: x,
-                          parse_value= lambda x: parse_sites(x))
+                          serialize=lambda x: x,
+                          parse_value=lambda x: parse_sites(x))
+
 
 @strawberry.input
 class CreateNewScheduleInput:
@@ -136,4 +137,4 @@ class NewScheduleError:
     error: str
 
 
-NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError)) # noqa
+NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError))  # noqa

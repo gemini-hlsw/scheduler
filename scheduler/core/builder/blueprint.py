@@ -44,7 +44,7 @@ class Blueprint:
     pass
 
 
-class  CollectorBlueprint(Blueprint):
+class CollectorBlueprint(Blueprint):
     """Blueprint for the Collector.
     This is based on the configuration in config.yml.
     """
@@ -61,7 +61,6 @@ class  CollectorBlueprint(Blueprint):
         self.program_types: FrozenSet[ProgramTypes] = frozenset(
             map(lambda x: parse_configuration(ProgramTypes, x), prg_type)
         )
-        # self.sites: FrozenSet[Site] = CollectorBlueprint._parse_sites(sites)
         self.time_slot_length: TimeDelta = TimeDelta(time_slot_length * u.min)
 
     @staticmethod
@@ -89,36 +88,6 @@ class  CollectorBlueprint(Blueprint):
             return Semester(int(year), e_half)
         except ValueError:
             raise ConfigurationError('Semester year', year)
-
-    @staticmethod
-    def _parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
-        """Parse Sites in config.yml
-
-        Args:
-            sites (Union[str, List[str]]): Option can be a list of sites or a single one
-
-        Returns:
-            FrozenSet[Site]: a frozen site that contains lucupy Site enums 
-                corresponding to each site.
-        """
-
-        def parse_specific_site(site: str):
-            if site == 'GS':
-                return Site.GS
-            elif site == 'GN':
-                return Site.GN
-            else:
-                raise ConfigurationError('Missing site', site)
-
-        if sites == 'ALL_SITES':
-            # In case of ALL_SITES option, return lucupy alias for the set of all Site enums
-            return ALL_SITES
-
-        if isinstance(sites, list):
-            return frozenset(map(parse_specific_site, sites))
-        else:
-            # Single site case
-            return frozenset([parse_specific_site(sites)])
 
     def __iter__(self):
         return iter((self.time_slot_length,
@@ -150,14 +119,15 @@ class OptimizerBlueprint(Blueprint):
 
 class SourcesBlueprint(Blueprint):
     class ResourceSources(Enum):
-        MOCK = OcsResourceService()
-        # TODO: As in full fledge service? I'm not sure about this name 
+        OCS = OcsResourceService()
+        # TODO: As in full-fledged service? I'm not sure about this name
         # so suggestions are welcome. 
         FULL = None
 
     class EnvSources(Enum):
         MOCK = Env()
-        # TODO: This need to be hookup to the real service.
+        # TODO: Still need to add the actual OCS Env service implementation here and get rid of MOCK.
+        # TODO: This needs to be hooked up to the real service.
         FULL = None
 
     def __init__(self, resource_source: str, env_source: str):
