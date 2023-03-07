@@ -1,5 +1,5 @@
 astropy
-hypothesis==6.68.*
+hypothesis==6.29.*
 matplotlib
 more-itertools
 numpy>1.21.*
