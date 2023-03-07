@@ -4,7 +4,7 @@
 import os
 import logging
 
-from lucupy.minimodel import *
+from lucupy.minimodel.site import ALL_SITES
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
@@ -34,13 +34,13 @@ if __name__ == '__main__':
         ['2018B'],
         ['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
         ['Q', 'LP', 'FT', 'DD'],
-        ['GN', 'GS'],
         1.0
     )
 
     collector = SchedulerBuilder.build_collector(
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+        site = ALL_SITES,
         blueprint=collector_blueprint
     )
 
