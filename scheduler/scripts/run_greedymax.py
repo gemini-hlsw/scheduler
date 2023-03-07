@@ -40,7 +40,7 @@ if __name__ == '__main__':
     collector = SchedulerBuilder.build_collector(
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
-        site = ALL_SITES,
+        sites = ALL_SITES,
         blueprint=collector_blueprint
     )
 
