@@ -98,7 +98,7 @@ class ProgramPermissionFilter(AbstractFilter):
 
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
-        return lambda p: p in self.program_ids
+        return lambda p: p.id in self.program_ids
 
 
 @final
@@ -201,8 +201,8 @@ class CompositeFilter(AbstractFilter):
     * Special: Contains both positive and negative filters, and returns the result of executing
         all filters on program or groups, both with respect to inclusion and priority.
     """
-    positive_filters: FrozenSet[AbstractFilter]
-    negative_filters: FrozenSet[AbstractFilter]
+    positive_filters: FrozenSet[AbstractFilter] = frozenset()
+    negative_filters: FrozenSet[AbstractFilter] = frozenset()
 
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
