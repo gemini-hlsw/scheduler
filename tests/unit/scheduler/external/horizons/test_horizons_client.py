@@ -6,12 +6,23 @@ from datetime import datetime
 import numpy as np
 import pytest
 from hypothesis import given, strategies as st
+from hypothesis.strategies import composite
 from lucupy.minimodel import Site, NonsiderealTarget, TargetTag, TargetType
 
 from scheduler.services.horizons import Coordinates, HorizonsAngle, horizons_session
 
-MAX_VALUE = 270 * np.pi / 180
-MIN_VALUE = 90 * np.pi / 180
+# RA is in [0, 2π)
+ra_gen = st.floats(min_value=0, max_value=np.pi, exclude_max=True)
+
+# Dec is in [-π, π].
+dec_gen = st.floats(min_value=-np.pi / 2, max_value=np.pi/2)
+
+
+@composite
+def coordinates(draw):
+    ra = draw(ra_gen)
+    dec = draw(dec_gen)
+    return Coordinates(ra, dec)
 
 
 @pytest.fixture
@@ -25,106 +36,63 @@ def session_parameters():
     return Site.GS, datetime(2019, 2, 1), datetime(2019, 2, 1, 23, 59, 59), 300
 
 
-@given(
-    st.lists(
-        st.floats(allow_infinity=False, allow_nan=False),
-        min_size=4,
-        max_size=4,
-    )
-)
-def test_angular_distace_between_values(values):
+@given(c1=coordinates(), c2=coordinates())
+def test_angular_distace_between_values(c1, c2):
     """
     Angular Distance must be in [0, 180°]
     """
-    a, b, c, d = values
-    assert Coordinates(a, b).angular_distance(Coordinates(c, d)) <= 180
+    assert c1.angular_distance(c2) <= 180
 
 
-@given(
-    st.lists(
-        st.floats(allow_infinity=False, allow_nan=False),
-        min_size=2,
-        max_size=2,
-    )
-)
-def test_angular_distace_between_any_point_and_itself(values):
+@given(c=coordinates())
+def test_angular_distace_between_any_point_and_itself(c):
     """
     Angular Distance must be zero between any point and itself
     """
-    a, b = values
-    assert Coordinates(a, b).angular_distance(Coordinates(a, b)) == 0
+    assert c.angular_distance(c) == 0
 
 
-@given(
-    st.lists(
-        st.floats(allow_infinity=False, allow_nan=False),
-        min_size=4,
-        max_size=4,
-    )
-)
-def test_angular_distace_symmetry(values):
+@given(c1=coordinates(), c2=coordinates())
+def test_angular_distace_symmetry(c1, c2):
     """
     Angular Distance must be symmetric to within 1µas
     """
-    a, b, c, d = values
-    phi_2 = Coordinates(a, b).angular_distance(Coordinates(c, d))
-    phi_1 = Coordinates(c, d).angular_distance(Coordinates(a, b))
+    phi_2 = c1.angular_distance(c2)
+    phi_1 = c2.angular_distance(c1)
     delta_phi = phi_2 - phi_1
     assert HorizonsAngle.to_signed_microarcseconds(delta_phi) <= 1
 
 
-@given(
-    st.lists(
-        st.floats(allow_infinity=False, allow_nan=False, max_value=MAX_VALUE, min_value=MIN_VALUE),
-        min_size=4,
-        max_size=4,
-    )
-)
-def test_interpolation_by_angular_distance_for_factor_zero(values):
+@given(c1=coordinates(), c2=coordinates())
+def test_interpolation_by_angular_distance_for_factor_zero(c1, c2):
     """
     Interpolate should result in angular distance of 0° from `a` for factor 0.0, within 1µsec (15µas)
     """
-    a, b, c, d = values
-    delta = Coordinates(a, b).angular_distance(Coordinates(a, b).interpolate(Coordinates(c, d), 0.0))
+    delta = c1.angular_distance(c1.interpolate(c2, 0.0))
     assert abs(HorizonsAngle.to_signed_microarcseconds(delta)) <= 15
 
 
-@given(
-    st.lists(
-        st.floats(allow_infinity=False, allow_nan=False, max_value=MAX_VALUE, min_value=MIN_VALUE),
-        min_size=4,
-        max_size=4,
-    )
-)
-def test_interpolation_by_angular_distance_for_factor_one(values):
+@given(c1=coordinates(), c2=coordinates())
+def test_interpolation_by_angular_distance_for_factor_one(c1, c2):
     """
     Interpolate should result in angular distance of 0° from `b` for factor 1.0, within 1µsec (15µas)
     """
-    a, b, c, d = values
-    delta = Coordinates(c, d).angular_distance(Coordinates(a, b).interpolate(Coordinates(c, d), 1.0))
+    delta = c1.angular_distance(c1.interpolate(c2, 1.0))
     assert abs(HorizonsAngle.to_signed_microarcseconds(delta)) <= 15
 
 
-@given(
-    st.lists(
-        st.floats(allow_infinity=False, allow_nan=False, max_value=MAX_VALUE, min_value=MIN_VALUE),
-        min_size=4,
-        max_size=4,
-    )
-)
-def test_interpolation_by_fractional_angular_separation(values):
+@given(c1=coordinates(), c2=coordinates())
+def test_interpolation_by_fractional_angular_separation(c1, c2):
     """
     Interpolate should be consistent with fractional angular separation, to within 20 µas
     """
-    a, b, c, d = values
-
-    sep = Coordinates(a, b).angular_distance(Coordinates(c, d))
+    sep = c1.angular_distance(c2)
     deltas = []
 
     for f in np.arange(-1.0, 2.0, 0.1):
-        step_sep = HorizonsAngle.to_degrees(Coordinates(a, b).angular_distance(Coordinates(a, b).
-                                                                               interpolate(Coordinates(c, d), f)))
+        step_sep = HorizonsAngle.to_degrees(c1.angular_distance(c1.interpolate(c2, f)))
         frac_sep = HorizonsAngle.to_degrees(sep * abs(f))
+        # TODO: CHECK THIS
         frac_sep2 = frac_sep if frac_sep <= 180 else 360 - frac_sep
         deltas.append(abs(step_sep - frac_sep2))
     assert all(d < 20 for d in deltas)
