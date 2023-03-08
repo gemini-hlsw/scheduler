@@ -45,7 +45,7 @@ class Plan:
         self.visits.append(visit)
         self._time_slots_left -= time_slots
 
-    def has(self, obs: Observation) -> bool:
+    def __contains__(self, obs: Observation) -> bool:
         return any(visit.obs_id == obs.id for visit in self.visits)
 
     def time_left(self) -> int:
