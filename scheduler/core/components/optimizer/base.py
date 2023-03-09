@@ -9,6 +9,7 @@ from lucupy.minimodel.program import ProgramID
 from scheduler.core.calculations.groupinfo import GroupData
 from scheduler.core.calculations.programinfo import ProgramInfo
 from scheduler.core.plans import Plans
+#from scheduler.core.calculations.selection import Selection
 
 
 class BaseOptimizer(ABC):
@@ -32,6 +33,7 @@ class BaseOptimizer(ABC):
         ...
 
     @abstractmethod
+    # def setup(self, selection: Selection):
     def setup(self, program_info: Mapping[ProgramID, ProgramInfo]):
         ...
 

@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Mapping
+# from typing import Mapping
 
-from lucupy.minimodel.program import ProgramID
+# from lucupy.minimodel.program import ProgramID
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.calculations import GroupData, ProgramInfo
 from scheduler.core.plans import Plan, Plans
+from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
 
 import numpy as np
@@ -19,11 +20,13 @@ import astropy.units as u
 
 class GreedyMaxOptimizer(BaseOptimizer):
     """
-    GreedyMax is an optimizer that schedules the visits in a greedy fashion.
+    GreedyMax is an optimizer that schedules the visits for the rest of the night in a greedy fashion.
     """
 
     def __init__(self, seed=42):
         self.groups = []
+        self.groupids = []
+        self.timelines = []
 
     @staticmethod
     def _allocate_time(plan: Plan, obs_time: timedelta) -> datetime:
@@ -42,10 +45,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         Preparation for the optimizer e.g. create chromosomes, etc.
         """
-        self.groups = []
+        self.groups = list(selection.schedulable_groups.values())
+        self.groupids = list(selection.schedulable_groups)
         # self.scores = []
-        for gid, group_data in selection.schedulable_groups.items():
-            self.groups.append(group_data)
+        # for gid, group_data in selection.schedulable_groups.items():
+        #     self.groups.append(group_data)
+        period = len(list(selection.night_events.values())[0].time_grid)
+        print('Period: ', period)
+        self.timelines = [Timelines(selection.night_events, night) for night in range(period)]
 
         return self
 
@@ -99,6 +106,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # Finished, nothing more to schedule
                     for plan in plans:
                         plan.is_full = True
+                    break
                 ii += 1
             if not added and ii == len(jj):
                 # Nothing remaining can be scheduled

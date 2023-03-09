@@ -21,7 +21,7 @@ class SchedulerBuilder:
     @staticmethod
     def build_collector(start: Time, end: Time, sites: FrozenSet[Site], blueprint: CollectorBlueprint) -> Collector:
         return Collector(start, end, sites, *blueprint)
-    
+
     @staticmethod
     def build_selector(collector: Collector):
         return Selector(collector=collector)
