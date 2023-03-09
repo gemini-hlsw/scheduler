@@ -14,7 +14,7 @@ import numpy as np
 @dataclass
 class Timeline:
     """
-    Nightly plan for a specific Site for the GreedyMax optimizer. Each plan is a timeline array with one
+    Nightly plan for a specific Site for the GreedyMax optimizer. Each plan is a time_slots array with one
     entry for each time slot for the night. Each value needs to be a pointer or index to the observation
     scheduled in that slot.
     """
@@ -25,7 +25,7 @@ class Timeline:
     _total_time_slots: int
 
     def __post_init__(self):
-        self.schedule = np.full(self._total_time_slots, EMPTY)
+        self.time_slots = np.full(self._total_time_slots, EMPTY)
         self.is_full = False
 
     def __contains__(self, obs: Observation) -> bool:

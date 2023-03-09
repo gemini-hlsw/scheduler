@@ -160,6 +160,10 @@ if __name__ == '__main__':
         blueprint=optimizer_blueprint
     )
 
+    plans = optimizer.schedule()
+    print_plans(plans)
+    print('')
+
     # Timeline tests
     for tl in optimizer_blueprint.algorithm.timelines:
         print(f'Night {tl.night}')
@@ -167,9 +171,6 @@ if __name__ == '__main__':
         for site in optimizer.night_events.keys():
             print(f'\t {site}')
             print(f'\t {tl.timelines[site].start} {tl.timelines[site].end} {tl.timelines[site]._total_time_slots} \
-            {tl.timelines[site].is_full} {tl.timelines[site].schedule[0]}')
-
-    plans = optimizer.schedule()
-    print_plans(plans)
+            {tl.timelines[site].is_full} {tl.timelines[site].time_slots[0]}')
 
     print('DONE')
