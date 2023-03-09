@@ -28,7 +28,7 @@ class Timeline:
         self.schedule = np.full(self._total_time_slots, EMPTY)
         self.is_full = False
 
-    def has(self, obs: Observation) -> bool:
+    def __contains__(self, obs: Observation) -> bool:
         return any(visit.obs_id == obs.id for visit in self.visits)
 
 

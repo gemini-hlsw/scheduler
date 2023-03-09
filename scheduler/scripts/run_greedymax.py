@@ -16,11 +16,6 @@ from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.services import logger_factory
 
-# from app.core.components.optimizer import Optimizer
-# from app.core.components.optimizer.dummy import DummyOptimizer
-# from scheduler.core.components.optimizer.greedymax import GreedyMaxOptimizer
-# from app.core.components.selector import Selector
-# from app.db.planmanager import PlanManager
 
 if __name__ == '__main__':
     logger = logger_factory.create_logger(__name__, logging.INFO)
@@ -43,6 +38,9 @@ if __name__ == '__main__':
         sites = ALL_SITES,
         blueprint=collector_blueprint
     )
+    # Create the Collector and load the programs.
+    collector.load_programs(program_provider_class=OcsProgramProvider,
+                            data=programs)
 
     # Output the state of and information calculated by the Collector.
     print_collector_info(collector, samples=60)
@@ -170,11 +168,7 @@ if __name__ == '__main__':
             print(f'\t {tl.timelines[site].start} {tl.timelines[site].end} {tl.timelines[site]._total_time_slots} \
             {tl.timelines[site].is_full} {tl.timelines[site].schedule[0]}')
 
-    # plans = optimizer.schedule()
-    # PlanManager.set_plans(plans)
-    # print_plans(plans)
-    #
-    # print('\nPlanManager contents:')
-    # print(PlanManager.get_plans())
+    plans = optimizer.schedule()
+    print_plans(plans)
 
     print('DONE')
