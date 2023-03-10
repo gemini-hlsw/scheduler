@@ -64,8 +64,8 @@ class Coordinates:
 
     def angular_distance(self, other: 'Coordinates') -> float:
         """
-        Calculate the angular distance between two points on the sky.
-        based on
+        Calculate the angular distance between two points on the sky in radians.
+        Code is based on
         https://github.com/gemini-hlsw/lucuma-core/blob/master/modules/core/shared/src/main/scala/lucuma/core/math/Coordinates.scala#L52
         """
         phi_1 = self.dec
@@ -74,10 +74,10 @@ class Coordinates:
         delta_lambda = other.ra - self.ra
         a = np.around(np.sin(delta_phi / 2) ** 2, decimals=10) + np.around(np.cos(phi_1) * np.cos(phi_2) *
                                                                            np.sin(delta_lambda / 2) ** 2, decimals=10)
-        if 0 <= a <= 1:
-            return 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
-        else:
-            return 0.0  # TODO: Temporary bypass for negative values in sqrt
+        #if 0 <= a <= 1:
+        return 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+        #else:
+        # return 0.0  # TODO: Temporary bypass for negative values in sqrt
 
     def interpolate(self, other: 'Coordinates', f: float) -> 'Coordinates':
         """
