@@ -109,6 +109,9 @@ Sites = strawberry.scalar(NewType("Sites", FrozenSet[Site]),
                           description="Depiction of the sites that can be load to the collector",
                           serialize=lambda x: x,
                           parse_value=lambda x: parse_sites(x))
+@strawberry.type
+class NewNightPlans:
+    night_plans: List[SPlans]
 
 
 @strawberry.input

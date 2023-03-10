@@ -19,12 +19,12 @@ class Service:
         self.start_time = start_time
         self.end_time = end_time
         self.sites = sites
- 
+
     def __call__(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         builder = SchedulerBuilder()  # To trigger the decorator
         programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
-        
+
         # Retrieve observations from Collector
         collector = builder.build_collector(self.start_time, self.end_time, self.sites, Blueprints.collector)
         collector.load_programs(program_provider_class=OcsProgramProvider,
@@ -39,6 +39,7 @@ class Service:
 
         # Save to database
         PlanManager.set_plans(plans)
+        return plans
 
 
 def build_scheduler(start: Time = Time("2018-10-01 08:00:00", format='iso', scale='utc'),

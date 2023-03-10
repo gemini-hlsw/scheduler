@@ -4,7 +4,8 @@
 import shelve
 from contextlib import contextmanager
 from fcntl import flock, LOCK_SH, LOCK_EX, LOCK_UN
-from typing import List, NoReturn
+from typing import List, NoReturn, Optional, FrozenSet
+from lucupy.minimodel import Site
 
 from scheduler.graphql_mid.scalars import SPlans
 
@@ -23,21 +24,42 @@ class DBManager:
     def __init__(self, db_path):
         self.db_path = db_path
 
-    def read(self) -> List[SPlans]:
+
+    def read(self, start_date: Optional[str]=None,
+             end_date: Optional[str]=None,
+             site: Optional[FrozenSet[Site]]=None) -> List[SPlans]:
         with locking(f'{self.db_path}.lock', LOCK_SH):
             with shelve.open(self.db_path) as db:
-                if 'plans' not in db:
-                    db['plans'] = []
-                return db['plans']
-
-    def write(self, plans: List[SPlans]) -> NoReturn:
+                if start_date and end_date and site:
+                    plans_by_site = db[start_date+end_date]
+                    if Site.GS in site and Site.GN in site:
+                        return plans_by_site['both']
+                    elif Site.GN in site:
+                        return plans_by_site['GN']
+                    elif Site.GS in site:
+                        return plans_by_site['GS']
+                else:
+                    return db['plans']
+    def write(self,
+              plans: List[SPlans],
+              start_date: Optional[str]=None,
+              end_date: Optional[str]=None,
+              site: Optional[FrozenSet[Site]]=None) -> NoReturn:
         with locking(f'{self.db_path}.lock', LOCK_EX):
             with shelve.open(self.db_path) as db:
-                db['plans'] = plans
+                if start_date and end_date and site:
+                    if Site.GS in site and Site.GN in site:
+                        db[start_date+end_date]= {'both': plans}
+                    elif Site.GN in site:
+                        db[start_date+end_date]= {'GN': plans}
+                    elif Site.GS in site:
+                        db[start_date+end_date]= {'GS': plans}
+                else:
+                    db['plans'] = plans
 
     '''
-    
-   
+
+
     def cas(self, old_db: Dict, new_db):
         with locking(f'{self.db_path}.lock', LOCK_EX):
             with shelve.open(self.db_path) as db:
