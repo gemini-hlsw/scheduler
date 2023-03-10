@@ -25,7 +25,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
     def __init__(self, seed=42):
         self.groups = []
-        self.groupids = []
+        self.group_ids = []
+        self.obs_groups = []
+        self.obs_group_ids = []
         self.timelines = []
 
     @staticmethod
@@ -46,7 +48,16 @@ class GreedyMaxOptimizer(BaseOptimizer):
         Preparation for the optimizer e.g. create chromosomes, etc.
         """
         self.groups = list(selection.schedulable_groups.values())
-        self.groupids = list(selection.schedulable_groups)
+        self.group_ids = list(selection.schedulable_groups)
+        for gid, group_data in selection.schedulable_groups.items():
+            if group_data.group.is_observation_group():
+                self.obs_group_ids.append(group_data.group.unique_id())
+                self.obs_groups.append(group_data.group)
+            elif group_data.group.is_scheduling_group():
+                for subgroup in group_data.group.children:
+                    if subgroup.is_observation_group():
+                        self.obs_group_ids.append(subgroup.unique_id())
+                        self.obs_groups.append(subgroup)
         # self.scores = []
         # for gid, group_data in selection.schedulable_groups.items():
         #     self.groups.append(group_data)
@@ -85,6 +96,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             ii = 0
             added = False
             # Find the group with the maximum score that will fit in the remaining time
+            # This will tend to avoid observation splitting, may want to limit to the band of the top-ranking group
             while not added and ii < len(jj):
                 max_score = maxscores[jj[ii]]
                 max_group = groups[jj[ii]]
@@ -118,7 +130,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
     def add(self, group: GroupData, plans: Plans) -> bool:
         """
         Add a group to a Plan
-        This is called when a new group is added to the plan
         """
         # TODO: Missing different logic for different AND/OR GROUPS
         # Add method should handle those
