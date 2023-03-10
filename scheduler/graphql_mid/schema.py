@@ -11,8 +11,10 @@ from lucupy.minimodel import Site
 from scheduler.core.service.service import build_scheduler
 from scheduler.process_manager import setup_manager, TaskType
 from scheduler.db.planmanager import PlanManager
-from .scalars import (CreateNewScheduleInput, SPlans, NewScheduleResponse,
-                      NewScheduleError, NewScheduleSuccess, NewNightPlans)
+
+from .types import (SPlans, NewScheduleResponse,
+                    NewScheduleError, NewScheduleSuccess, NewNightPlans)
+from .inputs import CreateNewScheduleInput
 
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.

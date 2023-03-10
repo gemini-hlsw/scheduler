@@ -6,7 +6,7 @@ from typing import List, NoReturn, FrozenSet
 from lucupy.minimodel import Site
 
 from scheduler.core.plans import Plans
-from scheduler.graphql_mid.scalars import SPlans
+from scheduler.graphql_mid.types import SPlans
 from definitions import ROOT_DIR
 from .dbmanager import DBManager
 

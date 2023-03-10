@@ -7,7 +7,7 @@ from fcntl import flock, LOCK_SH, LOCK_EX, LOCK_UN
 from typing import List, NoReturn, Optional, FrozenSet
 from lucupy.minimodel import Site
 
-from scheduler.graphql_mid.scalars import SPlans
+from scheduler.graphql_mid.types import SPlans
 
 
 @contextmanager

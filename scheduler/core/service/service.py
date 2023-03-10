@@ -21,7 +21,7 @@ class Service:
         self.sites = sites
 
     def __call__(self):
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        # signal.signal(signal.SIGINT, signal.SIG_IGN)
         builder = SchedulerBuilder()  # To trigger the decorator
         programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
