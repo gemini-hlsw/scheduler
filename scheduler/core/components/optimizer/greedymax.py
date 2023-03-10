@@ -128,7 +128,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             print(plan.time_left(), grp_len, group.group.exec_time())
             if plan.time_left() >= grp_len:
                 for observation in group.group.observations():
-                    if not plan.has(observation):
+                    if observation not in plan:
                         obs_len = plan.time2slots(observation.exec_time())
                         start = self._allocate_time(plan, observation.exec_time())
                         plan.add(observation, start, obs_len)

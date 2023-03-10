@@ -69,8 +69,7 @@ class DummyOptimizer(BaseOptimizer):
             plan = plans[observation.site]
             if not plan.is_full and plan.site == observation.site:
                 obs_len = plan.time2slots(observation.exec_time())
-                if (plan.time_left() >= obs_len) and not plan.has(observation):
-                    # start = DummyOptimizer._allocate_time(plan, observation.exec_time())
+                if plan.time_left() >= obs_len and observation not in plan:
                     start = DummyOptimizer._allocate_time(plan)
                     plan.add(observation, start, obs_len)
                     return True
