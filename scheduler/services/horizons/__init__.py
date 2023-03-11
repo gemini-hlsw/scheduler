@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+from abc import ABC
 import contextlib
 import os
 from dataclasses import dataclass
@@ -20,10 +21,10 @@ logger = logger_factory.create_logger(__name__)
 
 
 @final
-@dataclass
-class HorizonsAngle:
+class HorizonsAngle(ABC):
     """
-    Angle in radians.
+    This class should never be instantiated.
+    It is simply a collection of static convenience methods for converting angles.
     """
     MICROARCSECS_PER_DEGREE: Final[float] = 60 * 60 * 1000 * 1000
 
@@ -53,14 +54,13 @@ class HorizonsAngle:
 
 
 @final
+@dataclass(frozen=True)
 class Coordinates:
     """
     Both ra and dec are in radians.
     """
-
-    def __init__(self, ra: float, dec: float) -> None:
-        self.ra = ra
-        self.dec = dec
+    ra: float
+    dec: float
 
     def angular_distance(self, other: 'Coordinates') -> float:
         """
@@ -68,22 +68,15 @@ class Coordinates:
         Code is based on
         https://github.com/gemini-hlsw/lucuma-core/blob/master/modules/core/shared/src/main/scala/lucuma/core/math/Coordinates.scala#L52
         """
-        phi_1 = self.dec
-        phi_2 = other.dec
-        delta_phi = other.dec - self.dec
-        delta_lambda = other.ra - self.ra
-        a = np.around(np.sin(delta_phi / 2) ** 2, decimals=10) + np.around(np.cos(phi_1) * np.cos(phi_2) *
-                                                                           np.sin(delta_lambda / 2) ** 2, decimals=10)
-        #if 0 <= a <= 1:
+        delta_ra = other.ra - self.ra
+        delta_dec = other.dec - self.dec
+        a = np.sin(delta_dec / 2) ** 2 + np.cos(self.dec) * np.cos(other.dec) * np.sin(delta_ra / 2) ** 2
         return 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
-        #else:
-        # return 0.0  # TODO: Temporary bypass for negative values in sqrt
 
     def interpolate(self, other: 'Coordinates', f: float) -> 'Coordinates':
         """
         Interpolate between two Coordinates objects.
         """
-
         delta = self.angular_distance(other)
         if delta == 0:
             return Coordinates(self.ra, self.dec)
@@ -97,12 +90,9 @@ class Coordinates:
             lambda_i = np.arctan2(y, x)
             return Coordinates(lambda_i, phi_i)
 
-    def __repr__(self) -> str:
-        return f'Coordinates(ra={self.ra}, dec={self.dec})'
-
 
 @final
-@dataclass
+@dataclass(frozen=True)
 class EphemerisCoordinates:
     """
     Both ra and dec are in radians.
@@ -144,7 +134,7 @@ class HorizonsClient:
 
     def __init__(self,
                  site: Site,
-                 path: str = os.path.join('scheduler','services', 'horizons', 'data'),
+                 path: str = os.path.join('scheduler', 'services', 'horizons', 'data'),
                  airmass: int = 3,
                  start: datetime = None,
                  end: datetime = None):
