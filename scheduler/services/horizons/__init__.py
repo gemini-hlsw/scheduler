@@ -6,7 +6,7 @@ import contextlib
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Final, List, Tuple, final
+from typing import ClassVar, Final, List, Mapping, Tuple, final
 
 import dateutil.parser
 import numpy as np
@@ -121,29 +121,24 @@ class EphemerisCoordinates:
 
 
 @final
+@dataclass(frozen=True)
 class HorizonsClient:
     """
     API to interact with the Horizons service
     """
+    site: Site
+    path: str = os.path.join('scheduler', 'services', 'horizons', 'data')
+    airmass: int = 3
+    start: datetime = None
+    end: datetime = None
 
+    url: ClassVar[str] = 'https://ssd.jpl.nasa.gov/horizons_batch.cgi'
     # A not-complete list of solar system major body Horizons IDs
-    bodies = {'mercury': '199', 'venus': '299', 'mars': '499', 'jupiter': '599', 'saturn': '699',
-              'uranus': '799', 'neptune': '899', 'pluto': '999', 'io': '501'}
+    bodies: ClassVar[Mapping[str, str]] = {'mercury': '199', 'venus': '299', 'mars': '499', 'jupiter': '599',
+                                           'saturn': '699', 'uranus': '799', 'neptune': '899', 'pluto': '999',
+                                           'io': '501'}
 
-    FILE_DATE_FORMAT = '%Y%m%d_%H%M'
-
-    def __init__(self,
-                 site: Site,
-                 path: str = os.path.join('scheduler', 'services', 'horizons', 'data'),
-                 airmass: int = 3,
-                 start: datetime = None,
-                 end: datetime = None):
-        self.path = path
-        self.url = 'https://ssd.jpl.nasa.gov/horizons_batch.cgi'
-        self.start = start
-        self.end = end
-        self.airmass = airmass
-        self.site = site
+    FILE_DATE_FORMAT: ClassVar[str] = '%Y%m%d_%H%M'
 
     @staticmethod
     def generate_horizons_id(designation: str) -> str:
