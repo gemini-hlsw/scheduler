@@ -6,7 +6,7 @@ import signal
 
 from typing import FrozenSet
 from astropy.time import Time
-from lucupy.minimodel import Site, ALL_SITES
+from lucupy.minimodel import Site, ALL_SITES, Semester
 
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.builder import SchedulerBuilder, Blueprints
@@ -55,4 +55,6 @@ def build_scheduler(start: Time = Time("2018-10-01 08:00:00", format='iso', scal
     Returns:
         Scheduler: Callable executed in the ProcessManager
     """
+    semesters = [Semester.find_semester_from_date(start.to_value('datetime')),
+                 Semester.find_semester_from_date(end.to_value('datetime'))]
     return Service(start, end, sites)
