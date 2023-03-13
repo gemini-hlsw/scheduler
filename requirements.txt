@@ -1,8 +1,8 @@
 astropy
-hypothesis==6.68.*
+hypothesis
 matplotlib
 more-itertools
-numpy>1.21.*
+numpy==1.23.*
 openpyxl
 pytest
 pytz
