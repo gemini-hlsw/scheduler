@@ -15,10 +15,16 @@ from definitions import ROOT_DIR
 
 
 class Service:
-    def __init__(self, start_time: Time, end_time: Time, sites: FrozenSet[Site]):
+    def __init__(self,
+                 start_time: Time,
+                 end_time: Time,
+                 semesters: FrozenSet[Semester],
+                 sites: FrozenSet[Site]):
         self.start_time = start_time
         self.end_time = end_time
+        self.semesters = semesters
         self.sites = sites
+
 
     def __call__(self):
         # signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -26,7 +32,11 @@ class Service:
         programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
         # Retrieve observations from Collector
-        collector = builder.build_collector(self.start_time, self.end_time, self.sites, Blueprints.collector)
+        collector = builder.build_collector(self.start_time,
+                                            self.end_time,
+                                            self.sites,
+                                            self.semesters,
+                                            Blueprints.collector)
         collector.load_programs(program_provider_class=OcsProgramProvider,
                                 data=programs)
         # Create selection from Selector
@@ -55,6 +65,6 @@ def build_scheduler(start: Time = Time("2018-10-01 08:00:00", format='iso', scal
     Returns:
         Scheduler: Callable executed in the ProcessManager
     """
-    semesters = [Semester.find_semester_from_date(start.to_value('datetime')),
-                 Semester.find_semester_from_date(end.to_value('datetime'))]
-    return Service(start, end, sites)
+    semesters = frozenset([Semester.find_semester_from_date(start.to_value('datetime')),
+                           Semester.find_semester_from_date(end.to_value('datetime'))])
+    return Service(start, end, semesters, sites)

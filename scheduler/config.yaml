@@ -4,12 +4,11 @@ sources:
   environment: MOCK
   resource: OCS
 
-process_manager: 
-  size: 5 # Only valid for Simulation and Validation 
+process_manager:
+  size: 5 # Only valid for Simulation and Validation
   timeout: 100
 
 collector:
-  semesters: [2018B]
   observation_classes: [SCIENCE, PROGCAL, PARTNERCAL]
   program_types: [Q, LP, FT, DD]
   time_slot_length: 1.0 # on minutes

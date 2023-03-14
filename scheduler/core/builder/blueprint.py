@@ -51,11 +51,9 @@ class CollectorBlueprint(Blueprint):
     """
 
     def __init__(self,
-                 semesters: List[str],
                  obs_class: List[str],
                  prg_type: List[str],
                  time_slot_length: float) -> None:
-        self.semesters: FrozenSet[Semester] = frozenset(map(CollectorBlueprint._parse_semesters, semesters))
         self.obs_classes: FrozenSet[ObservationClass] = frozenset(
             map(lambda x: parse_configuration(ObservationClass, x), obs_class)
         )
@@ -64,35 +62,8 @@ class CollectorBlueprint(Blueprint):
         )
         self.time_slot_length: TimeDelta = TimeDelta(time_slot_length * u.min)
 
-    @staticmethod
-    def _parse_semesters(semester: str) -> Semester:
-        """Parse semesters to schedule from config.yml
-
-        Args:
-            semester (str): Semester string value representation.
-
-        Raises:
-            ConfigurationError: If the semester half is not encounter.
-
-        Returns:
-            Semester: Minimodel representation of Semester.
-        """
-
-        year, half = semester[:-1], semester[-1]
-
-        try:
-            e_half = SemesterHalf[half]
-        except KeyError:
-            raise ConfigurationError('Semester Half', half)
-
-        try:
-            return Semester(int(year), e_half)
-        except ValueError:
-            raise ConfigurationError('Semester year', year)
-
     def __iter__(self):
         return iter((self.time_slot_length,
-                     self.semesters,
                      self.program_types,
                      self.obs_classes))
 
@@ -124,7 +95,7 @@ class SourcesBlueprint(Blueprint):
     class ResourceSources(Enum):
         OCS = OcsResourceService()
         # TODO: As in full-fledged service? I'm not sure about this name
-        # so suggestions are welcome. 
+        # so suggestions are welcome.
         FULL = None
 
     class EnvSources(Enum):
@@ -139,8 +110,7 @@ class SourcesBlueprint(Blueprint):
 
 
 class Blueprints:
-    collector: CollectorBlueprint = CollectorBlueprint(config.collector.semesters,
-                                                       config.collector.observation_classes,
+    collector: CollectorBlueprint = CollectorBlueprint(config.collector.observation_classes,
                                                        config.collector.program_types,
                                                        config.collector.time_slot_length)
     optimizer: OptimizerBlueprint = OptimizerBlueprint(config.optimizer.name)

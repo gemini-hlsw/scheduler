@@ -19,13 +19,17 @@ class SchedulerBuilder:
     """Allows building different components individually and the general scheduler itself.
     """
     @staticmethod
-    def build_collector(start: Time, end: Time, sites: FrozenSet[Site], blueprint: CollectorBlueprint) -> Collector:
-        return Collector(start, end, sites, *blueprint)
+    def build_collector(start: Time,
+                        end: Time,
+                        sites: FrozenSet[Site],
+                        semesters: FrozenSet[Site],
+                        blueprint: CollectorBlueprint) -> Collector:
+        return Collector(start, end, sites, semesters, *blueprint)
 
     @staticmethod
     def build_selector(collector: Collector):
         return Selector(collector=collector)
-    
+
     @staticmethod
     def build_optimizer(selection: Selection, blueprint: OptimizerBlueprint) -> Optimizer:
         return Optimizer(selection, algorithm=blueprint.algorithm)
