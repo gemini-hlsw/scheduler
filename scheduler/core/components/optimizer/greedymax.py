@@ -118,13 +118,16 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # Finished, nothing more to schedule
                     for plan in plans:
                         plan.is_full = True
+                    for timeline in self.timelines[plans.night]:
+                        timeline.is_full = True
                     break
                 ii += 1
             if not added and ii == len(jj):
                 # Nothing remaining can be scheduled
                 for plan in plans:
                     plan.is_full = True
-
+                for timeline in self.timelines[plans.night]:
+                    timeline.is_full = True
             print('')
 
     def add(self, group: GroupData, plans: Plans) -> bool:
@@ -133,16 +136,21 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         # TODO: Missing different logic for different AND/OR GROUPS
         # Add method should handle those
-        plan = plans[group.group.observations()[0].site]
+        site = group.group.observations()[0].site
+        plan = plans[site]
         if not plan.is_full:
             grp_len = plan.time2slots(group.group.exec_time())
             print(plan.time_left(), grp_len, group.group.exec_time())
             if plan.time_left() >= grp_len:
                 for observation in group.group.observations():
                     if observation not in plan:
+                        # add to plan
                         obs_len = plan.time2slots(observation.exec_time())
                         start = self._allocate_time(plan, observation.exec_time())
                         plan.add(observation, start, obs_len)
+                        # add to timeline (time slots)
+                        iobs = self.obs_group_ids.index(observation.id)
+                        self.timelines[plans.night][site].add(iobs, obs_len)
                 return True
             else:
                 return False

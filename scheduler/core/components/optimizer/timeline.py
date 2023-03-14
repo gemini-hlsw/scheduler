@@ -3,10 +3,11 @@ UNSCHEDULABLE = -2
 
 from dataclasses import dataclass
 from typing import List, NoReturn, Mapping, Optional, Sized, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from lucupy.minimodel import Observation, ObservationID, Site
 from scheduler.core.calculations.nightevents import NightEvents
+from scheduler.core.plans import Plan, Plans
 
 import numpy as np
 
@@ -29,7 +30,87 @@ class Timeline:
         self.is_full = False
 
     def __contains__(self, obs: Observation) -> bool:
-        return any(visit.obs_id == obs.id for visit in self.visits)
+        return any(obs.id in self.time_slots)
+
+    def _empty_slots(self) -> np.ndarray:
+        """
+        Determine the number of empty time slots..
+        """
+        return np.where(self.time_slots == EMPTY)[0][:]
+
+    def _available_intervals(self, empty_slots: np.ndarray) -> np.ndarray:
+        """
+        Calculate the available intervals in the schedule by creating an array that contains all
+        the groups of consecutive numbers
+        """
+        return np.split(empty_slots, np.where(np.diff(empty_slots) != 1)[0]+1)
+
+    def get_earliest_available_interval(self) -> np.ndarray:
+        """
+        Get the earliest available space in the schedule that can allocate an observation
+        """
+        empty_slots =  self._empty_slots()
+        return self._available_intervals(empty_slots)[0]
+
+    def add(self, iobs: int, time_slots: int ) -> NoReturn:
+        """
+        Add an observation index to the next available interval (or interval could be provided)
+        """
+        interval = self.get_earliest_available_interval()
+        self.time_slots[interval[0:time_slots]] = iobs
+
+    def get_observation_order(self) -> List[Tuple[int]]:
+        """
+        Get the observation idx and position for all the schedule observations in order
+        Return
+        -------
+
+        orders: List of a 3-dimensional tuple: observation.idx, initial position
+                and last position in the plan.
+        """
+
+        schedule = self.time_slots
+        obs_comparator = self.time_slots[0]
+        start = 0
+
+        order = []
+        for position, obs_idx in enumerate(schedule):
+            if obs_idx != obs_comparator:
+                order.append((obs_comparator, start, position - 1))
+                start = position
+                obs_comparator = obs_idx
+            elif position == len(schedule) - 1:
+                order.append((obs_comparator, start, position))
+
+        return order
+
+    def __str__(self):
+        """Print the result of get_observation_order, an experiment in the use of __str__"""
+
+        obs_order = self.get_observation_order()
+
+        return f"{obs_order}"
+
+    def print(self, obsids) -> NoReturn:
+        """Print the obsids and times associated with the timeline"""
+
+        delta = timedelta(milliseconds=500) # for rounding to the nearest second
+
+        obs_order = self.get_observation_order()
+
+        for idx, i_start, i_end in obs_order:
+            obsid = obsids[idx]
+            if idx > -1:
+                # Convert time slot indices to UT
+                t_start = self.start.astimezone(tz=timezone.utc) + i_start * self.time_slot_length + delta
+                # t_end = self.start.astimezone(tz=timezone.utc) + i_end * self.time_slot_length + delta
+                t_end = t_start + (i_end - i_start) * self.time_slot_length
+                
+                print("{:5d} {:5d} {:5d}   {:20} {:}  {:}".format(idx, i_start, i_end, obsid,
+                                                               # t_start.isoformat(), t_end.isoformat())
+                                                             t_start.strftime('%Y-%m-%d %H:%M:%S'),
+                                                             t_end.strftime('%Y-%m-%d %H:%M:%S'))
+                      )
 
 
 class Timelines:
