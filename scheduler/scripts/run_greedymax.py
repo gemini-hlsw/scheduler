@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
     # Timeline tests
     for tl in optimizer_blueprint.algorithm.timelines:
-        print(f'Night {tl.night}')
+        print(f'Night {tl.night + 1}')
         #     for site, ne in gm_optimizer.night_events.items():
         for site in optimizer.night_events.keys():
             print(f'\t {site}')
@@ -174,4 +174,5 @@ if __name__ == '__main__':
             {tl[site].is_full}')
             tl[site].print(optimizer_blueprint.algorithm.obs_group_ids)
             # print(tl.timelines[site].get_earliest_available_interval())
+
     print('DONE')

@@ -26,9 +26,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
     def __init__(self, seed=42):
         self.groups = []
         self.group_ids = []
-        self.obs_groups = []
+        self.obs_groups = []     # remove if not used
         self.obs_group_ids = []
         self.timelines = []
+        self.sites = []
 
     @staticmethod
     def _allocate_time(plan: Plan, obs_time: timedelta) -> datetime:
@@ -64,30 +65,45 @@ class GreedyMaxOptimizer(BaseOptimizer):
         period = len(list(selection.night_events.values())[0].time_grid)
         print('Period: ', period)
         self.timelines = [Timelines(selection.night_events, night) for night in range(period)]
+        self.sites = list(selection.night_events.keys())
 
         return self
 
     def _run(self, plans: Plans):
 
-        print()
-        # Fill all plans
+        # If true just analyze the only first open interval, like original GM, eventually make a parameter or setting
+        only_first_interval = False
+
+        # Fill plans for all sites on one night
         while not plans.all_done() and len(self.groups) > 0:
 
-            print('Night ', plans.night + 1)
+            print(f"\nNight {plans.night + 1}")
+
+            # Get the unscheduled, available intervals (time slots)
+            open_intervals = {}
+            for site in self.sites:
+                open_intervals[site] = self.timelines[plans.night][site].get_available_intervals(only_first_interval)
+                    # print(site, open_slots[site])
+
             maxscores = []
             groups = []
-            ids = [] # group index for the scores
-            ii = 0
+            intervals = []  # interval indices
+            ids = []  # group index for the scores
+            ii = 0    # groups index counter
             # Make a list of scores in the remaining groups
             for group in self.groups:
                 site = group.group.observations()[0].site
                 if not plans[site].is_full:
-                    smax = np.max(group.group_info.scores[plans.night])
-                    maxscores.append(smax)
-                    ids.append(ii)
-                    groups.append(group)
-                    ii += 1
-                    # print(group.group.id, group.group.exec_time(), smax)
+                    for iint, interval in enumerate(open_intervals[site]):
+                        # print(f'Interval: {iint}')
+                        smax = np.max(group.group_info.scores[plans.night][interval])
+                        maxscores.append(smax)
+                        ids.append(ii)
+                        groups.append(group)
+                        intervals.append(iint)
+                        ii += 1
+                        # print(group.group.id, group.group.exec_time(), smax)
+
 
             # sort scores from high to low
             max_score = 0.0  # maximum score in time interval
@@ -106,7 +122,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 #         print(f'\t\t {atom.id} {atom.exec_time}')
                 if max_score > 0.0:
                     # Try to add group
-                    added = self.add(max_group, plans)
+                    added = self.add(max_group, plans, open_intervals, intervals[jj[ii]])
                     if added:
                         # TODO: All observations in the group are being inserted so the whole group
                         # can be removed from the active group list
@@ -128,9 +144,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     plan.is_full = True
                 for timeline in self.timelines[plans.night]:
                     timeline.is_full = True
-            print('')
 
-    def add(self, group: GroupData, plans: Plans) -> bool:
+    def add(self, group: GroupData, plans: Plans, open_intervals, i_interval) -> bool:
         """
         Add a group to a Plan
         """
@@ -141,16 +156,22 @@ class GreedyMaxOptimizer(BaseOptimizer):
         if not plan.is_full:
             grp_len = plan.time2slots(group.group.exec_time())
             print(plan.time_left(), grp_len, group.group.exec_time())
-            if plan.time_left() >= grp_len:
+            # if plan.time_left() >= grp_len:
+            if len(open_intervals[site][i_interval]) >= grp_len:  # modify later for splitting
                 for observation in group.group.observations():
                     if observation not in plan:
                         # add to plan
                         obs_len = plan.time2slots(observation.exec_time())
-                        start = self._allocate_time(plan, observation.exec_time())
+                        # add to timeline (time_slots)
+                        iobs = self.obs_group_ids.index(observation.id)  # index in observation list
+                        start = self.timelines[plans.night][site].add(iobs, obs_len, open_intervals[site][i_interval])
+                        # Put the timelines call in _allocate_time, or use that for time accounting updates?
+                        # start = self._allocate_time(plan, observation.exec_time())
+
+                        # Add visit to final plan - in general won't be in chronological order
+                        # Maybe add this as a final step once GM is finished?
                         plan.add(observation, start, obs_len)
-                        # add to timeline (time slots)
-                        iobs = self.obs_group_ids.index(observation.id)
-                        self.timelines[plans.night][site].add(iobs, obs_len)
+
                 return True
             else:
                 return False

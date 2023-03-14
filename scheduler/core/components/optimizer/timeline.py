@@ -45,19 +45,37 @@ class Timeline:
         """
         return np.split(empty_slots, np.where(np.diff(empty_slots) != 1)[0]+1)
 
+    def get_available_intervals(self, first) -> np.ndarray:
+        """
+        Get the set of time_slot intervals that can be scheduled. If desired, return only the first
+        """
+        empty_slots = self._empty_slots()
+        intervals = self._available_intervals(empty_slots)
+        # print(f"length intervals = {len(intervals)}")
+        return intervals[0] if first and len(intervals) > 1 else intervals
+
     def get_earliest_available_interval(self) -> np.ndarray:
         """
         Get the earliest available space in the schedule that can allocate an observation
         """
-        empty_slots =  self._empty_slots()
-        return self._available_intervals(empty_slots)[0]
+        return self.get_available_intervals()[0]
 
-    def add(self, iobs: int, time_slots: int ) -> NoReturn:
+    def add(self, iobs: int, time_slots: int, interval: int) -> datetime:
         """
-        Add an observation index to the next available interval (or interval could be provided)
+        Add an observation index to the first open position (-1) in the given interval
+        Returns the time of this position
         """
-        interval = self.get_earliest_available_interval()
-        self.time_slots[interval[0:time_slots]] = iobs
+        # interval = self.get_earliest_available_interval()
+        # Get first non-zero slot in given interval
+        i_first = np.where(self.time_slots[interval] == EMPTY)[0][0]
+
+        # Set values of time_slots to the observation index
+        self.time_slots[interval[i_first:i_first + time_slots]] = iobs
+
+        # Clock time for the starting index
+        start = self.start + interval[i_first] * self.time_slot_length
+
+        return start
 
     def get_observation_order(self) -> List[Tuple[int]]:
         """
