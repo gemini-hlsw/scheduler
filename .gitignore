@@ -114,8 +114,9 @@ maglimits_test.py
 # osx ds_store
 .DS_Store
 
-# vscode
+# editors
 .vscode
+.fleet
 
 # logger
 *.log

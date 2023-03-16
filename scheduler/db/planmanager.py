@@ -2,10 +2,11 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from copy import deepcopy
-from typing import List, NoReturn
+from typing import List, NoReturn, FrozenSet
+from lucupy.minimodel import Site
 
 from scheduler.core.plans import Plans
-from scheduler.graphql_mid.scalars import SPlans
+from scheduler.graphql_mid.types import SPlans
 from definitions import ROOT_DIR
 from .dbmanager import DBManager
 
@@ -32,8 +33,18 @@ class PlanManager:
             plans = deepcopy(db.read())
             return plans
         except KeyError:
-            raise KeyError(f'Error on read!')
+            return None
 
+    @staticmethod
+    def get_plans_by_input(start_date: str, end_date: str, site: FrozenSet[Site]) ->  List[SPlans]:
+        """
+        A more specific way to get plans by the `CreateNewSchedule` input.
+        """
+        try:
+            plans = deepcopy(db.read(start_date, end_date, site))
+            return plans
+        except KeyError:
+            return []
     @staticmethod
     def set_plans(plans: List[Plans]) -> NoReturn:
         """
