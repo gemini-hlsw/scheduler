@@ -2,7 +2,7 @@ astropy
 hypothesis
 matplotlib
 more-itertools
-numpy==1.23.*
+numpy==1.24.*
 openpyxl
 pytest
 pytz
