@@ -40,8 +40,9 @@ class Plan:
         # return ceil((time.total_seconds() / self.time_slot_length.total_seconds()))
         return ceil(time / self.time_slot_length)
 
-    def add(self, obs: Observation, start: datetime, time_slots: int) -> NoReturn:
-        visit = Visit(start, obs.id, obs.sequence[0].id, obs.sequence[-1].id, time_slots)
+    def add(self, obs: Observation, start: datetime, time_slots: int,
+            atom_first: int = 0, atom_last: int = -1) -> NoReturn:
+        visit = Visit(start, obs.id, obs.sequence[atom_first].id, obs.sequence[atom_last].id, time_slots)
         self.visits.append(visit)
         self._time_slots_left -= time_slots
 

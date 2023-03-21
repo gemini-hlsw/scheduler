@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import Iterable
 # from typing import Mapping
 
 # from lucupy.minimodel.program import ProgramID
@@ -23,22 +24,25 @@ class GreedyMaxOptimizer(BaseOptimizer):
     GreedyMax is an optimizer that schedules the visits for the rest of the night in a greedy fashion.
     """
 
-    def __init__(self):
-        self.groups = []
+    def __init__(self, min_visit_len: timedelta = timedelta(minutes=30)):
+        self.group_data_list = []
         self.group_ids = []
         # self.obs_groups = []     # remove if not used
         self.obs_group_ids = []
         self.timelines = []
         self.sites = []
-        self.min_visit_len = timedelta(minutes=30)
+        self.min_visit_len = min_visit_len
+        # self.min_visit_len = timedelta(minutes=30)
 
-    def setup(self, selection: Selection) -> GreedyMaxOptimizer:
-        """
-        Preparation for the optimizer e.g. create chromosomes, etc.
-        """
-        self.groups = list(selection.schedulable_groups.values())
-        self.group_ids = list(selection.schedulable_groups)
-        for gid, group_data in selection.schedulable_groups.items():
+    def _process_group_data(self, group_data_list: Iterable[GroupData]):
+        # for group_data in group_data_list:
+        #     if group_data.group.is_observation_group():
+        #         self.obs_group_ids.append(group_data.group.unique_id())
+        #     elif group_data.group.is_scheduling_group():
+        #       # self._process_group_data(group_data)
+        #         self._process_group_data(group_data.group.children)
+
+        for group_data in self.group_data_list:
             if group_data.group.is_observation_group():
                 self.obs_group_ids.append(group_data.group.unique_id())
                 # self.obs_groups.append(group_data.group)
@@ -48,10 +52,23 @@ class GreedyMaxOptimizer(BaseOptimizer):
                         self.obs_group_ids.append(subgroup.unique_id())
                         # self.obs_groups.append(subgroup)
 
+    def setup(self, selection: Selection) -> GreedyMaxOptimizer:
+        """
+        Preparation for the optimizer e.g. create chromosomes, etc.
+        """
+        self.group_ids = list(selection.schedulable_groups)
+        self.group_data_list = list(selection.schedulable_groups.values())
+        self._process_group_data(self.group_data_list)
+
+        # As per my comment below: if you need period, it should be a member of Selection.
+        # period = selection.period
         period = len(list(selection.night_events.values())[0].time_grid)
         print('Period: ', period)
         self.timelines = [Timelines(selection.night_events, night) for night in range(period)]
+
+        # As per my comment below.
         self.sites = list(selection.night_events.keys())
+        # self.sites = selection.sites
 
         return self
 
@@ -74,6 +91,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # the number of time slots in the minimum visit length
         time_slot_length = plans.plans[self.sites[0]].time_slot_length
         n_min_visit = int(np.ceil(self.min_visit_len / time_slot_length))
+        print(f"n_min_visit: {n_min_visit}")
 
         # If true just analyze the only first open interval, like original GM, eventually make a parameter or setting
         only_first_interval = False
@@ -91,17 +109,17 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # ids = []  # group index for the scores
         ii = 0    # groups index counter
         # Make a list of scores in the remaining groups
-        for group in self.groups:
-            site = group.group.observations()[0].site
+        for group_data in self.group_data_list:
+            site = group_data.group.observations()[0].site
             if not plans[site].is_full:
-                for iint, interval in enumerate(open_intervals[site]):
+                for interval_idx, interval in enumerate(open_intervals[site]):
                     # print(f'Interval: {iint}')
-                    smax = np.max(group.group_info.scores[plans.night][interval])
+                    smax = np.max(group_data.group_info.scores[plans.night][interval])
                     if smax > 0.0:
                         # Check if the interval is long enough to be useful (longer than min visit length)
                         # Remaining time for the group
                         # also should see if it can be split, for now we assume that all can be
-                        time_remaining = group.group.exec_time() - group.group.total_used()  # clock time
+                        time_remaining = group_data.group.exec_time() - group_data.group.total_used()  # clock time
                         n_time_remaining = int(np.ceil((time_remaining / time_slot_length))) # number of time slots
 
                         # Short groups should be done entirely, update the min useful time
@@ -118,8 +136,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                         if n_min <= len(interval):
                             maxscores.append(smax)
                             # ids.append(ii)         # needed?
-                            groups.append(group)
-                            intervals.append(iint)
+                            groups.append(group_data)
+                            intervals.append(interval_idx)
                             n_times_remaining.append(n_time_remaining)
                             ii += 1
 
@@ -160,7 +178,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
     def _run(self, plans: Plans):
 
         # Fill plans for all sites on one night
-        while not plans.all_done() and len(self.groups) > 0:
+        while not plans.all_done() and len(self.group_data_list) > 0:
 
             print(f"\nNight {plans.night + 1}")
 
@@ -172,7 +190,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 added = self.add(max_group, plans, max_interval)
                 if added:
                     print(f'{max_group.group.unique_id()} with max score {max_score} added.')
-                    self.groups.remove(max_group)  # should really only do this if all time used (not split)
+                    self.group_data_list.remove(max_group)  # should really only do this if all time used (not split)
             else:
                 # Nothing remaining can be scheduled
                 for plan in plans:

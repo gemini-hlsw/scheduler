@@ -170,7 +170,7 @@ if __name__ == '__main__':
         #     for site, ne in gm_optimizer.night_events.items():
         for site in optimizer.night_events.keys():
             print(f'\t {site}')
-            print(f'\t {tl[site].start} {tl[site].end} {tl[site]._total_time_slots} \
+            print(f'\t {tl[site].start} {tl[site].end} {tl[site].total_time_slots} \
             {tl[site].is_full}')
             tl[site].print(optimizer_blueprint.algorithm.obs_group_ids)
             # print(tl.timelines[site].get_earliest_available_interval())
