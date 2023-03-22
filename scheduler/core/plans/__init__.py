@@ -58,7 +58,6 @@ class Plans:
     """
 
     def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: int):
-
         self.plans = {}
         self.night = night_idx
         for site, ne in night_events.items():
@@ -68,6 +67,10 @@ class Plans:
                                         ne.time_slot_length.to_datetime(),
                                         site,
                                         len(ne.times[night_idx]))
+
+    @property
+    def time_slot_length(self):
+        return 0
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]

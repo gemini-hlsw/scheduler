@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import ClassVar, Dict, FrozenSet, List, Optional
+from typing import ClassVar, Dict, FrozenSet, List, Optional, Set
 
 import astropy.units as u
 import numpy as np
@@ -102,6 +102,9 @@ class Selector(SchedulerComponent):
         if night_indices is None:
             night_indices = np.arange(len(self.collector.time_grid))
 
+        # The number of nights in the plan.
+        num_nights_plan = len(night_indices)
+
         # If no manual ranker was specified, create the default.
         if ranker is None:
             ranker = DefaultRanker(self.collector, night_indices)
@@ -118,6 +121,9 @@ class Selector(SchedulerComponent):
 
         # A flat top-level list of GroupData indexed by UniqueGroupID.
         schedulable_groups: Dict[UniqueGroupID, GroupData] = {}
+
+        # Observation group IDs.
+        obs_group_ids: Set[UniqueGroupID] = set()
 
         for program_id in Collector.get_program_ids():
             program = Collector.get_program(program_id)
@@ -142,6 +148,9 @@ class Selector(SchedulerComponent):
 
             group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
                               if any(len(indices) > 0 for indices in gp_data.group_info.schedulable_slot_indices)}
+
+            # Find the IDs of the observation groups.
+            obs_group_ids.update(gp_id for gp_id, gp_data in group_data_map if gp_data.group.is_observation_group())
 
             # This filters out any programs that have no groups with any schedulable slots.
             if group_data_map:
@@ -171,7 +180,10 @@ class Selector(SchedulerComponent):
         return Selection(
             program_info=program_info,
             night_events={site: self.collector.get_night_events(site) for site in sites},
-            schedulable_groups=schedulable_groups
+            schedulable_groups=schedulable_groups,
+            obs_group_ids=frozenset(obs_group_ids),
+            num_nights_plan=num_nights_plan,
+            time_slot_length=self.collector.time_slot_length.to_datetime()
         )
 
     def get_group_info(self, unique_group_id: UniqueGroupID) -> Optional[GroupInfo]:

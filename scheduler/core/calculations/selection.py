@@ -2,7 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from typing import Mapping
+from datetime import timedelta
+from typing import FrozenSet, Mapping
 
 from lucupy.minimodel import ProgramID, Site, UniqueGroupID
 
@@ -20,6 +21,13 @@ class Selection:
     program_info: Mapping[ProgramID, ProgramInfo]
     night_events: Mapping[Site, NightEvents]
     schedulable_groups: Mapping[UniqueGroupID, GroupData]
+    obs_group_ids: FrozenSet[UniqueGroupID]
+    num_nights_plan: int
+    time_slot_length: timedelta
+
+    @property
+    def sites(self) -> FrozenSet[Site]:
+        return frozenset(self.night_events.keys())
 
     def __post_init__(self):
         object.__setattr__(self, 'program_ids', frozenset(self.program_info.keys()))

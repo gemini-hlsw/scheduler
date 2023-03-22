@@ -3,15 +3,19 @@
 
 from typing import List
 
+import numpy.typing as npt
+
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.plans import Plans
-# from .greedymax import GreedyMaxOptimizer
+
+# Type alias for Interval for convenience.
+Interval = npt.NDArray[int]
 
 
 class Optimizer:
     """
     Entrypoint to interact with an BaseOptimizer object.
-    All algorithms need to follow the same structure to create a Plan
+    All algorithms need to follow the same structure to create a Plan.
     """
 
     def __init__(self, selection: Selection, algorithm=None):

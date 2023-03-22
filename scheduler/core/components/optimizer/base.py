@@ -2,14 +2,14 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import ABC, abstractmethod
-from typing import Mapping, List
+from typing import List, Mapping, Optional
 
 from lucupy.minimodel.program import ProgramID
 
 from scheduler.core.calculations.groupinfo import GroupData
 from scheduler.core.calculations.programinfo import ProgramInfo
 from scheduler.core.plans import Plans
-#from scheduler.core.calculations.selection import Selection
+from . import Interval
 
 
 class BaseOptimizer(ABC):
@@ -38,5 +38,5 @@ class BaseOptimizer(ABC):
         ...
 
     @abstractmethod
-    def add(self, group: GroupData, plans: Plans):
+    def add(self, group: GroupData, plans: Plans, interval: Optional[Interval]):
         ...
