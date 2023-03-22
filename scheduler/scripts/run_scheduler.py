@@ -45,12 +45,13 @@ if __name__ == '__main__':
                             data=programs)
 
     # Output the state of and information calculated by the Collector.
-    print_collector_info(collector, samples=60)
+    #print_collector_info(collector, samples=60)
+    print(collector.get_all_observations())
 
     # Execute the Selector.
     # Not sure the best way to display the output.
-    selector = SchedulerBuilder.build_selector(collector)
-    selection = selector.select()
+    # selector = SchedulerBuilder.build_selector(collector)
+    # selection = selector.select()
 
     # Notes for data access:
     # The Selector returns all the data that an Optimizer needs in order to generate plans.
@@ -153,14 +154,14 @@ if __name__ == '__main__':
 
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
     # print(selection.program_info)
-    optimizer_blueprint = OptimizerBlueprint(
-        "DUMMY"
-    )
-    optimizer = SchedulerBuilder.build_optimizer(
-        selection=selection,
-        blueprint=optimizer_blueprint
-    )
-    plans = optimizer.schedule()
-    print_plans(plans)
+    # optimizer_blueprint = OptimizerBlueprint(
+    #    "DUMMY"
+    #)
+    #optimizer = SchedulerBuilder.build_optimizer(
+    #    selection=selection,
+    #    blueprint=optimizer_blueprint
+    #)
+    #plans = optimizer.schedule()
+    #print_plans(plans)
 
     print('DONE')

@@ -47,6 +47,9 @@ class Service:
         optimizer = builder.build_optimizer(selection, Blueprints.optimizer)
         plans = optimizer.schedule()
 
+        #Calculate plans stats
+
+
         # Save to database
         PlanManager.set_plans(plans)
         return plans
@@ -68,3 +71,32 @@ def build_scheduler(start: Time = Time("2018-10-01 08:00:00", format='iso', scal
     semesters = frozenset([Semester.find_semester_from_date(start.to_value('datetime')),
                            Semester.find_semester_from_date(end.to_value('datetime'))])
     return Service(start, end, semesters, sites)
+
+
+def calculate_plan_stats(all_plans, selector):
+
+    timeloss = 0
+    n_toos = 0
+    for plans in all_plans:
+        for plan in plans:
+            timeloss+=plan.time_left()
+            plan_score = 0
+            plan_constraints = set()
+            completion_fraction = {}
+            for visit in plan.visits:
+                obs = selector.collector.get_observation(visit.obs_id)
+                # check if obs is a too
+                if obs.too_type is not None:
+                    n_toos+=1
+                # add to plan_score
+                plan_score+=selector.ranker.get_observation_scores(obs)
+                # add used contrains
+                plan_constraints.add(*obs.constraints())
+
+                # check completition
+                # get program from only observation ?
+                
+
+
+
+
