@@ -129,6 +129,7 @@ def create_minimodel_program() -> Program:
         guiding=gmosn2_guiding,
         sequence=gmosn2_sequence,
         constraints=gmosn2_constraints,
+        belongs_to='GN-2022A-Q-999',
         too_type=TooType.RAPID
     )
 
@@ -240,6 +241,7 @@ def create_minimodel_program() -> Program:
         guiding=gnirs2_guiding,
         sequence=gnirs2_sequence,
         constraints=gnirs2_constraints,
+        belongs_to='GN-2022A-Q-999',
         too_type=TooType.RAPID
     )
 
@@ -356,6 +358,7 @@ def create_minimodel_program() -> Program:
         guiding=gnirs1_guiding,
         sequence=gnirs1_sequence,
         constraints=gnirs1_constraints,
+        belongs_to='GN-2022A-Q-999',
         too_type=TooType.RAPID
     )
 
@@ -528,6 +531,7 @@ def create_minimodel_program() -> Program:
         guiding=gmonsn1_guiding,
         sequence=gmosn1_sequence,
         constraints=gmosn1_constraints,
+        belongs_to='GN-2022A-Q-999',
         too_type=TooType.RAPID
     )
 
@@ -607,3 +611,4 @@ def test_ocs_api():
     program1 = get_api_program()
     program2 = create_minimodel_program()
     assert program1 == program2
+    
