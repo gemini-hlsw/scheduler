@@ -5,6 +5,7 @@ import os
 import logging
 
 from lucupy.minimodel.site import ALL_SITES
+from lucupy.minimodel.semester import Semester, SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
@@ -27,7 +28,6 @@ if __name__ == '__main__':
     programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
     collector_blueprint = CollectorBlueprint(
-        ['2018B'],
         ['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
         ['Q', 'LP', 'FT', 'DD'],
         1.0
@@ -37,6 +37,7 @@ if __name__ == '__main__':
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
         sites=ALL_SITES,
+        semesters=frozenset([Semester(2018,SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
     # Create the Collector and load the programs.
