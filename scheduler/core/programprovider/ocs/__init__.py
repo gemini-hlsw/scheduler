@@ -194,9 +194,9 @@ class OcsProgramProvider(ProgramProvider):
         band = MagnitudeBands[data[OcsProgramProvider._MagnitudeKeys.NAME]]
         value = data[OcsProgramProvider._MagnitudeKeys.VALUE]
         return Magnitude(
-            band=band,
-            value=value,
-            error=None)
+    band=band,
+    value=value,
+    error=None)
 
     @staticmethod
     def _get_program_dates(prog_type: ProgramTypes, prog_id: str, note_titles: List[str]) -> Tuple[datetime, datetime]:
@@ -257,7 +257,7 @@ class OcsProgramProvider(ProgramProvider):
                 """
                 # Convert month data as above to a list of months.
                 curr_note_months = curr_note_title.strip().replace('and ', ' ').replace('  ', ' ').replace(', ', '-'). \
-                    split(' ')[-1].lower()
+                                   split(' ')[-1].lower()
                 month_list = [month for month in curr_note_months.split('-') if month in months_list]
                 m1 = month_number(month_list[0], months_list)
                 m2 = month_number(month_list[-1], months_list)
@@ -318,10 +318,10 @@ class OcsProgramProvider(ProgramProvider):
             period = timedelta(milliseconds=data[OcsProgramProvider._TimingWindowKeys.PERIOD])
 
         return TimingWindow(
-            start=start,
-            duration=duration,
-            repeat=repeat,
-            period=period)
+    start=start,
+    duration=duration,
+    repeat=repeat,
+    period=period)
 
     def parse_conditions(self, data: dict) -> Conditions:
         def to_value(cond: str) -> float:
@@ -337,11 +337,11 @@ class OcsProgramProvider(ProgramProvider):
                 raise ValueError(e, msg)
 
         return Conditions(
-            *[lookup(to_value(data[key])) for lookup, key in
-              [(CloudCover, OcsProgramProvider._ConstraintKeys.CC),
-               (ImageQuality, OcsProgramProvider._ConstraintKeys.IQ),
-               (SkyBackground, OcsProgramProvider._ConstraintKeys.SB),
-               (WaterVapor, OcsProgramProvider._ConstraintKeys.WV)]])
+    *[lookup(to_value(data[key])) for lookup, key in
+    [(CloudCover, OcsProgramProvider._ConstraintKeys.CC),
+    (ImageQuality, OcsProgramProvider._ConstraintKeys.IQ),
+    (SkyBackground, OcsProgramProvider._ConstraintKeys.SB),
+    (WaterVapor, OcsProgramProvider._ConstraintKeys.WV)]])
 
     def parse_constraints(self, data: dict) -> Constraints:
         # Get the conditions
@@ -358,12 +358,12 @@ class OcsProgramProvider(ProgramProvider):
         elevation_max = data[OcsProgramProvider._ConstraintKeys.ELEVATION_MAX]
 
         return Constraints(
-            conditions=conditions,
-            elevation_type=elevation_type,
-            elevation_min=elevation_min,
-            elevation_max=elevation_max,
-            timing_windows=timing_windows,
-            strehl=None)
+    conditions=conditions,
+    elevation_type=elevation_type,
+    elevation_min=elevation_min,
+    elevation_max=elevation_max,
+    timing_windows=timing_windows,
+    strehl=None)
 
     def _parse_target_header(self, data: dict) -> Tuple[str, set[Magnitude], TargetType]:
         """
@@ -396,14 +396,14 @@ class OcsProgramProvider(ProgramProvider):
         epoch = data.setdefault(OcsProgramProvider._TargetKeys.EPOCH, 2000)
 
         return SiderealTarget(
-            name=name,
-            magnitudes=frozenset(magnitudes),
-            type=target_type,
-            ra=ra,
-            dec=dec,
-            pm_ra=pm_ra,
-            pm_dec=pm_dec,
-            epoch=epoch)
+    name=name,
+    magnitudes=frozenset(magnitudes),
+    type=target_type,
+    ra=ra,
+    dec=dec,
+    pm_ra=pm_ra,
+    pm_dec=pm_dec,
+    epoch=epoch)
 
     def parse_nonsidereal_target(self, data: dict) -> NonsiderealTarget:
         """
@@ -416,17 +416,17 @@ class OcsProgramProvider(ProgramProvider):
 
         # TODO: ra and dec are last two parameters. Fill here or elsewhere?
         return NonsiderealTarget(
-            name=name,
-            magnitudes=frozenset(magnitudes),
-            type=target_type,
-            des=des,
-            tag=tag,
-            ra=np.empty([]),
-            dec=np.empty([]))
+    name=name,
+    magnitudes=frozenset(magnitudes),
+    type=target_type,
+    des=des,
+    tag=tag,
+    ra=np.empty([]),
+    dec=np.empty([]))
 
     @staticmethod
     def _parse_instrument_configuration(data: dict, instrument: str) \
-            -> Tuple[Optional[str], Optional[str], Optional[str], Optional[float]]:
+    -> Tuple[Optional[str], Optional[str], Optional[str], Optional[float]]:
         """
         A dict is return until the Instrument configuration model is created
         """
@@ -459,7 +459,7 @@ class OcsProgramProvider(ProgramProvider):
 
         if instrument == 'GNIRS':
             if (data[OcsProgramProvider._InstrumentKeys.ACQ_MIRROR] == 'in'
-                    and data[OcsProgramProvider._InstrumentKeys.DECKER] == 'acquisition'):
+                and data[OcsProgramProvider._InstrumentKeys.DECKER] == 'acquisition'):
                 disperser = 'mirror'
             else:
                 disperser = disperser.replace('grating', '') + data[OcsProgramProvider._InstrumentKeys.CROSS_DISPERSED]
@@ -663,7 +663,7 @@ class OcsProgramProvider(ProgramProvider):
             # A change in exposure time or coadds is a new atom for science exposures
             if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
                 if (observe_class.upper() == ObservationClass.SCIENCE.name and step_id > 0 and
-                        (exposure_times[step_id] != exposure_times[prev] or coadds[step_id] != coadds[prev])):
+                    (exposure_times[step_id] != exposure_times[prev] or coadds[step_id] != coadds[prev])):
                     next_atom = True
                     # logger.info('Atom for exposure time change')
 
@@ -716,7 +716,7 @@ class OcsProgramProvider(ProgramProvider):
                                   wavelengths=frozenset(wavelengths)))
 
                 if (step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES and
-                        n_pattern == 0):
+                    n_pattern == 0):
                     n_pattern = offset_lag
                 n_offsets = 1
 
@@ -760,7 +760,7 @@ class OcsProgramProvider(ProgramProvider):
             msg = f'Illegal target tag type: {tag}.'
             raise ValueError(msg)
 
-    def parse_observation(self, data: dict, num: int) -> Observation:
+    def parse_observation(self, data: dict, num: int, program_id: ProgramID) -> Observation:
         """
         In the current list of observations, we are parsing the data for:
         OBSERVATION_BASIC-{num}. Note that these numbers ARE in the correct order
@@ -813,7 +813,7 @@ class OcsProgramProvider(ProgramProvider):
             guide_groups = target_env[OcsProgramProvider._TargetEnvKeys.GUIDE_GROUPS]
             auto_guide_group = [group for group in guide_groups
                                 if group[OcsProgramProvider._TargetEnvKeys.GUIDE_GROUP_NAME] ==
-                                OcsProgramProvider._TargetEnvKeys.AUTO_GROUP]
+                                   OcsProgramProvider._TargetEnvKeys.AUTO_GROUP]
             primary_guide_group = [group for group in guide_groups
                                    if group[OcsProgramProvider._TargetEnvKeys.GUIDE_GROUP_PRIMARY]]
 
@@ -852,28 +852,30 @@ class OcsProgramProvider(ProgramProvider):
         # If the ToO override rapid setting is in place, set to RAPID.
         # Otherwise, set as None, and we will propagate down from the groups.
         if OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and \
-                data[OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]:
+           data[OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]:
             too_type = TooType.RAPID
         else:
             too_type = None
 
         return GeminiObservation(
-            id=obs_id,
-            internal_id=internal_id,
-            order=num,
-            title=title,
-            site=site,
-            status=status,
-            active=active,
-            priority=priority,
-            setuptime_type=setuptime_type,
-            acq_overhead=acq_overhead,
-            obs_class=obs_class,
-            targets=targets,
-            guiding=guiding,
-            sequence=atoms,
-            constraints=constraints,
-            too_type=too_type)
+    id=obs_id,
+    internal_id=internal_id,
+    order=num,
+    title=title,
+    site=site,
+    status=status,
+    active=active,
+    priority=priority,
+    setuptime_type=setuptime_type,
+    acq_overhead=acq_overhead,
+    obs_class=obs_class,
+    targets=targets,
+    guiding=guiding,
+    sequence=atoms,
+    constraints=constraints,
+    belongs_to=program_id,
+    too_type=too_type
+    )
 
     def parse_time_allocation(self, data: dict) -> TimeAllocation:
         category = TimeAccountingCode(data[OcsProgramProvider._TAKeys.CATEGORY])
@@ -883,11 +885,11 @@ class OcsProgramProvider(ProgramProvider):
         partner_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PART_TIME])
 
         return TimeAllocation(
-            category=category,
-            program_awarded=program_awarded,
-            partner_awarded=partner_awarded,
-            program_used=program_used,
-            partner_used=partner_used)
+    category=category,
+    program_awarded=program_awarded,
+    partner_awarded=partner_awarded,
+    program_used=program_used,
+    partner_used=partner_used)
 
     def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> OrGroup:
         """
@@ -936,7 +938,7 @@ class OcsProgramProvider(ProgramProvider):
         obs_data_blocks = top_level_obsdata + org_folders_obsdata
 
         # Parse out all the top level observations in this group.
-        observations = (self.parse_observation(obs_data, int(obs_key.split('-')[-1]))
+        observations = (self.parse_observation(obs_data, int(obs_key.split('-')[-1]), program_id)
                         for obs_key, obs_data in obs_data_blocks)
 
         # Remove inactive observations.
@@ -970,15 +972,15 @@ class OcsProgramProvider(ProgramProvider):
 
         # Put all the observations in the one big AND group and return it.
         return AndGroup(
-            id=group_id,
-            program_id=program_id,
-            group_name=group_name,
-            number_to_observe=number_to_observe,
-            delay_min=delay_min,
-            delay_max=delay_max,
-            children=children,
-            # TODO: Should this be ANYORDER OR CONSEC_ORDERED?
-            group_option=AndOption.CONSEC_ORDERED)
+                id=group_id,
+                program_id=program_id,
+                group_name=group_name,
+                number_to_observe=number_to_observe,
+                delay_min=delay_min,
+                delay_max=delay_max,
+                children=children,
+                # TODO: Should this be ANYORDER OR CONSEC_ORDERED?
+                group_option=AndOption.CONSEC_ORDERED)
 
     def parse_program(self, data: dict) -> Program:
         """
@@ -1012,7 +1014,7 @@ class OcsProgramProvider(ProgramProvider):
         # Get all the SCHEDNOTE and PROGRAMNOTE titles as they may contain FT data.
         note_titles = [data[key][OcsProgramProvider._NoteKeys.TITLE] for key in data.keys()
                        if key.startswith(OcsProgramProvider._ProgramKeys.SCHED_NOTE)
-                       or key.startswith(OcsProgramProvider._ProgramKeys.PROGRAM_NOTE)]
+                          or key.startswith(OcsProgramProvider._ProgramKeys.PROGRAM_NOTE)]
 
         # Determine the start and end date of the program.
         # NOTE that this includes the fuzzy boundaries.
@@ -1031,24 +1033,24 @@ class OcsProgramProvider(ProgramProvider):
         root_group = self.parse_and_group(data, program_id, ROOT_GROUP_ID)
 
         too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
-            data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
+                   data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
 
         # Propagate the ToO type down through the root group to get to the observation.
         OcsProgramProvider._check_too_type(program_id, too_type, root_group)
 
         return Program(
-            id=program_id,
-            internal_id=internal_id,
-            semester=semester,
-            band=band,
-            thesis=thesis,
-            mode=program_mode,
-            type=program_type,
-            start=start_date,
-            end=end_date,
-            allocated_time=time_act_alloc,
-            root_group=root_group,
-            too_type=too_type)
+    id=program_id,
+    internal_id=internal_id,
+    semester=semester,
+    band=band,
+    thesis=thesis,
+    mode=program_mode,
+    type=program_type,
+    start=start_date,
+    end=end_date,
+    allocated_time=time_act_alloc,
+    root_group=root_group,
+    too_type=too_type)
 
     @staticmethod
     def _check_too_type(program_id: str, too_type: TooType, group: Group) -> NoReturn:
