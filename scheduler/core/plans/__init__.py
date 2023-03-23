@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import ceil
-from typing import NoReturn, Mapping
+from typing import NoReturn, Mapping, Optional
 
 from lucupy.minimodel import Observation, ObservationID, Site
 
@@ -69,10 +69,14 @@ class Plans:
                                         len(ne.times[night_idx]))
 
     @property
-    def time_slot_length(self):
+    def time_slot_length(self) -> Optional[timedelta]:
         # TODO: time_slot_length should be the same across all night events.
         # TODO: This is currently a hack. Try to find a way to move this from Plan to Plans.
-        return list(self.plans.values())[0].time_slot_length
+        plan_list = list(self.plans.values())
+        if len(plan_list) > 0:
+            return plan_list[0].time_slot_length
+        else:
+            return None
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]
