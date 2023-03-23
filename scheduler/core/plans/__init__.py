@@ -70,7 +70,9 @@ class Plans:
 
     @property
     def time_slot_length(self):
-        return 0
+        # TODO: time_slot_length should be the same across all night events.
+        # TODO: This is currently a hack. Try to find a way to move this from Plan to Plans.
+        return list(self.plans.values())[0].time_slot_length
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]

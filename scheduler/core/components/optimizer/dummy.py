@@ -44,7 +44,7 @@ class DummyOptimizer(BaseOptimizer):
         while not plans.all_done() and len(self.groups) > 0:
 
             ran_group = random.choice(self.groups)
-            if self.add(ran_group, plans, None):
+            if self.add(ran_group, plans):
                 # TODO: All observations in the group are being inserted so the whole group
                 # can be removed
                 self.groups.remove(ran_group)
@@ -60,7 +60,7 @@ class DummyOptimizer(BaseOptimizer):
             self.groups.extend([g for g in p.group_data.values() if g.group.is_observation_group()])
         return self
 
-    def add(self, group: GroupData, plans: Plans, interval: Optional[Interval]) -> bool:
+    def add(self, group: GroupData, plans: Plans, interval: Optional[Interval] = None) -> bool:
         """
         Add a group to a Plan
         This is called when a new group is added to the program
