@@ -72,6 +72,15 @@ def build_scheduler(start: Time = Time("2018-10-01 08:00:00", format='iso', scal
                            Semester.find_semester_from_date(end.to_value('datetime'))])
     return Service(start, end, semesters, sites)
 
+@dataclass
+class NightStats:
+    timeloss: int
+    plan_score: int
+    plan_constrains: Set[Conditions]
+    n_toos: int
+    completion_fraction: Mapping[Band,int]
+
+
 
 def calculate_plan_stats(all_plans, selector):
 
@@ -82,7 +91,7 @@ def calculate_plan_stats(all_plans, selector):
             timeloss+=plan.time_left()
             plan_score = 0
             plan_constraints = set()
-            completion_fraction = {}
+            completion_fraction = {b:0 for b in Band}
             for visit in plan.visits:
                 obs = selector.collector.get_observation(visit.obs_id)
                 # check if obs is a too
@@ -94,8 +103,14 @@ def calculate_plan_stats(all_plans, selector):
                 plan_constraints.add(*obs.constraints())
 
                 # check completition
-                # get program from only observation ?
-                
+                program = selector.collector.get_program(obs.belongs_to)
+
+                if program.band in completition_fraction:
+                    completition_fraction[b]+=1
+                else:
+                    program_band
+    print("Stats")
+
 
 
 

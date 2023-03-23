@@ -67,14 +67,12 @@ class DummyOptimizer(BaseOptimizer):
         # TODO: Missing different logic for different AND/OR GROUPS
         # Add method should handle those
         for observation in group.group.observations():
-            print(observation)
             plan = plans[observation.site]
             if not plan.is_full and plan.site == observation.site:
                 obs_len = plan.time2slots(observation.exec_time())
                 if plan.time_left() >= obs_len and observation not in plan:
                     start = DummyOptimizer._allocate_time(plan)
                     plan.add(observation, start, obs_len)
-                    print(observation)
                     return True
                 else:
                     # TODO: DO a partial insert
