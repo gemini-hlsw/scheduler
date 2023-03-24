@@ -107,9 +107,6 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         self._earliest_date_per_site: Dict[Site, date] = {site: date.max for site in self._sites}
         self._latest_date_per_site: Dict[Site, date] = {site: date.min for site in self._sites}
 
-        # Modes for a night. Note that if the telescope is closed or the mode is shutdown, there is no value.
-        self._modes: Dict[Site, Dict[date, TelescopeMode]] = {site: {} for site in self._sites}
-
         # Determines which nights are blocked.
         self._blocked: Dict[Site, Set[date]] = {site: set() for site in self._sites}
 

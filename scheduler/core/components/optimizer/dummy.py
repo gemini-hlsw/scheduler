@@ -5,11 +5,12 @@ from __future__ import annotations
 
 import random
 from datetime import datetime
+from typing import Optional
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.calculations import GroupData
 from scheduler.core.plans import Plan, Plans
-from .base import BaseOptimizer
+from .base import BaseOptimizer, Interval
 
 
 class DummyOptimizer(BaseOptimizer):
@@ -58,7 +59,7 @@ class DummyOptimizer(BaseOptimizer):
             self.groups.extend([g for g in p.group_data.values() if g.group.is_observation_group()])
         return self
 
-    def add(self, group: GroupData, plans: Plans) -> bool:
+    def add(self, group: GroupData, plans: Plans, interval: Optional[Interval] = None) -> bool:
         """
         Add a group to a Plan
         This is called when a new group is added to the program
