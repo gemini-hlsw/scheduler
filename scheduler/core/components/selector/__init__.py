@@ -170,8 +170,10 @@ class Selector(SchedulerComponent):
         # at least one GroupInfo has schedulable slots.
         return Selection(
             program_info=program_info,
+            schedulable_groups=schedulable_groups,
             night_events={site: self.collector.get_night_events(site) for site in sites},
-            schedulable_groups=schedulable_groups
+            plan_num_nights=len(self.collector.time_grid),
+            time_slot_length=self.collector.time_slot_length.to_datetime()
         )
 
     def get_group_info(self, unique_group_id: UniqueGroupID) -> Optional[GroupInfo]:

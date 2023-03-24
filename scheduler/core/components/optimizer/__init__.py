@@ -5,7 +5,11 @@ from typing import List
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.plans import Plans
-# from .greedymax import GreedyMaxOptimizer
+
+import numpy.typing as npt
+
+# Convenient type alias for Interval
+Interval = npt.NDArray[int]
 
 
 class Optimizer:

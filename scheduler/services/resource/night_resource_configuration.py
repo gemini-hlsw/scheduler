@@ -3,21 +3,11 @@
 
 from dataclasses import dataclass
 from datetime import date
-from enum import Enum, auto
 from typing import FrozenSet
 
 from .filters import AbstractFilter
 
 from lucupy.minimodel import Resource, Site
-
-
-class TelescopeMode(Enum):
-    QUEUE = auto()
-    PV = auto()
-    CLASSICAL = auto()
-    PRIORITY = auto()
-    VISITOR_INSTRUMENT = auto()
-    PARTNER_BLOCK = auto()
 
 
 # An instance of this class exists for every night in the configuration file.
