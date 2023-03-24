@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import os
 from copy import deepcopy
 from typing import List, NoReturn, FrozenSet
 from lucupy.minimodel import Site
@@ -10,7 +11,7 @@ from scheduler.graphql_mid.types import SPlans
 from definitions import ROOT_DIR
 from .dbmanager import DBManager
 
-db = DBManager(f'{ROOT_DIR}/plans')
+db = DBManager(os.path.join(ROOT_DIR, 'plans'))
 DB_KEY = 'plans'
 
 
