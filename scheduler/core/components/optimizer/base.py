@@ -38,5 +38,5 @@ class BaseOptimizer(ABC):
         ...
 
     @abstractmethod
-    def add(self, group: GroupData, plans: Plans, interval: Optional[Interval]):
+    def add(self, group: GroupData, plans: Plans, interval: Optional[Interval] = None):
         ...
