@@ -94,17 +94,15 @@ class Timeline:
                 and last position in the plan.
         """
 
-        schedule = self.time_slots
-        obs_comparator = schedule[0]
+        obs_comparator = self.time_slots[0]
         start = 0
-
         order = []
-        for position, obs_idx in enumerate(schedule):
+        for position, obs_idx in enumerate(self.time_slots):
             if obs_idx != obs_comparator:
                 order.append((obs_comparator, start, position - 1))
                 start = position
                 obs_comparator = obs_idx
-            elif position == len(schedule) - 1:
+            elif position == len(self.time_slots) - 1:
                 order.append((obs_comparator, start, position))
 
         return order
