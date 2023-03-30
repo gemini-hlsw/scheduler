@@ -22,8 +22,10 @@ class Optimizer:
         self.algorithm = algorithm.setup(selection)
         self.night_events = selection.night_events
         # TODO: Assumes that all sites schedule the same amount of nights
-        # self.period = len(list(self.night_events.values())[0].time_grid)
-        self.period = 1
+        # if num_nights_optimize is None:
+        self.period = len(list(self.night_events.values())[0].time_grid)
+        # else:
+        #     self.period = num_nights_optimize
 
     def schedule(self) -> List[Plans]:
         # Create set of plans for the amount of nights
