@@ -151,6 +151,7 @@ if __name__ == '__main__':
     # selector.get_group_info(group_id).scores
     # selection.program_info(program_id).group_data(group_id).group_info.scores
 
+
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
     print(selection.program_info)
     optimizer_blueprint = OptimizerBlueprint(
