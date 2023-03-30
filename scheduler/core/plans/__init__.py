@@ -25,7 +25,7 @@ class Visit:
 class NightStats:
     timeloss: str
     plan_score: float
-    plan_constraints: Conditions
+    plan_conditions: Conditions
     n_toos: int
     completion_fraction: Mapping[Band,int]
 
@@ -42,7 +42,6 @@ class Plan:
     time_slot_length: timedelta
     site: Site
     _time_slots_left: int
-    night_stats: NightStats = field(init=False)
 
     def __post_init__(self):
         self.visits = []
@@ -92,6 +91,7 @@ class Plans:
                                         ne.time_slot_length.to_datetime(),
                                         site,
                                         len(ne.times[night_idx]))
+        night_stats: NightStats = None
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]

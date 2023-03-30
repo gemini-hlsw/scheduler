@@ -57,7 +57,7 @@ class Service:
 
         # Save to database
         PlanManager.set_plans(plans)
-        return plans
+        return plans, plan_summary
 
 
 def build_scheduler(start: Time = Time("2018-10-01 08:00:00", format='iso', scale='utc'),
@@ -146,7 +146,6 @@ def calculate_plans_stats(all_plans: List[Plans],
                     completion_fraction[program.band] += 1
                 else:
                     raise KeyError('Missing Band in Program!')
-
         plans.night_stats =  NightStats(f'{timeloss} min',
                                         plan_score,
                                         Conditions.most_restrictive_conditions(plan_conditions),

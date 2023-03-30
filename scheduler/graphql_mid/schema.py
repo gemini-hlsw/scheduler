@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
+import json
 from datetime import datetime
 from typing import List
 import strawberry # noqa
@@ -58,10 +59,12 @@ class Query:
         plans = PlanManager.get_plans_by_input(new_schedule_input.start_time,
                                                new_schedule_input.end_time,
                                                new_schedule_input.site)
+        plans_summary = {}
         if not plans:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                     Time(new_schedule_input.end_time, format='iso', scale='utc')
             scheduler = build_scheduler(start, end, new_schedule_input.site)
-            plans = scheduler()
+            plans, plans_summary = scheduler()
         splans = [SPlans.from_computed_plans(p) for p in plans]
-        return NewNightPlans(night_plans=splans)
+        json_summary = json.dumps(plans_summary)
+        return NewNightPlans(night_plans=splans, plans_summary=plans_summary)
