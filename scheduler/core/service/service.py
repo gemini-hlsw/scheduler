@@ -104,7 +104,7 @@ def calculate_plans_stats(all_plans: List[Plans],
                     n_toos += 1
                 # add to plan_score
                 plan_score += visit.score
-                # add used contrains
+                # add used conditions
                 plan_conditions.append(obs.constraints.conditions)
                 # check completition
                 program = collector.get_program(obs.belongs_to)
@@ -113,7 +113,7 @@ def calculate_plans_stats(all_plans: List[Plans],
                     all_programs_visits[program.id] += 1
                     all_programs_scores[program.id] += visit.score
                 else:
-                    # TODO: This asssumes the observations are not spittable
+                    # TODO: This asssumes the observations are not splittable
                     # TODO: and would change in the future.
                     all_programs_length[program.id] = len(program.observations())
                     all_programs_visits[program.id] = 0
@@ -130,7 +130,7 @@ def calculate_plans_stats(all_plans: List[Plans],
                                         completion_fraction)
 
     plans_summary = {}
-    for p_id in all_programs_visits.keys():
+    for p_id in all_programs_visits:
         completition = f'{all_programs_visits[p_id]/all_programs_length[p_id]*100:.1f}%'
         score = all_programs_scores[p_id]
         plans_summary[p_id] = (completition,score)
