@@ -153,7 +153,6 @@ if __name__ == '__main__':
 
 
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
-    print(selection.program_info)
     optimizer_blueprint = OptimizerBlueprint(
         "DUMMY"
     )

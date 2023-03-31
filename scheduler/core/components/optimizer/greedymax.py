@@ -60,17 +60,19 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return self
 
     @staticmethod
-    def _allocate_time(plan: Plan, obs_time: timedelta) -> datetime:
+    def _allocate_time(plan: Plan, obs_len: int) -> Tuple[datetime, int]:
         """
         Allocate time for an observation inside a Plan
         This should be handled by the optimizer as can vary from algorithm to algorithm
         """
         # Get first available slot
         start = plan.start
+        start_time_slot = 0
         if len(plan.visits) > 0:
             start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
+            start_time_slot = plan.visits[-1].start_time_slot + obs_len + 1
 
-        return start
+        return start, start_time_slot
 
     def non_zero_intervals(self, scores: np.ndarray) -> np.ndarray:
 
@@ -386,15 +388,24 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # obs_len = len(best_interval)
                     # print(f"Inverval lengths: {len(interval)} {obs_len}")
 
+                    # Allocate_time is only used for NightStats. See note
+                    _, start_time_slot = GreedyMaxOptimizer._allocate_time(plan, obs_len)
+
                     # add to timeline (time_slots)
                     iobs = self.obs_group_ids.index(observation.id)  # index in observation list
                     start = self.timelines[plans.night][site].add(iobs, obs_len, best_interval)
                     # Put the timelines call in _allocate_time, or use that for time accounting updates?
                     # start = self._allocate_time(plan, observation.exec_time())
 
+                    # Sergio's Note:
+                    # Both of this lines are added to calculate NightStats, this could be modified, as in calculated somewhere
+                    # else or in a different way. But are needed when plan.add is called.
+                    # In the future we could merge this with timeline but the design on that is TBD.
+                    visit_score = np.sum(group_data.group_info.scores[plans.night][start_time_slot:start_time_slot+obs_len])
+
                     # Add visit to final plan - in general won't be in chronological order
                     # Maybe add all observations as a final step once GM is finished?
-                    plan.add(observation, start, obs_len)
+                    plan.add(observation, start, start_time_slot, obs_len, visit_score)
                     # Where to do time accounting? Here, _allocate_time or in plan/timelines.add?
 
             if plan.time_left() <= 0:
