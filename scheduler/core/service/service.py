@@ -78,29 +78,6 @@ def build_scheduler(start: Time = Time("2018-10-01 08:00:00", format='iso', scal
     return Service(start, end, semesters, sites)
 
 
-
-
-
-def _get_total_bands_by_program(programs):
-    band_1 = 0
-    band_2 = 0
-    band_3 = 0
-    band_4 = 0
-    for p in programs:
-        if program.band is Band.Band1:
-            band_1+=1
-        elif program.band is Band.Band2:
-            band_2+=1
-        elif program.band is Band.Band3:
-            band_3+=1
-        elif program.band is Band.Band4:
-            band_4+=1
-
-    return band_1, band_2, band_3, band_4
-
-
-
-
 def calculate_plans_stats(all_plans: List[Plans],
                           collector: Collector,
                           selection: Selection) -> Mapping[ProgramID,Tuple[str,float]]:

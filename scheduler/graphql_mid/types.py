@@ -15,7 +15,7 @@ from scheduler.core.plans import Plan, Plans, Visit, NightStats
 
 @strawberry.type
 class SNightStats:
-    """comment
+    """Night stats to display in the UI
     """
     timeloss: str
     plan_score: float
