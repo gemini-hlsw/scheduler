@@ -160,16 +160,23 @@ if __name__ == '__main__':
         blueprint=optimizer_blueprint
     )
 
-    # Timeline tests
-    for tl in optimizer_blueprint.algorithm.timelines:
-        print(f'Night {tl.night}')
-        #     for site, ne in gm_optimizer.night_events.items():
-        for site in optimizer.night_events.keys():
-            print(f'\t {site}')
-            print(f'\t {tl.timelines[site].start} {tl.timelines[site].end} {tl.timelines[site]._total_time_slots} \
-            {tl.timelines[site].is_full} {tl.timelines[site].schedule[0]}')
+    # TODO: pass these as parameters
+    optimizer.period = 1  # number of nights for which to make plans in a single pass
+    # optimizer_blueprint.algorithm.show_plots = True # show plots
 
     plans = optimizer.schedule()
     print_plans(plans)
+    print('')
+
+    # Timeline tests
+    for tl in optimizer_blueprint.algorithm.timelines:
+        print(f'Night {tl.night + 1}')
+        #     for site, ne in gm_optimizer.night_events.items():
+        for site in optimizer.night_events.keys():
+            print(f'\t {site}')
+            print(f'\t {tl[site].start} {tl[site].end} {tl[site].total_time_slots} \
+            {tl[site].is_full}')
+            tl[site].print(optimizer_blueprint.algorithm.obs_group_ids)
+            # print(tl.timelines[site].get_earliest_available_interval())
 
     print('DONE')
