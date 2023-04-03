@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from astropy.time import Time
-from lucupy.minimodel import Site
+from lucupy.minimodel import Semester, Site
 from typing import FrozenSet
 
 from .blueprint import CollectorBlueprint, OptimizerBlueprint
@@ -22,7 +22,7 @@ class SchedulerBuilder:
     def build_collector(start: Time,
                         end: Time,
                         sites: FrozenSet[Site],
-                        semesters: FrozenSet[Site],
+                        semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint) -> Collector:
         return Collector(start, end, sites, semesters, *blueprint)
 
