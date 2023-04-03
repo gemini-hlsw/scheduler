@@ -419,10 +419,10 @@ class Collector(SchedulerComponent):
                 if program.semester is None or program.semester not in self.semesters:
                     logger.warning(f'Program {program.id} not in a specified semester (skipping): {program.semester}.')
                     continue
-
                 # If a program ID is repeated, warn and overwrite.
                 if program.id in Collector._programs.keys():
                     logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
+
                 Collector._programs[program.id] = program
 
                 # TODO HACK: Zero out times for Bryan.

@@ -1,14 +1,41 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import json
 from datetime import datetime
 from typing import List, Union
 
 import pytz
 import strawberry  # noqa
+from strawberry.scalars import JSON
 from lucupy.minimodel import ObservationID, Site, ALL_SITES
 
-from scheduler.core.plans import Plan, Plans, Visit
+from scheduler.core.plans import Plan, Plans, Visit, NightStats
+
+
+@strawberry.type
+class SNightStats:
+    """Night stats to display in the UI
+    """
+    timeloss: str
+    plan_score: float
+    plan_conditions: JSON
+    n_toos: int
+    completion_fraction: JSON
+
+    @staticmethod
+    def from_computed_night_stats(ns: NightStats) -> 'SNightStats':
+        conditions = {'cc': ns.plan_conditions.cc,
+                      'iq': ns.plan_conditions.iq,
+                      'wv': ns.plan_conditions.wv,
+                      'sb': ns.plan_conditions.sb}
+        conditions = json.dumps(conditions)
+        cf = json.dumps(ns.completion_fraction)
+        return SNightStats(timeloss=ns.timeloss,
+                           plan_score=ns.plan_score,
+                           plan_conditions=conditions,
+                           n_toos=ns.n_toos,
+                           completion_fraction=cf)
 
 @strawberry.type
 class SVisit:
@@ -56,24 +83,28 @@ class SPlans:
     # TODO: Change this to date in UTC
     night_idx: int
     plans_per_site: List[SPlan]
+    night_stats: SNightStats
 
     @staticmethod
     def from_computed_plans(plans: Plans) -> 'SPlans':
         return SPlans(
     night_idx=plans.night,
-    plans_per_site=[SPlan.from_computed_plan(plans[site]) for site in Site]
+    plans_per_site=[SPlan.from_computed_plan(plans[site]) for site in Site],
+    night_stats=SNightStats.from_computed_night_stats(plans.night_stats)
     )
 
     def for_site(self, site: Site) -> 'SPlans':
         return SPlans(
     night_idx=self.night_idx,
-    plans_per_site=[plans for plans in self.plans_per_site if plans.site == site]
+    plans_per_site=[plans for plans in self.plans_per_site if plans.site == site],
+    night_stats=SNightStats.from_computed_night_stats(plans.night_stats)
     )
 
 
 @strawberry.type
 class NewNightPlans:
     night_plans: List[SPlans]
+    plans_summary: JSON
 
 
 @strawberry.type

@@ -4,9 +4,9 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import ceil
-from typing import NoReturn, Mapping
+from typing import NoReturn, Mapping, List, Optional
 
-from lucupy.minimodel import Observation, ObservationID, Site
+from lucupy.minimodel import Observation, ObservationID, GroupID, Site, Conditions, Band
 
 from scheduler.core.calculations.nightevents import NightEvents
 
@@ -17,13 +17,25 @@ class Visit:
     obs_id: ObservationID
     atom_start_idx: int
     atom_end_idx: int
+    start_time_slot: int
     time_slots: int
+    score: float
+
+@dataclass(frozen=True)
+class NightStats:
+    timeloss: str
+    plan_score: float
+    plan_conditions: Conditions
+    n_toos: int
+    completion_fraction: Mapping[Band,int]
 
 
 @dataclass
 class Plan:
     """
     Nightly plan for a specific Site
+
+    night_stats are supossed to be calculated at the end when plans are already generated
     """
     start: datetime
     end: datetime
@@ -40,9 +52,19 @@ class Plan:
         # return ceil((time.total_seconds() / self.time_slot_length.total_seconds()))
         return ceil(time / self.time_slot_length)
 
-    def add(self, obs: Observation, start: datetime, time_slots: int,
-            atom_first: int = 0, atom_last: int = -1) -> NoReturn:
-        visit = Visit(start, obs.id, obs.sequence[atom_first].id, obs.sequence[atom_last].id, time_slots)
+    def add(self,
+            obs: Observation,
+            start: datetime,
+            start_time_slot: int,
+            time_slots: int,
+            score: float) -> NoReturn:
+        visit = Visit(start,
+                      obs.id,
+                      obs.sequence[0].id,
+                      obs.sequence[-1].id,
+                      start_time_slot,
+                      time_slots,
+                      score)
         self.visits.append(visit)
         self._time_slots_left -= time_slots
 
@@ -69,6 +91,7 @@ class Plans:
                                         ne.time_slot_length.to_datetime(),
                                         site,
                                         len(ne.times[night_idx]))
+        night_stats: NightStats = None
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]

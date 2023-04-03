@@ -858,24 +858,24 @@ class OcsProgramProvider(ProgramProvider):
             too_type = None
 
         return GeminiObservation(
-    id=obs_id,
-    internal_id=internal_id,
-    order=num,
-    title=title,
-    site=site,
-    status=status,
-    active=active,
-    priority=priority,
-    setuptime_type=setuptime_type,
-    acq_overhead=acq_overhead,
-    obs_class=obs_class,
-    targets=targets,
-    guiding=guiding,
-    sequence=atoms,
-    constraints=constraints,
-    belongs_to=program_id,
-    too_type=too_type
-    )
+            id=obs_id,
+            internal_id=internal_id,
+            order=num,
+            title=title,
+            site=site,
+            status=status,
+            active=active,
+            priority=priority,
+            setuptime_type=setuptime_type,
+            acq_overhead=acq_overhead,
+            obs_class=obs_class,
+            targets=targets,
+            guiding=guiding,
+            sequence=atoms,
+            constraints=constraints,
+            belongs_to=program_id,
+            too_type=too_type
+           )
 
     def parse_time_allocation(self, data: dict) -> TimeAllocation:
         category = TimeAccountingCode(data[OcsProgramProvider._TAKeys.CATEGORY])

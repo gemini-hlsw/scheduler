@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import random
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple
+
+import numpy as np
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.calculations import GroupData
@@ -21,19 +23,19 @@ class DummyOptimizer(BaseOptimizer):
         self.groups = []
 
     @staticmethod
-    def _allocate_time(plan: Plan) -> datetime:
+    def _allocate_time(plan: Plan, obs_len: int) -> Tuple[datetime, int]:
         """
         Allocate time for an observation inside a Plan
         This should be handled by the optimizer as can vary from algorithm to algorithm
         """
         # Get first available slot
         start = plan.start
+        start_time_slot = 0
         if len(plan.visits) > 0:
             start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
-        # for v in plan.visits:
-        #     delta = v.start_time - start + obs_time
-        #     start += delta
-        return start
+            start_time_slot = plan.visits[-1].start_time_slot + obs_len + 1
+
+        return start, start_time_slot
 
     def _run(self, plans: Plans):
         """
@@ -71,8 +73,9 @@ class DummyOptimizer(BaseOptimizer):
             if not plan.is_full and plan.site == observation.site:
                 obs_len = plan.time2slots(observation.exec_time())
                 if plan.time_left() >= obs_len and observation not in plan:
-                    start = DummyOptimizer._allocate_time(plan)
-                    plan.add(observation, start, obs_len)
+                    start, start_time_slot = DummyOptimizer._allocate_time(plan, obs_len)
+                    visit_score = np.sum(group.group_info.scores[plans.night][start_time_slot:start_time_slot+obs_len])
+                    plan.add(observation, start, start_time_slot, obs_len, visit_score)
                     return True
                 else:
                     # TODO: DO a partial insert
