@@ -4,20 +4,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Iterable, NoReturn
-# from typing import Mapping
-
-# from lucupy.minimodel.program import ProgramID
+from typing import NoReturn, Optional, Tuple
 
 from scheduler.core.calculations.selection import Selection
-from scheduler.core.calculations import GroupData, ProgramInfo
+from scheduler.core.calculations import GroupData
 from scheduler.core.plans import Plan, Plans
 from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
+from . import Interval
 
 import numpy as np
+import numpy.typing as npt
 import matplotlib.pyplot as plt
-# import astropy.units as u
 
 
 class GreedyMaxOptimizer(BaseOptimizer):
@@ -32,31 +30,23 @@ class GreedyMaxOptimizer(BaseOptimizer):
         self.obs_group_ids = []
         self.timelines = []
         self.sites = []
-        self.time_slot_length = timedelta
         self.min_visit_len = min_visit_len
         self.show_plots = show_plots
+        self.time_slot_length = None
 
     def setup(self, selection: Selection) -> GreedyMaxOptimizer:
         """
-        Preparation for the optimizer e.g. create chromosomes, etc.
+        Preparation for the optimizer.
         """
         self.group_ids = list(selection.schedulable_groups)
         self.group_data_list = list(selection.schedulable_groups.values())
         # self._process_group_data(self.group_data_list)
         self.obs_group_ids = list(selection.obs_group_ids)
-
-        # As per my comment below: if you need period, it should be a member of Selection.
-        # period = len(list(selection.night_events.values())[0].time_grid)
         num_nights = selection.plan_num_nights
         # print('Number of nights: ', num_nights)
         self.timelines = [Timelines(selection.night_events, night) for night in range(num_nights)]
-
-        # As per my comment below.
-        # self.sites = list(selection.night_events.keys())
         self.sites = selection.sites
-
         self.time_slot_length = selection.time_slot_length
-
         return self
 
     @staticmethod
@@ -74,21 +64,22 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         return start, start_time_slot
 
-    def non_zero_intervals(self, scores: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def non_zero_intervals(scores: np.ndarray) -> np.ndarray:
 
         # Create an array that is 1 where the score is greater than 0, and pad each end with an extra 0.
         isntzero = np.concatenate(([0], np.greater(scores, 0), [0]))
         absdiff = np.abs(np.diff(isntzero))
-        # Get the ranges for each non zero interval
+        # Get the ranges for each nonzero interval
         ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
 
         return ranges
 
-    def _min_slots_remaining(self, group_data) -> int:
+    def _min_slots_remaining(self, group_data) -> Tuple[int, int]:
         """Return the number of time slots for the remaining time"""
 
         # the number of time slots in the minimum visit length
-        # time_slot_length = plans.plans[self.sites[0]].time_slot_length
+        # TODO: This value is not being used.
         n_min_visit = int(np.ceil(self.min_visit_len / self.time_slot_length))
         # print(f"n_min_visit: {n_min_visit}")
 
@@ -131,14 +122,15 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # scores = group_data.group_info.scores[plans.night]
                     smax = np.max(group_data.group_info.scores[plans.night][interval])
                     if smax > 0.0:
-                        # Check if the interval is long enough to be useful (longer than min visit length)
-                        # Remaining time for the group
-                        # also should see if it can be split
+                        # Check if the interval is long enough to be useful (longer than min visit length).
+                        # Remaining time for the group.
+                        # Also should see if it can be split.
                         n_min, n_time_remaining = self._min_slots_remaining(group_data)
 
-                        # #valuate sub-intervals (e.g. timing windows, gaps in the score)
-                        # Find ime slot locations where the score > 0
-                        group_intervals = self.non_zero_intervals(group_data.group_info.scores[plans.night][interval])
+                        # Evaluate sub-intervals (e.g. timing windows, gaps in the score).
+                        # Find time slot locations where the score > 0.
+                        check_interval = group_data.group_info.scores[plans.night][interval]
+                        group_intervals = GreedyMaxOptimizer.non_zero_intervals(check_interval)
                         max_score_on_interval = 0.0
                         max_interval = None
                         for group_interval in group_intervals:
@@ -206,7 +198,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
             n_time: length of the group in time steps
             night: night counter
         """
-        best_interval = interval
         start = interval[0]
         end = interval[-1]
         scores = group_data.group_info.scores[night]
@@ -354,7 +345,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # for timeline in self.timelines[plans.nights]:
         #     timeline.output_plan()
 
-    def add(self, group_data: GroupData, plans: Plans, interval) -> bool:
+    def add(self, group_data: GroupData, plans: Plans, interval: Optional[Interval]) -> bool:
         """
         Add a group to a Plan
         """
