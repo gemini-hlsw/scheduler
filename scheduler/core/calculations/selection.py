@@ -43,12 +43,6 @@ class Selection:
         else:
             return [Selection._get_obs_group_ids(subgroup) for subgroup in group.children]
 
-    @property
-    def obs_group_ids(self) -> FrozenSet[UniqueGroupID]:
-        return frozenset(flatten(
-            Selection._get_obs_group_ids(program_info.program.root_group) for program_info in self.program_info.values()
-        ))
-
     def __post_init__(self):
         object.__setattr__(self, 'program_ids', frozenset(self.program_info.keys()))
 
