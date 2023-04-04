@@ -433,23 +433,24 @@ class Collector(SchedulerComponent):
                 Collector._observations_per_program[program.id] = frozenset(obs.id for obs in program.observations())
 
                 for obs in program.observations():
+                    if obs.site in self.sites:
                     # Retrieve tne base target, if any. If not, we cannot process.
-                    base = obs.base_target()
+                        base = obs.base_target()
 
-                    # Record the observation and target for this observation ID.
-                    Collector._observations[obs.id] = obs, base
+                        # Record the observation and target for this observation ID.
+                        Collector._observations[obs.id] = obs, base
 
-                    if base is None:
-                        logger.warning(f'No base target found for observation {obs.id} (skipping).')
-                        continue
+                        if base is None:
+                            logger.warning(f'No base target found for observation {obs.id} (skipping).')
+                            continue
 
-                    # Compute the timing window expansion for the observation and then calculate the target information.
-                    tw = self._process_timing_windows(program, obs)
-                    ti = self._calculate_target_info(obs, base, tw)
-                    logger.info(f'Processed observation {obs.id}.')
+                        # Compute the timing window expansion for the observation and then calculate the target information.
+                        tw = self._process_timing_windows(program, obs)
+                        ti = self._calculate_target_info(obs, base, tw)
+                        logger.info(f'Processed observation {obs.id}.')
 
-                    # Compute the TargetInfo.
-                    Collector._target_info[(base.name, obs.id)] = ti
+                        # Compute the TargetInfo.
+                        Collector._target_info[(base.name, obs.id)] = ti
 
             except ValueError as e:
                 bad_program_count += 1

@@ -46,7 +46,7 @@ class Service:
                                 data=programs)
         # Create selection from Selector
         selector = builder.build_selector(collector)
-        selection = selector.select()
+        selection = selector.select(sites=self.sites)
 
         # Execute the Optimizer.
         optimizer = builder.build_optimizer(selection, Blueprints.optimizer)
@@ -56,7 +56,7 @@ class Service:
         plan_summary = calculate_plans_stats(plans, collector, selection)
 
         # Save to database
-        PlanManager.set_plans(plans)
+        PlanManager.set_plans(plans, self.sites)
         return plans, plan_summary
 
 

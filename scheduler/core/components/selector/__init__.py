@@ -104,7 +104,7 @@ class Selector(SchedulerComponent):
 
         # If no manual ranker was specified, create the default.
         if ranker is None:
-            ranker = DefaultRanker(self.collector, night_indices)
+            ranker = DefaultRanker(self.collector, night_indices, sites)
 
         # The night_indices in the Selector and Ranker must be the same.
         if not np.array_equal(night_indices, ranker.night_indices):
