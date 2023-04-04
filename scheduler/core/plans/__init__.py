@@ -46,6 +46,7 @@ class Plan:
     def __post_init__(self):
         self.visits = []
         self.is_full = False
+        self.night_stats = None
 
     def time2slots(self, time: timedelta) -> int:
         # return ceil((time.total_seconds() / self.time_slot_length.total_seconds()) / 60)
@@ -91,7 +92,6 @@ class Plans:
                                         ne.time_slot_length.to_datetime(),
                                         site,
                                         len(ne.times[night_idx]))
-        night_stats: NightStats = None
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]

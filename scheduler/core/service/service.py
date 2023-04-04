@@ -85,18 +85,13 @@ def calculate_plans_stats(all_plans: List[Plans],
     all_programs_visits = {}
     all_programs_length = {}
     all_programs_scores = {}
+    n_toos = 0
+    plan_conditions = []
+    completion_fraction = {b:0 for b in Band}
+    plan_score = 0
 
     for plans in all_plans:
-        timeloss = 0
-        n_toos = 0
-        plan_conditions = []
-        completion_fraction = {b:0 for b in Band}
-
         for plan in plans:
-
-            timeloss+=plan.time_left()
-            plan_score = 0
-
             for visit in plan.visits:
                 obs = collector.get_observation(visit.obs_id)
                 # check if obs is a too
@@ -123,11 +118,15 @@ def calculate_plans_stats(all_plans: List[Plans],
                     completion_fraction[program.band] += 1
                 else:
                     raise KeyError('Missing Band in Program!')
-        plans.night_stats =  NightStats(f'{timeloss} min',
-                                        plan_score,
-                                        Conditions.most_restrictive_conditions(plan_conditions),
-                                        n_toos,
-                                        completion_fraction)
+            plan.night_stats =  NightStats(f'{plan.time_left()} min',
+                                            plan_score,
+                                            Conditions.most_restrictive_conditions(plan_conditions),
+                                            n_toos,
+                                            completion_fraction)
+            n_toos = 0
+            plan_score = 0
+            plan_conditions = []
+            completion_fraction = {b:0 for b in Band}
 
     plans_summary = {}
     for p_id in all_programs_visits:
