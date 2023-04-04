@@ -6,7 +6,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2017 Andrea Palazzi
+# Copyright (c) 2017 Andrea Palazzi (modified by AURA)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,16 +26,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import requests
 from os import makedirs
 from os.path import dirname
 from os.path import exists
+import requests
 
 
 class GoogleDriveDownloader:
     """
     Minimal class to download shared files from Google Drive.
     """
+    _timeout = 9.0
 
     CHUNK_SIZE = 32768
     DOWNLOAD_URL = 'https://docs.google.com/uc?export=download'
@@ -67,21 +68,12 @@ class GoogleDriveDownloader:
 
         if not exists(dest_path) or overwrite:
             session = requests.Session()
-            response = session.get(GoogleDriveDownloader.DOWNLOAD_URL, params={'id': file_id}, stream=True)
-
-            token = GoogleDriveDownloader._get_confirm_token(response)
-            if token:
-                params = {'id': file_id, 'confirm': token}
-                response = session.get(GoogleDriveDownloader.DOWNLOAD_URL, params=params, stream=True)
-
+            params = {'id': file_id}
+            response = session.get(GoogleDriveDownloader.DOWNLOAD_URL,
+                                   params=params,
+                                   stream=True,
+                                   timeout=GoogleDriveDownloader._timeout)
             GoogleDriveDownloader._save_response_content(response, dest_path)
-
-    @staticmethod
-    def _get_confirm_token(response):
-        for key, value in response.cookies.items():
-            if key.startswith('download_warning'):
-                return value
-        return None
 
     @staticmethod
     def _save_response_content(response, destination):
