@@ -47,14 +47,14 @@ class PlanManager:
         except KeyError:
             return []
     @staticmethod
-    def set_plans(plans: List[Plans]) -> NoReturn:
+    def set_plans(plans: List[Plans], sites: FrozenSet[Site]) -> NoReturn:
         """
         Note that we are converting List[Plans] to List[SPlans].
         """
         try:
             calculated_plans = deepcopy(plans)
             db.write([
-                SPlans.from_computed_plans(p) for p in calculated_plans
+                SPlans.from_computed_plans(p, sites) for p in calculated_plans
             ])
         except KeyError:
             raise KeyError(f'Error on read!')
