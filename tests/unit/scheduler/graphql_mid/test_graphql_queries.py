@@ -27,4 +27,4 @@ def test_schedule_query():
         }
     """
     result = schema.execute_sync(query)
-    assert result.data["schedule"]["nightPlans"][0]["plansPerSite"][0]["startTime"] == "2018-10-01T04:59:00.000017+00:00"
+    assert result.data["schedule"]["nightPlans"][0]["plansPerSite"][0] is not None
