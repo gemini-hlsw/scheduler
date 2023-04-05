@@ -3,16 +3,13 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import ClassVar, List, NoReturn, Mapping, Sequence, Tuple, Union
+from typing import ClassVar, List, NoReturn, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import numpy.typing as npt
 from lucupy.minimodel import Observation, ObservationID, Site
 
 from scheduler.core.calculations.nightevents import NightEvents
-
-# Type alias for Interval for simplicity.
-Interval = npt.NDArray[int]
+from . import Interval
 
 
 @dataclass
@@ -38,51 +35,43 @@ class Timeline:
     def __contains__(self, obs: Observation) -> bool:
         return obs.id in self.time_slots
 
-    def _empty_slots(self) -> npt.NDArray[int]:
+    def get_available_intervals(self, first: bool = False) -> Union[Interval, List[Interval]]:
         """
-        Determine the number of empty time slots.
+        Get the set of time_slot Intervals that can be scheduled. If desired, return only the first.
+        If there are no Intervals, return an empty array.
         """
-        return np.where(self.time_slots == Timeline.EMPTY)[0][:]
+        # Get the list of empty time slots and split into Intervals of consecutive time slots.
+        empty_slots = np.where(self.time_slots == Timeline.EMPTY)[0]
 
-    @staticmethod
-    def _available_intervals(empty_slots: np.ndarray) -> npt.NDArray[Interval]:
-        """
-        Calculate the available intervals in the schedule by creating an array that contains all
-        the groups of consecutive numbers
-        """
-        return np.split(empty_slots, np.where(np.diff(empty_slots) != 1)[0] + 1)
-
-    def get_available_intervals(self, first: bool = False) -> Union[Interval, npt.NDArray[Interval]]:
-        """
-        Get the set of time_slot intervals that can be scheduled. If desired, return only the first
-        """
-        empty_slots = self._empty_slots()
-        intervals = self._available_intervals(empty_slots)
-        # print(f"length intervals = {len(intervals)}")
+        # intervals is a Python list.
+        intervals = np.split(empty_slots, np.where(np.diff(empty_slots) != 1)[0] + 1)
         return intervals[0] if first and len(intervals) > 1 else intervals
 
-    def get_earliest_available_interval(self) -> Interval:
+    def get_earliest_available_interval(self) -> Optional[Interval]:
         """
-        Get the earliest available space in the schedule that can allocate an observation
+        Get the earliest available space in the schedule that can allocate an observation if one exists.
+        If there are no such intervals, return None.
         """
-        return self.get_available_intervals()[0]
+        intervals = self.get_available_intervals()
+        return intervals[0] if len(intervals) > 0 else None
 
-    def add(self, iobs: int, time_slots: int, interval: Interval) -> datetime:
+    def add(self, obs_idx: int, required_time_slots: int, interval: Interval) -> Optional[datetime]:
         """
-        Add an observation index to the first open position (-1) in the given interval
-        Returns the time of this position
+        Add an observation index to the first open position (-1) in the given interval.
+        Returns the time of this position.
         """
-        # interval = self.get_earliest_available_interval()
-        # Get first non-zero slot in given interval
-        i_first = np.where(self.time_slots[interval] == Timeline.EMPTY)[0][0]
+        # TODO: Should probably add error handling here.
+        # TODO: What if there are no empty slots in the interval?
+        # TODO: What if there are not enough time slots that are empty to accommodate the observation?
+        # Get first non-zero slot in given interval.
+        interval_empty_slots = np.where(self.time_slots[interval] == Timeline.EMPTY)[0]
+        first_open_slot = interval_empty_slots[0]
 
-        # Set values of time_slots to the observation index
-        self.time_slots[interval[i_first:i_first + time_slots]] = iobs
+        # and if so, set values of time_slots to the observation index.
+        self.time_slots[interval[first_open_slot:first_open_slot + required_time_slots]] = obs_idx
 
         # Clock time for the starting index
-        start = self.start + interval[i_first] * self.time_slot_length
-
-        return start
+        return self.start + interval[first_open_slot] * self.time_slot_length
 
     def get_observation_order(self) -> List[Tuple[int, int, int]]:
         """
@@ -110,9 +99,7 @@ class Timeline:
     def __str__(self):
         """Print the result of get_observation_order, an experiment in the use of __str__"""
 
-        obs_order = self.get_observation_order()
-
-        return f"{obs_order}"
+        return f"{self.get_observation_order()}"
 
     def print(self, obs_ids: Sequence[ObservationID]) -> NoReturn:
         """Print the obsids and times associated with the timeline"""
