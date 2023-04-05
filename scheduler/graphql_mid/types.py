@@ -64,15 +64,17 @@ class SPlan:
     start_time: datetime
     end_time: datetime
     visits: List[SVisit]
+    night_stats: SNightStats
 
     @staticmethod
     def from_computed_plan(plan: Plan) -> 'SPlan':
         return SPlan(
-    site=plan.site,
-    start_time=plan.start.astimezone(pytz.UTC),
-    end_time=plan.end.astimezone(pytz.UTC),
-    visits=[SVisit.from_computed_visit(visit) for visit in plan.visits]
-    )
+                        site=plan.site,
+                        start_time=plan.start.astimezone(pytz.UTC),
+                        end_time=plan.end.astimezone(pytz.UTC),
+                        visits=[SVisit.from_computed_visit(visit) for visit in plan.visits],
+                        night_stats=SNightStats.from_computed_night_stats(plan.night_stats)
+        )
 
 
 @strawberry.type
@@ -83,21 +85,17 @@ class SPlans:
     # TODO: Change this to date in UTC
     night_idx: int
     plans_per_site: List[SPlan]
-    night_stats: SNightStats
-
     @staticmethod
     def from_computed_plans(plans: Plans, sites: FrozenSet[Site]) -> 'SPlans':
         return SPlans(
     night_idx=plans.night,
     plans_per_site=[SPlan.from_computed_plan(plans[site]) for site in sites],
-    night_stats=SNightStats.from_computed_night_stats(plans.night_stats)
     )
 
     def for_site(self, site: Site) -> 'SPlans':
         return SPlans(
     night_idx=self.night_idx,
     plans_per_site=[plans for plans in self.plans_per_site if plans.site == site],
-    night_stats=SNightStats.from_computed_night_stats(plans.night_stats)
     )
 
 
