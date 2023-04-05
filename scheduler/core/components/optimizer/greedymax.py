@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import NoReturn, Optional, Tuple
 
 from scheduler.core.calculations.selection import Selection
-from scheduler.core.calculations import GroupData
+from scheduler.core.calculations import GroupData, Scores
 from scheduler.core.plans import Plan, Plans
 from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
@@ -57,11 +57,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
         This should be handled by the optimizer as can vary from algorithm to algorithm.
         """
         # Get first available slot
-        start = plan.start
-        start_time_slot = 0
-        if len(plan.visits) > 0:
+        if len(plan.visits) == 0:
+            start = plan.start
+            start_time_slot = 0
+        else:
             start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
-            start_time_slot = plan.visits[-1].start_time_slot + obs_len + 1
+            start_time_slot = plan.visits[-1].start_time_slot + plan.visits[-1].time_slots + 1
 
         return start, start_time_slot
 
@@ -143,8 +144,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                             # Find the max_sore in the group intervals with non-zero scores
                             # The length of the non-zero interval must be at least as large as
                             # the minimum length
-                            if max_score > max_score_on_interval \
-                                    and grp_interval_length >= n_min:
+                            if max_score > max_score_on_interval and grp_interval_length >= n_min:
                                 max_score_on_interval = max_score
                                 max_interval = group_interval
 
@@ -269,7 +269,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         return best_interval
 
-    def _plot_interval(self, score, interval, best_interval, label="") -> NoReturn:
+    @staticmethod
+    def _plot_interval(score, interval, best_interval, label: str = "") -> NoReturn:
         """Plot score vs time_slot for the time interval under consideration"""
 
         # score = group_data.group_info.scores[night]
@@ -368,8 +369,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # print(f"Best interval start end: {best_interval[0]} {best_interval[-1]}")
 
             if self.show_plots:
-                self._plot_interval(group_data.group_info.scores[plans.night], interval, best_interval,
-                                    label=f'Night {plans.night + 1}: {group_data.group.unique_id()}')
+                GreedyMaxOptimizer._plot_interval(group_data.group_info.scores[plans.night], interval, best_interval,
+                                                  label=f'Night {plans.night + 1}: {group_data.group.unique_id()}')
 
             for observation in group_data.group.observations():
                 if observation not in plan:
@@ -380,8 +381,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # obs_len = len(best_interval)
                     # print(f"Inverval lengths: {len(interval)} {obs_len}")
 
-                    # Allocate_time is only used for NightStats. See note
-                    _, start_time_slot = GreedyMaxOptimizer._allocate_time(plan, obs_len)
+                    # first_free_time is only used for NightStats. See note
+                    _, start_time_slot = GreedyMaxOptimizer._first_free_time(plan)
 
                     # add to timeline (time_slots)
                     iobs = self.obs_group_ids.index(observation.id)  # index in observation list

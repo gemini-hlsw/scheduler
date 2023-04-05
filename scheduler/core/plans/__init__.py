@@ -21,6 +21,7 @@ class Visit:
     time_slots: int
     score: float
 
+
 @dataclass(frozen=True)
 class NightStats:
     timeloss: str

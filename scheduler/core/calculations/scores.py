@@ -8,5 +8,6 @@ import numpy.typing as npt
 # Scores for the timeslots in a specific night.
 NightTimeSlotScores = npt.NDArray[float]
 
-# Scores across all nights for the timeslots.
+# Scores across all nights per timeslot.
+# Indexed by night index, and then timeslot index.
 Scores = List[NightTimeSlotScores]

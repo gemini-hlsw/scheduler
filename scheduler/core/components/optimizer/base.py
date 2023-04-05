@@ -2,13 +2,14 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import ABC, abstractmethod
-from typing import Mapping, List, Optional
+from datetime import datetime
+from typing import Mapping, List, Optional, Tuple
 
 from lucupy.minimodel.program import ProgramID
 
 from scheduler.core.calculations.groupinfo import GroupData
 from scheduler.core.calculations.programinfo import ProgramInfo
-from scheduler.core.plans import Plans
+from scheduler.core.plans import Plan, Plans
 
 from . import Interval
 
@@ -41,3 +42,18 @@ class BaseOptimizer(ABC):
     @abstractmethod
     def add(self, group: GroupData, plans: Plans, interval: Optional[Interval] = None):
         ...
+
+    @staticmethod
+    def _first_free_time(plan: Plan) -> Tuple[datetime, int]:
+        """
+        Get the first available start time and time slot in a Plan.
+        """
+        # Get first available slot
+        if len(plan.visits) == 0:
+            start = plan.start
+            start_time_slot = 0
+        else:
+            start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
+            start_time_slot = plan.visits[-1].start_time_slot + plan.visits[-1].time_slots + 1
+
+        return start, start_time_slot
