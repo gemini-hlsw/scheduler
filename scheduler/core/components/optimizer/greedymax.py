@@ -60,7 +60,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return self
 
     @staticmethod
-    def _allocate_time(plan: Plan, obs_len: int) -> Tuple[datetime, int]:
+    def _allocate_time(plan: Plan) -> Tuple[datetime, int]:
         """
         Allocate time for an observation inside a Plan
         This should be handled by the optimizer as can vary from algorithm to algorithm
@@ -70,7 +70,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         start_time_slot = 0
         if len(plan.visits) > 0:
             start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
-            start_time_slot = plan.visits[-1].start_time_slot + obs_len + 1
+            start_time_slot = plan.visits[-1].start_time_slot + plan.visits[-1].time_slots + 1
 
         return start, start_time_slot
 
@@ -389,7 +389,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # print(f"Inverval lengths: {len(interval)} {obs_len}")
 
                     # Allocate_time is only used for NightStats. See note
-                    _, start_time_slot = GreedyMaxOptimizer._allocate_time(plan, obs_len)
+                    _, start_time_slot = GreedyMaxOptimizer._allocate_time(plan)
 
                     # add to timeline (time_slots)
                     iobs = self.obs_group_ids.index(observation.id)  # index in observation list

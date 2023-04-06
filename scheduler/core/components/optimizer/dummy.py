@@ -23,7 +23,7 @@ class DummyOptimizer(BaseOptimizer):
         self.groups = []
 
     @staticmethod
-    def _allocate_time(plan: Plan, obs_len: int) -> Tuple[datetime, int]:
+    def _allocate_time(plan: Plan) -> Tuple[datetime, int]:
         """
         Allocate time for an observation inside a Plan
         This should be handled by the optimizer as can vary from algorithm to algorithm
@@ -33,7 +33,7 @@ class DummyOptimizer(BaseOptimizer):
         start_time_slot = 0
         if len(plan.visits) > 0:
             start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
-            start_time_slot = plan.visits[-1].start_time_slot + obs_len + 1
+            start_time_slot = plan.visits[-1].start_time_slot + plan.visits[-1].time_slots + 1
 
         return start, start_time_slot
 
@@ -73,7 +73,7 @@ class DummyOptimizer(BaseOptimizer):
             if not plan.is_full and plan.site == observation.site:
                 obs_len = plan.time2slots(observation.exec_time())
                 if plan.time_left() >= obs_len and observation not in plan:
-                    start, start_time_slot = DummyOptimizer._allocate_time(plan, obs_len)
+                    start, start_time_slot = DummyOptimizer._allocate_time(plan)
                     visit_score = np.sum(group.group_info.scores[plans.night][start_time_slot:start_time_slot+obs_len])
                     plan.add(observation, start, start_time_slot, obs_len, visit_score)
                     return True
