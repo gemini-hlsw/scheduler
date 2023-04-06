@@ -22,7 +22,7 @@ class Selection:
     program_info: Mapping[ProgramID, ProgramInfo]
     schedulable_groups: Mapping[UniqueGroupID, GroupData]
     night_events: Mapping[Site, NightEvents]
-    plan_num_nights: int
+    num_nights: int
     time_slot_length: timedelta
 
     @property

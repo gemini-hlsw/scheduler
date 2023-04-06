@@ -4,9 +4,9 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import ceil
-from typing import NoReturn, Mapping, List, Optional
+from typing import NoReturn, Mapping, Optional
 
-from lucupy.minimodel import Observation, ObservationID, GroupID, Site, Conditions, Band
+from lucupy.minimodel import Observation, ObservationID, Site, Conditions, Band
 
 from scheduler.core.calculations.nightevents import NightEvents
 
@@ -33,9 +33,9 @@ class NightStats:
 @dataclass
 class Plan:
     """
-    Nightly plan for a specific Site
+    Nightly plan for a specific Site.
 
-    night_stats are supossed to be calculated at the end when plans are already generated
+    night_stats are supposed to be calculated at the end when plans are already generated.
     """
     start: datetime
     end: datetime
@@ -82,7 +82,6 @@ class Plans:
     """
 
     def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: int):
-
         self.plans = {}
         self.night = night_idx
         for site, ne in night_events.items():
@@ -92,6 +91,7 @@ class Plans:
                                         ne.time_slot_length.to_datetime(),
                                         site,
                                         len(ne.times[night_idx]))
+        night_stats: Optional[NightStats] = None
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]
