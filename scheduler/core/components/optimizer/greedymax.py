@@ -396,7 +396,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # print(f"Inverval lengths: {len(interval)} {obs_len}")
 
                     # first_free_time is only used for NightStats. See note
-                    _, start_time_slot = GreedyMaxOptimizer._first_free_time(plan)
+                    _, start_time_slot = GreedyMaxOptimizer._free_time(plan)
 
                     # add to timeline (time_slots)
                     iobs = self.obs_group_ids.index(observation.id)  # index in observation list
@@ -425,9 +425,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return result
 
     @staticmethod
-    def _first_free_time(plan: Plan) -> Tuple[datetime, int]:
+    def _free_time(plan: Plan) -> Tuple[datetime, int]:
         """
-        Get the first available start time and time slot in a Plan.
+        Get the start time and time slot based on the last Visit added to a Plan.
         """
         # Get first available slot
         if len(plan.visits) == 0:
