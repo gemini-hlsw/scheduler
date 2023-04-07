@@ -262,7 +262,7 @@ class Selector(SchedulerComponent):
             logger.warning(f'Selector skipping observation {obs.id}: status is {obs.status.name}.')
             return group_data_map
         if obs.site not in sites:
-            logger.warning(f'Selector skipping observation {obs.id}: not in a designated site.')
+            logger.warning(f'Selector skipping observation {obs.id}: not at a designated site.')
             return group_data_map
 
         # We ignore the Observation if:
