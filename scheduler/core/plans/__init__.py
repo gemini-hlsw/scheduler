@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import ceil
-from typing import NoReturn, Mapping, Optional
+from typing import List, Mapping, Optional
 
 from lucupy.minimodel import Observation, ObservationID, Site, Conditions, Band
 
@@ -45,9 +45,9 @@ class Plan:
     _time_slots_left: int
 
     def __post_init__(self):
-        self.visits = []
+        self.visits: List[Visit] = []
         self.is_full = False
-        self.night_stats = None
+        self.night_stats: Optional[NightStats] = None
 
     def time2slots(self, time: timedelta) -> int:
         # return ceil((time.total_seconds() / self.time_slot_length.total_seconds()) / 60)
@@ -59,7 +59,7 @@ class Plan:
             start: datetime,
             start_time_slot: int,
             time_slots: int,
-            score: float) -> NoReturn:
+            score: float) -> None:
         visit = Visit(start,
                       obs.id,
                       obs.sequence[0].id,
@@ -92,7 +92,6 @@ class Plans:
                                         ne.time_slot_length.to_datetime(),
                                         site,
                                         len(ne.times[night_idx]))
-        night_stats: Optional[NightStats] = None
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]

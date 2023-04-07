@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import random
-from typing import Optional
+from typing import Optional, Tuple
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.calculations import GroupData
-from scheduler.core.plans import Plans
+from scheduler.core.plans import Plan, Plans
 from scheduler.services import logger_factory
 from .base import BaseOptimizer, Interval
 
@@ -69,3 +70,18 @@ class DummyOptimizer(BaseOptimizer):
                     # Right now we are just going to finish the plan
                     plan.is_full = True
                     return False
+
+    @staticmethod
+    def _first_free_time(plan: Plan) -> Tuple[datetime, int]:
+        """
+        Get the first available start time and time slot in a Plan.
+        """
+        # Get first available slot
+        if len(plan.visits) == 0:
+            start = plan.start
+            start_time_slot = 0
+        else:
+            start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
+            start_time_slot = plan.visits[-1].start_time_slot + plan.visits[-1].time_slots + 1
+
+        return start, start_time_slot

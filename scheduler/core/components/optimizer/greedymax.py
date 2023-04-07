@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
 from scheduler.core.calculations.selection import Selection
@@ -423,3 +423,18 @@ class GreedyMaxOptimizer(BaseOptimizer):
             result = True
 
         return result
+
+    @staticmethod
+    def _first_free_time(plan: Plan) -> Tuple[datetime, int]:
+        """
+        Get the first available start time and time slot in a Plan.
+        """
+        # Get first available slot
+        if len(plan.visits) == 0:
+            start = plan.start
+            start_time_slot = 0
+        else:
+            start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
+            start_time_slot = plan.visits[-1].start_time_slot + plan.visits[-1].time_slots + 1
+
+        return start, start_time_slot
