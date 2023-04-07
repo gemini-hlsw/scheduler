@@ -301,11 +301,18 @@ class Selector(SchedulerComponent):
             else:
                 schedulable_slot_indices.append(np.array([]))
 
+        obs_scores = ranker.get_observation_scores(obs.id)
+
         # Calculate the scores for the observation across all nights across all timeslots.
         # Multiply by the conditions score to adjust the scores.
         # Note that np.multiply will handle lists of numpy arrays.
         # This generates a warning about ragged array deprecation, but seems to produce the right shape of structure.
-        scores = np.multiply(np.multiply(conditions_score, ranker.get_observation_scores(obs.id)), wind_score)
+        # scores = np.multiply(np.multiply(conditions_score, obs_scores), wind_score)
+
+        # To avoid the issue of ragged arrays (which are illegal in NumPy 1.24), we must do this night-by-night in
+        # order to end up with a List[npt.NDArray[float]] instead of an npt.NDArray[npt.NDArray[float]].
+        scores = [np.multiply(np.multiply(conditions_score[night_idx], obs_scores[night_idx]), wind_score[night_idx])
+                  for night_idx in night_indices]
 
         # These scores might differ from the observation score in the ranker since they have been adjusted for
         # conditions and wind.
