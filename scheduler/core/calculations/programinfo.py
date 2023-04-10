@@ -21,7 +21,7 @@ class ProgramInfo:
     program: Program
 
     # Schedulable groups by ID and their information.
-    group_data: GroupDataMap
+    group_data_map: GroupDataMap
 
     # Deep-coped.
     # Schedulable observations by their ID. This is duplicated in the group information above
@@ -38,4 +38,4 @@ class ProgramInfo:
 
     def __post_init__(self):
         object.__setattr__(self, 'observation_ids', frozenset(self.observations.keys()))
-        object.__setattr__(self, 'group_ids', frozenset(self.group_data.keys()))
+        object.__setattr__(self, 'group_ids', frozenset(self.group_data_map.keys()))

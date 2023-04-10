@@ -3,17 +3,16 @@
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import ClassVar, Dict, FrozenSet, List, Optional
+from typing import ClassVar, Dict, FrozenSet, Optional
 
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
 from lucupy.minimodel import (ALL_SITES, AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus,
-                              Program, ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, UniqueGroupID,
-                              Variant)
+                              Program, ProgramID, Site, TooType, NightIndex, NightIndices, UniqueGroupID, Variant)
 
-from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramInfo, Selection
+from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramCalculations, ProgramInfo, Selection
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.ranker import DefaultRanker, Ranker
@@ -46,28 +45,6 @@ class Selector(SchedulerComponent):
 
     # TODO BRYAN: store the group info map of info for all groups.
     _group_info_map: Dict[UniqueGroupID, GroupInfo] = field(init=False, repr=False, compare=False)
-
-    @staticmethod
-    def _get_top_level_groups(group_data_map: GroupDataMap) -> List[GroupData]:
-        """
-        Given a GroupDataMap for a program, what we want is:
-        The subset of groups that we are interested in is the swt of groups whose parent
-        group (not including the root) does not appear in the groups here.
-        """
-        # Get all scheduling groups excluding the root.
-        scheduling_groups = [group for (group, _) in group_data_map.values()
-                             if group.id != ROOT_GROUP_ID and group.is_scheduling_group()]
-
-        # Extract the children's names of all scheduling groups except the root into a set.
-        # This way, we only have to check IDs for equality instead of the entire group structure.
-        scheduling_group_children_names = {
-            child.id for group in scheduling_groups for child in group.children
-        }
-
-        # Find the group_data for groups that are not the root group and are not in any scheduling_group.
-        return [group_data for group_data in group_data_map.values()
-                if (group_data.group.id != ROOT_GROUP_ID and
-                    group_data.group.id not in scheduling_group_children_names)]
 
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
@@ -116,56 +93,32 @@ class Selector(SchedulerComponent):
         night_configurations = {site: self.collector.night_configurations(site, night_indices) for site in sites}
 
         # Create the structure to hold the mapping fom program ID to its group info.
-        program_info: Dict[ProgramID, ProgramInfo] = {}
+        program_info_map: Dict[ProgramID, ProgramInfo] = {}
 
         # A flat top-level list of GroupData indexed by UniqueGroupID.
-        schedulable_groups: Dict[UniqueGroupID, GroupData] = {}
+        schedulable_groups_map: Dict[UniqueGroupID, GroupData] = {}
 
         for program_id in Collector.get_program_ids():
             program = Collector.get_program(program_id)
-            program_calculations = self.score_program(program, night_indices, ranker)
-
             if program is None:
                 logger.error(f'Program {program_id} was not found in the Collector.')
                 continue
 
-            # TODO: We have to check across nights.
-            # Calculate the group info and put it in the structure if there is actually group
-            # info data inside it, i.e. feasible time slots for it in the plan.
-            # We must check across all nights, hence the second for.
-            # This will filter out all GroupInfo objects that do not have schedulable slots.
-            unfiltered_group_data_map = self._calculate_group(program.root_group,
-                                                              sites,
-                                                              night_indices,
-                                                              night_configurations,
-                                                              ranker)
+            program_calculations = self.score_program(program, sites, night_indices, ranker)
+            if program_calculations is None:
+                # Warning is already issued in scorer.
+                continue
 
             # TODO BRYAN: keep unfiltered group info.
-            for group_data in unfiltered_group_data_map.values():
+            for group_data in program_calculations.unfiltered_group_data_map.values():
                 _group_info_map[group_data.group.unique_id()] = group_data.group_info
 
-            group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
-                              if any(len(indices) > 0 for indices in gp_data.group_info.schedulable_slot_indices)}
+            # Get the top-level groups (excluding root) in group_data_map and add to the schedulable_groups_map map.
+            for unique_group_id in program_calculations.top_level_groups:
+                group_data = program_calculations.group_data_map[unique_group_id]
+                schedulable_groups_map[group_data.group.unique_id()] = group_data
 
-            # This filters out any programs that have no groups with any schedulable slots.
-            if group_data_map:
-                # Get the top-level groups (excluding root) in group_data_map and add to the schedulable_groups map.
-                top_level_group_data = Selector._get_top_level_groups(group_data_map)
-                for group_data in top_level_group_data:
-                    schedulable_groups[group_data.group.unique_id()] = group_data
-
-                # Remember that in an observation group, the only child is an Observation: hence references here
-                # to group.children are simply the Observation.
-                observations = {group_data.group.children.id: group_data.group.children
-                                for group_data in group_data_map.values()
-                                if group_data.group.is_observation_group()}
-                target_info = {obs_id: self.collector.get_target_info(obs_id) for obs_id, obs in observations.items()}
-                program_info[program.id] = ProgramInfo(
-                    program=deepcopy(program),
-                    group_data=group_data_map,
-                    observations=deepcopy(observations),
-                    target_info=target_info
-                )
+            program_info_map[program.id] = program_calculations.program_info
 
         # TODO BRYAN: store the group info map of info for all groups.
         object.__setattr__(self, '_group_info_map', _group_info_map)
@@ -173,8 +126,8 @@ class Selector(SchedulerComponent):
         # The end product is a map of ProgramID to a map of GroupID to GroupInfo, where
         # at least one GroupInfo has schedulable slots.
         return Selection(
-            program_info=program_info,
-            schedulable_groups=schedulable_groups,
+            program_info=program_info_map,
+            schedulable_groups=schedulable_groups_map,
             night_events={site: self.collector.get_night_events(site) for site in sites},
             plan_num_nights=len(self.collector.time_grid),
             time_slot_length=self.collector.time_slot_length.to_datetime()
@@ -182,15 +135,27 @@ class Selector(SchedulerComponent):
 
     def score_program(self,
                       program: Program,
+                      sites: Optional[FrozenSet[Site]] = None,
                       night_indices: Optional[NightIndices] = None,
-                      ranker: Optional[Ranker] = None) -> ProgramInfo:
+                      ranker: Optional[Ranker] = None) -> Optional[ProgramCalculations]:
         """
         Given a program and an array of night indices, score the program for the specified night indices.
+
+        The sites can be specified, or if None is provided, the sites listed in the Program's root group are used.
         The night_indices is by default None, which indicates that the program should be scored across all nights.
         The Ranker can be specified. In the case that it is not, the DefaultRanker is used.
+
+        If the sites used by the Program do not intersect the sites parameter, then None is returned.
+        Otherwise, the data is bundled in a ProgramCalculations object.
         """
+        # If sites are specified and this program is not in the specified sites, issue a warning and return None.
+        if sites is not None and len(sites.intersection(program.root_group.sites())) == 0:
+            logger.warning(f'Attempt to score program {program.id}, but program is not at site specified for scoring.')
+            return None
+
         # The sites are those specified in the program's root group.
-        sites = program.root_group.sites()
+        if sites is None:
+            sites = program.root_group.sites()
 
         # If no night indices are specified, assume all night indices.
         if night_indices is None:
@@ -217,32 +182,29 @@ class Selector(SchedulerComponent):
                                                           night_configurations,
                                                           ranker)
 
-        # TODO BRYAN: keep unfiltered group info.
-        for group_data in unfiltered_group_data_map.values():
-            _group_info_map[group_data.group.unique_id()] = group_data.group_info
-
         group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
                           if any(len(indices) > 0 for indices in gp_data.group_info.schedulable_slot_indices)}
 
-        # This filters out any programs that have no groups with any schedulable slots.
-        if group_data_map:
-            # Get the top-level groups (excluding root) in group_data_map and add to the schedulable_groups map.
-            top_level_group_data = Selector._get_top_level_groups(group_data_map)
-            for group_data in top_level_group_data:
-                schedulable_groups[group_data.group.unique_id()] = group_data
+        # In an observation group, the only child is an Observation:
+        # hence, references here to group.children are simply the Observation.
+        observations = {group_data.group.children.id: group_data.group.children
+                        for group_data in group_data_map.values()
+                        if group_data.group.is_observation_group()}
+        target_info = {obs_id: self.collector.get_target_info(obs_id) for obs_id, obs in observations.items()}
 
-            # Remember that in an observation group, the only child is an Observation: hence references here
-            # to group.children are simply the Observation.
-            observations = {group_data.group.children.id: group_data.group.children
-                            for group_data in group_data_map.values()
-                            if group_data.group.is_observation_group()}
-            target_info = {obs_id: self.collector.get_target_info(obs_id) for obs_id, obs in observations.items()}
-            return ProgramInfo(
-                program=deepcopy(program),
-                group_data=group_data_map,
-                observations=deepcopy(observations),
-                target_info=target_info
-            )
+        program_info = ProgramInfo(
+            program=deepcopy(program),
+            group_data_map=group_data_map,
+            observations=deepcopy(observations),
+            target_info=target_info
+        )
+
+        return ProgramCalculations(
+            program_info=program_info,
+            night_indices=night_indices,
+            group_data_map=group_data_map,
+            unfiltered_group_data_map=unfiltered_group_data_map
+        )
 
     def get_group_info(self, unique_group_id: UniqueGroupID) -> Optional[GroupInfo]:
         """
@@ -395,7 +357,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.id] = GroupData(deepcopy(group), group_info)
+        group_data_map[group.unique_id()] = GroupData(deepcopy(group), group_info)
         return group_data_map
 
     def _calculate_and_group(self,
@@ -421,11 +383,11 @@ class Selector(SchedulerComponent):
 
         # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
-        if any(sg.id not in group_data_map for sg in group.children):
+        if any(sg.unique_id() not in group_data_map for sg in group.children):
             return group_data_map
 
         # Calculate the most restrictive conditions.
-        subgroup_conditions = ([group_data_map[sg.id].group_info.minimum_conditions for sg in group.children])
+        subgroup_conditions = ([group_data_map[sg.unique_id()].group_info.minimum_conditions for sg in group.children])
         mrc = Conditions.most_restrictive_conditions(subgroup_conditions)
 
         # This group will always be splittable unless we have some bizarre nesting.
@@ -433,24 +395,24 @@ class Selector(SchedulerComponent):
 
         # TODO: Do we need standards?
         # TODO: This is not how we handle standards. Fix this.
-        # standards = np.sum([group_info_map[sg.id].standards for sg in group.children])
+        # standards = np.sum([group_info_map[sg.unique_id()].standards for sg in group.children])
         standards = 0.
 
         # The filtering for this group is the product of filtering for the subgroups.
-        sg_night_filtering = [group_data_map[sg.id].group_info.night_filtering for sg in group.children]
+        sg_night_filtering = [group_data_map[sg.unique_id()].group_info.night_filtering for sg in group.children]
         night_filtering = np.multiply.reduce(sg_night_filtering).astype(bool)
 
         # The conditions score is the product of the conditions scores for each subgroup across each night.
         conditions_score = []
         for night_idx in night_indices:
-            conditions_scores_for_night = [group_data_map[sg.id].group_info.conditions_score[night_idx]
+            conditions_scores_for_night = [group_data_map[sg.unique_id()].group_info.conditions_score[night_idx]
                                            for sg in group.children]
             conditions_score.append(np.multiply.reduce(conditions_scores_for_night))
 
         # The wind score is the product of the wind scores for each subgroup across each night.
         wind_score = []
         for night_idx in night_indices:
-            wind_scores_for_night = [group_data_map[sg.id].group_info.wind_score[night_idx]
+            wind_scores_for_night = [group_data_map[sg.unique_id()].group_info.wind_score[night_idx]
                                      for sg in group.children]
             wind_score.append(np.multiply.reduce(wind_scores_for_night))
 
@@ -460,7 +422,7 @@ class Selector(SchedulerComponent):
             # For each night, take the concatenation of the schedulable time slots for all children of the group
             # and make it unique, which also puts it in sorted order.
             np.unique(np.concatenate([
-                group_data_map[sg.id].group_info.schedulable_slot_indices[night_idx]
+                group_data_map[sg.unique_id()].group_info.schedulable_slot_indices[night_idx]
                 for sg in group.children
             ]))
             for night_idx in night_indices
@@ -480,7 +442,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.id] = GroupData(deepcopy(group), group_info)
+        group_data_map[group.unique_id()] = GroupData(deepcopy(group), group_info)
         return group_data_map
 
     def _calculate_or_group(self,

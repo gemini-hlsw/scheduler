@@ -58,7 +58,7 @@ class DummyOptimizer(BaseOptimizer):
         """
         self.groups = []
         for p in selection.program_info.values():
-            self.groups.extend([g for g in p.group_data.values() if g.group.is_observation_group()])
+            self.groups.extend([g for g in p.group_data_map.values() if g.group.is_observation_group()])
         return self
 
     def add(self, group: GroupData, plans: Plans, interval: Optional[Interval] = None) -> bool:
