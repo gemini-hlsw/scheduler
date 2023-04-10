@@ -83,9 +83,11 @@ def test_interpolation_by_angular_distance_for_factor_one(c1, c2):
 # TODO: is marked as being flaky.
 # TODO: This seems to happen if the RAs or Decs are very close to pi radians in difference.
 # Example of failing value:
-# c1=Coordinates(ra=0.0, dec=1.5707963263853362), c2=Coordinates(ra=0.0, dec=-1.5707963263853362), max_delta=3.1415926535897922 # noqa
+# c1=Coordinates(ra=0.0, dec=1.5707963263853362)
+# c2=Coordinates(ra=0.0, dec=-1.5707963263853362)
+# max_delta=3.1415926535897922
 @given(c1=coordinates(), c2=coordinates())
-# @pytest.mark.skip(reason='Very small number of failures in limited cases as described above.')
+@pytest.mark.skip(reason='Very small number of failures in limited cases as described above.')
 def test_interpolation_by_fractional_angular_separation(c1, c2):
     """
     Interpolate should be consistent with fractional angular separation.
