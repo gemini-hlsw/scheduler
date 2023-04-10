@@ -5,8 +5,8 @@ from abc import abstractmethod
 from typing import Dict, FrozenSet
 
 import numpy as np
-import numpy.typing as npt
-from lucupy.minimodel import AndGroup, OrGroup, ObservationID, Group, Program, Observation, NightIndex, ALL_SITES, Site
+from lucupy.minimodel import (ALL_SITES, AndGroup, OrGroup, ObservationID, Group, NightIndices, Observation, Program,
+                              Site)
 
 from scheduler.core.calculations import Scores, GroupDataMap
 from scheduler.core.components.collector import Collector
@@ -14,7 +14,7 @@ from scheduler.core.components.collector import Collector
 
 class Ranker:
     def __init__(self, collector: Collector,
-                 night_indices: npt.NDArray[NightIndex],
+                 night_indices: NightIndices,
                  sites: FrozenSet[Site] = ALL_SITES):
         """
         We only want to calculate the parameters once since they do not change.

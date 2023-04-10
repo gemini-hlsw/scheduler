@@ -8,7 +8,7 @@ from typing import Callable, FrozenSet, Mapping, Tuple
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndex, Observation, Program, Site, OrGroup
+from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndices, Observation, Program, Site, OrGroup
 from lucupy.types import ListOrNDArray
 
 from scheduler.core.calculations import Scores, GroupDataMap
@@ -94,7 +94,7 @@ class DefaultRanker(Ranker):
 
     def __init__(self,
                  collector: Collector,
-                 night_indices: npt.NDArray[NightIndex],
+                 night_indices: NightIndices,
                  sites: FrozenSet[Site] = ALL_SITES,
                  params: RankerParameters = RankerParameters(),
                  band_params: RankerBandParameterMap = None):

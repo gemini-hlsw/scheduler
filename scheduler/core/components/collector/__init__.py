@@ -11,11 +11,10 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import sky
-from lucupy.minimodel import (Constraints, ElevationType, NightIndex, NonsiderealTarget, Observation, ObservationID,
+from lucupy.minimodel import (Constraints, ElevationType, NightIndices, NonsiderealTarget, Observation, ObservationID,
                               ObservationClass, Program, ProgramID, ProgramTypes, Semester, SiderealTarget, Site,
                               SkyBackground, Target)
 import numpy as np
-import numpy.typing as npt
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
@@ -434,7 +433,7 @@ class Collector(SchedulerComponent):
 
                 for obs in program.observations():
                     if obs.site in self.sites:
-                    # Retrieve tne base target, if any. If not, we cannot process.
+                        # Retrieve tne base target, if any. If not, we cannot process.
                         base = obs.base_target()
 
                         # Record the observation and target for this observation ID.
@@ -444,7 +443,8 @@ class Collector(SchedulerComponent):
                             logger.warning(f'No base target found for observation {obs.id} (skipping).')
                             continue
 
-                        # Compute the timing window expansion for the observation and then calculate the target information.
+                        # Compute the timing window expansion for the observation and then calculate the target
+                        # information.
                         tw = self._process_timing_windows(program, obs)
                         ti = self._calculate_target_info(obs, base, tw)
                         logger.info(f'Processed observation {obs.id}.')
@@ -461,11 +461,13 @@ class Collector(SchedulerComponent):
 
     def night_configurations(self,
                              site: Site,
-                             night_indices: npt.NDArray[NightIndex]) -> List[NightConfiguration]:
+                             night_indices: NightIndices) -> List[NightConfiguration]:
         """
         Return the list of NightConfiguration for the site and nights under configuration.
         """
-        return [Collector._ocs_resource_manager.get_night_configuration(
-            site,
-            self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY)
+        return [
+            Collector._ocs_resource_manager.get_night_configuration(
+                site,
+                self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
+            )
             for night_idx in night_indices]
