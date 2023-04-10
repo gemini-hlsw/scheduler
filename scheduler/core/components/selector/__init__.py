@@ -259,18 +259,21 @@ class Selector(SchedulerComponent):
 
         # TODO: Do we really want to include OBSERVED here?
         if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED}:
+            logger.warning(f'Selector skipping observation {obs.id}: status is {obs.status.name}.')
             return group_data_map
         if obs.site not in sites:
-            logger.warning(f'Selector skipping observation {obs.id} as not in a designated site.')
+            logger.warning(f'Selector skipping observation {obs.id}: not at a designated site.')
             return group_data_map
 
         # We ignore the Observation if:
         # 1. There is no target info associated with it.
         target_info = Collector.get_target_info(obs.id)
         if target_info is None:
+            logger.warning(f'Selector skipping observation {obs.id}: no target info.')
             return group_data_map
         # 2. There are no constraints associated with it.
         if obs.constraints is None:
+            logger.warning(f'Selector skipping observation {obs.id}: no conditions.')
             return group_data_map
 
         mrc = obs.constraints.conditions
@@ -384,6 +387,9 @@ class Selector(SchedulerComponent):
         # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
         if any(sg.unique_id() not in group_data_map for sg in group.children):
+            missing_subgroups = [sg.unique_id() for sg in group.children if sg.unique_id() not in group_data_map]
+            missing_str = ', '.join(missing_subgroups)
+            logger.warning(f'Selector skipping group {group.unique_id()}: scores missing for children: {missing_str}.')
             return group_data_map
 
         # Calculate the most restrictive conditions.
