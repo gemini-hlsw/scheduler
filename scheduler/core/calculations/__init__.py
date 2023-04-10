@@ -3,7 +3,6 @@
 
 from .groupinfo import *
 from .nightevents import *
-from .programcalculations import *
 from .programinfo import *
 from .scores import *
 from .selection import *
