@@ -4,20 +4,19 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Iterable, NoReturn
-# from typing import Mapping
-
-# from lucupy.minimodel.program import ProgramID
+from typing import Optional, Tuple
 
 from scheduler.core.calculations.selection import Selection
-from scheduler.core.calculations import GroupData, ProgramInfo
+from scheduler.core.calculations import GroupData
 from scheduler.core.plans import Plan, Plans
 from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
+from . import Interval
 
+from lucupy.minimodel import Group
 import numpy as np
+import numpy.typing as npt
 import matplotlib.pyplot as plt
-# import astropy.units as u
 
 
 class GreedyMaxOptimizer(BaseOptimizer):
@@ -32,68 +31,56 @@ class GreedyMaxOptimizer(BaseOptimizer):
         self.obs_group_ids = []
         self.timelines = []
         self.sites = []
-        self.time_slot_length = timedelta
         self.min_visit_len = min_visit_len
         self.show_plots = show_plots
+        self.time_slot_length = None
 
     def setup(self, selection: Selection) -> GreedyMaxOptimizer:
         """
-        Preparation for the optimizer e.g. create chromosomes, etc.
+        Preparation for the optimizer.
         """
         self.group_ids = list(selection.schedulable_groups)
         self.group_data_list = list(selection.schedulable_groups.values())
         # self._process_group_data(self.group_data_list)
-        self.obs_group_ids = list(selection.obs_group_ids)
-
-        # As per my comment below: if you need period, it should be a member of Selection.
-        # period = len(list(selection.night_events.values())[0].time_grid)
-        num_nights = selection.plan_num_nights
+        self.obs_group_ids = list(selection.obs_group_ids) # noqa
+        num_nights = selection.num_nights
         # print('Number of nights: ', num_nights)
         self.timelines = [Timelines(selection.night_events, night) for night in range(num_nights)]
-
-        # As per my comment below.
-        # self.sites = list(selection.night_events.keys())
         self.sites = selection.sites
-
         self.time_slot_length = selection.time_slot_length
-
         return self
 
     @staticmethod
-    def _allocate_time(plan: Plan, obs_len: int) -> Tuple[datetime, int]:
+    def non_zero_intervals(scores: npt.NDArray[float]) -> npt.NDArray[int]:
         """
-        Allocate time for an observation inside a Plan
-        This should be handled by the optimizer as can vary from algorithm to algorithm
+        Calculate the non-zero intervals in the data.
+        This consists of an array with entries of the form [a, b] where
+        the non-zero interval runs from a (inclusive) to b (exclusive).
+        See test_greedymax.py for an example.
         """
-        # Get first available slot
-        start = plan.start
-        start_time_slot = 0
-        if len(plan.visits) > 0:
-            start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
-            start_time_slot = plan.visits[-1].start_time_slot + obs_len + 1
-
-        return start, start_time_slot
-
-    def non_zero_intervals(self, scores: np.ndarray) -> np.ndarray:
-
         # Create an array that is 1 where the score is greater than 0, and pad each end with an extra 0.
-        isntzero = np.concatenate(([0], np.greater(scores, 0), [0]))
-        absdiff = np.abs(np.diff(isntzero))
-        # Get the ranges for each non zero interval
-        ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
+        not_zero = np.concatenate(([0], np.greater(scores, 0), [0]))
+        abs_diff = np.abs(np.diff(not_zero))
 
-        return ranges
+        # Return the ranges for each nonzero interval.
+        return np.where(abs_diff == 1)[0].reshape(-1, 2)
 
-    def _min_slots_remaining(self, group_data) -> int:
-        """Return the number of time slots for the remaining time"""
+    def _min_slots_remaining(self, group: Group) -> Tuple[int, int]:
+        """
+        Returns the minimum number of time slots for the remaining time.
+        Right now, this is the same value twice.
+        TODO: When group splitting is supported, it will be minimum number and remaining number of time slots.
+        """
 
         # the number of time slots in the minimum visit length
-        # time_slot_length = plans.plans[self.sites[0]].time_slot_length
-        n_min_visit = int(np.ceil(self.min_visit_len / self.time_slot_length))
+        # min_visit_timeslots = int(np.ceil(self.min_visit_len / self.time_slot_length))
         # print(f"n_min_visit: {n_min_visit}")
 
-        time_remaining = group_data.group.exec_time() - group_data.group.total_used()  # clock time
+        # Calculate the remaining clock time necessary for the group to be complete.
+        time_remaining = group.exec_time() - group.total_used()
         # This is the same as time2slots
+
+        # Calculate the number of time slots needed to complete the group.
         n_slots_remaining = int(np.ceil((time_remaining / self.time_slot_length)))  # number of time slots
 
         # Short groups should be done entirely, update the min useful time
@@ -101,13 +88,18 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # n_min = n_min_visit
         # if n_time_remaining - n_min <= n_min:
         #     n_min = n_time_remaining
-        # Until we support splitting, just use the remaining time
+
+        # Until we support splitting, just use the remaining time.
         n_min = n_slots_remaining
 
         return n_min, n_slots_remaining
 
-    def _find_max_group(self, plans: Plans):
-        """Find the group with the max score in an open interval"""
+    def _find_max_group(self, plans: Plans) -> Optional[Tuple[float, GroupData, Interval]]:
+        """
+        Find the group with the max score in an open interval
+        Returns None if there is no such group.
+        Otherwise, returns the score, group_data, and interval.
+        """
 
         # If true just analyze the only first open interval, like original GM, eventually make a parameter or setting
         only_first_interval = False
@@ -116,12 +108,13 @@ class GreedyMaxOptimizer(BaseOptimizer):
         open_intervals = {site: self.timelines[plans.night][site].get_available_intervals(only_first_interval)
                           for site in self.sites}
 
-        maxscores = []
+        max_scores = []
         groups = []
         intervals = []  # interval indices
         n_times_remaining = []
         # ids = []  # group index for the scores
         # ii = 0    # groups index counter
+
         # Make a list of scores in the remaining groups
         for group_data in self.group_data_list:
             site = group_data.group.observations()[0].site
@@ -129,16 +122,20 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 for interval_idx, interval in enumerate(open_intervals[site]):
                     # print(f'Interval: {iint}')
                     # scores = group_data.group_info.scores[plans.night]
+
+                    # Get the maximum score over the interval.
                     smax = np.max(group_data.group_info.scores[plans.night][interval])
                     if smax > 0.0:
-                        # Check if the interval is long enough to be useful (longer than min visit length)
-                        # Remaining time for the group
-                        # also should see if it can be split
-                        n_min, n_time_remaining = self._min_slots_remaining(group_data)
+                        # Check if the interval is long enough to be useful (longer than min visit length).
+                        # Remaining time for the group.
+                        # Also should see if it can be split.
+                        n_min, num_time_slots_remaining = self._min_slots_remaining(group_data.group)
 
-                        # #valuate sub-intervals (e.g. timing windows, gaps in the score)
-                        # Find ime slot locations where the score > 0
-                        group_intervals = self.non_zero_intervals(group_data.group_info.scores[plans.night][interval])
+                        # Evaluate sub-intervals (e.g. timing windows, gaps in the score).
+                        # Find time slot locations where the score > 0.
+                        # interval is a numpy array that indexes into the scores for the night to return a sub-array.
+                        check_interval = group_data.group_info.scores[plans.night][interval]
+                        group_intervals = GreedyMaxOptimizer.non_zero_intervals(check_interval)
                         max_score_on_interval = 0.0
                         max_interval = None
                         for group_interval in group_intervals:
@@ -147,34 +144,33 @@ class GreedyMaxOptimizer(BaseOptimizer):
                             max_score = np.max(group_data.group_info.scores[plans.night]
                                                [interval[group_interval[0]:group_interval[1]]])
 
-                            # Find the max_sore in the group intervals with non-zero scores
+                            # Find the max_score in the group intervals with non-zero scores
                             # The length of the non-zero interval must be at least as large as
                             # the minimum length
-                            if max_score > max_score_on_interval \
-                                    and grp_interval_length >= n_min:
+                            if max_score > max_score_on_interval and grp_interval_length >= n_min:
                                 max_score_on_interval = max_score
                                 max_interval = group_interval
 
                         if max_interval is not None:
-                            maxscores.append(max_score_on_interval)
+                            max_scores.append(max_score_on_interval)
                             # ids.append(ii)         # needed?
                             groups.append(group_data)
                             # intervals.append(interval_idx)
                             # print(max_interval)
                             # print(interval[max_interval[0]:max_interval[1]])
                             intervals.append(interval[max_interval[0]:max_interval[1]])
-                            n_times_remaining.append(n_time_remaining)
+                            n_times_remaining.append(num_time_slots_remaining)
                         # ii += 1
 
-        max_score = None
-        max_group = None
-        max_interval = None
-        if len(maxscores) > 0:
+        max_score: Optional[float] = None
+        max_group: Optional[GroupData] = None
+        max_interval: Optional[Interval] = None
+        if len(max_scores) > 0:
             # sort scores from high to low
-            iscore_sort = np.flip(np.argsort(maxscores))
+            iscore_sort = np.flip(np.argsort(max_scores))
             ii = 0
 
-            max_score = maxscores[iscore_sort[ii]]  # maximum score in time interval
+            max_score = max_scores[iscore_sort[ii]]  # maximum score in time interval
             # consider groups with max scores within frac_score_limit of max_score
             # Only highest score: frac_score_limit = 0.0
             # Top 10%: frac_score_limit = 0.1
@@ -188,17 +184,23 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # otherwise take the top scorer
             selected = False
             while not selected and ii < len(iscore_sort):
-                if maxscores[iscore_sort[ii]] >= score_limit and \
-                        n_times_remaining[iscore_sort[ii]] <= len(intervals[iscore_sort[ii]]):
-                    max_score = maxscores[iscore_sort[ii]]
+                if (max_scores[iscore_sort[ii]] >= score_limit and
+                        n_times_remaining[iscore_sort[ii]] <= len(intervals[iscore_sort[ii]])):
+                    max_score = max_scores[iscore_sort[ii]]
                     max_group = groups[iscore_sort[ii]]
                     max_interval = intervals[iscore_sort[ii]]
                     selected = True
                 ii += 1
 
+        if max_score is None or max_group is None or max_interval is None:
+            return None
         return max_score, max_group, max_interval
 
-    def _integrate_score(self, group_data, interval, n_time, night):
+    def _integrate_score(self,
+                         group_data: GroupData,
+                         interval: Interval,
+                         group_time_slots: int,
+                         night_idx: int) -> Interval:
         """Use the score array to find the best location in the timeline
 
             group_data: Group data of group with maximum score
@@ -206,22 +208,21 @@ class GreedyMaxOptimizer(BaseOptimizer):
             n_time: length of the group in time steps
             night: night counter
         """
-        best_interval = interval
         start = interval[0]
         end = interval[-1]
-        scores = group_data.group_info.scores[night]
+        scores = group_data.group_info.scores[night_idx]
         max_integral_score = scores[0]
 
         if len(interval) > 1:
             # Slide across the interval, integrating the score over the group length
-            for idx in range(interval[0], interval[-1] - n_time + 2):
+            for idx in range(interval[0], interval[-1] - group_time_slots + 2):
 
-                integral_score = sum(scores[idx:idx + n_time])
+                integral_score = sum(scores[idx:idx + group_time_slots])
 
                 if integral_score > max_integral_score:
                     max_integral_score = integral_score
                     start = idx
-                    end = start + n_time - 1
+                    end = start + group_time_slots - 1
 
         # print(f"Initial start end: {start} {end} {n_time} {end - start + 1}")
 
@@ -230,37 +231,41 @@ class GreedyMaxOptimizer(BaseOptimizer):
         score_start = scores[start]  # score at start
         score_end = scores[end-1]  # score at end
         delta_start = start - interval[0]  # difference between start of window and block
-        delta_end = interval[-1] - end # difference between end of window and block
-        n_min, n_time_remaining = self._min_slots_remaining(group_data)
+        delta_end = interval[-1] - end  # difference between end of window and block
+        n_min, n_time_remaining = self._min_slots_remaining(group_data.group)
         # print(f"delta_start: {delta_start}, delta_end: {delta_end}")
         # print(f"score_start: {score_start}, score_end: {score_end}")
         if delta_start < n_min and delta_end < n_min:
             if score_start > score_end and score_start > 0.0:
                 # print('a')
                 start = interval[0]
-                end = start + n_time - 1
+                end = start + group_time_slots - 1
             elif score_end > 0.0:
                 # print('b')
-                start = interval[-1] - n_time + 1
+                start = interval[-1] - group_time_slots + 1
                 end = interval[-1]
         elif delta_start < n_min and score_start > 0.0:
             # print('c')
             start = interval[0]
-            end = start + n_time - 1
+            end = start + group_time_slots - 1
         elif delta_end < n_min and score_end > 0:
             # print('d')
-            start = interval[-1] - n_time + 1
+            start = interval[-1] - group_time_slots + 1
             end = interval[-1]
 
         # print(f"Shifted start end: {start} {end} {end - start + 1}")
 
         # Make final list of indices for the highest scoring shifted sub-interval
-        best_interval = [ii for ii in range(start, end + 1)]
+        best_interval = np.arange(start=start, stop=end+1)
         # print(f"len(best_interval): {len(best_interval)}")
 
         return best_interval
 
-    def _find_group_position(self, plan: Plan, group_data, interval, night):
+    def _find_group_position(self,
+                             plan: Plan,
+                             group_data: GroupData,
+                             interval: Interval,
+                             night_idx: int) -> Interval:
         """Find the best location in the timeline"""
         best_interval = interval
 
@@ -268,16 +273,17 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # time_remaining = group_data.group.exec_time() - group_data.group.total_used()  # clock time
         # # This is the same as time2slots, need to make that more generally available
         # n_time_remaining = int(np.ceil((time_remaining / self.time_slot_length)))  # number of time slots
-        n_min, n_time_remaining = self._min_slots_remaining(group_data)
+        n_min, n_time_remaining = self._min_slots_remaining(group_data.group)
 
         if n_time_remaining < len(interval):
             # Determine position based on max integrated score
             # If we don't end up here, then the group will have to be split later
-            best_interval = self._integrate_score(group_data, interval, n_time_remaining, night)
+            best_interval = self._integrate_score(group_data, interval, n_time_remaining, night_idx)
 
         return best_interval
 
-    def _plot_interval(self, score, interval, best_interval, label="") -> NoReturn:
+    @staticmethod
+    def _plot_interval(score, interval, best_interval, label: str = "") -> None:
         """Plot score vs time_slot for the time interval under consideration"""
 
         # score = group_data.group_info.scores[night]
@@ -298,7 +304,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             plt.title(label)
         plt.show()
 
-    def plot_timelines(self, night) -> NoReturn:
+    def plot_timelines(self, night) -> None:
         """Score vs time/slot plot of the timelines for a night"""
 
         # This may need to be moved out of here to access scores and airmasses
@@ -324,7 +330,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # ax1.legend()
             plt.show()
 
-    def _run(self, plans: Plans):
+    def _run(self, plans: Plans) -> None:
 
         # Fill plans for all sites on one night
         while not plans.all_done() and len(self.group_data_list) > 0:
@@ -332,10 +338,11 @@ class GreedyMaxOptimizer(BaseOptimizer):
             print(f"\nNight {plans.night + 1}")
 
             # Find the group with the max score in an open interval
-            max_score, max_group, max_interval = self._find_max_group(plans)
+            max_data = self._find_max_group(plans)
 
             # If something found, add it to the timeline and plan
-            if max_interval is not None:
+            if max_data is not None:
+                max_score, max_group, max_interval = max_data
                 added = self.add(max_group, plans, max_interval)
                 if added:
                     print(f'{max_group.group.unique_id()} with max score {max_score} added.')
@@ -354,7 +361,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # for timeline in self.timelines[plans.nights]:
         #     timeline.output_plan()
 
-    def add(self, group_data: GroupData, plans: Plans, interval) -> bool:
+    def add(self, group_data: GroupData, plans: Plans, interval: Optional[Interval] = None) -> bool:
         """
         Add a group to a Plan
         """
@@ -376,8 +383,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # print(f"Best interval start end: {best_interval[0]} {best_interval[-1]}")
 
             if self.show_plots:
-                self._plot_interval(group_data.group_info.scores[plans.night], interval, best_interval,
-                                    label=f'Night {plans.night + 1}: {group_data.group.unique_id()}')
+                GreedyMaxOptimizer._plot_interval(group_data.group_info.scores[plans.night], interval, best_interval,
+                                                  label=f'Night {plans.night + 1}: {group_data.group.unique_id()}')
 
             for observation in group_data.group.observations():
                 if observation not in plan:
@@ -388,8 +395,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # obs_len = len(best_interval)
                     # print(f"Inverval lengths: {len(interval)} {obs_len}")
 
-                    # Allocate_time is only used for NightStats. See note
-                    _, start_time_slot = GreedyMaxOptimizer._allocate_time(plan, obs_len)
+                    # first_free_time is only used for NightStats. See note
+                    _, start_time_slot = GreedyMaxOptimizer._free_time(plan)
 
                     # add to timeline (time_slots)
                     iobs = self.obs_group_ids.index(observation.id)  # index in observation list
@@ -398,10 +405,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # start = self._allocate_time(plan, observation.exec_time())
 
                     # Sergio's Note:
-                    # Both of this lines are added to calculate NightStats, this could be modified, as in calculated somewhere
-                    # else or in a different way. But are needed when plan.add is called.
+                    # Both of these lines are added to calculate NightStats. This could be modified,
+                    # as in calculated somewhere else or in a different way, but are needed when plan.add is called.
                     # In the future we could merge this with timeline but the design on that is TBD.
-                    visit_score = np.sum(group_data.group_info.scores[plans.night][start_time_slot:start_time_slot+obs_len])
+                    visit_score = sum(
+                        group_data.group_info.scores[plans.night][start_time_slot:start_time_slot+obs_len]
+                    )
 
                     # Add visit to final plan - in general won't be in chronological order
                     # Maybe add all observations as a final step once GM is finished?
@@ -414,3 +423,18 @@ class GreedyMaxOptimizer(BaseOptimizer):
             result = True
 
         return result
+
+    @staticmethod
+    def _free_time(plan: Plan) -> Tuple[datetime, int]:
+        """
+        Get the start time and time slot based on the last Visit added to a Plan.
+        """
+        # Get first available slot
+        if len(plan.visits) == 0:
+            start = plan.start
+            start_time_slot = 0
+        else:
+            start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
+            start_time_slot = plan.visits[-1].start_time_slot + plan.visits[-1].time_slots + 1
+
+        return start, start_time_slot

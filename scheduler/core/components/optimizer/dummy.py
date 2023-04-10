@@ -3,16 +3,18 @@
 
 from __future__ import annotations
 
-import random
 from datetime import datetime
+import random
 from typing import Optional, Tuple
-
-import numpy as np
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.calculations import GroupData
 from scheduler.core.plans import Plan, Plans
+from scheduler.services import logger_factory
 from .base import BaseOptimizer, Interval
+
+
+logger = logger_factory.create_logger(__name__)
 
 
 class DummyOptimizer(BaseOptimizer):
@@ -21,21 +23,6 @@ class DummyOptimizer(BaseOptimizer):
         # Set seed for replication
         random.seed(seed)
         self.groups = []
-
-    @staticmethod
-    def _allocate_time(plan: Plan, obs_len: int) -> Tuple[datetime, int]:
-        """
-        Allocate time for an observation inside a Plan
-        This should be handled by the optimizer as can vary from algorithm to algorithm
-        """
-        # Get first available slot
-        start = plan.start
-        start_time_slot = 0
-        if len(plan.visits) > 0:
-            start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
-            start_time_slot = plan.visits[-1].start_time_slot + obs_len + 1
-
-        return start, start_time_slot
 
     def _run(self, plans: Plans):
         """
@@ -50,7 +37,7 @@ class DummyOptimizer(BaseOptimizer):
                 # can be removed
                 self.groups.remove(ran_group)
             else:
-                print('group not added')
+                logger.warning(f'Group {ran_group.group.unique_id()} not added')
 
     def setup(self, selection: Selection) -> DummyOptimizer:
         """
@@ -73,8 +60,8 @@ class DummyOptimizer(BaseOptimizer):
             if not plan.is_full and plan.site == observation.site:
                 obs_len = plan.time2slots(observation.exec_time())
                 if plan.time_left() >= obs_len and observation not in plan:
-                    start, start_time_slot = DummyOptimizer._allocate_time(plan, obs_len)
-                    visit_score = np.sum(group.group_info.scores[plans.night][start_time_slot:start_time_slot+obs_len])
+                    start, start_time_slot = DummyOptimizer._first_free_time(plan)
+                    visit_score = sum(group.group_info.scores[plans.night][start_time_slot:start_time_slot+obs_len])
                     plan.add(observation, start, start_time_slot, obs_len, visit_score)
                     return True
                 else:
@@ -83,3 +70,18 @@ class DummyOptimizer(BaseOptimizer):
                     # Right now we are just going to finish the plan
                     plan.is_full = True
                     return False
+
+    @staticmethod
+    def _first_free_time(plan: Plan) -> Tuple[datetime, int]:
+        """
+        Get the first available start time and time slot in a Plan.
+        """
+        # Get first available slot
+        if len(plan.visits) == 0:
+            start = plan.start
+            start_time_slot = 0
+        else:
+            start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
+            start_time_slot = plan.visits[-1].start_time_slot + plan.visits[-1].time_slots + 1
+
+        return start, start_time_slot

@@ -37,7 +37,7 @@ if __name__ == '__main__':
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
         sites=ALL_SITES,
-        semesters=frozenset([Semester(2018,SemesterHalf.B)]),
+        semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
     # Create the Collector and load the programs.
@@ -150,7 +150,6 @@ if __name__ == '__main__':
     #
     # selector.get_group_info(group_id).scores
     # selection.program_info(program_id).group_data(group_id).group_info.scores
-
 
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
     optimizer_blueprint = OptimizerBlueprint(

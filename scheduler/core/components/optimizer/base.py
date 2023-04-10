@@ -2,13 +2,14 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import ABC, abstractmethod
-from typing import Mapping, List, Optional
+from datetime import datetime
+from typing import Mapping, List, Optional, Tuple
 
 from lucupy.minimodel.program import ProgramID
 
 from scheduler.core.calculations.groupinfo import GroupData
 from scheduler.core.calculations.programinfo import ProgramInfo
-from scheduler.core.plans import Plans
+from scheduler.core.plans import Plan, Plans
 
 from . import Interval
 

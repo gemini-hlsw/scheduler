@@ -172,7 +172,7 @@ class Selector(SchedulerComponent):
             program_info=program_info,
             schedulable_groups=schedulable_groups,
             night_events={site: self.collector.get_night_events(site) for site in sites},
-            plan_num_nights=len(self.collector.time_grid),
+            num_nights=len(self.collector.time_grid),
             time_slot_length=self.collector.time_slot_length.to_datetime()
         )
 

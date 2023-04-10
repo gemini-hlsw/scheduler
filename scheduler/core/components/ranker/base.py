@@ -50,7 +50,7 @@ class Ranker:
         one night as per the night_indices array, with the list entries being numpy arrays
         that contain the scoring for each time slot across the night.
         """
-        # Determine if we are working with and AND or OR group.
+        # Determine which type of Group we are working with.
         # We check isinstance instead of is_and_group or is_or_group because otherwise, we get warnings.
         if isinstance(group, AndGroup):
             return self._score_and_group(group, group_data_map)

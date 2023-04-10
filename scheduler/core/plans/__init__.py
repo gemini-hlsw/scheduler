@@ -4,9 +4,9 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import ceil
-from typing import NoReturn, Mapping, List, Optional
+from typing import List, Mapping, Optional
 
-from lucupy.minimodel import Observation, ObservationID, GroupID, Site, Conditions, Band
+from lucupy.minimodel import Observation, ObservationID, Site, Conditions, Band
 
 from scheduler.core.calculations.nightevents import NightEvents
 
@@ -21,6 +21,7 @@ class Visit:
     time_slots: int
     score: float
 
+
 @dataclass(frozen=True)
 class NightStats:
     timeloss: str
@@ -33,9 +34,9 @@ class NightStats:
 @dataclass
 class Plan:
     """
-    Nightly plan for a specific Site
+    Nightly plan for a specific Site.
 
-    night_stats are supossed to be calculated at the end when plans are already generated
+    night_stats are supposed to be calculated at the end when plans are already generated.
     """
     start: datetime
     end: datetime
@@ -44,9 +45,9 @@ class Plan:
     _time_slots_left: int
 
     def __post_init__(self):
-        self.visits = []
+        self.visits: List[Visit] = []
         self.is_full = False
-        self.night_stats = None
+        self.night_stats: Optional[NightStats] = None
 
     def time2slots(self, time: timedelta) -> int:
         # return ceil((time.total_seconds() / self.time_slot_length.total_seconds()) / 60)
@@ -58,7 +59,7 @@ class Plan:
             start: datetime,
             start_time_slot: int,
             time_slots: int,
-            score: float) -> NoReturn:
+            score: float) -> None:
         visit = Visit(start,
                       obs.id,
                       obs.sequence[0].id,
@@ -82,7 +83,6 @@ class Plans:
     """
 
     def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: int):
-
         self.plans = {}
         self.night = night_idx
         for site, ne in night_events.items():
