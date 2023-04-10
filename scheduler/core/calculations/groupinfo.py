@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 from lucupy.decorators import immutable
-from lucupy.minimodel import Conditions, Group, GroupID
+from lucupy.minimodel import Conditions, Group, UniqueGroupID
 import numpy.typing as npt
 
 from .scores import Scores
@@ -60,7 +60,7 @@ class GroupData:
         return iter((self.group, self.group_info))
 
 
-# Map to access GroupData from a GroupID in the ProgramInfo.
+# Map to access GroupData from a UniqueGroupID in the ProgramInfo.
 # Since scheduling groups get integer names from OCS, they will overwrite each other if two programs have
 # a scheduling group with the same GroupID, so we must make the key include the ProgramID.
-GroupDataMap = Dict[GroupID, GroupData]
+GroupDataMap = Dict[UniqueGroupID, GroupData]

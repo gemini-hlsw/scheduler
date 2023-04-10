@@ -8,7 +8,7 @@ from typing import Callable, FrozenSet, Mapping, Tuple
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndex, Observation, Program, Site, OrGroup
+from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndices, Observation, Program, Site, OrGroup
 from lucupy.types import ListOrNDArray
 
 from scheduler.core.calculations import Scores, GroupDataMap
@@ -94,7 +94,7 @@ class DefaultRanker(Ranker):
 
     def __init__(self,
                  collector: Collector,
-                 night_indices: npt.NDArray[NightIndex],
+                 night_indices: NightIndices,
                  sites: FrozenSet[Site] = ALL_SITES,
                  params: RankerParameters = RankerParameters(),
                  band_params: RankerBandParameterMap = None):
@@ -262,10 +262,10 @@ class DefaultRanker(Ranker):
         for night_idx in self.night_indices:
             # What we want for the night is a numpy array of size (#obs, #timeslots in night)
             # where the rows are the observation scores. Then we will combine them.
-            for group_id in (g.id for g in group.children):
-                # To get this, we turn the scores of the childreninto a (1, #timeslots in night) array to append
+            for unique_group_id in (g.unique_id() for g in group.children):
+                # To get this, we turn the scores of the children into a (1, #timeslots in night) array to append
                 # to the numpy array for the night.
-                subgroup_scores = np.array([group_data_map[group_id].group_info.scores[night_idx]])
+                subgroup_scores = np.array([group_data_map[unique_group_id].group_info.scores[night_idx]])
                 group_scores[night_idx] = np.append(group_scores[night_idx], subgroup_scores, axis=0)
 
         # Combine the scores as per the score_combiner and return.
