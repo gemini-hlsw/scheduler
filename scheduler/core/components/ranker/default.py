@@ -171,7 +171,7 @@ class DefaultRanker(Ranker):
 
         return metric, metric_slope
 
-    def _score_obs(self, program: Program, obs: Observation) -> Scores:
+    def score_observation(self, program: Program, obs: Observation) -> Scores:
         """
         Calculate the scores for an observation for each night for each time slot index.
         These are returned as a list indexed by night index as per the night_indices supplied,
@@ -179,7 +179,7 @@ class DefaultRanker(Ranker):
         """
         # Scores are indexed by night_idx and contain scores for each time slot.
         # We initialize to all zeros.
-        scores = deepcopy(self._zero_scores[obs.site])
+        scores = deepcopy(self._empty_obs_scores[obs.site])
 
         # target_info is a map from night index to TargetInfo.
         # We require it to proceed for hour angle / elevation information and coordinates.
@@ -235,7 +235,7 @@ class DefaultRanker(Ranker):
         for night_idx in self.night_indices:
             slot_indices = target_info[night_idx].visibility_slot_idx
             scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
-        print(f'   max score: {np.max(scores[0])}')
+            print(f'   max score on night {night_idx}: {np.max(scores[night_idx])}')
 
         return scores
 
@@ -252,9 +252,7 @@ class DefaultRanker(Ranker):
 
         # Determine the length of the nights and create an empty score array for each night.
         site = list(group.sites())[0]
-        night_events = self.collector.get_night_events(site)
-        group_scores = [np.empty((0, len(night_events.times[night_idx])), dtype=float)
-                        for night_idx in self.night_indices]
+        scores = deepcopy(self._empty_group_scores[site])
 
         # For each night, calculate the score for the group over its subgroups.
         # This may not be the same as using the observation scoring, since for groups, the score has been adjusted in
@@ -266,11 +264,11 @@ class DefaultRanker(Ranker):
                 # To get this, we turn the scores of the children into a (1, #timeslots in night) array to append
                 # to the numpy array for the night.
                 subgroup_scores = np.array([group_data_map[unique_group_id].group_info.scores[night_idx]])
-                group_scores[night_idx] = np.append(group_scores[night_idx], subgroup_scores, axis=0)
+                scores[night_idx] = np.append(scores[night_idx], subgroup_scores, axis=0)
 
         # Combine the scores as per the score_combiner and return.
         # apply_along_axis results in a (1, #timeslots in night) array, so we have to take index 0.
-        return [np.apply_along_axis(self.params.score_combiner, 0, group_scores[night_idx])[0]
+        return [np.apply_along_axis(self.params.score_combiner, 0, scores[night_idx])[0]
                 for night_idx in self.night_indices]
 
     def _score_or_group(self, group: OrGroup, group_data_map: GroupDataMap) -> Scores:
