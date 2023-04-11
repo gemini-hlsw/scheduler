@@ -20,17 +20,17 @@ class Ranker:
         """
         We only want to calculate the parameters once since they do not change.
         """
-        self.collector = collector
         self.night_indices = night_indices
         self.sites = sites
 
         # For convenience, for each site, create:
         # 1. An empty observation score array.
         # 2. An empty group scoring array, used to collect the group scores.
+        # This allows us to avoid having to store a reference to the Collector in the Ranker.
         self._empty_obs_scores: Dict[Site, List[npt.NDArray[float]]] = {}
         self._empty_group_scores: Dict[Site, List[npt.NDArray[float]]] = {}
-        for site in self.collector.sites:
-            night_events = self.collector.get_night_events(site)
+        for site in self.sites:
+            night_events = collector.get_night_events(site)
 
             # Create a full zero score that fits the sites, nights, and time slots for observations.
             self._empty_obs_scores[site] = [np.zeros(len(night_events.times[night_idx]), dtype=float)
@@ -44,15 +44,12 @@ class Ranker:
     def score_group(self, group: Group, group_data_map: GroupDataMap) -> Scores:
         """
         Calculate the score of a Group.
-        This is reliant on all the Observations in the Group being scored, which
-        should be automatically done when the Ranker is created and given a Collector.
 
         This method returns the results in the form of a list, where each entry represents
         one night as per the night_indices array, with the list entries being numpy arrays
         that contain the scoring for each time slot across the night.
         """
-        # Determine which type of Group we are working with.
-        # We check isinstance instead of is_and_group or is_or_group because otherwise, we get warnings.
+        # Check isinstance instead of is_and_group or is_or_group because otherwise, we get warnings.
         if isinstance(group, AndGroup):
             return self._score_and_group(group, group_data_map)
         elif isinstance(group, OrGroup):
