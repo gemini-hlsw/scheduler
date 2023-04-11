@@ -24,12 +24,22 @@ class Ranker:
         self.night_indices = night_indices
         self.sites = sites
 
-        # Create a full zero score that fits the sites, nights, and time slots for initialization
-        # and to return if an observation is not to be included.
-        self._zero_scores: Dict[Site, List[npt.NDArray[float]]] = {}
+        # For convenience, for each site, create:
+        # 1. An empty observation score array.
+        # 2. An empty group scoring array, used to collect the group scores.
+        self._empty_obs_scores: Dict[Site, List[npt.NDArray[float]]] = {}
+        self._empty_group_scores: Dict[Site, List[npt.NDArray[float]]] = {}
         for site in self.collector.sites:
             night_events = self.collector.get_night_events(site)
-            self._zero_scores[site] = [np.zeros(len(night_events.times[night_idx])) for night_idx in self.night_indices]
+
+            # Create a full zero score that fits the sites, nights, and time slots for observations.
+            self._empty_obs_scores[site] = [np.zeros(len(night_events.times[night_idx]), dtype=float)
+                                            for night_idx in self.night_indices]
+
+            # Create a full zero score that fits the sites, nights, and time slots for group calculations.
+            # As this must collect the subgroups, the dimensions are different from observation scores.
+            self._empty_group_scores[site] = [np.zeros((0, len(night_events.times[night_idx])), dtype=float)
+                                              for night_idx in self.night_indices]
 
     def score_group(self, group: Group, group_data_map: GroupDataMap) -> Scores:
         """
