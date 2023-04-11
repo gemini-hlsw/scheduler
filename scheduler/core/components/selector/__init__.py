@@ -176,7 +176,8 @@ class Selector(SchedulerComponent):
         # Calculate the group info and put it in the structure if there is actually group
         # info data inside it, i.e. feasible time slots for it in the plan.
         # This will filter out all GroupInfo objects that do not have schedulable slots.
-        unfiltered_group_data_map = self._calculate_group(program.root_group,
+        unfiltered_group_data_map = self._calculate_group(program,
+                                                          program.root_group,
                                                           sites,
                                                           night_indices,
                                                           night_configurations,
@@ -215,6 +216,7 @@ class Selector(SchedulerComponent):
         return self._group_info_map[unique_group_id]
 
     def _calculate_group(self,
+                         program: Program,
                          group: Group,
                          sites: FrozenSet[Site],
                          night_indices: NightIndices,
@@ -225,7 +227,7 @@ class Selector(SchedulerComponent):
         Delegate this group to the proper calculation method.
         """
         if group_data_map is None:
-            group_data_map = {}
+            group_data_map: GroupDataMap = {}
 
         if group.is_observation_group():
             processor = self._calculate_observation_group
@@ -236,9 +238,10 @@ class Selector(SchedulerComponent):
         else:
             raise ValueError(f'Could not process group {group.id}')
 
-        return processor(group, sites, night_indices, night_configurations, ranker, group_data_map)
+        return processor(program, group, sites, night_indices, night_configurations, ranker, group_data_map)
 
     def _calculate_observation_group(self,
+                                     program: Program,
                                      group: Group,
                                      sites: FrozenSet[Site],
                                      night_indices: NightIndices,
@@ -334,7 +337,7 @@ class Selector(SchedulerComponent):
             else:
                 schedulable_slot_indices.append(np.array([]))
 
-        obs_scores = ranker.get_observation_scores(obs.id)
+        obs_scores = ranker.score_observation(program, obs)
 
         # Calculate the scores for the observation across all nights across all timeslots.
         # Multiply by the conditions score to adjust the scores.
@@ -364,6 +367,7 @@ class Selector(SchedulerComponent):
         return group_data_map
 
     def _calculate_and_group(self,
+                             program: Program,
                              group: Group,
                              sites: FrozenSet[Site],
                              night_indices: NightIndices,
@@ -382,7 +386,7 @@ class Selector(SchedulerComponent):
         # Process all subgroups and then process this group directly.
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
-            self._calculate_group(subgroup, sites, night_indices, night_configurations, ranker, group_data_map)
+            self._calculate_group(program, subgroup, sites, night_indices, night_configurations, ranker, group_data_map)
 
         # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
@@ -452,6 +456,7 @@ class Selector(SchedulerComponent):
         return group_data_map
 
     def _calculate_or_group(self,
+                            program: Program,
                             group: Group,
                             site: FrozenSet[Site],
                             ranker: Ranker,

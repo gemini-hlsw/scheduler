@@ -40,6 +40,7 @@ class ProgramInfo:
         object.__setattr__(self, 'observation_ids', frozenset(self.observations.keys()))
         object.__setattr__(self, 'group_ids', frozenset(self.group_data_map.keys()))
 
+
 @dataclass(frozen=True)
 class ProgramCalculations:
     """

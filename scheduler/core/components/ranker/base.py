@@ -2,18 +2,19 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import abstractmethod
-from typing import Dict, FrozenSet
+from typing import Dict, FrozenSet, List
 
 import numpy as np
-from lucupy.minimodel import (ALL_SITES, AndGroup, OrGroup, ObservationID, Group, NightIndices, Observation, Program,
-                              Site)
+import numpy.typing as npt
+from lucupy.minimodel import ALL_SITES, AndGroup, OrGroup, Group, NightIndices, Observation, Program, Site
 
 from scheduler.core.calculations import Scores, GroupDataMap
 from scheduler.core.components.collector import Collector
 
 
 class Ranker:
-    def __init__(self, collector: Collector,
+    def __init__(self,
+                 collector: Collector,
                  night_indices: NightIndices,
                  sites: FrozenSet[Site] = ALL_SITES):
         """
@@ -22,23 +23,13 @@ class Ranker:
         self.collector = collector
         self.night_indices = night_indices
         self.sites = sites
+
         # Create a full zero score that fits the sites, nights, and time slots for initialization
         # and to return if an observation is not to be included.
-        self._zero_scores = {}
+        self._zero_scores: Dict[Site, List[npt.NDArray[float]]] = {}
         for site in self.collector.sites:
             night_events = self.collector.get_night_events(site)
             self._zero_scores[site] = [np.zeros(len(night_events.times[night_idx])) for night_idx in self.night_indices]
-
-        # For each program in the collector, calculate all the scores for its observations
-        # that are amongst the sites we specify the ranker to handle.
-        self._observation_scores: Dict[ObservationID, Scores] = {}
-        for program_id in self.collector.get_program_ids():
-            program = self.collector.get_program(program_id)
-            for obs in [o for o in program.observations() if o.site in self.sites]:
-                self._observation_scores[obs.id] = self._score_obs(program, obs)
-
-    def get_observation_scores(self, obs_id: ObservationID) -> Scores:
-        return self._observation_scores.get(obs_id)
 
     def score_group(self, group: Group, group_data_map: GroupDataMap) -> Scores:
         """
@@ -60,7 +51,7 @@ class Ranker:
             raise ValueError('Ranker group scoring can only score groups.')
 
     @abstractmethod
-    def _score_obs(self, program: Program, obs: Observation) -> Scores:
+    def score_observation(self, program: Program, obs: Observation) -> Scores:
         """
         Calculate the scores for an observation for each night for each time slot index.
         These are returned as a list indexed by night index as per the night_indices supplied,

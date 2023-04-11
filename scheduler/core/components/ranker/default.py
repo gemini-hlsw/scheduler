@@ -171,7 +171,7 @@ class DefaultRanker(Ranker):
 
         return metric, metric_slope
 
-    def _score_obs(self, program: Program, obs: Observation) -> Scores:
+    def score_observation(self, program: Program, obs: Observation) -> Scores:
         """
         Calculate the scores for an observation for each night for each time slot index.
         These are returned as a list indexed by night index as per the night_indices supplied,
@@ -235,7 +235,7 @@ class DefaultRanker(Ranker):
         for night_idx in self.night_indices:
             slot_indices = target_info[night_idx].visibility_slot_idx
             scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
-        print(f'   max score: {np.max(scores[0])}')
+            print(f'   max score on night {night_idx}: {np.max(scores[night_idx])}')
 
         return scores
 
