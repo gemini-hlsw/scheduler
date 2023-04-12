@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
 from scheduler.core.calculations.selection import Selection
@@ -31,6 +31,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         self.obs_group_ids = []
         self.timelines = []
         self.sites = []
+        self.obs_in_plan = {}   # {obsid: [group_id} for observations in the plan
         self.min_visit_len = min_visit_len
         self.show_plots = show_plots
         self.time_slot_length = None
@@ -78,10 +79,11 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         # Calculate the remaining clock time necessary for the group to be complete.
         time_remaining = group.exec_time() - group.total_used()
-        # This is the same as time2slots
 
         # Calculate the number of time slots needed to complete the group.
-        n_slots_remaining = int(np.ceil((time_remaining / self.time_slot_length)))  # number of time slots
+        # n_slots_remaining = int(np.ceil((time_remaining / self.time_slot_length)))  # number of time slots
+        # This use of time2slots works but is probably not kosher, need to make this more general
+        n_slots_remaining = Plan.time2slots(self, time_remaining)
 
         # Short groups should be done entirely, update the min useful time
         # is the extra variable needed, or just modify n_min_visit?
@@ -118,7 +120,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # Make a list of scores in the remaining groups
         for group_data in self.group_data_list:
             site = group_data.group.observations()[0].site
-            if not plans[site].is_full:
+            if not self.timelines[plans.night][site].is_full:
                 for interval_idx, interval in enumerate(open_intervals[site]):
                     # print(f'Interval: {iint}')
                     # scores = group_data.group_info.scores[plans.night]
@@ -128,7 +130,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     if smax > 0.0:
                         # Check if the interval is long enough to be useful (longer than min visit length).
                         # Remaining time for the group.
-                        # Also should see if it can be split.
+                        # Also, should see if it can be split.
                         n_min, num_time_slots_remaining = self._min_slots_remaining(group_data.group)
 
                         # Evaluate sub-intervals (e.g. timing windows, gaps in the score).
@@ -262,7 +264,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return best_interval
 
     def _find_group_position(self,
-                             plan: Plan,
                              group_data: GroupData,
                              interval: Interval,
                              night_idx: int) -> Interval:
@@ -333,7 +334,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
     def _run(self, plans: Plans) -> None:
 
         # Fill plans for all sites on one night
-        while not plans.all_done() and len(self.group_data_list) > 0:
+        while not self.timelines[plans.night].all_done() and len(self.group_data_list) > 0:
 
             print(f"\nNight {plans.night + 1}")
 
@@ -343,14 +344,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # If something found, add it to the timeline and plan
             if max_data is not None:
                 max_score, max_group, max_interval = max_data
-                added = self.add(max_group, plans, max_interval)
+                added = self.add(max_group, plans.night, max_interval)
                 if added:
                     print(f'{max_group.group.unique_id()} with max score {max_score} added.')
                     self.group_data_list.remove(max_group)  # should really only do this if all time used (not split)
             else:
                 # Nothing remaining can be scheduled
-                for plan in plans:
-                    plan.is_full = True
+                # for plan in plans:
+                #     plan.is_full = True
                 for timeline in self.timelines[plans.night]:
                     timeline.is_full = True
 
@@ -358,10 +359,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
             self.plot_timelines(plans.night)
 
         # TODO: Write observations from the timelines to the output plan
-        # for timeline in self.timelines[plans.nights]:
-        #     timeline.output_plan()
+        self.output_plans(plans)
 
-    def add(self, group_data: GroupData, plans: Plans, interval: Optional[Interval] = None) -> bool:
+    def add(self, group_data: GroupData, night: int, interval: Optional[Interval] = None) -> bool:
         """
         Add a group to a Plan
         """
@@ -371,70 +371,62 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # This is where we'll split groups/observations and integrate under the score
         # to place the group in the timeline
 
-        # TODO: switch to checking whether the timeline rather than the plan is full,
-        # don't add observations to plan now since they will be out of chronological order
         site = group_data.group.observations()[0].site
-        plan = plans[site]
+        timeline = self.timelines[night][site]
         result = False
-        if not plan.is_full:
+        if not timeline.is_full:
             # Find the best location in timeline for the group
-            best_interval = self._find_group_position(plan, group_data, interval, plans.night)
+            best_interval = self._find_group_position(group_data, interval, night)
             # print(f"Interval start end: {interval[0]} {interval[-1]}")
             # print(f"Best interval start end: {best_interval[0]} {best_interval[-1]}")
 
             if self.show_plots:
-                GreedyMaxOptimizer._plot_interval(group_data.group_info.scores[plans.night], interval, best_interval,
-                                                  label=f'Night {plans.night + 1}: {group_data.group.unique_id()}')
+                GreedyMaxOptimizer._plot_interval(group_data.group_info.scores[night], interval, best_interval,
+                                                  label=f'Night {night + 1}: {group_data.group.unique_id()}')
 
             for observation in group_data.group.observations():
-                if observation not in plan:
-                    # add to plan
-                    obs_len = plan.time2slots(observation.exec_time())
+                iobs = self.obs_group_ids.index(observation.id)  # index in observation list
 
-                    # Find the best location in the interval based on the score
-                    # obs_len = len(best_interval)
-                    # print(f"Inverval lengths: {len(interval)} {obs_len}")
+                # if iobs not in timeline.time_slots:  # when splitting it could appear multiple times
+                # Calculate the length of the observation (visit)
+                time_remaining = observation.exec_time() - observation.total_used()
+                # This use of time2slots works but is probably not kosher, need to make this more general
+                obs_len = Plan.time2slots(self, time_remaining)
 
-                    # first_free_time is only used for NightStats. See note
-                    _, start_time_slot = GreedyMaxOptimizer._free_time(plan)
+                # add to timeline (time_slots)
+                start_time_slot, start = timeline.add(iobs, obs_len, best_interval)
+                # Put the timelines call in _allocate_time, or use that for time accounting updates?
+                # start = self._allocate_time(plan, observation.exec_time())
 
-                    # add to timeline (time_slots)
-                    iobs = self.obs_group_ids.index(observation.id)  # index in observation list
-                    start = self.timelines[plans.night][site].add(iobs, obs_len, best_interval)
-                    # Put the timelines call in _allocate_time, or use that for time accounting updates?
-                    # start = self._allocate_time(plan, observation.exec_time())
+                # Sergio's Note:
+                # Both of these lines are added to calculate NightStats. This could be modified,
+                # as in calculated somewhere else or in a different way, but are needed when plan.add is called.
+                # In the future we could merge this with timeline but the design on that is TBD.
+                # TODO: Partner calibrations should not contribute to this
+                visit_score = np.sum(
+                    group_data.group_info.scores[night][start_time_slot:start_time_slot + obs_len]
+                )
 
-                    # Sergio's Note:
-                    # Both of these lines are added to calculate NightStats. This could be modified,
-                    # as in calculated somewhere else or in a different way, but are needed when plan.add is called.
-                    # In the future we could merge this with timeline but the design on that is TBD.
-                    visit_score = sum(
-                        group_data.group_info.scores[plans.night][start_time_slot:start_time_slot+obs_len]
-                    )
+                self.obs_in_plan[observation.id] = {'obs': observation, 'obs_len': obs_len,
+                                                    'start': start, 'visit_score': visit_score}
 
-                    # Add visit to final plan - in general won't be in chronological order
-                    # Maybe add all observations as a final step once GM is finished?
-                    plan.add(observation, start, start_time_slot, obs_len, visit_score)
-                    # Where to do time accounting? Here, _allocate_time or in plan/timelines.add?
-
-            if plan.time_left() <= 0:
-                plan.is_full = True
+            if timeline.slots_unscheduled() <= 0:
+                timeline.is_full = True
 
             result = True
 
         return result
 
-    @staticmethod
-    def _free_time(plan: Plan) -> Tuple[datetime, int]:
-        """
-        Get the start time and time slot based on the last Visit added to a Plan.
-        """
-        # Get first available slot
-        if len(plan.visits) == 0:
-            start = plan.start
-            start_time_slot = 0
-        else:
-            start = plan.visits[-1].start_time + plan.visits[-1].time_slots * plan.time_slot_length
-            start_time_slot = plan.visits[-1].start_time_slot + plan.visits[-1].time_slots + 1
+    def output_plans(self, plans: Plans) -> None:
+        """Write visit information from timelines to output plans, ensures chronological order"""
 
-        return start, start_time_slot
+        for timeline in self.timelines[plans.night]:
+            obs_order = timeline.get_observation_order()
+            for idx, start_time_slot, end_time_slot in obs_order:
+                if idx > -1:
+                    obs_id = self.obs_group_ids[idx]
+
+                    # Add visit to final plan
+                    plans[timeline.site].add(self.obs_in_plan[obs_id]['obs'], self.obs_in_plan[obs_id]['start'],
+                                             start_time_slot, self.obs_in_plan[obs_id]['obs_len'],
+                                             self.obs_in_plan[obs_id]['visit_score'])
