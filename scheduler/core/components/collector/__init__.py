@@ -449,9 +449,7 @@ class Collector(SchedulerComponent):
 
                         # This should never happen since we set an empty target for observations without a base.
                         if base is None:
-                            # logger.error(f'No base target found for observation {obs.id}.')
                             raise RuntimeError(f'No base target found for observation {obs.id}.')
-                            # continue
 
                         # Compute the timing window expansion for the observation and then calculate the target
                         # information.
