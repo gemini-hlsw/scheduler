@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 
 from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
-                              ImageQuality, Magnitude, MagnitudeBands, Observation, ObservationClass, ObservationStatus,
-                              Priority, Program, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
+                              ImageQuality, Magnitude, MagnitudeBands, ObservationClass, ObservationStatus, Priority,
+                              Program, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
                               SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, TargetType,
                               TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
@@ -613,4 +613,3 @@ def test_ocs_api():
     program1 = get_api_program()
     program2 = create_minimodel_program()
     assert program1 == program2
-    
