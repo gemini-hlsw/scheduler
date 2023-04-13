@@ -55,6 +55,11 @@ class Timeline:
         intervals = self.get_available_intervals()
         return intervals[0] if len(intervals) > 0 else None
 
+    def slots_unscheduled(self) -> int:
+        """Return the number of unscheduled, but schedulable, time slots"""
+        unscheduled = np.where(self.time_slots == Timeline.EMPTY)[0]
+        return len(unscheduled)
+
     def add(self, obs_idx: int, required_time_slots: int, interval: Interval) -> Optional[datetime]:
         """
         Add an observation index to the first open position (-1) in the given interval.
@@ -70,8 +75,13 @@ class Timeline:
         # and if so, set values of time_slots to the observation index.
         self.time_slots[interval[first_open_slot:first_open_slot + required_time_slots]] = obs_idx
 
+        # First time slot
+        start_time_slot = interval[first_open_slot]
+
         # Clock time for the starting index
-        return self.start + interval[first_open_slot] * self.time_slot_length
+        start = self.start + start_time_slot * self.time_slot_length
+
+        return start_time_slot, start
 
     def get_observation_order(self) -> List[Tuple[int, int, int]]:
         """
