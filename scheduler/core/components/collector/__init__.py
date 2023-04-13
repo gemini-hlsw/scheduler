@@ -414,10 +414,18 @@ class Collector(SchedulerComponent):
                 data = next(iter(json_program.values()))
                 program = program_provider.parse_program(data)
 
-                # If program not in specified semester, then skip.
-                if program.semester is None or program.semester not in self.semesters:
-                    logger.warning(f'Program {program.id} not in a specified semester (skipping): {program.semester}.')
+                # If program could not be parsed, skip. This happens in one of three cases:
+                # 1. Program semester cannot be determined from ID.
+                # 2. Program type cannot be determined from ID.
+                # 3. Program root group is empty.
+                if program is None:
                     continue
+
+                # If program semester is not in the list of specified semesters, skip.
+                if program.semester is None or program.semester not in self.semesters:
+                    logger.warning(f'Program {program.id} has semester {program.semester} (not included). Skipping.')
+                    continue
+
                 # If a program ID is repeated, warn and overwrite.
                 if program.id in Collector._programs.keys():
                     logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
@@ -439,9 +447,11 @@ class Collector(SchedulerComponent):
                         # Record the observation and target for this observation ID.
                         Collector._observations[obs.id] = obs, base
 
+                        # This should never happen since we set an empty target for observations without a base.
                         if base is None:
-                            logger.warning(f'No base target found for observation {obs.id} (skipping).')
-                            continue
+                            # logger.error(f'No base target found for observation {obs.id}.')
+                            raise RuntimeError(f'No base target found for observation {obs.id}.')
+                            # continue
 
                         # Compute the timing window expansion for the observation and then calculate the target
                         # information.

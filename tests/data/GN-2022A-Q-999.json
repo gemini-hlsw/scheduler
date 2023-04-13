@@ -370,7 +370,7 @@
     }
   },
   "isThesis" : true,
-  "OBSERVATION_BASIC-0" : {
+  "OBSERVATION_BASIC-2" : {
     "SCHEDULING_CONDITIONS-0" : {
       "elevationConstraintType" : "None",
       "timingWindows" : [],
@@ -549,7 +549,7 @@
   "GROUP_GROUP_FOLDER-1" : {
     "name" : "TestFolder",
     "key" : "01434d0e-8c2a-4364-93fb-0ccef0f32dd2",
-    "OBSERVATION_BASIC-0" : {
+    "OBSERVATION_BASIC-3" : {
       "SCHEDULING_CONDITIONS-0" : {
         "elevationConstraintType" : "Hour Angle",
         "timingWindows" : [

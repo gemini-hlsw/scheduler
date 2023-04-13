@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import ABC, abstractmethod
-from typing import FrozenSet, List
+from typing import FrozenSet, List, Optional
 
 from lucupy.minimodel import (AndGroup, Atom, Conditions, Constraints, GroupID, Magnitude, NonsiderealTarget,
                               Observation, ObservationClass, OrGroup, Program, ProgramID, QAState, SiderealTarget,
@@ -30,7 +30,7 @@ class ProgramProvider(ABC):
         self._obs_classes = obs_classes
 
     @abstractmethod
-    def parse_program(self, data: dict) -> Program:
+    def parse_program(self, data: dict) -> Optional[Program]:
         """
         Given an associative array that contains program data, retrieve the data
         and populate a top-level Program object.
@@ -61,7 +61,7 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> AndGroup:
+    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> Optional[AndGroup]:
         """
         Given an associative array that contains the data needed for an AND group,
         retrieve the data and populate the AndGroup.
@@ -78,10 +78,11 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_observation(self, data: dict, num: int) -> Observation:
+    def parse_observation(self, data: dict, num: int, program_id: ProgramID) -> Optional[Observation]:
         """
         Given an associative array that contains observation data, retrieve the data
-        and populate an Observation object.
+        and populate an Observation object, provided the obs_class for the observation is in
+        the
 
         This method should pass sub-associative arrays to the other methods in
         ProgramProvider to perform the parsing of subelements of the Observation.
