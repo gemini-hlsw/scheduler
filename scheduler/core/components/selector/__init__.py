@@ -10,7 +10,8 @@ import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
 from lucupy.minimodel import (ALL_SITES, AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus,
-                              Program, ProgramID, Site, TooType, NightIndex, NightIndices, UniqueGroupID, Variant)
+                              Program, ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, UniqueGroupID,
+                              Variant)
 
 from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramCalculations, ProgramInfo, Selection
 from scheduler.core.components.base import SchedulerComponent
@@ -391,9 +392,12 @@ class Selector(SchedulerComponent):
         # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
         if any(sg.unique_id() not in group_data_map for sg in group.children):
-            missing_subgroups = [sg.unique_id() for sg in group.children if sg.unique_id() not in group_data_map]
-            missing_str = ', '.join(missing_subgroups)
-            logger.warning(f'Selector skipping group {group.unique_id()}: scores missing for children: {missing_str}.')
+            # We don't include the root group for scheduling, so if it is missing children, we don't output a warning.
+            if group.id != ROOT_GROUP_ID:
+                missing_subgroups = [sg.unique_id() for sg in group.children if sg.unique_id() not in group_data_map]
+                missing_str = ', '.join(missing_subgroups)
+                logger.warning(f'Selector skipping group {group.unique_id()}: scores missing for children: '
+                               f'{missing_str}.')
             return group_data_map
 
         # Calculate the most restrictive conditions.
