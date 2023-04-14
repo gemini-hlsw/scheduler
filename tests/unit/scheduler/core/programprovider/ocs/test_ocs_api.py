@@ -7,10 +7,11 @@ from datetime import datetime, timedelta
 
 from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
-                              ImageQuality, Magnitude, MagnitudeBands, Observation, ObservationClass, ObservationStatus,
-                              Priority, Program, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
+                              ImageQuality, Magnitude, MagnitudeBands, ObservationClass, ObservationStatus, Priority,
+                              Program, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
                               SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, TargetType,
                               TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
+from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 
 from scheduler.core.programprovider.ocs import OcsProgramProvider
@@ -37,6 +38,7 @@ def create_minimodel_program() -> Program:
 
     # *** SHARED RESOURCES ***
     gmosn = Resource(id='GMOS-N')
+    mirror = Resource(id='mirror')
     gmos_oiwfs = Resource(id='GMOS OIWFS')
 
     gnirs = Resource(id='GNIRS')
@@ -101,19 +103,19 @@ def create_minimodel_program() -> Program:
 
     gmosn2_sequence = [
         Atom(
-            id=1,
+            id=0,
             exec_time=timedelta(microseconds=84300),
             prog_time=timedelta(microseconds=84300),
             part_time=timedelta(),
             observed=False,
             qa_state=QAState.NONE,
-            guide_state=False,
-            resources=frozenset({gmosn}),
+            guide_state=True,
+            resources=frozenset({gmosn, mirror}),
             wavelengths=frozenset({0.475})
         )
     ]
 
-    gmosn2 = Observation(
+    gmosn2 = GeminiObservation(
         id='GN-2022A-Q-999-3',
         internal_id='1a4f101b-de28-4ed1-959f-607b6618705c',
         order=0,
@@ -213,19 +215,19 @@ def create_minimodel_program() -> Program:
 
     gnirs2_sequence = [
         Atom(
-            id=1,
+            id=0,
             exec_time=timedelta(microseconds=26190),
             prog_time=timedelta(microseconds=26190),
             part_time=timedelta(),
             observed=False,
             qa_state=QAState.NONE,
-            guide_state=False,
+            guide_state=True,
             resources=frozenset({gnirs}),
             wavelengths=frozenset({2.2})
         )
     ]
 
-    gnirs2 = Observation(
+    gnirs2 = GeminiObservation(
         id='GN-2022A-Q-999-4',
         internal_id='aef545e2-c330-4c71-9521-c18a9cb3ee34',
         order=1,
@@ -330,22 +332,22 @@ def create_minimodel_program() -> Program:
 
     gnirs1_sequence = [
         Atom(
-            id=1,
+            id=0,
             exec_time=timedelta(microseconds=26190),
             prog_time=timedelta(microseconds=26190),
             part_time=timedelta(),
             observed=False,
             qa_state=QAState.NONE,
-            guide_state=False,
+            guide_state=True,
             resources=frozenset({gnirs}),
             wavelengths=frozenset({2.2})
         )
     ]
 
-    gnirs1_observation = Observation(
+    gnirs1_observation = GeminiObservation(
         id='GN-2022A-Q-999-2',
         internal_id='f1e411e3-ec93-430a-ac1d-1c5db3a103e6',
-        order=0,
+        order=2,
         title='GNIRS-1',
         site=Site.GN,
         status=ObservationStatus.PHASE2,
@@ -503,22 +505,22 @@ def create_minimodel_program() -> Program:
 
     gmosn1_sequence = [
         Atom(
-            id=1,
+            id=0,
             exec_time=timedelta(microseconds=392500),
             prog_time=timedelta(microseconds=392500),
             part_time=timedelta(),
             observed=False,
             qa_state=QAState.NONE,
-            guide_state=False,
-            resources=frozenset({gmosn}),
+            guide_state=True,
+            resources=frozenset({gmosn, mirror}),
             wavelengths=frozenset({0.475})
         )
     ]
 
-    gmosn1_observation = Observation(
+    gmosn1_observation = GeminiObservation(
         id='GN-2022A-Q-999-1',
         internal_id='acc39a30-97a8-42de-98a6-5e77cc95d3ec',
-        order=0,
+        order=3,
         title='GMOSN-1',
         site=Site.GN,
         status=ObservationStatus.ONGOING,
@@ -611,4 +613,3 @@ def test_ocs_api():
     program1 = get_api_program()
     program2 = create_minimodel_program()
     assert program1 == program2
-    

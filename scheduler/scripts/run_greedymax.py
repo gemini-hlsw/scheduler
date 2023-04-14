@@ -5,7 +5,7 @@ import os
 import logging
 
 from lucupy.minimodel.site import ALL_SITES
-from lucupy.minimodel.semester import Semester, SemesterHalf
+from lucupy.minimodel.semester import SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
