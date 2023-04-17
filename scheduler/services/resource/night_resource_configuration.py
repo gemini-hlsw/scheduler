@@ -40,4 +40,4 @@ class NightConfiguration:
     resources: FrozenSet[Resource]
 
     # List of faults tha happend that night
-    faults: Optional[Fault]
+    faults: FrozenSet[Fault]

@@ -186,7 +186,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     too_status=(d not in self._blocked[site] and self._too[site][d]),
                     filter=composite_filter,
                     resources=frozenset(self._resources[site][d]),
-                    faults=self._faults[site][d] if d in self._faults[site] else None
+                    faults=frozenset(self._faults[site][d]) if d in self._faults[site] else frozenset()
                 )
 
                 d += OcsResourceService._day
@@ -523,6 +523,8 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     s.add(LgsFilter())
 
     def parse_faults_file(self, site: Site, to_file: str)-> None:
+        # Files contains this repetitive string in each timestamp, if we need them
+        # we could add them as constants.
         ts_clean = ' 04:00' if site == Site.GS else ' 10:00'
         with open(os.path.join(self._path, to_file), 'r') as file:
             for l in file:
@@ -532,14 +534,17 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                         semester = line
                     elif line.startswith('FR'):  # found a fault
                         items = line.split('\t')
-                        print(items[1].replace(ts_clean, ''))
+                        # Create timestamp with ts_clean var removed
                         ts = datetime.strptime(items[1].replace(ts_clean, ''),
                                                '%Y %m %d  %H:%M:%S')
                         fault = Fault(items[0],
                                       ts,  # date with time
                                       float(items[2]),  # timeloss
                                       items[3]) # comment for the fault
-                        self._faults[site][ts.date()] = fault
+                        if ts.date() in self._faults[site]:
+                            self._faults[site][ts.date()].append(fault)
+                        else:
+                            self._faults[site][ts.date()] = [fault]
                     else:
                         raise ValueError('Fault file has wrong format')
 
