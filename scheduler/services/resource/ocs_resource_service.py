@@ -116,6 +116,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         # Determines whether ToOs are accepted on a given night.
         self._too: Dict[Site, Dict[date, bool]] = {site: {} for site in self._sites}
 
+        # Fault reports by datetime to calculate missing instruments
+        self._faults: Dict[Site, Dict[date, Fault]] = {site: {} for site in self._sites}
+
         # Filters to apply to a night. We add the ResourceFilters at the end after all the resources
         # have been processed.
         self._positive_filters: Dict[Site, Dict[date, Set[AbstractFilter]]] = {site: {} for site in self._sites}
@@ -145,6 +148,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
             # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
             self._load_csv(site, f'GMOS{suffix}_GRAT201789.txt',
                            lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r})
+
+            # Load faults files.
+            self.parse_faults_file(site, f'Faults_AllG{suffix}.txt')
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_spreadsheet()
@@ -179,7 +185,8 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     is_lgs=(d not in self._blocked[site] and self._lgs[site][d]),
                     too_status=(d not in self._blocked[site] and self._too[site][d]),
                     filter=composite_filter,
-                    resources=frozenset(self._resources[site][d])
+                    resources=frozenset(self._resources[site][d]),
+                    faults=self._faults[site][d] if d in self._faults[site] else None
                 )
 
                 d += OcsResourceService._day
@@ -514,6 +521,29 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 if not self._lgs[site][d]:
                     s = self._negative_filters[site].setdefault(d, set())
                     s.add(LgsFilter())
+
+    def parse_faults_file(self, site: Site, to_file: str)-> None:
+        ts_clean = ' 04:00' if site == Site.GS else ' 10:00'
+        with open(os.path.join(self._path, to_file), 'r') as file:
+            for l in file:
+                line = l.rstrip()  # remove trail spaces
+                if line:  # ignore empty lines
+                    if line[0].isdigit():
+                        semester = line
+                    elif line.startswith('FR'):  # found a fault
+                        items = line.split('\t')
+                        print(items[1].replace(ts_clean, ''))
+                        ts = datetime.strptime(items[1].replace(ts_clean, ''),
+                                               '%Y %m %d  %H:%M:%S')
+                        fault = Fault(items[0],
+                                      ts,  # date with time
+                                      float(items[2]),  # timeloss
+                                      items[3]) # comment for the fault
+                        self._faults[site][ts.date()] = fault
+                    else:
+                        raise ValueError('Fault file has wrong format')
+
+
 
     def date_range_for_site(self, site: Site) -> Tuple[date, date]:
         """
