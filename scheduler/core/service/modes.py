@@ -8,7 +8,7 @@ from enum import Enum
 from typing import ClassVar, FrozenSet, Iterable, Callable, Optional, NoReturn
 from scheduler.config import ConfigurationError, config
 
-from lucupy.minimodel.observation import ObservationStatus, Observation
+from lucupy.minimodel.observation import ObservationStatus, Observation, QAState
 
 
 class SchedulerMode(ABC):
@@ -59,8 +59,10 @@ class ValidationMode(SchedulerMode):
 
         for o in filtered_obs:
             for atom in o.sequence:
-                atom.prog_time = timedelta()
-                atom.part_time = timedelta()
+                atom.program_used = timedelta()
+                atom.partner_used = timedelta()
+                atom.observed = False
+                atom.qa_state = QAState.NONE
 
             if o.status in obs_statuses_to_ready:
                 o.status = ObservationStatus.READY

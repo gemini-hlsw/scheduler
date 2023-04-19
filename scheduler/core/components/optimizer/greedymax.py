@@ -14,7 +14,7 @@ from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
 from . import Interval
 
-from lucupy.minimodel import Group, Observation, ObservationID, Site, UniqueGroupID
+from lucupy.minimodel import Group, Observation, ObservationID, Site, UniqueGroupID, QAState, ObservationClass
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
@@ -342,6 +342,33 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # ax1.legend()
             plt.show()
 
+    @staticmethod
+    def _charge_time(observation, atom_start: int = 0, atom_end: int = -1) -> None:
+        """Pseudo (internal to GM) time accounting, or charging.
+           GM must assume that each scheduled observation is executed and then adjust the completeness fraction
+           and scoring accordingly. This does not update the database or Collector"""
+        if atom_end < 0:
+            atom_end = len(observation.sequence) + atom_end
+        # print(observation.id, atom_start, atom_end)
+
+        for n_atom in range(atom_start, atom_end + 1):
+            # "Charge" the expected program and partner times for the atoms
+            # print(observation.id, n_atom, observation.sequence[n_atom].prog_time, observation.sequence[n_atom].part_time)
+            observation.sequence[n_atom].program_used = observation.sequence[n_atom].prog_time
+            observation.sequence[n_atom].partner_used = observation.sequence[n_atom].part_time
+
+            # Charge the acq to the first atom based on observation class
+            if n_atom == atom_start:
+                if observation.obs_class == ObservationClass.PARTNERCAL:
+                    observation.sequence[n_atom].partner_used += observation.acq_overhead
+                elif observation.obs_class == ObservationClass.SCIENCE or \
+                        observation.obs_class == ObservationClass.PROGCAL:
+                    observation.sequence[n_atom].program_used += observation.acq_overhead
+
+            # For completeness
+            observation.sequence[n_atom].observed = True
+            observation.sequence[n_atom].qa_state = QAState.PASS
+
     def _run(self, plans: Plans) -> None:
 
         # Fill plans for all sites on one night
@@ -369,7 +396,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         if self.show_plots:
             self.plot_timelines(plans.night)
 
-        # TODO: Write observations from the timelines to the output plan
+        # Write observations from the timelines to the output plan
         self.output_plans(plans)
 
     def add(self, group_data: GroupData, night: int, interval: Optional[Interval] = None) -> bool:
@@ -408,8 +435,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
                 # add to timeline (time_slots)
                 start_time_slot, start = timeline.add(iobs, obs_len, best_interval)
-                # Put the timelines call in _allocate_time, or use that for time accounting updates?
-                # start = self._allocate_time(plan, observation.exec_time())
+                # pseudo (internal) time charging
+                self._charge_time(observation)
 
                 # Sergio's Note:
                 # Both of these lines are added to calculate NightStats. This could be modified,
