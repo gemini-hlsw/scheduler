@@ -2,15 +2,18 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import csv
+import re
 import os
 from copy import copy
 from datetime import datetime, timedelta
 from typing import Dict, Final, List, NoReturn, Set, Tuple
 
+from astropy.time import Time
 import gelidum
 import requests
 from lucupy.helpers import str_to_bool
 from lucupy.minimodel import ALL_SITES
+from lucupy.sky import night_events
 from openpyxl import load_workbook
 
 from definitions import ROOT_DIR
@@ -119,6 +122,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         # Fault reports by datetime to calculate missing instruments
         self._faults: Dict[Site, Dict[date, Fault]] = {site: {} for site in self._sites}
 
+        # Engineering Task by datetime.
+        self._eng_task: Dict[Site, Dict[date, EngTask]] = {site: {} for site in self._sites}
+
         # Filters to apply to a night. We add the ResourceFilters at the end after all the resources
         # have been processed.
         self._positive_filters: Dict[Site, Dict[date, Set[AbstractFilter]]] = {site: {} for site in self._sites}
@@ -151,6 +157,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
 
             # Load faults files.
             self.parse_faults_file(site, f'Faults_AllG{suffix}.txt')
+
+            # Load eng task files.
+            self._parse_eng_task_file(site, f'ClosedDomeG{suffix}_ENG')
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_spreadsheet()
@@ -186,7 +195,8 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     too_status=(d not in self._blocked[site] and self._too[site][d]),
                     filter=composite_filter,
                     resources=frozenset(self._resources[site][d]),
-                    faults=frozenset(self._faults[site][d]) if d in self._faults[site] else frozenset()
+                    faults=frozenset(self._faults[site][d]) if d in self._faults[site] else frozenset(),
+                    eng_tasks=frozenset(self._faults[site][d]) if d in self._faults[site] else frozenset()
                 )
 
                 d += OcsResourceService._day
@@ -522,7 +532,61 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     s = self._negative_filters[site].setdefault(d, set())
                     s.add(LgsFilter())
 
+    def _parse_eng_task_file(self, site: Site, to_file: str) -> None:
+        """
+        Parse Engineering task that block moments or the entire night.
+        Each twilight is calculated using lucupy.sky, some discrepancies might affect.
+        """
+        pattern = r'(\[.*\])'
+        # Ignore GS until the file is created.
+        if site is Site.GS:
+            return
+
+        with open(os.path.join(self._path, to_file), 'r') as file:
+            for line in file:
+                # Find pattern to keep bracket comments not splitted
+                match = re.search(pattern, line)
+                if match:
+                    comment = match.group(1)
+                    rest_of_line = re.sub(pattern, '', line)
+                    _date, start_time, end_time = rest_of_line.strip().split()
+                    #  Single date for key
+                    just_date = datetime.strptime(_date, '%Y-%m-%d')
+                    # Time day in jd to calculate twilights
+                    time = Time(just_date)
+                    _, _, _, even_12twi, morn_12twi, _, _ = night_events(time,
+                                                                         site.location,
+                                                                         site.timezone)
+
+                    # Handle twilights
+                    if start_time == 'twi':
+                        _start_date = even_12twi.datetime
+                        _end_date = morn_12twi.datetime if end_time == 'twi' else datetime.strptime(f'{_date} {end_time}',
+                                                                                     '%Y-%m-%d %H:%M')
+                    else:
+                        _start_date = datetime.strptime(f'{_date} {start_time}',
+                                                        '%Y-%m-%d %H:%M')
+                        _end_date = morn_12twi.datetime if end_time == 'twi' else datetime.strptime(f'{_date} {end_time}',
+                                                                                     '%Y-%m-%d %H:%M')
+
+                    time_loss = _end_date - _start_date
+                    eng_task = EngTask(start=_start_date,
+                                       end=_end_date,
+                                       time_loss=time_loss,
+                                       comment=comment)
+
+                    if just_date in self._eng_task[site]:
+                        self._eng_task[site][just_date].append(eng_task)
+                    else:
+                        self._eng_task[site][just_date] = [eng_task]
+                else:
+                    raise ValueError('Pattern not found. Format error on Eng Task file')
+
     def parse_faults_file(self, site: Site, to_file: str)-> None:
+        """Parse faults from files.
+        This is purposeful left non-private as might be used with incoming files from
+        the React app.
+        """
         # Files contains this repetitive string in each timestamp, if we need them
         # we could add them as constants.
         ts_clean = ' 04:00' if site == Site.GS else ' 10:00'
@@ -539,7 +603,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                                                '%Y %m %d  %H:%M:%S')
                         fault = Fault(items[0],
                                       ts,  # date with time
-                                      float(items[2]),  # timeloss
+                                      timedelta(hours=float(items[2])),  # timeloss
                                       items[3]) # comment for the fault
                         if ts.date() in self._faults[site]:
                             self._faults[site][ts.date()].append(fault)
@@ -547,8 +611,6 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                             self._faults[site][ts.date()] = [fault]
                     else:
                         raise ValueError('Fault file has wrong format')
-
-
 
     def date_range_for_site(self, site: Site) -> Tuple[date, date]:
         """

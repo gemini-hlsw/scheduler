@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import FrozenSet, Optional
 
 from .filters import AbstractFilter
@@ -13,9 +13,18 @@ from lucupy.minimodel import Resource, Site
 @dataclass(frozen=True)
 class Fault:
     id: str
-    timestamp: datetime
-    timeloss: float
+    start: datetime
+    end: datetime
+    time_loss = timedelta
     comment: str
+
+@dataclass(frozen=True)
+class EngTask:
+    start: Optional[datetime]
+    end: Optional[datetime]
+    time_loss: Optional[timedelta]
+    comment: str
+
 
 # An instance of this class exists for every night in the configuration file.
 @dataclass(frozen=True)
@@ -39,5 +48,9 @@ class NightConfiguration:
     # The list of resources available for the night.
     resources: FrozenSet[Resource]
 
-    # List of faults tha happend that night
+    # List of faults that happend in the night causing time losses.
     faults: FrozenSet[Fault]
+
+    # List of Engineering Task, this would block part of the night.
+    # Some are bound in the twilights so should be completed in Collector.
+    eng_tasks : FrozenSet[EngTask]
