@@ -159,7 +159,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
             self.parse_faults_file(site, f'Faults_AllG{suffix}.txt')
 
             # Load eng task files.
-            self._parse_eng_task_file(site, f'ClosedDomeG{suffix}_ENG.txt')
+            self._parse_eng_task_file(site, f'ClosedDomeG{suffix}_Eng.txt')
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_spreadsheet()
