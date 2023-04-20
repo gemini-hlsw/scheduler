@@ -11,20 +11,24 @@ from lucupy.minimodel import Resource, Site
 
 
 @dataclass(frozen=True)
-class Fault:
-    id: str
+class Interruption:
+    """
+    Parent class for any interruption in the night that would
+    cause missing time of observation.
+    """
     start: datetime
-    end: datetime
-    time_loss = timedelta
-    comment: str
+    time_loss: timedelta
+    reason: str
+
 
 @dataclass(frozen=True)
-class EngTask:
-    start: Optional[datetime]
-    end: Optional[datetime]
-    time_loss: Optional[timedelta]
-    comment: str
+class Fault(Interruption):
+    id: str
 
+
+@dataclass(frozen=True)
+class EngTask(Interruption):
+    end: datetime
 
 # An instance of this class exists for every night in the configuration file.
 @dataclass(frozen=True)

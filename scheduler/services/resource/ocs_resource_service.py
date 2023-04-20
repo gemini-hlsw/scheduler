@@ -549,9 +549,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 if match:
                     comment = match.group(1)
                     rest_of_line = re.sub(pattern, '', line)
-                    _date, start_time, end_time = rest_of_line.strip().split()
+                    date, start_time, end_time = rest_of_line.strip().split()
                     #  Single date for key
-                    just_date = datetime.strptime(_date, '%Y-%m-%d')
+                    just_date = datetime.strptime(date, '%Y-%m-%d')
                     # Time day in jd to calculate twilights
                     time = Time(just_date)
                     _, _, _, even_12twi, morn_12twi, _, _ = night_events(time,
@@ -560,20 +560,20 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
 
                     # Handle twilights
                     if start_time == 'twi':
-                        _start_date = even_12twi.datetime
-                        _end_date = morn_12twi.datetime if end_time == 'twi' else datetime.strptime(f'{_date} {end_time}',
+                        start_date = even_12twi.datetime
+                        end_date = morn_12twi.datetime if end_time == 'twi' else datetime.strptime(f'{date} {end_time}',
                                                                                      '%Y-%m-%d %H:%M')
                     else:
-                        _start_date = datetime.strptime(f'{_date} {start_time}',
+                        start_date = datetime.strptime(f'{date} {start_time}',
                                                         '%Y-%m-%d %H:%M')
-                        _end_date = morn_12twi.datetime if end_time == 'twi' else datetime.strptime(f'{_date} {end_time}',
+                        end_date = morn_12twi.datetime if end_time == 'twi' else datetime.strptime(f'{date} {end_time}',
                                                                                      '%Y-%m-%d %H:%M')
 
-                    time_loss = _end_date - _start_date
-                    eng_task = EngTask(start=_start_date,
-                                       end=_end_date,
+                    time_loss = end_date - start_date
+                    eng_task = EngTask(start=start_date,
+                                       end=end_date,
                                        time_loss=time_loss,
-                                       comment=comment)
+                                       reason=comment)
 
                     if just_date in self._eng_task[site]:
                         self._eng_task[site][just_date].append(eng_task)
@@ -582,7 +582,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 else:
                     raise ValueError('Pattern not found. Format error on Eng Task file')
 
-    def parse_faults_file(self, site: Site, to_file: str)-> None:
+    def parse_faults_file(self, site: Site, to_file: str) -> None:
         """Parse faults from files.
         This is purposeful left non-private as might be used with incoming files from
         the React app.
@@ -601,10 +601,10 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                         # Create timestamp with ts_clean var removed
                         ts = datetime.strptime(items[1].replace(ts_clean, ''),
                                                '%Y %m %d  %H:%M:%S')
-                        fault = Fault(items[0],
-                                      ts,  # date with time
-                                      timedelta(hours=float(items[2])),  # timeloss
-                                      items[3]) # comment for the fault
+                        fault = Fault(id=items[0],
+                                      start=ts,  # date with time
+                                      time_loss=timedelta(hours=float(items[2])),  # timeloss
+                                      reason=items[3]) # comment for the fault
                         if ts.date() in self._faults[site]:
                             self._faults[site][ts.date()].append(fault)
                         else:
