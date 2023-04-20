@@ -2,15 +2,18 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import csv
+import re
 import os
 from copy import copy
 from datetime import datetime, timedelta
 from typing import Dict, Final, List, NoReturn, Set, Tuple
 
+from astropy.time import Time
 import gelidum
 import requests
 from lucupy.helpers import str_to_bool
 from lucupy.minimodel import ALL_SITES
+from lucupy.sky import night_events
 from openpyxl import load_workbook
 
 from definitions import ROOT_DIR
@@ -116,6 +119,12 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         # Determines whether ToOs are accepted on a given night.
         self._too: Dict[Site, Dict[date, bool]] = {site: {} for site in self._sites}
 
+        # Fault reports by datetime to calculate missing instruments
+        self._faults: Dict[Site, Dict[date, Fault]] = {site: {} for site in self._sites}
+
+        # Engineering Task by datetime.
+        self._eng_task: Dict[Site, Dict[date, EngTask]] = {site: {} for site in self._sites}
+
         # Filters to apply to a night. We add the ResourceFilters at the end after all the resources
         # have been processed.
         self._positive_filters: Dict[Site, Dict[date, Set[AbstractFilter]]] = {site: {} for site in self._sites}
@@ -145,6 +154,12 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
             # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
             self._load_csv(site, f'GMOS{suffix}_GRAT201789.txt',
                            lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r})
+
+            # Load faults files.
+            self.parse_faults_file(site, f'Faults_AllG{suffix}.txt')
+
+            # Load eng task files.
+            self._parse_eng_task_file(site, f'ClosedDomeG{suffix}_Eng.txt')
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_spreadsheet()
@@ -179,7 +194,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     is_lgs=(d not in self._blocked[site] and self._lgs[site][d]),
                     too_status=(d not in self._blocked[site] and self._too[site][d]),
                     filter=composite_filter,
-                    resources=frozenset(self._resources[site][d])
+                    resources=frozenset(self._resources[site][d]),
+                    faults=frozenset(self._faults[site][d]) if d in self._faults[site] else frozenset(),
+                    eng_tasks=frozenset(self._faults[site][d]) if d in self._faults[site] else frozenset()
                 )
 
                 d += OcsResourceService._day
@@ -514,6 +531,86 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 if not self._lgs[site][d]:
                     s = self._negative_filters[site].setdefault(d, set())
                     s.add(LgsFilter())
+
+    def _parse_eng_task_file(self, site: Site, to_file: str) -> None:
+        """
+        Parse Engineering task that block moments or the entire night.
+        Each twilight is calculated using lucupy.sky, some discrepancies might affect.
+        """
+        pattern = r'(\[.*\])'
+        # Ignore GS until the file is created.
+        if site is Site.GS:
+            return
+
+        with open(os.path.join(self._path, to_file), 'r') as file:
+            for line in file:
+                # Find pattern to keep bracket comments not splitted
+                match = re.search(pattern, line)
+                if match:
+                    comment = match.group(1)
+                    rest_of_line = re.sub(pattern, '', line)
+                    date, start_time, end_time = rest_of_line.strip().split()
+                    #  Single date for key
+                    just_date = datetime.strptime(date, '%Y-%m-%d')
+                    # Time day in jd to calculate twilights
+                    time = Time(just_date)
+                    _, _, _, even_12twi, morn_12twi, _, _ = night_events(time,
+                                                                         site.location,
+                                                                         site.timezone)
+
+                    # Handle twilights
+                    if start_time == 'twi':
+                        start_date = even_12twi.datetime
+                        end_date = morn_12twi.datetime if end_time == 'twi' else datetime.strptime(f'{date} {end_time}',
+                                                                                     '%Y-%m-%d %H:%M')
+                    else:
+                        start_date = datetime.strptime(f'{date} {start_time}',
+                                                        '%Y-%m-%d %H:%M')
+                        end_date = morn_12twi.datetime if end_time == 'twi' else datetime.strptime(f'{date} {end_time}',
+                                                                                     '%Y-%m-%d %H:%M')
+
+                    time_loss = end_date - start_date
+                    eng_task = EngTask(start=start_date,
+                                       end=end_date,
+                                       time_loss=time_loss,
+                                       reason=comment)
+
+                    if just_date in self._eng_task[site]:
+                        self._eng_task[site][just_date].append(eng_task)
+                    else:
+                        self._eng_task[site][just_date] = [eng_task]
+                else:
+                    raise ValueError('Pattern not found. Format error on Eng Task file')
+
+    def parse_faults_file(self, site: Site, to_file: str) -> None:
+        """Parse faults from files.
+        This is purposeful left non-private as might be used with incoming files from
+        the React app.
+        """
+        # Files contains this repetitive string in each timestamp, if we need them
+        # we could add them as constants.
+        ts_clean = ' 04:00' if site == Site.GS else ' 10:00'
+        with open(os.path.join(self._path, to_file), 'r') as file:
+            for l in file:
+                line = l.rstrip()  # remove trail spaces
+                if line:  # ignore empty lines
+                    if line[0].isdigit():
+                        semester = line
+                    elif line.startswith('FR'):  # found a fault
+                        items = line.split('\t')
+                        # Create timestamp with ts_clean var removed
+                        ts = datetime.strptime(items[1].replace(ts_clean, ''),
+                                               '%Y %m %d  %H:%M:%S')
+                        fault = Fault(id=items[0],
+                                      start=ts,  # date with time
+                                      time_loss=timedelta(hours=float(items[2])),  # timeloss
+                                      reason=items[3]) # comment for the fault
+                        if ts.date() in self._faults[site]:
+                            self._faults[site][ts.date()].append(fault)
+                        else:
+                            self._faults[site][ts.date()] = [fault]
+                    else:
+                        raise ValueError('Fault file has wrong format')
 
     def date_range_for_site(self, site: Site) -> Tuple[date, date]:
         """

@@ -1,0 +1,481 @@
+18A
+
+FR 39737	2018 07 31 19:00:00 04:00	1.78	PM not Indexed	vmontes
+FR 39730	2018 07 30 12:20:00 04:00	0.167	Offset applied to science position without demand being sent	
+FR 39729	2018 07 30 11:40:00 04:00	0.083	Elevation axis needed datuming	
+FR 39711	2018 07 25 20:57:00 04:00	0.0833	F2 observation timed out several times
+FR 39705	2018 07 24 15:35:00 04:00	0.3333	SCS crashed	
+FR 39702	2018 07 23 23:19:00 04:00	0.0833	P2 WSOD	
+FR 39698	2018 07 23 18:56:00 04:00	0.4	F2 not reporting mechanism positions in header	
+FR 39691	2018 07 22 20:40:00 04:00	0.44	Flamingos 2 timed out	
+FR 39687	2018 07 21 00:29:00 04:00	0.25	GPI: track assembly restart	
+FR 39662	2018 07 16 19:01:00 04:00	0.117	Telescope not offsetting correctly	
+FR 39653	2018 07 13 15:13:00 04:00	0.05	GMOS OIWFS Pickoff lost index	
+FR 39651	2018 07 13 01:26:00 04:00	1.13	Air Compressor #3 low in pressure	
+FR 39648	2018 07 12 18:23:00 04:00	0.12	GMOS OI Pickoff lost its index	
+FR 39646	2018 07 12 13:15:00 04:00	0.3	Observations timed out due to recurrent F2 DC errors	
+FR 39639	2018 07 10 19:54:00 04:00	0.33	F2 Agents need to be restarted	
+FR 39636	2018 07 09 18:29:00 04:00	0.25	P2 VME is frozen	
+FR 39633	2018 07 08 16:01:00 04:00	0.583	GPI Artificial Source Mirror got stuck	
+FR 39632	2018 07 08 11:52:00 04:00	0.067	F2 timing out.	
+FR 39624	2018 07 07 22:57:00 04:00	0.017	GMOS S Translation z axis failure	
+FR 39622	2018 07 07 16:56:00 04:00	1.0	F2 Dekker Wheel misalignment	
+FR 39620	2018 07 07 11:38:00 04:00	0.15	GPI tilt stage errors not converging	
+FR 39619	2018 07 07 11:43:00 04:00	0.033	GPI Port configuration not entered in A&G Seq	
+FR 39618	2018 07 06 20:41:00 04:00	0.15	F2 agents needed restarted	
+FR 39617	2018 07 06 17:42:00 04:00	0.0667	F2 Timed Out	
+FR 39616	2018 07 06 14:38:00 04:00	0.083	PWFS2 needed a hard reboot	
+FR 39604	2018 07 01 20:30:00 04:00	0.15	CRCS white screen	
+
+FR 39587	2018 06 26 00:31:00 04:00	0.1	GMOS OIWFS pickoff lost index	
+FR 39590	2018 06 26 22:44:00 04:00	0.27	P2 is not reading to QLT	
+FR 39583	2018 06 24 11:30:00 04:00	5.0	Lost communication with ECS	
+FR 39569	2018 06 23 05:30:00 04:00	0.167	Had to init the SCS
+FR 39575	2018 06 23 18:45:00 04:00	0.2	OIWFS pickup arm lost index	
+FR 39570	2018 06 23 05:42:00 04:00	0.3	IGRINS needed rebooted	
+FR 39564	2018 06 22 03:45:00 04:00	0.17	GMOS S OIWFS tip tilt not applied properly	
+FR 39568	2018 06 22 14:27:00 04:00	0.1	PWFS2 required a reboot	
+FR 39558	2018 06 20 04:45:00 04:00	0.27	MCS oscillations	
+FR 39553	2018 06 18 21:53:00 04:00	0.58	gacq is not showing the IFU fibers	
+FR 39551	2018 06 18 18:20:00 04:00	0.23	MCS causing bad pointing performance	
+FR 39539	2018 06 14 18:30:00 04:00	0.13	GMOS OIWFS pickoff lost index	
+FR 39512	2018 06 03 14:54:00 04:00	1.08	SCS is not applying TIP/TILT corrections.	
+
+FR 39483	2018 05 26 15:16:00 04:00	0.2	OT crashing when examining a particular program	
+FR 39473	2018 05 24 20:58:00 04:00	0.02	Seqexec opening guide loop on first step	
+FR 39475	2018 05 24 23:55:00 04:00	1.17	CP fire alarm triggered by AHU#1
+FR 39468	2018 05 24 19:12:00 04:00	0.83	FLAMINGOS 2 mechanism stuck	
+FR 39454	2018 05 21 19:08:00 04:00	0.033	A&G PWFS2 issue	
+FR 39450	2018 05 19 19:40:00 04:00	0.05	SF in red status.	
+FR 39444	2018 05 17 14:25:00 04:00	0.1	GMOS OIWFS pickoff lost index	
+FR 39437	2018 05 16 16:56:00 04:00	0.05	GPI: track assembly crash	
+FR 39429	2018 05 14 15:24:00 04:00	2.0	CRCS is getting a crazy behavior.	
+FR 39391	2018 05 07 06:47:00 04:00	0.25	Unable to read out P2	
+
+FR 39364	2018 04 29 19:20:00 04:00	11.27	Air compressor problem	
+FR 39342	2018 04 16 22:20:00 04:00	0.2	Large count spike in F2 OI	
+FR 39334	2018 04 15 01:09:00 04:00	0.45	P2 became unresponsive	
+FR 39335	2018 04 14 18:55:00 04:00	0.1	Telescope not offsetting correctly	
+FR 39328	2018 04 12 13:16:00 04:00	0.233	GPI FPM Alignment not converging
+FR 39325	2018 04 11 21:36:00 04:00	0.05	Telescope not offsetting correctly	
+FR 39317	2018 04 08 01:03:00 04:00	0.116	SCS actuators reached a limit	
+FR 39311	2018 04 06 02:54:00 04:00	0.066	GPI OI not in position	
+FR 39312	2018 04 05 20:20:00 04:00	0.116	VII not connecting to IGRINS	
+FR 39310	2018 04 04 16:40:00 04:00	0.4	GMOS Mask Assembly Gripper failure	
+
+FR 39307	2018 03 31 22:17:00 04:00	0.05	PWFS2 stopped reading out	
+FR 39302	2018 03 29 15:47:00 04:00	0.05	PWFS2 stopped reading out	
+FR 39293	2018 03 26 23:52:00 04:00	0.083	TSD not showing wrap limit for PWFS2	
+FR 39290	2018 03 24 00:11:00 04:00	0.37	Seqexec getting hung up from switch to GMOS OI to GPI
+FR 39291	2018 03 24 22:00:00 04:00	1.0	Abnormal behavior of the AZ	
+FR 39289	2018 03 23 15:01:00 04:00	0.2	PWFS2 does not close the guiding loop.	
+FR 39283	2018 03 21 23:00:00 04:00	0.05	PWFS2 is not sending corrections to the SCS	
+FR 39281	2018 03 21 17:01:00 04:00	0.22	PWFS2 VME is frozen	
+FR 39288	2018 03 22 23:38:00 04:00	0.2	GMOS OIWFS stops calculating zernikes.	
+FR 39282	2018 03 21 22:54:00 04:00	0.08	GPI: track assembly crash	
+FR 39280	2018 03 20 22:10:00 04:00	0.2	GMOS OIWFS needs to be rebooted	
+FR 39279	2018 03 19 22:23:00 04:00	0.05	A&GSeq remains with wrong parameters	
+FR 39278	2018 03 19 18:03:00 04:00	0.2	PWFS2 WSOD	
+FR 39277	2018 03 19 17:20:00 04:00	0.13	Dome needs a reset to be recovered	
+FR 39275	2018 03 18 23:47:00 04:00	0.05	GPIOIWFS not configured correctly in AGseq after GMOS OIWFS or F2 OIWFS guiding	
+FR 39272	2018 03 18 18:02:00 04:00	0.08	GPIOIWFS not configured correctly in AGseq after GMOS OIWFS or F2 OIWFS guiding	
+FR 39269	2018 03 18 17:19:00 04:00	0.083	QLT stopped displaying images from F2OI	
+FR 39264	2018 03 18 05:40:00 04:00	0.05	GPI OI not in position	
+FR 39261	2018 03 18 01:28:00 04:00	0.116	GPI track assembly crash	
+FR 39256	2018 03 17 05:37:00 04:00	0.03	GMOS S OI tip/tilt trace	
+FR 39253	2018 03 16 15:37:00 04:00	0.08	GPI OI not in position	
+FR 39251	2018 03 16 12:46:00 04:00	0.22	OT weird synchronisation issue	
+FR 39252	2018 03 16 15:52:00 04:00	0.22	GPI track assembly crash	
+FR 39249	2018 03 15 05:55:00 04:00	0.1	GMOS S OIWFS guiding issue	
+FR 39248	2018 03 14 21:49:00 04:00	0.6	GPI Track assembly crash	
+FR 39247	2018 03 14 18:15:00 04:00	0.2	Sudden jump of star in GPI	
+FR 39246	2018 03 14 22:52:00 04:00	0.27	F2 OIWFS mapping issue	
+FR 39240	2018 03 12 16:20:00 04:00	0.5	Large tip/tilt error on GPI cal
+FR 39242	2018 03 12 21:47:00 04:00	0.46	Poor GPI performance	
+FR 39239	2018 03 11 15:32:00 04:00	0.583	GMOS DC hangs out while acquiring	
+FR 39238	2018 03 10 17:02:00 04:00	0.33	GPI Track assembly crash	
+FR 39236	2018 03 09 17:42:00 04:00	0.166	GPI Track assembly crash	
+FR 39233	2018 03 08 17:40:00 04:00	0.3	GPI Track assembly crash	
+FR 39229	2018 03 07 12:30:00 04:00	0.9	GPI tip/tilt not updating on TSD
+FR 39230	2018 03 06 17:29:00 04:00	0.25	TCS "RV out fo range" error	
+FR 39216	2018 03 05 17:41:00 04:00	0.033	F2 OIWFS base lost index
+FR 39211	2018 03 05 14:45:00 04:00	0.75	BTO interlocked	vmontes
+FR 39213	2018 03 04 23:39:00 04:00	0.16	GSAOI DC got stuck, needed reboot	
+FR 39212	2018 03 04 18:45:00 04:00	0.25	CWFS1 not able to reach position	
+FR 39210	2018 03 04 21:09:00 04:00	0.25	RTC software needed rebooting	
+FR 39209	2018 03 04 21:04:00 04:00	1.0	Canopus SFS sening large focus values	
+FR 39205	2018 03 03 22:25:00 04:00	0.3	RTC Computer Windows Error	
+FR 39204	2018 03 03 17:14:00 04:00	0.33	TCS confused base position and NGS star while moving to sky	
+FR 39197	2018 03 02 04:40:00 04:00	0.65	RTC IOC down	
+FR 39196	2018 03 01 16:30:00 04:00	0.15	False TBAD alarms	
+FR 39195	2018 03 01 13:43:00 04:00	1.0	Catastrophic chain of reboots	
+FR 39192	2018 03 01 03:02:00 04:00	0.05	Myst server issue
+FR 39189	2018 03 01 02:17:00 04:00	1.43	TCS series of issues	
+FR 39198	2018 03 01 02:23:00 04:00	0.63	MCS accumulating errors	
+
+FR 39190	2018 02 28 21:33:00 04:00	0.25	Probe mapping not loaded	
+FR 39191	2018 02 28 02:48:00 04:00	0.23	SCS heartbeat lost	
+FR 39182	2018 02 28 03:19:00 04:00	0.32	PWFS2 lost guiding loops	
+FR 39188	2018 02 28 16:30:00 04:00	0.17	cpocon03 partially displaying the bto dm screen
+FR 39187	2018 02 28 16:00:00 04:00	0.5	BTO FSA receiving higher offsets	
+FR 39177	2018 02 26 22:10:00 04:00	0.25	Vitro stopped working
+FR 39178	2018 02 26 21:32:00 04:00	0.97	TCS interlocks LIS	
+FR 39173	2018 02 25 19:12:00 04:00	0.15	F2 OIWFS guiding stopped	
+FR 39168	2018 02 23 19:17:00 04:00	0.2	F2 OIWFS high noise and count jump	
+FR 39163	2018 02 21 15:35:00 04:00	0.33	Gacq crashed pyraf
+FR 39161	2018 02 20 22:54:00 04:00	0.08	P2 wfs not displaying images	
+FR 39159	2018 02 20 22:32:00 04:00	0.08	f2 oi WSOD	
+FR 39158	2018 02 18 18:23:00 04:00	0.0167	DTA Translation Z Axis Failure	
+FR 39152	2018 02 16 16:20:00 04:00	0.167	GMOS S OIWFS having issues with chop/nod states	
+FR 39153	2018 02 16 23:06:00 04:00	0.01	Seqexec opening guide loop on first step	
+FR 39133	2018 02 08 17:05:00 04:00	1.3	CRCS fatal following error and position and recorded position runaway
+FR 39124	2018 02 07 20:23:00 04:00	0.33	SCS frozen at the start of the night	
+FR 39126	2018 02 07 14:38:00 04:00	0.27	Too large of a focus demand sent to SCS in follow	
+FR 39121	2018 02 05 12:02:00 04:00	0.4	GPI track assembly crash	
+FR 39118	2018 02 04 00:21:00 04:00	0.05	GPI track assembly crash	
+FR 39112	2018 02 03 03:45:00 04:00	0.17	Flamingos 2 OI guiding issue
+FR 39115	2018 02 03 02:15:00 04:00	0.5	Network glitches	
+FR 39114	2018 02 02 21:45:00 04:00	0.05	Flamingos 2 images taking a lot of time to be written	
+FR 39110	2018 02 01 21:00:00 04:00	0.2	Network glitches
+
+
+
+
+
+18B
+
+FR 40297	2019 01 27 18:40:00 04:00	0.05	GMOS S Filter wheel lost index	
+FR 40293	2019 01 25 17:55:00 04:00	0.15	ANB005 large pneumatic error	
+FR 40296	2019 01 25 22:47:00 04:00	0.23	GPI: track assembly restart	
+FR 40290	2019 01 19 02:33:00 04:00	7.667	Earthquake	
+FR 40289	2019 01 19 01:46:00 04:00	0.333	Elevation axis needed a datum	
+FR 40287	2019 01 17 22:53:00 04:00	0.5	SCS frozen	
+FR 40286	2019 01 17 18:28:00 04:00	0.333	Elevation Axis needed datumed	
+FR 40282	2019 01 16 14:46:00 04:00	0.083	GMOS OIWFS pickoff lost index	
+FR 40284	2019 01 16 13:20:00 04:00	0.1	BTO PM Value at the limi
+FR 40283	2019 01 16 16:50:00 04:00	0.33	RTC sending bad demands to FSA	
+FR 40279	2019 01 10 21:56:00 04:00	0.3	GMOS IFU R configuration issue	
+FR 40278	2019 01 08 22:54:00 04:00	0.23	TCS with no heartbeat	
+FR 40273	2019 01 07 21:51:00 04:00	0.2	Very noise F2 OIWFS	
+FR 40265	2019 01 04 15:08:00 04:00	0.033	GMP needed restarted	
+FR 40264	2019 01 04 14:56:00 04:00	0.1	GPI Track Assembly Crash
+FR 40266	2019 01 04 17:00:00 04:00	0.15	HBS stopped suddenly	
+FR 40261	2019 01 03 18:04:00 04:00	0.2	Sudden HBS fault
+FR 40263	2019 01 03 22:47:00 04:00	0.3	GMOS DC lost connection to DHS	
+FR 40262	2019 01 03 19:08:00 04:00	0.1	GMOS OIWFS WSOD	
+
+FR 40255	2018 12 29 19:58:00 04:00	0.07	F2 Timed Out	
+FR 40253	2018 12 28 17:15:00 04:00	0.083	Offsetting issues with F2 OI	
+FR 40252	2018 12 28 15:58:00 04:00	0.1	F2 detector fails with timeout	
+FR 40251	2018 12 27 17:10:00 04:00	0.083	F2 observations timed out	
+FR 40250	2018 12 27 16:00:00 04:00	0.2	Offsetting issues with F2 OI	
+FR 40249	2018 12 26 21:30:00 04:00	0.133	Restarted F2 agents	
+FR 40248	2018 12 26 19:19:00 04:00	0.0167	Translation X axis failure	
+FR 40247	2018 12 25 17:17:00 04:00	4.36	MCS WSOD	
+FR 40244	2018 12 23 15:01:00 04:00	0.183	HRWFS Tuning Procedural Fault   put in bad offsets
+FR 40243	2018 12 23 02:47:00 04:00	0.42	GMOS got stuck reading out image	
+FR 40245	2018 12 23 19:10:00 04:00	0.183	F2 Agents needed rebooted	
+FR 40240	2018 12 20 05:25:00 04:00	0.1	Flamingos 2 timed out	
+FR 40238	2018 12 21 13:01:00 04:00	0.25	GPI: track Assembly Crash
+FR 40237	2018 12 18 22:50:00 04:00	0.17	OT: frozen in the process of guide star configuration	
+FR 40236	2018 12 18 22:11:00 04:00	0.016	Flamingos 2 timed out	
+FR 40234	2018 12 17 00:30:00 04:00	0.25	GPI: unable to get input fold to track/track assembly
+FR 40233	2018 12 16 21:43:00 04:00	0.15	F2 Timed Out	
+FR 40230	2018 12 16 03:08:00 04:00	0.83	GPI: track assembly crashed, input fold not tracking, OFC not closing
+FR 40226	2018 12 15 03:20:00 04:00	0.33	GPI: tip/tilt errors not converging
+FR 40225	2018 12 15 03:30:00 04:00	0.17	GPI: Track Assembly Crash
+FR 40229	2018 12 15 15:47:00 04:00	0.8	StartHrwfsAO not calculating AO corrections
+FR 40224	2018 12 14 13:41:00 04:00	1.383	P1 lenslets are not visible	
+FR 40223	2018 12 13 21:30:00 04:00	0.0833	F2 wrong MOS lut file	
+FR 40222	2018 12 14 04:10:00 04:00	0.0833	F2 OIWFS needed a reboot	
+FR 40210	2018 12 11 15:12:00 04:00	0.083	F2 timed out	
+FR 40211	2018 12 11 14:20:00 04:00	0.7	TCS subsystems offline	
+FR 40208	2018 12 10 21:13:00 04:00	0.03	GMOS DTA translation index fault	
+FR 40205	2018 12 10 17:21:00 04:00	0.12	F2 timed out	
+FR 40189	2018 12 05 20:16:00 04:00	0.5	Flamingos 2 mechanisms out of position
+FR 40183	2018 12 05 03:01:00 04:00	0.47	TCS/MCS: White screens	
+FR 40184	2018 12 05 02:15:00 04:00	0.03	F2: instrument init	
+FR 40180	2018 12 04 01:00:00 04:00	0.07	F2: Agents needed restart	
+FR 40169	2018 12 02 02:35:00 04:00	0.25	Suspected internal network glitch between MCS/CRCS	
+
+FR 40167	2018 11 30 21:15:00 04:00	0.1	Diverging coma while tuning	
+FR 40161	2018 11 30 04:49:00 04:00	0.466	TCS WSOD	
+FR 40147	2018 11 27 22:42:00 04:00	0.083	TCS wrong guide configuration	
+FR 40143	2018 11 25 22:12:00 04:00	0.083	f2oi with lot of noise when guiding on a faint guide star	
+FR 40142	2018 11 25 21:58:00 04:00	0.083	f2oi, pickoff alarm	
+FR 40137	2018 11 24 22:25:00 04:00	0.1	F2 timed out	
+FR 40132	2018 11 23 22:12:00 04:00	0.12	F2 timeout	
+FR 40130	2018 11 23 21:52:00 04:00	0.083	F2 OI WFS unresponsive	
+FR 40123	2018 11 22 22:12:00 04:00	0.37	F2 Time out	
+FR 40109	2018 11 20 21:55:00 04:00	0.42	GMOS got stuck reading out an image.	
+FR 40106	2018 11 19 20:40:00 04:00	0.1	GPI Track assembly cras
+FR 40104	2018 11 17 18:48:00 04:00	0.95	GPI Powerbar #4 Outlet 6 failed
+FR 40103	2018 11 16 16:37:00 04:00	0.017	GMOS S DTA translation Z lost index	
+FR 40099	2018 11 15 22:42:00 04:00	0.167	F2 Timed Out	
+FR 40095	2018 11 15 02:30:00 04:00	0.333	GPI tip/tilt not converging
+FR 40089	2018 11 12 07:14:00 04:00	2.0	Excessive noise uin pump transmission
+FR 40084	2018 11 10 20:23:00 04:00	0.0333	GMOS S DTA translation Z lost index	
+FR 40083	2018 11 09 20:52:00 04:00	0.66	GMOS S Stuck reading out	
+FR 40080	2018 11 08 21:15:00 04:00	0.57	GMOS S Gripper action failed	
+FR 40077	2018 11 07 22:16:00 04:00	0.05	ECS white screen	
+FR 40074	2018 11 06 22:36:00 04:00	0.15	Dome Drive W and Z faults	
+FR 40070	2018 11 05 05:24:00 04:00	0.066	A&G PWFS2 can't be read out in QLT	
+FR 40069	2018 11 05 03:19:00 04:00	0.0166	MCS offline for a few seconds	
+FR 40067	2018 11 03 23:34:00 04:00	0.683	MCS operating system error	
+FR 40065	2018 11 03 04:28:00 04:00	0.033	A&G PWFS2 not displaying images	
+FR 40066	2018 11 03 09:04:00 04:00	0.033	GMOS S mask type switch failure	
+
+FR 40056	2018 10 30 12:30:00 04:00	1.0	Orientation mix up
+FR 40049	2018 10 26 21:30:00 04:00	0.2	P2WFS: readout frozen in QLT	
+FR 40047	2018 10 25 20:21:00 04:00	0.05	Field stop for PWFS2 lost its position	
+FR 40042	2018 10 24 17:04:00 04:00	0.0167	Translation Y axis failure	
+FR 40040	2018 10 23 14:27:00 04:00	0.0667	Had to datum elevation axis	
+FR 40038	2018 10 23 02:23:00 04:00	0.766	"F2 spectra showing very short wavelength range.	
+FR 40036	2018 10 22 20:04:00 04:00	1.667	TCS gets WSOD, followed by MCS and CRCS	
+FR 40029	2018 10 20 14:05:00 04:00	0.22	GeMS TCC misbehaves
+FR 40024	2018 10 18 23:00:00 04:00	0.1	GSAOI images lost	
+FR 40022	2018 10 18 18:10:00 04:00	0.42	GMOS DC stuck while reading out	
+FR 40025	2018 10 18 21:00:00 04:00	0.5	LGS Steppers failing to reach position
+FR 40017	2018 10 17 23:18:00 04:00	0.1	centroids gains railing	
+FR 40016	2018 10 17 20:43:00 04:00	0.75	C3 unresponsive leading to catastrophic chain of reboot	
+FR 40011	2018 10 16 21:15:00 04:00	0.16	PWFS2 in WSOD	
+FR 40012	2018 10 16 21:35:00 04:00	0.583	TT not being offloading to M2	
+FR 40000	2018 10 15 22:11:00 04:00	0.25	Toptica Laser shutdown caused by an FLPM fault
+FR 39999	2018 10 15 13:15:00 04:00	0.7	Laser constellation not visible on the Acquisition Camera	
+FR 39997	2018 10 15 23:39:00 04:00	0.15	RTC in error clearing	
+FR 40001	2018 10 15 21:32:00 04:00	0.03	GMOS OI pickoff fault	
+FR 39990	2018 10 13 12:32:00 04:00	0.033	Flamingos 2 OIWFS lost index	
+FR 39991	2018 10 12 22:54:00 04:00	0.583	A&G science fold linear mechanism stuck	
+FR 39986	2018 10 12 20:56:00 04:00	0.25	Flamingos 2 mechanism stuck	
+FR 39959	2018 10 05 01:26:00 04:00	0.066	Flamingos 2 time out	
+FR 39957	2018 10 05 00:53:00 04:00	0.0333	GMOS S mask type switch fault	
+FR 39964	2018 10 05 21:08:00 04:00	0.94	Air supply problem affecting GMOS S grating lifter	
+FR 39967	2018 10 05 22:45:00 04:00	0.16	GACQ not reconstructing IFU image	
+FR 39949	2018 10 03 22:27:00 04:00	0.033	GMOS S mask type switch fault	
+FR 39944	2018 10 03 05:18:00 04:00	0.05	GMOS S DTA translation Z lost index	
+
+FR 39924	2018 09 28 21:16:00 04:00	0.4	Mechanisms needed datum	
+FR 39925	2018 09 28 12:55:00 04:00	0.266	Probe did not follow offset	
+FR 39917	2018 09 24 23:03:00 04:00	1.7	SCS not responding	
+FR 39916	2018 09 24 22:44:00 04:00	0.11	Error on F2 readout	
+FR 39909	2018 09 21 04:45:00 04:00	0.25	GPI AO loop can't be close
+FR 39908	2018 09 21 00:20:00 04:00	0.75	A&G science fold stuck	
+FR 39907	2018 09 18 15:36:00 04:00	0.05	OIWFS pickoff arm lost index	
+FR 39906	2018 09 17 18:55:00 04:00	0.05	PWFS2 became unresponsive	
+FR 39897	2018 09 15 21:41:00 04:00	0.05	GMOS S OIWFS pickoff lost index	
+FR 39896	2018 09 14 22:26:00 04:00	0.17	Gmos oi guiding lost after offset	
+FR 39895	2018 09 14 22:11:00 04:00	0.25	Gmos DC stuck in observing status	
+FR 39888	2018 09 13 23:15:00 04:00	0.12	Unexpected power down of dome drive	
+FR 39883	2018 09 11 21:41:00 04:00	0.17	Gmos DC stuck in observing status	
+FR 39876	2018 09 09 23:33:00 04:00	0.25	Grating lifter action failed	
+FR 39875	2018 09 09 17:23:00 04:00	0.3	GMOS filter wheel configuration ended in error
+FR 39874	2018 09 09 20:03:00 04:00	1.833	HRWFS detector SDSU not working	
+FR 39873	2018 09 08 23:46:00 04:00	0.433	Grating lifter operation failed	
+FR 39851	2018 09 06 14:58:00 04:00	0.45	GMOS: time out during calibration exposure	
+FR 39857	2018 09 06 12:40:00 04:00	0.25	MCS Bearing Pressure Fault due to small earthquake	
+FR 39846	2018 09 05 05:01:00 04:00	0.08	GMOS: DC disconnected during obs	
+FR 39845	2018 09 04 20:26:00 04:00	0.67	F2: agents restarted, all mechanism datumed	
+FR 39844	2018 09 03 16:55:00 04:00	0.25	GMOS: time out during calibration exposure	
+
+FR 39811	2018 08 19 18:05:00 04:00	0.067	F2 timed out, agents needed restarted	
+FR 39774	2018 08 19 16:13:00 04:00	1.7	GPI: misalignment/unable to close loops	
+FR 39808	2018 08 18 22:44:00 04:00	0.083	F2 timed out, agents needed restarted	
+FR 39795	2018 08 16 15:29:00 04:00	0.05	GPI Track assembly crash
+FR 39790	2018 08 14 16:56:00 04:00	0.3	GPI track assembly crash during acquisition	
+FR 39784	2018 08 13 16:02:00 04:00	0.25	GPI acquisition ended in error	
+FR 39779	2018 08 12 13:57:00 04:00	0.1	CRCS WSOD	
+FR 39778	2018 08 11 23:28:00 04:00	0.05	MCS EL shows big error.	
+FR 39773	2018 08 09 13:19:00 04:00	0.25	GPI: crashing during align and cal
+FR 39772	2018 08 09 17:09:00 04:00	0.1	P2 arm reaches a limit	
+FR 39769	2018 08 09 15:25:00 04:00	0.6	ECS Carousel Amplifier W in fatal error	
+FR 39768	2018 08 08 15:54:00 04:00	1.2	MCS elevation axis need two heads	
+FR 39770	2018 08 08 20:30:00 04:00	0.17	GPI: Error in CAL and AOC during align and cal	
+FR 39766	2018 08 07 14:35:00 04:00	0.08	F2 agents restarted	
+FR 39762	2018 08 05 20:35:00 04:00	0.35	Catastrophic chain of reboots	
+FR 39761	2018 08 05 20:35:00 04:00	0.35	Catastrophic chain of reboots	
+FR 39760	2018 08 05 20:05:00 04:00	0.35	LGS steppers lost datum	
+FR 39754	2018 08 04 23:16:00 04:00	2.0	LGS steppers lost datum	
+FR 39755	2018 08 04 23:58:00 04:00	0.5	M2 has to be rebooted	
+FR 39752	2018 08 03 23:27:00 04:00	0.2	M2 has to be rebooted	
+FR 39748	2018 08 02 12:15:00 04:00	0.25	CWFS1 and CWFS2 probes were sent to wrong position	
+FR 39742	2018 08 01 18:16:00 04:00	0.383	SCS unresponsive, has to be rebooted	
+FR 39741	2018 08 01 17:05:00 04:00	0.083	PWFS2 did not automatically unwrap	
+
+
+
+19A
+
+FR 40681	2019 07 31 00:54:00 04:00	0.72	Gmos OI stuck after an offset	
+FR 40679	2019 07 30 06:11:00 04:00	0.17	Gmos P2 guiding in two spots
+FR 40678	2019 07 29 19:58:00 04:00	0.5	Acquisition with F2 is not possible
+FR 40675	2019 07 26 01:09:00 04:00	0.05	TCS M1 Open Loop Model suddenly stopped
+FR 40672	2019 07 24 02:59:00 04:00	0.08	GMOS OIWFS Pickoff lost index	
+FR 40666	2019 07 20 04:17:00 04:00	0.567	TCS WSOD	
+FR 40660	2019 07 17 03:51:00 04:00	0.2	AG AO fold mirror not parking	
+FR 40659	2019 07 16 22:44:00 04:00	0.2	ECS white screens	
+FR 40656	2019 07 14 12:00:00 04:00	0.16	TCC: weird readout when reading out P1	
+FR 40658	2019 07 14 16:35:00 04:00	0.25	ZORRO software crashed	
+FR 40657	2019 07 14 20:19:00 04:00	0.75	ZORRO out of disk space	
+FR 40654	2019 07 13 20:10:00 04:00	0.75	ZORRO interface crashed	
+FR 40653	2019 07 13 12:50:00 04:00	0.08	ECS WSOD	
+FR 40652	2019 07 13 12:00:00 04:00	0.83	Zorro: TCC error message	
+FR 40650	2019 07 09 19:00:00 04:00	0.13	GMOS filter wheel 2	
+FR 40646	2019 07 05 18:45:00 04:00	1.35	DHS: Rebooting of P1/HR/local DHS	
+FR 40643	2019 07 04 19:13:00 04:00	0.63	ECS: White screens	
+
+FR 40637	2019 06 30 23:27:00 04:00	0.1	Gmos OI pickoff lost index	
+FR 40632	2019 06 23 18:50:00 04:00	0.48	Vitro not showing any planes
+FR 40631	2019 06 22 21:12:00 04:00	0.13	NGS Probe 2 in Error
+FR 40628	2019 06 22 20:43:00 04:00	0.45	Filter wheel stopped working	
+FR 40629	2019 06 22 20:05:00 04:00	0.05	Lost the keyboard control on cpocon02
+FR 40627	2019 06 22 18:30:00 04:00	1.167	Problem with DNS servers so internal networks were down
+FR 40620	2019 06 21 21:35:00 04:00	0.1	OIWFS error: "failed to start simple readout process"	
+FR 40618	2019 06 21 02:25:00 04:00	0.58	Zorro ROI error	
+FR 40617	2019 06 20 15:59:00 04:00	0.7833	SBF data center goes down, causing delays	
+FR 40615	2019 06 19 23:33:00 04:00	0.7	Bearing Pressure lows, causing a fault in the elevation	pdiaz
+FR 40589	2019 06 07 18:14:00 04:00	0.5	Cass Rot Wrap Fault	
+
+FR 40580	2019 05 23 12:34:00 04:00	0.867	TCS crashed	
+FR 40581	2019 05 23 05:26:00 04:00	1.03	PWFS2 guide star won't display in centre of PWFS2 detector	
+FR 40571	2019 05 20 11:40:00 04:00	0.883	Can't guide with PWFS2	
+FR 40573	2019 05 20 12:50:00 04:00	0.833	Connection issues with visControl	
+FR 40563	2019 05 14 13:14:00 04:00	0.15	F2 OIWFS WSOD	
+FR 40562	2019 05 13 19:21:00 04:00	0.65	GPI: pipeline crash	
+FR 40560	2019 05 12 18:15:00 04:00	1.2	GPI: comms issues, track assembly faults, AOC errors
+FR 40561	2019 05 12 20:28:00 04:00	0.13	Guiding lost after MCS jump	
+FR 40558	2019 05 11 20:08:00 04:00	0.4	F2OI detector behaving strange	
+FR 40557	2019 05 11 22:25:00 04:00	1.0	GPI:	
+FR 40550	2019 05 09 20:21:00 04:00	0.33	F2 agents had to be restarted	
+FR 40548	2019 05 09 17:24:00 04:00	0.05	GMOS OI in WSOD	
+FR 40547	2019 05 09 16:00:00 04:00	0.05	GMOS S OIWFS Pickoff lost index	
+FR 40551	2019 05 09 22:35:00 04:00	0.17	A&G in WSOD	
+FR 40546	2019 05 09 19:01:00 04:00	0.633	"Drive Fault" in AZ	
+FR 40543	2019 05 08 20:53:00 04:00	0.05	SF Oscillating	
+FR 40542	2019 05 08 18:28:00 04:00	0.33	MCS crashed	
+FR 40544	2019 05 08 20:56:00 04:00	0.267	F2OI and TCS simultaneous crashes	
+FR 40540	2019 05 08 14:00:00 04:00	0.65	TCS needed rebooted	
+FR 40541	2019 05 08 15:26:00 04:00	0.2	F2 OI needed rebooted	
+FR 40533	2019 05 02 05:17:00 04:00	0.05	Track Assembly Crash
+FR 40532	2019 05 01 12:16:00 04:00	0.4	GACQ normalization between amplifiers
+FR 40531	2019 05 01 18:35:00 04:00	0.25	A&G PWFS1 not displaying properly	
+
+FR 40529	2019 04 29 19:06:00 04:00	0.22	Filter wheels did not go into position
+FR 40527	2019 04 29 04:09:00 04:00	0.116	CRCS false end of travel fault	
+FR 40525	2019 04 28 08:00:00 04:00	0.25	GPI: strange behaviour observing polarimetry	
+FR 40521	2019 04 27 18:55:00 04:00	0.73	GPI: AO P&C/LOWFS/software errors	
+FR 40518	2019 04 26 20:34:00 04:00	0.016	GMOS mask assembly error	
+FR 40511	2019 04 22 12:33:00 04:00	0.683	Couldn't find guide star with F2 OI	
+FR 40507	2019 04 21 21:02:00 04:00	0.17	F2 detector in error state	
+FR 40509	2019 04 21 19:38:00 04:00	0.75	LGS constellation alignment tweaked out	echirre
+FR 40508	2019 04 21 18:20:00 04:00	1.0	NGS1 probe mapping
+FR 40506	2019 04 21 19:02:00 04:00	0.13	Exit Shutter got stuck
+FR 40504	2019 04 20 03:35:00 04:00	2.58	FSA values constantly go to the limit
+FR 40503	2019 04 20 18:04:00 04:00	0.34	F2 OIWFS in WSOD	
+FR 40501	2019 04 20 19:35:00 04:00	0.53	TCS WSOD made other subsystems fail	
+FR 40505	2019 04 20 22:40:00 04:00	0.05	SF error  3: timeout on positioning	
+FR 40500	2019 04 19 21:45:00 04:00	1.47	MCS datum (ALT axis)	
+FR 40499	2019 04 19 18:25:00 04:00	2.1	TCS in WSOD	
+FR 40497	2019 04 17 16:26:00 04:00	0.08	Park OI probe command in the F2 ISD still not working	
+FR 40495	2019 04 17 15:21:00 04:00	0.1	F2 OI change its bias level when offsetting the telescope	
+FR 40494	2019 04 17 15:44:00 04:00	0.1	F2 OIWFS needed rebooted	
+FR 40490	2019 04 16 22:04:00 04:00	0.1	telops session in cpocon02 (observer machine) suddenly closed	
+FR 40489	2019 04 16 17:48:00 04:00	1.87	Vibrations affecting GeMS image quality	mvanderh
+FR 40486	2019 04 15 18:47:00 04:00	1.0	AOM VME not rebooting	
+FR 40488	2019 04 15 20:12:00 04:00	0.1	F2 OI unresponsive	
+FR 40487	2019 04 15 13:10:00 04:00	1.4	TCC not removing instrument origins on swap	
+FR 40485	2019 04 14 14:00:00 04:00	0.433	Lost guiding with F2OI	
+FR 40483	2019 04 14 04:48:00 04:00	0.02	GMOS S DTA translation Z lost index	
+FR 40481	2019 04 13 20:36:00 04:00	0.1	F2 OI would not go into position.	
+FR 40482	2019 04 13 23:50:00 04:00	0.583	SCS synchro bus froze	
+FR 40476	2019 04 12 20:27:00 04:00	0.05	Probe did not follow offset	
+FR 40477	2019 04 12 23:16:00 04:00	0.1	Empty F2 image	
+FR 40475	2019 04 12 20:58:00 04:00	0.383	Lost guiding with F2OI	
+FR 40472	2019 04 11 20:01:00 04:00	0.33	Lost guiding with F2OI	
+FR 40468	2019 04 10 21:38:00 04:00	0.184	Lost guiding with F2OI	
+FR 40465	2019 04 09 23:43:00 04:00	0.6	Guide lost, SCS crash	
+FR 40461	2019 04 08 23:54:00 04:00	1.0	SCS synchro bus fault	
+FR 40460	2019 04 07 20:41:00 04:00	4.0	Guiding lost   SCS failed to reboot	
+FR 40459	2019 04 07 17:12:00 04:00	0.4	F2 OIWFS stopped guiding	
+FR 40453	2019 04 03 05:40:00 04:00	0.083	MCS oscillations	
+FR 40445	2019 04 01 19:42:00 04:00	2.52	M1 cover not opening
+FR 40447	2019 04 01 12:13:00 04:00	0.12	Offsets not applied by MCS	
+
+FR 40443	2019 03 31 06:00:00 04:00	1.02	GWS precipitation sensors false trigger
+FR 40442	2019 03 31 01:56:00 04:00	0.12	CRCS false end of travel fault	
+FR 40438	2019 03 28 23:45:00 04:00	0.12	Track assembly error
+FR 40433	2019 03 26 22:32:00 04:00	1.0	TCS: WSOD and repeating crashes	
+FR 40431	2019 03 25 06:31:00 04:00	0.33	SCS synchro bus frozen	
+FR 40429	2019 03 24 00:54:00 04:00	0.266	Probe did not follow offset	
+FR 40428	2019 03 24 23:44:00 04:00	3.1	TCS WSOD	
+FR 40430	2019 03 24 22:13:00 04:00	0.5	BTO needed reboot and after K mirror could not datum
+FR 40425	2019 03 24 16:53:00 04:00	1.5	Elongated images
+FR 40423	2019 03 23 17:05:00 04:00	0.75	AO not in position: Science ADC Prisms not in position
+FR 40424	2019 03 23 16:35:00 04:00	0.16	GSAOI communicating well with seqexec	
+FR 40426	2019 03 23 18:30:00 04:00	0.3	Probe did not follow offset	
+FR 40422	2019 03 22 16:40:00 04:00	0.66	SCS synchrobus error	
+FR 40419	2019 03 20 22:17:00 04:00	0.4	SCS synchro bus frozen	
+FR 40414	2019 03 19 19:07:00 04:00	0.75	SCS needed rebooted	
+FR 40412	2019 03 19 13:41:00 04:00	0.15	telops session in cpotelops ld2 (cpocon02   observer machine) suddenly closed
+FR 40417	2019 03 19 22:39:00 04:00	1.75	Unable to center laser on LLT	
+FR 40416	2019 03 19 21:08:00 04:00	0.2	GeMS RTC IOC crashed	
+FR 40413	2019 03 19 14:34:00 04:00	0.55	TCS WSODs	
+FR 40409	2019 03 18 19:32:00 04:00	0.2	TCS WSOD	
+FR 40408	2019 03 18 14:54:00 04:00	2.0	TCS not sending probe demands to AOM	
+FR 40410	2019 03 18 22:15:00 04:00	0.25	Persistent 20" offset after slew	
+FR 40407	2019 03 17 13:53:00 04:00	2.1	SCS synchro bus broken	
+FR 40406	2019 03 16 21:37:00 04:00	0.6	SCS synchro bus broken	
+FR 40403	2019 03 15 20:41:00 04:00	0.65	M2 Synchro bus broken	
+FR 40404	2019 03 15 21:01:00 04:00	0.6	GMOS shutter is red in ISD	
+FR 40405	2019 03 15 17:23:00 04:00	0.42	Observer did not start the sequence
+FR 40401	2019 03 14 21:09:00 04:00	0.9	SCS synchro bus broken	
+FR 40400	2019 03 14 03:41:00 04:00	0.23	SCS synchro bus frozen	
+FR 40395	2019 03 12 06:37:00 04:00	0.2	GMOS too warm to use	
+FR 40399	2019 03 12 19:15:00 04:00	0.0	TCS error message	
+FR 40466	2019 03 11 10:21:00 04:00	22.961	GMOS S CCD1 displays charge smearing.	
+FR 40394	2019 03 11 21:19:00 04:00	0.23	SCS synchro bus frozen	
+FR 40385	2019 03 09 21:22:00 04:00	0.22	GMOS OI: needed reinit to send SCS corrections	
+FR 40384	2019 03 09 04:20:00 04:00	0.83	P2/OI: won't stop reading out to QLT	
+FR 40387	2019 03 09 21:59:00 04:00	1.65	Local pointing errors accumulated during high transit
+FR 40381	2019 03 07 01:19:00 04:00	0.1	A&G SF: did not go into position from science to flat	
+FR 40380	2019 03 06 23:50:00 04:00	0.4	HBS: Fault 28 triggered, followed by non zero speed fault in alt
+FR 40378	2019 03 05 05:30:00 04:00	0.5	GPI: track assembly restart and input fold
+FR 40377	2019 03 05 03:31:00 04:00	0.67	GMOS OI: index and activeC Car Err	
+FR 40376	2019 03 04 21:32:00 04:00	1.6	Elevation axis needed a datum	
+FR 40375	2019 03 03 19:42:00 04:00	1.083	F2 images only showing bias level counts
+FR 40373	2019 03 03 19:20:00 04:00	0.033	OIWFS base lost index	
+FR 40372	2019 03 03 18:01:00 04:00	0.033	Translation X axis failure	
+FR 40369	2019 03 03 13:35:00 04:00	0.1	Configuration error with GS 2019A Q 214 [8]	
+FR 40371	2019 03 03 18:02:00 04:00	0.1	GMOS S Gripper Action Failure	
+FR 40374	2019 03 03 19:22:00 04:00	0.1	Science Fold stuck in position	
+FR 40370	2019 03 03 16:00:00 04:00	0.333	Science Fold slow to move	
+FR 40366	2019 03 01 20:53:00 04:00	0.1	GMOS S Gripper Action Failure	
+FR 40365	2019 03 01 14:30:00 04:00	0.15	F2 OIWFS crashed	
+
+FR 40361	2019 02 28 20:56:00 04:00	0.15	F2 OIWFS needed rebooted	
+FR 40360	2019 02 27 22:14:00 04:00	0.067	GMOS S Gripper Action Failure	
+FR 40359	2019 02 28 04:45:00 04:00	0.033	GPI Track assembly crash
+FR 40357	2019 02 27 01:19:00 04:00	0.15	Align and Cal failed
+FR 40356	2019 02 26 01:31:00 04:00	0.23	Align and Cal failed
+FR 40355	2019 02 26 02:52:00 04:00	0.3	seqexec/GPI times out when configuring
+FR 40352	2019 02 24 18:25:00 04:00	0.15	F2 OIWFS lost guiding	
+FR 40349	2019 02 24 07:20:00 04:00	7.34	F2 K red and K blue filter interchanged in LUT file	
+FR 40346	2019 02 23 04:27:00 04:00	0.06	GPI track assembly crash
+FR 40344	2019 02 20 22:57:00 04:00	0.23	F2 OI: needed restart and datum	
+FR 40343	2019 02 20 04:20:00 04:00	0.45	GPI: Input fold not tracking	
+FR 40342	2019 02 20 04:04:00 04:00	0.07	GPI: ADC takes itself out of tracking	
+FR 40341	2019 02 20 03:24:00 04:00	0.13	GPI track assembly restart
+FR 40340	2019 02 19 22:29:00 04:00	0.25	F2 OI: stopped reading out on QL	
+FR 40335	2019 02 18 11:00:00 04:00	6.19	F2 mechs found misaligned
+FR 40337	2019 02 18 23:53:00 04:00	6.7	CRCS: runaway error accumulation, physically halted
+FR 40334	2019 02 17 21:08:00 04:00	9.13	GMOS, PM air supply interlock triggered	
+FR 40330	2019 02 15 15:47:00 04:00	0.0833	HBS boost pump circuit pressure too low
+FR 40331	2019 02 15 17:14:00 04:00	0.4	GPI AO PNC fault	
+FR 40332	2019 02 15 18:41:00 04:00	0.033	PWFS2 focus runaway	
+FR 40328	2019 02 14 17:58:00 04:00	0.033	Acquisition camera stopped reading out	
+FR 40327	2019 02 14 15:55:00 04:00	1.0	Science Fold linear tilt  25 fault
+FR 40326	2019 02 14 13:51:00 04:00	1.333	GPI problem with AO PNCs	
+FR 40323	2019 02 13 15:27:00 04:00	0.183	Focus runaway when switching guide stars with PWFS2	
+FR 40311	2019 02 08 14:22:00 04:00	1.15	F2 detector fails to recover	
+FR 40309	2019 02 06 23:00:00 04:00	0.25	F2 grism wheel lost datum	
+
+
