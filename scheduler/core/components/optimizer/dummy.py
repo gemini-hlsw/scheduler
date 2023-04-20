@@ -37,7 +37,7 @@ class DummyOptimizer(BaseOptimizer):
                 # can be removed
                 self.groups.remove(ran_group)
             else:
-                logger.warning(f'Group {ran_group.group.unique_id()} not added')
+                logger.warning(f'Group {ran_group.group.unique_id} not added')
 
     def setup(self, selection: Selection) -> DummyOptimizer:
         """
@@ -58,7 +58,7 @@ class DummyOptimizer(BaseOptimizer):
         for observation in group.group.observations():
             plan = plans[observation.site]
             if not plan.is_full and plan.site == observation.site:
-                obs_len = plan.time2slots(observation.exec_time())
+                obs_len = plan.time2slots(plan.time_slot_length, observation.exec_time())
                 if plan.time_left() >= obs_len and observation not in plan:
                     start, start_time_slot = DummyOptimizer._first_free_time(plan)
                     visit_score = sum(group.group_info.scores[plans.night][start_time_slot:start_time_slot+obs_len])

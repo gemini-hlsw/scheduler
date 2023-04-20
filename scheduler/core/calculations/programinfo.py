@@ -86,12 +86,12 @@ class ProgramCalculations:
         # Extract the children's names of all scheduling groups except the root into a set.
         # This way, we only have to check IDs for equality instead of the entire group structure.
         scheduling_group_children_names = {
-            child.unique_id() for group in scheduling_groups for child in group.children
+            child.unique_id for group in scheduling_groups for child in group.children
         }
 
         # Find the group_data for groups that are not the root group and are not in any scheduling_group.
-        top_level_groups = frozenset({group_data.group.unique_id() for group_data in self.group_data_map.values()
+        top_level_groups = frozenset({group_data.group.unique_id for group_data in self.group_data_map.values()
                                       if (group_data.group.id != ROOT_GROUP_ID and
-                                          group_data.group.unique_id() not in scheduling_group_children_names)})
+                                          group_data.group.unique_id not in scheduling_group_children_names)})
 
         object.__setattr__(self, 'top_level_groups', top_level_groups)

@@ -83,7 +83,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # Calculate the number of time slots needed to complete the group.
         # n_slots_remaining = int(np.ceil((time_remaining / self.time_slot_length)))  # number of time slots
         # This use of time2slots works but is probably not kosher, need to make this more general
-        n_slots_remaining = Plan.time2slots(self, time_remaining)
+        n_slots_remaining = Plan.time2slots(self.time_slot_length, time_remaining)
 
         # Short groups should be done entirely, update the min useful time
         # is the extra variable needed, or just modify n_min_visit?
@@ -346,7 +346,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 max_score, max_group, max_interval = max_data
                 added = self.add(max_group, plans.night, max_interval)
                 if added:
-                    print(f'{max_group.group.unique_id()} with max score {max_score} added.')
+                    print(f'{max_group.group.unique_id} with max score {max_score} added.')
                     self.group_data_list.remove(max_group)  # should really only do this if all time used (not split)
             else:
                 # Nothing remaining can be scheduled
@@ -382,16 +382,17 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
             if self.show_plots:
                 GreedyMaxOptimizer._plot_interval(group_data.group_info.scores[night], interval, best_interval,
-                                                  label=f'Night {night + 1}: {group_data.group.unique_id()}')
+                                                  label=f'Night {night + 1}: {group_data.group.unique_id}')
 
             for observation in group_data.group.observations():
+                print(f"**** {self.obs_group_ids}, {observation.id}")
                 iobs = self.obs_group_ids.index(observation.id)  # index in observation list
 
                 # if iobs not in timeline.time_slots:  # when splitting it could appear multiple times
                 # Calculate the length of the observation (visit)
                 time_remaining = observation.exec_time() - observation.total_used()
                 # This use of time2slots works but is probably not kosher, need to make this more general
-                obs_len = Plan.time2slots(self, time_remaining)
+                obs_len = Plan.time2slots(self.time_slot_length, time_remaining)
 
                 # add to timeline (time_slots)
                 start_time_slot, start = timeline.add(iobs, obs_len, best_interval)

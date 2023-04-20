@@ -49,10 +49,11 @@ class Plan:
         self.is_full = False
         self.night_stats: Optional[NightStats] = None
 
-    def time2slots(self, time: timedelta) -> int:
+    @staticmethod
+    def time2slots(time_slot_length: timedelta, time: timedelta) -> int:
         # return ceil((time.total_seconds() / self.time_slot_length.total_seconds()) / 60)
         # return ceil((time.total_seconds() / self.time_slot_length.total_seconds()))
-        return ceil(time / self.time_slot_length)
+        return ceil(time / time_slot_length)
 
     def add(self,
             obs: Observation,

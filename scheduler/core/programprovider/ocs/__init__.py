@@ -12,8 +12,8 @@ import numpy as np
 from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
-                              ObservationClass, ObservationMode, ObservationStatus, OrGroup, Priority, Program,
-                              ProgramID, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
+                              ObservationClass, ObservationID, ObservationMode, ObservationStatus, OrGroup, Priority,
+                              Program, ProgramID, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
                               SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType,
                               TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
@@ -210,35 +210,39 @@ class OcsProgramProvider(ProgramProvider):
             error=None)
 
     @staticmethod
-    def _get_program_dates(prog_type: ProgramTypes, prog_id: str, note_titles: List[str]) -> Tuple[datetime, datetime]:
+    def _get_program_dates(program_type: ProgramTypes,
+                           program_id: ProgramID,
+                           note_titles: List[str]) -> Tuple[datetime, datetime]:
         """
         Find the start and end dates of a program.
         This requires special handling for FT programs, which must contain a note with the information
         at the program level with key INFO_SCHEDNOTE, INFO_PROGRAMNOTE, or INFO_NOTE.
         """
+        year_str = program_id.id[3:7]
         try:
-            year = int(prog_id[3:7])
+            year = int(year_str)
         except ValueError as e:
-            msg = f'Illegal year specified for program {prog_id}: {prog_id[3:7]}.'
+            msg = f'Illegal year specified for program {program_id}: {year_str}.'
             raise ValueError(e, msg)
         except TypeError as e:
-            msg = f'Illegal type data specified for program {prog_id}: {prog_id[3:7]}.'
+            msg = f'Illegal type data specified for program {program_id}: {year_str}.'
             raise TypeError(e, msg)
         next_year = year + 1
 
         # Make sure the actual year is in the valid range.
         if year < 2000 or year > 2100:
-            msg = f'Illegal year specified for program {prog_id}: {prog_id[3:7]}.'
+            msg = f'Illegal year specified for program {program_id}: {year_str}.'
             raise ValueError(msg)
 
+        half_char = program_id.id[7]
         try:
-            semester = SemesterHalf(prog_id[7])
+            semester = SemesterHalf(half_char)
         except ValueError as e:
-            msg = f'Illegal semester specified for program {prog_id}: {prog_id[7]}'
+            msg = f'Illegal semester specified for program {program_id}: {half_char}'
             raise ValueError(msg, e)
 
         # Special handling for FT programs.
-        if prog_type is ProgramTypes.FT:
+        if program_type is ProgramTypes.FT:
             months_list = [x.lower() for x in calendar.month_name[1:]]
 
             def is_ft_note(curr_note_title: str) -> bool:
@@ -893,7 +897,7 @@ class OcsProgramProvider(ProgramProvider):
                 too_type = TooType.RAPID
 
         return GeminiObservation(
-            id=obs_id,
+            id=ObservationID(obs_id),
             internal_id=internal_id,
             order=num,
             title=title,
@@ -960,7 +964,7 @@ class OcsProgramProvider(ProgramProvider):
         scheduling_group_keys = sorted(key for key in data
                                        if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
         for key in scheduling_group_keys:
-            subgroup_id = key.split('-')[-1]
+            subgroup_id = GroupID(key.split('-')[-1])
             subgroup = self.parse_and_group(data[key], program_id, subgroup_id)
             if subgroup is not None:
                 children.append(subgroup)
@@ -1001,7 +1005,7 @@ class OcsProgramProvider(ProgramProvider):
         # Put all the observations in trivial AND groups and extend the children to include them.
         trivial_groups = [
             AndGroup(
-                id=obs.id,
+                id=GroupID(obs.id.id),
                 program_id=program_id,
                 group_name=obs.title,
                 number_to_observe=1,
@@ -1039,7 +1043,7 @@ class OcsProgramProvider(ProgramProvider):
         3. The organizational folders are ignored and their observations are considered top-level.
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
-        program_id = data[OcsProgramProvider._ProgramKeys.ID]
+        program_id = ProgramID(data[OcsProgramProvider._ProgramKeys.ID])
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
 
         # Now we parse the groups. For this, we need:
@@ -1058,7 +1062,7 @@ class OcsProgramProvider(ProgramProvider):
         semester = None
         program_type = None
         try:
-            id_split = program_id.split('-')
+            id_split = program_id.id.split('-')
             semester_year = int(id_split[1][:4])
             semester_half = SemesterHalf[id_split[1][4]]
             semester = Semester(year=semester_year, half=semester_half)
@@ -1112,7 +1116,7 @@ class OcsProgramProvider(ProgramProvider):
             too_type=too_type)
 
     @staticmethod
-    def _check_too_type(program_id: str, too_type: TooType, group: Group) -> NoReturn:
+    def _check_too_type(program_id: ProgramID, too_type: TooType, group: Group) -> NoReturn:
         """
         Determine the validity of the TooTypes of the Observations in a Program.
 

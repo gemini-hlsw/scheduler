@@ -195,7 +195,7 @@ class DefaultRanker(Ranker):
                                               np.ones(1, dtype=int) * program.band,
                                               np.ones(1) * 0.8,
                                               program.thesis)
-        print(f'{obs.id:20}  exec: {obs.exec_time().total_seconds() / 3600.:.2f} '
+        print(f'{obs.id.id:20}  exec: {obs.exec_time().total_seconds() / 3600.:.2f} '
               f'used: {obs.total_used().total_seconds() / 3600.:.2f} '
               f'prog awarded: {program.total_awarded().total_seconds() / 3600.:.2f} '
               f'prog used: {program.total_used().total_seconds() / 3600.:.2f} ')
@@ -260,7 +260,7 @@ class DefaultRanker(Ranker):
         for night_idx in self.night_indices:
             # What we want for the night is a numpy array of size (#obs, #timeslots in night)
             # where the rows are the observation scores. Then we will combine them.
-            for unique_group_id in (g.unique_id() for g in group.children):
+            for unique_group_id in (g.unique_id for g in group.children):
                 # To get this, we turn the scores of the children into a (1, #timeslots in night) array to append
                 # to the numpy array for the night.
                 subgroup_scores = np.array([group_data_map[unique_group_id].group_info.scores[night_idx]])

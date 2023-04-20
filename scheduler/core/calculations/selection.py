@@ -39,7 +39,7 @@ class Selection:
         Example: this might return [1, [2, 3, [4, 5, 6], 7], 8, 9], so we do not specify a return type.
         """
         if group.is_observation_group():
-            return [group.unique_id()]
+            return [group.unique_id]
         else:
             return [Selection._get_obs_group_ids(subgroup) for subgroup in group.children]
 
