@@ -126,7 +126,7 @@ class Timeline:
                 # t_end = self.start.astimezone(tz=timezone.utc) + i_end * self.time_slot_length + delta
                 t_end = t_start + (i_end - i_start) * self.time_slot_length
 
-                print(f'{idx:5d} {i_start:5d} {i_end:5d}   {obs_id:20} {t_start.strftime("%Y-%m-%d %H:%M:%S")} '
+                print(f'{idx:5d} {i_start:5d} {i_end:5d}   {obs_id.id:20} {t_start.strftime("%Y-%m-%d %H:%M:%S")} '
                       f'{t_end.strftime("%Y-%m-%d %H:%M:%S")}')
 
 

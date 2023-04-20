@@ -13,7 +13,7 @@ from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
 from . import Interval
 
-from lucupy.minimodel import Group
+from lucupy.minimodel import Group, ObservationID, UniqueGroupID
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
@@ -386,7 +386,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
             for observation in group_data.group.observations():
                 print(f"**** {self.obs_group_ids}, {observation.id}")
-                iobs = self.obs_group_ids.index(observation.id)  # index in observation list
+                # iobs = self.obs_group_ids.index(observation.id)  # index in observation list
+                # TODO: HACK
+                unique_group_id = UniqueGroupID(observation.id.id)
+                iobs = self.obs_group_ids.index(unique_group_id)
 
                 # if iobs not in timeline.time_slots:  # when splitting it could appear multiple times
                 # Calculate the length of the observation (visit)
@@ -425,7 +428,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
             obs_order = timeline.get_observation_order()
             for idx, start_time_slot, end_time_slot in obs_order:
                 if idx > -1:
-                    obs_id = self.obs_group_ids[idx]
+                    # obs_id = self.obs_group_ids[idx]
+                    # TODO: HACK
+                    unique_group_id = self.obs_group_ids[idx]
+                    obs_id = ObservationID(unique_group_id.id)
 
                     # Add visit to final plan
                     plans[timeline.site].add(self.obs_in_plan[obs_id]['obs'], self.obs_in_plan[obs_id]['start'],
