@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple
+from typing import FrozenSet, List, Optional, Tuple
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.calculations import GroupData
@@ -13,10 +14,21 @@ from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
 from . import Interval
 
-from lucupy.minimodel import Group, ObservationID, UniqueGroupID
+from lucupy.minimodel import Group, Observation, ObservationID, Site, UniqueGroupID
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
+
+
+@dataclass(frozen=True)
+class ObsPlanData:
+    """
+    Storage to conglomerate observation information for the plan together.
+    """
+    obs: Observation
+    obs_start: datetime
+    obs_len: int
+    visit_score: npt.NDArray[float]
 
 
 class GreedyMaxOptimizer(BaseOptimizer):
@@ -25,12 +37,11 @@ class GreedyMaxOptimizer(BaseOptimizer):
     """
 
     def __init__(self, min_visit_len: timedelta = timedelta(minutes=30), show_plots: bool = False):
-        self.group_data_list = []
-        self.group_ids = []
-        # self.obs_groups = []     # remove if not used
-        self.obs_group_ids = []
-        self.timelines = []
-        self.sites = []
+        self.group_data_list: List[GroupData] = []
+        self.group_ids: List[UniqueGroupID] = []
+        self.obs_group_ids: List[UniqueGroupID] = []
+        self.timelines: List[Timelines] = []
+        self.sites: FrozenSet[Site] = frozenset()
         self.obs_in_plan = {}   # {obsid: [group_id} for observations in the plan
         self.min_visit_len = min_visit_len
         self.show_plots = show_plots
@@ -411,8 +422,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     group_data.group_info.scores[night][start_time_slot:start_time_slot + obs_len]
                 )
 
-                self.obs_in_plan[observation.id] = {'obs': observation, 'obs_len': obs_len,
-                                                    'start': start, 'visit_score': visit_score}
+                self.obs_in_plan[observation.id] = ObsPlanData(
+                    obs=observation,
+                    obs_start=start,
+                    obs_len=obs_len,
+                    visit_score=visit_score
+                )
 
             if timeline.slots_unscheduled() <= 0:
                 timeline.is_full = True
@@ -434,6 +449,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     obs_id = ObservationID(unique_group_id.id)
 
                     # Add visit to final plan
-                    plans[timeline.site].add(self.obs_in_plan[obs_id]['obs'], self.obs_in_plan[obs_id]['start'],
-                                             start_time_slot, self.obs_in_plan[obs_id]['obs_len'],
-                                             self.obs_in_plan[obs_id]['visit_score'])
+                    obs_in_plan = self.obs_in_plan[obs_id]
+                    plans[timeline.site].add(obs_in_plan.obs,
+                                             obs_in_plan.obs_start,
+                                             start_time_slot,
+                                             obs_in_plan.obs_len,
+                                             obs_in_plan.visit_score)

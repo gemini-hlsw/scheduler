@@ -25,7 +25,6 @@ async def test_newschedule_mutation():
 }
     """
 
-
     result = await schema.execute(mutation)
 
     assert result.errors is None

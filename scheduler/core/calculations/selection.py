@@ -30,7 +30,7 @@ class Selection:
         return frozenset(self.night_events.keys())
 
     @staticmethod
-    def _get_obs_group_ids(group: Group):
+    def _get_obs_group_ids(group: Group) -> FrozenSet[UniqueGroupID]:
         """
         Given a group, iterate over the group and return the unique IDs of the observation groups.
         This could be messy due to the groups at different levels, so we flatten in the method that
@@ -39,9 +39,9 @@ class Selection:
         Example: this might return [1, [2, 3, [4, 5, 6], 7], 8, 9], so we do not specify a return type.
         """
         if group.is_observation_group():
-            return [group.unique_id]
+            return frozenset({group.unique_id})
         else:
-            return [Selection._get_obs_group_ids(subgroup) for subgroup in group.children]
+            return frozenset().union({Selection._get_obs_group_ids(subgroup) for subgroup in group.children})
 
     def __post_init__(self):
         object.__setattr__(self, 'program_ids', frozenset(self.program_info.keys()))

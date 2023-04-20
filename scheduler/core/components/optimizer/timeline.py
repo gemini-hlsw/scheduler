@@ -60,7 +60,7 @@ class Timeline:
         unscheduled = np.where(self.time_slots == Timeline.EMPTY)[0]
         return len(unscheduled)
 
-    def add(self, obs_idx: int, required_time_slots: int, interval: Interval) -> Optional[datetime]:
+    def add(self, obs_idx: int, required_time_slots: int, interval: Interval) -> Tuple[int, datetime]:
         """
         Add an observation index to the first open position (-1) in the given interval.
         Returns the time of this position.
