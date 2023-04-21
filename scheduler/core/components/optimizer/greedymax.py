@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import FrozenSet, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.calculations import GroupData
@@ -28,7 +28,7 @@ class ObsPlanData:
     obs: Observation
     obs_start: datetime
     obs_len: int
-    visit_score: npt.NDArray[float]
+    visit_score: float
 
 
 class GreedyMaxOptimizer(BaseOptimizer):
@@ -42,10 +42,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
         self.obs_group_ids: List[UniqueGroupID] = []
         self.timelines: List[Timelines] = []
         self.sites: FrozenSet[Site] = frozenset()
-        self.obs_in_plan = {}   # {obsid: [group_id} for observations in the plan
+        self.obs_in_plan: Dict[ObservationID, ObsPlanData] = {}
         self.min_visit_len = min_visit_len
         self.show_plots = show_plots
-        self.time_slot_length = None
+        self.time_slot_length: Optional[timedelta] = None
 
     def setup(self, selection: Selection) -> GreedyMaxOptimizer:
         """
@@ -418,9 +418,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # as in calculated somewhere else or in a different way, but are needed when plan.add is called.
                 # In the future we could merge this with timeline but the design on that is TBD.
                 # TODO: Partner calibrations should not contribute to this
-                visit_score = np.sum(
-                    group_data.group_info.scores[night][start_time_slot:start_time_slot + obs_len]
-                )
+                visit_score = sum(group_data.group_info.scores[night][start_time_slot:start_time_slot + obs_len])
 
                 self.obs_in_plan[observation.id] = ObsPlanData(
                     obs=observation,
