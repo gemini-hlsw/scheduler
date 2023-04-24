@@ -955,7 +955,7 @@ class OcsProgramProvider(ProgramProvider):
         if OcsProgramProvider._GroupKeys.GROUP_NAME in data:
             group_name = data[OcsProgramProvider._GroupKeys.GROUP_NAME]
         else:
-            group_name = ROOT_GROUP_ID
+            group_name = ROOT_GROUP_ID.id
 
         # Collect all the children of this group.
         children = []
