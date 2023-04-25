@@ -398,9 +398,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             for observation in group_data.group.observations():
                 print(f"**** {self.obs_group_ids}, {observation.id}")
                 # iobs = self.obs_group_ids.index(observation.id)  # index in observation list
-                # TODO: HACK
-                unique_group_id = UniqueGroupID(observation.id.id)
-                iobs = self.obs_group_ids.index(unique_group_id)
+                iobs = self.obs_group_ids.index(observation.to_unique_group_id)
 
                 # if iobs not in timeline.time_slots:  # when splitting it could appear multiple times
                 # Calculate the length of the observation (visit)
@@ -442,7 +440,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
             for idx, start_time_slot, end_time_slot in obs_order:
                 if idx > -1:
                     # obs_id = self.obs_group_ids[idx]
-                    # TODO: HACK
+                    # TODO: HACK. I don't see an easy way around this since an obs_group_id has no idea it is an
+                    # TODO: UniqueGroupID of an observation group. Maybe we can make obs_in_plan a map from
+                    # TODO: UniqueGroupID to... something, instead of an ObservationID to an ObsPlanData.
                     unique_group_id = self.obs_group_ids[idx]
                     obs_id = ObservationID(unique_group_id.id)
 
