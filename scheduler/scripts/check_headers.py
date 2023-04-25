@@ -7,8 +7,9 @@ from definitions import ROOT_DIR
 
 # Checks the headers of all .py files to make sure that they contain the above Copyright message.
 
+HEADER = ('# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)\n'
+          '# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause')
 
-HEADER = '# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)\n# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause'
 
 def pre_adder(file):
     with open(file, 'r+') as f:

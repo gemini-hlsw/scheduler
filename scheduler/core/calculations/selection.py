@@ -3,16 +3,15 @@
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import FrozenSet, Mapping, Optional
+from typing import Callable, FrozenSet, Mapping, Optional
 
 from lucupy.helpers import flatten
 from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, UniqueGroupID
 
 from ..components.ranker import Ranker
-from ..components.selector import Selector
 from .groupinfo import GroupData
 from .nightevents import NightEvents
-from .programinfo import ProgramInfo
+from .programinfo import ProgramCalculations, ProgramInfo
 
 
 @dataclass(frozen=True)
@@ -26,9 +25,15 @@ class Selection:
     night_events: Mapping[Site, NightEvents]
     num_nights: int
     time_slot_length: timedelta
+    _program_scorer: Callable[[Program, Optional[FrozenSet[Site]], Optional[NightIndices], Optional[Ranker]],
+                              Optional[ProgramCalculations]]
 
-    # Reference to
-    _selector: Selector
+    def score_program(self,
+                      program: Program,
+                      sites: Optional[FrozenSet[Site]] = None,
+                      night_indices: Optional[NightIndices] = None,
+                      ranker: Optional[Ranker] = None):
+        return self._program_scorer(program, sites, night_indices, ranker)
 
     @property
     def sites(self) -> FrozenSet[Site]:
@@ -57,9 +62,3 @@ class Selection:
         ))
         object.__setattr__(self, 'obs_group_ids', obs_group_ids)
         object.__setattr__(self, 'obs_group_id_list', list(sorted(obs_group_ids)))
-
-    def score_program(self,
-                      program: Program,
-                      sites: Optional[FrozenSet[Site]] = sites,
-                      night_indices: Optional[NightIndices] = None,
-                      ranker: Optional[Ranker] = None):

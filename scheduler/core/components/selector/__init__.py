@@ -131,7 +131,8 @@ class Selector(SchedulerComponent):
             schedulable_groups=schedulable_groups_map,
             night_events={site: self.collector.get_night_events(site) for site in sites},
             num_nights=len(self.collector.time_grid),
-            time_slot_length=self.collector.time_slot_length.to_datetime()
+            time_slot_length=self.collector.time_slot_length.to_datetime(),
+            _program_scorer=self.score_program
         )
 
     def score_program(self,
