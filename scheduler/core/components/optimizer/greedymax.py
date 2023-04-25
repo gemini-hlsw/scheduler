@@ -37,7 +37,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
     """
 
     def __init__(self, min_visit_len: timedelta = timedelta(minutes=30), show_plots: bool = False):
-        self.selection = Selection
+        # self.selection = Selection
         self.group_data_list: List[GroupData] = []
         self.group_ids: List[UniqueGroupID] = []
         self.obs_group_ids: List[UniqueGroupID] = []
@@ -52,7 +52,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         Preparation for the optimizer.
         """
-        self.selection = selection
+        # self.selection = selection
         self.group_ids = list(selection.schedulable_groups)
         self.group_data_list = list(selection.schedulable_groups.values())
         # self._process_group_data(self.group_data_list)
