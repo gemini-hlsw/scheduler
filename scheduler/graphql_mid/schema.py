@@ -65,6 +65,6 @@ class Query:
                     Time(new_schedule_input.end_time, format='iso', scale='utc')
             scheduler = build_scheduler(start, end, new_schedule_input.site)
             plans, plans_summary = scheduler()
-        splans = [SPlans.from_computed_plans(p,new_schedule_input.site) for p in plans]
-        json_summary = json.dumps(plans_summary)
+        splans = [SPlans.from_computed_plans(p, new_schedule_input.site) for p in plans]
+        # json_summary = json.dumps(plans_summary)
         return NewNightPlans(night_plans=splans, plans_summary=plans_summary)

@@ -7,6 +7,7 @@ import logging
 from lucupy.minimodel import ALL_SITES
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
+from lucupy.minimodel import Semester, SemesterHalf
 
 from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint
@@ -30,7 +31,6 @@ if __name__ == '__main__':
     programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
     collector_blueprint = CollectorBlueprint(
-        ['2018B'],
         ['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
         ['Q', 'LP', 'FT', 'DD'],
         1.0
@@ -39,6 +39,7 @@ if __name__ == '__main__':
     collector = SchedulerBuilder.build_collector(
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+        semesters=frozenset({Semester(2018, SemesterHalf.B)}),
         sites=ALL_SITES,
         blueprint=collector_blueprint
     )
@@ -62,12 +63,12 @@ if __name__ == '__main__':
         print(f'ProgramID: {pid}')
         root_group = program.root_group
         for group in root_group.children:
-            print(f'\tGroupID: {group.unique_id()}, resources needed: f{group.required_resources()}')
+            print(f'\tGroupID: {group.unique_id}, resources needed: f{group.required_resources()}')
 
     # ProgramPermissionFilter:
     program_ids = frozenset({
-        'GS-2018B-Q-103',
-        'GS-2018B-Q-105'
+        ProgramID('GS-2018B-Q-103'),
+        ProgramID('GS-2018B-Q-105')
     })
     f_program_filtering = ProgramPermissionFilter(
         program_ids=program_ids
@@ -107,14 +108,14 @@ if __name__ == '__main__':
         root_group = program.root_group
         for group in root_group.children:
             if f_resources_available.group_filter(group):
-                print(f'+++ Group {group.unique_id()} is accepted: '
+                print(f'+++ Group {group.unique_id} is accepted: '
                       f'{", ".join(r.id for r in group.required_resources())} available.')
             else:
-                print(f'--- Group {group.unique_id()} is rejected: '
+                print(f'--- Group {group.unique_id} is rejected: '
                       f'{", ".join(r.id for r in group.required_resources() - resources)} unavailable.')
 
     priority_program_ids = frozenset({
-        'GS-2018B-Q-103'
+        ProgramID('GS-2018B-Q-103')
     })
     f_program_priority = ProgramPriorityFilter(
         program_ids=priority_program_ids
@@ -142,8 +143,8 @@ if __name__ == '__main__':
             root_group = program.root_group
             for group in root_group.children:
                 if f_final.group_filter(group):
-                    print(f'\t+++ Group {group.unique_id()} is accepted (resources available).')
+                    print(f'\t+++ Group {group.unique_id} is accepted (resources available).')
                 else:
-                    print(f'\t--- Group {group.unique_id()} is rejected.')
+                    print(f'\t--- Group {group.unique_id} is rejected.')
         else:
             print(f'--- Program {pid} is rejected.')

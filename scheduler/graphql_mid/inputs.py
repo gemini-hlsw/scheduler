@@ -3,6 +3,7 @@
 import strawberry  # noqa
 from .scalars import Sites
 
+
 @strawberry.input
 class CreateNewScheduleInput:
     """

@@ -11,6 +11,7 @@ from strawberry.scalars import JSON
 from lucupy.minimodel import ObservationID, Site, ALL_SITES
 
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
+from scheduler.graphql_mid.scalars import SObservationID
 
 
 @strawberry.type
@@ -37,22 +38,23 @@ class SNightStats:
                            n_toos=ns.n_toos,
                            completion_fraction=cf)
 
+
 @strawberry.type
 class SVisit:
     """
     Represents a visit as part of a nightly Plan at a Site.
     """
     start_time: datetime
-    obs_id: ObservationID
+    obs_id: SObservationID
     atom_start_idx: int
     atom_end_idx: int
 
     @staticmethod
     def from_computed_visit(visit: Visit) -> 'SVisit':
         return SVisit(start_time=visit.start_time.astimezone(pytz.UTC),
-    obs_id=visit.obs_id,
-    atom_start_idx=visit.atom_start_idx,
-    atom_end_idx=visit.atom_end_idx)
+                      obs_id=visit.obs_id,
+                      atom_start_idx=visit.atom_start_idx,
+                      atom_end_idx=visit.atom_end_idx)
 
 
 @strawberry.type
@@ -69,11 +71,11 @@ class SPlan:
     @staticmethod
     def from_computed_plan(plan: Plan) -> 'SPlan':
         return SPlan(
-                        site=plan.site,
-                        start_time=plan.start.astimezone(pytz.UTC),
-                        end_time=plan.end.astimezone(pytz.UTC),
-                        visits=[SVisit.from_computed_visit(visit) for visit in plan.visits],
-                        night_stats=SNightStats.from_computed_night_stats(plan.night_stats)
+            site=plan.site,
+            start_time=plan.start.astimezone(pytz.UTC),
+            end_time=plan.end.astimezone(pytz.UTC),
+            visits=[SVisit.from_computed_visit(visit) for visit in plan.visits],
+            night_stats=SNightStats.from_computed_night_stats(plan.night_stats)
         )
 
 
@@ -85,18 +87,17 @@ class SPlans:
     # TODO: Change this to date in UTC
     night_idx: int
     plans_per_site: List[SPlan]
+
     @staticmethod
     def from_computed_plans(plans: Plans, sites: FrozenSet[Site]) -> 'SPlans':
         return SPlans(
-    night_idx=plans.night,
-    plans_per_site=[SPlan.from_computed_plan(plans[site]) for site in sites],
-    )
+            night_idx=plans.night,
+            plans_per_site=[SPlan.from_computed_plan(plans[site]) for site in sites])
 
     def for_site(self, site: Site) -> 'SPlans':
         return SPlans(
-    night_idx=self.night_idx,
-    plans_per_site=[plans for plans in self.plans_per_site if plans.site == site],
-    )
+            night_idx=self.night_idx,
+            plans_per_site=[plans for plans in self.plans_per_site if plans.site == site])
 
 
 @strawberry.type
@@ -113,12 +114,12 @@ class NewScheduleSuccess:
     success: bool
 
 
-
 @strawberry.type
 class NewScheduleError:
     """
     Error response for creating a new schedule.
     """
     error: str
+
 
 NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError))  # noqa

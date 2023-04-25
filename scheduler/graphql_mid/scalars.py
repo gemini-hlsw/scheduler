@@ -4,7 +4,7 @@
 from typing import List, FrozenSet, Union, NewType
 
 import strawberry  # noqa
-from lucupy.minimodel import ObservationID, Site, ALL_SITES
+from lucupy.minimodel import GroupID, ObservationID, ProgramID, Site, UniqueGroupID, ALL_SITES
 
 from scheduler.config import ConfigurationError
 from scheduler.core.plans import Plan, Plans, Visit
@@ -42,3 +42,23 @@ Sites = strawberry.scalar(NewType("Sites", FrozenSet[Site]),
                           description="Depiction of the sites that can be load to the collector",
                           serialize=lambda x: x,
                           parse_value=lambda x: parse_sites(x)) # noqa
+
+SObservationID = strawberry.scalar(NewType('SObservationID', ObservationID),
+                                   description='ID of an Observation',
+                                   serialize=lambda x: x.id,
+                                   parse_value=lambda x: ObservationID(x))
+
+SUniqueGroupID = strawberry.scalar(NewType('SUniqueGroupID', UniqueGroupID),
+                                   description='Unique ID of a Group',
+                                   serialize=lambda x: x.id,
+                                   parse_value=lambda x: UniqueGroupID(x))
+
+SGroupID = strawberry.scalar(NewType('SGroupID', GroupID),
+                             description='ID of an Group',
+                             serialize=lambda x: x.id,
+                             parse_value=lambda x: GroupID(x))
+
+SProgramID = strawberry.scalar(NewType('SProgramID', ProgramID),
+                               description='ID of an Program',
+                               serialize=lambda x: x.id,
+                               parse_value=lambda x: ProgramID(x))

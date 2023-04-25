@@ -7,10 +7,11 @@ from datetime import datetime, timedelta
 
 from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
-                              ImageQuality, Magnitude, MagnitudeBands, ObservationClass, ObservationStatus, Priority,
-                              Program, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
-                              SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, TargetType,
-                              TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
+                              GroupID, ImageQuality, Magnitude, MagnitudeBands, ObservationClass, ObservationID,
+                              ObservationStatus, Priority, Program, ProgramID, ProgramMode, ProgramTypes, QAState,
+                              Resource, ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site,
+                              SkyBackground, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType,
+                              WaterVapor)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 
@@ -34,7 +35,7 @@ def create_minimodel_program() -> Program:
 
     Note that we do not have to worry about atoms as we have no obslog data.
     """
-    program_id = 'GN-2022A-Q-999'
+    program_id = ProgramID('GN-2022A-Q-999')
 
     # *** SHARED RESOURCES ***
     gmosn = Resource(id='GMOS-N')
@@ -116,7 +117,7 @@ def create_minimodel_program() -> Program:
     ]
 
     gmosn2 = GeminiObservation(
-        id='GN-2022A-Q-999-3',
+        id=ObservationID('GN-2022A-Q-999-3'),
         internal_id='1a4f101b-de28-4ed1-959f-607b6618705c',
         order=0,
         title='GMOSN-2',
@@ -131,13 +132,13 @@ def create_minimodel_program() -> Program:
         guiding=gmosn2_guiding,
         sequence=gmosn2_sequence,
         constraints=gmosn2_constraints,
-        belongs_to='GN-2022A-Q-999',
+        belongs_to=ProgramID('GN-2022A-Q-999'),
         too_type=TooType.RAPID
     )
 
     # Create the trivial AND group containing the GMOSN-2 observation.
     gmosn2_group = AndGroup(
-        id=gmosn2.id,
+        id=GroupID(gmosn2.id.id),
         program_id=program_id,
         group_name=gmosn2.title,
         number_to_observe=1,
@@ -228,7 +229,7 @@ def create_minimodel_program() -> Program:
     ]
 
     gnirs2 = GeminiObservation(
-        id='GN-2022A-Q-999-4',
+        id=ObservationID('GN-2022A-Q-999-4'),
         internal_id='aef545e2-c330-4c71-9521-c18a9cb3ee34',
         order=1,
         title='GNIRS-2',
@@ -243,13 +244,13 @@ def create_minimodel_program() -> Program:
         guiding=gnirs2_guiding,
         sequence=gnirs2_sequence,
         constraints=gnirs2_constraints,
-        belongs_to='GN-2022A-Q-999',
+        belongs_to=ProgramID('GN-2022A-Q-999'),
         too_type=TooType.RAPID
     )
 
     # Create the trivial AND group containing the GNIRS-2 observation.
     gnirs2_group = AndGroup(
-        id=gnirs2.id,
+        id=GroupID(gnirs2.id.id),
         program_id=program_id,
         group_name=gnirs2.title,
         number_to_observe=1,
@@ -261,7 +262,7 @@ def create_minimodel_program() -> Program:
 
     # *** AND GROUP CONTAINING THE GMOSN-2 AND GNIRS-2 GROUPS ***
     sched_group = AndGroup(
-        id='2',
+        id=GroupID('2'),
         program_id=program_id,
         group_name='TestGroup',
         number_to_observe=2,
@@ -345,7 +346,7 @@ def create_minimodel_program() -> Program:
     ]
 
     gnirs1_observation = GeminiObservation(
-        id='GN-2022A-Q-999-2',
+        id=ObservationID('GN-2022A-Q-999-2'),
         internal_id='f1e411e3-ec93-430a-ac1d-1c5db3a103e6',
         order=2,
         title='GNIRS-1',
@@ -360,13 +361,13 @@ def create_minimodel_program() -> Program:
         guiding=gnirs1_guiding,
         sequence=gnirs1_sequence,
         constraints=gnirs1_constraints,
-        belongs_to='GN-2022A-Q-999',
+        belongs_to=ProgramID('GN-2022A-Q-999'),
         too_type=TooType.RAPID
     )
 
     # Create the trivial AND group containing the gnirs1 observation.
     gnirs1_group = AndGroup(
-        id=gnirs1_observation.id,
+        id=GroupID(gnirs1_observation.id.id),
         program_id=program_id,
         group_name='GNIRS-1',
         number_to_observe=1,
@@ -518,7 +519,7 @@ def create_minimodel_program() -> Program:
     ]
 
     gmosn1_observation = GeminiObservation(
-        id='GN-2022A-Q-999-1',
+        id=ObservationID('GN-2022A-Q-999-1'),
         internal_id='acc39a30-97a8-42de-98a6-5e77cc95d3ec',
         order=3,
         title='GMOSN-1',
@@ -533,13 +534,13 @@ def create_minimodel_program() -> Program:
         guiding=gmonsn1_guiding,
         sequence=gmosn1_sequence,
         constraints=gmosn1_constraints,
-        belongs_to='GN-2022A-Q-999',
+        belongs_to=program_id,
         too_type=TooType.RAPID
     )
 
     # Create the trivial AND group containing the gnirs1 observation.
     gmosn1_group = AndGroup(
-        id=gmosn1_observation.id,
+        id=GroupID(gmosn1_observation.id.id),
         program_id=program_id,
         group_name='GMOSN-1',
         number_to_observe=1,
@@ -555,7 +556,7 @@ def create_minimodel_program() -> Program:
     root_group = AndGroup(
         id=ROOT_GROUP_ID,
         program_id=program_id,
-        group_name=ROOT_GROUP_ID,
+        group_name=ROOT_GROUP_ID.id,
         number_to_observe=3,
         delay_min=timedelta.min,
         delay_max=timedelta.max,

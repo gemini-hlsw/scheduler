@@ -24,14 +24,13 @@ class DBManager:
     def __init__(self, db_path):
         self.db_path = db_path
 
-
-    def read(self, start_date: Optional[str]=None,
-             end_date: Optional[str]=None,
-             site: Optional[FrozenSet[Site]]=None) -> List[SPlans]:
+    def read(self, start_date: Optional[str] = None,
+             end_date: Optional[str] = None,
+             site: Optional[FrozenSet[Site]] = None) -> List[SPlans]:
         with locking(f'{self.db_path}.lock', LOCK_SH):
             with shelve.open(self.db_path) as db:
                 if start_date and end_date and site:
-                    plans_by_site = db[start_date+end_date]
+                    plans_by_site = db[start_date + end_date]
                     if Site.GS in site and Site.GN in site:
                         return plans_by_site['both']
                     elif Site.GN in site:
@@ -40,20 +39,21 @@ class DBManager:
                         return plans_by_site['GS']
                 else:
                     return db['plans']
+
     def write(self,
               plans: List[SPlans],
-              start_date: Optional[str]=None,
-              end_date: Optional[str]=None,
-              site: Optional[FrozenSet[Site]]=None) -> NoReturn:
+              start_date: Optional[str] = None,
+              end_date: Optional[str] = None,
+              site: Optional[FrozenSet[Site]] = None) -> NoReturn:
         with locking(f'{self.db_path}.lock', LOCK_EX):
             with shelve.open(self.db_path) as db:
                 if start_date and end_date and site:
                     if Site.GS in site and Site.GN in site:
-                        db[start_date+end_date]= {'both': plans}
+                        db[start_date + end_date] = {'both': plans}
                     elif Site.GN in site:
-                        db[start_date+end_date]= {'GN': plans}
+                        db[start_date + end_date] = {'GN': plans}
                     elif Site.GS in site:
-                        db[start_date+end_date]= {'GS': plans}
+                        db[start_date + end_date] = {'GS': plans}
                 else:
                     db['plans'] = plans
 

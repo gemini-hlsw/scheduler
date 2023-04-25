@@ -112,12 +112,12 @@ class Selector(SchedulerComponent):
 
             # TODO BRYAN: keep unfiltered group info.
             for group_data in program_calculations.unfiltered_group_data_map.values():
-                _group_info_map[group_data.group.unique_id()] = group_data.group_info
+                _group_info_map[group_data.group.unique_id] = group_data.group_info
 
             # Get the top-level groups (excluding root) in group_data_map and add to the schedulable_groups_map map.
             for unique_group_id in program_calculations.top_level_groups:
                 group_data = program_calculations.group_data_map[unique_group_id]
-                schedulable_groups_map[group_data.group.unique_id()] = group_data
+                schedulable_groups_map[group_data.group.unique_id] = group_data
 
             program_info_map[program.id] = program_calculations.program_info
 
@@ -364,7 +364,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.unique_id()] = GroupData(deepcopy(group), group_info)
+        group_data_map[group.unique_id] = GroupData(deepcopy(group), group_info)
         return group_data_map
 
     def _calculate_and_group(self,
@@ -391,17 +391,17 @@ class Selector(SchedulerComponent):
 
         # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
-        if any(sg.unique_id() not in group_data_map for sg in group.children):
+        if any(sg.unique_id not in group_data_map for sg in group.children):
             # We don't include the root group for scheduling, so if it is missing children, we don't output a warning.
             if group.id != ROOT_GROUP_ID:
-                missing_subgroups = [sg.unique_id() for sg in group.children if sg.unique_id() not in group_data_map]
+                missing_subgroups = [sg.unique_id.id for sg in group.children if sg.unique_id not in group_data_map]
                 missing_str = ', '.join(missing_subgroups)
-                logger.warning(f'Selector skipping group {group.unique_id()}: scores missing for children: '
+                logger.warning(f'Selector skipping group {group.unique_id}: scores missing for children: '
                                f'{missing_str}.')
             return group_data_map
 
         # Calculate the most restrictive conditions.
-        subgroup_conditions = ([group_data_map[sg.unique_id()].group_info.minimum_conditions for sg in group.children])
+        subgroup_conditions = ([group_data_map[sg.unique_id].group_info.minimum_conditions for sg in group.children])
         mrc = Conditions.most_restrictive_conditions(subgroup_conditions)
 
         # This group will always be splittable unless we have some bizarre nesting.
@@ -409,24 +409,24 @@ class Selector(SchedulerComponent):
 
         # TODO: Do we need standards?
         # TODO: This is not how we handle standards. Fix this.
-        # standards = np.sum([group_info_map[sg.unique_id()].standards for sg in group.children])
+        # standards = np.sum([group_info_map[sg.unique_id].standards for sg in group.children])
         standards = 0.
 
         # The filtering for this group is the product of filtering for the subgroups.
-        sg_night_filtering = [group_data_map[sg.unique_id()].group_info.night_filtering for sg in group.children]
+        sg_night_filtering = [group_data_map[sg.unique_id].group_info.night_filtering for sg in group.children]
         night_filtering = np.multiply.reduce(sg_night_filtering).astype(bool)
 
         # The conditions score is the product of the conditions scores for each subgroup across each night.
         conditions_score = []
         for night_idx in night_indices:
-            conditions_scores_for_night = [group_data_map[sg.unique_id()].group_info.conditions_score[night_idx]
+            conditions_scores_for_night = [group_data_map[sg.unique_id].group_info.conditions_score[night_idx]
                                            for sg in group.children]
             conditions_score.append(np.multiply.reduce(conditions_scores_for_night))
 
         # The wind score is the product of the wind scores for each subgroup across each night.
         wind_score = []
         for night_idx in night_indices:
-            wind_scores_for_night = [group_data_map[sg.unique_id()].group_info.wind_score[night_idx]
+            wind_scores_for_night = [group_data_map[sg.unique_id].group_info.wind_score[night_idx]
                                      for sg in group.children]
             wind_score.append(np.multiply.reduce(wind_scores_for_night))
 
@@ -436,7 +436,7 @@ class Selector(SchedulerComponent):
             # For each night, take the concatenation of the schedulable time slots for all children of the group
             # and make it unique, which also puts it in sorted order.
             np.unique(np.concatenate([
-                group_data_map[sg.unique_id()].group_info.schedulable_slot_indices[night_idx]
+                group_data_map[sg.unique_id].group_info.schedulable_slot_indices[night_idx]
                 for sg in group.children
             ]))
             for night_idx in night_indices
@@ -456,7 +456,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.unique_id()] = GroupData(deepcopy(group), group_info)
+        group_data_map[group.unique_id] = GroupData(deepcopy(group), group_info)
         return group_data_map
 
     def _calculate_or_group(self,

@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.calculations import GroupData
@@ -13,10 +14,21 @@ from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
 from . import Interval
 
-from lucupy.minimodel import Group
+from lucupy.minimodel import Group, Observation, ObservationID, Site, UniqueGroupID
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
+
+
+@dataclass(frozen=True)
+class ObsPlanData:
+    """
+    Storage to conglomerate observation information for the plan together.
+    """
+    obs: Observation
+    obs_start: datetime
+    obs_len: int
+    visit_score: float
 
 
 class GreedyMaxOptimizer(BaseOptimizer):
@@ -25,16 +37,15 @@ class GreedyMaxOptimizer(BaseOptimizer):
     """
 
     def __init__(self, min_visit_len: timedelta = timedelta(minutes=30), show_plots: bool = False):
-        self.group_data_list = []
-        self.group_ids = []
-        # self.obs_groups = []     # remove if not used
-        self.obs_group_ids = []
-        self.timelines = []
-        self.sites = []
-        self.obs_in_plan = {}   # {obsid: [group_id} for observations in the plan
+        self.group_data_list: List[GroupData] = []
+        self.group_ids: List[UniqueGroupID] = []
+        self.obs_group_ids: List[UniqueGroupID] = []
+        self.timelines: List[Timelines] = []
+        self.sites: FrozenSet[Site] = frozenset()
+        self.obs_in_plan: Dict[ObservationID, ObsPlanData] = {}
         self.min_visit_len = min_visit_len
         self.show_plots = show_plots
-        self.time_slot_length = None
+        self.time_slot_length: Optional[timedelta] = None
 
     def setup(self, selection: Selection) -> GreedyMaxOptimizer:
         """
@@ -83,7 +94,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # Calculate the number of time slots needed to complete the group.
         # n_slots_remaining = int(np.ceil((time_remaining / self.time_slot_length)))  # number of time slots
         # This use of time2slots works but is probably not kosher, need to make this more general
-        n_slots_remaining = Plan.time2slots(self, time_remaining)
+        n_slots_remaining = Plan.time2slots(self.time_slot_length, time_remaining)
 
         # Short groups should be done entirely, update the min useful time
         # is the extra variable needed, or just modify n_min_visit?
@@ -346,7 +357,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 max_score, max_group, max_interval = max_data
                 added = self.add(max_group, plans.night, max_interval)
                 if added:
-                    print(f'{max_group.group.unique_id()} with max score {max_score} added.')
+                    print(f'{max_group.group.unique_id} with max score {max_score} added.')
                     self.group_data_list.remove(max_group)  # should really only do this if all time used (not split)
             else:
                 # Nothing remaining can be scheduled
@@ -382,16 +393,18 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
             if self.show_plots:
                 GreedyMaxOptimizer._plot_interval(group_data.group_info.scores[night], interval, best_interval,
-                                                  label=f'Night {night + 1}: {group_data.group.unique_id()}')
+                                                  label=f'Night {night + 1}: {group_data.group.unique_id}')
 
             for observation in group_data.group.observations():
-                iobs = self.obs_group_ids.index(observation.id)  # index in observation list
+                print(f"**** {self.obs_group_ids}, {observation.id}")
+                # iobs = self.obs_group_ids.index(observation.id)  # index in observation list
+                iobs = self.obs_group_ids.index(observation.to_unique_group_id)
 
                 # if iobs not in timeline.time_slots:  # when splitting it could appear multiple times
                 # Calculate the length of the observation (visit)
                 time_remaining = observation.exec_time() - observation.total_used()
                 # This use of time2slots works but is probably not kosher, need to make this more general
-                obs_len = Plan.time2slots(self, time_remaining)
+                obs_len = Plan.time2slots(self.time_slot_length, time_remaining)
 
                 # add to timeline (time_slots)
                 start_time_slot, start = timeline.add(iobs, obs_len, best_interval)
@@ -403,12 +416,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # as in calculated somewhere else or in a different way, but are needed when plan.add is called.
                 # In the future we could merge this with timeline but the design on that is TBD.
                 # TODO: Partner calibrations should not contribute to this
-                visit_score = np.sum(
-                    group_data.group_info.scores[night][start_time_slot:start_time_slot + obs_len]
-                )
+                visit_score = sum(group_data.group_info.scores[night][start_time_slot:start_time_slot + obs_len])
 
-                self.obs_in_plan[observation.id] = {'obs': observation, 'obs_len': obs_len,
-                                                    'start': start, 'visit_score': visit_score}
+                self.obs_in_plan[observation.id] = ObsPlanData(
+                    obs=observation,
+                    obs_start=start,
+                    obs_len=obs_len,
+                    visit_score=visit_score
+                )
 
             if timeline.slots_unscheduled() <= 0:
                 timeline.is_full = True
@@ -424,9 +439,17 @@ class GreedyMaxOptimizer(BaseOptimizer):
             obs_order = timeline.get_observation_order()
             for idx, start_time_slot, end_time_slot in obs_order:
                 if idx > -1:
-                    obs_id = self.obs_group_ids[idx]
+                    # obs_id = self.obs_group_ids[idx]
+                    # TODO: HACK. I don't see an easy way around this since an obs_group_id has no idea it is an
+                    # TODO: UniqueGroupID of an observation group. Maybe we can make obs_in_plan a map from
+                    # TODO: UniqueGroupID to... something, instead of an ObservationID to an ObsPlanData.
+                    unique_group_id = self.obs_group_ids[idx]
+                    obs_id = ObservationID(unique_group_id.id)
 
                     # Add visit to final plan
-                    plans[timeline.site].add(self.obs_in_plan[obs_id]['obs'], self.obs_in_plan[obs_id]['start'],
-                                             start_time_slot, self.obs_in_plan[obs_id]['obs_len'],
-                                             self.obs_in_plan[obs_id]['visit_score'])
+                    obs_in_plan = self.obs_in_plan[obs_id]
+                    plans[timeline.site].add(obs_in_plan.obs,
+                                             obs_in_plan.obs_start,
+                                             start_time_slot,
+                                             obs_in_plan.obs_len,
+                                             obs_in_plan.visit_score)
