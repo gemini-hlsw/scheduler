@@ -37,6 +37,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
     """
 
     def __init__(self, min_visit_len: timedelta = timedelta(minutes=30), show_plots: bool = False):
+        self.selection = Selection
         self.group_data_list: List[GroupData] = []
         self.group_ids: List[UniqueGroupID] = []
         self.obs_group_ids: List[UniqueGroupID] = []
@@ -51,6 +52,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         Preparation for the optimizer.
         """
+        self.selection = selection
         self.group_ids = list(selection.schedulable_groups)
         self.group_data_list = list(selection.schedulable_groups.values())
         # self._process_group_data(self.group_data_list)
@@ -451,6 +453,13 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     obs_len=obs_len,
                     visit_score=visit_score
                 )
+
+            # program = self.selection.program_info[group_data.group.program_id].program
+            # result = self.selection.score_program(program)
+            # visit_score2 = np.sum(
+            #     group_data.group_info.scores[night][start_time_slot:start_time_slot + obs_len]
+            # )
+            # print(f"Rescore {group_data.group.program_id}: {visit_score} {visit_score2}")
 
             if timeline.slots_unscheduled() <= 0:
                 timeline.is_full = True
