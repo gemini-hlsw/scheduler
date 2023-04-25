@@ -351,11 +351,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
            and scoring accordingly. This does not update the database or Collector"""
         if atom_end < 0:
             atom_end = len(observation.sequence) + atom_end
-        # print(observation.id, atom_start, atom_end)
+        # print(f"Internal time charging")
+        # print(observation.id.id, atom_start, atom_end)
 
         for n_atom in range(atom_start, atom_end + 1):
             # "Charge" the expected program and partner times for the atoms
-            # print(observation.id, n_atom, observation.sequence[n_atom].prog_time, observation.sequence[n_atom].part_time)
+            # print(observation.id.id, n_atom, observation.sequence[n_atom].prog_time, observation.sequence[n_atom].part_time)
             observation.sequence[n_atom].program_used = observation.sequence[n_atom].prog_time
             observation.sequence[n_atom].partner_used = observation.sequence[n_atom].part_time
 
@@ -386,7 +387,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 max_score, max_group, max_interval = max_data
                 added = self.add(max_group, plans.night, max_interval)
                 if added:
-                    print(f'{max_group.group.unique_id} with max score {max_score} added.')
+                    print(f"Group {max_group.group.unique_id.id} with max score {max_score} added.")
                     self.group_data_list.remove(max_group)  # should really only do this if all time used (not split)
             else:
                 # Nothing remaining can be scheduled
@@ -425,9 +426,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
                                                   label=f'Night {night + 1}: {group_data.group.unique_id}')
 
             for observation in group_data.group.observations():
-                print(f"**** {self.obs_group_ids}, {observation.id}")
-                # iobs = self.obs_group_ids.index(observation.id)  # index in observation list
-                iobs = self.obs_group_ids.index(observation.to_unique_group_id)
+                # print(f"**** {self.obs_group_ids}")
+                print(f"Add observation: {observation.to_unique_group_id} {observation.id.id}")
+                iobs = self.obs_group_ids.index(observation.to_unique_group_id)   # index in observation list
 
                 # if iobs not in timeline.time_slots:  # when splitting it could appear multiple times
                 # Calculate the length of the observation (visit)
