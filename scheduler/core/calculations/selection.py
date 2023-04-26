@@ -8,7 +8,7 @@ from typing import Callable, FrozenSet, Mapping, Optional
 from lucupy.helpers import flatten
 from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, UniqueGroupID
 
-# from ..components.ranker import Ranker
+from ..components.ranker import Ranker
 from .groupinfo import GroupData
 from .nightevents import NightEvents
 from .programinfo import ProgramCalculations, ProgramInfo
@@ -25,14 +25,14 @@ class Selection:
     night_events: Mapping[Site, NightEvents]
     num_nights: int
     time_slot_length: timedelta
-    _program_scorer: Callable[[Program, Optional[FrozenSet[Site]], Optional[NightIndices], Optional['Ranker']],
+    _program_scorer: Callable[[Program, Optional[FrozenSet[Site]], Optional[NightIndices], Optional[Ranker]],
                               Optional[ProgramCalculations]]
 
     def score_program(self,
                       program: Program,
                       sites: Optional[FrozenSet[Site]] = None,
                       night_indices: Optional[NightIndices] = None,
-                      ranker: Optional['Ranker'] = None):
+                      ranker: Optional[Ranker] = None) -> ProgramCalculations:
         return self._program_scorer(program, sites, night_indices, ranker)
 
     @property
