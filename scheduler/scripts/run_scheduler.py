@@ -162,4 +162,21 @@ if __name__ == '__main__':
     plans = optimizer.schedule()
     print_plans(plans)
 
+    # Example for Bryan:
+    # Re-run the Selection score_program method.
+    # The Selection has a score_program method (which can take a variety of parameters, but most can be left as None)
+    # and returns a ProgramCalculations object, which is the data used by the Selector to populate arrays and create
+    # the initial selection. Here, we go over the top-level groups in the ProgramCalculations for the Program we have
+    # re-scored, and print the max score per night for each group.
+    print()
+    for program_id, program_info in selection.program_info.items():
+        print(f'*** RE-SCORING {program_id} ***')
+        program = program_info.program
+        program_calculations = selection.score_program(program)
+        for unique_group_id in program_calculations.top_level_groups:
+            group_data = program_calculations.group_data_map[unique_group_id]
+            group, group_info = group_data
+            max_scores_per_night = [max(score) for score in group_info.scores]
+            print(f'For {unique_group_id}, max scores are: {max_scores_per_night}')
+
     print('DONE')
