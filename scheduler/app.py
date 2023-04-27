@@ -9,7 +9,7 @@ app = FastAPI()
 
 origins = [
     "https://schedule-subscriber-staging.herokuapp.com",
-    "https://gpp-schedule-ui-staging.herokuapp.com/",
+    "https://gpp-schedule-ui-staging.herokuapp.com",
 ]
 
 app.add_middleware(
