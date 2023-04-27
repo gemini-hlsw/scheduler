@@ -724,6 +724,8 @@ class OcsProgramProvider(ProgramProvider):
                                   exec_time=timedelta(0),
                                   prog_time=timedelta(0),
                                   part_time=timedelta(0),
+                                  program_used=timedelta(0),
+                                  partner_used=timedelta(0),
                                   observed=False,
                                   qa_state=QAState.NONE,
                                   guide_state=False,
@@ -744,11 +746,9 @@ class OcsProgramProvider(ProgramProvider):
 
             # TODO: Add Observe Class enum  
             if 'partnerCal' in observe_class:
-                atoms[-1].part_time = timedelta(seconds=step_time)
-                atoms[-1].prog_time = timedelta(seconds=0)
+                atoms[-1].part_time += timedelta(seconds=step_time)
             else:
-                atoms[-1].part_time = timedelta(seconds=0)
-                atoms[-1].prog_time = timedelta(seconds=step_time)
+                atoms[-1].prog_time += timedelta(seconds=step_time)
 
         if n_atom > 0:
             previous_atom = atoms[-1]
