@@ -105,14 +105,14 @@ def calculate_plans_stats(all_plans: List[Plans],
                 program = collector.get_program(obs.belongs_to)
 
                 if program.id in all_programs_visits:
-                    all_programs_visits[program.id] += 1
-                    all_programs_scores[program.id] += visit.score
+                    all_programs_visits[program.id.id] += 1
+                    all_programs_scores[program.id.id] += visit.score
                 else:
                     # TODO: This asssumes the observations are not splittable
                     # TODO: and would change in the future.
-                    all_programs_length[program.id] = len(program.observations())
-                    all_programs_visits[program.id] = 0
-                    all_programs_scores[program.id] = visit.score
+                    all_programs_length[program.id.id] = len(program.observations())
+                    all_programs_visits[program.id.id] = 0
+                    all_programs_scores[program.id.id] = visit.score
 
                 if program.band in completion_fraction:
                     completion_fraction[program.band] += 1
