@@ -99,7 +99,6 @@ class SPlans:
             night_idx=self.night_idx,
             plans_per_site=[plans for plans in self.plans_per_site if plans.site == site])
 
-
 @strawberry.type
 class NewNightPlans:
     night_plans: List[SPlans]
