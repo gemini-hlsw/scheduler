@@ -104,7 +104,7 @@ def calculate_plans_stats(all_plans: List[Plans],
                 # check completition
                 program = collector.get_program(obs.belongs_to)
 
-                if program.id in all_programs_visits:
+                if program.id.id in all_programs_visits:
                     all_programs_visits[program.id.id] += 1
                     all_programs_scores[program.id.id] += visit.score
                 else:

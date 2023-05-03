@@ -14,7 +14,7 @@ collector:
   time_slot_length: 1.0 # on minutes
 
 optimizer:
-  name: DUMMY
+  name: GREEDYMAX
 
 server:
   port: 8000
