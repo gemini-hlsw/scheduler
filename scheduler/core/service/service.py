@@ -118,6 +118,14 @@ def calculate_plans_stats(all_plans: List[Plans],
                     completion_fraction[program.band] += 1
                 else:
                     raise KeyError('Missing Band in Program!')
+
+                # Calculate altitude data
+                ti = collector.get_target_info(visit.obs_id)
+                end_time_slot = visit.start_time_slot + visit.time_slots
+                values = ti[plans.night].alt[visit.start_time_slot: end_time_slot]
+                alt_degs = [val.dms[0] + (val.dms[1]/60) + (val.dms[2]/3600) for val in values]
+                plan.alt_degs.append(alt_degs)
+
             plan.night_stats =  NightStats(f'{plan.time_left()} min',
                                             plan_score,
                                             Conditions.most_restrictive_conditions(plan_conditions),

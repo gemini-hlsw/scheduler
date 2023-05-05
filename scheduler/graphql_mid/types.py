@@ -48,13 +48,15 @@ class SVisit:
     obs_id: SObservationID
     atom_start_idx: int
     atom_end_idx: int
+    altitude: List[float]
 
     @staticmethod
-    def from_computed_visit(visit: Visit) -> 'SVisit':
+    def from_computed_visit(visit: Visit, alt_degs: List[float]) -> 'SVisit':
         return SVisit(start_time=visit.start_time.astimezone(pytz.UTC),
                       obs_id=visit.obs_id,
                       atom_start_idx=visit.atom_start_idx,
-                      atom_end_idx=visit.atom_end_idx)
+                      atom_end_idx=visit.atom_end_idx,
+                      altitude=alt_degs)
 
 
 @strawberry.type
@@ -74,7 +76,7 @@ class SPlan:
             site=plan.site,
             start_time=plan.start.astimezone(pytz.UTC),
             end_time=plan.end.astimezone(pytz.UTC),
-            visits=[SVisit.from_computed_visit(visit) for visit in plan.visits],
+            visits=[SVisit.from_computed_visit(visit, alt) for visit, alt in zip(plan.visits, plan.alt_degs)],
             night_stats=SNightStats.from_computed_night_stats(plan.night_stats)
         )
 

@@ -48,6 +48,7 @@ class Plan:
         self.visits: List[Visit] = []
         self.is_full = False
         self.night_stats: Optional[NightStats] = None
+        self.alt_degs: List[List[float]] = []
 
     @staticmethod
     def time2slots(time_slot_length: timedelta, time: timedelta) -> int:
