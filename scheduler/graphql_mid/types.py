@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Union, FrozenSet
 
 import pytz
@@ -12,6 +12,7 @@ from lucupy.minimodel import ObservationID, Site, ALL_SITES
 
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.graphql_mid.scalars import SObservationID
+from scheduler.config import config
 
 
 @strawberry.type
@@ -45,6 +46,7 @@ class SVisit:
     Represents a visit as part of a nightly Plan at a Site.
     """
     start_time: datetime
+    end_time: datetime
     obs_id: SObservationID
     atom_start_idx: int
     atom_end_idx: int
@@ -52,7 +54,9 @@ class SVisit:
 
     @staticmethod
     def from_computed_visit(visit: Visit, alt_degs: List[float]) -> 'SVisit':
+        end_time = visit.start_time + timedelta(minutes=visit.time_slots*config.collector.time_slot_length)
         return SVisit(start_time=visit.start_time.astimezone(pytz.UTC),
+                      end_time=end_time.astimezone(pytz.UTC),
                       obs_id=visit.obs_id,
                       atom_start_idx=visit.atom_start_idx,
                       atom_end_idx=visit.atom_end_idx,
