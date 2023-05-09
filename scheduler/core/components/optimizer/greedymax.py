@@ -37,7 +37,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
     """
 
     def __init__(self, min_visit_len: timedelta = timedelta(minutes=30), show_plots: bool = False):
-        # self.selection = Selection
+        self.selection = Selection
         self.group_data_list: List[GroupData] = []
         self.group_ids: List[UniqueGroupID] = []
         self.obs_group_ids: List[UniqueGroupID] = []
@@ -52,7 +52,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         Preparation for the optimizer.
         """
-        # self.selection = selection
+        self.selection = selection
         self.group_ids = list(selection.schedulable_groups)
         self.group_data_list = list(selection.schedulable_groups.values())
         # self._process_group_data(self.group_data_list)
@@ -441,7 +441,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # add to timeline (time_slots)
                 start_time_slot, start = timeline.add(iobs, obs_len, best_interval)
                 # pseudo (internal) time charging
+                program = self.selection.program_info[group_data.group.program_id].program
+                print(f"{program.id.id}: total_used: {program.total_used()} program_used: {program.program_used()}")
                 self._charge_time(observation)
+                print(f"total_used after: {program.total_used()} {program.program_used()}")
 
                 # Sergio's Note:
                 # Both of these lines are added to calculate NightStats. This could be modified,
@@ -457,12 +460,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     visit_score=visit_score
                 )
 
-            # program = self.selection.program_info[group_data.group.program_id].program
+            # Rescoring
             # result = self.selection.score_program(program)
             # visit_score2 = np.sum(
             #     group_data.group_info.scores[night][start_time_slot:start_time_slot + obs_len]
             # )
-            # print(f"Rescore {group_data.group.program_id}: {visit_score} {visit_score2}")
+            # print(f"Rescore {group_data.group.program_id.id}: {visit_score} {visit_score2}")
+            # print(f"{program.program_awarded()} {program.program_used()} {program.program_awarded_used()}"
+            #       f" {program.program_used() / program.program_awarded()}")
 
             if timeline.slots_unscheduled() <= 0:
                 timeline.is_full = True
