@@ -14,7 +14,7 @@ from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
 from . import Interval
 
-from lucupy.minimodel import Group, Observation, ObservationID, Site, UniqueGroupID, QAState, ObservationClass
+from lucupy.minimodel import Program, Group, Observation, ObservationID, Site, UniqueGroupID, QAState, ObservationClass
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
@@ -37,7 +37,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
     """
 
     def __init__(self, min_visit_len: timedelta = timedelta(minutes=30), show_plots: bool = False):
-        # self.selection = Selection
+        self.selection: Optional[Selection] = None
         self.group_data_list: List[GroupData] = []
         self.group_ids: List[UniqueGroupID] = []
         self.obs_group_ids: List[UniqueGroupID] = []
@@ -52,7 +52,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         Preparation for the optimizer.
         """
-        # self.selection = selection
+        self.selection = selection
         self.group_ids = list(selection.schedulable_groups)
         self.group_data_list = list(selection.schedulable_groups.values())
         # self._process_group_data(self.group_data_list)
@@ -374,6 +374,25 @@ class GreedyMaxOptimizer(BaseOptimizer):
             observation.sequence[n_atom].observed = True
             observation.sequence[n_atom].qa_state = QAState.PASS
 
+    def _update_score(self, program: Program) -> None:
+        """Update the scores of the incomplete groups in the scheduled program"""
+
+        print("Call score_program")
+        program_calculations = self.selection.score_program(program)
+
+        print("Rescore incomplete schedulable_groups")
+        for unique_group_id in program_calculations.top_level_groups:
+            group_data = program_calculations.group_data_map[unique_group_id]
+            group, group_info = group_data
+            schedulable_group = self.selection.schedulable_groups[unique_group_id]
+            print(f"{unique_group_id} {schedulable_group.group.exec_time()} {schedulable_group.group.total_used()}")
+            print(f"\tOld max score: {np.max(schedulable_group.group_info.scores[0]):7.2f} new max score[0]: "
+                  f"{np.max(group_info.scores[0]):7.2f}")
+            # update scores in schedulable_groups if the group is not completely observed
+            if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
+                schedulable_group.group_info.scores[:] = group_info.scores[:]
+            print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[0]):7.2f}")
+
     def _run(self, plans: Plans) -> None:
 
         # Fill plans for all sites on one night
@@ -416,6 +435,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         site = group_data.group.observations()[0].site
         timeline = self.timelines[night][site]
+        program = self.selection.program_info[group_data.group.program_id].program
         result = False
         if not timeline.is_full:
             # Find the best location in timeline for the group
@@ -441,7 +461,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # add to timeline (time_slots)
                 start_time_slot, start = timeline.add(iobs, obs_len, best_interval)
                 # pseudo (internal) time charging
+                print(f"{program.id.id}: total_used: {program.total_used()} program_used: {program.program_used()}")
                 self._charge_time(observation)
+                print(f"total_used after: {program.total_used()} {program.program_used()}")
 
                 # Sergio's Note:
                 # Both of these lines are added to calculate NightStats. This could be modified,
@@ -457,12 +479,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     visit_score=visit_score
                 )
 
-            # program = self.selection.program_info[group_data.group.program_id].program
-            # result = self.selection.score_program(program)
-            # visit_score2 = np.sum(
-            #     group_data.group_info.scores[night][start_time_slot:start_time_slot + obs_len]
-            # )
-            # print(f"Rescore {group_data.group.program_id}: {visit_score} {visit_score2}")
+            # Rescore program
+            self._update_score(program)
 
             if timeline.slots_unscheduled() <= 0:
                 timeline.is_full = True
