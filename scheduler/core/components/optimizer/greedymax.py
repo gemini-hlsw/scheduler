@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from scheduler.core.calculations.selection import Selection
@@ -345,18 +345,20 @@ class GreedyMaxOptimizer(BaseOptimizer):
             plt.show()
 
     @staticmethod
-    def _charge_time(observation, atom_start: int = 0, atom_end: int = -1) -> None:
+    def _charge_time(observation: Observation, atom_start: int = 0, atom_end: int = -1) -> None:
         """Pseudo (internal to GM) time accounting, or charging.
            GM must assume that each scheduled observation is executed and then adjust the completeness fraction
            and scoring accordingly. This does not update the database or Collector"""
         if atom_end < 0:
-            atom_end = len(observation.sequence) + atom_end
+            atom_end += len(observation.sequence)
+
         # print(f"Internal time charging")
         # print(observation.id.id, atom_start, atom_end)
 
         for n_atom in range(atom_start, atom_end + 1):
-            # "Charge" the expected program and partner times for the atoms
-            # print(observation.id.id, n_atom, observation.sequence[n_atom].prog_time, observation.sequence[n_atom].part_time)
+            # "Charge" the expected program and partner times for the atoms:
+            # print(observation.id.id, n_atom, observation.sequence[n_atom].prog_time,
+            #       observation.sequence[n_atom].part_time)
             observation.sequence[n_atom].program_used = observation.sequence[n_atom].prog_time
             observation.sequence[n_atom].partner_used = observation.sequence[n_atom].part_time
 
