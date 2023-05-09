@@ -374,6 +374,26 @@ class GreedyMaxOptimizer(BaseOptimizer):
             observation.sequence[n_atom].observed = True
             observation.sequence[n_atom].qa_state = QAState.PASS
 
+    def _update_score(self, program) -> None:
+        """Update the scores of the incomplete groups in the scheduled program"""
+
+        print("Call score_program")
+        program_calculations = self.selection.score_program(program)
+
+        print("Rescore incomplete schedulable_groups")
+        for unique_group_id in program_calculations.top_level_groups:
+            group_data = program_calculations.group_data_map[unique_group_id]
+            group, group_info = group_data
+            schedulable_group = self.selection.schedulable_groups[unique_group_id]
+            print(f"{unique_group_id} {schedulable_group.group.exec_time()} {schedulable_group.group.total_used()}")
+            print(f"\tOld max score: {np.max(schedulable_group.group_info.scores[0]):7.2f} new max score[0]: "
+                  f"{np.max(group_info.scores[0]):7.2f}")
+            # update scores in schedulable_groups if the group is not completely observed
+            if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
+                for ii in range(len(group_info.scores)):
+                    schedulable_group.group_info.scores[ii] = group_info.scores[ii]
+            print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[0]):7.2f}")
+
     def _run(self, plans: Plans) -> None:
 
         # Fill plans for all sites on one night
@@ -416,6 +436,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         site = group_data.group.observations()[0].site
         timeline = self.timelines[night][site]
+        program = self.selection.program_info[group_data.group.program_id].program
         result = False
         if not timeline.is_full:
             # Find the best location in timeline for the group
@@ -441,7 +462,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # add to timeline (time_slots)
                 start_time_slot, start = timeline.add(iobs, obs_len, best_interval)
                 # pseudo (internal) time charging
-                program = self.selection.program_info[group_data.group.program_id].program
                 print(f"{program.id.id}: total_used: {program.total_used()} program_used: {program.program_used()}")
                 self._charge_time(observation)
                 print(f"total_used after: {program.total_used()} {program.program_used()}")
@@ -460,14 +480,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     visit_score=visit_score
                 )
 
-            # Rescoring
-            # result = self.selection.score_program(program)
-            # visit_score2 = np.sum(
-            #     group_data.group_info.scores[night][start_time_slot:start_time_slot + obs_len]
-            # )
-            # print(f"Rescore {group_data.group.program_id.id}: {visit_score} {visit_score2}")
-            # print(f"{program.program_awarded()} {program.program_used()} {program.program_awarded_used()}"
-            #       f" {program.program_used() / program.program_awarded()}")
+            # Rescore program
+            self._update_score(program)
 
             if timeline.slots_unscheduled() <= 0:
                 timeline.is_full = True
