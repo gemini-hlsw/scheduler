@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import ClassVar, Dict, FrozenSet, Optional
 
 import astropy.units as u
@@ -44,9 +44,6 @@ class Selector(SchedulerComponent):
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
 
-    # TODO BRYAN: store the group info map of info for all groups.
-    _group_info_map: Dict[UniqueGroupID, GroupInfo] = field(init=False, repr=False, compare=False)
-
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
                night_indices: Optional[NightIndices] = None,
@@ -75,9 +72,6 @@ class Selector(SchedulerComponent):
         TODO: Further design work must be done to determine how to score them and how to
         TODO: determine the time slots at which they can be scheduled.
         """
-        # TODO BRYAN: wants all the group info available.
-        _group_info_map: Dict[UniqueGroupID, GroupInfo] = {}
-
         # If no night indices are specified, assume all night indices.
         if night_indices is None:
             night_indices = np.arange(len(self.collector.time_grid))
@@ -100,19 +94,19 @@ class Selector(SchedulerComponent):
         schedulable_groups_map: Dict[UniqueGroupID, GroupData] = {}
 
         for program_id in Collector.get_program_ids():
-            program = Collector.get_program(program_id)
-            if program is None:
+            original_program = Collector.get_program(program_id)
+            if original_program is None:
                 logger.error(f'Program {program_id} was not found in the Collector.')
                 continue
 
+            # We make a deep copy of the Program to work with to not change the Program in the Collector.
+            # This will allow us to use the members of this deep copy for things like internal time accounting
+            # while leaving the information in the Collector intact.
+            program = deepcopy(original_program)
             program_calculations = self.score_program(program, sites, night_indices, ranker)
             if program_calculations is None:
                 # Warning is already issued in scorer.
                 continue
-
-            # TODO BRYAN: keep unfiltered group info.
-            for group_data in program_calculations.unfiltered_group_data_map.values():
-                _group_info_map[group_data.group.unique_id] = group_data.group_info
 
             # Get the top-level groups (excluding root) in group_data_map and add to the schedulable_groups_map map.
             for unique_group_id in program_calculations.top_level_groups:
@@ -120,9 +114,6 @@ class Selector(SchedulerComponent):
                 schedulable_groups_map[group_data.group.unique_id] = group_data
 
             program_info_map[program.id] = program_calculations.program_info
-
-        # TODO BRYAN: store the group info map of info for all groups.
-        object.__setattr__(self, '_group_info_map', _group_info_map)
 
         # The end product is a map of ProgramID to a map of GroupID to GroupInfo, where
         # at least one GroupInfo has schedulable slots.
@@ -196,9 +187,9 @@ class Selector(SchedulerComponent):
         target_info = {obs_id: self.collector.get_target_info(obs_id) for obs_id, obs in observations.items()}
 
         program_info = ProgramInfo(
-            program=deepcopy(program),
+            program=program,
             group_data_map=group_data_map,
-            observations=deepcopy(observations),
+            observations=observations,
             target_info=target_info
         )
 
@@ -208,14 +199,6 @@ class Selector(SchedulerComponent):
             group_data_map=group_data_map,
             unfiltered_group_data_map=unfiltered_group_data_map
         )
-
-    def get_group_info(self, unique_group_id: UniqueGroupID) -> Optional[GroupInfo]:
-        """
-        Check to see if the group_id has group_info associated with it, and if so, return it.
-        Else return None.
-        """
-        logger.warning('Selector.get_group_info should NOT be used in production code.')
-        return self._group_info_map[unique_group_id]
 
     def _calculate_group(self,
                          program: Program,
@@ -342,11 +325,6 @@ class Selector(SchedulerComponent):
         obs_scores = ranker.score_observation(program, obs)
 
         # Calculate the scores for the observation across all nights across all timeslots.
-        # Multiply by the conditions score to adjust the scores.
-        # Note that np.multiply will handle lists of numpy arrays.
-        # This generates a warning about ragged array deprecation, but seems to produce the right shape of structure.
-        # scores = np.multiply(np.multiply(conditions_score, obs_scores), wind_score)
-
         # To avoid the issue of ragged arrays (which are illegal in NumPy 1.24), we must do this night-by-night in
         # order to end up with a List[npt.NDArray[float]] instead of an npt.NDArray[npt.NDArray[float]].
         scores = [np.multiply(np.multiply(conditions_score[night_idx], obs_scores[night_idx]), wind_score[night_idx])
@@ -365,7 +343,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.unique_id] = GroupData(deepcopy(group), group_info)
+        group_data_map[group.unique_id] = GroupData(group, group_info)
         return group_data_map
 
     def _calculate_and_group(self,
@@ -457,7 +435,7 @@ class Selector(SchedulerComponent):
             scores=scores
         )
 
-        group_data_map[group.unique_id] = GroupData(deepcopy(group), group_info)
+        group_data_map[group.unique_id] = GroupData(group, group_info)
         return group_data_map
 
     def _calculate_or_group(self,
