@@ -14,7 +14,7 @@ from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
 from . import Interval
 
-from lucupy.minimodel import Group, Observation, ObservationID, Site, UniqueGroupID, QAState, ObservationClass
+from lucupy.minimodel import Program, Group, Observation, ObservationID, Site, UniqueGroupID, QAState, ObservationClass
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
@@ -37,7 +37,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
     """
 
     def __init__(self, min_visit_len: timedelta = timedelta(minutes=30), show_plots: bool = False):
-        self.selection = Selection
+        self.selection: Optional[Selection] = None
         self.group_data_list: List[GroupData] = []
         self.group_ids: List[UniqueGroupID] = []
         self.obs_group_ids: List[UniqueGroupID] = []
@@ -374,7 +374,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             observation.sequence[n_atom].observed = True
             observation.sequence[n_atom].qa_state = QAState.PASS
 
-    def _update_score(self, program) -> None:
+    def _update_score(self, program: Program) -> None:
         """Update the scores of the incomplete groups in the scheduled program"""
 
         print("Call score_program")
@@ -390,8 +390,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                   f"{np.max(group_info.scores[0]):7.2f}")
             # update scores in schedulable_groups if the group is not completely observed
             if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
-                for ii in range(len(group_info.scores)):
-                    schedulable_group.group_info.scores[ii] = group_info.scores[ii]
+                schedulable_group.group_info.scores[:] = group_info.scores[:]
             print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[0]):7.2f}")
 
     def _run(self, plans: Plans) -> None:
