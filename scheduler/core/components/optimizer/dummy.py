@@ -62,7 +62,7 @@ class DummyOptimizer(BaseOptimizer):
                 if plan.time_left() >= obs_len and observation not in plan:
                     start, start_time_slot = DummyOptimizer._first_free_time(plan)
                     visit_score = sum(group.group_info.scores[plans.night][start_time_slot:start_time_slot+obs_len])
-                    plan.add(observation, start, start_time_slot, obs_len, visit_score, observation)
+                    plan.add(observation, start, start_time_slot, obs_len, visit_score)
                     return True
                 else:
                     # TODO: DO a partial insert
