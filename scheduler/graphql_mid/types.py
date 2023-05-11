@@ -51,6 +51,7 @@ class SVisit:
     atom_start_idx: int
     atom_end_idx: int
     altitude: List[float]
+    instrument: str
 
     @staticmethod
     def from_computed_visit(visit: Visit, alt_degs: List[float]) -> 'SVisit':
@@ -60,7 +61,8 @@ class SVisit:
                       obs_id=visit.obs_id,
                       atom_start_idx=visit.atom_start_idx,
                       atom_end_idx=visit.atom_end_idx,
-                      altitude=alt_degs)
+                      altitude=alt_degs,
+                      instrument=visit.instrument.id if visit.instrument is not None else 'None')
 
 
 @strawberry.type

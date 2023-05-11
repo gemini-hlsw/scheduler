@@ -1,10 +1,11 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 from scheduler.graphql_mid.server import schema
-
+from lucupy.observatory.abstract import ObservatoryProperties
+from lucupy.observatory.gemini import GeminiProperties
 
 def test_schedule_query():
-
+    ObservatoryProperties.set_properties(GeminiProperties)
     query = """
         query getNightPlans {
                 schedule(newScheduleInput: {startTime: "2018-10-01 08:00:00",

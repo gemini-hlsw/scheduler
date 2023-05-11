@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from math import ceil
 from typing import List, Mapping, Optional
 
-from lucupy.minimodel import Observation, ObservationID, Site, Conditions, Band
+from lucupy.minimodel import Observation, ObservationID, Site, Conditions, Band, Resource
 
 from scheduler.core.calculations.nightevents import NightEvents
 
@@ -20,7 +20,7 @@ class Visit:
     start_time_slot: int
     time_slots: int
     score: float
-
+    instrument: Optional[Resource]
 
 @dataclass(frozen=True)
 class NightStats:
@@ -68,7 +68,8 @@ class Plan:
                       obs.sequence[-1].id,
                       start_time_slot,
                       time_slots,
-                      score)
+                      score,
+                      obs.instrument())
         self.visits.append(visit)
         self._time_slots_left -= time_slots
 
