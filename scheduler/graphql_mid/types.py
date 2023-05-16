@@ -128,5 +128,13 @@ class NewScheduleError:
     """
     error: str
 
+@strawberry.type
+class ChangeOriginSuccess:
+    """
+    Success response for creating a new schedule.
+    """
+    from_origin: str
+    to_origin: str
+
 
 NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError))  # noqa

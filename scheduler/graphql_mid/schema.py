@@ -9,37 +9,40 @@ import strawberry # noqa
 from astropy.time import Time
 from lucupy.minimodel import Site
 
+from scheduler.core.builder import SchedulerBuilder
 from scheduler.core.service.service import build_scheduler
+from scheduler.core.sources import Origins
 from scheduler.process_manager import setup_manager, TaskType
 from scheduler.db.planmanager import PlanManager
 
+
 from .types import (SPlans, NewScheduleResponse,
-                    NewScheduleError, NewScheduleSuccess, NewNightPlans)
+                    NewScheduleError, NewScheduleSuccess,
+                    NewNightPlans, ChangeOriginSuccess)
 from .inputs import CreateNewScheduleInput
+
+
+builder = SchedulerBuilder()
+builder.sources.set_origin(Origins.OCS) # Default now is OCS.
 
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 @strawberry.type
 class Mutation:
+    '''
     @strawberry.mutation
-    async def new_schedule(self,
-                           new_schedule_input: CreateNewScheduleInput) -> NewScheduleResponse:
-        try:
-            start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
-                         Time(new_schedule_input.end_time, format='iso', scale='utc')
-            scheduler = build_scheduler(start, end, new_schedule_input.site)
-        except ValueError:
-            # TODO: log this error
-            return NewScheduleError(error='Invalid time format. Must be ISO8601.')
-        else:
-            try:
-                pm = setup_manager()
-                pm.add_task(datetime.now(), scheduler, TaskType.STANDARD)
-                await asyncio.sleep(10) # Use if you want to wait for the scheduler to finish
-            except ValueError:
-                return NewScheduleError(error='Error to execute Scheduler process')
-            else:
-                return NewScheduleSuccess(success=True)
+    def change_mode():
+        pass
+
+    '''
+
+    @strawberry.mutation
+    def change_origin(new_origin: str) -> ChangeOriginSuccess:
+        old = builder.sources.origin.value
+        origin = Origins[new_origin]
+        builder.sources.set_origin(origin)
+        return ChangeOriginSuccess(old, new_origin)
+
 
 
 @strawberry.type
@@ -63,7 +66,7 @@ class Query:
         if not plans:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                     Time(new_schedule_input.end_time, format='iso', scale='utc')
-            scheduler = build_scheduler(start, end, new_schedule_input.site)
+            scheduler = build_scheduler(start, end, new_schedule_input.site, builder)
             plans, plans_summary = scheduler()
         splans = [SPlans.from_computed_plans(p, new_schedule_input.site) for p in plans]
         # json_summary = json.dumps(plans_summary)

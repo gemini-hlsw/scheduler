@@ -11,6 +11,7 @@ from scheduler.core.components.collector import Collector
 from scheduler.core.components.selector import Selector
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.service.modes import dispatch_with
+from scheduler.core.sources import Sources, Origins
 from scheduler.config import config
 
 
@@ -18,6 +19,8 @@ from scheduler.config import config
 class SchedulerBuilder:
     """Allows building different components individually and the general scheduler itself.
     """
+    sources = Sources()
+
     @staticmethod
     def build_collector(start: Time,
                         end: Time,
