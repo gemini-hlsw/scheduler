@@ -120,10 +120,10 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         self._too: Dict[Site, Dict[date, bool]] = {site: {} for site in self._sites}
 
         # Fault reports by datetime to calculate missing instruments
-        self._faults: Dict[Site, Dict[date, Fault]] = {site: {} for site in self._sites}
+        self._faults: Dict[Site, Dict[date, Set[Fault]]] = {site: {} for site in self._sites}
 
         # Engineering Task by datetime.
-        self._eng_task: Dict[Site, Dict[date, EngTask]] = {site: {} for site in self._sites}
+        self._eng_task: Dict[Site, Dict[date, Set[EngTask]]] = {site: {} for site in self._sites}
 
         # Filters to apply to a night. We add the ResourceFilters at the end after all the resources
         # have been processed.
@@ -255,7 +255,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         Given a text list that should contain comma-separated program IDs, separate them
         and return the set of them.
         """
-        return set(prog_id.strip() for prog_id in text.strip().split(','))
+        return set(ProgramID(prog_id.strip()) for prog_id in text.strip().split(','))
 
     @staticmethod
     def _add_dates_to_dict(prog_dict: Dict[ProgramID, Set[date]], text: str, add_date: date) -> NoReturn:
@@ -479,13 +479,13 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 # 1. PV programs get priority on the nights they are listed.
                 for d in pv_dates:
                     s = self._positive_filters[site].setdefault(d, set())
-                    s.add(ProgramPriorityFilter(frozenset(pv_program_id)))
+                    s.add(ProgramPriorityFilter(frozenset({pv_program_id})))
 
                 # 2. PV programs are not allowed in nights before they are first listed.
                 pv_prohibited_dates = {d for d in dates if d < pv_starting_date}
                 for d in pv_prohibited_dates:
                     s = self._negative_filters[site].setdefault(d, set())
-                    s.add(ProgramPermissionFilter(frozenset([pv_program_id])))
+                    s.add(ProgramPermissionFilter(frozenset({pv_program_id})))
 
             # Classical rules:
             for classical_program_id, classical_dates in classical_programs.items():
@@ -493,23 +493,23 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     # Classical programs can only be performed in their designated blocks.
                     if d in classical_dates:
                         s = self._positive_filters[site].setdefault(d, set())
-                        s.add(ProgramPriorityFilter(frozenset([classical_program_id])))
+                        s.add(ProgramPriorityFilter(frozenset({classical_program_id})))
                     else:
                         s = self._negative_filters[site].setdefault(d, set())
-                        s.add(ProgramPermissionFilter(frozenset([classical_program_id])))
+                        s.add(ProgramPermissionFilter(frozenset({classical_program_id})))
 
             # Priority rules:
             for priority_program_id, priority_dates in score_boost.items():
                 # Priority is given to programs in the priority block.
                 for d in priority_dates:
                     s = self._positive_filters[site].setdefault(d, set())
-                    s.add(ProgramPriorityFilter(frozenset(priority_program_id)))
+                    s.add(ProgramPriorityFilter(frozenset({priority_program_id})))
 
             # Partner rules:
             for d, partner_code in partner_blocks.items():
                 # On a partner night, we only allow programs that include the partner.
                 s = self._positive_filters[site].setdefault(d, set())
-                s.add(TimeAccountingCodeFilter(frozenset(partner_code)))
+                s.add(TimeAccountingCodeFilter(frozenset({partner_code})))
 
             # Visitor instrument rules:
             for resource, resource_dates in instrument_run.items():
@@ -544,14 +544,14 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
 
         with open(os.path.join(self._path, to_file), 'r') as file:
             for line in file:
-                # Find pattern to keep bracket comments not splitted
+                # Find pattern to keep bracket comments not split.
                 match = re.search(pattern, line)
                 if match:
                     comment = match.group(1)
                     rest_of_line = re.sub(pattern, '', line)
-                    date, start_time, end_time = rest_of_line.strip().split()
+                    eng_date, start_time, end_time = rest_of_line.strip().split()
                     #  Single date for key
-                    just_date = datetime.strptime(date, '%Y-%m-%d')
+                    just_date = datetime.strptime(eng_date, '%Y-%m-%d')
                     # Time day in jd to calculate twilights
                     time = Time(just_date)
                     _, _, _, even_12twi, morn_12twi, _, _ = night_events(time,
@@ -561,13 +561,12 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                     # Handle twilights
                     if start_time == 'twi':
                         start_date = even_12twi.datetime
-                        end_date = morn_12twi.datetime if end_time == 'twi' else datetime.strptime(f'{date} {end_time}',
-                                                                                     '%Y-%m-%d %H:%M')
+                        end_date = (morn_12twi.datetime if end_time == 'twi' else
+                                    datetime.strptime(f'{eng_date} {end_time}', '%Y-%m-%d %H:%M'))
                     else:
-                        start_date = datetime.strptime(f'{date} {start_time}',
-                                                        '%Y-%m-%d %H:%M')
-                        end_date = morn_12twi.datetime if end_time == 'twi' else datetime.strptime(f'{date} {end_time}',
-                                                                                     '%Y-%m-%d %H:%M')
+                        start_date = datetime.strptime(f'{eng_date} {start_time}', '%Y-%m-%d %H:%M')
+                        end_date = (morn_12twi.datetime if end_time == 'twi'
+                                    else datetime.strptime(f'{eng_date} {end_time}', '%Y-%m-%d %H:%M'))
 
                     time_loss = end_date - start_date
                     eng_task = EngTask(start=start_date,
@@ -576,9 +575,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                                        reason=comment)
 
                     if just_date in self._eng_task[site]:
-                        self._eng_task[site][just_date].append(eng_task)
+                        self._eng_task[site][just_date].add(eng_task)
                     else:
-                        self._eng_task[site][just_date] = [eng_task]
+                        self._eng_task[site][just_date] = {eng_task}
                 else:
                     raise ValueError('Pattern not found. Format error on Eng Task file')
 
@@ -591,10 +590,11 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         # we could add them as constants.
         ts_clean = ' 04:00' if site == Site.GS else ' 10:00'
         with open(os.path.join(self._path, to_file), 'r') as file:
-            for l in file:
-                line = l.rstrip()  # remove trail spaces
+            for original_line in file:
+                line = original_line.rstrip()  # remove trail spaces
                 if line:  # ignore empty lines
                     if line[0].isdigit():
+                        # TODO: Unused variable and just a string, not a semester.
                         semester = line
                     elif line.startswith('FR'):  # found a fault
                         items = line.split('\t')
@@ -604,11 +604,11 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                         fault = Fault(id=items[0],
                                       start=ts,  # date with time
                                       time_loss=timedelta(hours=float(items[2])),  # timeloss
-                                      reason=items[3]) # comment for the fault
+                                      reason=items[3])  # comment for the fault
                         if ts.date() in self._faults[site]:
-                            self._faults[site][ts.date()].append(fault)
+                            self._faults[site][ts.date()].add(fault)
                         else:
-                            self._faults[site][ts.date()] = [fault]
+                            self._faults[site][ts.date()] = {fault}
                     else:
                         raise ValueError('Fault file has wrong format')
 
@@ -628,7 +628,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         if site not in self._sites:
             raise ValueError(f'Request for night configuration for illegal site: {site.name}')
         if local_date < self._earliest_date_per_site[site] or local_date > self._latest_date_per_site[site]:
-            raise ValueError(f'Request for night configuration for site {site.name} for illeegal date: {local_date}')
+            raise ValueError(f'Request for night configuration for site {site.name} for illegal date: {local_date}')
         return self._night_configurations[site][local_date]
 
     def get_resources(self, site: Site, night_date: date) -> FrozenSet[Resource]:
