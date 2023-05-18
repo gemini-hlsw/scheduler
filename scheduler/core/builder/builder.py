@@ -27,7 +27,7 @@ class SchedulerBuilder:
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint) -> Collector:
-        return Collector(start, end, sites, semesters, *blueprint)
+        return Collector(start, end, sites, semesters, SchedulerBuilder.sources, *blueprint)
 
     @staticmethod
     def build_selector(collector: Collector):

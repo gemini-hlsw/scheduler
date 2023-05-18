@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 from typing import List
 import strawberry # noqa
+from strawberry.file_uploads import Upload
 from astropy.time import Time
 from lucupy.minimodel import Site
 
@@ -20,11 +21,10 @@ from .types import (SPlans, NewScheduleResponse,
                     NewScheduleError, NewScheduleSuccess,
                     NewNightPlans, ChangeOriginSuccess)
 from .inputs import CreateNewScheduleInput
+from .scalars import SOrigin
 
 
 builder = SchedulerBuilder()
-builder.sources.set_origin(Origins.OCS) # Default now is OCS.
-
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 @strawberry.type
@@ -37,12 +37,20 @@ class Mutation:
     '''
 
     @strawberry.mutation
-    def change_origin(new_origin: str) -> ChangeOriginSuccess:
-        old = builder.sources.origin.value
-        origin = Origins[new_origin]
-        builder.sources.set_origin(origin)
-        return ChangeOriginSuccess(old, new_origin)
+    async def load_sources_files(self, files: List[Upload], service: str) -> List[str]:
+        source_to_change = Services[service]
+        builder.sources.use_file(source_to_change, files)
+        contents = []
+        for file in files:
+            content = (await file.read()).decode("utf-8")
+            contents.append(content)
+        return contents
 
+    @strawberry.mutation
+    def change_origin(new_origin: SOrigin) -> ChangeOriginSuccess:
+        old = str(builder.sources.origin)
+        builder.sources.set_origin(new_origin)
+        return ChangeOriginSuccess(from_origin=old, to_origin=str(new_origin))
 
 
 @strawberry.type
@@ -56,6 +64,10 @@ class Query:
     @strawberry.field
     def site_plans(self, site: Site) -> List[SPlans]:
         return [plans.for_site(site) for plans in PlanManager.get_plans()]
+
+    @strawberry.field
+    def current_origin(self) -> SOrigin:
+        return builder.sources.origin
 
     @strawberry.field
     def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
