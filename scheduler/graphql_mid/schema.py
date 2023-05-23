@@ -6,21 +6,21 @@ import json
 from datetime import datetime
 from typing import List
 import strawberry # noqa
-from strawberry.file_uploads import Upload
 from astropy.time import Time
 from lucupy.minimodel import Site
 
 from scheduler.core.builder import SchedulerBuilder
 from scheduler.core.service.service import build_scheduler
-from scheduler.core.sources import Origins
+from scheduler.core.sources import Origins, Services
 from scheduler.process_manager import setup_manager, TaskType
 from scheduler.db.planmanager import PlanManager
 
 
 from .types import (SPlans, NewScheduleResponse,
                     NewScheduleError, NewScheduleSuccess,
-                    NewNightPlans, ChangeOriginSuccess)
-from .inputs import CreateNewScheduleInput
+                    NewNightPlans, ChangeOriginSuccess,
+                    SourceFileHandlerResponse)
+from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
 
 
@@ -37,14 +37,32 @@ class Mutation:
     '''
 
     @strawberry.mutation
-    async def load_sources_files(self, files: List[Upload], service: str) -> List[str]:
-        source_to_change = Services[service]
-        builder.sources.use_file(source_to_change, files)
-        contents = []
-        for file in files:
-            content = (await file.read()).decode("utf-8")
-            contents.append(content)
-        return contents
+    async def load_sources_files(self, files_input: UseFilesSourceInput ) -> SourceFileHandlerResponse:
+        service = Services[files_input.service]
+
+        match service:
+            case Services.RESOURCE:
+                calendar = await files_input.calendar.read()
+                gmos_fpu = await files_input.gmos_fpus.read()
+                gmos_gratings = await files_inputL.gmos_gratings.read()
+
+                loaded, msg = builder.sources.use_file(service,
+                                                       calendar,
+                                                       gmos_fpu,
+                                                       gmos_gratings)
+                return SourceFileHandlerResponse(service=files_input.service,
+                                                 loaded=loaded,
+                                                 msg=msg)
+            case Services.ENV:
+                return SourceFileHandlerResponse(service=files_input.service,
+                                                 loaded=False,
+                                                 msg='Handler not implemented yet!')
+            case Services.CHRONICLE:
+                return SourceFileHandlerResponse(service=files_input.service,
+                                                 loaded=False,
+                                                 msg='Handler not implemented yet!')
+
+
 
     @strawberry.mutation
     def change_origin(new_origin: SOrigin) -> ChangeOriginSuccess:

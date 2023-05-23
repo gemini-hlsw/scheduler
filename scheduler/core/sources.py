@@ -1,8 +1,9 @@
 from enum import Enum
 from abc import ABC, abstractmethod
-from typing import ClassVar, Optional, NoReturn
-from scheduler.services.resource import OcsResourceService
+from typing import ClassVar, Optional, NoReturn, Tuple
+from scheduler.services.resource import OcsResourceService, FileResourceService
 from scheduler.services.environment import Env
+from io import BytesIO
 
 class Services(Enum):
     ENV = 'env'
@@ -42,7 +43,7 @@ class GPPOrigin(Origin):
 
 class FileOrigin(Origin):
     def load(self):
-        pass
+        return self
 
 class Origins(Enum):
     FILE = FileOrigin()
@@ -63,18 +64,43 @@ class Sources:
     def set_origin(self, origin: Origin):
         self.origin = origin.load()
 
-    def use_file(self, service: Services, files):
+    def use_file(self,
+                 service: Services,
+                 calendar: BytesIO,
+                 gmos_fpu: BytesIO,
+                 gmos_gratings: BytesIO) -> Tuple[bool, str]:
+
         match service:
             case Services.ENV:
                 # Weather faults?
-                pass
-            case Services.RESOURCE:
+                return False, 'Handler not implemented yet!'
 
-                pass
-                # Calendar, self._load_spreadsheet()
-                # GMOS conf,
+            case Services.RESOURCE:
+                # Check that the amount of files is correct
+                if calendar and gmos_fpu and gmos_gratings:
+                    file_resource = FileResourceService()
+
+                    for sites in files_input.sites:
+                        suffix = ('s' if site == Site.GS else 'n').upper()
+                        # reutilize this file.
+                        file_resource._load_fpu_to_barcodes(site, f'GMOS{suffix}_fpu_barcode.txt')
+                        file_resource._load_csv(site,
+                                                lambda r: {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]},
+                                                file=gmos_fpu)
+
+                        file_resource._load_csv(site,
+                                                lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r},
+                                                file=gmos_gratings)
+                    file_resource._load_spreadsheet(file=calendar)
+
+                    self.set_origin(Origin.FILE.value)
+                    self.origin.resource = file_resource
+                    return True, 'Resource files correctly loaded!'
+
+                else:
+                    return False, 'Missing files to load!'
             case Services.CHRONICLE:
                 # Faults
                 # Task
-                pass
+                return False, 'Handler not implemented yet!'
 

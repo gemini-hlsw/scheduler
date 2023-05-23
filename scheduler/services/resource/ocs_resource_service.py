@@ -7,6 +7,7 @@ import os
 from copy import copy
 from datetime import datetime, timedelta
 from typing import Dict, Final, List, NoReturn, Set, Tuple
+from io import BytesIO
 
 from astropy.time import Time
 import gelidum
@@ -90,7 +91,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         'PinholeC': 'PinholeC'
     }})
 
-    def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
+    def __init__(self, sites: FrozenSet[Site] = ALL_SITES, with_post_init: bool = True):
         """
         Create and initialize the ResourceMock object with the specified sites.
         """
@@ -135,7 +136,10 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
 
         # The final output from this class: the configuration per night.
         self._night_configurations: Dict[Site, Dict[date, NightConfiguration]] = {site: {} for site in self._sites}
+        if with_post_init:
+            self._load_post_init()
 
+    def _load_post_init(self):
         for site in self._sites:
             suffix = ('s' if site == Site.GS else 'n').upper()
 
@@ -146,14 +150,15 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
             # This will put both the IFU and the FPU barcodes available on a given date as Resources.
             # Note that for the IFU, we need to convert to a barcode, which is a Resource.
             # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take its ID.
-            self._load_csv(site, f'GMOS{suffix}_FPUr201789.txt',
-                           lambda r: {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]})
+            self._load_csv(site,
+                           lambda r: {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]},
+                           name=f'GMOS{suffix}_FPUr201789.txt')
 
             # Load the gratings.
             # This will put the mirror and the grating names available on a given date as Resources.
             # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
-            self._load_csv(site, f'GMOS{suffix}_GRAT201789.txt',
-                           lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r})
+            self._load_csv(site, lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r},
+                           name=f'GMOS{suffix}_GRAT201789.txt')
 
             # Load faults files.
             self.parse_faults_file(site, f'Faults_AllG{suffix}.txt')
@@ -162,7 +167,8 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
             self._parse_eng_task_file(site, f'ClosedDomeG{suffix}_Eng.txt')
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
-        self._load_spreadsheet()
+        self._load_spreadsheet(filename=os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE),
+                               from_gdrive=True)
 
         # TODO: Remove this after discussion with science.
         # TODO: There are entries here outside of the Telescope Schedules Spreadsheet.
@@ -215,7 +221,10 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 if fpu is not None:
                     self._itcd_fpu_to_barcode[site][fpu] = self.lookup_resource(barcode)
 
-    def _load_csv(self, site: Site, name: str, c: Callable[[List[str]], Set[str]]) -> NoReturn:
+    def _load_csv(self, site: Site,
+                  c: Callable[[List[str]], Set[str]],
+                  name: Optional[str] = None,
+                  file: Optional[BytesIO] = None) -> NoReturn:
         """
         Process a CSV file as a table, where:
 
@@ -225,7 +234,8 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         If a date is missing from the CSV file, copy the data from the previously defined date through to just before
         the new date.
         """
-        with open(os.path.join(self._path, name)) as f:
+
+        def _process_file(f):
             reader = csv.reader(f, delimiter=',')
             prev_row_date: Optional[date] = None
 
@@ -249,6 +259,18 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                 # Advance the previous row date where data was defined.
                 prev_row_date = row_date
 
+        if file:
+            data_str = file.decode()
+            f = StringIo(data_str)
+            _process_file(f)
+        elif name:
+             with open(os.path.join(self._path, name)) as f:
+                 _process_file(f)
+        else:
+            raise ValueError('Both name and file are None')
+
+
+
     @staticmethod
     def _split_program_ids(text: str) -> Set[ProgramID]:
         """
@@ -267,7 +289,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
             date_set = prog_dict.setdefault(prog_id, set())
             date_set.add(add_date)
 
-    def _load_spreadsheet(self) -> NoReturn:
+    def _load_spreadsheet(self, filename: Optional[os.PathLike] = None,
+                          file: Optional[BytesIO] = None,
+                          from_gdrive: Optional[bool] = False) -> NoReturn:
         """
         Process an Excel spreadsheet containing instrument, mode, and LGS information.
 
@@ -277,20 +301,25 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         def none_to_str(value) -> str:
             return '' if value is None else value
 
-        filename = os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE)
+        if not file and not filename:
+            raise ValueError('filename and file are both None')
 
-        logger.info('Retrieving site configuration file from Google Drive...')
-        try:
-            GoogleDriveDownloader.download_file_from_google_drive(file_id=OcsResourceService._SITE_CONFIG_GOOGLE_ID,
-                                                                  overwrite=True,
-                                                                  dest_path=filename)
-        except requests.RequestException:
-            logger.warning('Could not retrieve site configuration file from Google Drive.')
+        # filename = os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE)
+        if from_gdrive:
+            logger.info('Retrieving site configuration file from Google Drive...')
+            try:
+                GoogleDriveDownloader.download_file_from_google_drive(file_id=OcsResourceService._SITE_CONFIG_GOOGLE_ID,
+                                                                      overwrite=True,
+                                                                      dest_path=filename)
+            except requests.RequestException:
+                logger.warning('Could not retrieve site configuration file from Google Drive.')
 
         if not os.path.exists(filename):
             raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: {filename}')
 
-        workbook = load_workbook(filename=filename, read_only=True, data_only=True)
+        workbook = load_workbook(filename=filename if filename else file,
+                                 read_only=True,
+                                 data_only=True)
         for site in self._sites:
             try:
                 sheet = workbook[site.name]
@@ -664,3 +693,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         if Site.GS in self._sites and site == Site.GS:
             return self._gmoss_ifu_dict.get(fpu_name)
         return None
+
+class FileResourceService(OcsResourceService):
+    def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
+        # Init an empty ResourceService
+        super().__init__(sites, with_post_init=False)
+
