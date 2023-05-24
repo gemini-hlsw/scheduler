@@ -14,7 +14,9 @@ from scheduler.core.components.optimizer.timeline import Timelines
 from .base import BaseOptimizer
 from . import Interval
 
-from lucupy.minimodel import Program, Group, Observation, ObservationID, Site, UniqueGroupID, QAState, ObservationClass
+from lucupy.minimodel import Program, Group, Observation, Sequence
+from lucupy.minimodel import ObservationID, Site, UniqueGroupID, QAState, ObservationClass, ObservationStatus
+from lucupy.minimodel.resource import Resource
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
@@ -79,6 +81,115 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # Return the ranges for each nonzero interval.
         return np.where(abs_diff == 1)[0].reshape(-1, 2)
 
+    @staticmethod
+    def cummulative_seq_exec_times(sequence: Sequence) -> list:
+        """Cummulative series of execution times for the unobserved atoms in a sequence, excluding acquisition time"""
+        cummul_seq = []
+        total_exec = timedelta(0.0)
+        for atom in sequence:
+            if not atom.observed:
+                total_exec += atom.exec_time
+                cummul_seq.append(total_exec)
+        if len(cummul_seq) == 0:
+            cummul_seq.append(total_exec)
+
+        return cummul_seq
+
+    def _exec_time_remaining(self, group: Group, verbose=False):
+        """Determine the total and minimum remaining execution times.
+           If an observation can't be split, then there should only be one atom, so min time is the full time.
+           """
+
+        if verbose:
+            print('_exec_time_remaining')
+            print(f"Group {group.unique_id.id} {group.exec_time()} {group.is_observation_group()} "
+                  f"{group.is_scheduling_group()} {group.number_to_observe}")
+            print(f"\t {group.required_resources()}")
+            print(f"\t {group.wavelengths()}")
+
+        nir_inst = [Resource('Flamingos2'), Resource('GNIRS'), Resource('NIRI'), Resource('NIFS'),
+                    Resource('IGRINS')]
+
+        nsci = nprt = 0
+        exec_remain = exec_remain_min = timedelta(0)
+        exec_sci = exec_sci_min = exec_sci_nir = timedelta(0)
+        exec_prt = timedelta(0)
+        time_per_standard = timedelta(0)
+        time_remain = time_remain_min = sci_times = timedelta(0)
+        n_std = 0
+        part_times = []
+        sci_times_min = []
+        for obs in group.observations():
+            # Unobserved remaining time
+            cumm_seq = self.cummulative_seq_exec_times(obs.sequence)
+            if verbose:
+                print(f"\t Obs: {obs.id.id} {obs.exec_time()} {obs.obs_class.name} {obs.site.name} "
+                      f"{next(iter(obs.wavelengths()))} {cumm_seq[-1]}")
+            #               f"{next(iter(obs.required_resources())).id} {next(iter(obs.wavelengths()))}")
+
+            if cumm_seq[-1] > timedelta(0):
+                time_remain = obs.acq_overhead + cumm_seq[-1]  # total time remaining
+                time_remain_min = obs.acq_overhead + cumm_seq[0]  # Min time remaining (acq + first atom)
+
+                if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
+                    nsci += 1
+                    sci_times += time_remain
+                    if obs.obs_class == ObservationClass.SCIENCE:
+                        sci_times_min.append(time_remain_min)
+                    else:
+                        sci_times_min.append(time_remain)
+
+                    # NIR science time for to determine tellurics
+                    if any(inst in group.required_resources() for inst in nir_inst):
+                        exec_sci_nir += time_remain
+                elif obs.obs_class == ObservationClass.PARTNERCAL:
+                    nprt += 1
+                    part_times.append(time_remain)
+
+        # Times for science observations
+        exec_sci = sci_times
+        if (nsci > 1) or (nsci > 0 and nprt > 0):
+            # Don't split if more than one science/program standard obs, assume consecutive AND group
+            # We also won't split NIR observations w/stds for now
+            # TODO: support NIR obs splitting and then dynamically find the number of standards needed
+            exec_sci_min = exec_sci
+        elif nsci == 1:
+            exec_sci_min = sci_times_min[0]
+
+        # How many standards are needed?
+        # TODO: need mode or other info to distinguish imaging from spectroscopy
+        if exec_sci_nir > timedelta(0) and len(part_times) > 0:
+            # spectroscopy
+            if all(wave <= 2.5 for wave in group.wavelengths()):
+                time_per_standard = timedelta(hours=1.5)
+            else:
+                time_per_standard = timedelta(hours=1.0)
+            # for imaging time_per_standard = timedelta(hours=2.0)
+
+            n_std = max(1, int(exec_sci_nir // time_per_standard))  # TODO: confirm this
+
+        # if only partner standards, set n_std to the number of standards in group (e.g. specphots)
+        if nprt > 0 and nsci == 0:
+            n_std = nprt
+
+        if n_std == 1:
+            exec_prt = max(part_times)
+        elif n_std > 1:
+            [print(t) for t in part_times]
+            for t in part_times:
+                exec_prt += t
+            # exec_prt = sum(part_times) # this caused an error
+
+        exec_remain = exec_sci + exec_prt
+        exec_remain_min = exec_sci_min + exec_prt
+
+        if verbose:
+            print(f"\t nsci = {nsci} {exec_sci} {exec_prt} nprt = {nprt} time_per_std = {time_per_standard}"
+                  f" n_std = {n_std}")
+        #     print(f"\t n_std = {n_std} exec_remain = {exec_remain} exec_remain_min = {exec_remain_min}")
+
+        return exec_remain, exec_remain_min
+
     def _min_slots_remaining(self, group: Group) -> Tuple[int, int]:
         """
         Returns the minimum number of time slots for the remaining time.
@@ -87,25 +198,28 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
 
         # the number of time slots in the minimum visit length
-        # min_visit_timeslots = int(np.ceil(self.min_visit_len / self.time_slot_length))
+        n_slots_min_visit = int(np.ceil(self.min_visit_len / self.time_slot_length))
         # print(f"n_min_visit: {n_min_visit}")
 
         # Calculate the remaining clock time necessary for the group to be complete.
-        time_remaining = group.exec_time() - group.total_used()
+        # time_remaining = group.exec_time() - group.total_used()
+        # TODO: consider whether to use steps remaining rather than clock time, esp. for operations
+        # the following does this
+        time_remaining, time_remaining_min = self._exec_time_remaining(group)
 
         # Calculate the number of time slots needed to complete the group.
         # n_slots_remaining = int(np.ceil((time_remaining / self.time_slot_length)))  # number of time slots
         # This use of time2slots works but is probably not kosher, need to make this more general
         n_slots_remaining = Plan.time2slots(self.time_slot_length, time_remaining)
+        n_slots_remaining_min = Plan.time2slots(self.time_slot_length, time_remaining_min)
 
-        # Short groups should be done entirely, update the min useful time
-        # is the extra variable needed, or just modify n_min_visit?
-        # n_min = n_min_visit
-        # if n_time_remaining - n_min <= n_min:
-        #     n_min = n_time_remaining
-
-        # Until we support splitting, just use the remaining time.
-        n_min = n_slots_remaining
+        # Time slots corresponding to the max of minimum time remaining and the minimum visit length
+        # This supports long observations than cannot be split. helps prevent splitting into very small pieces
+        n_min = max(n_slots_remaining_min, n_slots_min_visit)
+        # Short groups should be done entirely, and we don't want to leave small pieces remaining
+        # update the min useful time
+        if n_slots_remaining - n_slots_min_visit <= n_slots_min_visit:
+            n_min = n_slots_remaining
 
         return n_min, n_slots_remaining
 
@@ -190,7 +304,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # Only highest score: frac_score_limit = 0.0
             # Top 10%: frac_score_limit = 0.1
             # Consider everything: frac_score_limit = 1.0
-            frac_score_limit = 1.0
+            frac_score_limit = 0.1
             score_limit = max_score * (1.0 - frac_score_limit)
             max_group = groups[iscore_sort[ii]]
             max_interval = intervals[iscore_sort[ii]]
@@ -279,22 +393,22 @@ class GreedyMaxOptimizer(BaseOptimizer):
     def _find_group_position(self,
                              group_data: GroupData,
                              interval: Interval,
-                             night_idx: int) -> Interval:
+                             night_idx: int) -> Optional[Tuple[Interval, int, int]]:
         """Find the best location in the timeline"""
         best_interval = interval
 
-        # # This repeats the calculation from find_max_group, pass this?
+        # This repeats the calculation from find_max_group, pass this instead?
         # time_remaining = group_data.group.exec_time() - group_data.group.total_used()  # clock time
-        # # This is the same as time2slots, need to make that more generally available
+        # This is the same as time2slots, need to make that more generally available
         # n_time_remaining = int(np.ceil((time_remaining / self.time_slot_length)))  # number of time slots
-        n_min, n_time_remaining = self._min_slots_remaining(group_data.group)
+        n_min, n_slots_remaining = self._min_slots_remaining(group_data.group)
 
-        if n_time_remaining < len(interval):
+        if n_slots_remaining < len(interval):
             # Determine position based on max integrated score
             # If we don't end up here, then the group will have to be split later
-            best_interval = self._integrate_score(group_data, interval, n_time_remaining, night_idx)
+            best_interval = self._integrate_score(group_data, interval, n_slots_remaining, night_idx)
 
-        return best_interval
+        return best_interval, n_min, n_slots_remaining
 
     @staticmethod
     def _plot_interval(score, interval, best_interval, label: str = "") -> None:
@@ -349,11 +463,19 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """Pseudo (internal to GM) time accounting, or charging.
            GM must assume that each scheduled observation is executed and then adjust the completeness fraction
            and scoring accordingly. This does not update the database or Collector"""
+        seq_length = len(observation.sequence)
+
         if atom_end < 0:
-            atom_end += len(observation.sequence)
+            atom_end += seq_length
 
         # print(f"Internal time charging")
         # print(observation.id.id, atom_start, atom_end)
+
+        # Update observation status
+        if atom_end == seq_length:
+            observation.status = ObservationStatus.OBSERVED
+        else:
+            observation.status = ObservationStatus.ONGOING
 
         for n_atom in range(atom_start, atom_end + 1):
             # "Charge" the expected program and partner times for the atoms:
@@ -439,13 +561,13 @@ class GreedyMaxOptimizer(BaseOptimizer):
         result = False
         if not timeline.is_full:
             # Find the best location in timeline for the group
-            best_interval = self._find_group_position(group_data, interval, night)
+            best_interval, n_min, n_slots_remaining = self._find_group_position(group_data, interval, night)
             # print(f"Interval start end: {interval[0]} {interval[-1]}")
             # print(f"Best interval start end: {best_interval[0]} {best_interval[-1]}")
 
             if self.show_plots:
-                GreedyMaxOptimizer._plot_interval(group_data.group_info.scores[night], interval, best_interval,
-                                                  label=f'Night {night + 1}: {group_data.group.unique_id}')
+                self._plot_interval(group_data.group_info.scores[night], interval, best_interval,
+                                    label=f'Night {night + 1}: {group_data.group.unique_id}')
 
             for observation in group_data.group.observations():
                 # print(f"**** {self.obs_group_ids}")
