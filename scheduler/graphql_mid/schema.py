@@ -67,6 +67,8 @@ class Mutation:
     @strawberry.mutation
     def change_origin(new_origin: SOrigin) -> ChangeOriginSuccess:
         old = str(builder.sources.origin)
+        if old == str(new_origin):
+            return ChangeOriginSuccess(from_origin=old, to_origin=old)
         builder.sources.set_origin(new_origin)
         return ChangeOriginSuccess(from_origin=old, to_origin=str(new_origin))
 
