@@ -1,3 +1,6 @@
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from enum import Enum
 from abc import ABC, abstractmethod
 from typing import ClassVar, Optional, NoReturn, Tuple
@@ -12,10 +15,16 @@ class Services(Enum):
 
 class Origin(ABC):
 
-    resource: ClassVar[Optional[OcsResourceService]] = None
-    env: ClassVar[Optional[Env]] = None
-    chronicle = None # Missing typing for lack of implementation
-    is_loaded: ClassVar[bool] = False
+
+    def __init__(self,
+                 resource: ClassVar[Optional[OcsResourceService]] = None,
+                 env: ClassVar[Optional[Env]] = None,
+                 chronicle = None, # Missing typing for lack of implementation
+                 is_loaded: ClassVar[bool] = False):
+        self.resource = resource
+        self.env = env
+        self.chronicle = chronicle
+        self.is_loaded = is_loaded
 
     @abstractmethod
     def load(self) -> NoReturn:
@@ -29,12 +38,13 @@ class Origin(ABC):
 class OCSOrigin(Origin):
 
     def load(self) -> 'OCSOrigin':
-        if not OCSOrigin.is_loaded:
-            OCSOrigin.resource = OcsResourceService()
-            OCSOrigin.env = Env()
+        if not self.is_loaded:
+            self.resource = OcsResourceService()
+            self.env = Env()
             # OCSOrigin.chronicle
-            OCSOrigin.is_loaded = True
+            self.is_loaded = True
             return self
+        return self
 
 
 class GPPOrigin(Origin):
@@ -59,7 +69,7 @@ class Sources:
     """
 
     def __init__(self, origin: Origin = Origins.OCS.value):
-        self.origin = origin.load() if origin else None
+        self.origin = origin.load()
 
     def set_origin(self, origin: Origin):
         self.origin = origin.load()

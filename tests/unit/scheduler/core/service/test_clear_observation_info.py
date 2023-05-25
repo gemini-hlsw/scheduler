@@ -8,6 +8,7 @@ from lucupy.minimodel.observation import ObservationClass, ObservationStatus
 
 from scheduler.core.service.modes import ValidationMode
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from scheduler.core.sources import Sources
 from definitions import ROOT_DIR
 
 
@@ -16,7 +17,8 @@ def test_clear_observations():
     Ensure the Validation clear_observation_info does as specified.
     """
     obs_classes = frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
-    program_provider = OcsProgramProvider(obs_classes)
+    sources = Sources()
+    program_provider = OcsProgramProvider(obs_classes, sources)
     bad_status = frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
     zero = timedelta()
 
