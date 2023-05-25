@@ -398,7 +398,7 @@ class Collector(SchedulerComponent):
         if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
             raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
 
-        program_provider = program_provider_class(self.obs_classes)
+        program_provider = program_provider_class(self.obs_classes, self.sources)
 
         # Purge the old programs and observations.
         Collector._programs = {}
