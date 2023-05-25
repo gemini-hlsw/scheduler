@@ -1,8 +1,8 @@
 # Scheduler
 
 ![Python version](https://img.shields.io/badge/python-3.10-blue.svg)
-![build](https://github.com/gemini-hlsw/Scheduler/actions/workflows/deploy/badge.svg)
-![tests](https://github.com/gemini-hlsw/Scheduler/actions/workflows/pytest/badge.svg)
+![build](https://github.com/gemini-hlsw/Scheduler/actions/workflows/deploy.yml/badge.svg)
+![tests](https://github.com/gemini-hlsw/Scheduler/actions/workflows/pytest.yml/badge.svg)
 [![codecov](https://codecov.io/gh/gemini-hlsw/scheduler/branch/master/graph/badge.svg)](https://app.codecov.io/gh/gemini-hlsw/scheduler)
 
 This is the automated Scheduler for Gemini Observatory, part of the GPP project.
