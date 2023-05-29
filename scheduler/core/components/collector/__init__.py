@@ -25,6 +25,7 @@ from scheduler.services.resource import NightConfiguration
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
 from scheduler.core.service.modes import ValidationMode
 from scheduler.core.sources import Sources
+from scheduler.core.resourcemanager import ResourceManager
 from scheduler.services import logger_factory
 from scheduler.services.resource import OcsResourceService
 
@@ -54,7 +55,7 @@ class Collector(SchedulerComponent):
 
     # OCS Resource service.
     # TODO: This will need modification when GPP is out.
-    _ocs_resource_manager: ClassVar[OcsResourceService]
+    _ocs_resource_manager: ClassVar[ResourceManager]
 
     # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
     # This is a list of the programs as read in.

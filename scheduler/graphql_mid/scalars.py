@@ -42,7 +42,7 @@ def parse_origins(name: str) -> Origin:
     try:
         return Origins[name].value
     except KeyError:
-        raise KeyError('Wrong Origin: OCS, GPP or files are the only one')
+        raise KeyError(f'Illegal origin specified: "{name}". Permitted values: {", ".join(o.value for o in Origins)}')
 
 Sites = strawberry.scalar(NewType("Sites", FrozenSet[Site]),
                           description="Depiction of the sites that can be load to the collector",

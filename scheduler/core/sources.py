@@ -5,6 +5,7 @@ from enum import Enum
 from abc import ABC, abstractmethod
 from typing import ClassVar, Optional, NoReturn, Tuple
 from scheduler.services.resource import OcsResourceService, FileResourceService
+from scheduler.core.resourcemanager import ExternalService
 from scheduler.services.environment import Env
 from io import BytesIO
 
@@ -17,10 +18,10 @@ class Origin(ABC):
 
 
     def __init__(self,
-                 resource: ClassVar[Optional[OcsResourceService]] = None,
-                 env: ClassVar[Optional[Env]] = None,
-                 chronicle = None, # Missing typing for lack of implementation
-                 is_loaded: ClassVar[bool] = False):
+                 resource: Optional[ExternalService] = None,
+                 env: Optional[ExternalService] = None,
+                 chronicle: Optional[ExternalService] = None,
+                 is_loaded: bool = False):
         self.resource = resource
         self.env = env
         self.chronicle = chronicle
@@ -65,11 +66,11 @@ class Origins(Enum):
 class Sources:
     """
     Sources provide the scheduler with the correct source info for each service.
-    Default should be GPP connections. Other modes are OCS mock services and custom files.
+    Default should be GPP connections. Other modes are OCS services and custom files.
     """
 
     def __init__(self, origin: Origin = Origins.OCS.value):
-        self.origin = origin.load()
+        self.set_origin(origin)
 
     def set_origin(self, origin: Origin):
         self.origin = origin.load()
@@ -92,16 +93,10 @@ class Sources:
 
                     for sites in files_input.sites:
                         suffix = ('s' if site == Site.GS else 'n').upper()
-                        # reutilize this file.
-                        file_resource._load_fpu_to_barcodes(site, f'GMOS{suffix}_fpu_barcode.txt')
-                        file_resource._load_csv(site,
-                                                lambda r: {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]},
-                                                file=gmos_fpu)
-
-                        file_resource._load_csv(site,
-                                                lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r},
-                                                file=gmos_gratings)
-                    file_resource._load_spreadsheet(file=calendar)
+                        file_resource.load_files(f'GMOS{suffix}_fpu_barcode.txt',
+                                                 gmos_fpu,
+                                                 gmos_gratings,
+                                                 calendar)
 
                     self.set_origin(Origin.FILE.value)
                     self.origin.resource = file_resource

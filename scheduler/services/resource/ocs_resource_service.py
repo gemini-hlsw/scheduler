@@ -6,7 +6,7 @@ import re
 import os
 from copy import copy
 from datetime import datetime, timedelta
-from typing import Dict, Final, List, NoReturn, Set, Tuple
+from typing import Dict, Final, List, NoReturn, Set, Tuple, Union
 from io import BytesIO
 
 from astropy.time import Time
@@ -91,6 +91,8 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         'PinholeC': 'PinholeC'
     }})
 
+
+
     def __init__(self, sites: FrozenSet[Site] = ALL_SITES, with_post_init: bool = True):
         """
         Create and initialize the ResourceMock object with the specified sites.
@@ -136,39 +138,32 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
 
         # The final output from this class: the configuration per night.
         self._night_configurations: Dict[Site, Dict[date, NightConfiguration]] = {site: {} for site in self._sites}
+
         if with_post_init:
             self._load_post_init()
 
+    def _itcd_fpu_to_barcode_parser(self, r: List[str], site: Site) -> Set[str]:
+        return {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]}
+
+    @staticmethod
+    def _mirror_parser(r: List[str], site: Site) -> Set[str]:
+        return {'Mirror'} | {i.strip().replace('+', '') for i in r}
+
     def _load_post_init(self):
+        """
+        Allows loading the OcsResourceService files as it if was done in __init__
+        without also loading it in FileResourceService and keep both with the same
+        internal structure.
+        """
+
         for site in self._sites:
             suffix = ('s' if site == Site.GS else 'n').upper()
 
-            # Load the mappings from the ITCD FPU values to the barcodes.
-            self._load_fpu_to_barcodes(site, f'GMOS{suffix}_fpu_barcode.txt')
-
-            # Load the FPUrs.
-            # This will put both the IFU and the FPU barcodes available on a given date as Resources.
-            # Note that for the IFU, we need to convert to a barcode, which is a Resource.
-            # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take its ID.
-            self._load_csv(site,
-                           lambda r: {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]},
-                           name=f'GMOS{suffix}_FPUr201789.txt')
-
-            # Load the gratings.
-            # This will put the mirror and the grating names available on a given date as Resources.
-            # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
-            self._load_csv(site, lambda r: {'Mirror'} | {i.strip().replace('+', '') for i in r},
-                           name=f'GMOS{suffix}_GRAT201789.txt')
-
-            # Load faults files.
-            self.parse_faults_file(site, f'Faults_AllG{suffix}.txt')
-
-            # Load eng task files.
-            self._parse_eng_task_file(site, f'ClosedDomeG{suffix}_Eng.txt')
-
-        # Process the spreadsheet information for instrument, mode, and LGS settings.
-        self._load_spreadsheet(filename=os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE),
-                               from_gdrive=True)
+            self.load_files(site,
+                            f'GMOS{suffix}_fpu_barcode.txt',
+                            f'GMOS{suffix}_FPUr201789.txt',
+                            f'GMOS{suffix}_GRAT201789.txt',
+                            os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE))
 
         # TODO: Remove this after discussion with science.
         # TODO: There are entries here outside of the Telescope Schedules Spreadsheet.
@@ -223,8 +218,7 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
 
     def _load_csv(self, site: Site,
                   c: Callable[[List[str]], Set[str]],
-                  name: Optional[str] = None,
-                  file: Optional[BytesIO] = None) -> NoReturn:
+                  data_source: Union[str, BytesIO]) -> NoReturn:
         """
         Process a CSV file as a table, where:
 
@@ -253,23 +247,19 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
 
                 # Get or create date_set for the date, and append new resources from table, ignoring blank entries.
                 date_set = self._resources[site].setdefault(row_date, set())
-                new_entries = {self.lookup_resource(r) for r in c(row[1:]) if r}
+                new_entries = {self.lookup_resource(r) for r in c(row[1:], site) if r}
                 self._resources[site][row_date] = date_set | new_entries
 
                 # Advance the previous row date where data was defined.
                 prev_row_date = row_date
 
-        if file:
-            data_str = file.decode()
+        if type(data_source) is str:
+            with open(os.path.join(self._path, data_source)) as f:
+                _process_file(f)
+        else:
+            data_str = data_source.decode()
             f = StringIo(data_str)
             _process_file(f)
-        elif name:
-             with open(os.path.join(self._path, name)) as f:
-                 _process_file(f)
-        else:
-            raise ValueError('Both name and file are None')
-
-
 
     @staticmethod
     def _split_program_ids(text: str) -> Set[ProgramID]:
@@ -289,9 +279,8 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
             date_set = prog_dict.setdefault(prog_id, set())
             date_set.add(add_date)
 
-    def _load_spreadsheet(self, filename: Optional[os.PathLike] = None,
-                          file: Optional[BytesIO] = None,
-                          from_gdrive: Optional[bool] = False) -> NoReturn:
+    def _load_spreadsheet(self, file_source: Union[os.PathLike, BytesIO],
+                          from_gdrive: bool = False) -> None:
         """
         Process an Excel spreadsheet containing instrument, mode, and LGS information.
 
@@ -301,8 +290,9 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
         def none_to_str(value) -> str:
             return '' if value is None else value
 
-        if not file and not filename:
-            raise ValueError('filename and file are both None')
+
+        if not file_source:
+            raise ValueError('file_source cannot be empty')
 
         # filename = os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE)
         if from_gdrive:
@@ -310,14 +300,15 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
             try:
                 GoogleDriveDownloader.download_file_from_google_drive(file_id=OcsResourceService._SITE_CONFIG_GOOGLE_ID,
                                                                       overwrite=True,
-                                                                      dest_path=filename)
+                                                                      dest_path=file_source)
             except requests.RequestException:
                 logger.warning('Could not retrieve site configuration file from Google Drive.')
 
-        if not os.path.exists(filename):
-            raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: {filename}')
+            if not os.path.exists(filename):
+                raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: {filename}')
 
-        workbook = load_workbook(filename=filename if filename else file,
+
+        workbook = load_workbook(filename=file_source,
                                  read_only=True,
                                  data_only=True)
         for site in self._sites:
@@ -640,6 +631,45 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
                             self._faults[site][ts.date()] = {fault}
                     else:
                         raise ValueError('Fault file has wrong format')
+
+
+    def load_files(self,
+                   site: Site,
+                   fpu_to_barcodes_path: str,
+                   fpus_path: Union[str, BytesIO],
+                   gratings_path: Union[str, BytesIO],
+                   spreadsheet: Union[os.PathLike,BytesIO],
+                   from_gdrive: bool = False):
+        """
+        Load all files necessaries to the correct functioning of the ResourceManager.
+        """
+
+        # Load the mappings from the ITCD FPU values to the barcodes.
+        self._load_fpu_to_barcodes(site, fpu_to_barcodes_path)
+
+        # Load the FPUrs.
+        # This will put both the IFU and the FPU barcodes available on a given date as Resources.
+        # Note that for the IFU, we need to convert to a barcode, which is a Resource.
+        # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take its ID.
+        self._load_csv(site,
+                       self._itcd_fpu_to_barcode_parser,
+                       fpus_path)
+
+        # Load the gratings.
+        # This will put the mirror and the grating names available on a given date as Resources.
+        # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
+        self._load_csv(site,
+                       self._mirror_parser,
+                       gratings_path)
+
+        # Load faults files.
+        ## self.parse_faults_file(site, f'Faults_AllG{suffix}.txt')
+
+        # Load eng task files.
+        # self._parse_eng_task_file(site, f'ClosedDomeG{suffix}_Eng.txt')
+
+        # Process the spreadsheet information for instrument, mode, and LGS settings.
+        self._load_spreadsheet(spreadsheet, from_gdrive=from_gdrive)
 
     def date_range_for_site(self, site: Site) -> Tuple[date, date]:
         """

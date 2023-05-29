@@ -65,10 +65,10 @@ def build_scheduler(start: Time, end: Time, sites: FrozenSet[Site], builder: Sch
     """
 
     Args:
-        start (Time, optional): _description_.
-        end (Time, optional): _description_.
-        sites: (FrozenSet[Site], optional)=.
-        sources: (Sources)
+        start (Time): Astropy start time for one/multiple night/s.
+        end (Time): Astropy end time for one/multiple night/s.
+        sites: (FrozenSet[Site]) = Sites to do the schedule.
+        bulder: (SchedulerBuilder) = Builder to create Scheduler components.
 
     Returns:
         Scheduler: Callable executed in the ProcessManager
