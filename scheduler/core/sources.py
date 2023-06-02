@@ -79,12 +79,12 @@ class Sources:
                  service: Services,
                  calendar: BytesIO,
                  gmos_fpu: BytesIO,
-                 gmos_gratings: BytesIO) -> Tuple[bool, str]:
+                 gmos_gratings: BytesIO) -> bool:
 
         match service:
             case Services.ENV:
                 # Weather faults?
-                return False, 'Handler not implemented yet!'
+                return False
 
             case Services.RESOURCE:
                 # Check that the amount of files is correct
@@ -100,12 +100,12 @@ class Sources:
 
                     self.set_origin(Origin.FILE.value)
                     self.origin.resource = file_resource
-                    return True, 'Resource files correctly loaded!'
+                    return True
 
                 else:
-                    return False, 'Missing files to load!'
+                    raise ValueError('Missing files to load for service ')
             case Services.CHRONICLE:
                 # Faults
                 # Task
-                return False, 'Handler not implemented yet!'
+                return False
 

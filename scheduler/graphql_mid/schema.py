@@ -46,13 +46,18 @@ class Mutation:
                 gmos_fpu = await files_input.gmos_fpus.read()
                 gmos_gratings = await files_inputL.gmos_gratings.read()
 
-                loaded, msg = builder.sources.use_file(service,
+                loaded = builder.sources.use_file(service,
                                                        calendar,
                                                        gmos_fpu,
                                                        gmos_gratings)
-                return SourceFileHandlerResponse(service=files_input.service,
-                                                 loaded=loaded,
-                                                 msg=msg)
+                if loaded:
+                    return SourceFileHandlerResponse(service=files_input.service,
+                                                     loaded=loaded,
+                                                     msg=f'Files were loaded for service: {service}')
+                else:
+                    return SourceFileHandlerResponse(service=files_input.service,
+                                                        loaded=loaded,
+                                                        msg='Files failed to load!')
             case Services.ENV:
                 return SourceFileHandlerResponse(service=files_input.service,
                                                  loaded=False,
