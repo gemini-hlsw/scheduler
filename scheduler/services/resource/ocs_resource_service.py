@@ -305,8 +305,8 @@ class OcsResourceService(ResourceManager, metaclass=Singleton):
             except requests.RequestException:
                 logger.warning('Could not retrieve site configuration file from Google Drive.')
 
-            if not os.path.exists(filename):
-                raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: {filename}')
+            if not os.path.exists(file_source):
+                raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: {file_source}')
 
 
         workbook = load_workbook(filename=file_source,
