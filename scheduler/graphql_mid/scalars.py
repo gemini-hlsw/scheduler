@@ -39,8 +39,9 @@ def parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
         return frozenset([parse_specific_site(sites)])
 
 def parse_origins(name: str) -> Origin:
+    print([o for o in Origins])
     try:
-        return Origins[name].value
+        return Origins[name].value()
     except KeyError:
         raise KeyError(f'Illegal origin specified: "{name}". Permitted values: {", ".join(o.value for o in Origins)}')
 

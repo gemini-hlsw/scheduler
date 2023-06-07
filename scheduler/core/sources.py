@@ -52,15 +52,24 @@ class GPPOrigin(Origin):
     def load(self) -> NoReturn:
         raise NotImplementedError('GPP sources are not implemented')
 
+
 class FileOrigin(Origin):
     def load(self):
         return self
 
-class Origins(Enum):
-    FILE = FileOrigin()
-    OCS = OCSOrigin()
-    GPP = GPPOrigin()
 
+class Instantiable:
+    def __init__(self, func):
+        self.func = func
+
+    def __call__(self):
+        return self.func()
+
+
+class Origins(Enum):
+    FILE = Instantiable(lambda: FileOrigin())
+    OCS = Instantiable(lambda: OCSOrigin())
+    GPP = Instantiable(lambda: GPPOrigin())
 
 
 class Sources:
@@ -69,7 +78,7 @@ class Sources:
     Default should be GPP connections. Other modes are OCS services and custom files.
     """
 
-    def __init__(self, origin: Origin = Origins.OCS.value):
+    def __init__(self, origin: Origin = Origins.OCS.value()):
         self.set_origin(origin)
 
     def set_origin(self, origin: Origin):
