@@ -8,6 +8,7 @@ from lucupy.minimodel import GroupID, ObservationID, ProgramID, Site, UniqueGrou
 
 from scheduler.config import ConfigurationError
 from scheduler.core.plans import Plan, Plans, Visit
+from scheduler.core.sources import Origin, Origins
 
 
 def parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
@@ -37,6 +38,12 @@ def parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
         # Single site case
         return frozenset([parse_specific_site(sites)])
 
+def parse_origins(name: str) -> Origin:
+    print([o for o in Origins])
+    try:
+        return Origins[name].value()
+    except KeyError:
+        raise KeyError(f'Illegal origin specified: "{name}". Permitted values: {", ".join(o.value for o in Origins)}')
 
 Sites = strawberry.scalar(NewType("Sites", FrozenSet[Site]),
                           description="Depiction of the sites that can be load to the collector",
@@ -62,3 +69,9 @@ SProgramID = strawberry.scalar(NewType('SProgramID', ProgramID),
                                description='ID of an Program',
                                serialize=lambda x: x.id,
                                parse_value=lambda x: ProgramID(x))
+
+
+SOrigin = strawberry.scalar(NewType('SOrigin', Origin),
+                            description='Origin of the Source',
+                            serialize=lambda x: str(x),
+                            parse_value=lambda x: parse_origins(x))

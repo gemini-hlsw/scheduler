@@ -20,7 +20,6 @@ from scheduler.core.components.ranker import DefaultRanker, Ranker
 from scheduler.core.builder.blueprint import Blueprints
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
-ENV = Blueprints.sources.environment
 
 logger = logger_factory.create_logger(__name__)
 
@@ -297,7 +296,7 @@ class Selector(SchedulerComponent):
         for night_idx in ranker.night_indices:
             # TODO: Use Selector._env when the get actual conditions variant method doesn't return static data.
             # actual_conditions = Selector._env.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
-            actual_conditions = ENV.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
+            actual_conditions = self.collector.sources.origin.env.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
 
             # If we can obtain the conditions variant, calculate the conditions and wind mapping.
             # Otherwise, use arrays of all zeros to indicate that we cannot calculate this information.

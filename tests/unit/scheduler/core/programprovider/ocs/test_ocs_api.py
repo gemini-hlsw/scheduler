@@ -16,16 +16,20 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 
 from scheduler.core.programprovider.ocs import OcsProgramProvider
+from scheduler.core.sources import Sources, Origins
 
 
 def get_api_program() -> Program:
     """
     Load the GN-2022A-Q-999 program from the JSON file.
     """
+    sources = Sources()
     with open(os.path.join('tests', 'data', 'GN-2022A-Q-999.json'), 'r') as f:
         data = json.loads(f.read())
+
+
         obs_classes = frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
-        return OcsProgramProvider(obs_classes).parse_program(data['PROGRAM_BASIC'])
+        return OcsProgramProvider(obs_classes, sources).parse_program(data['PROGRAM_BASIC'])
 
 
 def create_minimodel_program() -> Program:

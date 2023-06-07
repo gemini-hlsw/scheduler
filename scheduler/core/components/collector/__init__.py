@@ -24,6 +24,8 @@ from scheduler.services.resource import NightConfiguration
 
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
 from scheduler.core.service.modes import ValidationMode
+from scheduler.core.sources import Sources
+from scheduler.core.resourcemanager import ResourceManager
 from scheduler.services import logger_factory
 from scheduler.services.resource import OcsResourceService
 
@@ -43,6 +45,7 @@ class Collector(SchedulerComponent):
     end_time: Time
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
+    sources: Sources
     time_slot_length: TimeDelta
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
@@ -52,7 +55,7 @@ class Collector(SchedulerComponent):
 
     # OCS Resource service.
     # TODO: This will need modification when GPP is out.
-    _ocs_resource_manager: ClassVar[OcsResourceService] = OcsResourceService()
+    _ocs_resource_manager: ClassVar[ResourceManager]
 
     # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
     # This is a list of the programs as read in.
@@ -120,6 +123,7 @@ class Collector(SchedulerComponent):
             site: Collector._night_events_manager.get_night_events(self.time_grid, self.time_slot_length, site)
             for site in self.sites
         }
+        Collector._ocs_resource_manager = self.sources.origin.resource
 
     def get_night_events(self, site: Site) -> NightEvents:
         return Collector._night_events_manager.get_night_events(self.time_grid,
@@ -395,7 +399,7 @@ class Collector(SchedulerComponent):
         if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
             raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
 
-        program_provider = program_provider_class(self.obs_classes)
+        program_provider = program_provider_class(self.obs_classes, self.sources)
 
         # Purge the old programs and observations.
         Collector._programs = {}

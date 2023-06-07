@@ -8,7 +8,15 @@ from lucupy.minimodel import Resource
 from scheduler.core.meta import Singleton
 
 
-class ResourceManager(metaclass=Singleton):
+class ExternalService:
+    """
+    Use as common type to all external services used for the scheduler,
+    regardless of Origin (GPP, OCS, Files, etc)
+    """
+    pass
+
+
+class ResourceManager(ExternalService, metaclass=Singleton):
     """
     This is to avoid recreating repetitive resources.
     When we first get a resource ID string, create a Resource for it and store it here.

@@ -8,6 +8,7 @@ from typing import List, Union, FrozenSet
 import pytz
 import strawberry  # noqa
 from strawberry.scalars import JSON
+
 from lucupy.minimodel import ObservationID, Site, ALL_SITES
 
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
@@ -128,5 +129,22 @@ class NewScheduleError:
     """
     error: str
 
+@strawberry.type
+class ChangeOriginSuccess:
+    """
+    Success response for creating a new schedule.
+    """
+    from_origin: str
+    to_origin: str
+
+@strawberry.type
+class SourceFileHandlerResponse:
+    """
+    Error response for missing implementation from
+    files in a service.
+    """
+    service: str
+    loaded: bool
+    msg: str
 
 NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError))  # noqa

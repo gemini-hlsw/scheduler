@@ -24,20 +24,21 @@ class Service:
                  start_time: Time,
                  end_time: Time,
                  semesters: FrozenSet[Semester],
-                 sites: FrozenSet[Site]):
+                 sites: FrozenSet[Site],
+                 builder: SchedulerBuilder):
         self.start_time = start_time
         self.end_time = end_time
         self.semesters = semesters
         self.sites = sites
-
+        self.builder = builder
 
     def __call__(self):
         # signal.signal(signal.SIGINT, signal.SIG_IGN)
-        builder = SchedulerBuilder()  # To trigger the decorator
+        # builder = SchedulerBuilder()  # To trigger the decorator
         programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
         # Retrieve observations from Collector
-        collector = builder.build_collector(self.start_time,
+        collector = self.builder.build_collector(self.start_time,
                                             self.end_time,
                                             self.sites,
                                             self.semesters,
@@ -45,11 +46,11 @@ class Service:
         collector.load_programs(program_provider_class=OcsProgramProvider,
                                 data=programs)
         # Create selection from Selector
-        selector = builder.build_selector(collector)
+        selector = self.builder.build_selector(collector)
         selection = selector.select(sites=self.sites)
 
         # Execute the Optimizer.
-        optimizer = builder.build_optimizer(selection, Blueprints.optimizer)
+        optimizer = self.builder.build_optimizer(selection, Blueprints.optimizer)
         plans = optimizer.schedule()
 
         #Calculate plans stats
@@ -60,22 +61,22 @@ class Service:
         return plans, plan_summary
 
 
-def build_scheduler(start: Time = Time("2018-10-01 08:00:00", format='iso', scale='utc'),
-                    end: Time = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
-                    sites: FrozenSet[Site] = ALL_SITES) -> Service:
+def build_scheduler(start: Time, end: Time, sites: FrozenSet[Site], builder: SchedulerBuilder) -> Service:
     """
 
     Args:
-        start (Time, optional): _description_. Defaults to Time("2018-10-01 08:00:00", format='iso', scale='utc').
-        end (Time, optional): _description_. Defaults to Time("2018-10-03 08:00:00", format='iso', scale='utc').
-        sites: (FrozenSet[Site], optional)=. Defaults to ALL_SITE
+        start (Time): Astropy start time for one/multiple night/s.
+        end (Time): Astropy end time for one/multiple night/s.
+        sites: (FrozenSet[Site]) = Sites to do the schedule.
+        bulder: (SchedulerBuilder) = Builder to create Scheduler components.
 
     Returns:
         Scheduler: Callable executed in the ProcessManager
     """
     semesters = frozenset([Semester.find_semester_from_date(start.to_value('datetime')),
                            Semester.find_semester_from_date(end.to_value('datetime'))])
-    return Service(start, end, semesters, sites)
+
+    return Service(start, end, semesters, sites, builder)
 
 
 def calculate_plans_stats(all_plans: List[Plans],

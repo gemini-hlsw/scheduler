@@ -14,8 +14,6 @@ from lucupy.minimodel.site import Site, ALL_SITES
 from scheduler.config import config, ConfigurationError
 from scheduler.core.components.optimizer.dummy import DummyOptimizer
 from scheduler.core.components.optimizer.greedymax import GreedyMaxOptimizer
-from scheduler.services.resource import OcsResourceService
-from scheduler.services.environment import Env
 
 
 def parse_configuration(enum_class: Type[Enum], value: str) -> Any:
@@ -91,23 +89,6 @@ class OptimizerBlueprint(Blueprint):
         return iter([self.algorithm])
 
 
-class SourcesBlueprint(Blueprint):
-    class ResourceSources(Enum):
-        OCS = OcsResourceService()
-        # TODO: As in full-fledged service? I'm not sure about this name
-        # so suggestions are welcome.
-        FULL = None
-
-    class EnvSources(Enum):
-        MOCK = Env()
-        # TODO: Still need to add the actual OCS Env service implementation here and get rid of MOCK.
-        # TODO: This needs to be hooked up to the real service.
-        FULL = None
-
-    def __init__(self, resource_source: str, env_source: str):
-        self.resource = parse_configuration(SourcesBlueprint.ResourceSources, resource_source).value
-        self.environment = parse_configuration(SourcesBlueprint.EnvSources, env_source).value
-
 
 class Blueprints:
     collector: CollectorBlueprint = CollectorBlueprint(config.collector.observation_classes,
@@ -115,4 +96,3 @@ class Blueprints:
                                                        config.collector.time_slot_length)
     optimizer: OptimizerBlueprint = OptimizerBlueprint(config.optimizer.name)
 
-    sources: SourcesBlueprint = SourcesBlueprint(config.sources.resource, config.sources.environment)
