@@ -7,7 +7,7 @@ import logging
 from lucupy.minimodel import ALL_SITES
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
-from lucupy.minimodel import Semester, SemesterHalf
+from lucupy.minimodel import SemesterHalf
 
 from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint
