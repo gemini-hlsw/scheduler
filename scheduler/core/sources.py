@@ -1,22 +1,25 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from enum import Enum
 from abc import ABC, abstractmethod
-from typing import ClassVar, Optional, NoReturn, Tuple
-from scheduler.services.resource import OcsResourceService, FileResourceService
-from scheduler.core.resourcemanager import ExternalService
-from scheduler.services.environment import Env
+from enum import Enum
 from io import BytesIO
+from typing import Optional, NoReturn
+
+from scheduler.core.resourcemanager import ExternalService
+from scheduler.services.environment import OcsEnvService
+from scheduler.services.resource import OcsResourceService, FileResourceService
+
+from lucupy.minimodel import Site
+
 
 class Services(Enum):
     ENV = 'env'
     RESOURCE = 'resource'
     CHRONICLE = 'chronicle'
 
+
 class Origin(ABC):
-
-
     def __init__(self,
                  resource: Optional[ExternalService] = None,
                  env: Optional[ExternalService] = None,
@@ -31,9 +34,8 @@ class Origin(ABC):
     def load(self) -> NoReturn:
         raise NotImplementedError('load Origin')
 
-
     def __str__(self):
-        return self.__class__.__name__.replace('Origin','').upper()
+        return self.__class__.__name__.replace('Origin', '').upper()
 
 
 class OCSOrigin(Origin):
@@ -41,7 +43,7 @@ class OCSOrigin(Origin):
     def load(self) -> 'OCSOrigin':
         if not self.is_loaded:
             self.resource = OcsResourceService()
-            self.env = Env()
+            self.env = OcsEnvService()
             # OCSOrigin.chronicle
             self.is_loaded = True
             return self
@@ -117,4 +119,3 @@ class Sources:
                 # Faults
                 # Task
                 return False
-

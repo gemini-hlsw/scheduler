@@ -4,6 +4,7 @@ matplotlib
 more-itertools
 numpy>=1.23.*
 openpyxl
+pandas
 pytest
 pytz
 tabulate
