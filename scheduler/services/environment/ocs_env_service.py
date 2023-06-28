@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import bz2
-import logging
 import os
 from typing import Dict, Final, FrozenSet, Optional
 
@@ -62,10 +61,11 @@ class OcsEnvService(metaclass=Singleton):
 
             logger.info(f'Processing weather data for {site.name}...')
             with bz2.BZ2File(input_filename, 'rb') as input_file:
-                self._site_data[site] = pd.read_pickle(input_file)
+                df = pd.read_pickle(input_file)
+                df[OcsEnvService._time_stamp_col] = pd.to_datetime(df[OcsEnvService._time_stamp_col])
+                self._site_data[site] = df
                 logger.info(f'Weather data for {site.name} read in: {len(self._site_data[site])} rows.')
 
-    # @staticmethod
     def get_actual_conditions_variant(self,
                                       site: Site,
                                       start_time: Time,
@@ -76,7 +76,6 @@ class OcsEnvService(metaclass=Singleton):
         times should be a contiguous set of times, but we do not force this.
         """
         df = self._site_data[site]
-        df[OcsEnvService._time_stamp_col] = pd.to_datetime(df[OcsEnvService._time_stamp_col])
 
         # Now try using earliest and latest timestamp.
         # Convert AstroPy times to pandas UTC TimeStamps, taking the floor and ceil of the minutes since these

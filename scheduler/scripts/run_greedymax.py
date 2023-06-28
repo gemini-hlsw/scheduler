@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
@@ -36,7 +36,7 @@ if __name__ == '__main__':
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
         sites=ALL_SITES,
-        semesters=frozenset([Semester(2018,SemesterHalf.B)]),
+        semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
     # Create the Collector and load the programs.
