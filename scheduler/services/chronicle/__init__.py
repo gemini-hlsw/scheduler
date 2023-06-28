@@ -10,7 +10,6 @@ from lucupy.minimodel import ALL_SITES, Site
 
 from definitions import ROOT_DIR
 from scheduler.services.abstract import ExternalService
-from scheduler.core.meta import Singleton
 
 
 @dataclass(frozen=True)
@@ -34,7 +33,7 @@ class EngTask(Interruption):
     end: datetime
 
 
-class ChronicleService(ExternalService, metaclass=Singleton):
+class ChronicleService(ExternalService):
 
     def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
         self._sites = sites
@@ -59,7 +58,7 @@ class FileBasedChronicle(ChronicleService):
             return
 
         with open(os.path.join(self._path, to_file), 'r') as file:
-            for line in file:
+            for line_num, line in enumerate(file):
                 # Find pattern to keep bracket comments not split.
                 match = re.search(pattern, line)
                 if match:
@@ -95,7 +94,7 @@ class FileBasedChronicle(ChronicleService):
                     else:
                         self._eng_task[site][just_date] = {eng_task}
                 else:
-                    raise ValueError('Pattern not found. Format error on Eng Task file')
+                    raise ValueError(f'Pattern not found. Format error on Eng Task file at line {line_num}')
 
     def _parse_faults_file(self, site: Site, to_file: str) -> None:
         """Parse faults from files.
@@ -104,9 +103,9 @@ class FileBasedChronicle(ChronicleService):
         """
         # Files contains this repetitive string in each timestamp, if we need them
         # we could add them as constants.
-        ts_clean = ' 04:00' if site == Site.GS else ' 10:00'
+        ts_clean = ' 04:00' if site is Site.GS else ' 10:00'
         with open(os.path.join(self._path, to_file), 'r') as file:
-            for original_line in file:
+            for line_num, original_line in enumerate(file):
                 line = original_line.rstrip()  # remove trail spaces
                 if line:  # ignore empty lines
                     if line[0].isdigit():
@@ -126,4 +125,4 @@ class FileBasedChronicle(ChronicleService):
                         else:
                             self._faults[site][ts.date()] = {fault}
                     else:
-                        raise ValueError('Fault file has wrong format')
+                        raise ValueError(f'Fault file has wrong format at line {line_num}')
