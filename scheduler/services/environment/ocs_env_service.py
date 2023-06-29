@@ -13,14 +13,13 @@ from astropy.time import Time
 from lucupy.minimodel import ALL_SITES, Site, Variant, CloudCover, ImageQuality
 
 from definitions import ROOT_DIR
-from scheduler.core.meta import Singleton
 from scheduler.services import logger_factory
+from scheduler.services.abstract import ExternalService
 
 logger = logger_factory.create_logger(__name__)
 
 
-# TODO: Make this extend scheduler.services.abstract.ExternalService
-class OcsEnvService(metaclass=Singleton):
+class OcsEnvService(ExternalService):
     """
     This is a historical Resource service used for OCS.
     It is based on data files provided by the science staff for the dates of 2018-01-01 to 2019-12-31.
