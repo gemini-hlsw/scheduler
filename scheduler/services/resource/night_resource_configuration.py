@@ -1,34 +1,13 @@
-# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date
 from typing import FrozenSet
 
 from scheduler.services.resource.filters import AbstractFilter
 
 from lucupy.minimodel import Resource, Site
-
-
-@dataclass(frozen=True)
-class Interruption:
-    """
-    Parent class for any interruption in the night that would
-    cause missing time of observation.
-    """
-    start: datetime
-    time_loss: timedelta
-    reason: str
-
-
-@dataclass(frozen=True)
-class Fault(Interruption):
-    id: str
-
-
-@dataclass(frozen=True)
-class EngTask(Interruption):
-    end: datetime
 
 
 # An instance of this class exists for every night in the configuration file.
