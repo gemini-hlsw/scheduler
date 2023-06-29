@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from copy import deepcopy
@@ -9,6 +9,7 @@ import astropy.units as u
 import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
+from astropy.units import Quantity
 from lucupy.minimodel import (ALL_SITES, AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus,
                               Program, ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, UniqueGroupID,
                               Variant)
@@ -17,7 +18,6 @@ from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, Prog
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.ranker import DefaultRanker, Ranker
-from scheduler.core.builder.blueprint import Blueprints
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 
@@ -42,6 +42,7 @@ class Selector(SchedulerComponent):
     collector: Collector
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
+    _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
 
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
@@ -82,9 +83,6 @@ class Selector(SchedulerComponent):
         # The night_indices in the Selector and Ranker must be the same.
         if not np.array_equal(night_indices, ranker.night_indices):
             raise ValueError(f'The Ranker must have the same night indices as the Selector select method.')
-
-        # Get the night configuration for all nights.
-        night_configurations = {site: self.collector.night_configurations(site, night_indices) for site in sites}
 
         # Create the structure to hold the mapping fom program ID to its group info.
         program_info_map: Dict[ProgramID, ProgramInfo] = {}
@@ -294,9 +292,21 @@ class Selector(SchedulerComponent):
         night_events = self.collector.get_night_events(obs.site)
 
         for night_idx in ranker.night_indices:
-            # TODO: Use Selector._env when the get actual conditions variant method doesn't return static data.
-            # actual_conditions = Selector._env.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
-            actual_conditions = self.collector.sources.origin.env.get_actual_conditions_variant(obs.site, night_events.times[night_idx])
+            # Get the conditions for the night.
+            start_time = night_events.times[night_idx][0]
+            end_time = night_events.times[night_idx][-1]
+            actual_conditions = self.collector.sources.origin.env.get_actual_conditions_variant(obs.site,
+                                                                                                start_time,
+                                                                                                end_time)
+
+            # Make sure that we have conditions for every time slot.
+            variant_length = len(actual_conditions.cc)
+            num_time_slots = len(night_events.times[night_idx])
+            if variant_length != num_time_slots:
+                error_str = (f'Night {night_idx} has {num_time_slots} entries, '
+                             f'but only {variant_length} conditions points.')
+                logger.error(error_str)
+                raise ValueError(error_str)
 
             # If we can obtain the conditions variant, calculate the conditions and wind mapping.
             # Otherwise, use arrays of all zeros to indicate that we cannot calculate this information.
@@ -459,7 +469,7 @@ class Selector(SchedulerComponent):
         """
         wind = np.ones(len(azimuth))
         az_wd = np.abs(azimuth - variant.wind_dir)
-        idx = np.where(np.logical_and(variant.wind_spd > 10,  # * u.m / u.s
+        idx = np.where(np.logical_and(variant.wind_spd > Selector._wind_spd_bound,  # * u.m / u.s
                                       np.logical_or(az_wd <= Selector._wind_sep,
                                                     360. * u.deg - az_wd <= Selector._wind_sep)))[0]
 
@@ -526,17 +536,9 @@ class Selector(SchedulerComponent):
         # does not set soon and is not a rapid ToO.
         # This should work as we are adjusting structures that are passed by reference.
         def adjuster(array, value):
-            # TODO: We get here and array has size 1, neg_ha has size 3 (based on night_indices), and we get [0,1,2].
-            # TODO: This will not work.
-            # TODO EXAMPLE:
-            # np.where(np.logical_and(np.array([0]) < 1, np.array([True, True, True])))
-            # Out: (array([0, 1, 2]),)
-            # better_idx = np.where(np.logical_and(array < value, neg_ha))[0]
-            # better_tmp_idx = np.where(array < value)[0]
-            # better_idx = np.where(neg_ha[better_tmp_idx])[0]
             better_idx = np.where(array < value)[0] if neg_ha else np.array([])
             if len(better_idx) > 0 and (too_status is None or too_status not in {TooType.RAPID, TooType.INTERRUPT}):
-                cond_match[better_idx] = cond_match[better_idx] * array / value
+                cond_match[better_idx] = cond_match[better_idx] * array[better_idx] / value
 
         adjuster(actual_iq, required_conditions.iq)
         adjuster(actual_cc, required_conditions.cc)

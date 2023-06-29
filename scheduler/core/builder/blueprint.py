@@ -1,6 +1,7 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-from typing import Any, FrozenSet, List, Type, Union
+
+from typing import Any, FrozenSet, List, Type
 from enum import Enum
 
 from astropy.time import TimeDelta
@@ -8,8 +9,6 @@ import astropy.units as u
 
 from lucupy.minimodel.observation import ObservationClass
 from lucupy.minimodel.program import ProgramTypes
-from lucupy.minimodel.semester import Semester, SemesterHalf
-from lucupy.minimodel.site import Site, ALL_SITES
 
 from scheduler.config import config, ConfigurationError
 from scheduler.core.components.optimizer.dummy import DummyOptimizer
@@ -89,10 +88,8 @@ class OptimizerBlueprint(Blueprint):
         return iter([self.algorithm])
 
 
-
 class Blueprints:
     collector: CollectorBlueprint = CollectorBlueprint(config.collector.observation_classes,
                                                        config.collector.program_types,
                                                        config.collector.time_slot_length)
     optimizer: OptimizerBlueprint = OptimizerBlueprint(config.optimizer.name)
-
