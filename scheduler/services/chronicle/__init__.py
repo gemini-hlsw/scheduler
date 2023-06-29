@@ -126,3 +126,10 @@ class FileBasedChronicle(ChronicleService):
                             self._faults[site][ts.date()] = {fault}
                     else:
                         raise ValueError(f'Fault file has wrong format at line {line_num}')
+
+    def _parse_time_lost(self, site: Site, to_file: str) -> None:
+        with open(os.path.join(self._path, to_file), 'r') as file:
+            for line in file:
+                data = line.split()
+                print(data)
+
