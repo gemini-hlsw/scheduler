@@ -82,18 +82,53 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return np.where(abs_diff == 1)[0].reshape(-1, 2)
 
     @staticmethod
-    def cummulative_seq_exec_times(sequence: Sequence) -> list:
-        """Cummulative series of execution times for the unobserved atoms in a sequence, excluding acquisition time"""
-        cummul_seq = []
+    def cumulative_seq_exec_times(sequence: Sequence) -> list:
+        """Cumulative series of execution times for the unobserved atoms in a sequence, excluding acquisition time"""
+        cumul_seq = []
         total_exec = timedelta(0.0)
         for atom in sequence:
             if not atom.observed:
                 total_exec += atom.exec_time
-                cummul_seq.append(total_exec)
-        if len(cummul_seq) == 0:
-            cummul_seq.append(total_exec)
+                cumul_seq.append(total_exec)
+        if len(cumul_seq) == 0:
+            cumul_seq.append(total_exec)
 
-        return cummul_seq
+        return cumul_seq
+
+    @staticmethod
+    def first_nonzero_time(inlist: List) -> int:
+        """
+        Find the index of the first nonzero timedelta in inlist
+        Designed to work with the output from cumulative_seq_exec_times
+        """
+        idx = 0
+        value = inlist[idx]
+        while value == timedelta(0):
+            idx += 1
+            value = inlist[idx]
+        return idx
+
+    @staticmethod
+    def num_nir_standards(exec_sci, wavelengths=None, mode='spectroscopy') -> int:
+        """
+        Calculated the number of NIR standards from the length of the NIR science and the mode
+        """
+        n_std = 0
+        time_per_standard = timedelta(0)
+
+        # TODO: need mode or other info to distinguish imaging from spectroscopy
+        if mode == 'imaging':
+            time_per_standard = timedelta(hours=2.0)
+        else:
+            if all(wave <= 2.5 for wave in wavelengths):
+                time_per_standard = timedelta(hours=1.5)
+            else:
+                time_per_standard = timedelta(hours=1.0)
+
+        if time_per_standard > timedelta(0):
+            n_std = max(1, int(exec_sci // time_per_standard))  # TODO: confirm this
+
+        return n_std
 
     def _exec_time_remaining(self, group: Group, verbose=False):
         """Determine the total and minimum remaining execution times.
@@ -120,18 +155,21 @@ class GreedyMaxOptimizer(BaseOptimizer):
         part_times = []
         sci_times_min = []
         for obs in group.observations():
-            # Unobserved remaining time
-            cumm_seq = self.cummulative_seq_exec_times(obs.sequence)
+            # Unobserved remaining time, cumulative sequence of atoms
+            cumul_seq = self.cumulative_seq_exec_times(obs.sequence)
             if verbose:
                 print(f"\t Obs: {obs.id.id} {obs.exec_time()} {obs.obs_class.name} {obs.site.name} "
-                      f"{next(iter(obs.wavelengths()))} {cumm_seq[-1]}")
+                      f"{next(iter(obs.wavelengths()))} {cumul_seq[-1]}")
             #               f"{next(iter(obs.required_resources())).id} {next(iter(obs.wavelengths()))}")
 
-            if cumm_seq[-1] > timedelta(0):
-                time_remain = obs.acq_overhead + cumm_seq[-1]  # total time remaining
-                time_remain_min = obs.acq_overhead + cumm_seq[0]  # Min time remaining (acq + first atom)
+            if cumul_seq[-1] > timedelta(0):
+                # total time remaining
+                time_remain = obs.acq_overhead + cumul_seq[-1]
+                # Min time remaining (acq + first non-zero atom)
+                time_remain_min = obs.acq_overhead + cumul_seq[self.first_nonzero_time(cumul_seq)]
 
                 if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
+                    # Calculate the program time remaining, we won't split program standards
                     nsci += 1
                     sci_times += time_remain
                     if obs.obs_class == ObservationClass.SCIENCE:
@@ -139,10 +177,11 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     else:
                         sci_times_min.append(time_remain)
 
-                    # NIR science time for to determine tellurics
+                    # NIR science time for to determine the number of tellurics
                     if any(inst in group.required_resources() for inst in nir_inst):
                         exec_sci_nir += time_remain
                 elif obs.obs_class == ObservationClass.PARTNERCAL:
+                    # Partner calibration time, no splitting of partner cals
                     nprt += 1
                     part_times.append(time_remain)
 
@@ -159,26 +198,25 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # How many standards are needed?
         # TODO: need mode or other info to distinguish imaging from spectroscopy
         if exec_sci_nir > timedelta(0) and len(part_times) > 0:
-            # spectroscopy
-            if all(wave <= 2.5 for wave in group.wavelengths()):
-                time_per_standard = timedelta(hours=1.5)
-            else:
-                time_per_standard = timedelta(hours=1.0)
-            # for imaging time_per_standard = timedelta(hours=2.0)
-
-            n_std = max(1, int(exec_sci_nir // time_per_standard))  # TODO: confirm this
+            n_std = self.num_nir_standards(exec_sci_nir, wavelengths=group.wavelengths(), mode='spectroscopy')
 
         # if only partner standards, set n_std to the number of standards in group (e.g. specphots)
         if nprt > 0 and nsci == 0:
             n_std = nprt
 
-        if n_std == 1:
-            exec_prt = max(part_times)
-        elif n_std > 1:
-            [print(t) for t in part_times]
-            for t in part_times:
-                exec_prt += t
-            # exec_prt = sum(part_times) # this caused an error
+        # most conservative, at the moment we don't know which standards will be picked,
+        # the same star could be picked for before and after
+        if n_std >= 1:
+            exec_prt = n_std * max(part_times)
+
+        # Earlier method
+        # if n_std == 1:
+        #     exec_prt = max(part_times)
+        # elif n_std > 1:
+        #     # [print(t) for t in part_times]
+        #     for t in part_times:
+        #         exec_prt += t
+        #     # exec_prt = sum(part_times) # this caused an error
 
         exec_remain = exec_sci + exec_prt
         exec_remain_min = exec_sci_min + exec_prt
@@ -432,30 +470,49 @@ class GreedyMaxOptimizer(BaseOptimizer):
             plt.title(label)
         plt.show()
 
-    def plot_timelines(self, night) -> None:
+    def plot_timelines(self, night: int = 0) -> None:
         """Score vs time/slot plot of the timelines for a night"""
 
-        # This may need to be moved out of here to access scores and airmasses
-
-        # fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(10, 10))
-
         for site in self.sites:
-            fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
-            # obs_order = self.timelines[night][site].get_observation_order()
-            # for idx, istart, iend in obs_order:
-            #     obsid = 'Unscheduled'
-            #     if idx != -1:
-            #         obsid = self.obs_group_ids[idx]
-            #         p = ax1.plot(self.obs_groups[idx].group_info.scores[night])
-            #         colour = p[-1].get_color()
-            #         ax1.plot(self.obs_groups[idx].scores[night][istart:iend + 1], linewidth=4,
-            #                  label=obsid)
-            #     print(idx, obsid, istart, iend)
+            fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(10, 10))
+            # fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
+            obs_order = self.timelines[night][site].get_observation_order()
+            for idx, istart, iend in obs_order:
+                obs_id = 'Unscheduled'
+                if idx != -1:
+                    unique_group_id = self.obs_group_ids[idx]
+                    obs_id = ObservationID(unique_group_id.id)
+                    program_id = obs_id.program_id()
+                    scores = self.selection.program_info[program_id].group_data_map[unique_group_id].\
+                             group_info.scores[night]
 
-            ax1.plot(self.timelines[night][site].time_slots)
-            ax1.axhline(0.0, xmax=1.0, color='black')
+                    airmass = self.selection.program_info[program_id].target_info[obs_id][night].airmass
+                    x = np.array([i for i in range(len(airmass))], dtype=int)
+                    p = ax1.plot(x, airmass)
+                    ax2.plot(x, np.log10(scores))
+
+                    colour = p[-1].get_color()
+                    ax1.plot(x[istart:iend + 1], airmass[istart:iend + 1], linewidth=4, color=colour,
+                             label=obs_id.id)
+                    ax2.plot(x[istart:iend + 1], np.log10(scores[istart:iend + 1]), linewidth=4, color=colour,
+                             label=obs_id.id)
+
+                # print(idx, obs_id, istart, iend)
+
+            # ax1.plot(self.timelines[night][site].time_slots)
+            # ax1.axhline(0.0, xmax=1.0, color='black')
+            ax1.axhline(2.0, xmax=1.0, color='black')
+            ax1.set_ylim(2.5, 0.95)
+            ax1.set_xlabel('Time Slot')
+            ax1.set_ylabel('Airmass')
             ax1.set_title(f"Night {night + 1}: {site.name}")
-            # ax1.legend()
+            ax1.legend()
+
+            ax2.set_xlabel('Time Slot')
+            ax2.set_ylabel('log(Score)')
+            ax2.set_title(f"Night {night + 1}: {site.name}")
+            # ax2.legend()
+
             plt.show()
 
     @staticmethod
@@ -496,7 +553,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             observation.sequence[n_atom].observed = True
             observation.sequence[n_atom].qa_state = QAState.PASS
 
-    def _update_score(self, program: Program) -> None:
+    def _update_score(self, program: Program, night=0) -> None:
         """Update the scores of the incomplete groups in the scheduled program"""
 
         print("Call score_program")
@@ -508,12 +565,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
             group, group_info = group_data
             schedulable_group = self.selection.schedulable_groups[unique_group_id]
             print(f"{unique_group_id} {schedulable_group.group.exec_time()} {schedulable_group.group.total_used()}")
-            print(f"\tOld max score: {np.max(schedulable_group.group_info.scores[0]):7.2f} new max score[0]: "
-                  f"{np.max(group_info.scores[0]):7.2f}")
+            print(f"\tOld max score: {np.max(schedulable_group.group_info.scores[night]):7.2f} new max score[0]: "
+                  f"{np.max(group_info.scores[night]):7.2f}")
             # update scores in schedulable_groups if the group is not completely observed
             if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
                 schedulable_group.group_info.scores[:] = group_info.scores[:]
-            print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[0]):7.2f}")
+            print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[night]):7.2f}")
 
     def _run(self, plans: Plans) -> None:
 
@@ -602,7 +659,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 )
 
             # Rescore program
-            self._update_score(program)
+            self._update_score(program, night=night)
 
             if timeline.slots_unscheduled() <= 0:
                 timeline.is_full = True
