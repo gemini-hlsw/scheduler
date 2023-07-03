@@ -4,12 +4,12 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from io import BytesIO
-from typing import Optional, NoReturn
+from typing import Optional, NoReturn, FrozenSet
 
 from scheduler.core.resourcemanager import ExternalService
 from scheduler.services.environment import OcsEnvService
 from scheduler.services.resource import OcsResourceService, FileResourceService
-
+from scheduler.services.chronicle import OcsChronicleService
 from lucupy.minimodel import Site
 
 
@@ -44,7 +44,7 @@ class OCSOrigin(Origin):
         if not self.is_loaded:
             self.resource = OcsResourceService()
             self.env = OcsEnvService()
-            # OCSOrigin.chronicle
+            self.chronicle = OcsChronicleService()
             self.is_loaded = True
             return self
         return self
@@ -87,6 +87,7 @@ class Sources:
         self.origin = origin.load()
 
     def use_file(self,
+                 sites: FrozenSet[Site],
                  service: Services,
                  calendar: BytesIO,
                  gmos_fpu: BytesIO,
@@ -102,14 +103,15 @@ class Sources:
                 if calendar and gmos_fpu and gmos_gratings:
                     file_resource = FileResourceService()
 
-                    for sites in files_input.sites:
+                    for site in sites:
                         suffix = ('s' if site == Site.GS else 'n').upper()
-                        file_resource.load_files(f'GMOS{suffix}_fpu_barcode.txt',
+                        file_resource.load_files(site,
+                                                 f'GMOS{suffix}_fpu_barcode.txt',
                                                  gmos_fpu,
                                                  gmos_gratings,
                                                  calendar)
 
-                    self.set_origin(Origin.FILE.value)
+                    self.set_origin(Origins.FILE.value())
                     self.origin.resource = file_resource
                     return True
 
