@@ -40,9 +40,9 @@ class OcsResourceService(FileBasedResourceService):
             suffix = ('s' if site == Site.GS else 'n').upper()
 
             self.load_files(site,
-                            f'GMOS{suffix}_fpu_barcode.txt',
-                            f'GMOS{suffix}_FPUr201789.txt',
-                            f'GMOS{suffix}_GRAT201789.txt',
+                            f'{site.name}_GMOS_fpu_barcode.txt',
+                            f'{site.name}_GMOS_FPUr201789.txt',
+                            f'{site.name}_GMOS_GRAT201789.txt',
                             os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE),
                             from_gdrive=True)
 

@@ -28,8 +28,8 @@ async def test_load_files_mutation():
 
     _resources_data_path = os.path.join(ROOT_DIR, 'scheduler', 'services', 'resource', 'data')
     calendar = Path(os.path.join(ROOT_DIR,'tests','data'),'telescope_schedule.xlsx').open('rb')
-    gmos_fpu = Path(_resources_data_path,'GMOSS_FPUr201789.txt').open('rb')
-    gmos_grat= Path(_resources_data_path, 'GMOSS_GRAT201789.txt').open('rb')
+    gmos_fpu = Path(_resources_data_path,'GS_GMOS_FPUr201789.txt').open('rb')
+    gmos_grat= Path(_resources_data_path, 'GS_GMOS_GRAT201789.txt').open('rb')
     mut = """
         mutation loadFilesSuccess($service: Strings!,
                                   $site: Sites!,

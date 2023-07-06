@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta, time
 from dataclasses import dataclass
 from typing import final, Union
 
+from astropy.time import Time
 from lucupy.minimodel import ALL_SITES, Site
 
 from definitions import ROOT_DIR
@@ -18,9 +19,10 @@ class TwilightTime:
     value: str = "twi"
 
     def __sub__(self, other):
-        # When an unresolved twilight is calculated
-        # show a huge number to indentify error.
-        return 9999
+        """
+        Raise error if time loss is trying to be calculated without resolving.
+        """
+        raise ArithmeticError('Twilight should be resolved after being operated')
 
 
 @dataclass
@@ -30,33 +32,44 @@ class Interruption:
     cause missing time of observation.
     """
     start: Union[datetime, TwilightTime]
+    end: Union[datetime, TwilightTime]
     reason: str
-    id: Optional[str] = None  # For FR only
-    end: Optional[Union[datetime, TwilightTime]] = None
-    time_loss: Optional[timedelta] = None
 
-    def resolve_twilight(self, even_twi, morn_twi):
+    def __post_init__(self):
+        self.time_loss = None
+
+    def time_loss(self) -> timedelta:
+        """
+        Calculates the timedelta for the time loss.
+        """
+        if isinstance(self.start, TwilightTime) or isinstance(self.end, TwilightTime):
+            raise ValueError('Twilight needs to be resolved to get time loss.')
+        return self.end - self.start
+
+    def resolve_twilight(self, even_twi: Time, morn_twi: Time) -> None:
         """
         Resolve time_loss when values are TwilightTime.
         This has to be called in the Collector.
         """
-        if self.start is TwilightTime:
+        if isinstance(self.start, TwilightTime):
             self.start = even_twi.datetime
-        if self.end is TwilightTime:
+        if isinstance(self.end, TwilightTime):
             self.end = morn_twi.datetime
-        self.time_loss = self.end - self.start
 
 
+@final
 @dataclass
 class Fault(Interruption):
-    pass
+    id: str
 
 
+@final
 @dataclass
 class EngTask(Interruption):
     pass
 
 
+@final
 @dataclass
 class WeatherLoss(Interruption):
     pass
@@ -80,12 +93,8 @@ class FileBasedChronicle(ChronicleService):
     def _parse_eng_task_file(self, site: Site, to_file: str) -> None:
         """
         Parse Engineering task that block moments or the entire night.
-        Each twilight is calculated using lucupy.sky, some discrepancies might affect.
         """
         pattern = r'(\[.*\])'
-        # Ignore GS until the file is created.
-        if site is Site.GS:
-            return
 
         with open(os.path.join(self._path, to_file), 'r') as file:
             for line_num, line in enumerate(file):
@@ -140,8 +149,9 @@ class FileBasedChronicle(ChronicleService):
                                                '%Y %m %d  %H:%M:%S')
                         fault = Fault(id=items[0],
                                       start=ts,  # date with time
-                                      reason=items[3],  # comment for the fault
-                                      time_loss=timedelta(hours=float(items[2])))  # time loss
+                                      end=ts+timedelta(hours=float(items[2])),
+                                      reason=items[3])  # comment for the fault
+
                         if ts.date() in self._faults[site]:
                             self._faults[site][ts.date()].append(fault)
                         else:
@@ -213,11 +223,10 @@ class OcsChronicleService(FileBasedChronicle):
         super().__init__(sites)
 
         for site in self._sites:
-            suffix = ('s' if site == Site.GS else 'n').upper()
             self.load_files(site,
-                            f'EngTasksG{suffix}.txt',
-                            f'Faults_AllG{suffix}.txt',
-                            f'WLG{suffix}.txt')
+                            f'{site.name}_EngTasks.txt',
+                            f'{site.name}_Faults_All.txt',
+                            f'{site.name}_WeatherLoss.txt')
 
 
 class FileChronicleService(FileBasedChronicle):
