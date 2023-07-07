@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
@@ -68,18 +68,24 @@ class Timeline:
         # TODO: Should probably add error handling here.
         # TODO: What if there are no empty slots in the interval?
         # TODO: What if there are not enough time slots that are empty to accommodate the observation?
+        start_time_slot = None
+        start = timedelta(0)
+
         # Get first non-zero slot in given interval.
         interval_empty_slots = np.where(self.time_slots[interval] == Timeline.EMPTY)[0]
-        first_open_slot = interval_empty_slots[0]
+        if len(interval_empty_slots) > 0:
+            first_open_slot = interval_empty_slots[0]
 
-        # and if so, set values of time_slots to the observation index.
-        self.time_slots[interval[first_open_slot:first_open_slot + required_time_slots]] = obs_idx
+            # and if so, set values of time_slots to the observation index.
+            self.time_slots[interval[first_open_slot:first_open_slot + required_time_slots]] = obs_idx
 
-        # First time slot
-        start_time_slot = interval[first_open_slot]
+            # First time slot
+            start_time_slot = interval[first_open_slot]
 
-        # Clock time for the starting index
-        start = self.start + start_time_slot * self.time_slot_length
+            # Clock time for the starting index
+            start = self.start + start_time_slot * self.time_slot_length
+        else:
+            print(f'ERROR: timeline.add. No empty time slots.')
 
         return start_time_slot, start
 
