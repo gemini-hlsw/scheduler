@@ -960,11 +960,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
             # if n_slots_remaining > len(best_interval): # this would avoid splitting
             # split at atoms
-            # Reserve space for the cals, otherwise the science observes will fill the interval
-            n_slots_filled = n_slots_cal
             for obs in prog_obs:
+                # Reserve space for the cals, otherwise the science observes will fill the interval
+                n_slots_filled = n_slots_cal
                 print(f"Adding science: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled = self._add_visit(night, obs, max_group_info, best_interval, n_slots_filled)
+                if after_std is not None:
+                    # "put back" time for the final standard
+                    n_slots_filled -= Plan.time2slots(self.time_slot_length, standards[-1].exec_time())
 
             if after_std is not None:
                 obs = after_std
