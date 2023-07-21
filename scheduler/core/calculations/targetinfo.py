@@ -4,6 +4,7 @@
 from dataclasses import dataclass
 from typing import Dict, Tuple
 
+import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import TimeDelta
@@ -51,6 +52,9 @@ class TargetInfo:
     visibility_time: TimeDelta
     rem_visibility_time: TimeDelta
     rem_visibility_frac: float
+
+    def mean_airmass(self, interval: npt.NDArray[int]):
+        return np.mean(self.airmass[interval])
 
 
 # Type aliases for TargetInfo information.

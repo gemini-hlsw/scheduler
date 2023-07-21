@@ -7,6 +7,7 @@ from scheduler.core.calculations.selection import Selection
 from scheduler.core.plans import Plans
 
 import numpy.typing as npt
+from lucupy.minimodel import Program
 
 # Convenient type alias for Interval
 Interval = npt.NDArray[int]
@@ -24,6 +25,7 @@ class Optimizer:
         # TODO: Assumes that all sites schedule the same amount of nights
         # if num_nights_optimize is None:
         self.period = len(list(self.night_events.values())[0].time_grid)
+        self.selection: Selection = selection
         # else:
         #     self.period = num_nights_optimize
 
@@ -32,3 +34,15 @@ class Optimizer:
         nights = [Plans(self.night_events, night) for night in range(self.period)]
         self.algorithm.schedule(nights)
         return nights
+
+    def _update_score(self, program: Program) -> None:
+        """Update the scores of the incomplete groups in the scheduled program"""
+        program_calculations = self.selection.score_program(program)
+
+        for unique_group_id in program_calculations.top_level_groups:
+            group_data = program_calculations.group_data_map[unique_group_id]
+            group, group_info = group_data
+            schedulable_group = self.selection.schedulable_groups[unique_group_id]
+            # update scores in schedulable_groups if the group is not completely observed
+            if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
+                schedulable_group.group_info.scores[:] = group_info.scores[:]

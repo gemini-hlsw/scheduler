@@ -56,3 +56,4 @@ class BaseOptimizer(ABC):
     @abstractmethod
     def add(self, night: int, max_group_info: Union[GroupData, MaxGroup]):
         ...
+

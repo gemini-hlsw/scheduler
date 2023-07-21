@@ -68,11 +68,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
             self.obs_in_plan[site] = {}
         return self
 
-    # @staticmethod
-    # def progid(obsid) -> str:
-    #     """Return program ID string from observation ID string"""
-    #     return obsid[0:obsid.rfind('-')]
-
     @staticmethod
     def non_zero_intervals(scores: npt.NDArray[float]) -> npt.NDArray[int]:
         """
@@ -469,7 +464,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
         obs_id_nir = None
         for obs in science_obs:
             obs_id = obs.id
-
             cumul_seq = self.cumulative_seq_exec_times(obs.sequence)
             atom_start = self.first_nonzero_time(cumul_seq)
             atom_end = atom_start
