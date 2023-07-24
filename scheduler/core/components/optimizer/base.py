@@ -2,9 +2,9 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Mapping, List, Optional, Tuple
-
+from dataclasses import dataclass
+from datetime import timedelta
+from typing import Mapping, List, Optional, Union
 from lucupy.minimodel.program import ProgramID
 
 from scheduler.core.calculations.groupinfo import GroupData
@@ -12,6 +12,20 @@ from scheduler.core.calculations.programinfo import ProgramInfo
 from scheduler.core.plans import Plan, Plans
 
 from . import Interval
+
+
+@dataclass(frozen=True)
+class MaxGroup:
+    """
+    Store information about the selected group (max score)
+    """
+    group_data: GroupData
+    max_score: float
+    interval: Interval
+    n_min: int
+    n_slots_remaining: int
+    n_std: int
+    exec_sci_nir: timedelta
 
 
 class BaseOptimizer(ABC):
@@ -40,5 +54,6 @@ class BaseOptimizer(ABC):
         ...
 
     @abstractmethod
-    def add(self, group: GroupData, plans: Plans, interval: Optional[Interval] = None):
+    def add(self, night: int, max_group_info: Union[GroupData, MaxGroup]):
         ...
+
