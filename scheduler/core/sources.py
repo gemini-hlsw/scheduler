@@ -6,13 +6,14 @@ from enum import Enum
 from io import BytesIO
 from typing import Optional, NoReturn
 
-from scheduler.core.resourcemanager import ExternalService
+from scheduler.services.abstract import ExternalService
 from scheduler.services.environment import OcsEnvService
 from scheduler.services.resource import OcsResourceService, FileResourceService
 
 from lucupy.minimodel import Site
 
 
+# TODO: This file will need significant cleanup after the initial demo version is released.
 class Services(Enum):
     ENV = 'env'
     RESOURCE = 'resource'
@@ -102,6 +103,7 @@ class Sources:
                 if calendar and gmos_fpu and gmos_gratings:
                     file_resource = FileResourceService()
 
+                    # TODO: files_input is undefined. This will be fixed later.
                     for sites in files_input.sites:
                         suffix = ('s' if site == Site.GS else 'n').upper()
                         file_resource.load_files(f'GMOS{suffix}_fpu_barcode.txt',

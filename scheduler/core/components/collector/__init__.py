@@ -5,7 +5,7 @@ from inspect import isclass
 import time
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import ClassVar, Dict, FrozenSet, Iterable, List, NoReturn, Optional, Tuple, Type, final
+from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 
 import astropy.units as u
 from astropy.coordinates import SkyCoord
@@ -25,9 +25,8 @@ from scheduler.services.resource import NightConfiguration
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
 from scheduler.core.service.modes import ValidationMode
 from scheduler.core.sources import Sources
-from scheduler.core.resourcemanager import ResourceManager
 from scheduler.services import logger_factory
-from scheduler.services.resource import OcsResourceService
+from scheduler.services.resource import ResourceService
 
 logger = logger_factory.create_logger(__name__)
 
@@ -55,7 +54,7 @@ class Collector(SchedulerComponent):
 
     # OCS Resource service.
     # TODO: This will need modification when GPP is out.
-    _ocs_resource_manager: ClassVar[ResourceManager]
+    _ocs_resource_manager: ClassVar[ResourceService]
 
     # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
     # This is a list of the programs as read in.
@@ -385,7 +384,7 @@ class Collector(SchedulerComponent):
         # Return all the target info for the base target in the Observation across the nights of interest.
         return target_info
 
-    def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> NoReturn:
+    def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         """
         Load the programs provided as JSON into the Collector.
 
@@ -398,7 +397,6 @@ class Collector(SchedulerComponent):
         """
         if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
             raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
-
         program_provider = program_provider_class(self.obs_classes, self.sources)
 
         # Purge the old programs and observations.

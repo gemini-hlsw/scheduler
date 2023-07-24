@@ -4,7 +4,7 @@
 import shelve
 from contextlib import contextmanager
 from fcntl import flock, LOCK_SH, LOCK_EX, LOCK_UN
-from typing import List, NoReturn, Optional, FrozenSet
+from typing import List, Optional, FrozenSet
 from lucupy.minimodel import Site
 
 from scheduler.graphql_mid.types import SPlans
@@ -44,7 +44,7 @@ class DBManager:
               plans: List[SPlans],
               start_date: Optional[str] = None,
               end_date: Optional[str] = None,
-              site: Optional[FrozenSet[Site]] = None) -> NoReturn:
+              site: Optional[FrozenSet[Site]] = None) -> None:
         with locking(f'{self.db_path}.lock', LOCK_EX):
             with shelve.open(self.db_path) as db:
                 if start_date and end_date and site:

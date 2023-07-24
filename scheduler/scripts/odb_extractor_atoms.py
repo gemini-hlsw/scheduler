@@ -5,7 +5,7 @@ import gzip
 import json
 import os
 import sys
-from typing import Dict, FrozenSet, Optional, NoReturn, Sequence, TypeVar
+from typing import Dict, FrozenSet, Optional, Sequence, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -511,7 +511,7 @@ def group_proc(group,
                sel_obs_class: FrozenSet = frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL']),
                sel_obs_status: FrozenSet = frozenset(['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION', 'ON_HOLD',
                                                       'READY', 'ONGOING', 'OBSERVED', 'INACTIVE']),
-               fid=sys.stdout, wb=None, verbose=False) -> NoReturn:
+               fid=sys.stdout, wb=None, verbose=False) -> None:
     """
     Process observations within groups.
     """
@@ -579,7 +579,7 @@ def prog_proc(program,
                                                          'ACQ', 'ACQCAL', 'DAYCAL']),
               sel_obs_status: FrozenSet[str] = frozenset(['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION',
                                                           'ON_HOLD', 'READY', 'ONGOING', 'OBSERVED', 'INACTIVE']),
-              fid=sys.stdout, xls=None) -> NoReturn:
+              fid=sys.stdout, xls=None) -> None:
     """
     Process top-level of program.
     """
@@ -674,7 +674,7 @@ def printseq(sequence, comment: str = '', csv: bool = False, path: str = ''):
         out_file.close()
 
 
-def seqxlsx(sequence, comment: str = '', path: str = '') -> NoReturn:
+def seqxlsx(sequence, comment: str = '', path: str = '') -> None:
     """
     Write sequence information to an Excel spreadsheet.
     """
