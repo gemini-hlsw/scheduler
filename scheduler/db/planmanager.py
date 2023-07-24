@@ -45,7 +45,7 @@ class PlanManager:
             plans = deepcopy(db.read(start_date, end_date, site))
             return plans
         except KeyError:
-            raise KeyError('Error on read.')
+            return None
 
     @staticmethod
     def set_plans(plans: List[Plans], sites: FrozenSet[Site]) -> None:
