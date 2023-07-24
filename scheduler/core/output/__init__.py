@@ -1,10 +1,10 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import json
 import os
 import gzip
-from typing import NoReturn, Union, List
+from typing import List
 
 from astropy import units as u
 from lucupy.minimodel import Atom, Group, Observation, ObservationClass, Program
@@ -17,7 +17,7 @@ from scheduler.core.programprovider.ocs import OcsProgramProvider
 
 
 def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.json.gz'),
-                                provider: ProgramProvider = OcsProgramProvider) -> NoReturn:
+                                provider: ProgramProvider = OcsProgramProvider) -> None:
     """
     Using a specified JSON file and a ProgramProvider, read in the program
     and print it.
@@ -29,7 +29,7 @@ def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.js
     program.show()
 
 
-def print_collector_info(collector: Collector, samples: int = 60) -> NoReturn:
+def print_collector_info(collector: Collector, samples: int = 60) -> None:
     # Output some information.
     print(f'Pre-Collector / Collector running from:')
     print(f'   start time:       {collector.start_time}')
@@ -72,12 +72,12 @@ def print_collector_info(collector: Collector, samples: int = 60) -> NoReturn:
         print(f'Observation {obs_id}, Target {target_name}')
 
 
-def print_atoms_for_observation(observation: Observation) -> NoReturn:
+def print_atoms_for_observation(observation: Observation) -> None:
     for atom in observation.sequence:
         print(f'\t{atom}')
 
 
-def atoms_to_sheet(dt: Union[Program, Observation, Group]) -> NoReturn:
+def atoms_to_sheet(dt: Program | Observation | Group) -> None:
     """
     Print out the atoms in a program or observation to a spreadsheet.
     """
@@ -86,14 +86,14 @@ def atoms_to_sheet(dt: Union[Program, Observation, Group]) -> NoReturn:
     ws = wb.active
     ws.append(['id', 'exec_time', 'prog_time', 'part_time', 'observed', 'qa_state', 'guide_state'])
 
-    def save_to_sheet(atom: Atom):
-        ws.cell(column=1, row=atom.id + 1, value=atom.id)
-        ws.cell(column=2, row=atom.id + 1, value=atom.exec_time.total_seconds())
-        ws.cell(column=3, row=atom.id + 1, value=atom.prog_time.total_seconds())
-        ws.cell(column=4, row=atom.id + 1, value=atom.part_time.total_seconds())
-        ws.cell(column=5, row=atom.id + 1, value=atom.observed)
-        ws.cell(column=6, row=atom.id + 1, value=atom.qa_state.value)
-        ws.cell(column=7, row=atom.id + 1, value=atom.guide_state)
+    def save_to_sheet(curr_atom: Atom):
+        ws.cell(column=1, row=curr_atom.id + 1, value=curr_atom.id)
+        ws.cell(column=2, row=curr_atom.id + 1, value=curr_atom.exec_time.total_seconds())
+        ws.cell(column=3, row=curr_atom.id + 1, value=curr_atom.prog_time.total_seconds())
+        ws.cell(column=4, row=curr_atom.id + 1, value=curr_atom.part_time.total_seconds())
+        ws.cell(column=5, row=curr_atom.id + 1, value=curr_atom.observed)
+        ws.cell(column=6, row=curr_atom.id + 1, value=curr_atom.qa_state.value)
+        ws.cell(column=7, row=curr_atom.id + 1, value=curr_atom.guide_state)
 
     # TODO: Output for larger formats(e.g Program) not required but might be good to have.
     if isinstance(dt, Program):
@@ -117,7 +117,7 @@ def atoms_to_sheet(dt: Union[Program, Observation, Group]) -> NoReturn:
         raise ValueError(f'Unsupported type: {type(dt)}')
 
 
-def print_plans(all_plans: List[Plans]) -> NoReturn:
+def print_plans(all_plans: List[Plans]) -> None:
     """
     Print out the visit plans.
     """

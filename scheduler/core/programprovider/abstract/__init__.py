@@ -8,6 +8,8 @@ from lucupy.minimodel import (AndGroup, Atom, Conditions, Constraints, GroupID, 
                               Observation, ObservationClass, OrGroup, Program, ProgramID, QAState, SiderealTarget,
                               Site, Target, TimeAllocation, TimingWindow)
 
+from scheduler.core.sources import Sources
+
 
 class ProgramProvider(ABC):
     """
@@ -26,8 +28,11 @@ class ProgramProvider(ABC):
     * NotImplementedError if the feature is not offered in this provider
     """
 
-    def __init__(self, obs_classes: FrozenSet[ObservationClass]):
+    def __init__(self,
+                 obs_classes: FrozenSet[ObservationClass],
+                 sources: Sources):
         self._obs_classes = obs_classes
+        self._sources = sources
 
     @abstractmethod
     def parse_program(self, data: dict) -> Optional[Program]:

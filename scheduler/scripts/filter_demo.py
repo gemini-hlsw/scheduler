@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
@@ -16,8 +16,8 @@ from scheduler.core.components.collector import *
 from scheduler.core.output import print_collector_info
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.services import logger_factory
-from scheduler.services.resource.filters import *
-from scheduler.core.resourcemanager import ResourceManager
+from scheduler.services.resource import (CompositeFilter, OcsResourceService, ProgramPriorityFilter,
+                                         ProgramPermissionFilter, ResourcesAvailableFilter)
 
 # This is a demo or QA testing ground for the filter functionality.
 if __name__ == '__main__':
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     program_data = collector._programs # noqa
 
     # Get the resource manager.
-    resource_manager = ResourceManager()
+    resource_service = OcsResourceService()
 
     # Example filters.
     # Print the resources from each observation.
@@ -91,11 +91,11 @@ if __name__ == '__main__':
             print(f'--- Program {pid} is rejected.')
 
     resources = frozenset({
-            resource_manager.lookup_resource('GMOS-S'),
-            resource_manager.lookup_resource('Mirror'),
-            resource_manager.lookup_resource('B600'),
-            resource_manager.lookup_resource('10005374'),
-            resource_manager.lookup_resource('10000009')
+            resource_service.lookup_resource('GMOS-S'),
+            resource_service.lookup_resource('Mirror'),
+            resource_service.lookup_resource('B600'),
+            resource_service.lookup_resource('10005374'),
+            resource_service.lookup_resource('10000009')
         })
     f_resources_available = ResourcesAvailableFilter(
         resources=resources

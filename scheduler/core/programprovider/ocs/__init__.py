@@ -6,7 +6,7 @@ import json
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import FrozenSet, Iterable, List, Mapping, NoReturn, Optional, Tuple
+from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
 
 import numpy as np
 from lucupy.helpers import dmsstr2deg
@@ -198,8 +198,7 @@ class OcsProgramProvider(ProgramProvider):
     def __init__(self,
                  obs_classes: FrozenSet[ObservationClass],
                  sources: Sources):
-        super().__init__(obs_classes)
-        self.sources = sources
+        super().__init__(obs_classes, sources)
 
     def parse_magnitude(self, data: dict) -> Magnitude:
         band = MagnitudeBands[data[OcsProgramProvider._MagnitudeKeys.NAME]]
@@ -621,11 +620,11 @@ class OcsProgramProvider(ProgramProvider):
 
         # Transform Resources.
         # TODO: For now, we focus on instruments, and GMOS FPUs and dispersers exclusively.
-        instrument_resources = frozenset([self.sources.origin.resource.lookup_resource(instrument)])
+        instrument_resources = frozenset([self._sources.origin.resource.lookup_resource(instrument)])
         if 'GMOS' in instrument:
             # Convert FPUs and dispersers to barcodes.
-            fpu_resources = frozenset([self.sources.origin.resource.fpu_to_barcode(site, fpu) for fpu in fpus])
-            disperser_resources = frozenset([self.sources.origin.resource.lookup_resource(disperser.split('_')[0])
+            fpu_resources = frozenset([self._sources.origin.resource.fpu_to_barcode(site, fpu) for fpu in fpus])
+            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0])
                                              for disperser in dispersers])
             resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources])
         else:
@@ -1116,7 +1115,7 @@ class OcsProgramProvider(ProgramProvider):
             too_type=too_type)
 
     @staticmethod
-    def _check_too_type(program_id: ProgramID, too_type: TooType, group: Group) -> NoReturn:
+    def _check_too_type(program_id: ProgramID, too_type: TooType, group: Group) -> None:
         """
         Determine the validity of the TooTypes of the Observations in a Program.
 
