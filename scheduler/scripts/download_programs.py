@@ -6,7 +6,7 @@ import telnetlib
 import tempfile
 import zipfile
 from dataclasses import dataclass
-from typing import Mapping, NoReturn, FrozenSet
+from typing import Mapping, FrozenSet
 
 import requests
 from lucupy.minimodel import ProgramTypes, Site, SemesterHalf
@@ -60,7 +60,7 @@ DEFAULT_PROGRAM_TYPES = frozenset([
 def download_programs(server: ODBServer = DEFAULT_SERVER,
                       zip_file: str = os.path.join('..', 'data', 'programs.zip'),
                       semesters: Mapping[Site, str] = None,
-                      program_types: FrozenSet[ProgramTypes] = DEFAULT_PROGRAM_TYPES) -> NoReturn:
+                      program_types: FrozenSet[ProgramTypes] = DEFAULT_PROGRAM_TYPES) -> None:
     """
     Download a list of the programs from the specified server to a temporary directory and produce a zip file.
     * server: an observing database (ODB) server information
@@ -93,7 +93,7 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
                 logger.info(f'Skipping {program_name}: {program_info[0]} is not a site of interest')
             elif program_info[1] not in semesters[Site[program_info[0]]]:
                 logger.info(f'Skipping {program_name}: site {program_info[0]}, semester {program_info[1]} '
-                             'is not a semester of interest')
+                            'is not a semester of interest')
             elif program_info[2] not in program_codes:
                 logger.info(f'Skipping {program_name}: {program_info[2]} is not a selected program type')
             else:

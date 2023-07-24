@@ -7,7 +7,6 @@ import functools
 from datetime import datetime
 from multiprocessing import Process
 from random import randint
-from typing import NoReturn
 
 from scheduler.core.meta import Singleton
 from scheduler.core.service.service import Service
@@ -42,7 +41,7 @@ class ProcessManager(metaclass=Singleton):
         else:
             raise ValueError(f'Invalid mode {mode}')
 
-    def add_task(self, start: datetime, target: callable, mode: TaskType) -> NoReturn:
+    def add_task(self, start: datetime, target: callable, mode: TaskType) -> None:
         task = SchedulerTask(start,
                              target,
                              self.timeout)
@@ -73,12 +72,14 @@ class ProcessManager(metaclass=Singleton):
         self.realtime_runner.terminate_all()
         self.standard_runner.terminate_all()
 
+
 def setup_with(mode: SchedulerModes):
     # Setup scheduler mode
     try:
         mode = SchedulerModes[config.mode.upper()]
-    except:
+    except KeyError:
         raise ValueError('Mode is Invalid!')
+
     def decorator_setup(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -90,6 +91,7 @@ def setup_with(mode: SchedulerModes):
             return pm
         return wrapper
     return decorator_setup
+
 
 @setup_with(config.mode)
 def setup_manager():

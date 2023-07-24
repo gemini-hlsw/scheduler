@@ -3,7 +3,7 @@
 
 import os
 from copy import deepcopy
-from typing import List, NoReturn, FrozenSet
+from typing import List, FrozenSet
 from lucupy.minimodel import Site
 
 from scheduler.core.plans import Plans
@@ -34,10 +34,10 @@ class PlanManager:
             plans = deepcopy(db.read())
             return plans
         except KeyError:
-            return None
+            raise KeyError('Error on read.')
 
     @staticmethod
-    def get_plans_by_input(start_date: str, end_date: str, site: FrozenSet[Site]) ->  List[SPlans]:
+    def get_plans_by_input(start_date: str, end_date: str, site: FrozenSet[Site]) -> List[SPlans]:
         """
         A more specific way to get plans by the `CreateNewSchedule` input.
         """
@@ -45,9 +45,10 @@ class PlanManager:
             plans = deepcopy(db.read(start_date, end_date, site))
             return plans
         except KeyError:
-            return []
+            return None
+
     @staticmethod
-    def set_plans(plans: List[Plans], sites: FrozenSet[Site]) -> NoReturn:
+    def set_plans(plans: List[Plans], sites: FrozenSet[Site]) -> None:
         """
         Note that we are converting List[Plans] to List[SPlans].
         """
@@ -57,4 +58,4 @@ class PlanManager:
                 SPlans.from_computed_plans(p, sites) for p in calculated_plans
             ])
         except KeyError:
-            raise KeyError(f'Error on read!')
+            raise KeyError('Error on write.')

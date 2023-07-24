@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import ClassVar, List, NoReturn, Mapping, Optional, Sequence, Tuple, Union
+from typing import ClassVar, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 from lucupy.minimodel import Observation, ObservationID, Site
@@ -35,7 +35,7 @@ class Timeline:
     def __contains__(self, obs: Observation) -> bool:
         return obs.id in self.time_slots
 
-    def get_available_intervals(self, first: bool = False) -> Union[Interval, List[Interval]]:
+    def get_available_intervals(self, first: bool = False) -> Interval | List[Interval]:
         """
         Get the set of time_slot Intervals that can be scheduled. If desired, return only the first.
         If there are no Intervals, return an empty array.
@@ -117,7 +117,7 @@ class Timeline:
 
         return f"{self.get_observation_order()}"
 
-    def print(self, obs_ids: Sequence[ObservationID]) -> NoReturn:
+    def print(self, obs_ids: Sequence[ObservationID]) -> None:
         """Print the obsids and times associated with the timeline"""
 
         delta = timedelta(milliseconds=500)  # for rounding to the nearest second

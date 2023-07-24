@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from typing import Dict
@@ -8,13 +8,12 @@ from lucupy import sky
 from lucupy.minimodel import Site
 
 from scheduler.core.calculations import NightEvents
-from scheduler.core.components.base import SchedulerComponent
+from scheduler.core.meta import Singleton
 
 
-class NightEventsManager(SchedulerComponent):
+class NightEventsManager(metaclass=Singleton):
     """
-    Manages pre-calculation of NightEvents.
-    We only maintain one set of NightEvents for a site at any given time.
+    A singleton class that manages pre-calculations of NightEvents for each Site during the dates specified.
     """
     _night_events: Dict[Site, NightEvents] = {}
 

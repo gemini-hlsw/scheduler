@@ -144,7 +144,3 @@ def calculate_plans_stats(all_plans: List[Plans],
         plans_summary[p_id] = (completition,score)
 
     return plans_summary
-
-
-
-
