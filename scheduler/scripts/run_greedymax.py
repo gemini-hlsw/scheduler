@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     # Execute the Selector.
     # Not sure the best way to display the output.
-    selector = SchedulerBuilder.build_selector(collector)
+    selector = SchedulerBuilder.build_selector(collector, num_nights_to_schedule=3)
     selection = selector.select()
 
     # Notes for data access:

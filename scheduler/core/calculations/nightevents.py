@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass, field
@@ -64,7 +64,6 @@ class NightEvents:
     def __post_init__(self):
         # Calculate the length of each night at this site, i.e. time between twilights.
         night_length = TimeDelta((self.twilight_morning_12 - self.twilight_evening_12).to(u.hour))
-        # night_length = TimeDelta((self.twilight_morning_12 - self.twilight_evening_12).to_value('hr'))
         object.__setattr__(self, 'night_length', night_length)
 
         # Create the time arrays, which are arrays that represent the earliest starting
