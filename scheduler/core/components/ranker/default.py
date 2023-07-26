@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable, FrozenSet, Mapping, Tuple
+from typing import Callable, FrozenSet, Mapping, Tuple, final
 
 import astropy.units as u
 import numpy as np
@@ -24,7 +24,8 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
     return np.array([np.max(x)]) if 0 not in x else np.array([0.])
 
 
-@dataclass(frozen=True, unsafe_hash=True)
+@final
+@dataclass(frozen=True)
 class RankerParameters:
     """
     Global parameters for the Ranker.
@@ -43,7 +44,8 @@ class RankerParameters:
     score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = _default_score_combiner
 
 
-@dataclass(frozen=True, unsafe_hash=True)
+@final
+@dataclass(frozen=True)
 class RankerBandParameters:
     """
     Parameters per band for the Ranker.
