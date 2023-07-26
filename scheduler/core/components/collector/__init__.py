@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from inspect import isclass
@@ -35,10 +35,12 @@ logger = logger_factory.create_logger(__name__)
 @dataclass
 class Collector(SchedulerComponent):
     """
-    At this point, we still work with AstroPy Time for efficiency.
-    We will switch do datetime and timedelta by the end of the Collector
-    so that the Scheduler relies on regular Python datetime and timedelta
-    objects instead.
+    The interval [start_time, end_time] indicates the time interval that we want to calculate during the
+    scheduling and is used for visibility calculations.
+
+    The actual number of nights for which we want to schedule is in the Selector and indicates that we want to
+    schedule num_nights starting at the night indicated by start_time. Note that num_nights must be no bigger than
+    the number of nights in the time interval given here.
     """
     start_time: Time
     end_time: Time
@@ -52,8 +54,8 @@ class Collector(SchedulerComponent):
     # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
     _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
 
-    # OCS Resource service.
-    # TODO: This will need modification when GPP is out.
+    # Resource service.
+    # TODO: This will be moved out when event processing is handled.
     _resource_service: ClassVar[ResourceService]
 
     # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
@@ -111,11 +113,15 @@ class Collector(SchedulerComponent):
             msg = f'Start time ({self.start_time}) must be earlier than end time ({self.end_time}).'
             raise ValueError(msg)
 
-        # Set up the time grid for the period under consideration: this is an astropy Time
+        # Set up the time grid for the period under consideration in calculations: this is an astropy Time
         # object from start_time to end_time inclusive, with one entry per day.
         # Note that the format is in jdate.
         self.time_grid = Time(np.arange(self.start_time.jd, self.end_time.jd + 1.0, (1.0 * u.day).value), format='jd')
 
+        # The number of nights for which we are performing calculations.
+        self.num_nights_calculated = len(self.time_grid)
+
+        # TODO: This code can be greatly simplified. The night_events only have to be calculated once.
         # Create the night events, which contain the data for all given nights by site.
         # This may retrigger a calculation of the night events for one or more sites.
         self.night_events = {

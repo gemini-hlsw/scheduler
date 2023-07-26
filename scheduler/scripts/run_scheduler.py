@@ -1,11 +1,11 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
 import logging
 
 from lucupy.minimodel.site import ALL_SITES
-from lucupy.minimodel.semester import Semester, SemesterHalf
+from lucupy.minimodel.semester import SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     # Execute the Selector.
     # Not sure the best way to display the output.
-    selector = SchedulerBuilder.build_selector(collector)
+    selector = SchedulerBuilder.build_selector(collector, num_nights_to_schedule=3)
     selection = selector.select()
 
     # Notes for data access:

@@ -1,12 +1,11 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
-import signal
 
-from typing import FrozenSet, Mapping, List, Tuple
+from typing import Dict, FrozenSet, Mapping, List, Tuple
 from astropy.time import Time
-from lucupy.minimodel import Site, ALL_SITES, Semester, Band, Conditions, ProgramID
+from lucupy.minimodel import Site, Semester, Band, Conditions, ProgramID
 
 
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
@@ -23,11 +22,13 @@ class Service:
     def __init__(self,
                  start_time: Time,
                  end_time: Time,
+                 num_nights_to_schedule: int,
                  semesters: FrozenSet[Semester],
                  sites: FrozenSet[Site],
                  builder: SchedulerBuilder):
         self.start_time = start_time
         self.end_time = end_time
+        self.num_nights_to_schedule = num_nights_to_schedule
         self.semesters = semesters
         self.sites = sites
         self.builder = builder
@@ -39,21 +40,21 @@ class Service:
 
         # Retrieve observations from Collector
         collector = self.builder.build_collector(self.start_time,
-                                            self.end_time,
-                                            self.sites,
-                                            self.semesters,
-                                            Blueprints.collector)
+                                                 self.end_time,
+                                                 self.sites,
+                                                 self.semesters,
+                                                 Blueprints.collector)
         collector.load_programs(program_provider_class=OcsProgramProvider,
                                 data=programs)
         # Create selection from Selector
-        selector = self.builder.build_selector(collector)
+        selector = self.builder.build_selector(collector, self.num_nights_to_schedule)
         selection = selector.select(sites=self.sites)
 
         # Execute the Optimizer.
         optimizer = self.builder.build_optimizer(selection, Blueprints.optimizer)
         plans = optimizer.schedule()
 
-        #Calculate plans stats
+        # Calculate plans stats
         plan_summary = calculate_plans_stats(plans, collector, selection)
 
         # Save to database
@@ -61,14 +62,19 @@ class Service:
         return plans, plan_summary
 
 
-def build_scheduler(start: Time, end: Time, sites: FrozenSet[Site], builder: SchedulerBuilder) -> Service:
+def build_scheduler(start: Time,
+                    end: Time,
+                    num_nights_to_schedule: int,
+                    sites: FrozenSet[Site],
+                    builder: SchedulerBuilder) -> Service:
     """
 
     Args:
-        start (Time): Astropy start time for one/multiple night/s.
-        end (Time): Astropy end time for one/multiple night/s.
+        start (Time): Astropy start time for calculations.
+        end (Time): Astropy end time for calculations.
+        num_nights_to_schedule (int): The number of nights for which to generate plans starting at start.
         sites: (FrozenSet[Site]) = Sites to do the schedule.
-        bulder: (SchedulerBuilder) = Builder to create Scheduler components.
+        builder: (SchedulerBuilder) = Builder to create Scheduler components.
 
     Returns:
         Scheduler: Callable executed in the ProcessManager
@@ -76,19 +82,19 @@ def build_scheduler(start: Time, end: Time, sites: FrozenSet[Site], builder: Sch
     semesters = frozenset([Semester.find_semester_from_date(start.to_value('datetime')),
                            Semester.find_semester_from_date(end.to_value('datetime'))])
 
-    return Service(start, end, semesters, sites, builder)
+    return Service(start, end, num_nights_to_schedule, semesters, sites, builder)
 
 
 def calculate_plans_stats(all_plans: List[Plans],
                           collector: Collector,
-                          selection: Selection) -> Mapping[ProgramID,Tuple[str,float]]:
+                          selection: Selection) -> Mapping[ProgramID, Tuple[str, float]]:
 
-    all_programs_visits = {}
-    all_programs_length = {}
-    all_programs_scores = {}
+    all_programs_visits: Dict[ProgramID, int] = {}
+    all_programs_length: Dict[ProgramID, int] = {}
+    all_programs_scores: Dict[ProgramID, float] = {}
     n_toos = 0
     plan_conditions = []
-    completion_fraction = {b:0 for b in Band}
+    completion_fraction = {b: 0 for b in Band}
     plan_score = 0
 
     for plans in all_plans:
@@ -102,23 +108,23 @@ def calculate_plans_stats(all_plans: List[Plans],
                 plan_score += visit.score
                 # add used conditions
                 plan_conditions.append(obs.constraints.conditions)
-                # check completition
+                # check completion
                 program = collector.get_program(obs.belongs_to)
 
-                if program.id.id in all_programs_visits:
-                    all_programs_visits[program.id.id] += 1
-                    all_programs_scores[program.id.id] += visit.score
+                if program.id in all_programs_visits:
+                    all_programs_visits[program.id] += 1
+                    all_programs_scores[program.id] += visit.score
                 else:
-                    # TODO: This asssumes the observations are not splittable
-                    # TODO: and would change in the future.
-                    all_programs_length[program.id.id] = len(program.observations())
-                    all_programs_visits[program.id.id] = 0
-                    all_programs_scores[program.id.id] = visit.score
+                    # TODO: This assumes the observations are not splittable
+                    # TODO: and will change in the future.
+                    all_programs_length[program.id] = len(program.observations())
+                    all_programs_visits[program.id] = 0
+                    all_programs_scores[program.id] = visit.score
 
                 if program.band in completion_fraction:
                     completion_fraction[program.band] += 1
                 else:
-                    raise KeyError('Missing Band in Program!')
+                    raise KeyError(f'Missing band {program.band} in program {program.id.id}.')
 
                 # Calculate altitude data
                 ti = collector.get_target_info(visit.obs_id)
@@ -127,20 +133,20 @@ def calculate_plans_stats(all_plans: List[Plans],
                 alt_degs = [val.dms[0] + (val.dms[1]/60) + (val.dms[2]/3600) for val in values]
                 plan.alt_degs.append(alt_degs)
 
-            plan.night_stats =  NightStats(f'{plan.time_left()} min',
-                                            plan_score,
-                                            Conditions.most_restrictive_conditions(plan_conditions),
-                                            n_toos,
-                                            completion_fraction)
+            plan.night_stats = NightStats(f'{plan.time_left()} min',
+                                          plan_score,
+                                          Conditions.most_restrictive_conditions(plan_conditions),
+                                          n_toos,
+                                          completion_fraction)
             n_toos = 0
             plan_score = 0
             plan_conditions = []
-            completion_fraction = {b:0 for b in Band}
+            completion_fraction = {b: 0 for b in Band}
 
     plans_summary = {}
     for p_id in all_programs_visits:
-        completition = f'{all_programs_visits[p_id]/all_programs_length[p_id]*100:.1f}%'
+        completion = f'{all_programs_visits[p_id]/all_programs_length[p_id]*100:.1f}%'
         score = all_programs_scores[p_id]
-        plans_summary[p_id] = (completition,score)
+        plans_summary[p_id] = (completion, score)
 
     return plans_summary
