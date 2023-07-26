@@ -13,6 +13,7 @@ class CreateNewScheduleInput:
     """
     start_time: str
     end_time: str
+    num_nights_to_schedule: int
     site: Sites
 
 

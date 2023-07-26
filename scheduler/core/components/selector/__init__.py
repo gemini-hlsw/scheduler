@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import ClassVar, Dict, FrozenSet, Optional
+from typing import ClassVar, Dict, FrozenSet, Optional, final
 
 import astropy.units as u
 import numpy as np
@@ -28,6 +28,7 @@ NightConfigurations = Dict[NightIndex, NightConfiguration]
 NightConfigurationData = Dict[Site, NightConfigurations]
 
 
+@final
 @dataclass(frozen=True)
 class Selector(SchedulerComponent):
     """
@@ -35,14 +36,21 @@ class Selector(SchedulerComponent):
     It selects the scheduling candidates that are viable for the data collected by
     the Collector.
 
-    Note that unlike the Collector, the Selector does not use static variables, since
-    the data contained here can change over time, unlike the Collector where the
-    information is statically determined.
+    The collector is the data repository that contains all the data and calculations necessary for scheduling.
+    The num_nights indicates the number of nights for which we wish to schedule.
     """
     collector: Collector
+    num_nights_to_schedule: int
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
     _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
+
+    def __post_init__(self):
+        if (self.num_nights_to_schedule < 0 or
+                self.num_nights_to_schedule > self.collector.num_nights_calculated):
+            raise ValueError(f'Scheduling requested for {self.num_nights_to_schedule} nights, but visibility '
+                             f'calculations only performed for {self.collector.num_nights_calculated}. '
+                             'Cannot proceed.')
 
     def select(self,
                sites: FrozenSet[Site] = ALL_SITES,
@@ -66,11 +74,6 @@ class Selector(SchedulerComponent):
         Bubble this information back up to conglomerate it for the parent groups.
 
         An AND group must be able to perform all of its children.
-
-        TODO: Currently OR groups cannot be handled. They are not supported by OCS and
-        TODO: attempts to include them will result in a NotImplementedException.
-        TODO: Further design work must be done to determine how to score them and how to
-        TODO: determine the time slots at which they can be scheduled.
         """
         # If no night indices are specified, assume all night indices.
         if night_indices is None:
@@ -149,12 +152,13 @@ class Selector(SchedulerComponent):
 
         # If no night indices are specified, assume all night indices.
         if night_indices is None:
-            night_indices = np.arange(len(self.collector.time_grid))
+            night_indices = np.arange(self.collector.num_nights_calculated)
 
         # If no manual ranker was specified, create the default.
         if ranker is None:
             ranker = DefaultRanker(self.collector, night_indices, sites)
 
+        # TODO: This should no longer need to be the case. The night_indices requested need be a subset?
         # The night_indices in the Selector and Ranker must be the same.
         if not np.array_equal(night_indices, ranker.night_indices):
             raise ValueError(f'The Ranker must have the same night indices as the Selector select method.')
