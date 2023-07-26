@@ -13,13 +13,14 @@ from astropy.time import Time, TimeDelta
 from lucupy import sky
 from lucupy.minimodel import (Constraints, ElevationType, NightIndices, NonsiderealTarget, Observation, ObservationID,
                               ObservationClass, Program, ProgramID, ProgramTypes, Semester, SiderealTarget, Site,
-                              SkyBackground, Target)
+                              SkyBackground, Target, QAState, ObservationStatus)
 import numpy as np
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.programprovider.abstract import ProgramProvider
+from scheduler.core.plans import Plans
 from scheduler.services.resource import NightConfiguration
 
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
@@ -481,3 +482,28 @@ class Collector(SchedulerComponent):
                 self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
             )
             for night_idx in night_indices]
+
+    def time_accounting(self, site_plans: Plans) -> None:
+        for plan in site_plans:
+            for v in plan.visits:
+                # Update Observation from Collector.
+                observation = self.get_observation(v.obs_id)
+                # check that Observation is Observed
+                observation.status = ObservationStatus.ONGOING
+
+                # Update by atom in the sequence
+                for atom_idx, atom in enumerate(observation.sequence):
+
+                    atom.program_used = atom.prog_time
+                    atom.partner_used = atom.part_time
+
+                    # Charge acquisition to the first atom
+                    if atom_idx == 0:
+                        if observation.obs_class == ObservationClass.PARTNERCAL:
+                            atom.program_used += observation.acq_overhead
+                        elif (observation.obs_class == ObservationClass.SCIENCE or
+                              observation.obs_class == ObservationClass.PROGCAL):
+                            atom.program_used += observation.acq_overhead
+
+                    atom.observed = True
+                    atom.qa_state = QAState.PASS
