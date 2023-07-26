@@ -492,7 +492,10 @@ class Collector(SchedulerComponent):
                 # Update Observation from Collector.
                 observation = self.get_observation(v.obs_id)
                 # check that Observation is Observed
-                observation.status = ObservationStatus.ONGOING
+                if v.atom_end_idx == len(observation.sequence)-1:
+                    observation.status = ObservationStatus.OBSERVED
+                else:
+                    observation.status = ObservationStatus.ONGOING
 
                 # Update by atom in the sequence
                 for atom_idx, atom in enumerate(observation.sequence):
