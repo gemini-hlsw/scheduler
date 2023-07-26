@@ -19,18 +19,20 @@ class Optimizer:
     All algorithms need to follow the same structure to create a Plan
     """
 
-    def __init__(self, selection: Selection, algorithm=None):
-        self.algorithm = algorithm.setup(selection)
+    def __init__(self, algorithm=None):
+        self.algorithm = algorithm
+        self.selection = None
+        self.period = None
+        self.night_events = None
+
+    def schedule(self, selection: Selection) -> List[Plans]:
+        # Create set of plans for the amount of nights
+        self.selection = selection
+        self.algorithm.setup(selection)
         self.night_events = selection.night_events
         # TODO: Assumes that all sites schedule the same amount of nights
         # if num_nights_optimize is None:
-        self.period = len(list(self.night_events.values())[0].time_grid)
-        self.selection: Selection = selection
-        # else:
-        #     self.period = num_nights_optimize
-
-    def schedule(self) -> List[Plans]:
-        # Create set of plans for the amount of nights
+        # self.period = len(list(self.night_events.values())[0].time_grid)
         nights = [Plans(self.night_events, night) for night in range(self.period)]
         self.algorithm.schedule(nights)
         return nights
