@@ -484,6 +484,9 @@ class Collector(SchedulerComponent):
             for night_idx in night_indices]
 
     def time_accounting(self, site_plans: Plans) -> None:
+        """ Do time accounting for Plans in both site but for only one night.
+            As implemented right now it does not consider any interruptions.
+        """
         for plan in site_plans:
             for v in plan.visits:
                 # Update Observation from Collector.
