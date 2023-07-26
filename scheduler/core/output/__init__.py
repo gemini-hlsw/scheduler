@@ -127,4 +127,4 @@ def print_plans(all_plans: List[Plans]) -> None:
         for plan in plans:
             print(f'Plan for site: {plan.site.name}')
             for visit in plan.visits:
-                print(f'\t{visit.start_vis_time}   {visit.obs_id.id:20} {visit.score:8.2f}')
+                print(f'\t{visit.start_time}   {visit.obs_id.id:20} {visit.score:8.2f}')

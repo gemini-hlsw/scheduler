@@ -121,7 +121,9 @@ class Collector(SchedulerComponent):
         # Set up the time grid for the period under consideration in calculations: this is an astropy Time
         # object from start_time to end_time inclusive, with one entry per day.
         # Note that the format is in jdate.
-        self.time_grid = Time(np.arange(self.start_vis_time.jd, self.end_vis_time.jd + 1.0, (1.0 * u.day).value), format='jd')
+        self.time_grid = Time(np.arange(self.start_vis_time.jd,
+                                        self.end_vis_time.jd + 1.0, (1.0 * u.day).value),
+                              format='jd')
 
         # The number of nights for which we are performing calculations.
         self.num_nights_calculated = len(self.time_grid)

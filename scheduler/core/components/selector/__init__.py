@@ -75,7 +75,7 @@ class Selector(SchedulerComponent):
 
         An AND group must be able to perform all of its children.
         """
-        # If no night indices are specified, assume all night indices.
+        # NOTE: If night_indices is None, assume the whole calculation period.
         if night_indices is None:
             night_indices = np.arange(len(self.collector.time_grid))
 
@@ -121,7 +121,7 @@ class Selector(SchedulerComponent):
             program_info=program_info_map,
             schedulable_groups=schedulable_groups_map,
             night_events={site: self.collector.get_night_events(site) for site in sites},
-            num_nights=len(self.collector.time_grid),
+            night_indices=night_indices,
             time_slot_length=self.collector.time_slot_length.to_datetime(),
             _program_scorer=self.score_program
         )
@@ -158,10 +158,15 @@ class Selector(SchedulerComponent):
         if ranker is None:
             ranker = DefaultRanker(self.collector, night_indices, sites)
 
-        # TODO: This should no longer need to be the case. The night_indices requested need be a subset?
-        # The night_indices in the Selector and Ranker must be the same.
-        if not np.array_equal(night_indices, ranker.night_indices):
-            raise ValueError(f'The Ranker must have the same night indices as the Selector select method.')
+        # The night_indices in the Selector must be a subset of the Ranker.
+        night_indices_set = set(night_indices)
+        if not night_indices_set.issubset(ranker.night_indices):
+            ranker_night_indices = set(ranker.night_indices)
+            invalid_night_indices = night_indices_set - ranker_night_indices
+            raise ValueError(f'Selector is attempting to score program {program.id} on invalid night indices:\n'
+                             f'\tAvailable night indices: {ranker.night_indices}\n'
+                             f'\tNight indices to score: {night_indices_set}\n'
+                             f'\tInvalid night indices: {invalid_night_indices}')
 
         # Get the night configuration for all nights.
         night_configurations = {site: self.collector.night_configurations(site, night_indices) for site in sites}

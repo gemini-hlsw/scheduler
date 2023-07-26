@@ -61,9 +61,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         self.group_data_list = list(selection.schedulable_groups.values())
         # self._process_group_data(self.group_data_list)
         self.obs_group_ids = list(selection.obs_group_ids) # noqa
-        num_nights = selection.num_nights
-        # print('Number of nights: ', num_nights)
-        self.timelines = [Timelines(selection.night_events, night) for night in range(num_nights)]
+        self.timelines = [Timelines(selection.night_events, night_idx) for night_idx in selection.night_indices]
         self.sites = selection.sites
         self.time_slot_length = selection.time_slot_length
         for site in self.sites:
