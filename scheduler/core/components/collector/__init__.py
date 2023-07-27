@@ -489,16 +489,14 @@ class Collector(SchedulerComponent):
 
     def night_configurations(self,
                              site: Site,
-                             night_indices: NightIndices) -> List[NightConfiguration]:
+                             night_indices: NightIndices) -> Dict[NightIndices, NightConfiguration]:
         """
         Return the list of NightConfiguration for the site and nights under configuration.
         """
-        return [
-            Collector._resource_service.get_night_configuration(
-                site,
-                self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
-            )
-            for night_idx in night_indices]
+        return {night_idx: Collector._resource_service.get_night_configuration(
+            site,
+            self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
+        ) for night_idx in night_indices}
 
     def time_accounting(self, site_plans: Plans) -> None:
         """ Do time accounting for Plans in both site but for only one night.

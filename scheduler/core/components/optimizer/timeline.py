@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import ClassVar, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
-from lucupy.minimodel import Observation, ObservationID, Site
+from lucupy.minimodel import NightIndex, Observation, ObservationID, Site
 
 from scheduler.core.calculations.nightevents import NightEvents
 from . import Interval
@@ -141,10 +141,10 @@ class Timelines:
     A collection of Timeline from all sites for a specific night
     """
 
-    def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: int):
+    def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: NightIndex):
 
         self.timelines = {}
-        self.night = night_idx
+        self.night_idx = night_idx
         for site, ne in night_events.items():
             if ne is not None:
                 self.timelines[site] = Timeline(ne.local_times[night_idx][0],

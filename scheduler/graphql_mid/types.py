@@ -100,7 +100,7 @@ class SPlans:
     @staticmethod
     def from_computed_plans(plans: Plans, sites: FrozenSet[Site]) -> 'SPlans':
         return SPlans(
-            night_idx=plans.night,
+            night_idx=plans.night_idx,
             plans_per_site=[SPlan.from_computed_plan(plans[site]) for site in sites])
 
     def for_site(self, site: Site) -> 'SPlans':

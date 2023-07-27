@@ -123,7 +123,7 @@ def print_plans(all_plans: List[Plans]) -> None:
     """
 
     for plans in all_plans:
-        print(f'\n\n+++++ NIGHT {plans.night + 1} +++++')
+        print(f'\n\n+++++ NIGHT {plans.night_idx + 1} +++++')
         for plan in plans:
             print(f'Plan for site: {plan.site.name}')
             for visit in plan.visits:

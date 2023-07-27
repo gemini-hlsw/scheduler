@@ -49,7 +49,10 @@ if __name__ == '__main__':
     # Execute the Selector.
     # Not sure the best way to display the output.
     selector = SchedulerBuilder.build_selector(collector, num_nights_to_schedule=3)
-    selection = selector.select()
+
+    # TODO: Loop here on num_nights_to_schedule with select, schedule, and time accounting.
+    selection = selector.select(night_indices=np.array([0]))
+    # selection = selector.select()
 
     # Notes for data access:
     # The Selector returns all the data that an Optimizer needs in order to generate plans.
@@ -169,8 +172,8 @@ if __name__ == '__main__':
     print('')
 
     # Timeline tests
-    for tl in optimizer_blueprint.algorithm.timelines:
-        print(f'Night {tl.night + 1}')
+    for tl in optimizer_blueprint.algorithm.timelines.values():
+        print(f'Night {tl.night_idx + 1}')
         #     for site, ne in gm_optimizer.night_events.items():
         for site in optimizer.night_events.keys():
             print(f'\t {site}')
