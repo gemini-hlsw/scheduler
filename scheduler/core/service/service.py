@@ -51,8 +51,8 @@ class Service:
         selection = selector.select(sites=self.sites)
 
         # Execute the Optimizer.
-        optimizer = self.builder.build_optimizer(selection, Blueprints.optimizer)
-        plans = optimizer.schedule()
+        optimizer = self.builder.build_optimizer(Blueprints.optimizer)
+        plans = optimizer.schedule(selection)
 
         # Calculate plans stats
         plan_summary = calculate_plans_stats(plans, collector, selection)
@@ -134,10 +134,10 @@ def calculate_plans_stats(all_plans: List[Plans],
                 plan.alt_degs.append(alt_degs)
 
             plan.night_stats = NightStats(f'{plan.time_left()} min',
-                                          plan_score,
-                                          Conditions.most_restrictive_conditions(plan_conditions),
-                                          n_toos,
-                                          completion_fraction)
+                                            plan_score,
+                                            Conditions.most_restrictive_conditions(plan_conditions),
+                                            n_toos,
+                                            completion_fraction)
             n_toos = 0
             plan_score = 0
             plan_conditions = []
