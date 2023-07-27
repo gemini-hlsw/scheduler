@@ -20,21 +20,27 @@ class Optimizer:
     """
 
     def __init__(self, algorithm=None):
+        """
+        All sites schedule the same number of nights.
+        The number of nights scheduled at one time is determined by the Selection.night_indices, passed
+        to the schedule method.
+        """
         self.algorithm = algorithm
         self.selection = None
         self.period = None
         self.night_events = None
 
     def schedule(self, selection: Selection) -> List[Plans]:
-        # Create set of plans for the amount of nights
+        """
+        The night_indices are guaranteed to be a contiguous, sorted set by Selector.select.
+        If they are not, this method will cause problems.
+        """
         self.selection = selection
         self.algorithm.setup(selection)
         self.night_events = selection.night_events
-        # TODO: Assumes that all sites schedule the same amount of nights
-        # if num_nights_optimize is None:
-        self.period = len(list(self.night_events.values())[0].time_grid)
-        nights = [Plans(self.night_events, night) for night in range(self.period)]
-        self.algorithm.schedule(nights)
+
+        # Create set of plans for the amount of nights
+        nights = [Plans(self.night_events, night_idx) for night_idx in self.selection.night_indices]
         return nights
 
     def _update_score(self, program: Program) -> None:

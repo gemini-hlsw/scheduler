@@ -160,7 +160,8 @@ if __name__ == '__main__':
     )
 
     # TODO: pass these as parameters
-    optimizer.period = 1  # number of nights for which to make plans in a single pass
+    # Period has been eliminated. This is now determined by the selection.
+    # optimizer.period = 1  # number of nights for which to make plans in a single pass
     # optimizer_blueprint.algorithm.show_plots = True # show plots
 
     plans = optimizer.schedule(selection)

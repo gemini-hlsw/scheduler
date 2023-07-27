@@ -10,6 +10,7 @@ import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
 from astropy.units import Quantity
+from lucupy.helpers import is_contiguous
 from lucupy.minimodel import (ALL_SITES, AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus,
                               Program, ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, UniqueGroupID,
                               Variant)
@@ -78,6 +79,10 @@ class Selector(SchedulerComponent):
         # NOTE: If night_indices is None, assume the whole calculation period.
         if night_indices is None:
             night_indices = np.arange(len(self.collector.time_grid))
+
+        if not is_contiguous(night_indices):
+            raise ValueError(f'Attempted to select a non-contiguous set of night indices: {set(night_indices)}')
+        night_indices = np.array(sorted(night_indices))
 
         # If no manual ranker was specified, create the default.
         if ranker is None:
