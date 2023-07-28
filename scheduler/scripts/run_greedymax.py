@@ -51,7 +51,7 @@ if __name__ == '__main__':
     selector = SchedulerBuilder.build_selector(collector, num_nights_to_schedule=3)
 
     # TODO: Loop here on num_nights_to_schedule with select, schedule, and time accounting.
-    selection = selector.select(night_indices=np.array([0]))
+    selection = selector.select(night_indices=np.array([0, 1, 2]))
     # selection = selector.select()
 
     # Notes for data access:
