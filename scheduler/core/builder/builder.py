@@ -34,5 +34,5 @@ class SchedulerBuilder:
         return Selector(collector=collector, num_nights_to_schedule=num_nights_to_schedule)
 
     @staticmethod
-    def build_optimizer(selection: Selection, blueprint: OptimizerBlueprint) -> Optimizer:
-        return Optimizer(selection, algorithm=blueprint.algorithm)
+    def build_optimizer(blueprint: OptimizerBlueprint) -> Optimizer:
+        return Optimizer(algorithm=blueprint.algorithm)

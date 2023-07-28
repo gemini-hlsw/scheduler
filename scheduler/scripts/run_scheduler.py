@@ -156,10 +156,9 @@ if __name__ == '__main__':
         "DUMMY"
     )
     optimizer = SchedulerBuilder.build_optimizer(
-        selection=selection,
         blueprint=optimizer_blueprint
     )
-    plans = optimizer.schedule()
+    plans = optimizer.schedule(selection)
     print_plans(plans)
 
     # Example for Bryan:

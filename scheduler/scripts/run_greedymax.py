@@ -156,7 +156,6 @@ if __name__ == '__main__':
         "GreedyMax"
     )
     optimizer = SchedulerBuilder.build_optimizer(
-        selection=selection,
         blueprint=optimizer_blueprint
     )
 
@@ -164,7 +163,7 @@ if __name__ == '__main__':
     optimizer.period = 1  # number of nights for which to make plans in a single pass
     # optimizer_blueprint.algorithm.show_plots = True # show plots
 
-    plans = optimizer.schedule()
+    plans = optimizer.schedule(selection)
     print_plans(plans)
     print('')
 
