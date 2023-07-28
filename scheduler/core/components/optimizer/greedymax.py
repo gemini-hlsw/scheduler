@@ -30,6 +30,8 @@ class ObsPlanData:
     obs: Observation
     obs_start: datetime
     obs_len: int
+    atom_start: int
+    atom_end: int
     visit_score: float
 
 
@@ -820,6 +822,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
             obs=obs,
             obs_start=start,
             obs_len=visit_length,
+            atom_start=atom_start,
+            atom_end=atom_end,
             visit_score=visit_score
         )
 
@@ -937,6 +941,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     obs_in_plan = self.obs_in_plan[timeline.site][start_time_slot]
                     plans[timeline.site].add(obs_in_plan.obs,
                                              obs_in_plan.obs_start,
+                                             obs_in_plan.atom_start,
+                                             obs_in_plan.atom_end,
                                              start_time_slot,
                                              obs_in_plan.obs_len,
                                              obs_in_plan.visit_score)
