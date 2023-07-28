@@ -41,6 +41,7 @@ class Optimizer:
 
         # Create set of plans for the amount of nights
         nights = [Plans(self.night_events, night_idx) for night_idx in self.selection.night_indices]
+        self.algorithm.schedule(nights)
         return nights
 
     def _update_score(self, program: Program) -> None:
@@ -53,4 +54,4 @@ class Optimizer:
             schedulable_group = self.selection.schedulable_groups[unique_group_id]
             # update scores in schedulable_groups if the group is not completely observed
             if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
-                schedulable_group.group_info.scores[:] = group_info.scores[:]
+                schedulable_group.group_info.scores = group_info.scores
