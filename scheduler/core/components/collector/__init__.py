@@ -497,25 +497,26 @@ class Collector(SchedulerComponent):
             for v in plan.visits:
                 # Update Observation from Collector.
                 observation = self.get_observation(v.obs_id)
+                obs_seq = observation.sequence
                 # check that Observation is Observed
-                if v.atom_end_idx == len(observation.sequence)-1:
+                if v.atom_end_idx == len(obs_seq)-1:
                     observation.status = ObservationStatus.OBSERVED
                 else:
                     observation.status = ObservationStatus.ONGOING
-
+                      
                 # Update by atom in the sequence
-                for atom_idx, atom in enumerate(observation.sequence):
+                for atom_idx in range (v.atom_start_idx, v.atom_end_idx):
 
-                    atom.program_used = atom.prog_time
-                    atom.partner_used = atom.part_time
+                    obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
+                    obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
 
                     # Charge acquisition to the first atom
                     if atom_idx == 0:
                         if observation.obs_class == ObservationClass.PARTNERCAL:
-                            atom.program_used += observation.acq_overhead
+                            obs_seq[atom_idx].program_used += observation.acq_overhead
                         elif (observation.obs_class == ObservationClass.SCIENCE or
                               observation.obs_class == ObservationClass.PROGCAL):
-                            atom.program_used += observation.acq_overhead
+                            obs_seq[atom_idx].program_used += observation.acq_overhead
 
-                    atom.observed = True
-                    atom.qa_state = QAState.PASS
+                    obs_seq[atom_idx].observed = True
+                    obs_seq[atom_idx].qa_state = QAState.PASS
