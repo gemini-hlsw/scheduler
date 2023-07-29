@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import json
@@ -17,6 +17,7 @@ from lucupy.timeutils import sex2dec
 
 from scheduler.core.programprovider.ocs import OcsProgramProvider
 from scheduler.core.sources import Sources, Origins
+from lucupy.types import ZeroTime
 
 
 def get_api_program() -> Program:
@@ -26,7 +27,6 @@ def get_api_program() -> Program:
     sources = Sources()
     with open(os.path.join('tests', 'data', 'GN-2022A-Q-999.json'), 'r') as f:
         data = json.loads(f.read())
-
 
         obs_classes = frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
         return OcsProgramProvider(obs_classes, sources).parse_program(data['PROGRAM_BASIC'])
@@ -111,9 +111,9 @@ def create_minimodel_program() -> Program:
             id=0,
             exec_time=timedelta(microseconds=84300),
             prog_time=timedelta(microseconds=84300),
-            part_time=timedelta(),
-            program_used=timedelta(),
-            partner_used=timedelta(),
+            part_time=ZeroTime,
+            program_used=ZeroTime,
+            partner_used=ZeroTime,
             observed=False,
             qa_state=QAState.NONE,
             guide_state=True,
@@ -225,9 +225,9 @@ def create_minimodel_program() -> Program:
             id=0,
             exec_time=timedelta(microseconds=26190),
             prog_time=timedelta(microseconds=26190),
-            program_used=timedelta(),
-            partner_used=timedelta(),
-            part_time=timedelta(),
+            program_used=ZeroTime,
+            partner_used=ZeroTime,
+            part_time=ZeroTime,
             observed=False,
             qa_state=QAState.NONE,
             guide_state=True,
@@ -344,9 +344,9 @@ def create_minimodel_program() -> Program:
             id=0,
             exec_time=timedelta(microseconds=26190),
             prog_time=timedelta(microseconds=26190),
-            part_time=timedelta(),
-            program_used=timedelta(),
-            partner_used=timedelta(),
+            part_time=ZeroTime,
+            program_used=ZeroTime,
+            partner_used=ZeroTime,
             observed=False,
             qa_state=QAState.NONE,
             guide_state=True,
@@ -519,9 +519,9 @@ def create_minimodel_program() -> Program:
             id=0,
             exec_time=timedelta(microseconds=392500),
             prog_time=timedelta(microseconds=392500),
-            part_time=timedelta(),
-            program_used=timedelta(),
-            partner_used=timedelta(),
+            part_time=ZeroTime,
+            program_used=ZeroTime,
+            partner_used=ZeroTime,
             observed=False,
             qa_state=QAState.NONE,
             guide_state=True,
@@ -581,16 +581,16 @@ def create_minimodel_program() -> Program:
         category=TimeAccountingCode.US,
         program_awarded=timedelta(hours=4),
         partner_awarded=timedelta(hours=2),
-        program_used=timedelta(),
-        partner_used=timedelta()
+        program_used=ZeroTime,
+        partner_used=ZeroTime
     )
 
     time_allocation_ca = TimeAllocation(
         category=TimeAccountingCode.CA,
         program_awarded=timedelta(hours=2),
         partner_awarded=timedelta(hours=1),
-        program_used=timedelta(),
-        partner_used=timedelta()
+        program_used=ZeroTime,
+        partner_used=ZeroTime
     )
 
     time_allocation = frozenset({time_allocation_us, time_allocation_ca})

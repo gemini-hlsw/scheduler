@@ -5,27 +5,37 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, FrozenSet, List, Optional, Tuple
+from enum import Enum
+from typing import final, Dict, FrozenSet, List, Optional, Tuple
 
-from scheduler.core.calculations.selection import Selection
-from scheduler.core.calculations import GroupData
-from scheduler.core.plans import Plan, Plans
-from scheduler.core.components.optimizer.timeline import Timelines
-from scheduler.services import logger_factory
-from .base import BaseOptimizer, MaxGroup
-from . import Interval
-
-from lucupy.minimodel import Group, NightIndex, Observation, Program, Sequence
-from lucupy.minimodel import ObservationID, Site, UniqueGroupID, QAState, ObservationClass, ObservationStatus
-from lucupy.minimodel.resource import Resource
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import matplotlib.pyplot as plt
+from lucupy.minimodel import NIR_INSTRUMENTS, Group, NightIndex, Observation, Program, Sequence
+from lucupy.minimodel import ObservationID, Site, UniqueGroupID, QAState, ObservationClass, ObservationStatus
+from lucupy.minimodel.resource import Resource
+from lucupy.types import Interval, ZeroTime
 
+from scheduler.core.calculations import GroupData, NightTimeSlotScores
+from scheduler.core.calculations.selection import Selection
+from scheduler.core.components.optimizer.timeline import Timelines
+from scheduler.core.plans import Plan, Plans
+from scheduler.services import logger_factory
+from .base import BaseOptimizer, MaxGroup
 
 logger = logger_factory.create_logger(__name__)
 
 
+@final
+class Mode(str, Enum):
+    """
+    TODO: Get rid of this later as per GSCHED-413.
+    """
+    SPECTROSCOPY = 'spectroscopy'
+    IMAGING = 'imaging'
+
+
+@final
 @dataclass(frozen=True)
 class ObsPlanData:
     """
@@ -39,12 +49,15 @@ class ObsPlanData:
     visit_score: float
 
 
+@final
 class GreedyMaxOptimizer(BaseOptimizer):
     """
     GreedyMax is an optimizer that schedules the visits for the rest of the night in a greedy fashion.
     """
 
-    def __init__(self, min_visit_len: timedelta = timedelta(minutes=30), show_plots: bool = False):
+    def __init__(self,
+                 min_visit_len: timedelta = timedelta(minutes=30),
+                 show_plots: bool = False):
         self.selection: Optional[Selection] = None
         self.group_data_list: List[GroupData] = []
         self.group_ids: List[UniqueGroupID] = []
@@ -74,12 +87,15 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return self
 
     @staticmethod
-    def non_zero_intervals(scores: npt.NDArray[float]) -> npt.NDArray[int]:
+    def non_zero_intervals(scores: NightTimeSlotScores) -> npt.NDArray[int]:
         """
         Calculate the non-zero intervals in the data.
         This consists of an array with entries of the form [a, b] where
         the non-zero interval runs from a (inclusive) to b (exclusive).
         See test_greedymax.py for an example.
+
+        The array returned here contains multiple Intervals and thus we leave the return type
+        instead of using Interval.
         """
         # Create an array that is 1 where the score is greater than 0, and pad each end with an extra 0.
         not_zero = np.concatenate(([0], np.greater(scores, 0), [0]))
@@ -89,10 +105,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return np.where(abs_diff == 1)[0].reshape(-1, 2)
 
     @staticmethod
-    def cumulative_seq_exec_times(sequence: Sequence) -> list:
+    def cumulative_seq_exec_times(sequence: Sequence) -> List[timedelta]:
         """Cumulative series of execution times for the unobserved atoms in a sequence, excluding acquisition time"""
         cumul_seq = []
-        total_exec = timedelta(0.0)
+        total_exec = ZeroTime
         for atom in sequence:
             if not atom.observed:
                 total_exec += atom.exec_time
@@ -110,20 +126,22 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         idx = 0
         value = inlist[idx]
-        while value == timedelta(0):
+        while value == ZeroTime:
             idx += 1
             value = inlist[idx]
         return idx
 
     @staticmethod
-    def num_nir_standards(exec_sci, wavelengths=None, mode='spectroscopy') -> int:
+    def num_nir_standards(exec_sci: timedelta,
+                          wavelengths=None,
+                          mode: Mode = Mode.SPECTROSCOPY) -> int:
         """
         Calculated the number of NIR standards from the length of the NIR science and the mode
         """
         n_std = 0
 
         # TODO: need mode or other info to distinguish imaging from spectroscopy
-        if mode == 'imaging':
+        if mode == Mode.IMAGING:
             time_per_standard = timedelta(hours=2.0)
         else:
             if all(wave <= 2.5 for wave in wavelengths):
@@ -131,12 +149,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
             else:
                 time_per_standard = timedelta(hours=1.0)
 
-        if time_per_standard > timedelta(0):
+        if time_per_standard > ZeroTime:
             n_std = max(1, int(exec_sci // time_per_standard))  # TODO: confirm this
 
         return n_std
 
-    def _exec_time_remaining(self, group: Group, verbose=False) -> Tuple[timedelta, timedelta, timedelta, int]:
+    def _exec_time_remaining(self,
+                             group: Group,
+                             verbose: bool = False) -> Tuple[timedelta, timedelta, timedelta, int]:
         """Determine the total and minimum remaining execution times.
            If an observation can't be split, then there should only be one atom, so min time is the full time.
            """
@@ -148,15 +168,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
             print(f"\t {group.required_resources()}")
             print(f"\t {group.wavelengths()}")
 
-        nir_inst = [Resource('Flamingos2'), Resource('GNIRS'), Resource('NIRI'), Resource('NIFS'),
-                    Resource('IGRINS')]
-
         nsci = nprt = 0
 
-        exec_sci_min = exec_sci_nir = timedelta(0)
-        exec_prt = timedelta(0)
-        time_per_standard = timedelta(0)
-        sci_times = timedelta(0)
+        exec_sci_min = exec_sci_nir = ZeroTime
+        exec_prt = ZeroTime
+        time_per_standard = ZeroTime
+        sci_times = ZeroTime
         n_std = 0
         part_times = []
         sci_times_min = []
@@ -169,7 +186,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                       f"{next(iter(obs.wavelengths()))} {cumul_seq[-1]}")
             #               f"{next(iter(obs.required_resources())).id} {next(iter(obs.wavelengths()))}")
 
-            if cumul_seq[-1] > timedelta(0):
+            if cumul_seq[-1] > ZeroTime:
                 # total time remaining
                 time_remain = obs.acq_overhead + cumul_seq[-1]
                 # Min time remaining (acq + first non-zero atom)
@@ -185,7 +202,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                         sci_times_min.append(time_remain)
 
                     # NIR science time for to determine the number of tellurics
-                    if any(inst in group.required_resources() for inst in nir_inst):
+                    if any(inst in group.required_resources() for inst in NIR_INSTRUMENTS):
                         exec_sci_nir += time_remain
                 elif obs.obs_class == ObservationClass.PARTNERCAL:
                     # Partner calibration time, no splitting of partner cals
@@ -204,8 +221,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         # How many standards are needed?
         # TODO: need mode or other info to distinguish imaging from spectroscopy
-        if exec_sci_nir > timedelta(0) and len(part_times) > 0:
-            n_std = self.num_nir_standards(exec_sci_nir, wavelengths=group.wavelengths(), mode='spectroscopy')
+        if exec_sci_nir > ZeroTime and len(part_times) > 0:
+            n_std = self.num_nir_standards(exec_sci_nir, wavelengths=group.wavelengths(), mode=Mode.SPECTROSCOPY)
 
         # if only partner standards, set n_std to the number of standards in group (e.g. specphots)
         if nprt > 0 and nsci == 0:
@@ -301,6 +318,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                         # interval is a numpy array that indexes into the scores for the night to return a sub-array.
                         check_interval = group_data.group_info.scores[plans.night_idx][interval]
                         group_intervals = self.non_zero_intervals(check_interval)
+
                         max_score_on_interval = 0.0
                         max_interval = None
                         for group_interval in group_intervals:
@@ -331,7 +349,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         max_n_min = None
         max_slots_remaining = None
         max_n_std = None
-        max_exec_nir = timedelta(0)
+        max_exec_nir = ZeroTime
 
         if len(max_scores) > 0:
             # sort scores from high to low
@@ -452,7 +470,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
     def nir_slots(self, science_obs, n_slots_filled, len_interval) -> Tuple[int, int, ObservationID]:
         """
-        Return the starting and ending timeline slots (indices) for the NIR science observations
+        Return the starting and ending timeline slots (indices) for the NIR science observations.
         """
         # TODO: This should probably be moved to a more general location
         nir_inst = [Resource('Flamingos2'), Resource('GNIRS'), Resource('NIRI'), Resource('NIFS'),
@@ -799,9 +817,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
                    night_idx: NightIndex,
                    obs: Observation,
                    max_group_info: GroupData | MaxGroup,
-                   best_interval,
-                   n_slots_filled) -> int:
-        """Add and observation to the timeline and do pseudo-time accounting"""
+                   best_interval: Interval,
+                   n_slots_filled: int) -> int:
+        """
+        Add an observation to the timeline and do pseudo-time accounting.
+        Returns the number of time slots filled.
+        """
 
         site = max_group_info.group_data.group.observations()[0].site
         timeline = self.timelines[night_idx][site]
@@ -825,7 +846,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
         start_time_slot, start = timeline.add(iobs, visit_length, best_interval)
 
         # Get visit score and store information for the output plans
-        visit_score = sum(max_group_info.group_data.group_info.scores[night_idx][start_time_slot:start_time_slot + visit_length])
+        end_time_slot = start_time_slot + visit_length
+        visit_score = sum(max_group_info.group_data.group_info.scores[night_idx][start_time_slot:end_time_slot])
+
         self.obs_in_plan[site][start_time_slot] = ObsPlanData(
             obs=obs,
             obs_start=start,
@@ -884,7 +907,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             part_obs = max_group_info.group_data.group.partner_observations()
 
             if max_group_info.n_std > 0:
-                if max_group_info.exec_sci_nir > timedelta(0):
+                if max_group_info.exec_sci_nir > ZeroTime:
                     standards, place_before = self.place_standards(night_idx, best_interval, prog_obs, part_obs,
                                                                    max_group_info.n_std)
                     for ii, std in enumerate(standards):

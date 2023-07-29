@@ -4,14 +4,13 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Mapping, List, Optional, Union
+from typing import Mapping, List
 from lucupy.minimodel.program import ProgramID
+from lucupy.types import Interval
 
 from scheduler.core.calculations.groupinfo import GroupData
 from scheduler.core.calculations.programinfo import ProgramInfo
-from scheduler.core.plans import Plan, Plans
-
-from . import Interval
+from scheduler.core.plans import Plans
 
 
 @dataclass(frozen=True)
@@ -54,6 +53,5 @@ class BaseOptimizer(ABC):
         ...
 
     @abstractmethod
-    def add(self, night: int, max_group_info: Union[GroupData, MaxGroup]):
+    def add(self, night: int, max_group_info: GroupData | MaxGroup):
         ...
-

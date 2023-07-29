@@ -6,11 +6,7 @@ from typing import List
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.plans import Plans
 
-import numpy.typing as npt
 from lucupy.minimodel import Program
-
-# Convenient type alias for Interval
-Interval = npt.NDArray[int]
 
 
 class Optimizer:

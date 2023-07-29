@@ -514,8 +514,7 @@ class Collector(SchedulerComponent):
                     observation.status = ObservationStatus.ONGOING
                       
                 # Update by atom in the sequence
-                for atom_idx in range (v.atom_start_idx, v.atom_end_idx):
-
+                for atom_idx in range(v.atom_start_idx, v.atom_end_idx):
                     obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
                     obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
 

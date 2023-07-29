@@ -3,16 +3,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import random
+from datetime import datetime
 from typing import Optional, Tuple
 
-from scheduler.core.calculations.selection import Selection
+from lucupy.types import Interval
+
 from scheduler.core.calculations import GroupData
+from scheduler.core.calculations.selection import Selection
 from scheduler.core.plans import Plan, Plans
 from scheduler.services import logger_factory
-from .base import BaseOptimizer, Interval
-
+from .base import BaseOptimizer
 
 logger = logger_factory.create_logger(__name__)
 
@@ -60,9 +61,12 @@ class DummyOptimizer(BaseOptimizer):
             if not plan.is_full and plan.site == observation.site:
                 obs_len = plan.time2slots(plan.time_slot_length, observation.exec_time())
                 if plan.time_left() >= obs_len and observation not in plan:
+                    atom_start = 0
+                    atom_end = len(observation.sequence) - 1
                     start, start_time_slot = DummyOptimizer._first_free_time(plan)
-                    visit_score = sum(group.group_info.scores[plans.night_idx][start_time_slot:start_time_slot + obs_len])
-                    plan.add(observation, start, start_time_slot, obs_len, visit_score)
+                    end_time_slot = start_time_slot + obs_len
+                    visit_score = sum(group.group_info.scores[plans.night_idx][start_time_slot:end_time_slot])
+                    plan.add(observation, start, atom_start, atom_end, start_time_slot, obs_len, visit_score)
                     return True
                 else:
                     # TODO: DO a partial insert

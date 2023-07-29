@@ -5,6 +5,7 @@ import calendar
 import json
 import zipfile
 from datetime import datetime, timedelta
+from os import PathLike
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
 
@@ -18,6 +19,7 @@ from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Condi
                               TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
+from lucupy.types import ZeroTime
 from scipy.signal import find_peaks
 
 
@@ -28,7 +30,7 @@ from scheduler.services import logger_factory
 logger = logger_factory.create_logger(__name__)
 
 
-def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
+def read_ocs_zipfile(zip_file: str | PathLike[str]) -> Iterable[dict]:
     """
     Since for OCS we will use a collection of extracted ODB data, this is a
     convenience method to parse the data into a list of the JSON program data.
@@ -720,11 +722,11 @@ class OcsProgramProvider(ProgramProvider):
                 classes = []
                 guiding = []
                 atoms.append(Atom(id=atom_id,
-                                  exec_time=timedelta(0),
-                                  prog_time=timedelta(0),
-                                  part_time=timedelta(0),
-                                  program_used=timedelta(0),
-                                  partner_used=timedelta(0),
+                                  exec_time=ZeroTime,
+                                  prog_time=ZeroTime,
+                                  part_time=ZeroTime,
+                                  program_used=ZeroTime,
+                                  partner_used=ZeroTime,
                                   observed=False,
                                   qa_state=QAState.NONE,
                                   guide_state=False,
@@ -819,7 +821,7 @@ class OcsProgramProvider(ProgramProvider):
                      data[OcsProgramProvider._ObsKeys.LOG]]
 
         atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
-        # exec_time = sum([atom.exec_time for atom in atoms], timedelta()) + acq_overhead
+        # exec_time = sum([atom.exec_time for atom in atoms], ZeroTime) + acq_overhead
 
         # TODO: Should this be a list of all targets for the observation?
         targets = []

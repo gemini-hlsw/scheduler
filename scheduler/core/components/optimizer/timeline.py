@@ -9,7 +9,7 @@ import numpy as np
 from lucupy.minimodel import NightIndex, Observation, ObservationID, Site
 
 from scheduler.core.calculations.nightevents import NightEvents
-from . import Interval
+from lucupy.types import Interval, ZeroTime
 
 
 @dataclass
@@ -69,7 +69,7 @@ class Timeline:
         # TODO: What if there are no empty slots in the interval?
         # TODO: What if there are not enough time slots that are empty to accommodate the observation?
         start_time_slot = None
-        start = timedelta(0)
+        start = ZeroTime
 
         # Get first non-zero slot in given interval.
         interval_empty_slots = np.where(self.time_slots[interval] == Timeline.EMPTY)[0]
