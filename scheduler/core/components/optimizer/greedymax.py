@@ -11,8 +11,8 @@ from typing import final, Dict, FrozenSet, List, Optional, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import NIR_INSTRUMENTS, Group, NightIndex, Observation, Program, Sequence
-from lucupy.minimodel import ObservationID, Site, UniqueGroupID, QAState, ObservationClass, ObservationStatus
+from lucupy.minimodel import (NIR_INSTRUMENTS, Group, NightIndex, Observation, ObservationClass, ObservationID,
+                              ObservationStatus, Program, QAState, Sequence, Site, UniqueGroupID, Wavelengths)
 from lucupy.minimodel.resource import Resource
 from lucupy.types import Interval, ZeroTime
 
@@ -119,7 +119,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return cumul_seq
 
     @staticmethod
-    def first_nonzero_time(inlist: List) -> int:
+    def first_nonzero_time(inlist: List[timedelta]) -> int:
         """
         Find the index of the first nonzero timedelta in inlist
         Designed to work with the output from cumulative_seq_exec_times
@@ -133,7 +133,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
     @staticmethod
     def num_nir_standards(exec_sci: timedelta,
-                          wavelengths=None,
+                          wavelengths: Wavelengths = frozenset(),
                           mode: Mode = Mode.SPECTROSCOPY) -> int:
         """
         Calculated the number of NIR standards from the length of the NIR science and the mode
@@ -451,7 +451,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         return best_interval
 
-    def _find_group_position(self, night_idx: NightIndex, max_group_info: MaxGroup) -> Interval:
+    @staticmethod
+    def _find_group_position(night_idx: NightIndex, max_group_info: MaxGroup) -> Interval:
         """Find the best location in the timeline"""
         best_interval = max_group_info.interval
 
@@ -464,7 +465,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         if max_group_info.n_slots_remaining < len(max_group_info.interval):
             # Determine position based on max integrated score
             # If we don't end up here, then the group will have to be split later
-            best_interval = self._integrate_score(night_idx, max_group_info)
+            best_interval = GreedyMaxOptimizer._integrate_score(night_idx, max_group_info)
 
         return best_interval
 
@@ -493,8 +494,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # TODO: can this be done w/o a loop? convert cumm_seq to slots, and find the value that fits
             while n_slots_filled + visit_length <= len_interval and atom_end <= len(cumul_seq) - 2:
                 atom_end += 1
-                visit_length = n_slots_acq + \
-                    Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
+                visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
 
             slot_end = slot_start + visit_length - 1
             # NIR science time for to determine the number of tellurics
@@ -510,7 +510,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         return slot_start_nir, slot_end_nir, obs_id_nir
 
-    def mean_airmass(self, obs_id: ObservationID, interval: Interval, night_idx: NightIndex):
+    def mean_airmass(self, obs_id: ObservationID, interval: Interval, night_idx: NightIndex) -> npt.NDArray[float]:
         """
         Calculate the mean airmass of an observation over the given interval
         """
@@ -523,10 +523,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
     def place_standards(self,
                         night_idx: NightIndex,
                         interval: Interval,
-                        science_obs,
-                        partner_obs,
-                        n_std,
-                        verbose: bool = True) -> Tuple[List, List]:
+                        science_obs: List[Observation],
+                        partner_obs: List[Observation],
+                        n_std: int,
+                        verbose: bool = True) -> Tuple[List[Observation], List[bool]]:
         """
         Pick the standards that best match the NIR science observations by airmass
         """
@@ -675,9 +675,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
             observation.sequence[n_atom].observed = True
             observation.sequence[n_atom].qa_state = QAState.PASS
 
-    def plot_airmass(self, obs_id: ObservationID, interval=None, night_idx: NightIndex = 0) -> None:
+    def plot_airmass(self,
+                     obs_id: ObservationID,
+                     interval: Optional[Interval] = None,
+                     night_idx: NightIndex = 0) -> None:
         """
-        Plot airmass vs time slot
+        Plot airmass vs time slot.
         """
         programid = obs_id.program_id()
 
@@ -695,7 +698,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
         plt.show()
 
     @staticmethod
-    def _plot_interval(score, interval, best_interval, label: str = "") -> None:
+    def _plot_interval(score: NightTimeSlotScores,
+                       interval: Interval,
+                       best_interval: Interval,
+                       label: str = "") -> None:
         """Plot score vs time_slot for the time interval under consideration"""
 
         # score = group_data.group_info.scores[night]
@@ -716,22 +722,22 @@ class GreedyMaxOptimizer(BaseOptimizer):
             plt.title(label)
         plt.show()
 
-    def plot_timelines(self, night: int = 0) -> None:
+    def plot_timelines(self, night_idx: NightIndex = 0) -> None:
         """Airmass and Score vs time/slot plot of the timelines for a night"""
 
         for site in self.sites:
             fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(10, 10))
             # fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(10, 6))
-            obs_order = self.timelines[night][site].get_observation_order()
+            obs_order = self.timelines[night_idx][site].get_observation_order()
             for idx, istart, iend in obs_order:
                 if idx != -1:
                     unique_group_id = self.obs_group_ids[idx]
                     obs_id = ObservationID(unique_group_id.id)
                     program_id = obs_id.program_id()
                     scores = self.selection.program_info[program_id].group_data_map[unique_group_id]. \
-                        group_info.scores[night]
+                        group_info.scores[night_idx]
 
-                    airmass = self.selection.program_info[program_id].target_info[obs_id][night].airmass
+                    airmass = self.selection.program_info[program_id].target_info[obs_id][night_idx].airmass
                     x = np.array([i for i in range(len(airmass))], dtype=int)
                     p = ax1.plot(x, airmass)
                     ax2.plot(x, np.log10(scores))
@@ -748,12 +754,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
             ax1.set_ylim(2.5, 0.95)
             ax1.set_xlabel('Time Slot')
             ax1.set_ylabel('Airmass')
-            ax1.set_title(f"Night {night + 1}: {site.name}")
+            ax1.set_title(f"Night {night_idx + 1}: {site.name}")
             ax1.legend()
 
             ax2.set_xlabel('Time Slot')
             ax2.set_ylabel('log(Score)')
-            ax2.set_title(f"Night {night + 1}: {site.name}")
+            ax2.set_title(f"Night {night_idx + 1}: {site.name}")
             # ax2.legend()
 
             plt.show()
@@ -873,6 +879,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # TODO: update base method?
         # TODO: Missing different logic for different AND/OR GROUPS
         # Add method should handle those
+        standards: List[Observation] = []
 
         # This is where we'll split groups/observations and integrate under the score
         # to place the group in the timeline
@@ -887,7 +894,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         if not timeline.is_full:
             # Find the best location in timeline for the group
-            best_interval = self._find_group_position(night_idx, max_group_info)
+            best_interval = GreedyMaxOptimizer._find_group_position(night_idx, max_group_info)
 
             if self.show_plots:
                 self._plot_interval(max_group_info.group_data.group_info.scores[night_idx], max_group_info.interval,

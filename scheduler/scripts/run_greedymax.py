@@ -48,6 +48,14 @@ if __name__ == '__main__':
 
     # Execute the Selector.
     # Not sure the best way to display the output.
+    # TODO: Iterate over num_nights_to_schedule and schedule each night.
+    # TODO: How does this affect the selection? We need to select on all three nights or the
+    # TODO: scoring doesn't work and gives us an entirely different result, but it seems like
+    # TODO: we should be only selecting for the night for which we want to schedule.
+    # TODO: Talk to Bryan about this. What will happen if we have more observations? Will we still
+    # TODO: only schedule one night regardless of how many nights we select?
+    # TODO: Note that we are still *not using* num_nights_to_schedule. This should probably be used
+    # TODO: by the loop below.
     selector = SchedulerBuilder.build_selector(collector, num_nights_to_schedule=3)
 
     # TODO: Loop here on num_nights_to_schedule with select, schedule, and time accounting.
