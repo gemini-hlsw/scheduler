@@ -91,9 +91,9 @@ class OcsEnvService(ExternalService):
         filtered_df = time_filtered_df.iloc[::self._time_slot_length]
 
         iq_array = np.array([ImageQuality(iq) for iq in filtered_df[OcsEnvService._iq_band_col].values],
-                            dtype=CloudCover)
-        cc_array = np.array([CloudCover(cc) for cc in filtered_df[OcsEnvService._cc_band_col].values],
                             dtype=ImageQuality)
+        cc_array = np.array([CloudCover(cc) for cc in filtered_df[OcsEnvService._cc_band_col].values],
+                            dtype=CloudCover)
 
         # TODO Performance: Remove units and just use numpy arrays?
         wind_dir_array = Angle(filtered_df[OcsEnvService._wind_dir_col].values, unit=u.deg)

@@ -14,6 +14,7 @@ from lucupy.helpers import is_contiguous
 from lucupy.minimodel import (ALL_SITES, AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus,
                               Program, ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, UniqueGroupID,
                               Variant)
+from lucupy.minimodel import CloudCover, ImageQuality
 
 from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramCalculations, ProgramInfo, Selection
 from scheduler.core.components.base import SchedulerComponent
@@ -312,8 +313,13 @@ class Selector(SchedulerComponent):
             start_time = night_events.times[night_idx][0]
             end_time = night_events.times[night_idx][-1]
             actual_conditions = self.collector.sources.origin.env.get_actual_conditions_variant(obs.site,
-                                                                                                start_time,
+                                                                                                    start_time,
                                                                                                 end_time)
+            actual_conditions = Variant(iq=np.array([ImageQuality.IQ70 for i in range(len(actual_conditions.cc))]),
+                                        cc=np.array([CloudCover.CC50 for i in range(len(actual_conditions.cc))]),
+                                        wind_dir=actual_conditions.wind_dir,
+                                        wind_spd=actual_conditions.wind_spd
+                                        )
 
             # Make sure that we have conditions for every time slot.
             variant_length = len(actual_conditions.cc)
