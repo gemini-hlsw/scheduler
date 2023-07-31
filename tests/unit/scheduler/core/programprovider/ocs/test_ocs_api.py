@@ -10,13 +10,13 @@ from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Condi
                               GroupID, ImageQuality, Magnitude, MagnitudeBands, ObservationClass, ObservationID,
                               ObservationStatus, Priority, Program, ProgramID, ProgramMode, ProgramTypes, QAState,
                               Resource, ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site,
-                              SkyBackground, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType,
-                              WaterVapor)
+                              SkyBackground, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow,
+                              TooType, WaterVapor)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 
 from scheduler.core.programprovider.ocs import OcsProgramProvider
-from scheduler.core.sources import Sources, Origins
+from scheduler.core.sources import Sources
 from lucupy.types import ZeroTime
 
 
@@ -67,7 +67,7 @@ def create_minimodel_program() -> Program:
     )
 
     gmosn2_target_1 = SiderealTarget(
-        name='M11',
+        name=TargetName('M11'),
         magnitudes=frozenset({
             Magnitude(MagnitudeBands.B, 6.32),
             Magnitude(MagnitudeBands.V, 5.8)
@@ -81,7 +81,7 @@ def create_minimodel_program() -> Program:
     )
 
     gmosn2_target_2 = SiderealTarget(
-        name='419-102509',
+        name=TargetName('419-102509'),
         magnitudes=frozenset({
             Magnitude(MagnitudeBands.B, 12.261),
             Magnitude(MagnitudeBands.g, 12.046),
@@ -179,7 +179,7 @@ def create_minimodel_program() -> Program:
     )
 
     gnirs2_target_1 = SiderealTarget(
-        name='M22',
+        name=TargetName('M22'),
         magnitudes=frozenset({
             Magnitude(MagnitudeBands.B, 7.16),
             Magnitude(MagnitudeBands.V, 6.17),
@@ -194,7 +194,7 @@ def create_minimodel_program() -> Program:
     )
 
     gnirs2_target_2 = SiderealTarget(
-        name='331-171970',
+        name=TargetName('331-171970'),
         magnitudes=frozenset({
             Magnitude(MagnitudeBands.B, 12.888),
             Magnitude(MagnitudeBands.g, 11.93),
@@ -298,7 +298,7 @@ def create_minimodel_program() -> Program:
     )
 
     gnirs1_target_1 = SiderealTarget(
-        name='M10',
+        name=TargetName('M10'),
         magnitudes=frozenset({
             Magnitude(MagnitudeBands.g, value=6.842),
             Magnitude(MagnitudeBands.V, value=4.98),
@@ -313,7 +313,7 @@ def create_minimodel_program() -> Program:
     )
 
     gnirs1_target_2 = SiderealTarget(
-        name='430-067087',
+        name=TargetName('430-067087'),
         magnitudes=frozenset({
             Magnitude(MagnitudeBands.V, value=11.78),
             Magnitude(MagnitudeBands.K, value=8.916),
@@ -432,7 +432,7 @@ def create_minimodel_program() -> Program:
     )
 
     gmosn1_target_1 = SiderealTarget(
-        name='M15',
+        name=TargetName('M15'),
         magnitudes=frozenset({
             Magnitude(MagnitudeBands.z, value=6.288),
             Magnitude(MagnitudeBands.r, value=6.692),
@@ -449,7 +449,7 @@ def create_minimodel_program() -> Program:
     )
 
     gmosn1_target_2 = SiderealTarget(
-        name='512-132424',
+        name=TargetName('512-132424'),
         magnitudes=frozenset({
             Magnitude(MagnitudeBands.i, value=11.833),
             Magnitude(MagnitudeBands.J, value=10.455),
@@ -470,7 +470,7 @@ def create_minimodel_program() -> Program:
     )
 
     gmosn1_target_3 = SiderealTarget(
-        name='512-132390',
+        name=TargetName('512-132390'),
         magnitudes=frozenset({
             Magnitude(MagnitudeBands.g, value=16.335),
             Magnitude(MagnitudeBands.B, value=16.708),
@@ -490,7 +490,7 @@ def create_minimodel_program() -> Program:
     )
 
     gmosn1_target_4 = SiderealTarget(
-        name='511-136970',
+        name=TargetName('511-136970'),
         magnitudes=frozenset({
             Magnitude(MagnitudeBands.H, 13.003),
             Magnitude(MagnitudeBands.K, 12.884),

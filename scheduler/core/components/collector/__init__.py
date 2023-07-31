@@ -11,9 +11,9 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import sky
-from lucupy.minimodel import (Constraints, ElevationType, NightIndices, NonsiderealTarget, Observation, ObservationID,
-                              ObservationClass, Program, ProgramID, ProgramTypes, Semester, SiderealTarget, Site,
-                              SkyBackground, Target, QAState, ObservationStatus)
+from lucupy.minimodel import (Constraints, ElevationType, NightIndex, NightIndices, NonsiderealTarget, Observation,
+                              ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
+                              SiderealTarget, Site, SkyBackground, Target, QAState, ObservationStatus)
 import numpy as np
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
@@ -384,7 +384,7 @@ class Collector(SchedulerComponent):
             else:
                 rem_visibility_frac = 0.0
 
-            target_info[night_idx] = TargetInfo(
+            target_info[NightIndex(night_idx)] = TargetInfo(
                 coord=coord,
                 alt=alt,
                 az=az,

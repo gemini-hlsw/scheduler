@@ -15,8 +15,8 @@ from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Condi
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
                               ObservationClass, ObservationID, ObservationMode, ObservationStatus, OrGroup, Priority,
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
-                              SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType,
-                              TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
+                              SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetName,
+                              TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
@@ -187,7 +187,7 @@ class OcsProgramProvider(ProgramProvider):
 
     # An empty base target for when the target environment is empty for an Observation.
     _EMPTY_BASE_TARGET = SiderealTarget(
-        name='Empty',
+        name=TargetName('Empty'),
         magnitudes=frozenset(),
         type=TargetType.BASE,
         ra=0,
@@ -381,11 +381,11 @@ class OcsProgramProvider(ProgramProvider):
             timing_windows=timing_windows,
             strehl=None)
 
-    def _parse_target_header(self, data: dict) -> Tuple[str, set[Magnitude], TargetType]:
+    def _parse_target_header(self, data: dict) -> Tuple[TargetName, set[Magnitude], TargetType]:
         """
         Parse the common target header information out of a target.
         """
-        name = data[OcsProgramProvider._TargetKeys.NAME]
+        name = TargetName(data[OcsProgramProvider._TargetKeys.NAME])
         magnitude_data = data.setdefault(OcsProgramProvider._TargetKeys.MAGNITUDES, [])
         magnitudes = {self.parse_magnitude(m) for m in magnitude_data}
 
