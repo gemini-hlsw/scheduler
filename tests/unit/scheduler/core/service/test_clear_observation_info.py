@@ -2,9 +2,9 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
-from datetime import timedelta
 
 from lucupy.minimodel.observation import ObservationClass, ObservationStatus
+from lucupy.types import ZeroTime
 
 from scheduler.core.service.modes import ValidationMode
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
@@ -20,7 +20,6 @@ def test_clear_observations():
     sources = Sources()
     program_provider = OcsProgramProvider(obs_classes, sources)
     bad_status = frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
-    zero = timedelta()
 
     # Read in a list of JSON data and parse into programs.
     program_data = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
@@ -32,11 +31,11 @@ def test_clear_observations():
 
     # Check to make sure all data has been cleared.
     for p in programs:
-        assert p.program_used() == zero
-        assert p.partner_used() == zero
-        assert p.total_used() == zero
+        assert p.program_used() == ZeroTime
+        assert p.partner_used() == ZeroTime
+        assert p.total_used() == ZeroTime
         for o in p.observations():
             assert o.status not in bad_status
-            assert o.program_used() == zero
-            assert o.partner_used() == zero
-            assert o.total_used() == zero
+            assert o.program_used() == ZeroTime
+            assert o.partner_used() == ZeroTime
+            assert o.total_used() == ZeroTime

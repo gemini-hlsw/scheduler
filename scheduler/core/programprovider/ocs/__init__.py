@@ -5,6 +5,7 @@ import calendar
 import json
 import zipfile
 from datetime import datetime, timedelta
+from os import PathLike
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
 
@@ -14,10 +15,12 @@ from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Condi
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
                               ObservationClass, ObservationID, ObservationMode, ObservationStatus, OrGroup, Priority,
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
-                              SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetType,
-                              TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
+                              SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetName,
+                              TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor,
+                              Wavelength)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
+from lucupy.types import ZeroTime
 from scipy.signal import find_peaks
 
 
@@ -28,7 +31,7 @@ from scheduler.services import logger_factory
 logger = logger_factory.create_logger(__name__)
 
 
-def read_ocs_zipfile(zip_file: str) -> Iterable[dict]:
+def read_ocs_zipfile(zip_file: str | PathLike[str]) -> Iterable[dict]:
     """
     Since for OCS we will use a collection of extracted ODB data, this is a
     convenience method to parse the data into a list of the JSON program data.
@@ -185,7 +188,7 @@ class OcsProgramProvider(ProgramProvider):
 
     # An empty base target for when the target environment is empty for an Observation.
     _EMPTY_BASE_TARGET = SiderealTarget(
-        name='Empty',
+        name=TargetName('Empty'),
         magnitudes=frozenset(),
         type=TargetType.BASE,
         ra=0,
@@ -379,11 +382,11 @@ class OcsProgramProvider(ProgramProvider):
             timing_windows=timing_windows,
             strehl=None)
 
-    def _parse_target_header(self, data: dict) -> Tuple[str, set[Magnitude], TargetType]:
+    def _parse_target_header(self, data: dict) -> Tuple[TargetName, set[Magnitude], TargetType]:
         """
         Parse the common target header information out of a target.
         """
-        name = data[OcsProgramProvider._TargetKeys.NAME]
+        name = TargetName(data[OcsProgramProvider._TargetKeys.NAME])
         magnitude_data = data.setdefault(OcsProgramProvider._TargetKeys.MAGNITUDES, [])
         magnitudes = {self.parse_magnitude(m) for m in magnitude_data}
 
@@ -440,7 +443,7 @@ class OcsProgramProvider(ProgramProvider):
 
     @staticmethod
     def _parse_instrument_configuration(data: dict, instrument: str) \
-            -> Tuple[Optional[str], Optional[str], Optional[str], Optional[float]]:
+            -> Tuple[Optional[str], Optional[str], Optional[str], Optional[Wavelength]]:
         """
         A dict is return until the Instrument configuration model is created
         """
@@ -492,8 +495,8 @@ class OcsProgramProvider(ProgramProvider):
                 filt = 'Unknown'
         if instrument == 'NIFS' and 'Same as Disperser' in filt:
             filt = find_filter(disperser[0], OcsProgramProvider._NIFS_FILTER_WAVELENGTHS)
-        wavelength = (OcsProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI'
-                      else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH]))
+        wavelength = Wavelength(OcsProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI'
+                                else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH]))
 
         return fpu, disperser, filt, wavelength
 
@@ -590,7 +593,6 @@ class OcsProgramProvider(ProgramProvider):
         for step in sequence:
 
             # Instrument configuration aka Resource.
-            # TODO: We don't have wavelengths as Resources right now.
             fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
 
             # If FPU is None, 'None', or FPU_NONE, which are effectively the same thing, we ignore.
@@ -720,11 +722,11 @@ class OcsProgramProvider(ProgramProvider):
                 classes = []
                 guiding = []
                 atoms.append(Atom(id=atom_id,
-                                  exec_time=timedelta(0),
-                                  prog_time=timedelta(0),
-                                  part_time=timedelta(0),
-                                  program_used=timedelta(0),
-                                  partner_used=timedelta(0),
+                                  exec_time=ZeroTime,
+                                  prog_time=ZeroTime,
+                                  part_time=ZeroTime,
+                                  program_used=ZeroTime,
+                                  partner_used=ZeroTime,
                                   observed=False,
                                   qa_state=QAState.NONE,
                                   guide_state=False,
@@ -819,7 +821,7 @@ class OcsProgramProvider(ProgramProvider):
                      data[OcsProgramProvider._ObsKeys.LOG]]
 
         atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
-        # exec_time = sum([atom.exec_time for atom in atoms], timedelta()) + acq_overhead
+        # exec_time = sum([atom.exec_time for atom in atoms], ZeroTime) + acq_overhead
 
         # TODO: Should this be a list of all targets for the observation?
         targets = []

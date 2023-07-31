@@ -6,11 +6,7 @@ from typing import List
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.plans import Plans
 
-import numpy.typing as npt
 from lucupy.minimodel import Program
-
-# Convenient type alias for Interval
-Interval = npt.NDArray[int]
 
 
 class Optimizer:
@@ -20,20 +16,27 @@ class Optimizer:
     """
 
     def __init__(self, algorithm=None):
+        """
+        All sites schedule the same number of nights.
+        The number of nights scheduled at one time is determined by the Selection.night_indices, passed
+        to the schedule method.
+        """
         self.algorithm = algorithm
         self.selection = None
         self.period = None
         self.night_events = None
 
     def schedule(self, selection: Selection) -> List[Plans]:
-        # Create set of plans for the amount of nights
+        """
+        The night_indices are guaranteed to be a contiguous, sorted set by Selector.select.
+        If they are not, this method will cause problems.
+        """
         self.selection = selection
         self.algorithm.setup(selection)
         self.night_events = selection.night_events
-        # TODO: Assumes that all sites schedule the same amount of nights
-        # if num_nights_optimize is None:
-        self.period = len(list(self.night_events.values())[0].time_grid)
-        nights = [Plans(self.night_events, night) for night in range(self.period)]
+
+        # Create set of plans for the amount of nights
+        nights = [Plans(self.night_events, night_idx) for night_idx in self.selection.night_indices]
         self.algorithm.schedule(nights)
         return nights
 
@@ -47,4 +50,4 @@ class Optimizer:
             schedulable_group = self.selection.schedulable_groups[unique_group_id]
             # update scores in schedulable_groups if the group is not completely observed
             if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
-                schedulable_group.group_info.scores[:] = group_info.scores[:]
+                schedulable_group.group_info.scores = group_info.scores

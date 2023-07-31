@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import functools
@@ -9,6 +9,7 @@ from typing import ClassVar, FrozenSet, Iterable, Callable, Optional
 from scheduler.config import ConfigurationError, config
 
 from lucupy.minimodel.observation import ObservationStatus, Observation, QAState
+from lucupy.types import ZeroTime
 
 
 class SchedulerMode(ABC):
@@ -59,8 +60,8 @@ class ValidationMode(SchedulerMode):
 
         for o in filtered_obs:
             for atom in o.sequence:
-                atom.program_used = timedelta()
-                atom.partner_used = timedelta()
+                atom.program_used = ZeroTime
+                atom.partner_used = ZeroTime
                 atom.observed = False
                 atom.qa_state = QAState.NONE
 

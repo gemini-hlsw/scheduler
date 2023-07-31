@@ -48,8 +48,19 @@ if __name__ == '__main__':
 
     # Execute the Selector.
     # Not sure the best way to display the output.
+    # TODO: Iterate over num_nights_to_schedule and schedule each night.
+    # TODO: How does this affect the selection? We need to select on all three nights or the
+    # TODO: scoring doesn't work and gives us an entirely different result, but it seems like
+    # TODO: we should be only selecting for the night for which we want to schedule.
+    # TODO: Talk to Bryan about this. What will happen if we have more observations? Will we still
+    # TODO: only schedule one night regardless of how many nights we select?
+    # TODO: Note that we are still *not using* num_nights_to_schedule. This should probably be used
+    # TODO: by the loop below.
     selector = SchedulerBuilder.build_selector(collector, num_nights_to_schedule=3)
-    selection = selector.select()
+
+    # TODO: Loop here on num_nights_to_schedule with select, schedule, and time accounting.
+    selection = selector.select(night_indices=np.array([0, 1, 2]))
+    # selection = selector.select()
 
     # Notes for data access:
     # The Selector returns all the data that an Optimizer needs in order to generate plans.
@@ -160,7 +171,8 @@ if __name__ == '__main__':
     )
 
     # TODO: pass these as parameters
-    optimizer.period = 1  # number of nights for which to make plans in a single pass
+    # Period has been eliminated. This is now determined by the selection.
+    # optimizer.period = 1  # number of nights for which to make plans in a single pass
     # optimizer_blueprint.algorithm.show_plots = True # show plots
 
     plans = optimizer.schedule(selection)
@@ -168,8 +180,8 @@ if __name__ == '__main__':
     print('')
 
     # Timeline tests
-    for tl in optimizer_blueprint.algorithm.timelines:
-        print(f'Night {tl.night + 1}')
+    for tl in optimizer_blueprint.algorithm.timelines.values():
+        print(f'Night {tl.night_idx + 1}')
         #     for site, ne in gm_optimizer.night_events.items():
         for site in optimizer.night_events.keys():
             print(f'\t {site}')

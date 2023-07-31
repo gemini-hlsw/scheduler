@@ -2,11 +2,11 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import abstractmethod
-from typing import Dict, FrozenSet, List
+from typing import Dict, FrozenSet
 
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import ALL_SITES, AndGroup, OrGroup, Group, NightIndices, Observation, Program, Site
+from lucupy.minimodel import ALL_SITES, AndGroup, OrGroup, Group, NightIndex, NightIndices, Observation, Program, Site
 
 from scheduler.core.calculations import Scores, GroupDataMap
 from scheduler.core.components.collector import Collector
@@ -27,19 +27,19 @@ class Ranker:
         # 1. An empty observation score array.
         # 2. An empty group scoring array, used to collect the group scores.
         # This allows us to avoid having to store a reference to the Collector in the Ranker.
-        self._empty_obs_scores: Dict[Site, List[npt.NDArray[float]]] = {}
-        self._empty_group_scores: Dict[Site, List[npt.NDArray[float]]] = {}
+        self._empty_obs_scores: Dict[Site, Dict[NightIndex, npt.NDArray[float]]] = {}
+        self._empty_group_scores: Dict[Site, Dict[NightIndex, npt.NDArray[float]]] = {}
         for site in self.sites:
             night_events = collector.get_night_events(site)
 
             # Create a full zero score that fits the sites, nights, and time slots for observations.
-            self._empty_obs_scores[site] = [np.zeros(len(night_events.times[night_idx]), dtype=float)
-                                            for night_idx in self.night_indices]
+            self._empty_obs_scores[site] = {night_idx: np.zeros(len(night_events.times[night_idx]), dtype=float)
+                                            for night_idx in self.night_indices}
 
             # Create a full zero score that fits the sites, nights, and time slots for group calculations.
             # As this must collect the subgroups, the dimensions are different from observation scores.
-            self._empty_group_scores[site] = [np.zeros((0, len(night_events.times[night_idx])), dtype=float)
-                                              for night_idx in self.night_indices]
+            self._empty_group_scores[site] = {night_idx: np.zeros((0, len(night_events.times[night_idx])), dtype=float)
+                                              for night_idx in self.night_indices}
 
     def score_group(self, group: Group, group_data_map: GroupDataMap) -> Scores:
         """

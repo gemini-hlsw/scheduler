@@ -2,17 +2,15 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict
 
-from lucupy.decorators import immutable
-from lucupy.minimodel import Conditions, Group, UniqueGroupID
+from lucupy.minimodel import Conditions, Group, NightIndex, UniqueGroupID
 import numpy.typing as npt
 
 from .scores import Scores
 
 
-@immutable
-@dataclass(frozen=True)
+@dataclass
 class GroupInfo:
     """
     Information regarding Groups that can only be calculated in the Selector.
@@ -36,10 +34,10 @@ class GroupInfo:
     minimum_conditions: Conditions
     is_splittable: bool
     standards: float
-    night_filtering: npt.NDArray[bool]
-    conditions_score: List[npt.NDArray[float]]
-    wind_score: List[npt.NDArray[float]]
-    schedulable_slot_indices: List[npt.NDArray[int]]
+    night_filtering: Dict[NightIndex, bool]
+    conditions_score: Dict[NightIndex, npt.NDArray[float]]
+    wind_score: Dict[NightIndex, npt.NDArray[float]]
+    schedulable_slot_indices: Dict[NightIndex, npt.NDArray[int]]
     scores: Scores
 
 

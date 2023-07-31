@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from math import ceil
 from typing import List, Mapping, Optional, Tuple
 
-from lucupy.minimodel import Observation, ObservationID, Site, Conditions, Band, Resource
+from lucupy.minimodel import Band, Conditions, NightIndex, Observation, ObservationID,  Resource, Site
 import numpy as np
 import numpy.typing as npt
 
@@ -108,7 +108,7 @@ class Plan:
                          science_obs: List[Observation],
                          partner_obs: List[Observation],
                          target_info: TargetInfoNightIndexMap,
-                         night: int,
+                         night_idx: NightIndex,
                          n_std) -> Tuple[List, List]:
         """Pick the standards that best match the NIR science
         observations by airmass
@@ -116,8 +116,6 @@ class Plan:
 
         standards = []
         placement = []
-
-        # print(f'Running place_standards')
 
         xdiff_min = xdiff_before_min = xdiff_after_min = 99999.
         std_before = None
@@ -135,14 +133,14 @@ class Plan:
             slot_start = n_slots_acq
             slot_end = n_slots_cal - 1
 
-            xmean_cal = target_info[night][partcal_obs.id].mean_airmass(interval[slot_start:slot_end + 1])
+            xmean_cal = target_info[night_idx][partcal_obs.id].mean_airmass(interval[slot_start:slot_end + 1])
 
             # Mean NIR science airmass
             idx_start_nir, idx_end_nir, obs_id_nir = self.nir_slots(science_obs, n_slots_cal, len(interval))
             slot_start_nir = slot_end + idx_start_nir
             slot_end_nir = slot_end + idx_end_nir
 
-            xmean_nir = target_info[night][obs_id_nir].mean_airmass(interval[slot_start_nir:slot_end_nir + 1])
+            xmean_nir = target_info[night_idx][obs_id_nir].mean_airmass(interval[slot_start_nir:slot_end_nir + 1])
             xdiff_before = np.abs(xmean_nir - xmean_cal)
 
             # Try std last
@@ -151,13 +149,14 @@ class Plan:
             slot_start = len_int - 1 - n_slots_cal + n_slots_acq
             slot_end = slot_start + n_slots_cal - n_slots_acq - 1
 
-            xmean_cal = target_info[night][partcal_obs.id][night].mean_airmass(interval[slot_start:slot_end + 1])
+            xmean_cal = (target_info[night_idx][partcal_obs.id][night_idx]
+                         .mean_airmass(interval[slot_start:slot_end + 1]))
 
             # Mean NIR science airmass
             slot_start_nir = idx_start_nir
             slot_end_nir = idx_end_nir
 
-            xmean_nir = target_info[night][obs_id_nir].mean_airmass(interval[slot_start_nir:slot_end_nir + 1])
+            xmean_nir = target_info[night_idx][obs_id_nir].mean_airmass(interval[slot_start_nir:slot_end_nir + 1])
             xdiff_after = np.abs(xmean_nir - xmean_cal)
 
             if n_std == 1:
@@ -224,9 +223,9 @@ class Plans:
     A collection of Plan from all sites for a specific night
     """
 
-    def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: int):
+    def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: NightIndex):
         self.plans = {}
-        self.night = night_idx
+        self.night_idx = night_idx
         for site, ne in night_events.items():
             if ne is not None:
                 self.plans[site] = Plan(ne.local_times[night_idx][0],

@@ -129,7 +129,7 @@ def calculate_plans_stats(all_plans: List[Plans],
                 # Calculate altitude data
                 ti = collector.get_target_info(visit.obs_id)
                 end_time_slot = visit.start_time_slot + visit.time_slots
-                values = ti[plans.night].alt[visit.start_time_slot: end_time_slot]
+                values = ti[plans.night_idx].alt[visit.start_time_slot: end_time_slot]
                 alt_degs = [val.dms[0] + (val.dms[1]/60) + (val.dms[2]/3600) for val in values]
                 plan.alt_degs.append(alt_degs)
 
