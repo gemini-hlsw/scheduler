@@ -58,9 +58,38 @@ if __name__ == '__main__':
     # TODO: by the loop below.
     selector = SchedulerBuilder.build_selector(collector, num_nights_to_schedule=3)
 
-    # TODO: Loop here on num_nights_to_schedule with select, schedule, and time accounting.
-    selection = selector.select(night_indices=np.array([0, 1, 2]))
-    # selection = selector.select()
+    # Prepare the optimizer.
+    optimizer_blueprint = OptimizerBlueprint(
+        "GreedyMax"
+    )
+    optimizer = SchedulerBuilder.build_optimizer(
+        blueprint=optimizer_blueprint
+    )
+
+    # The total nights for which visibility calculations have been done.
+    total_nights = len(collector.time_grid)
+
+    # Create the overall plans by night.
+    overall_plans = {}
+    for night_idx in range(selector.num_nights_to_schedule):
+        # Get the night indices for which we are selecting.
+        # TODO: We will want scores for nights to look ahead for greedy optimization.
+        # TODO: For now, we use the entire period for which visibility calculations have been done.
+        # night_indices = range(night_idx, total_nights)
+        night_indices = np.array([night_idx])
+        # selection = selector.select(night_indices=np.array([0, 1, 2])
+        selection = selector.select(night_indices=night_indices)
+
+        # Run the optimizer to get the plans for the first night in the selection.
+        plans = optimizer.schedule(selection)
+        night_plans = plans[0]
+
+        # Store the plans in the overall_plans array for that night.
+        # TODO: This might be an issue. We may need to index nights (plans) in optimizer by night_idx.
+        overall_plans[night_idx] = night_plans
+
+        # Perform the time accounting on the plans.
+        collector.time_accounting(night_plans)
 
     # Notes for data access:
     # The Selector returns all the data that an Optimizer needs in order to generate plans.
@@ -163,31 +192,24 @@ if __name__ == '__main__':
 
     # gm = GreedyMax(some_parameter=1)  # Set parameters for specific algorithm
     # print(selection.program_info)
-    optimizer_blueprint = OptimizerBlueprint(
-        "GreedyMax"
-    )
-    optimizer = SchedulerBuilder.build_optimizer(
-        blueprint=optimizer_blueprint
-    )
 
     # TODO: pass these as parameters
     # Period has been eliminated. This is now determined by the selection.
     # optimizer.period = 1  # number of nights for which to make plans in a single pass
     # optimizer_blueprint.algorithm.show_plots = True # show plots
 
-    plans = optimizer.schedule(selection)
-    print_plans(plans)
-    print('')
+    overall_plans = [p for _, p in sorted(overall_plans.items())]
+    print_plans(overall_plans)
 
     # Timeline tests
-    for tl in optimizer_blueprint.algorithm.timelines.values():
-        print(f'Night {tl.night_idx + 1}')
-        #     for site, ne in gm_optimizer.night_events.items():
-        for site in optimizer.night_events.keys():
-            print(f'\t {site}')
-            print(f'\t {tl[site].start} {tl[site].end} {tl[site].total_time_slots} \
-            {tl[site].is_full}')
-            tl[site].print(optimizer_blueprint.algorithm.obs_group_ids)
-            # print(tl.timelines[site].get_earliest_available_interval())
+    # for tl in optimizer_blueprint.algorithm.timelines.values():
+    #     print(f'Night {tl.night_idx + 1}')
+    #     #     for site, ne in gm_optimizer.night_events.items():
+    #     for site in optimizer.night_events.keys():
+    #         print(f'\t {site}')
+    #         print(f'\t {tl[site].start} {tl[site].end} {tl[site].total_time_slots} \
+    #         {tl[site].is_full}')
+    #         tl[site].print(optimizer_blueprint.algorithm.obs_group_ids)
+    #         # print(tl.timelines[site].get_earliest_available_interval())
 
     print('DONE')
