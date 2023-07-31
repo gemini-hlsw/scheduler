@@ -32,8 +32,8 @@ def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.js
 def print_collector_info(collector: Collector, samples: int = 60) -> None:
     # Output some information.
     print(f'Pre-Collector / Collector running from:')
-    print(f'   start time:       {collector.start_time}')
-    print(f'   end time:         {collector.end_time}')
+    print(f'   start time:       {collector.start_vis_time}')
+    print(f'   end time:         {collector.end_vis_time}')
     print(f'   time slot length: {collector.time_slot_length.to(u.min)}')
 
     # Print out sampled calculation for every hour as there are far too many results to print in full.
@@ -123,7 +123,7 @@ def print_plans(all_plans: List[Plans]) -> None:
     """
 
     for plans in all_plans:
-        print(f'\n\n+++++ NIGHT {plans.night + 1} +++++')
+        print(f'\n\n+++++ NIGHT {plans.night_idx + 1} +++++')
         for plan in plans:
             print(f'Plan for site: {plan.site.name}')
             for visit in plan.visits:

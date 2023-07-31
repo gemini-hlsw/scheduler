@@ -23,7 +23,7 @@ class Selection:
     program_info: Mapping[ProgramID, ProgramInfo]
     schedulable_groups: Mapping[UniqueGroupID, GroupData]
     night_events: Mapping[Site, NightEvents]
-    num_nights: int
+    night_indices: NightIndices
     time_slot_length: timedelta
     _program_scorer: Callable[[Program, Optional[FrozenSet[Site]], Optional[NightIndices], Optional[Ranker]],
                               Optional[ProgramCalculations]]
@@ -33,6 +33,12 @@ class Selection:
                       sites: Optional[FrozenSet[Site]] = None,
                       night_indices: Optional[NightIndices] = None,
                       ranker: Optional[Ranker] = None) -> ProgramCalculations:
+        """
+        Re-score a program. This calls Selector.score_program, which checks to make sure
+        that the night_indices are valid, so we don't need to include that logic here.
+        """
+        if night_indices is None:
+            night_indices = self.night_indices
         return self._program_scorer(program, sites, night_indices, ranker)
 
     @property

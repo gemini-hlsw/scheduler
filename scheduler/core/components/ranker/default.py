@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable, FrozenSet, Mapping, Tuple
+from typing import Callable, FrozenSet, Mapping, Tuple, final
 
 import astropy.units as u
 import numpy as np
@@ -24,7 +24,8 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
     return np.array([np.max(x)]) if 0 not in x else np.array([0.])
 
 
-@dataclass(frozen=True, unsafe_hash=True)
+@final
+@dataclass(frozen=True)
 class RankerParameters:
     """
     Global parameters for the Ranker.
@@ -43,7 +44,8 @@ class RankerParameters:
     score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = _default_score_combiner
 
 
-@dataclass(frozen=True, unsafe_hash=True)
+@final
+@dataclass(frozen=True)
 class RankerBandParameters:
     """
     Parameters per band for the Ranker.
@@ -202,33 +204,35 @@ class DefaultRanker(Ranker):
         print(f'   cplt: {cplt:.2f}  metric: {metric[0]:.2f}')
 
         # Declination for the base target per night.
-        dec = [target_info[night_idx].coord.dec for night_idx in self.night_indices]
+        dec = {night_idx: target_info[night_idx].coord.dec for night_idx in self.night_indices}
 
         # Hour angle / airmass
-        ha = [target_info[night_idx].hourangle for night_idx in self.night_indices]
+        ha = {night_idx: target_info[night_idx].hourangle for night_idx in self.night_indices}
 
         # Get the latitude associated with the site.
         site_latitude = obs.site.location.lat
         if site_latitude < 0. * u.deg:
-            dec_diff = [np.abs(site_latitude - np.max(dec[night_idx])) for night_idx in self.night_indices]
+            dec_diff = {night_idx: np.abs(site_latitude - np.max(dec[night_idx])) for night_idx in self.night_indices}
         else:
-            dec_diff = [np.abs(np.min(dec[night_idx]) - site_latitude) for night_idx in self.night_indices]
+            dec_diff = {night_idx: np.abs(np.min(dec[night_idx]) - site_latitude) for night_idx in self.night_indices}
 
-        c = np.array([self.params.dec_diff_less_40 if angle < 40. * u.deg
-                      else self.params.dec_diff for angle in dec_diff])
+        c = {night_idx: self.params.dec_diff_less_40 if angle < 40. * u.deg else self.params.dec_diff
+             for night_idx, angle in dec_diff.items()}
+        # c = np.array([self.params.dec_diff_less_40 if angle < 40. * u.deg
+        #               else self.params.dec_diff for angle in dec_diff])
 
-        wha = [c[night_idx][0] + c[night_idx][1] * ha[night_idx] / u.hourangle
+        wha = {night_idx: c[night_idx][0] + c[night_idx][1] * ha[night_idx] / u.hourangle
                + (c[night_idx][2] / u.hourangle ** 2) * ha[night_idx] ** 2
-               for night_idx in self.night_indices]
-        kk = [np.where(wha[night_idx] <= 0.)[0] for night_idx in self.night_indices]
+               for night_idx in self.night_indices}
+        kk = {night_idx: np.where(wha[night_idx] <= 0.)[0] for night_idx in self.night_indices}
         for night_idx in self.night_indices:
             wha[night_idx][kk[night_idx]] = 0.
-        print(f'   max wha: {np.max(wha[0]):.2f}  visfrac: {target_info[0].rem_visibility_frac:.5f}')
+        # print(f'   max wha: {np.max(wha[0]):.2f}  visfrac: {target_info[0].rem_visibility_frac:.5f}')
 
-        p = [(metric[0] ** self.params.met_power) *
+        p = {night_idx: (metric[0] ** self.params.met_power) *
              (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
              (wha[night_idx] ** self.params.wha_power)
-             for night_idx in self.night_indices]
+             for night_idx in self.night_indices}
 
         # Assign scores in p to all indices where visibility constraints are met.
         # They will otherwise be 0 as originally defined.
@@ -268,8 +272,8 @@ class DefaultRanker(Ranker):
 
         # Combine the scores as per the score_combiner and return.
         # apply_along_axis results in a (1, #timeslots in night) array, so we have to take index 0.
-        return [np.apply_along_axis(self.params.score_combiner, 0, scores[night_idx])[0]
-                for night_idx in self.night_indices]
+        return {night_idx: np.apply_along_axis(self.params.score_combiner, 0, scores[night_idx])[0]
+                for night_idx in self.night_indices}
 
     def _score_or_group(self, group: OrGroup, group_data_map: GroupDataMap) -> Scores:
         raise NotImplementedError

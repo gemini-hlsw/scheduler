@@ -11,9 +11,9 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import sky
-from lucupy.minimodel import (Constraints, ElevationType, NightIndices, NonsiderealTarget, Observation, ObservationID,
-                              ObservationClass, Program, ProgramID, ProgramTypes, Semester, SiderealTarget, Site,
-                              SkyBackground, Target, QAState, ObservationStatus)
+from lucupy.minimodel import (Constraints, ElevationType, NightIndex, NightIndices, NonsiderealTarget, Observation,
+                              ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
+                              SiderealTarget, Site, SkyBackground, Target, QAState, ObservationStatus)
 import numpy as np
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
@@ -36,15 +36,19 @@ logger = logger_factory.create_logger(__name__)
 @dataclass
 class Collector(SchedulerComponent):
     """
-    The interval [start_time, end_time] indicates the time interval that we want to calculate during the
-    scheduling and is used for visibility calculations.
+    The interval [start_vis_time, end_vis_time] indicates the time interval that we want to consider during
+    the scheduling for visibility time. Note that the generation of plans will begin on the night indicated by
+    start_vis_time and proceed for num_nights_to_schedule, a parameter passed to the Selector, which must
+    represent fewer nights than in the [start_vis_time, end_vis_time] schedule.
 
-    The actual number of nights for which we want to schedule is in the Selector and indicates that we want to
-    schedule num_nights starting at the night indicated by start_time. Note that num_nights must be no bigger than
-    the number of nights in the time interval given here.
+    Also note that we never have need to calculate visibility retroactively, hence why plan generation begins
+    on the night of start_vis_time.
+
+    Here, we just perform the necessary calculations, and are not concerned with the number of nights to be
+    scheduled.
     """
-    start_time: Time
-    end_time: Time
+    start_vis_time: Time
+    end_vis_time: Time
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
     sources: Sources
@@ -104,20 +108,22 @@ class Collector(SchedulerComponent):
         Initializes the internal data structures for the Collector and populates them.
         """
         # Check that the times are valid.
-        if not np.isscalar(self.start_time.value):
-            msg = f'Illegal start time (must be scalar): {self.start_time}.'
+        if not np.isscalar(self.start_vis_time.value):
+            msg = f'Illegal start time (must be scalar): {self.start_vis_time}.'
             raise ValueError(msg)
-        if not np.isscalar(self.end_time.value):
-            msg = f'Illegal end time (must be scalar): {self.end_time}.'
+        if not np.isscalar(self.end_vis_time.value):
+            msg = f'Illegal end time (must be scalar): {self.end_vis_time}.'
             raise ValueError(msg)
-        if self.start_time >= self.end_time:
-            msg = f'Start time ({self.start_time}) must be earlier than end time ({self.end_time}).'
+        if self.start_vis_time >= self.end_vis_time:
+            msg = f'Start time ({self.start_vis_time}) must be earlier than end time ({self.end_vis_time}).'
             raise ValueError(msg)
 
         # Set up the time grid for the period under consideration in calculations: this is an astropy Time
         # object from start_time to end_time inclusive, with one entry per day.
         # Note that the format is in jdate.
-        self.time_grid = Time(np.arange(self.start_time.jd, self.end_time.jd + 1.0, (1.0 * u.day).value), format='jd')
+        self.time_grid = Time(np.arange(self.start_vis_time.jd,
+                                        self.end_vis_time.jd + 1.0, (1.0 * u.day).value),
+                              format='jd')
 
         # The number of nights for which we are performing calculations.
         self.num_nights_calculated = len(self.time_grid)
@@ -200,9 +206,14 @@ class Collector(SchedulerComponent):
         observation, return the target information as a map from NightIndex to TargetInfo.
         """
         info = Collector.get_observation_and_base_target(obs_id)
-        if info is None or info[1] is None:
+        if info is None:
             return None
-        target_name = info[1].name
+
+        obs, target = info
+        if target is None:
+            return None
+
+        target_name = target.name
         return Collector._target_info.get((target_name, obs_id), None)
 
     @staticmethod
@@ -373,7 +384,7 @@ class Collector(SchedulerComponent):
             else:
                 rem_visibility_frac = 0.0
 
-            target_info[night_idx] = TargetInfo(
+            target_info[NightIndex(night_idx)] = TargetInfo(
                 coord=coord,
                 alt=alt,
                 az=az,
@@ -478,16 +489,14 @@ class Collector(SchedulerComponent):
 
     def night_configurations(self,
                              site: Site,
-                             night_indices: NightIndices) -> List[NightConfiguration]:
+                             night_indices: NightIndices) -> Dict[NightIndices, NightConfiguration]:
         """
         Return the list of NightConfiguration for the site and nights under configuration.
         """
-        return [
-            Collector._resource_service.get_night_configuration(
-                site,
-                self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
-            )
-            for night_idx in night_indices]
+        return {night_idx: Collector._resource_service.get_night_configuration(
+            site,
+            self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
+        ) for night_idx in night_indices}
 
     def time_accounting(self, site_plans: Plans) -> None:
         """ Do time accounting for Plans in both site but for only one night.
@@ -505,8 +514,7 @@ class Collector(SchedulerComponent):
                     observation.status = ObservationStatus.ONGOING
                       
                 # Update by atom in the sequence
-                for atom_idx in range (v.atom_start_idx, v.atom_end_idx):
-
+                for atom_idx in range(v.atom_start_idx, v.atom_end_idx):
                     obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
                     obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
 
