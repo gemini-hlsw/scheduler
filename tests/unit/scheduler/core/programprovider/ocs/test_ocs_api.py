@@ -11,7 +11,7 @@ from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Condi
                               ObservationStatus, Priority, Program, ProgramID, ProgramMode, ProgramTypes, QAState,
                               Resource, ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site,
                               SkyBackground, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow,
-                              TooType, WaterVapor)
+                              TooType, WaterVapor, Wavelength)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 
@@ -118,7 +118,7 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=True,
             resources=frozenset({gmosn, mirror}),
-            wavelengths=frozenset({0.475})
+            wavelengths=frozenset({Wavelength(0.475)})
         )
     ]
 
@@ -232,7 +232,7 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=True,
             resources=frozenset({gnirs}),
-            wavelengths=frozenset({2.2})
+            wavelengths=frozenset({Wavelength(2.2)})
         )
     ]
 
@@ -351,7 +351,7 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=True,
             resources=frozenset({gnirs}),
-            wavelengths=frozenset({2.2})
+            wavelengths=frozenset({Wavelength(2.2)})
         )
     ]
 
@@ -526,7 +526,7 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=True,
             resources=frozenset({gmosn, mirror}),
-            wavelengths=frozenset({0.475})
+            wavelengths=frozenset({Wavelength(0.475)})
         )
     ]
 

@@ -16,7 +16,8 @@ from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Condi
                               ObservationClass, ObservationID, ObservationMode, ObservationStatus, OrGroup, Priority,
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
                               SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetName,
-                              TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor)
+                              TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor,
+                              Wavelength)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
@@ -442,7 +443,7 @@ class OcsProgramProvider(ProgramProvider):
 
     @staticmethod
     def _parse_instrument_configuration(data: dict, instrument: str) \
-            -> Tuple[Optional[str], Optional[str], Optional[str], Optional[float]]:
+            -> Tuple[Optional[str], Optional[str], Optional[str], Optional[Wavelength]]:
         """
         A dict is return until the Instrument configuration model is created
         """
@@ -494,8 +495,8 @@ class OcsProgramProvider(ProgramProvider):
                 filt = 'Unknown'
         if instrument == 'NIFS' and 'Same as Disperser' in filt:
             filt = find_filter(disperser[0], OcsProgramProvider._NIFS_FILTER_WAVELENGTHS)
-        wavelength = (OcsProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI'
-                      else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH]))
+        wavelength = Wavelength(OcsProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI'
+                                else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH]))
 
         return fpu, disperser, filt, wavelength
 
@@ -592,7 +593,6 @@ class OcsProgramProvider(ProgramProvider):
         for step in sequence:
 
             # Instrument configuration aka Resource.
-            # TODO: We don't have wavelengths as Resources right now.
             fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
 
             # If FPU is None, 'None', or FPU_NONE, which are effectively the same thing, we ignore.
