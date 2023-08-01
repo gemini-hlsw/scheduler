@@ -509,6 +509,7 @@ class Collector(SchedulerComponent):
                 obs_seq = observation.sequence
                 # check that Observation is Observed
                 if v.atom_end_idx == len(obs_seq)-1:
+                    logger.warning(f'Marking observation complete: {observation.id.id}')
                     observation.status = ObservationStatus.OBSERVED
                 else:
                     observation.status = ObservationStatus.ONGOING

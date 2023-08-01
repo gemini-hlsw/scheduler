@@ -259,8 +259,8 @@ class Selector(SchedulerComponent):
 
         obs = group.children
 
-        # TODO: Do we really want to include OBSERVED here?
-        if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY, ObservationStatus.OBSERVED}:
+        # Only schedule ONGOING or READY observations.
+        if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY}:
             logger.warning(f'Selector skipping observation {obs.id}: status is {obs.status.name}.')
             return group_data_map
         if obs.site not in sites:
