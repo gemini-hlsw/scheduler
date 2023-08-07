@@ -19,3 +19,4 @@ lucupy
 pytest-asyncio
 gelidum
 python-dateutil
+mercury

@@ -9,6 +9,7 @@ from typing import List
 from astropy import units as u
 from lucupy.minimodel import Atom, Group, Observation, ObservationClass, Program
 from openpyxl import Workbook
+import pandas as pd
 
 from scheduler.core.components.collector import Collector, NightEventsManager
 from scheduler.core.plans import Plans
@@ -128,3 +129,22 @@ def print_plans(all_plans: List[Plans]) -> None:
             print(f'Plan for site: {plan.site.name}')
             for visit in plan.visits:
                 print(f'\t{visit.start_time}   {visit.obs_id.id:20} {visit.score:8.2f}')
+
+
+def plans_table(all_plans: List[Plans]):
+    per_night = []
+    for plans in all_plans:
+        per_site = {}
+        for plan in plans:
+            new_entry = {'Start': [v.start_time for v in plan.visits],
+                         'Observation': [v.obs_id.id for v in plan.visits],
+                         'Atom start': [v.atom_start_idx for v in plan.visits],
+                         'Atom end': [v.atom_end_idx for v in plan.visits],
+                         'Length': [v.time_slots for v in plan.visits],
+                         'Score': [v.score for v in plan.visits],
+                         'Instrument': [v.instrument.id for v in plan.visits]}
+            df = pd.DataFrame(new_entry)
+            per_site[plan.site] = df
+        per_night.append(per_site)
+
+    return per_night
