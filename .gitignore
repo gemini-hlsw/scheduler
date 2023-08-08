@@ -55,6 +55,7 @@ coverage.xml
 *.log
 local_settings.py
 db.sqlite3
+celery
 
 # Flask stuff:
 instance/
@@ -76,7 +77,8 @@ target/
 .python-version
 
 # celery beat schedule file
-celerybeat-schedule
+celerybeat-schedule*
+celery.sqlite
 
 # SageMath parsed files
 *.sage.py
@@ -118,8 +120,8 @@ maglimits_test.py
 .vscode
 .fleet
 
-# logger
-*.log
+# pickle
+*.pickle
 
 # scala worksheet for some OCS comparison
 .metals
