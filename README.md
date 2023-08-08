@@ -58,6 +58,12 @@ $ docker run -dp 8000:8000 scheduler
 
 2. You can access `http://localhost:8000/graphql` to interact with the GraphQL console. 
 
+## How to run Mercury demo
+Run this command in the scheduler folder (you have to see the demo folder)
+```shell
+$ mercury run
+```
+
 
 ## Notes
 * For Collector, look into `cached_propperty`.
