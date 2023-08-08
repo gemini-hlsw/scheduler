@@ -526,7 +526,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                         science_obs: List[Observation],
                         partner_obs: List[Observation],
                         n_std: int,
-                        verbose: bool = True) -> Tuple[List[Observation], List[bool]]:
+                        verbose: bool = False) -> Tuple[List[Observation], List[bool]]:
         """
         Pick the standards that best match the NIR science observations by airmass
         """
@@ -767,29 +767,29 @@ class GreedyMaxOptimizer(BaseOptimizer):
     def _update_score(self, program: Program, night_idx: NightIndex) -> None:
         """Update the scores of the incomplete groups in the scheduled program"""
 
-        print("Running score_program")
+        # print("Running score_program")
         program_calculations = self.selection.score_program(program)
 
-        print("Re-score incomplete schedulable_groups")
+        # print("Re-score incomplete schedulable_groups")
         for unique_group_id in program_calculations.top_level_groups:
             group_data = program_calculations.group_data_map[unique_group_id]
             group, group_info = group_data
             schedulable_group = self.selection.schedulable_groups[unique_group_id]
-            print(f"{unique_group_id} {schedulable_group.group.exec_time()} {schedulable_group.group.total_used()}")
-            print(f"\tOld max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f} new max score[0]: "
-                  f"{np.max(group_info.scores[night_idx]):7.2f}")
+            # print(f"{unique_group_id} {schedulable_group.group.exec_time()} {schedulable_group.group.total_used()}")
+            # print(f"\tOld max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f} new max score[0]: "
+            #       f"{np.max(group_info.scores[night_idx]):7.2f}")
             # update scores in schedulable_groups if the group is not completely observed
             if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
                 schedulable_group.group_info.scores = group_info.scores
                 # schedulable_group.group_info.scores[:] = group_info.scores[:]
-            print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f}")
+            # print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f}")
 
     def _run(self, plans: Plans) -> None:
 
         # Fill plans for all sites on one night
         while not self.timelines[plans.night_idx].all_done() and len(self.group_data_list) > 0:
 
-            print(f"\nNight {plans.night_idx + 1}")
+            # print(f"\nNight {plans.night_idx + 1}")
 
             # Find the group with the max score in an open interval
             max_group_info = self._find_max_group(plans)
@@ -799,8 +799,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # max_score, max_group, max_interval = max_group_info
                 added = self.add(plans.night_idx, max_group_info)
                 if added:
-                    print(f"Group {max_group_info.group_data.group.unique_id.id} with "
-                          f"max score {max_group_info.max_score} added.")
+                    # print(f"Group {max_group_info.group_data.group.unique_id.id} with "
+                    #      f"max score {max_group_info.max_score} added.")
                     # Remove group from list if completely observed
                     if max_group_info.group_data.group.program_used() >= max_group_info.group_data.group.prog_time():
                         self.group_data_list.remove(max_group_info.group_data)
@@ -865,10 +865,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
         )
 
         # pseudo (internal) time charging
-        print(f"{program.id.id}: ")
-        print(f"before charge_time total_used: {program.total_used()} program_used: {program.program_used()}")
+        # print(f"{program.id.id}: ")
+        # print(f"before charge_time total_used: {program.total_used()} program_used: {program.program_used()}")
         self._charge_time(obs, atom_start=atom_start, atom_end=atom_end)
-        print(f"after  charge_time total_used: {program.total_used()} program_used: {program.program_used()}")
+        # print(f"after  charge_time total_used: {program.total_used()} program_used: {program.program_used()}")
 
         return n_slots_filled
 
@@ -890,7 +890,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # visit = [] # list of observations in visit
         result = False
 
-        print(f"Interval start end: {max_group_info.interval[0]} {max_group_info.interval[-1]}")
+        # print(f"Interval start end: {max_group_info.interval[0]} {max_group_info.interval[-1]}")
 
         if not timeline.is_full:
             # Find the best location in timeline for the group
@@ -919,7 +919,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                                                                    max_group_info.n_std)
                     for ii, std in enumerate(standards):
                         n_slots_cal += Plan.time2slots(self.time_slot_length, std.exec_time())
-                        print(f"{std.id.id} {place_before[ii]} {n_slots_cal}")
+                        # print(f"{std.id.id} {place_before[ii]} {n_slots_cal}")
                         if place_before[ii]:
                             before_std = std
                         else:
@@ -930,14 +930,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
             n_slots_filled = 0
             if before_std is not None:
                 obs = before_std
-                print(f"Adding before_std: {obs.to_unique_group_id} {obs.id.id}")
+                # print(f"Adding before_std: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
 
             # split at atoms
             for obs in prog_obs:
                 # Reserve space for the cals, otherwise the science observes will fill the interval
                 n_slots_filled = n_slots_cal
-                print(f"Adding science: {obs.to_unique_group_id} {obs.id.id}")
+                # print(f"Adding science: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
                 if after_std is not None:
                     # "put back" time for the final standard
@@ -945,7 +945,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
             if after_std is not None:
                 obs = after_std
-                print(f"Adding after_std: {obs.to_unique_group_id} {obs.id.id}")
+                # print(f"Adding after_std: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
 
             # TODO: Shift to remove any gaps in the plan?
