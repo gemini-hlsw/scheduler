@@ -197,11 +197,11 @@ class DefaultRanker(Ranker):
                                               np.ones(1, dtype=int) * program.band,
                                               np.ones(1) * 0.8,
                                               program.thesis)
-        print(f'{obs.id.id:20}  exec: {obs.exec_time().total_seconds() / 3600.:.2f} '
-              f'used: {obs.total_used().total_seconds() / 3600.:.2f} '
-              f'prog awarded: {program.total_awarded().total_seconds() / 3600.:.2f} '
-              f'prog used: {program.total_used().total_seconds() / 3600.:.2f} ')
-        print(f'   cplt: {cplt:.2f}  metric: {metric[0]:.2f}')
+        # print(f'{obs.id.id:20}  exec: {obs.exec_time().total_seconds() / 3600.:.2f} '
+        #      f'used: {obs.total_used().total_seconds() / 3600.:.2f} '
+        #      f'prog awarded: {program.total_awarded().total_seconds() / 3600.:.2f} '
+        #      f'prog used: {program.total_used().total_seconds() / 3600.:.2f} ')
+        # print(f'   cplt: {cplt:.2f}  metric: {metric[0]:.2f}')
 
         # Declination for the base target per night.
         dec = {night_idx: target_info[night_idx].coord.dec for night_idx in self.night_indices}
@@ -239,7 +239,7 @@ class DefaultRanker(Ranker):
         for night_idx in self.night_indices:
             slot_indices = target_info[night_idx].visibility_slot_idx
             scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
-            print(f'   max score on night {night_idx}: {np.max(scores[night_idx])}')
+            # print(f'   max score on night {night_idx}: {np.max(scores[night_idx])}')
 
         return scores
 

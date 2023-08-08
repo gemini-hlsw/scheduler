@@ -4,10 +4,11 @@
 import json
 import os
 import gzip
-from typing import List
+import pickle
+from typing import List, Dict
 
 from astropy import units as u
-from lucupy.minimodel import Atom, Group, Observation, ObservationClass, Program
+from lucupy.minimodel import Atom, Group, Observation, ObservationClass, Program, Site
 from openpyxl import Workbook
 import pandas as pd
 
@@ -15,6 +16,7 @@ from scheduler.core.components.collector import Collector, NightEventsManager
 from scheduler.core.plans import Plans
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.programprovider.ocs import OcsProgramProvider
+from scheduler.core.calculations.selection import  Selection
 
 
 def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.json.gz'),
@@ -54,23 +56,23 @@ def print_collector_info(collector: Collector, samples: int = 60) -> None:
             print(f'\t12° mor twilight: {night_events.twilight_morning_12[idx]}')
             print(f'\tmoonrise:         {night_events.moonrise[idx]}')
             print(f'\tmoonset:          {night_events.moonset[idx]}')
-            print(f'\n\tSun information (deg, sampled every {samples} time slots):')
-            print(f'\tAlt:    {[a.to_value(u.deg) for a in night_events.sun_alt[idx][::samples]]}')
-            print(f'\tAz:     {[a.to_value(u.deg) for a in night_events.sun_az[idx][::samples]]}')
-            print(f'\tParAng: {[a.to_value(u.deg) for a in night_events.sun_par_ang[idx][::samples]]}')
-            print(f'\n\tMoon information (km or deg, sampled every {samples} time slots):')
-            print(f'\tDist:   {[a.to_value(u.km) for a in night_events.moon_dist[idx][::samples]]}')
-            print(f'\tAlt:    {[a.to_value(u.deg) for a in night_events.moon_alt[idx][::samples]]}')
-            print(f'\tAz:     {[a.to_value(u.deg) for a in night_events.moon_az[idx][::samples]]}')
-            print(f'\tParAng: {[a.to_value(u.deg) for a in night_events.moon_par_ang[idx][::samples]]}')
-            print(f'\n\tSun-Moon angle (deg, sampled every {samples} time slots):')
-            print(f'\t{[a.to_value(u.deg) for a in night_events.sun_moon_ang[idx][::samples]]}')
-            print('\n\n')
+            # print(f'\n\tSun information (deg, sampled every {samples} time slots):')
+            # print(f'\tAlt:    {[a.to_value(u.deg) for a in night_events.sun_alt[idx][::samples]]}')
+            # print(f'\tAz:     {[a.to_value(u.deg) for a in night_events.sun_az[idx][::samples]]}')
+            # print(f'\tParAng: {[a.to_value(u.deg) for a in night_events.sun_par_ang[idx][::samples]]}')
+            # print(f'\n\tMoon information (km or deg, sampled every {samples} time slots):')
+            # print(f'\tDist:   {[a.to_value(u.km) for a in night_events.moon_dist[idx][::samples]]}')
+            # print(f'\tAlt:    {[a.to_value(u.deg) for a in night_events.moon_alt[idx][::samples]]}')
+            # print(f'\tAz:     {[a.to_value(u.deg) for a in night_events.moon_az[idx][::samples]]}')
+            # print(f'\tParAng: {[a.to_value(u.deg) for a in night_events.moon_par_ang[idx][::samples]]}')
+            # print(f'\n\tSun-Moon angle (deg, sampled every {samples} time slots):')
+            # print(f'\t{[a.to_value(u.deg) for a in night_events.sun_moon_ang[idx][::samples]]}')
+            # print('\n\n')
 
     target_info = sorted((obs_id, Collector.get_base_target(obs_id).name)
                          for obs_id in Collector.get_observation_ids())
-    for obs_id, target_name in target_info:
-        print(f'Observation {obs_id}, Target {target_name}')
+    # for obs_id, target_name in target_info:
+    #    print(f'Observation {obs_id}, Target {target_name}')
 
 
 def print_atoms_for_observation(observation: Observation) -> None:
@@ -131,7 +133,7 @@ def print_plans(all_plans: List[Plans]) -> None:
                 print(f'\t{visit.start_time}   {visit.obs_id.id:20} {visit.score:8.2f}')
 
 
-def plans_table(all_plans: List[Plans]):
+def plans_table(all_plans: List[Plans]) -> List[Dict[Site, pd.DataFrame]]:
     per_night = []
     for plans in all_plans:
         per_site = {}
@@ -148,3 +150,18 @@ def plans_table(all_plans: List[Plans]):
         per_night.append(per_site)
 
     return per_night
+
+
+def pickle_plans(plans_to_pickle: List[Dict[Site, pd.DataFrame]],
+                 path: str,
+                 start: str = '',
+                 end: str = '') -> None:
+    with open(f'{path}/plans_{start}_to_{end}.pickle', 'wb') as f:
+        pickle.dump(plans_to_pickle, f)
+
+
+def pickle_selection(selection_to_pickle: Selection,
+                     path: str,
+                     night: str = '') -> None:
+    with open(f'{path}/selection_night{night}.pickle', 'wb') as f:
+        pickle.dump(selection_to_pickle, f)
