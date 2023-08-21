@@ -508,14 +508,14 @@ class Collector(SchedulerComponent):
                 observation = self.get_observation(v.obs_id)
                 obs_seq = observation.sequence
                 # check that Observation is Observed
-                if v.atom_end_idx == len(obs_seq)-1:
+                if v.atom_end_idx == len(obs_seq) - 1:
                     logger.warning(f'Marking observation complete: {observation.id.id}')
                     observation.status = ObservationStatus.OBSERVED
                 else:
                     observation.status = ObservationStatus.ONGOING
                       
                 # Update by atom in the sequence
-                for atom_idx in range(v.atom_start_idx, v.atom_end_idx):
+                for atom_idx in range(v.atom_start_idx, v.atom_end_idx + 1):
                     obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
                     obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
 
