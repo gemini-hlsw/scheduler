@@ -4,6 +4,7 @@
 import os
 import logging
 
+from lucupy.minimodel.constraints import CloudCover, ImageQuality
 from lucupy.minimodel.site import ALL_SITES
 from lucupy.minimodel.semester import SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
@@ -56,7 +57,17 @@ if __name__ == '__main__':
     # TODO: only schedule one night regardless of how many nights we select?
     # TODO: Note that we are still *not using* num_nights_to_schedule. This should probably be used
     # TODO: by the loop below.
-    selector = SchedulerBuilder.build_selector(collector, num_nights_to_schedule=3)
+
+    # TODO: SET THE WEATHER HERE.
+    # CC values are CC50, CC70, CC85, CCANY. Default is CC50 if not passed to build_selector.
+    cc = CloudCover.CC50
+
+    # IQ values are IQ20, IQ70, IQ85, and IQANY. Default is IQ70 if not passed to build_selector.
+    iq = ImageQuality.IQ70
+    selector = SchedulerBuilder.build_selector(collector,
+                                               num_nights_to_schedule=3,
+                                               default_cc=cc,
+                                               default_iq=iq)
 
     # Prepare the optimizer.
     optimizer_blueprint = OptimizerBlueprint(
