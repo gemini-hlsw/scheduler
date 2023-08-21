@@ -112,7 +112,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         for atom in sequence:
             if not atom.observed:
                 total_exec += atom.exec_time
-                cumul_seq.append(total_exec)
+            cumul_seq.append(total_exec)
         if len(cumul_seq) == 0:
             cumul_seq.append(total_exec)
 
