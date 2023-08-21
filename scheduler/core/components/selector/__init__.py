@@ -43,6 +43,8 @@ class Selector(SchedulerComponent):
     """
     collector: Collector
     num_nights_to_schedule: int
+    default_cc: CloudCover = CloudCover.CC50
+    default_iq: ImageQuality = ImageQuality.IQ70
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
     _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
@@ -315,8 +317,8 @@ class Selector(SchedulerComponent):
             actual_conditions = self.collector.sources.origin.env.get_actual_conditions_variant(obs.site,
                                                                                                     start_time,
                                                                                                 end_time)
-            actual_conditions = Variant(iq=np.array([ImageQuality.IQ70 for i in range(len(actual_conditions.cc))]),
-                                        cc=np.array([CloudCover.CC50 for i in range(len(actual_conditions.cc))]),
+            actual_conditions = Variant(iq=np.array([self.default_cc for i in range(len(actual_conditions.cc))]),
+                                        cc=np.array([self.default_iq for i in range(len(actual_conditions.cc))]),
                                         wind_dir=actual_conditions.wind_dir,
                                         wind_spd=actual_conditions.wind_spd
                                         )
