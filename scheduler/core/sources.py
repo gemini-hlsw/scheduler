@@ -1,6 +1,8 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import Enum
 from io import BytesIO
@@ -41,7 +43,7 @@ class Origin(ABC):
 
 class OCSOrigin(Origin):
 
-    def load(self) -> 'OCSOrigin':
+    def load(self) -> OCSOrigin:
         if not self.is_loaded:
             self.resource = OcsResourceService()
             self.env = OcsEnvService()

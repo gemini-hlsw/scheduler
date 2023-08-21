@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from astropy.time import Time
-from lucupy.minimodel import Semester, Site
+from lucupy.minimodel import CloudCover, ImageQuality, Semester, Site
 from typing import FrozenSet
 
 from .blueprint import CollectorBlueprint, OptimizerBlueprint
@@ -30,8 +30,14 @@ class SchedulerBuilder:
         return Collector(start, end, sites, semesters, SchedulerBuilder.sources, *blueprint)
 
     @staticmethod
-    def build_selector(collector: Collector, num_nights_to_schedule: int):
-        return Selector(collector=collector, num_nights_to_schedule=num_nights_to_schedule)
+    def build_selector(collector: Collector,
+                       num_nights_to_schedule: int,
+                       default_cc: CloudCover = CloudCover.CC50,
+                       default_iq: ImageQuality = ImageQuality.IQ70):
+        return Selector(collector=collector,
+                        num_nights_to_schedule=num_nights_to_schedule,
+                        default_cc=default_cc,
+                        default_iq=default_iq)
 
     @staticmethod
     def build_optimizer(blueprint: OptimizerBlueprint) -> Optimizer:
