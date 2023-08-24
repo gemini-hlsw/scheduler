@@ -10,13 +10,13 @@ from typing import List, Dict
 from astropy import units as u
 from lucupy.minimodel import Atom, Group, Observation, ObservationClass, Program, Site
 from openpyxl import Workbook
-import pandas as pd
+from pandas import DataFrame
 
 from scheduler.core.components.collector import Collector, NightEventsManager
-from scheduler.core.plans import Plans
+from scheduler.core.plans import Plans, NightStats
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.programprovider.ocs import OcsProgramProvider
-from scheduler.core.calculations.selection import  Selection
+from scheduler.core.calculations.selection import Selection
 
 
 def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.json.gz'),
@@ -134,7 +134,7 @@ def print_plans(all_plans: List[Plans]) -> None:
                       f'{visit.atom_end_idx:4d}')
 
 
-def plans_table(all_plans: List[Plans]) -> List[Dict[Site, pd.DataFrame]]:
+def plans_table(all_plans: List[Plans]) -> List[Dict[Site, DataFrame]]:
     per_night = []
     for plans in all_plans:
         per_site = {}
@@ -146,14 +146,14 @@ def plans_table(all_plans: List[Plans]) -> List[Dict[Site, pd.DataFrame]]:
                          'Length': [v.time_slots for v in plan.visits],
                          'Score': [v.score for v in plan.visits],
                          'Instrument': [v.instrument.id for v in plan.visits]}
-            df = pd.DataFrame(new_entry)
+            df = DataFrame(new_entry)
             per_site[plan.site] = df
         per_night.append(per_site)
 
     return per_night
 
 
-def pickle_plans(plans_to_pickle: List[Dict[Site, pd.DataFrame]],
+def pickle_plans(plans_to_pickle: List[Dict[Site, DataFrame]],
                  path: str,
                  start: str = '',
                  end: str = '') -> None:
