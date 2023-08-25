@@ -64,11 +64,13 @@ class OcsProgramProvider(ProgramProvider):
         MODE = 'programMode'
         TOO_TYPE = 'tooType'
         TIME_ACCOUNT_ALLOCATION = 'timeAccountAllocationCategories'
+        NOTE = 'INFO'
         SCHED_NOTE = 'INFO_SCHEDNOTE'
         PROGRAM_NOTE = 'INFO_PROGRAMNOTE'
 
     class _NoteKeys:
         TITLE = 'title'
+        TEXT = 'text'
 
     class _TAKeys:
         CATEGORIES = 'timeAccountAllocationCategories'
@@ -202,6 +204,26 @@ class OcsProgramProvider(ProgramProvider):
                  obs_classes: FrozenSet[ObservationClass],
                  sources: Sources):
         super().__init__(obs_classes, sources)
+
+    @staticmethod
+    def parse_notes_split(notes) -> bool:
+        """Search note title and content strings for instructions on not splitting observations
+           Returns a boolean indicating whether the observation can be split.
+           notes: list of note tuples,  [(title, text), (title, text),...]"""
+        split = True
+        for note in notes:
+            if split and note[0] is not None:
+                title_lower = note[0].lower()
+                if any([s in title_lower for s in ["do not split", "do not interrupt"]]):
+                    split = False
+                    # print("Do not split found")
+            if split and note[1] is not None:
+                content_lower = note[1].lower()
+                if any([s in content_lower for s in ["do not split", "do not interrupt"]]):
+                    split = False
+                    # print("Do not split found")
+
+        return split
 
     def parse_magnitude(self, data: dict) -> Magnitude:
         band = MagnitudeBands[data[OcsProgramProvider._MagnitudeKeys.NAME]]
@@ -498,9 +520,17 @@ class OcsProgramProvider(ProgramProvider):
         wavelength = Wavelength(OcsProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI'
                                 else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH]))
 
+        # Identify GRACES - ToDo: check if needed
+        # if instrument == 'GMOS-N' and fpu == 'IFU Left Slit (blue)':
+        #     instrument = 'GRACES'
+        #     if 'DS920' in filt:
+        #         fpu = '1-fiber'
+        #     elif 'HeIIC' in filt:
+        #         fpu = '2-fiber'
+
         return fpu, disperser, filt, wavelength
 
-    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
+    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState], split: bool) -> List[Atom]:
         """
         Atom handling logic.
         """
@@ -586,7 +616,8 @@ class OcsProgramProvider(ProgramProvider):
 
         exposure_times = []
         coadds = []
-        do_not_split = False
+        do_not_split = not split
+        # print(f'\t\t\t do_not_split: {do_not_split}')
 
         # all atoms must have the same instrument
         instrument = sequence[0][OcsProgramProvider._AtomKeys.INSTRUMENT]
@@ -665,7 +696,7 @@ class OcsProgramProvider(ProgramProvider):
         exp_time_groups = False
         n_offsets = 0
         n_pattern = offset_lag
-        prev = 0
+        prev = -1
         for step_id, step in enumerate(sequence):
             next_atom = False
 
@@ -675,13 +706,17 @@ class OcsProgramProvider(ProgramProvider):
             # Any wavelength/filter change is a new atom
             if step_id == 0 or (step_id > 0 and wavelengths[step_id] != wavelengths[step_id - 1]):
                 next_atom = True
+                # logger.info('Atom for wavelength change')
+                # print(f'\t\t\t Atom for wavelength change')
 
             # A change in exposure time or coadds is a new atom for science exposures
+            # print(f'\t\t\t {step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper()}')
             if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
-                if (observe_class.upper() == ObservationClass.SCIENCE.name and step_id > 0 and
+                if (prev >= 0 and observe_class.upper() == ObservationClass.SCIENCE.name and step_id > 0 and
                         (exposure_times[step_id] != exposure_times[prev] or coadds[step_id] != coadds[prev])):
                     next_atom = True
                     # logger.info('Atom for exposure time change')
+                    # print(f'\t\t\t Atom for exposure time change')
 
                 # Offsets - a new offset pattern is a new atom
                 if offset_lag != 0 or not exp_time_groups:
@@ -696,11 +731,13 @@ class OcsProgramProvider(ProgramProvider):
                         if n_offsets % 2 == 1:
                             next_atom = True
                             # logger.info('Atom for offset pattern')
+                            # print('Atom for offset pattern')
                     else:
                         n_pattern -= 1
                         if n_pattern < 0:
                             next_atom = True
                             # logger.info('Atom for exposure time change')
+                            # print('Atom for offset pattern')
                             n_pattern = offset_lag - 1
                 prev = step_id
 
@@ -717,6 +754,7 @@ class OcsProgramProvider(ProgramProvider):
                     previous_atom.wavelengths = frozenset(wavelengths)
 
                 n_atom += 1
+                # print(f'\t\t\t n_atom = {n_atom}')
 
                 # Convert all the different components into Resources.
                 classes = []
@@ -779,7 +817,8 @@ class OcsProgramProvider(ProgramProvider):
     def parse_observation(self,
                           data: dict,
                           num: int,
-                          program_id: ProgramID) -> Optional[Observation]:
+                          program_id: ProgramID,
+                          split: bool) -> Optional[Observation]:
         """
         In the current list of observations, we are parsing the data for:
         OBSERVATION_BASIC-{num}. Note that these numbers ARE in the correct order
@@ -789,7 +828,7 @@ class OcsProgramProvider(ProgramProvider):
         # Check the obs_class. If it is illegal, return None.
         # At the same time, ignore inactive observations.
         obs_id = data[OcsProgramProvider._ObsKeys.ID]
-
+        # print(f'\t\t {obs_id}')
         active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
         if not active:
             logger.warning(f"Observation {obs_id} is inactive (skipping).")
@@ -820,8 +859,16 @@ class OcsProgramProvider(ProgramProvider):
         qa_states = [QAState[log_entry[OcsProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
                      data[OcsProgramProvider._ObsKeys.LOG]]
 
-        atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states)
+        # Parse notes for "do not split" information if not found previously
+        if split:
+            notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT]) \
+                     for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
+            split = self.parse_notes_split(notes)
+
+        atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states, split=split)
         # exec_time = sum([atom.exec_time for atom in atoms], ZeroTime) + acq_overhead
+        # for atom in atoms:
+        #     print(f'\t\t\t {atom.id} {atom.exec_time}')
 
         # TODO: Should this be a list of all targets for the observation?
         targets = []
@@ -938,7 +985,7 @@ class OcsProgramProvider(ProgramProvider):
         """
         raise NotImplementedError('OCS does not support OR groups.')
 
-    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> Optional[AndGroup]:
+    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID, split: bool) -> Optional[AndGroup]:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -957,6 +1004,13 @@ class OcsProgramProvider(ProgramProvider):
             group_name = data[OcsProgramProvider._GroupKeys.GROUP_NAME]
         else:
             group_name = ROOT_GROUP_ID.id
+        # print(f'Group: {group_name}')
+
+        # Parse notes for "do not split" information if not found previously
+        if split:
+            notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT]) \
+                     for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
+            split = self.parse_notes_split(notes)
 
         # Collect all the children of this group.
         children = []
@@ -966,7 +1020,7 @@ class OcsProgramProvider(ProgramProvider):
                                        if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
         for key in scheduling_group_keys:
             subgroup_id = GroupID(key.split('-')[-1])
-            subgroup = self.parse_and_group(data[key], program_id, subgroup_id)
+            subgroup = self.parse_and_group(data[key], program_id, subgroup_id, split=split)
             if subgroup is not None:
                 children.append(subgroup)
 
@@ -999,7 +1053,7 @@ class OcsProgramProvider(ProgramProvider):
         observations = []
         for obs_key, obs_data in obs_data_blocks:
             obs_num = int(obs_key.split('-')[-1])
-            obs = self.parse_observation(obs_data, obs_num, program_id)
+            obs = self.parse_observation(obs_data, obs_num, program_id, split=split)
             if obs is not None:
                 observations.append(obs)
 
@@ -1045,7 +1099,15 @@ class OcsProgramProvider(ProgramProvider):
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
         program_id = ProgramID(data[OcsProgramProvider._ProgramKeys.ID])
+        # print(program_id)
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
+
+        # # Get all the note information as they may contain FT scheduling data comments.
+        note_titles = [data[key][OcsProgramProvider._NoteKeys.TITLE] for key in data.keys()
+                       if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
+
+        # Initialize split variable, split observations by default
+        split = True
 
         # Now we parse the groups. For this, we need:
         # 1. A list of Observations at the root level.
@@ -1053,7 +1115,7 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
-        root_group = self.parse_and_group(data, program_id, ROOT_GROUP_ID)
+        root_group = self.parse_and_group(data, program_id, ROOT_GROUP_ID, split)
         if root_group is None:
             logger.warning(f'Program {program_id} has empty root group. Skipping.')
             return None
@@ -1082,11 +1144,6 @@ class OcsProgramProvider(ProgramProvider):
         band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
         thesis = data[OcsProgramProvider._ProgramKeys.THESIS]
         program_mode = ProgramMode[data[OcsProgramProvider._ProgramKeys.MODE].upper()]
-
-        # Get all the SCHEDNOTE and PROGRAMNOTE titles as they may contain FT data.
-        note_titles = [data[key][OcsProgramProvider._NoteKeys.TITLE] for key in data.keys()
-                       if key.startswith(OcsProgramProvider._ProgramKeys.SCHED_NOTE)
-                       or key.startswith(OcsProgramProvider._ProgramKeys.PROGRAM_NOTE)]
 
         # Determine the start and end date of the program.
         # NOTE that this includes the fuzzy boundaries.
