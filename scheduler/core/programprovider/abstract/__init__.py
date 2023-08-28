@@ -83,7 +83,7 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_observation(self, data: dict, num: int, program_id: ProgramID) -> Optional[Observation]:
+    def parse_observation(self, data: dict, num: int, program_id: ProgramID, split: bool) -> Optional[Observation]:
         """
         Given an associative array that contains observation data, retrieve the data
         and populate an Observation object, provided the obs_class for the observation is in
@@ -191,7 +191,7 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState]) -> List[Atom]:
+    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState], split: bool) -> List[Atom]:
         """
         Given a list of associative arrays from an observation that contain atom data,
         parse / process the atom data and populate a list of Atom objects.
