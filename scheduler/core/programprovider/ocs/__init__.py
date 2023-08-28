@@ -72,6 +72,10 @@ class OcsProgramProvider(ProgramProvider):
         TITLE = 'title'
         TEXT = 'text'
 
+    # Strings in notes that indicate that an observation should not be splittable.
+    _NO_SPLIT_STRINGS = frozenset({"do not split",
+                                   "do not interrupt"})
+
     class _TAKeys:
         CATEGORIES = 'timeAccountAllocationCategories'
         CATEGORY = 'category'
@@ -206,24 +210,23 @@ class OcsProgramProvider(ProgramProvider):
         super().__init__(obs_classes, sources)
 
     @staticmethod
-    def parse_notes_split(notes) -> bool:
+    def parse_notes_split(notes: Iterable[Tuple[str, str]]) -> bool:
         """Search note title and content strings for instructions on not splitting observations
            Returns a boolean indicating whether the observation can be split.
            notes: list of note tuples,  [(title, text), (title, text),...]"""
-        split = True
+        # Search for any indications in the note that an observation cannot be split.
         for note in notes:
-            if split and note[0] is not None:
+            title, content = note
+            if note[0] is not None:
                 title_lower = note[0].lower()
-                if any([s in title_lower for s in ["do not split", "do not interrupt"]]):
-                    split = False
-                    # print("Do not split found")
-            if split and note[1] is not None:
+                if any(s in title_lower for s in OcsProgramProvider._NO_SPLIT_STRINGS):
+                    return False
+            if note[1] is not None:
                 content_lower = note[1].lower()
-                if any([s in content_lower for s in ["do not split", "do not interrupt"]]):
-                    split = False
-                    # print("Do not split found")
+                if any(s in content_lower for s in OcsProgramProvider._NO_SPLIT_STRINGS):
+                    return False
 
-        return split
+        return True
 
     def parse_magnitude(self, data: dict) -> Magnitude:
         band = MagnitudeBands[data[OcsProgramProvider._MagnitudeKeys.NAME]]
@@ -1008,7 +1011,7 @@ class OcsProgramProvider(ProgramProvider):
 
         # Parse notes for "do not split" information if not found previously
         if split:
-            notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT]) \
+            notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
                      for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
             split = self.parse_notes_split(notes)
 
