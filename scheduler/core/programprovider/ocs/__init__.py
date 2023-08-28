@@ -217,15 +217,14 @@ class OcsProgramProvider(ProgramProvider):
         # Search for any indications in the note that an observation cannot be split.
         for note in notes:
             title, content = note
-            if note[0] is not None:
-                title_lower = note[0].lower()
+            if title is not None:
+                title_lower = title.lower()
                 if any(s in title_lower for s in OcsProgramProvider._NO_SPLIT_STRINGS):
                     return False
-            if note[1] is not None:
-                content_lower = note[1].lower()
+            if content is not None:
+                content_lower = content.lower()
                 if any(s in content_lower for s in OcsProgramProvider._NO_SPLIT_STRINGS):
                     return False
-
         return True
 
     def parse_magnitude(self, data: dict) -> Magnitude:
@@ -864,7 +863,7 @@ class OcsProgramProvider(ProgramProvider):
 
         # Parse notes for "do not split" information if not found previously
         if split:
-            notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT]) \
+            notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
                      for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
             split = self.parse_notes_split(notes)
 
