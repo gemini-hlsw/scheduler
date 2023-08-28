@@ -20,3 +20,4 @@ pytest-asyncio
 gelidum
 python-dateutil
 mercury
+bleach >=6.0.0
