@@ -66,7 +66,7 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> Optional[AndGroup]:
+    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID, split: bool) -> Optional[AndGroup]:
         """
         Given an associative array that contains the data needed for an AND group,
         retrieve the data and populate the AndGroup.
