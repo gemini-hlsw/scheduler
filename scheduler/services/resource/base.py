@@ -15,7 +15,6 @@ import requests
 from openpyxl import load_workbook
 
 from definitions import ROOT_DIR
-from scheduler.core.meta import Singleton
 from .filters import *
 from .night_resource_configuration import NightConfiguration
 from .google_drive_downloader import GoogleDriveDownloader
@@ -65,6 +64,11 @@ class ResourceService(ExternalService):
         'PinholeC': 'PinholeC'
     }})
 
+    # Constants for converting MDF to barcodes.
+    _instd = {'GMOS': '1', 'GMOS-N': '1', 'GMOS-S': '1', 'Flamingos2': '3'}
+    _semd = {'A': '0', 'B': '1'}
+    _progd = {'Q': '0', 'C': '1', 'L': '2', 'F': '3', 'S': '8', 'D': '9'}
+
     def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
         self._all_resources: Dict[str, Resource] = {}
         self._sites = sites
@@ -102,16 +106,16 @@ class ResourceService(ExternalService):
         # The final output from this class: the configuration per night.
         self._night_configurations: Dict[Site, Dict[date, NightConfiguration]] = {site: {} for site in self._sites}
 
-    @staticmethod
-    def _mdf_to_barcode(mdfname: str, inst: str) -> Resource:
+    def _mdf_to_barcode(self, mdfname: str, inst: str) -> Optional[Resource]:
         """Legacy MOS mask barcode convention"""
         barcode = None
-        instd = {'GMOS': '1', 'GMOS-N': '1', 'GMOS-S': '1', 'Flamingos2': '3'}
-        semd = {'A': '0', 'B': '1'}
-        progd = {'Q': '0', 'C': '1', 'L': '2', 'F': '3', 'S': '8', 'D': '9'}
-        if inst in instd.keys():
-            barcode = instd[inst] + semd[mdfname[6]] + progd[mdfname[7]] + mdfname[-6:-3] + mdfname[-2:]
-        return Resource(id=barcode)
+        if inst in ResourceService._instd.keys():
+            # Collect the components of the string from the MDF name.
+            inst_id = ResourceService._instd[inst]
+            sem_id = ResourceService._instd[mdfname[6]]
+            progtype_id = ResourceService._progd[mdfname[7]]
+            barcode = f'{inst_id}{sem_id}{progtype_id}{mdfname[-6:-3]}{mdfname[-2:]}'
+        return self.lookup_resource(barcode)
 
     def _itcd_fpu_to_barcode_parser(self, r: List[str], site: Site) -> Set[str]:
         return {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]}
@@ -242,7 +246,7 @@ class FileBasedResourceService(ResourceService):
         the new date.
         """
 
-        def _process_file(f):
+        def _process_file(f) -> None:
             reader = csv.reader(f, delimiter=',')
             prev_row_date: Optional[date] = None
 

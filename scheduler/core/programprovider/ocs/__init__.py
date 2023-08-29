@@ -663,8 +663,10 @@ class OcsProgramProvider(ProgramProvider):
         # TODO: For now, we focus on instruments, and GMOS FPUs and dispersers exclusively.
         instrument_resources = frozenset([self._sources.origin.resource.lookup_resource(instrument)])
         if 'GMOS' in instrument:
-            # Convert FPUs and dispersers to barcodes.
-            fpu_resources = frozenset([self._sources.origin.resource.fpu_to_barcode(site, fpu, instrument) for fpu in fpus])
+            # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
+            # sets, but we filter below to remove them.
+            fpu_resources = frozenset([self._sources.origin.resource.fpu_to_barcode(site, fpu, instrument)
+                                       for fpu in fpus])
             disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0])
                                              for disperser in dispersers])
             resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources])
