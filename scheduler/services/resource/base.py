@@ -112,7 +112,7 @@ class ResourceService(ExternalService):
         if inst in ResourceService._instd.keys():
             # Collect the components of the string from the MDF name.
             inst_id = ResourceService._instd[inst]
-            sem_id = ResourceService._instd[mdfname[6]]
+            sem_id = ResourceService._semd[mdfname[6]]
             progtype_id = ResourceService._progd[mdfname[7]]
             barcode = f'{inst_id}{sem_id}{progtype_id}{mdfname[-6:-3]}{mdfname[-2:]}'
         return self.lookup_resource(barcode)

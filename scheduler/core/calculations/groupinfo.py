@@ -28,8 +28,6 @@ class GroupInfo:
     6. Scoring based on how the wind affects the group.
     7. A list of indices of the time slots across the nights as to when the group can be scheduled.
     8. The score assigned to the group.
-
-    A group can be split if and only if it contains more than one observation.
     """
     minimum_conditions: Conditions
     is_splittable: bool
