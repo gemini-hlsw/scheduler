@@ -8,10 +8,10 @@ from datetime import datetime, timedelta
 from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               GroupID, ImageQuality, Magnitude, MagnitudeBands, ObservationClass, ObservationID,
-                              ObservationStatus, Priority, Program, ProgramID, ProgramMode, ProgramTypes, QAState,
-                              Resource, ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site,
-                              SkyBackground, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow,
-                              TooType, WaterVapor, Wavelength)
+                              ObservationMode, ObservationStatus, Priority, Program, ProgramID, ProgramMode,
+                              ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType,
+                              SiderealTarget, Site, SkyBackground, TargetName, TargetType, TimeAccountingCode,
+                              TimeAllocation, TimingWindow, TooType, WaterVapor, Wavelength)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 
@@ -118,7 +118,8 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=True,
             resources=frozenset({gmosn, mirror}),
-            wavelengths=frozenset({Wavelength(0.475)})
+            wavelengths=frozenset({Wavelength(0.475)}),
+            obs_mode=ObservationMode.IMAGING
         )
     ]
 
@@ -232,7 +233,8 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=True,
             resources=frozenset({gnirs}),
-            wavelengths=frozenset({Wavelength(2.2)})
+            wavelengths=frozenset({Wavelength(2.2)}),
+            obs_mode=ObservationMode.IMAGING
         )
     ]
 
@@ -351,7 +353,8 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=True,
             resources=frozenset({gnirs}),
-            wavelengths=frozenset({Wavelength(2.2)})
+            wavelengths=frozenset({Wavelength(2.2)}),
+            obs_mode=ObservationMode.IMAGING
         )
     ]
 
@@ -526,7 +529,8 @@ def create_minimodel_program() -> Program:
             qa_state=QAState.NONE,
             guide_state=True,
             resources=frozenset({gmosn, mirror}),
-            wavelengths=frozenset({Wavelength(0.475)})
+            wavelengths=frozenset({Wavelength(0.475)}),
+            obs_mode=ObservationMode.IMAGING
         )
     ]
 
