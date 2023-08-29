@@ -483,7 +483,10 @@ class OcsProgramProvider(ProgramProvider):
                 fpu = instrument
         else:
             if instrument in OcsProgramProvider.FPU_FOR_INSTRUMENT:
-                if OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
+                if OcsProgramProvider._FPUKeys.CUSTOM in data:
+                    # This will assign the MDF name to the FPU
+                    fpu = data[OcsProgramProvider._FPUKeys.CUSTOM]
+                elif OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
                     fpu = data[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
                 else:
                     # TODO: Might need to raise an exception here. Check code with science.
@@ -549,15 +552,18 @@ class OcsProgramProvider(ProgramProvider):
             return any(val in elem for elem in alist)
 
         def determine_mode(inst: str) -> ObservationMode:
+
+            # print(f'inst: {inst} dispersers: {dispersers}')
+            # print(f'\t fpus: {fpus}')
             obs_mode = ObservationMode.UNKNOWN
-            if search_list('GMOS', inst):
-                if 'MIRROR' in dispersers:
+            if 'GMOS' in inst:
+                if 'Mirror' in dispersers or 'MIRROR' in dispersers:
                     obs_mode = ObservationMode.IMAGING
                 elif search_list('arcsec', fpus):
                     obs_mode = ObservationMode.LONGSLIT
                 elif search_list('IFU', fpus):
                     obs_mode = ObservationMode.IFU
-                elif 'CUSTOM_MASK' in fpus:
+                elif search_list('G', fpus):
                     obs_mode = ObservationMode.MOS
             elif inst in ["GSAOI", "'Alopeke", "Zorro"]:
                 obs_mode = ObservationMode.IMAGING
@@ -568,7 +574,7 @@ class OcsProgramProvider(ProgramProvider):
             elif inst == 'Flamingos2':
                 if search_list('LONGSLIT', fpus):
                     obs_mode = ObservationMode.LONGSLIT
-                if search_list('FPU_NONE', fpu) and search_list('IMAGING', dispersers):
+                elif search_list('IMAGING', dispersers):
                     obs_mode = ObservationMode.IMAGING
             elif inst == 'NIRI':
                 if search_list('NONE', dispersers) and search_list('MASK_IMAGING', fpus):
@@ -658,7 +664,7 @@ class OcsProgramProvider(ProgramProvider):
         instrument_resources = frozenset([self._sources.origin.resource.lookup_resource(instrument)])
         if 'GMOS' in instrument:
             # Convert FPUs and dispersers to barcodes.
-            fpu_resources = frozenset([self._sources.origin.resource.fpu_to_barcode(site, fpu) for fpu in fpus])
+            fpu_resources = frozenset([self._sources.origin.resource.fpu_to_barcode(site, fpu, instrument) for fpu in fpus])
             disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0])
                                              for disperser in dispersers])
             resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources])
@@ -771,7 +777,8 @@ class OcsProgramProvider(ProgramProvider):
                                   qa_state=QAState.NONE,
                                   guide_state=False,
                                   resources=resources,
-                                  wavelengths=frozenset(wavelengths)))
+                                  wavelengths=frozenset(wavelengths),
+                                  obs_mode=mode))
 
                 if (step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES and
                         n_pattern == 0):
@@ -870,7 +877,7 @@ class OcsProgramProvider(ProgramProvider):
         atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states, split=split)
         # exec_time = sum([atom.exec_time for atom in atoms], ZeroTime) + acq_overhead
         # for atom in atoms:
-        #     print(f'\t\t\t {atom.id} {atom.exec_time}')
+        #     print(f'\t\t\t {atom.id} {atom.exec_time} {atom.obs_mode}')
 
         # TODO: Should this be a list of all targets for the observation?
         targets = []
