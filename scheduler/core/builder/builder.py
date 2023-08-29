@@ -15,7 +15,6 @@ from scheduler.core.sources import Sources, Origins
 from scheduler.config import config
 
 
-@dispatch_with(config.mode)
 class SchedulerBuilder:
     """Allows building different components individually and the general scheduler itself.
     """

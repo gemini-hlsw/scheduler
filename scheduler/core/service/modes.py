@@ -11,6 +11,8 @@ from scheduler.config import ConfigurationError, config
 from lucupy.minimodel.observation import ObservationStatus, Observation, QAState
 from lucupy.types import ZeroTime
 
+from scheduler.core.builder import SchedulerBuilder
+
 
 class SchedulerMode(ABC):
     """Base Scheduler Mode.
@@ -130,3 +132,8 @@ def dispatch_with(mode: str):
             return scheduler_wrapper
         return scheduler_wrapper
     return decorator_dispatcher
+
+def dispatch_with(mode: SchedulerModes):
+    if mode is SchedulerModes.VALIDATION:
+        schedulerBuilder = SchedulerBuilder()
+        schedulerBuilder.build_collector = mode.value.build_collector_with_clear_info(cls.build_collector)

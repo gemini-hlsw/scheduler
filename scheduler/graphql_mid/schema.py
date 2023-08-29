@@ -94,19 +94,23 @@ class Query:
 
     @strawberry.field
     def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
-        plans = PlanManager.get_plans_by_input(new_schedule_input.start_time,
-                                               new_schedule_input.end_time,
-                                               new_schedule_input.site)
+
         plans_summary = {}
-        if not plans:
+        try:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                     Time(new_schedule_input.end_time, format='iso', scale='utc')
+
             scheduler = build_scheduler(start,
                                         end,
                                         new_schedule_input.num_nights_to_schedule,
                                         new_schedule_input.site,
                                         builder)
             plans, plans_summary = scheduler()
-        splans = [SPlans.from_computed_plans(p, new_schedule_input.site) for p in plans]
+            splans = [SPlans.from_computed_plans(p, new_schedule_input.site) for p in plans]
+
+        except RuntimeError as e:
+            raise RuntimeError(f'Schedule query error: {e}')
         # json_summary = json.dumps(plans_summary)
         return NewNightPlans(night_plans=splans, plans_summary=plans_summary)
+
+
