@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from typing import Dict, List, Set, Tuple, Union, Final
 from io import BytesIO, StringIO
 
-from lucupy.minimodel import Site, ALL_SITES
+from lucupy.minimodel import Site, ALL_SITES, Resource
 from lucupy.helpers import str_to_bool
 import gelidum
 import requests
@@ -102,6 +102,17 @@ class ResourceService(ExternalService):
         # The final output from this class: the configuration per night.
         self._night_configurations: Dict[Site, Dict[date, NightConfiguration]] = {site: {} for site in self._sites}
 
+    @staticmethod
+    def _mdf_to_barcode(mdfname: str, inst: str) -> Resource:
+        """Legacy MOS mask barcode convention"""
+        barcode = None
+        instd = {'GMOS': '1', 'GMOS-N': '1', 'GMOS-S': '1', 'Flamingos2': '3'}
+        semd = {'A': '0', 'B': '1'}
+        progd = {'Q': '0', 'C': '1', 'L': '2', 'F': '3', 'S': '8', 'D': '9'}
+        if inst in instd.keys():
+            barcode = instd[inst] + semd[mdfname[6]] + progd[mdfname[7]] + mdfname[-6:-3] + mdfname[-2:]
+        return Resource(id=barcode)
+
     def _itcd_fpu_to_barcode_parser(self, r: List[str], site: Site) -> Set[str]:
         return {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]}
 
@@ -171,12 +182,19 @@ class ResourceService(ExternalService):
 
         return frozenset(self._resources[site][night_date])
 
-    def fpu_to_barcode(self, site: Site, fpu_name: str) -> Optional[Resource]:
+    def fpu_to_barcode(self, site: Site, fpu_name: str, instrument: str) -> Optional[Resource]:
         """
         Convert a long FPU name into the barcode, if it exists.
         """
+        barcode = None
         itcd_fpu_name = self._convert_fpu_to_itcd_name(site, fpu_name)
-        return self._itcd_fpu_to_barcode[site].get(itcd_fpu_name)
+        # print(f'fpu_to_barcode {fpu_name} {instrument} {itcd_fpu_name}')
+        if itcd_fpu_name:
+            barcode = self._itcd_fpu_to_barcode[site].get(itcd_fpu_name)
+        elif fpu_name.startswith('G'):
+            barcode = self._mdf_to_barcode(fpu_name, inst=instrument)
+        # print(f'\t barcode {barcode}')
+        return barcode
 
 
 class FileBasedResourceService(ResourceService):

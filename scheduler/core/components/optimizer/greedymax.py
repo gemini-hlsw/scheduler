@@ -12,7 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from lucupy.minimodel import (NIR_INSTRUMENTS, Group, NightIndex, Observation, ObservationClass, ObservationID,
-                              ObservationStatus, Program, QAState, Sequence, Site, UniqueGroupID, Wavelengths)
+                              ObservationStatus, Program, QAState, Sequence, Site, UniqueGroupID, Wavelengths,
+                              ObservationMode)
 from lucupy.minimodel.resource import Resource
 from lucupy.types import Interval, ZeroTime
 
@@ -24,15 +25,6 @@ from scheduler.services import logger_factory
 from .base import BaseOptimizer, MaxGroup
 
 logger = logger_factory.create_logger(__name__)
-
-
-@final
-class Mode(str, Enum):
-    """
-    TODO: Get rid of this later as per GSCHED-413.
-    """
-    SPECTROSCOPY = 'spectroscopy'
-    IMAGING = 'imaging'
 
 
 @final
@@ -134,14 +126,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
     @staticmethod
     def num_nir_standards(exec_sci: timedelta,
                           wavelengths: Wavelengths = frozenset(),
-                          mode: Mode = Mode.SPECTROSCOPY) -> int:
+                          mode: ObservationMode = ObservationMode.LONGSLIT) -> int:
         """
         Calculated the number of NIR standards from the length of the NIR science and the mode
         """
         n_std = 0
 
         # TODO: need mode or other info to distinguish imaging from spectroscopy
-        if mode == Mode.IMAGING:
+        if mode == ObservationMode.IMAGING:
             time_per_standard = timedelta(hours=2.0)
         else:
             if all(wave <= 2.5 for wave in wavelengths):
@@ -222,7 +214,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # How many standards are needed?
         # TODO: need mode or other info to distinguish imaging from spectroscopy
         if exec_sci_nir > ZeroTime and len(part_times) > 0:
-            n_std = self.num_nir_standards(exec_sci_nir, wavelengths=group.wavelengths(), mode=Mode.SPECTROSCOPY)
+            n_std = self.num_nir_standards(exec_sci_nir, wavelengths=group.wavelengths(), mode=group.obs_mode())
 
         # if only partner standards, set n_std to the number of standards in group (e.g. specphots)
         if nprt > 0 and nsci == 0:
