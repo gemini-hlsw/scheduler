@@ -10,7 +10,7 @@ from random import randint
 
 from scheduler.core.meta import Singleton
 from scheduler.core.service.service import Service
-from scheduler.core.service.modes import SchedulerModes
+from scheduler.core.builder.modes import SchedulerModes
 from scheduler.config import config
 
 from .runner import StandardRunner

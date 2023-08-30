@@ -6,7 +6,7 @@ import os
 from lucupy.minimodel.observation import ObservationClass, ObservationStatus
 from lucupy.types import ZeroTime
 
-from scheduler.core.service.modes import ValidationMode
+from scheduler.core.builder.modes import ValidationMode
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.sources import Sources
 from definitions import ROOT_DIR

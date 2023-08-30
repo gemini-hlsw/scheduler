@@ -24,7 +24,7 @@ from scheduler.core.plans import Plans
 from scheduler.services.resource import NightConfiguration
 
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
-from scheduler.core.service.modes import ValidationMode
+from scheduler.core.builder.modes import ValidationMode
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.resource import ResourceService
