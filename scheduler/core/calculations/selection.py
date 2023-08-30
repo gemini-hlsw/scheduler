@@ -1,7 +1,7 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Callable, FrozenSet, Mapping, Optional
 
@@ -19,14 +19,30 @@ class Selection:
     """
     The selection of information passed by the Selector to the Optimizer.
     This includes the list of programs that are schedulable and the night event for the nights under consideration.
+
+    Note that the _program_scorer is a configured method to re-score a Program. It carries a lot of data with it,
+    and as a result, it is not pickled, so any unpickling of a Selection object will have:
+    _program_scorer = None.
     """
     program_info: Mapping[ProgramID, ProgramInfo]
     schedulable_groups: Mapping[UniqueGroupID, GroupData]
     night_events: Mapping[Site, NightEvents]
     night_indices: NightIndices
     time_slot_length: timedelta
-    _program_scorer: Callable[[Program, Optional[FrozenSet[Site]], Optional[NightIndices], Optional[Ranker]],
-                              Optional[ProgramCalculations]]
+
+    # Used to re-score programs.
+    _program_scorer: Optional[Callable[[Program, Optional[FrozenSet[Site]], Optional[NightIndices], Optional[Ranker]],
+                              Optional[ProgramCalculations]]] = field(default=None)
+
+    def __reduce__(self):
+        """
+        Pickle everything but the _program_scorer.
+        """
+        return (self.__class__, (self.program_info,
+                                 self.schedulable_groups,
+                                 self.night_indices,
+                                 self.night_indices,
+                                 self.time_slot_length))
 
     def score_program(self,
                       program: Program,
@@ -36,7 +52,13 @@ class Selection:
         """
         Re-score a program. This calls Selector.score_program, which checks to make sure
         that the night_indices are valid, so we don't need to include that logic here.
+        Note that this will raise a ValueError on unpickled instances of Selection since the
+        _program_scorer will be None.
         """
+        if self._program_scorer is None:
+            raise ValueError('Selection.score_program cannot be called as the selection has a value of None. '
+                             'This could happen if the instance was unpickled.')
+
         if night_indices is None:
             night_indices = self.night_indices
         return self._program_scorer(program, sites, night_indices, ranker)
