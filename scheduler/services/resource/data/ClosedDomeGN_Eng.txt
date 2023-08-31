@@ -1,8 +1,10 @@
+ Local time nt  (UT nt = 1 + local)
+               StartTime       EndTime HST    Cause
 2018-02-10     19:49           22:35   [NIRI checkouts]
 2018-03-05     1:23            3:24    [NIRI checkouts]
 2018-03-29     twi             22:55   [Alopeke commissioning]
 2018-03-29     1:20            2:25    [Alopeke commissioning]
-2018-05-12     twi             20:50   [NIFS checkouts]
+2018-05-12     twi             20:50   [NIFS checkouts] 
 2018-05-24     1:27            2:19    [ENT]
 2018-05-25     19:38           21:29   [NIRI checkouts]
 2018-05-26     19:56           21:24   [NIRI checkouts continued]
@@ -66,7 +68,7 @@
 2018-12-31    twi             19:20    [ENT]
 2019-02-04    22:19           00:11    [NIFS checkouts]
 2019-02-25    20:46           23:25    [NIFS LGS checkouts]
-2019-03-08    twi             21:12    [NIRI checkouts]
+2019-03-08    twi             21:12    [NIRI checkouts
 2019-03-13    twi             19:49    [NIRI checkouts]
 2019-03-14    twi             20:10    [NIRI checkouts]
 2019-03-19    twi             20:27    [NIRI checkouts]

@@ -251,6 +251,8 @@ class FileBasedResourceService(ResourceService):
             prev_row_date: Optional[date] = None
 
             for row in reader:
+                # Get rid of the byte-order marker, which causes datetime.strptime to gail.
+                row = [col.replace('\ufeff', '') for col in row]
                 row_date = datetime.strptime(row[0].strip(), '%Y-%m-%d').date()
 
                 # Fill in any gaps by copying prev_row_date until we reach one less than row_date.
