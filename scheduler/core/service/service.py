@@ -63,11 +63,11 @@ class Service:
         return plans, plan_summary
 
 
-def build_scheduler(start: Time,
-                    end: Time,
-                    num_nights_to_schedule: int,
-                    sites: FrozenSet[Site],
-                    builder: SchedulerBuilder) -> Service:
+def build_service(start: Time,
+                  end: Time,
+                  num_nights_to_schedule: int,
+                  sites: FrozenSet[Site],
+                  builder: SchedulerBuilder) -> Service:
     """
 
     Args:

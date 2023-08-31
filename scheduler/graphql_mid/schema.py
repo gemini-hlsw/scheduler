@@ -6,7 +6,7 @@ import strawberry # noqa
 from astropy.time import Time
 from lucupy.minimodel import Site
 
-from scheduler.core.service.service import build_scheduler
+from scheduler.core.service.service import build_service
 from scheduler.core.sources import Services, Sources
 from scheduler.db.planmanager import PlanManager
 
@@ -15,12 +15,13 @@ from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
                     SourceFileHandlerResponse)
 from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
-from scheduler.core.builder.modes import dispatch_with
-
+from scheduler.core.builder.modes import dispatch_with, SchedulerModes
 
 sources = Sources()
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
+
+
 @strawberry.type
 class Mutation:
     """
@@ -60,9 +61,19 @@ class Mutation:
                                                  loaded=False,
                                                  msg='Handler not implemented yet!')
 
+    # @strawberry.mutation
+    # async def load_sources_form(self):
+    # This method loads basic conditions from a form similar to Mercury demo.
+
     @strawberry.mutation
-    def change_origin(self, new_origin: SOrigin) -> ChangeOriginSuccess:
+    def change_origin(self, new_origin: SOrigin, mode: SchedulerModes) -> ChangeOriginSuccess:
+
         old = str(sources.origin)
+        new = str(new_origin)
+        if new == 'OCS' and mode is SchedulerModes.SIMULATION:
+            raise ValueError('Simulation mode can only work with GPP origin source.')
+        elif new == 'GPP' and mode is SchedulerModes.VALIDATION:
+            raise ValueError('Validation mode can only work with OCS origin source.')
         if old == str(new_origin):
             return ChangeOriginSuccess(from_origin=old, to_origin=old)
         sources.set_origin(new_origin)
@@ -81,20 +92,18 @@ class Query:
     def site_plans(self, site: Site) -> List[SPlans]:
         return [plans.for_site(site) for plans in PlanManager.get_plans()]
 
-
     @strawberry.field
     def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
         try:
 
-            builder = dispatch_with(new_schedule_input.mode)
+            builder = dispatch_with(new_schedule_input.mode, sources)
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
-                         Time(new_schedule_input.end_time, format='iso', scale='utc')
+                Time(new_schedule_input.end_time, format='iso', scale='utc')
 
-            scheduler = build_scheduler(start,
-                                        end,
-                                        new_schedule_input.num_nights_to_schedule,
-                                        new_schedule_input.site,
-                                        builder)
+            scheduler = build_service(start, end,
+                                      new_schedule_input.num_nights_to_schedule,
+                                      new_schedule_input.site,
+                                      builder)
             plans, plans_summary = scheduler()
             splans = [SPlans.from_computed_plans(p, new_schedule_input.site) for p in plans]
 
@@ -102,5 +111,3 @@ class Query:
             raise RuntimeError(f'Schedule query error: {e}')
         # json_summary = json.dumps(plans_summary)
         return NewNightPlans(night_plans=splans, plans_summary=plans_summary)
-
-

@@ -12,7 +12,7 @@ from lucupy.observatory.gemini import GeminiProperties
 
 from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBlueprint
-from scheduler.core.builder.builder import SchedulerBuilder
+from scheduler.core.builder.builder import ValidationBuilder
 from scheduler.core.components.collector import *
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
@@ -32,11 +32,12 @@ if __name__ == '__main__':
         ['Q', 'LP', 'FT', 'DD'],
         1.0
     )
+    builder = ValidationBuilder(Sources())
 
     start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
     end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
     num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
-    collector = SchedulerBuilder.build_collector(
+    collector = builder.build_collector(
         start=start,
         end=end,
         sites=ALL_SITES,
@@ -67,16 +68,17 @@ if __name__ == '__main__':
 
     # IQ values are IQ20, IQ70, IQ85, and IQANY. Default is IQ70 if not passed to build_selector.
     iq = ImageQuality.IQ70
-    selector = SchedulerBuilder.build_selector(collector,
-                                               num_nights_to_schedule=num_nights_to_schedule,
-                                               default_cc=cc,
-                                               default_iq=iq)
+
+    selector = builder.build_selector(collector,
+                                      num_nights_to_schedule=num_nights_to_schedule,
+                                      default_cc=cc,
+                                      default_iq=iq)
 
     # Prepare the optimizer.
     optimizer_blueprint = OptimizerBlueprint(
         "GreedyMax"
     )
-    optimizer = SchedulerBuilder.build_optimizer(
+    optimizer = builder.build_optimizer(
         blueprint=optimizer_blueprint
     )
 

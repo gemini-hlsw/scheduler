@@ -5,8 +5,10 @@
 from enum import Enum
 from .builder import ValidationBuilder, SchedulerBuilder
 from scheduler.core.sources import Sources
+import strawberry
 
 
+@strawberry.enum
 class SchedulerModes(Enum):
     """Scheduler modes available:
 
