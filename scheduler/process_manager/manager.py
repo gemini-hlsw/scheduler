@@ -75,11 +75,6 @@ class ProcessManager(metaclass=Singleton):
 
 def setup_with(mode: SchedulerModes):
     # Setup scheduler mode
-    try:
-        mode = SchedulerModes[config.mode.upper()]
-    except KeyError:
-        raise ValueError('Mode is Invalid!')
-
     def decorator_setup(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
