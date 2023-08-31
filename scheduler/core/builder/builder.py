@@ -97,24 +97,13 @@ class ValidationBuilder(SchedulerBuilder):
             if o.status in obs_statuses_to_ready:
                 o.status = ObservationStatus.READY
 
-    def build_collector(self,
-                        start: Time,
-                        end: Time,
-                        sites: FrozenSet[Site],
-                        semesters: FrozenSet[Semester],
-                        blueprint: CollectorBlueprint) -> Collector:
-        clean_collector = Collector(start,
-                                    end,
-                                    sites,
-                                    semesters,
-                                    self.sources,
-                                    *blueprint)
+    @staticmethod
+    def update_collector(clean_collector: Collector) -> None:
+
         ValidationBuilder._clear_observation_info(
             clean_collector.get_all_observations(),
             ValidationBuilder._obs_statuses_to_ready
         )
-
-        return clean_collector
 
 
 class SimulationBuilder:
