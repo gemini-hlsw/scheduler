@@ -12,8 +12,8 @@ def test_schedule_query():
                 schedule(newScheduleInput: {startTime: "2018-10-01 08:00:00",
                                             endTime: "2018-10-03 08:00:00",
                                             numNightsToSchedule: 3,
-                                            site: "ALL_SITES"},
-                                            mode: VALIDATION) {
+                                            site: "ALL_SITES",
+                                            mode: VALIDATION},) {
                 nightPlans {
                     nightIdx
                     plansPerSite {
