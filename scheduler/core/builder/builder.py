@@ -13,6 +13,7 @@ from scheduler.core.components.selector import Selector
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
+from scheduler.core.eventsqueue import EventQueue
 
 
 class SchedulerBuilder:
@@ -20,7 +21,7 @@ class SchedulerBuilder:
     """
     def __init__(self, sources: Sources):
         self.sources = sources  # Services/Files/
-        self.events = None  # EventManager() Emtpy by default
+        self.events = EventQueue()  # EventManager() Emtpy by default
         self.storage = None  # DB storage
 
     def build_collector(self,

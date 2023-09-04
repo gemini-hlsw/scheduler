@@ -7,6 +7,7 @@ import strawberry  # noqa
 from lucupy.minimodel import GroupID, ObservationID, ProgramID, Site, UniqueGroupID, ALL_SITES
 
 from scheduler.config import ConfigurationError
+from scheduler.core.eventsqueue import Event
 from scheduler.core.plans import Plan, Plans, Visit
 from scheduler.core.sources import Origin, Origins
 
@@ -47,6 +48,11 @@ def parse_origins(name: str) -> Origin:
         raise KeyError(f'Illegal origin specified: "{name}". Permitted values: {", ".join(o.value for o in Origins)}')
 
 
+def parse_event(name: str) -> Event:
+    pass
+
+
+
 Sites = strawberry.scalar(NewType("Sites", FrozenSet[Site]),
                           description="Depiction of the sites that can be load to the collector",
                           serialize=lambda x: x,
@@ -77,3 +83,8 @@ SOrigin = strawberry.scalar(NewType('SOrigin', Origin),
                             description='Origin of the Source',
                             serialize=lambda x: str(x),
                             parse_value=lambda x: parse_origins(x))
+
+SEvent = strawberry.scalar(NewType('SEvent', Event),
+                           description='An Event that occurs through the night',
+                           serialize=lambda x: str(x),
+                           parse_value= lambda x: parse_event(x))

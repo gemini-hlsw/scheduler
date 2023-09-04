@@ -100,6 +100,10 @@ class Query:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                 Time(new_schedule_input.end_time, format='iso', scale='utc')
 
+
+            # add events
+            builder.events.add_events()
+
             scheduler = build_service(start, end,
                                       new_schedule_input.num_nights_to_schedule,
                                       new_schedule_input.site,
