@@ -14,6 +14,9 @@ class Interruption(FrozenAbstractDataclass):
     start: datetime
     reason: str
 
+    def __str__(self):
+        return self.__class__.__name__
+
 
 class Blockage(AbstractDataclass):
     """
@@ -21,7 +24,7 @@ class Blockage(AbstractDataclass):
     time slots though the night.
     """
     start: datetime
-    end: datetime = None # needs a resume event
+    end: datetime = None  # needs a resume event
     reason: str
 
     def ends(self, end: datetime) -> None:
@@ -32,6 +35,9 @@ class Blockage(AbstractDataclass):
             return self.end - self.start
         else:
             raise ValueError("Can't calculate Blockage time loss without end value")
+
+    def __str__(self):
+        return self.__class__.__name__
 
 
 class ResumeNight(Interruption):

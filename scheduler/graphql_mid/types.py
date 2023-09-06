@@ -3,7 +3,8 @@
 
 import json
 from datetime import datetime, timedelta
-from typing import List, Union, FrozenSet
+from enum import Enum
+from typing import List, FrozenSet
 
 import pytz
 import strawberry  # noqa
@@ -151,3 +152,5 @@ class SourceFileHandlerResponse:
     msg: str
 
 NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError))  # noqa
+
+    

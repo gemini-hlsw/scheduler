@@ -7,7 +7,7 @@ from .events import Event, Blockage, ResumeNight
 class EventQueue:
     def __init__(self, events: List[Event]):
         self.events = deque(events) if events else deque()
-        self._blockage_stack = [e for e in events if isinstance(e,Blockage)]
+        self._blockage_stack = [e for e in events if isinstance(e, Blockage)]
 
     def _add(self, e: Event) -> None:
         if isinstance(e, Blockage):
@@ -29,4 +29,3 @@ class EventQueue:
             return b
 
         raise RuntimeError('Missing blockage for ResumeNight')
-
