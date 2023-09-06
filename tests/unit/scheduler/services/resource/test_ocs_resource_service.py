@@ -58,6 +58,14 @@ def test_specific_date_gn():
 
 def test_specific_date_gs():
     expected = sorted([
+        Resource(id='B600'),
+        Resource(id='R150'),
+        Resource(id='R400'),
+        Resource(id='Canopus'),
+        Resource(id='Flamingos2'),
+        Resource(id='GMOS-S'),
+        Resource(id='GPI'),
+        Resource(id='Mirror'),
         Resource(id='10000005'),
         Resource(id='10000009'),
         Resource(id='10005372'),
@@ -67,25 +75,17 @@ def test_specific_date_gs():
         Resource(id='10005377'),
         Resource(id='10005381'),
         Resource(id='10005390'),
-        Resource(id='11003908'),
-        Resource(id='11003910'),
-        Resource(id='11003912'),
         Resource(id='11005902'),
+        Resource(id='11013104'),
+        Resource(id='11020601'),
         Resource(id='11021602'),
         Resource(id='11022001'),
         Resource(id='11023303'),
         Resource(id='11023304'),
+        Resource(id='11023331'),
         Resource(id='11023332'),
-        Resource(id='11023336'),
-        Resource(id='11100101'),
-        Resource(id='B600'),
-        Resource(id='Canopus'),
-        Resource(id='Flamingos2'),
-        Resource(id='GMOS-S'),
-        Resource(id='GPI'),
-        Resource(id='Mirror'),
-        Resource(id='R150'),
-        Resource(id='R400')], key=lambda x: x.id)
+        Resource(id='11023335'),
+        Resource(id='11023336')], key=lambda x: x.id)
     resources = sorted(list(OcsResourceService().get_resources(Site.GS, date(year=2018, month=12, day=30))),
                        key=lambda x: x.id)
     assert expected == resources
