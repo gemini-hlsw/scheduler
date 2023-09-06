@@ -497,10 +497,10 @@ class Selector(SchedulerComponent):
         Calculate the effect of the wind conditions on the score of an observation.
         """
         wind = np.ones(len(azimuth))
-        az_wd = np.abs(azimuth - variant.wind_dir)
+        az_wd = np.abs(azimuth.to_value() - variant.wind_dir.to_value())
         idx = np.where(np.logical_and(variant.wind_spd > Selector._wind_spd_bound,  # * u.m / u.s
-                                      np.logical_or(az_wd <= Selector._wind_sep,
-                                                    360. * u.deg - az_wd <= Selector._wind_sep)))[0]
+                                      np.logical_or(az_wd <= Selector._wind_sep.to_value(),
+                                                    360 - az_wd <= Selector._wind_sep.to_value())))[0]
 
         # Adjust down to 0 if the wind conditions are not adequate.
         wind[idx] = 0
