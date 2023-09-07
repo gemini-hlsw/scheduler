@@ -33,9 +33,12 @@ if __name__ == '__main__':
         1.0
     )
 
+    start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
+    end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
+    num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
     collector = SchedulerBuilder.build_collector(
-        start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
-        end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+        start=start,
+        end=end,
         sites=ALL_SITES,
         semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
@@ -65,7 +68,7 @@ if __name__ == '__main__':
     # IQ values are IQ20, IQ70, IQ85, and IQANY. Default is IQ70 if not passed to build_selector.
     iq = ImageQuality.IQ70
     selector = SchedulerBuilder.build_selector(collector,
-                                               num_nights_to_schedule=3,
+                                               num_nights_to_schedule=num_nights_to_schedule,
                                                default_cc=cc,
                                                default_iq=iq)
 

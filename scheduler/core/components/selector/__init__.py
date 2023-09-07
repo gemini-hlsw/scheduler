@@ -57,7 +57,7 @@ class Selector(SchedulerComponent):
                              'Cannot proceed.')
 
     def select(self,
-               sites: FrozenSet[Site] = ALL_SITES,
+               sites: Optional[FrozenSet[Site]] = None,
                night_indices: Optional[NightIndices] = None,
                ranker: Optional[Ranker] = None) -> Selection:
         """
@@ -79,6 +79,11 @@ class Selector(SchedulerComponent):
 
         An AND group must be able to perform all of its children.
         """
+        if sites is None:
+            sites = self.collector.sites
+        if not sites:
+            raise ValueError('Attempted to fetch a selection over no sites.')
+
         # NOTE: If night_indices is None, assume the whole calculation period.
         if night_indices is None:
             night_indices = np.arange(len(self.collector.time_grid))
@@ -265,8 +270,10 @@ class Selector(SchedulerComponent):
         if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY}:
             logger.warning(f'Selector skipping observation {obs.id}: status is {obs.status.name}.')
             return group_data_map
+
+        # This should never happen.
         if obs.site not in sites:
-            logger.warning(f'Selector skipping observation {obs.id}: not at a designated site.')
+            logger.error(f'Selector requested to score {obs.id}: not at a designated site.')
             return group_data_map
 
         # We ignore the Observation if:
@@ -315,7 +322,7 @@ class Selector(SchedulerComponent):
             start_time = night_events.times[night_idx][0]
             end_time = night_events.times[night_idx][-1]
             actual_conditions = self.collector.sources.origin.env.get_actual_conditions_variant(obs.site,
-                                                                                                    start_time,
+                                                                                                start_time,
                                                                                                 end_time)
             actual_conditions = Variant(iq=np.array([self.default_cc for i in range(len(actual_conditions.cc))]),
                                         cc=np.array([self.default_iq for i in range(len(actual_conditions.cc))]),
@@ -402,6 +409,12 @@ class Selector(SchedulerComponent):
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
             self._calculate_group(program, subgroup, sites, night_indices, night_configurations, ranker, group_data_map)
+
+        # We can only schedule this group if its sites are all being scheduled; however, we still want to
+        # score this group's children if their sites are covered: hence the check after the child scoring.
+        if not group.sites().issubset(sites):
+            logger.warning(f'Cannot score group {group.id}: contains observations in sites not being scheduled.')
+            return group_data_map
 
         # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
