@@ -412,6 +412,10 @@ class Collector(SchedulerComponent):
         The json_data comprises the program inputs as an iterable object per site. We use iterable
         since the amount of data here might be enormous, and we do not want to store it all
         in memory at once.
+
+        As this is OCS-specific, in a Program, all observations are guaranteed to be at the same site;
+        however, since this may not always be the case and will not in GPP, we still process all programs
+        and simply omit observations that are not at a site listed in the desired sites.
         """
         if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
             raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
