@@ -53,6 +53,7 @@ if __name__ == '__main__':
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
     print_collector_info(collector, samples=60)
+    ValidationBuilder.update_collector(collector)
 
     cc = CloudCover.CC50
     iq = ImageQuality.IQ70
@@ -107,6 +108,7 @@ if __name__ == '__main__':
         ['Q', 'LP', 'FT', 'DD'],
         1.0
     )
+    builder = ValidationBuilder(Sources())
 
     start = Time("2018-10-04 08:00:00", format='iso', scale='utc')
     end = Time("2018-10-07 08:00:00", format='iso', scale='utc')
@@ -121,13 +123,14 @@ if __name__ == '__main__':
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
     print_collector_info(collector, samples=60)
+    ValidationBuilder.update_collector(collector)
 
     cc = CloudCover.CC50
     iq = ImageQuality.IQ70
     selector = builder.build_selector(collector,
-                                               num_nights_to_schedule=num_nights_to_schedule,
-                                               default_cc=cc,
-                                               default_iq=iq)
+                                      num_nights_to_schedule=num_nights_to_schedule,
+                                      default_cc=cc,
+                                      default_iq=iq)
 
     # Prepare the optimizer.
     optimizer_blueprint = OptimizerBlueprint(
