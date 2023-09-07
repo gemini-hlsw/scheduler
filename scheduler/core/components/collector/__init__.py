@@ -24,7 +24,7 @@ from scheduler.core.plans import Plans
 from scheduler.services.resource import NightConfiguration
 
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
-from scheduler.core.service.modes import ValidationMode
+
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.resource import ResourceService
@@ -457,7 +457,7 @@ class Collector(SchedulerComponent):
                 Collector._programs[program.id] = program
 
                 # TODO HACK: Zero out times for Bryan.
-                ValidationMode._clear_observation_info(program.observations()) # noqa
+                # ValidationMode._clear_observation_info(program.observations()) # noqa
 
                 # Set the observation IDs for this program.
                 # Collector._observations_per_program[program.id] = frozenset(obs.id for obs in good_obs)

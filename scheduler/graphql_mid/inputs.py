@@ -4,6 +4,7 @@ import strawberry  # noqa
 from strawberry.file_uploads import Upload
 from typing import Optional
 from .scalars import Sites
+from scheduler.core.builder.modes import SchedulerModes
 
 
 @strawberry.input
@@ -15,6 +16,7 @@ class CreateNewScheduleInput:
     end_time: str
     num_nights_to_schedule: int
     site: Sites
+    mode: SchedulerModes
 
 
 @strawberry.input

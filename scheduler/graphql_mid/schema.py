@@ -1,33 +1,27 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import asyncio
-import json
-from datetime import datetime
 from typing import List
 import strawberry # noqa
 from astropy.time import Time
 from lucupy.minimodel import Site
 
-from scheduler.core.builder import SchedulerBuilder
-from scheduler.core.service.service import build_scheduler
-from scheduler.core.sources import Origins, Services
-from scheduler.process_manager import setup_manager, TaskType
+from scheduler.core.service.service import build_service
+from scheduler.core.sources import Services, Sources
 from scheduler.db.planmanager import PlanManager
 
 
-from .types import (SPlans, NewScheduleResponse,
-                    NewScheduleError, NewScheduleSuccess,
-                    NewNightPlans, ChangeOriginSuccess,
+from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
                     SourceFileHandlerResponse)
 from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
+from scheduler.core.builder.modes import dispatch_with, SchedulerModes
 
-
-builder = SchedulerBuilder()
-
+sources = Sources()
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
+
+
 @strawberry.type
 class Mutation:
     """
@@ -46,10 +40,10 @@ class Mutation:
                 gmos_fpu = await files_input.gmos_fpus.read()
                 gmos_gratings = await files_input.gmos_gratings.read()
 
-                loaded = builder.sources.use_file(service,
-                                                  calendar,
-                                                  gmos_fpu,
-                                                  gmos_gratings)
+                loaded = sources.use_file(service,
+                                          calendar,
+                                          gmos_fpu,
+                                          gmos_gratings)
                 if loaded:
                     return SourceFileHandlerResponse(service=files_input.service,
                                                      loaded=loaded,
@@ -67,12 +61,22 @@ class Mutation:
                                                  loaded=False,
                                                  msg='Handler not implemented yet!')
 
+    # @strawberry.mutation
+    # async def load_sources_form(self):
+    # This method loads basic conditions from a form similar to Mercury demo.
+
     @strawberry.mutation
-    def change_origin(new_origin: SOrigin) -> ChangeOriginSuccess:
-        old = str(builder.sources.origin)
+    def change_origin(self, new_origin: SOrigin, mode: SchedulerModes) -> ChangeOriginSuccess:
+
+        old = str(sources.origin)
+        new = str(new_origin)
+        if new == 'OCS' and mode is SchedulerModes.SIMULATION:
+            raise ValueError('Simulation mode can only work with GPP origin source.')
+        elif new == 'GPP' and mode is SchedulerModes.VALIDATION:
+            raise ValueError('Validation mode can only work with OCS origin source.')
         if old == str(new_origin):
             return ChangeOriginSuccess(from_origin=old, to_origin=old)
-        builder.sources.set_origin(new_origin)
+        sources.set_origin(new_origin)
         return ChangeOriginSuccess(from_origin=old, to_origin=str(new_origin))
 
 
@@ -89,24 +93,21 @@ class Query:
         return [plans.for_site(site) for plans in PlanManager.get_plans()]
 
     @strawberry.field
-    def current_origin(self) -> SOrigin:
-        return builder.sources.origin
-
-    @strawberry.field
     def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
-        plans = PlanManager.get_plans_by_input(new_schedule_input.start_time,
-                                               new_schedule_input.end_time,
-                                               new_schedule_input.site)
-        plans_summary = {}
-        if not plans:
+        try:
+
+            builder = dispatch_with(new_schedule_input.mode, sources)
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
-                    Time(new_schedule_input.end_time, format='iso', scale='utc')
-            scheduler = build_scheduler(start,
-                                        end,
-                                        new_schedule_input.num_nights_to_schedule,
-                                        new_schedule_input.site,
-                                        builder)
+                Time(new_schedule_input.end_time, format='iso', scale='utc')
+
+            scheduler = build_service(start, end,
+                                      new_schedule_input.num_nights_to_schedule,
+                                      new_schedule_input.site,
+                                      builder)
             plans, plans_summary = scheduler()
-        splans = [SPlans.from_computed_plans(p, new_schedule_input.site) for p in plans]
+            splans = [SPlans.from_computed_plans(p, new_schedule_input.site) for p in plans]
+
+        except RuntimeError as e:
+            raise RuntimeError(f'Schedule query error: {e}')
         # json_summary = json.dumps(plans_summary)
         return NewNightPlans(night_plans=splans, plans_summary=plans_summary)

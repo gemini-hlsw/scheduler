@@ -11,9 +11,9 @@ from definitions import ROOT_DIR
 async def test_change_origin_mutation():
     mut = """
         mutation changeOrigin{
-                  changeOrigin(newOrigin:"OCS"){
-                    toOrigin
+                  changeOrigin(mode: VALIDATION, newOrigin: "OCS") {
                     fromOrigin
+                    toOrigin
                   }
                 }
     """
@@ -22,6 +22,7 @@ async def test_change_origin_mutation():
     assert result.errors is None
     assert result.data['changeOrigin']['toOrigin'] == 'OCS'
     assert result.data['changeOrigin']['fromOrigin'] == 'OCS'
+
 
 @pytest.mark.asyncio
 async def test_load_files_mutation():
