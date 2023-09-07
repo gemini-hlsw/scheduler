@@ -128,9 +128,9 @@ if __name__ == '__main__':
     cc = CloudCover.CC50
     iq = ImageQuality.IQ70
     selector = builder.build_selector(collector,
-                                               num_nights_to_schedule=num_nights_to_schedule,
-                                               default_cc=cc,
-                                               default_iq=iq)
+                                      num_nights_to_schedule=num_nights_to_schedule,
+                                      default_cc=cc,
+                                      default_iq=iq)
 
     # Prepare the optimizer.
     optimizer_blueprint = OptimizerBlueprint(
