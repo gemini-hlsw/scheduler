@@ -155,6 +155,7 @@ class Selector(SchedulerComponent):
         If the sites used by the Program do not intersect the sites parameter, then None is returned.
         Otherwise, the data is bundled in a ProgramCalculations object.
         """
+        # TODO: We may want to change this to handle sites like with select, i.e. use the Collector's sites.
         # If sites are specified and this program is not in the specified sites, issue a warning and return None.
         if sites is not None and len(sites.intersection(program.root_group.sites())) == 0:
             logger.warning(f'Attempt to score program {program.id}, but program is not at site specified for scoring.')
