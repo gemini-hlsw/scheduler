@@ -1,7 +1,7 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import List
+from typing import List, Optional
 import strawberry # noqa
 from astropy.time import Time
 from lucupy.minimodel import Site
@@ -12,7 +12,7 @@ from scheduler.db.planmanager import PlanManager
 
 
 from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
-                    SourceFileHandlerResponse)
+                    SourceFileHandlerResponse, SConditions)
 from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
 from scheduler.core.builder.modes import dispatch_with, SchedulerModes
@@ -78,6 +78,12 @@ class Mutation:
             return ChangeOriginSuccess(from_origin=old, to_origin=old)
         sources.set_origin(new_origin)
         return ChangeOriginSuccess(from_origin=old, to_origin=str(new_origin))
+
+
+    @strawberry.mutation
+    def add_events(self, conditions: Optional[SConditions]):
+        # new event
+        # add to event manager
 
 
 @strawberry.type

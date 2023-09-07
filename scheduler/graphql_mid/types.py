@@ -4,13 +4,14 @@
 import json
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import List, FrozenSet
+from typing import List, FrozenSet, Optional
 
 import pytz
 import strawberry  # noqa
 from strawberry.scalars import JSON
 
-from lucupy.minimodel import ObservationID, Site, ALL_SITES
+from lucupy.minimodel import (ObservationID, Site, ALL_SITES, Conditions, ImageQuality,
+                              CloudCover, WaterVapor, SkyBackground)
 
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.graphql_mid.scalars import SObservationID
@@ -153,4 +154,14 @@ class SourceFileHandlerResponse:
 
 NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError))  # noqa
 
-    
+SB = strawberry.enum(SkyBackground)
+CC = strawberry.enum(CloudCover)
+WV = strawberry.enum(WaterVapor)
+IQ = strawberry.enum(ImageQuality)
+
+@strawberry.type
+class SConditions:
+    CC: Optional[CC]
+    SB: Optional[SB]
+    WV = Optional[WV]
+    IQ = Optional[IQ]
