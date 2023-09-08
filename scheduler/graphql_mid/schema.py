@@ -8,16 +8,20 @@ from lucupy.minimodel import Site
 
 from scheduler.core.service.service import build_service
 from scheduler.core.sources import Services, Sources
+from scheduler.core.builder.modes import dispatch_with, SchedulerModes
+from scheduler.core.eventsqueue import WeatherChange, Fault, EventQueue
 from scheduler.db.planmanager import PlanManager
 
 
 from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
-                    SourceFileHandlerResponse, SConditions)
+                    SourceFileHandlerResponse, SEvent, NewWeatherChange,
+                    NewFault)
 from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
-from scheduler.core.builder.modes import dispatch_with, SchedulerModes
+
 
 sources = Sources()
+event_queue = EventQueue
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 
@@ -79,11 +83,15 @@ class Mutation:
         sources.set_origin(new_origin)
         return ChangeOriginSuccess(from_origin=old, to_origin=str(new_origin))
 
-
     @strawberry.mutation
-    def add_events(self, conditions: Optional[SConditions]):
-        # new event
-        # add to event manager
+    def add_events(self, events: List[SEvent]):
+
+        for e in events:
+            match e:
+                case isinstance(e, NewWeatherChange):
+                    event_queue.add_events(e.to_scheduler_event())
+                case isinstance(e, NewFault):
+                    pass
 
 
 @strawberry.type
@@ -105,10 +113,6 @@ class Query:
             builder = dispatch_with(new_schedule_input.mode, sources)
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                 Time(new_schedule_input.end_time, format='iso', scale='utc')
-
-
-            # add events
-            builder.events.add_events()
 
             scheduler = build_service(start, end,
                                       new_schedule_input.num_nights_to_schedule,

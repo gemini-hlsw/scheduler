@@ -14,6 +14,7 @@ from lucupy.minimodel import (ObservationID, Site, ALL_SITES, Conditions, ImageQ
                               CloudCover, WaterVapor, SkyBackground)
 
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
+from scheduler.core.eventsqueue import WeatherChange, ResumeNight
 from scheduler.graphql_mid.scalars import SObservationID
 from scheduler.config import config
 
@@ -152,16 +153,41 @@ class SourceFileHandlerResponse:
     loaded: bool
     msg: str
 
-NewScheduleResponse = strawberry.union("NewScheduleResponse", types=(NewScheduleSuccess, NewScheduleError))  # noqa
+
+NewScheduleResponse = NewScheduleSuccess | NewScheduleError
 
 SB = strawberry.enum(SkyBackground)
 CC = strawberry.enum(CloudCover)
 WV = strawberry.enum(WaterVapor)
 IQ = strawberry.enum(ImageQuality)
 
+
 @strawberry.type
-class SConditions:
-    CC: Optional[CC]
-    SB: Optional[SB]
-    WV = Optional[WV]
-    IQ = Optional[IQ]
+class NewWeatherChange:
+    start: datetime
+    reason: str
+    new_CC: Optional[CC]
+    new_SB: Optional[SB]
+    new_WV: Optional[WV]
+    new_IQ: Optional[IQ]
+
+    def to_scheduler_event(self) -> WeatherChange:
+        c = Conditions(cc=CloudCover[self.new_CC.name] if self.new_CC else None,
+                       sb=SkyBackground[self.new_SB.name] if self.new_SB else None,
+                       wv=WaterVapor[self.new_WV.name] if self.new_WV else None,
+                       iq=ImageQuality[self.new_IQ.name] if self.new_IQ else None)
+        return WeatherChange(start=self.start,
+                             reason=self.reason,
+                             new_conditions=c
+                             )
+
+
+@strawberry.type
+class NewFault:
+    reason: str
+    instrument: str  # change to enum
+    start: datetime  # for Fault event
+    end: datetime  # for ResumeNight event
+
+
+SEvent = NewWeatherChange | NewFault

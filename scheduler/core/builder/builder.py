@@ -19,9 +19,9 @@ from scheduler.core.eventsqueue import EventQueue
 class SchedulerBuilder:
     """Allows building different components individually and the general scheduler itself.
     """
-    def __init__(self, sources: Sources):
+    def __init__(self, sources: Sources, events: EventQueue):
         self.sources = sources  # Services/Files/
-        self.events = EventQueue()  # EventManager() Emtpy by default
+        self.events = events  # EventManager() Emtpy by default
         self.storage = None  # DB storage
 
     def build_collector(self,
