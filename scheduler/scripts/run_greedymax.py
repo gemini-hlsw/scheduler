@@ -16,6 +16,7 @@ from scheduler.core.builder.builder import ValidationBuilder
 from scheduler.core.components.collector import *
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from scheduler.core.statscalculator import StatCalculator
 from scheduler.services import logger_factory
 
 
@@ -217,6 +218,7 @@ if __name__ == '__main__':
     # optimizer_blueprint.algorithm.show_plots = True # show plots
 
     overall_plans = [p for _, p in sorted(overall_plans.items())]
+    plan_summary = StatCalculator.calculate_plans_stats(overall_plans, collector)
     print_plans(overall_plans)
 
     # Timeline tests

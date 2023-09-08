@@ -1,7 +1,10 @@
 from typing import Dict, List
 from scheduler.core.plans import NightStats, Plans
-from lucupy.minimodel import Band, Conditions, ProgramID
+from lucupy.minimodel import Band, Conditions, ProgramID, ObservationID
 from scheduler.core.components.collector import Collector
+from scheduler.services import logger_factory
+
+logger = logger_factory.create_logger(__name__)
 
 
 class StatCalculator:
@@ -41,7 +44,7 @@ class StatCalculator:
                         # TODO: This assumes the observations are not splittable
                         # TODO: and will change in the future.
                         all_programs_length[program.id] = len(program.observations())
-                        all_programs_visits[program.id] = 0
+                        all_programs_visits[program.id] = 1
                         all_programs_scores[program.id] = visit.score
 
                     if program.band in completion_fraction:
