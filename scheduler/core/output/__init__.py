@@ -11,6 +11,7 @@ from astropy import units as u
 from lucupy.minimodel import Atom, Group, Observation, ObservationClass, Program, Site
 from openpyxl import Workbook
 from pandas import DataFrame
+import numpy as np
 
 from scheduler.core.components.collector import Collector, NightEventsManager
 from scheduler.core.plans import Plans, NightStats
@@ -42,6 +43,7 @@ def print_collector_info(collector: Collector, samples: int = 60) -> None:
     # Print out sampled calculation for every hour as there are far too many results to print in full.
     time_grid = collector.time_grid
     for site in collector.sites:
+        nc = collector.night_configurations(site, np.arange(collector.num_nights_calculated))
         print(f'\n\n+++++ NIGHT EVENTS FOR {site.name} +++++')
         night_events = NightEventsManager.get_night_events(collector.time_grid, collector.time_slot_length, site)
         for idx, jday in enumerate(time_grid):
@@ -68,6 +70,7 @@ def print_collector_info(collector: Collector, samples: int = 60) -> None:
             # print(f'\n\tSun-Moon angle (deg, sampled every {samples} time slots):')
             # print(f'\t{[a.to_value(u.deg) for a in night_events.sun_moon_ang[idx][::samples]]}')
             # print('\n\n')
+            print(f"\tInstruments available: {', '.join(r.id for r in nc[idx].resources)}")
 
     target_info = sorted((obs_id, Collector.get_base_target(obs_id).name)
                          for obs_id in Collector.get_observation_ids())
