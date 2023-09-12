@@ -146,6 +146,7 @@ def plans_table(all_plans: List[Plans]) -> List[Dict[Site, DataFrame]]:
             new_entry = {'Start': [v.start_time for v in plan.visits],
                          'End': [v.start_time+timedelta(minutes=v.time_slots) for v in plan.visits],
                          'Observation': [v.obs_id.id for v in plan.visits],
+                         'Class': [v.obs_class.name for v in plan.visits],
                          'Atom start': [v.atom_start_idx for v in plan.visits],
                          'Atom end': [v.atom_end_idx for v in plan.visits],
                          'Length': [v.time_slots for v in plan.visits],
