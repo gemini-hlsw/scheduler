@@ -28,7 +28,7 @@ class Visit:
 
 @dataclass(frozen=True)
 class NightStats:
-    timeloss: str
+    time_loss: str
     plan_score: float
     plan_conditions: Conditions
     n_toos: int

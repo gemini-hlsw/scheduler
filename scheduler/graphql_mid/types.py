@@ -34,7 +34,7 @@ class SNightStats:
                       'sb': ns.plan_conditions.sb}
         conditions = json.dumps(conditions)
         cf = json.dumps(ns.completion_fraction)
-        return SNightStats(timeloss=ns.timeloss,
+        return SNightStats(timeloss=ns.time_loss,
                            plan_score=ns.plan_score,
                            plan_conditions=conditions,
                            n_toos=ns.n_toos,
