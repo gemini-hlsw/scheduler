@@ -5,6 +5,7 @@ import json
 import os
 import gzip
 import pickle
+from datetime import timedelta
 from typing import List, Dict
 
 from astropy import units as u
@@ -143,6 +144,7 @@ def plans_table(all_plans: List[Plans]) -> List[Dict[Site, DataFrame]]:
         per_site = {}
         for plan in plans:
             new_entry = {'Start': [v.start_time for v in plan.visits],
+                         'End': [v.start_time+timedelta(minutes=v.time_slots) for v in plan.visits],
                          'Observation': [v.obs_id.id for v in plan.visits],
                          'Atom start': [v.atom_start_idx for v in plan.visits],
                          'Atom end': [v.atom_end_idx for v in plan.visits],
