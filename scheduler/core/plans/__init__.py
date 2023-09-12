@@ -28,7 +28,7 @@ class Visit:
 
 @dataclass(frozen=True)
 class NightStats:
-    timeloss: str
+    time_loss: str
     plan_score: float
     plan_conditions: Conditions
     n_toos: int
@@ -213,6 +213,9 @@ class Plan:
 
     def time_left(self) -> int:
         return self._time_slots_left
+
+    def update_time_slots(self, time: int):
+        self._time_slots_left = time
 
     def __contains__(self, obs: Observation) -> bool:
         return any(visit.obs_id == obs.id for visit in self.visits)
