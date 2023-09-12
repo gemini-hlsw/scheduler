@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from math import ceil
 from typing import List, Mapping, Optional, Tuple
 
-from lucupy.minimodel import Band, Conditions, NightIndex, Observation, ObservationID,  Resource, Site
+from lucupy.minimodel import Band, Conditions, NightIndex, Observation, ObservationID, Resource, Site, ObservationClass
 import numpy as np
 import numpy.typing as npt
 
@@ -18,6 +18,7 @@ from scheduler.core.calculations.nightevents import NightEvents
 class Visit:
     start_time: datetime  # Unsure if this or something else
     obs_id: ObservationID
+    obs_class: ObservationClass
     atom_start_idx: int
     atom_end_idx: int
     start_time_slot: int
@@ -202,6 +203,7 @@ class Plan:
             score: float) -> None:
         visit = Visit(start,
                       obs.id,
+                      obs.obs_class,
                       atom_start,
                       atom_end,
                       start_time_slot,
