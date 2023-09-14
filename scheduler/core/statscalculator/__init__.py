@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Dict, List
 from scheduler.core.plans import NightStats, Plans
 from lucupy.minimodel import Band, Conditions, ProgramID, ObservationID
@@ -15,8 +16,6 @@ class StatCalculator:
     def calculate_plans_stats(all_plans: List[Plans],
                               collector: Collector) -> dict[str, tuple[str, float]]:
 
-        all_programs_visits: Dict[ProgramID, int] = {}
-        all_programs_length: Dict[ProgramID, int] = {}
         all_programs_scores: Dict[ProgramID, float] = {}
         n_toos = 0
         plan_conditions = []
@@ -37,14 +36,9 @@ class StatCalculator:
                     # check completion
                     program = collector.get_program(obs.belongs_to)
 
-                    if program.id in all_programs_visits:
-                        all_programs_visits[program.id] += 1
+                    if program.id in all_programs_scores:
                         all_programs_scores[program.id] += visit.score
                     else:
-                        # TODO: This assumes the observations are not splittable
-                        # TODO: and will change in the future.
-                        all_programs_length[program.id] = len(program.observations())
-                        all_programs_visits[program.id] = 1
                         all_programs_scores[program.id] = visit.score
 
                     if program.band in completion_fraction:
@@ -70,8 +64,14 @@ class StatCalculator:
                 completion_fraction = {b: 0 for b in Band}
 
         plans_summary = {}
-        for p_id in all_programs_visits:
-            completion = f'{all_programs_visits[p_id] / all_programs_length[p_id] * 100:.1f}%'
+        for p_id in all_programs_scores:
+            program = collector.get_program(p_id)
+            total_used = program.total_used()
+            prog_total = timedelta()
+            for o in program.observations():
+                prog_total += (o.part_time() + o.acq_overhead + o.prog_time())
+
+            completion = f'{float(total_used.total_seconds()/prog_total.total_seconds())* 100:.1f}%'
             score = all_programs_scores[p_id]
             plans_summary[p_id.id] = (completion, score)
 
