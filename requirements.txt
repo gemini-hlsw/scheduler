@@ -2,7 +2,7 @@ astropy
 hypothesis
 matplotlib
 more-itertools
-numpy>=1.23.*, <1.25
+numpy>=1.23.0.a, <1.27
 openpyxl
 pandas
 pytest
