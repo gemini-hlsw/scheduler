@@ -40,8 +40,10 @@ if __name__ == '__main__':
     )
     builder = ValidationBuilder(Sources())
 
+    # start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
+    # end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
     start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
-    end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
+    end = Time("2018-10-05 08:00:00", format='iso', scale='utc')
     num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
     collector = builder.build_collector(
         start=start,
@@ -110,8 +112,10 @@ if __name__ == '__main__':
     )
     builder = ValidationBuilder(Sources())
 
-    start = Time("2018-10-04 08:00:00", format='iso', scale='utc')
-    end = Time("2018-10-07 08:00:00", format='iso', scale='utc')
+    # start = Time("2018-10-04 08:00:00", format='iso', scale='utc')
+    # end = Time("2018-10-07 08:00:00", format='iso', scale='utc')
+    start = Time("2018-10-02 08:00:00", format='iso', scale='utc')
+    end = Time("2018-10-04 08:00:00", format='iso', scale='utc')
     num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
     collector = builder.build_collector(
         start=start,

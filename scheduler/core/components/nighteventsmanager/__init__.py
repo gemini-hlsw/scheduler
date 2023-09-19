@@ -1,7 +1,8 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import Dict
+import time
+from typing import Dict, Tuple
 
 from astropy.time import Time, TimeDelta
 from lucupy import sky
@@ -15,7 +16,8 @@ class NightEventsManager(metaclass=Singleton):
     """
     A singleton class that manages pre-calculations of NightEvents for each Site during the dates specified.
     """
-    _night_events: Dict[Site, NightEvents] = {}
+    _data_id = Tuple[Site, TimeDelta, Time, Time]
+    _night_events: Dict[_data_id, NightEvents] = {}
 
     @staticmethod
     def get_night_events(time_grid: Time,
@@ -25,22 +27,21 @@ class NightEventsManager(metaclass=Singleton):
         Retrieve NightEvents. These may contain more information than requested,
         but never less.
         """
-        ne = NightEventsManager._night_events
+        start = time.perf_counter()
+        # The identifier used for caching.
+        data_id = (site, time_slot_length.jd, time_grid[0].jd, time_grid[-1].jd)
 
         # Recalculate if we are not compatible.
-        if (site not in ne or
-                time_slot_length != ne[site].time_slot_length or
-                (len(ne[site].time_grid) == 1 and ne[site].time_grid[0] != time_grid[0]) or
-                (len(ne[site].time_grid) > 1 and
-                 (time_grid[0] < ne[site].time_grid[0] or time_grid[-1] > ne[site].time_grid[-1]))):
-            # For some strange reason, this does not work if we specify keywords for NightEvents.
-            # It complains about __init__() getting multiple args for time_grid.
+        if data_id not in NightEventsManager._night_events:
             night_events = NightEvents(
                 time_grid,
                 time_slot_length,
                 site,
                 *sky.night_events(time_grid, site.location, site.timezone)
             )
-            NightEventsManager._night_events[site] = night_events
+            NightEventsManager._night_events[data_id] = night_events
 
-        return NightEventsManager._night_events[site]
+        end = time.perf_counter()
+        print(f"*** get_night_events took {end - start:.8f} seconds")
+
+        return NightEventsManager._night_events[data_id]
