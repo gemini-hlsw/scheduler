@@ -1,7 +1,6 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import time
 from typing import Dict, Tuple
 
 from astropy.time import Time, TimeDelta
@@ -27,11 +26,10 @@ class NightEventsManager(metaclass=Singleton):
         Retrieve NightEvents. These may contain more information than requested,
         but never less.
         """
-        start = time.perf_counter()
         # The identifier used for caching.
         data_id = (site, time_slot_length.jd, time_grid[0].jd, time_grid[-1].jd)
 
-        # Recalculate if we are not compatible.
+        # Recalculate if necessary.
         if data_id not in NightEventsManager._night_events:
             night_events = NightEvents(
                 time_grid,
@@ -40,8 +38,5 @@ class NightEventsManager(metaclass=Singleton):
                 *sky.night_events(time_grid, site.location, site.timezone)
             )
             NightEventsManager._night_events[data_id] = night_events
-
-        end = time.perf_counter()
-        print(f"*** get_night_events took {end - start:.8f} seconds")
 
         return NightEventsManager._night_events[data_id]
