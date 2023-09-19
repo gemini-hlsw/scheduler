@@ -1,8 +1,15 @@
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
+from collections import Counter
 from datetime import timedelta
 from typing import Dict, List
-from scheduler.core.plans import NightStats, Plans
-from lucupy.minimodel import Band, Conditions, ProgramID, ObservationID
+
+from lucupy.minimodel import Band, Conditions, ProgramID
+from lucupy.types import ZeroTime
+
 from scheduler.core.components.collector import Collector
+from scheduler.core.plans import NightStats, Plans
 from scheduler.services import logger_factory
 
 logger = logger_factory.create_logger(__name__)
@@ -17,13 +24,14 @@ class StatCalculator:
                               collector: Collector) -> dict[str, tuple[str, float]]:
 
         all_programs_scores: Dict[ProgramID, float] = {}
-        n_toos = 0
-        plan_conditions = []
-        completion_fraction = {b: 0 for b in Band}
-        plan_score = 0
 
         for plans in all_plans:
             for plan in plans:
+                n_toos = 0
+                plan_score = 0
+                plan_conditions = []
+                completion_fraction: Counter[Band] = Counter({b: 0 for b in Band})
+
                 for visit in plan.visits:
                     obs = collector.get_observation(visit.obs_id)
                     # check if obs is a too
@@ -36,15 +44,9 @@ class StatCalculator:
                     # check completion
                     program = collector.get_program(obs.belongs_to)
 
-                    if program.id in all_programs_scores:
-                        all_programs_scores[program.id] += visit.score
-                    else:
-                        all_programs_scores[program.id] = visit.score
-
-                    if program.band in completion_fraction:
-                        completion_fraction[program.band] += 1
-                    else:
-                        raise KeyError(f'Missing band {program.band} in program {program.id.id}.')
+                    all_programs_scores.setdefault(program.id, 0)
+                    all_programs_scores[program.id] += visit.score
+                    completion_fraction[program.band] += 1
 
                     # Calculate altitude data
                     ti = collector.get_target_info(visit.obs_id)
@@ -58,10 +60,6 @@ class StatCalculator:
                                               Conditions.most_restrictive_conditions(plan_conditions),
                                               n_toos,
                                               completion_fraction)
-                n_toos = 0
-                plan_score = 0
-                plan_conditions = []
-                completion_fraction = {b: 0 for b in Band}
 
         plans_summary = {}
         for p_id in all_programs_scores:
@@ -70,9 +68,13 @@ class StatCalculator:
             prog_total = timedelta()
             for o in program.observations():
                 prog_total += (o.part_time() + o.acq_overhead + o.prog_time())
+            prog_total2 = sum((o.part_time() + o.acq_overhead + o.prog_time() for o in program.observations()),
+                              start=ZeroTime)
+            assert prog_total2 == prog_total
 
             completion = f'{float(total_used.total_seconds()/prog_total.total_seconds())* 100:.1f}%'
             score = all_programs_scores[p_id]
+            print(completion, score)
             plans_summary[p_id.id] = (completion, score)
 
         return plans_summary
