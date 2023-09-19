@@ -15,8 +15,8 @@ class NightEventsManager(metaclass=Singleton):
     """
     A singleton class that manages pre-calculations of NightEvents for each Site during the dates specified.
     """
-    _data_id = Tuple[Site, TimeDelta, Time, Time]
-    _night_events: Dict[_data_id, NightEvents] = {}
+    _ID = Tuple[Site, TimeDelta, Time, Time]
+    _night_events: Dict[_ID, NightEvents] = {}
 
     @staticmethod
     def get_night_events(time_grid: Time,
@@ -27,7 +27,7 @@ class NightEventsManager(metaclass=Singleton):
         but never less.
         """
         # The identifier used for caching.
-        data_id = (site, time_slot_length.jd, time_grid[0].jd, time_grid[-1].jd)
+        data_id: NightEventsManager._ID = (site, time_slot_length, time_grid[0], time_grid[-1])
 
         # Recalculate if necessary.
         if data_id not in NightEventsManager._night_events:
