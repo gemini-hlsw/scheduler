@@ -110,7 +110,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return cumul_seq
 
     @staticmethod
-    def first_nonzero_time(inlist: List[timedelta]) -> int:
+    def first_nonzero_time_idx(inlist: List[timedelta]) -> int:
         """
         Find the index of the first nonzero timedelta in inlist
         Designed to work with the output from cumulative_seq_exec_times
@@ -181,7 +181,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # total time remaining
                 time_remain = obs.acq_overhead + cumul_seq[-1]
                 # Min time remaining (acq + first non-zero atom)
-                time_remain_min = obs.acq_overhead + cumul_seq[self.first_nonzero_time(cumul_seq)]
+                time_remain_min = obs.acq_overhead + cumul_seq[self.first_nonzero_time_idx(cumul_seq)]
 
                 if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
                     # Calculate the program time remaining, we won't split program standards
@@ -476,7 +476,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         for obs in science_obs:
             obs_id = obs.id
             cumul_seq = self.cumulative_seq_exec_times(obs.sequence)
-            atom_start = self.first_nonzero_time(cumul_seq)
+            atom_start = self.first_nonzero_time_idx(cumul_seq)
             atom_end = atom_start
 
             n_slots_acq = Plan.time2slots(self.time_slot_length, obs.acq_overhead)
@@ -828,7 +828,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         iobs = self.obs_group_ids.index(obs.to_unique_group_id)
         cumul_seq = self.cumulative_seq_exec_times(obs.sequence)
 
-        atom_start = self.first_nonzero_time(cumul_seq)
+        atom_start = self.first_nonzero_time_idx(cumul_seq)
         atom_end = atom_start
 
         n_slots_acq = Plan.time2slots(self.time_slot_length, obs.acq_overhead)
