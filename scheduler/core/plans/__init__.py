@@ -141,7 +141,6 @@ class Plan:
             slot_start_nir = slot_end + idx_start_nir
             slot_end_nir = slot_end + idx_end_nir
 
-            wtf = target_info[night_idx]
             xmean_nir = target_info[night_idx][obs_id_nir].mean_airmass(interval[slot_start_nir:slot_end_nir + 1])
             xdiff_before = np.abs(xmean_nir - xmean_cal)
 
