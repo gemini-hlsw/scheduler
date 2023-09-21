@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from collections import Counter
-from datetime import timedelta
 from typing import Dict, List
 
 from lucupy.minimodel import Band, Conditions, ProgramID
@@ -65,12 +64,8 @@ class StatCalculator:
         for p_id in all_programs_scores:
             program = collector.get_program(p_id)
             total_used = program.total_used()
-            prog_total = timedelta()
-            for o in program.observations():
-                prog_total += (o.part_time() + o.acq_overhead + o.prog_time())
-            prog_total2 = sum((o.part_time() + o.acq_overhead + o.prog_time() for o in program.observations()),
-                              start=ZeroTime)
-            assert prog_total2 == prog_total
+            prog_total = sum((o.part_time() + o.acq_overhead + o.prog_time() for o in program.observations()),
+                             start=ZeroTime)
 
             completion = f'{float(total_used.total_seconds()/prog_total.total_seconds())* 100:.1f}%'
             score = all_programs_scores[p_id]
