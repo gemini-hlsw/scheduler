@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from collections import Counter
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from lucupy.minimodel import Band, Conditions, ProgramID
 from lucupy.types import ZeroTime
@@ -20,7 +20,7 @@ class StatCalculator:
     """
     @staticmethod
     def calculate_plans_stats(all_plans: List[Plans],
-                              collector: Collector) -> dict[str, tuple[str, float]]:
+                              collector: Collector) -> Dict[str, Tuple[str, float]]:
 
         all_programs_scores: Dict[ProgramID, float] = {}
 
