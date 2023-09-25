@@ -117,7 +117,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         idx = 0
         value = inlist[idx]
-        while value == ZeroTime:
+        while value == ZeroTime and idx < len(inlist) - 1:
             idx += 1
             value = inlist[idx]
         return idx
