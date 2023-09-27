@@ -44,7 +44,8 @@ if __name__ == '__main__':
     # end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
     start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
     end = Time("2018-10-05 08:00:00", format='iso', scale='utc')
-    num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
+    num_nights_to_schedule = 5
+    # num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
     collector = builder.build_collector(
         start=start,
         end=end,
@@ -116,7 +117,8 @@ if __name__ == '__main__':
     # end = Time("2018-10-07 08:00:00", format='iso', scale='utc')
     start = Time("2018-10-02 08:00:00", format='iso', scale='utc')
     end = Time("2018-10-04 08:00:00", format='iso', scale='utc')
-    num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
+    num_nights_to_schedule = 3
+    # num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
     collector = builder.build_collector(
         start=start,
         end=end,
