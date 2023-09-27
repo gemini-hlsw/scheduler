@@ -96,31 +96,15 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return np.where(abs_diff == 1)[0].reshape(-1, 2)
 
     @staticmethod
-    def cumulative_seq_exec_times(sequence: Sequence) -> List[timedelta]:
-        """Cumulative series of execution times for the unobserved atoms in a sequence, excluding acquisition time"""
-        cumul_seq = []
-        total_exec = ZeroTime
-        for atom in sequence:
-            if not atom.observed:
-                total_exec += atom.exec_time
-            cumul_seq.append(total_exec)
-        if len(cumul_seq) == 0:
-            cumul_seq.append(total_exec)
-
-        return cumul_seq
-
-    @staticmethod
-    def first_nonzero_time_idx(inlist: List[timedelta]) -> int:
+    def _first_nonzero_time_idx(inlist: npt.NDArray[timedelta]) -> int:
         """
         Find the index of the first nonzero timedelta in inlist
         Designed to work with the output from cumulative_seq_exec_times
         """
-        idx = 0
-        value = inlist[idx]
-        while value == ZeroTime and idx < len(inlist) - 1:
-            idx += 1
-            value = inlist[idx]
-        return idx
+        for idx, value in enumerate(inlist):
+            if value > ZeroTime:
+                return idx
+        return len(inlist) - 1
 
     @staticmethod
     def num_nir_standards(exec_sci: timedelta,
@@ -171,7 +155,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         for obs in group.observations():
             # Unobserved remaining time, cumulative sequence of atoms
-            cumul_seq = self.cumulative_seq_exec_times(obs.sequence)
+            cumul_seq = obs.cumulative_exec_times()
             if verbose:
                 print(f"\t Obs: {obs.id.id} {obs.exec_time()} {obs.obs_class.name} {obs.site.name} "
                       f"{next(iter(obs.wavelengths()))} {cumul_seq[-1]}")
@@ -181,7 +165,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # total time remaining
                 time_remain = obs.acq_overhead + cumul_seq[-1]
                 # Min time remaining (acq + first non-zero atom)
-                time_remain_min = obs.acq_overhead + cumul_seq[self.first_nonzero_time_idx(cumul_seq)]
+                time_remain_min = obs.acq_overhead + cumul_seq[self._first_nonzero_time_idx(cumul_seq)]
 
                 if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
                     # Calculate the program time remaining, we won't split program standards
@@ -475,8 +459,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
         obs_id_nir = None
         for obs in science_obs:
             obs_id = obs.id
-            cumul_seq = self.cumulative_seq_exec_times(obs.sequence)
-            atom_start = self.first_nonzero_time_idx(cumul_seq)
+            cumul_seq = obs.cumulative_exec_times()
+            atom_start = self._first_nonzero_time_idx(cumul_seq)
             atom_end = atom_start
 
             n_slots_acq = Plan.time2slots(self.time_slot_length, obs.acq_overhead)
@@ -826,9 +810,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
         program = self.selection.program_info[max_group_info.group_data.group.program_id].program
 
         iobs = self.obs_group_ids.index(obs.to_unique_group_id)
-        cumul_seq = self.cumulative_seq_exec_times(obs.sequence)
+        cumul_seq = obs.cumulative_exec_times()
 
-        atom_start = self.first_nonzero_time_idx(cumul_seq)
+        atom_start = self._first_nonzero_time_idx(cumul_seq)
         atom_end = atom_start
 
         n_slots_acq = Plan.time2slots(self.time_slot_length, obs.acq_overhead)
