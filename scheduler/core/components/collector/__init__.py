@@ -114,8 +114,8 @@ class Collector(SchedulerComponent):
         if not np.isscalar(self.end_vis_time.value):
             msg = f'Illegal end time (must be scalar): {self.end_vis_time}.'
             raise ValueError(msg)
-        if self.start_vis_time >= self.end_vis_time:
-            msg = f'Start time ({self.start_vis_time}) must be earlier than end time ({self.end_vis_time}).'
+        if self.start_vis_time > self.end_vis_time:
+            msg = f'Start time ({self.start_vis_time}) cannot occur later than end time ({self.end_vis_time}).'
             raise ValueError(msg)
 
         # Set up the time grid for the period under consideration in calculations: this is an astropy Time

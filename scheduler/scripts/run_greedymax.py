@@ -37,7 +37,9 @@ if __name__ == '__main__':
 
     start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
     end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
-    num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
+    # num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
+    num_nights_to_schedule = 3
+
     collector = builder.build_collector(
         start=start,
         end=end,

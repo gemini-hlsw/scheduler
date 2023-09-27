@@ -15,7 +15,7 @@ from pandas import DataFrame
 import numpy as np
 
 from scheduler.core.components.collector import Collector, NightEventsManager
-from scheduler.core.plans import Plans, NightStats
+from scheduler.core.plans import Plans
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.programprovider.ocs import OcsProgramProvider
 from scheduler.core.calculations.selection import Selection
@@ -71,12 +71,7 @@ def print_collector_info(collector: Collector, samples: int = 60) -> None:
             # print(f'\n\tSun-Moon angle (deg, sampled every {samples} time slots):')
             # print(f'\t{[a.to_value(u.deg) for a in night_events.sun_moon_ang[idx][::samples]]}')
             # print('\n\n')
-            print(f"\tInstruments available: {', '.join(r.id for r in nc[idx].resources)}")
-
-    target_info = sorted((obs_id, Collector.get_base_target(obs_id).name)
-                         for obs_id in Collector.get_observation_ids())
-    # for obs_id, target_name in target_info:
-    #    print(f'Observation {obs_id}, Target {target_name}')
+            print(f"\tInstruments available: {', '.join(sorted(r.id for r in nc[idx].resources))}")
 
 
 def print_atoms_for_observation(observation: Observation) -> None:
