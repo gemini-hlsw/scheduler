@@ -69,7 +69,7 @@ class StatCalculator:
 
             completion = f'{float(total_used.total_seconds()/prog_total.total_seconds())* 100:.1f}%'
             score = all_programs_scores[p_id]
-            print(completion, score)
+            # print(completion, score)
             plans_summary[p_id.id] = (completion, score)
 
         return plans_summary
