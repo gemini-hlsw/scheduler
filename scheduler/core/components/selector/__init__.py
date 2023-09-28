@@ -31,7 +31,7 @@ NightConfigurationData = Dict[Site, NightConfigurations]
 
 
 @final
-@dataclass(frozen=True)
+@dataclass
 class Selector(SchedulerComponent):
     """
     This is the Selector portion of the automated Scheduler.
@@ -226,6 +226,10 @@ class Selector(SchedulerComponent):
             group_data_map=group_data_map,
             unfiltered_group_data_map=unfiltered_group_data_map
         )
+
+    def update_conditions(self, new_conditions: Conditions)-> None:
+        self.default_cc = new_conditions.cc
+        self.default_iq = new_conditions.iq
 
     def _calculate_group(self,
                          program: Program,
