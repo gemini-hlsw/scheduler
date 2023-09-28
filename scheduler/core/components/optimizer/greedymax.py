@@ -777,7 +777,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # print(f"Group {max_group_info.group_data.group.unique_id.id} with "
                     #      f"max score {max_group_info.max_score} added.")
                     # Remove group from list if completely observed
-                    if max_group_info.group_data.group.program_used() >= max_group_info.group_data.group.prog_time():
+                    # if max_group_info.group_data.group.program_used() >= max_group_info.group_data.group.prog_time():
+                    if max_group_info.group_data.group.total_used() >= max_group_info.group_data.group.exec_time():
                         self.group_data_list.remove(max_group_info.group_data)
             else:
                 # Nothing remaining can be scheduled
