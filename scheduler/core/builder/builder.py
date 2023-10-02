@@ -62,8 +62,8 @@ class ValidationBuilder(SchedulerBuilder):
         frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
     )
 
-    def __init__(self, sources: Sources):
-        super().__init__(sources)
+    def __init__(self, sources: Sources, events: EventQueue):
+        super().__init__(sources, events)
         self.stats = StatCalculator
         self.sim_manager = None  # This should bne called something else? Accountant?
         # Populate event manager, same as in Simulation.

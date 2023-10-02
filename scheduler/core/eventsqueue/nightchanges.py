@@ -10,5 +10,5 @@ class NightChanges:
     lookup: Dict[Event, Plans] = field(default_factory=dict)
 
     def get_final_plans(self):
-        return list(self.lookup.keys())[-1]
+        return list(self.lookup.values())[-1]
 
