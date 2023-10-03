@@ -628,7 +628,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             atom_end += seq_length
 
         # Update observation status
-        if atom_end == seq_length:
+        if atom_end == seq_length - 1:
             observation.status = ObservationStatus.OBSERVED
         else:
             observation.status = ObservationStatus.ONGOING
@@ -778,8 +778,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     #      f"max score {max_group_info.max_score} added.")
                     # Remove group from list if completely observed
                     # if max_group_info.group_data.group.program_used() >= max_group_info.group_data.group.prog_time():
-                    if max_group_info.group_data.group.total_used() >= max_group_info.group_data.group.exec_time():
-                        self.group_data_list.remove(max_group_info.group_data)
+                    # remove any added group to avoid multiple visits on the same night
+                    self.group_data_list.remove(max_group_info.group_data)
             else:
                 # Nothing remaining can be scheduled
                 # for plan in plans:
@@ -924,9 +924,16 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # print(f"Adding after_std: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
 
+            # Inactivate any standards not used
+            for obs in part_obs:
+                if obs not in standards:
+                    print(f'Deactivating observation {obs.id.id}')
+                    obs.status = ObservationStatus.INACTIVE
+
             # TODO: Shift to remove any gaps in the plan?
 
             # Re-score program (pseudo time accounting)
+            print(f'Update score')
             self._update_score(program, night_idx=night_idx)
 
             if timeline.slots_unscheduled() <= 0:
