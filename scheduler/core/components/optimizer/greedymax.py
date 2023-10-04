@@ -927,13 +927,11 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # Inactivate any standards not used
             for obs in part_obs:
                 if obs not in standards:
-                    print(f'Deactivating observation {obs.id.id}')
                     obs.status = ObservationStatus.INACTIVE
 
             # TODO: Shift to remove any gaps in the plan?
 
             # Re-score program (pseudo time accounting)
-            print(f'Update score')
             self._update_score(program, night_idx=night_idx)
 
             if timeline.slots_unscheduled() <= 0:
