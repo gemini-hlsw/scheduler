@@ -9,9 +9,9 @@ jobs:
     steps:
       # Check-out your repository.
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Build, Push and Release a Docker container to Heroku.
-        uses: akhileshns/heroku-deploy@v3.12.12
+        uses: akhileshns/heroku-deploy@v3.12.14
         with:
           # Below you must provide variables for your Heroku app.
 
