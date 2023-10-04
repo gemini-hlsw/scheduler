@@ -182,12 +182,26 @@ class NewWeatherChange:
                              )
 
 
+
+
+# SEvent = NewWeatherChange | NewFault
+
+
 @strawberry.type
-class NewFault:
-    reason: str
-    instrument: str  # change to enum
-    start: datetime  # for Fault event
-    end: datetime  # for ResumeNight event
+class EventsAddedSuccess:
+    """
+    Success response for creating a new schedule.
+    """
+    success: bool
+    added_event: str
 
 
-SEvent = NewWeatherChange | NewFault
+@strawberry.type
+class EventsAddedError:
+    """
+    Error response for creating a new schedule.
+    """
+    error: str
+
+
+EventsAddedResponse = EventsAddedSuccess | EventsAddedError

@@ -14,9 +14,9 @@ from scheduler.db.planmanager import PlanManager
 
 
 from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
-                    SourceFileHandlerResponse, SEvent, NewWeatherChange,
-                    NewFault)
-from .inputs import CreateNewScheduleInput, UseFilesSourceInput
+                    SourceFileHandlerResponse, NewWeatherChange,
+                    EventsAddedResponse, EventsAddedSuccess)
+from .inputs import CreateNewScheduleInput, UseFilesSourceInput, AddEventInput
 from .scalars import SOrigin
 
 
@@ -84,12 +84,13 @@ class Mutation:
         return ChangeOriginSuccess(from_origin=old, to_origin=str(new_origin))
 
     @strawberry.mutation
-    def add_events(self, events: List[SEvent]):
+    def add_events(self, events_input: AddEventInput) -> EventsAddedResponse:
 
-        for e in events:
+        for e in events_input.events:
             match e:
                 case isinstance(e, NewWeatherChange):
                     event_queue.add_events(e.to_scheduler_event())
+                    return EventsAddedSuccess(True, 'Weather change')
                 case isinstance(e, NewFault):
                     pass
 

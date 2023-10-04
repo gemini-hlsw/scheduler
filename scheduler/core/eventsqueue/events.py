@@ -7,6 +7,14 @@ from lucupy.minimodel import Resource, Conditions
 from scheduler.core.meta import AbstractDataclass, FrozenAbstractDataclass
 
 
+@dataclass
+class BaseFaultEvent:
+    reason: str
+    instrument: str  # change to enum
+    start: datetime  # for Fault event
+    end: datetime  # for ResumeNight event
+
+
 @dataclass(frozen=True)
 class Interruption(FrozenAbstractDataclass):
     """

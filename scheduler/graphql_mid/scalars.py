@@ -7,7 +7,7 @@ import strawberry  # noqa
 from lucupy.minimodel import GroupID, ObservationID, ProgramID, Site, UniqueGroupID, ALL_SITES
 
 from scheduler.config import ConfigurationError
-from scheduler.core.eventsqueue import Event
+from scheduler.core.eventsqueue import Event, WeatherChange
 from scheduler.core.plans import Plan, Plans, Visit
 from scheduler.core.sources import Origin, Origins
 

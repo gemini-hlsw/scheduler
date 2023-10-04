@@ -1,11 +1,12 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+from datetime import datetime
+
 import strawberry  # noqa
 from strawberry.file_uploads import Upload
-from typing import Optional
+from typing import Optional, List
 from .scalars import Sites
 from scheduler.core.builder.modes import SchedulerModes
-
 
 @strawberry.input
 class CreateNewScheduleInput:
@@ -26,3 +27,16 @@ class UseFilesSourceInput:
     calendar: Optional[Upload] = None
     gmos_fpus: Optional[Upload] = None
     gmos_gratings: Optional[Upload] = None
+
+
+@strawberry.input
+class NewFault:
+    reason: str
+    instrument: str  # change to enum
+    start: datetime  # for Fault event
+    end: datetime  # for ResumeNight event
+
+
+@strawberry.input
+class AddEventInput:
+    events: List[NewFault]
