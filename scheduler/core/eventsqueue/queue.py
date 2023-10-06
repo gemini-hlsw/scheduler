@@ -35,4 +35,4 @@ class EventQueue:
         raise RuntimeError('Missing blockage for ResumeNight')
 
     def get_night_events(self, night_idx: int):
-        return self._events[night_idx] if night_idx in self._events else None
+        return self._events.get(night_idx)

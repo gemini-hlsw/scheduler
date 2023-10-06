@@ -37,7 +37,7 @@ if __name__ == '__main__':
         1.0
     )
     queue = EventQueue()
-    weather_change = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ20,
+    weather_change = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQANY,
                                                              cc=CloudCover.CC50,
                                                              sb=SkyBackground.SBANY,
                                                              wv=WaterVapor.WVANY),
@@ -90,6 +90,7 @@ if __name__ == '__main__':
     # Create the overall plans by night.
     overall_plans = {}
     for night_idx in range(selector.num_nights_to_schedule):
+
         events_by_night = queue.get_night_events(night_idx)
         night_indices = np.array([night_idx])
         changes = NightChanges()
@@ -103,8 +104,10 @@ if __name__ == '__main__':
                     changes.lookup[start] = plans[0]
                 else:
                     changes.lookup[event.start] = plans[0]
+                if isinstance(event, WeatherChange):
+                    selector.default_iq = event.new_conditions.iq
+                    selector.default_cc = event.new_conditions.cc
 
-                # TODO: Add logic for handle event behavior.
             # TODO: For now lets just display the final plan
             night_plans = changes.get_final_plans()
         else:
@@ -118,7 +121,8 @@ if __name__ == '__main__':
 
         # Perform the time accounting on the plans.
         collector.time_accounting(night_plans)
-
+        selector.default_iq = ImageQuality.IQ70
+        selector.default_cc = CloudCover.CC50
     overall_plans = [p for _, p in sorted(overall_plans.items())]
     plan_summary = StatCalculator.calculate_plans_stats(overall_plans, collector)
     print_plans(overall_plans)

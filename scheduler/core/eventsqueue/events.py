@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List
+from typing import FrozenSet
 
 from lucupy.minimodel import Resource, Conditions
 
@@ -31,8 +31,7 @@ class Interruption(FrozenAbstractDataclass):
 @dataclass
 class Blockage(AbstractDataclass):
     """
-    Parent class for any event in the night that would block
-    time slots though the night.
+    Parent class for any interruption that could cause the generation of a new plan.
     """
     start: datetime
     reason: str
@@ -51,6 +50,7 @@ class Blockage(AbstractDataclass):
         return self.__class__.__name__
 
 
+@dataclass(frozen=True)
 class ResumeNight(Interruption):
     """
     Event that let the scheduler knows that the night can be resumed
@@ -60,7 +60,7 @@ class ResumeNight(Interruption):
 
 
 class Fault(Blockage):
-    affects: List[Resource]
+    affects: FrozenSet[Resource]
 
 
 @dataclass(frozen=True)
@@ -68,7 +68,7 @@ class WeatherChange(Interruption):
     new_conditions: Conditions
 
 
-class Rto0s(Interruption):
+class Rtoos(Interruption):
     # value: ToO
     pass
 

@@ -3,18 +3,17 @@
 
 import json
 from datetime import datetime, timedelta
-from enum import Enum
 from typing import List, FrozenSet, Optional
 
 import pytz
 import strawberry  # noqa
 from strawberry.scalars import JSON
 
-from lucupy.minimodel import (ObservationID, Site, ALL_SITES, Conditions, ImageQuality,
+from lucupy.minimodel import (Site, Conditions, ImageQuality,
                               CloudCover, WaterVapor, SkyBackground)
 
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
-from scheduler.core.eventsqueue import WeatherChange, ResumeNight
+from scheduler.core.eventsqueue import WeatherChange
 from scheduler.graphql_mid.scalars import SObservationID
 from scheduler.config import config
 
@@ -180,11 +179,6 @@ class NewWeatherChange:
                              reason=self.reason,
                              new_conditions=c
                              )
-
-
-
-
-# SEvent = NewWeatherChange | NewFault
 
 
 @strawberry.type
