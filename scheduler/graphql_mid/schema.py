@@ -21,7 +21,7 @@ from .scalars import SOrigin
 
 
 sources = Sources()
-event_queue = EventQueue
+event_queue = EventQueue()
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 
@@ -111,7 +111,7 @@ class Query:
     def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
         try:
 
-            builder = dispatch_with(new_schedule_input.mode, sources)
+            builder = dispatch_with(new_schedule_input.mode, sources, event_queue)
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                 Time(new_schedule_input.end_time, format='iso', scale='utc')
 
