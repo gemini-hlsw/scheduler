@@ -9,7 +9,7 @@ from lucupy.helpers import flatten
 from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, UniqueGroupID
 
 from scheduler.core.components.ranker import Ranker
-from scheduler.core.types import StartingTimeSlots
+from scheduler.core.types import StartingTimeslots
 from scheduler.core.calculations import GroupData, NightEvents, ProgramCalculations, ProgramInfo
 
 
@@ -28,14 +28,14 @@ class Selection:
     night_events: Mapping[Site, NightEvents]
     night_indices: NightIndices
     time_slot_length: timedelta
-    starting_time_slots: StartingTimeSlots
+    starting_time_slots: StartingTimeslots
     ranker: Ranker
 
     # Used to re-score programs.
     _program_scorer: Optional[Callable[[Program,
                                         FrozenSet[Site],
                                         NightIndices,
-                                        StartingTimeSlots,
+                                        StartingTimeslots,
                                         Ranker],
                               Optional[ProgramCalculations]]] = field(default=None)
 

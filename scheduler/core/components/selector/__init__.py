@@ -19,7 +19,7 @@ from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, Prog
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.ranker import DefaultRanker, Ranker
-from scheduler.core.types import StartingTimeSlots
+from scheduler.core.types import StartingTimeslots
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 
@@ -59,29 +59,26 @@ class Selector(SchedulerComponent):
     @staticmethod
     def _process_starting_time_slots(sites: FrozenSet[Site],
                                      night_indices: NightIndices,
-                                     starting_time_slots: Optional[StartingTimeSlots]) -> StartingTimeSlots:
+                                     starting_time_slots: Optional[StartingTimeslots]) -> StartingTimeslots:
         if starting_time_slots is None:
             starting_time_slots = {}
-        starting_time_slots.update({(site, night_idx): 0
-                                    for night_idx in night_indices
-                                    for site in sites
-                                    if (site, night_idx) not in starting_time_slots})
 
-        # Check that all combinations of sites and night_indices are covered.
-        keys = set(starting_time_slots)
-        expected_keys = {(site, night_idx) for site in sites for night_idx in night_indices}
-        if keys != expected_keys:
-            if missing_keys := keys - expected_keys:
-                raise ValueError(f'Missing keys from starting time slots: {missing_keys}')
-            if extra_keys := expected_keys - keys:
-                raise ValueError(f'Extra keys in starting time slots: {extra_keys}')
+        # Make sure we have an entry for all relevant sites for all night indices.
+        # Add starting index of 0 if there is no data.
+        for site in sites:
+            night_dict = starting_time_slots.setdefault(site, {})
+            night_dict.update({night_idx: 0 for night_idx in night_indices if night_idx not in night_dict})
+
+            # Check for extra keys.
+            if extra_keys := night_dict.keys() - night_indices:
+                raise ValueError(f'Extra night indices for site {site.name}: {extra_keys}')
 
         return starting_time_slots
 
     def select(self,
                sites: Optional[FrozenSet[Site]] = None,
                night_indices: Optional[NightIndices] = None,
-               starting_time_slots: Optional[StartingTimeSlots] = None,
+               starting_time_slots: Optional[StartingTimeslots] = None,
                ranker: Optional[Ranker] = None) -> Selection:
         """
         Perform the selection of the groups based on:
@@ -166,7 +163,7 @@ class Selector(SchedulerComponent):
                       program: Program,
                       sites: FrozenSet[Site],
                       night_indices: NightIndices,
-                      starting_time_slots: StartingTimeSlots,
+                      starting_time_slots: StartingTimeslots,
                       ranker: Ranker) -> Optional[ProgramCalculations]:
         """
         Given a program and an array of night indices, score the program for the specified night indices
@@ -235,7 +232,7 @@ class Selector(SchedulerComponent):
                          group: Group,
                          sites: FrozenSet[Site],
                          night_indices: NightIndices,
-                         starting_time_slots: StartingTimeSlots,
+                         starting_time_slots: StartingTimeslots,
                          night_configurations: NightConfigurationData,
                          ranker: Ranker,
                          group_data_map: GroupDataMap = None) -> GroupDataMap:
@@ -268,7 +265,7 @@ class Selector(SchedulerComponent):
                                      group: Group,
                                      sites: FrozenSet[Site],
                                      night_indices: NightIndices,
-                                     starting_time_slots: StartingTimeSlots,
+                                     starting_time_slots: StartingTimeslots,
                                      night_configurations: NightConfigurationData,
                                      ranker: Ranker,
                                      group_data_map: GroupDataMap) -> GroupDataMap:
@@ -394,9 +391,9 @@ class Selector(SchedulerComponent):
                 wind_score[night_idx]) for night_idx in night_indices}
 
         # Zero out the data for each night index's starting time slots prior to the value specified.
-        for (site, night_idx), time_slot_idx in starting_time_slots.items():
-            if site == obs.site:
-                scores[night_idx][:time_slot_idx] = 0.0
+        starting_time_slots_for_site = starting_time_slots[obs.site]
+        for night_idx, time_slot_idx in starting_time_slots_for_site.items():
+            scores[night_idx][:time_slot_idx] = 0.0
 
         # These scores might differ from the observation score in the ranker since they have been adjusted for
         # conditions and wind.
@@ -419,7 +416,7 @@ class Selector(SchedulerComponent):
                              group: Group,
                              sites: FrozenSet[Site],
                              night_indices: NightIndices,
-                             starting_time_slots: StartingTimeSlots,
+                             starting_time_slots: StartingTimeslots,
                              night_configurations: NightConfigurationData,
                              ranker: Ranker,
                              group_data_map: GroupDataMap) -> GroupDataMap:
@@ -522,7 +519,7 @@ class Selector(SchedulerComponent):
                             group: Group,
                             sites: FrozenSet[Site],
                             night_indices: NightIndices,
-                            starting_time_slots: StartingTimeSlots,
+                            starting_time_slots: StartingTimeslots,
                             night_configurations: NightConfigurationData,
                             ranker: Ranker,
                             group_data_map: GroupDataMap) -> GroupDataMap:

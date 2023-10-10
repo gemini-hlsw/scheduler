@@ -93,17 +93,17 @@ if __name__ == '__main__':
     # Create the overall plans by night.
     overall_plans = {}
     for night_idx in range(selector.num_nights_to_schedule):
-        # Get the night indices for which we are selecting.
-        # TODO: We will want scores for nights to look ahead for greedy optimization.
-        # TODO: For now, we use the entire period for which visibility calculations have been done.
-        # night_indices = range(night_idx, total_nights)
+        # We score one night at a time.
         night_indices = np.array([night_idx])
-        starting_time_slots = {(Site.GS, night_idx): 400}
-        # selection = selector.select(night_indices=np.array([0, 1, 2])
-        selection = selector.select(night_indices=night_indices, starting_time_slots=starting_time_slots)
 
-        # Run the optimizer to get the plans for the first night in the selection.
+        # TODO: Remove. Example: ensure that the first 400 time slots for each night in GS are empty.
+        starting_time_slots = {Site.GS: {night_idx: 400}}
+
+        # Retrieve the Selection and run the Optimizer to get the plans.
+        selection = selector.select(night_indices=night_indices, starting_time_slots=starting_time_slots)
         plans = optimizer.schedule(selection)
+
+        # The Optimizer currently returns plans for all nights. We only want the first set.
         night_plans = plans[0]
 
         # Store the plans in the overall_plans array for that night.
