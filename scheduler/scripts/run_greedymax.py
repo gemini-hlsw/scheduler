@@ -98,8 +98,9 @@ if __name__ == '__main__':
         # TODO: For now, we use the entire period for which visibility calculations have been done.
         # night_indices = range(night_idx, total_nights)
         night_indices = np.array([night_idx])
+        starting_time_slots = {(Site.GS, night_idx): 400}
         # selection = selector.select(night_indices=np.array([0, 1, 2])
-        selection = selector.select(night_indices=night_indices)
+        selection = selector.select(night_indices=night_indices, starting_time_slots=starting_time_slots)
 
         # Run the optimizer to get the plans for the first night in the selection.
         plans = optimizer.schedule(selection)

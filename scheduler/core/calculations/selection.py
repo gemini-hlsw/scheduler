@@ -28,13 +28,15 @@ class Selection:
     night_events: Mapping[Site, NightEvents]
     night_indices: NightIndices
     time_slot_length: timedelta
+    starting_time_slots: StartingTimeSlots
+    ranker: Ranker
 
     # Used to re-score programs.
     _program_scorer: Optional[Callable[[Program,
-                                        Optional[FrozenSet[Site]],
-                                        Optional[NightIndices],
-                                        Optional[Ranker],
-                                        Optional[StartingTimeSlots]],
+                                        FrozenSet[Site],
+                                        NightIndices,
+                                        StartingTimeSlots,
+                                        Ranker],
                               Optional[ProgramCalculations]]] = field(default=None)
 
     def __reduce__(self):
@@ -47,15 +49,10 @@ class Selection:
                                  self.night_indices,
                                  self.time_slot_length))
 
-    def score_program(self,
-                      program: Program,
-                      sites: Optional[FrozenSet[Site]] = None,
-                      night_indices: Optional[NightIndices] = None,
-                      starting_time_slots: Optional[StartingTimeSlots] = None,
-                      ranker: Optional[Ranker] = None) -> ProgramCalculations:
+    def score_program(self, program: Program) -> ProgramCalculations:
         """
-        Re-score a program. This calls Selector.score_program, which checks to make sure
-        that the night_indices are valid, so we don't need to include that logic here.
+        Re-score a program. This calls Selector.score_program.
+
         Note that this will raise a ValueError on unpickled instances of Selection since the
         _program_scorer will be None.
         """
@@ -63,9 +60,7 @@ class Selection:
             raise ValueError('Selection.score_program cannot be called as the selection has a value of None. '
                              'This could happen if the instance was unpickled.')
 
-        if night_indices is None:
-            night_indices = self.night_indices
-        return self._program_scorer(program, sites, night_indices, starting_time_slots, ranker)
+        return self._program_scorer(program, self.sites, self.night_indices, self.starting_time_slots, self.ranker)
 
     @property
     def sites(self) -> FrozenSet[Site]:
