@@ -8,10 +8,9 @@ from typing import Callable, FrozenSet, Mapping, Optional
 from lucupy.helpers import flatten
 from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, UniqueGroupID
 
-from ..components.ranker import Ranker
-from .groupinfo import GroupData
-from .nightevents import NightEvents
-from .programinfo import ProgramCalculations, ProgramInfo
+from scheduler.core.components.ranker import Ranker
+from scheduler.core.types import StartingTimeSlots
+from scheduler.core.calculations import GroupData, NightEvents, ProgramCalculations, ProgramInfo
 
 
 @dataclass(frozen=True)
@@ -31,7 +30,11 @@ class Selection:
     time_slot_length: timedelta
 
     # Used to re-score programs.
-    _program_scorer: Optional[Callable[[Program, Optional[FrozenSet[Site]], Optional[NightIndices], Optional[Ranker]],
+    _program_scorer: Optional[Callable[[Program,
+                                        Optional[FrozenSet[Site]],
+                                        Optional[NightIndices],
+                                        Optional[Ranker],
+                                        Optional[StartingTimeSlots]],
                               Optional[ProgramCalculations]]] = field(default=None)
 
     def __reduce__(self):
@@ -48,6 +51,7 @@ class Selection:
                       program: Program,
                       sites: Optional[FrozenSet[Site]] = None,
                       night_indices: Optional[NightIndices] = None,
+                      starting_time_slots: Optional[StartingTimeSlots] = None,
                       ranker: Optional[Ranker] = None) -> ProgramCalculations:
         """
         Re-score a program. This calls Selector.score_program, which checks to make sure
@@ -61,7 +65,7 @@ class Selection:
 
         if night_indices is None:
             night_indices = self.night_indices
-        return self._program_scorer(program, sites, night_indices, ranker)
+        return self._program_scorer(program, sites, night_indices, starting_time_slots, ranker)
 
     @property
     def sites(self) -> FrozenSet[Site]:
