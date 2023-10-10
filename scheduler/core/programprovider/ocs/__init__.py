@@ -53,6 +53,7 @@ class OcsProgramProvider(ProgramProvider):
     _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
+    _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
 
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
@@ -860,7 +861,8 @@ class OcsProgramProvider(ProgramProvider):
         priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY].upper()]
 
         # If the status is not legal, terminate parsing.
-        if status == ObservationStatus.PHASE2 or status == ObservationStatus.ON_HOLD:
+        # *** HERE ***
+        if status not in OcsProgramProvider._OBSERVATION_STATUSES:
             return None
 
         setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
