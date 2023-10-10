@@ -287,6 +287,8 @@ class Selector(SchedulerComponent):
             raise ValueError(f'Non-observation group {group.id} cannot be treated as observation group.')
 
         obs = group.children
+        if obs.status == ObservationStatus.PHASE2 or obs.status == ObservationStatus.ON_HOLD:
+            raise ValueError(f'Observation {obs.id.id} has a status of {obs.status.name}.')
 
         # Only schedule ONGOING or READY observations.
         if obs.status not in {ObservationStatus.ONGOING, ObservationStatus.READY}:

@@ -859,6 +859,10 @@ class OcsProgramProvider(ProgramProvider):
         status = ObservationStatus[data[OcsProgramProvider._ObsKeys.STATUS].upper()]
         priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY].upper()]
 
+        # If the status is not legal, terminate parsing.
+        if status == ObservationStatus.PHASE2 or status == ObservationStatus.ON_HOLD:
+            return None
+
         setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
         acq_overhead = timedelta(milliseconds=data[OcsProgramProvider._ObsKeys.SETUPTIME])
 
