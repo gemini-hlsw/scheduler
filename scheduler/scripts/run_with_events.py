@@ -4,6 +4,7 @@
 import os
 import logging
 from datetime import datetime
+from math import ceil
 
 from lucupy.minimodel.constraints import CloudCover, ImageQuality, Conditions, WaterVapor
 from lucupy.minimodel.site import ALL_SITES
@@ -15,7 +16,8 @@ from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBlueprint
 from scheduler.core.builder.builder import ValidationBuilder
 from scheduler.core.components.collector import *
-from scheduler.core.eventsqueue.nightchanges import NightChanges
+from scheduler.core.eventsqueue.events import Twilight
+from scheduler.core.eventsqueue.nightchanges import NightChanges, NightTimeline
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.statscalculator import StatCalculator
@@ -89,42 +91,41 @@ if __name__ == '__main__':
 
     # Create the overall plans by night.
     overall_plans = {}
+    night_timeline = NightTimeline({})
     for night_idx in range(selector.num_nights_to_schedule):
 
         events_by_night = queue.get_night_events(night_idx)
         night_indices = np.array([night_idx])
-        changes = NightChanges()
+        # changes = NightChanges()
+
+        # Run eventless timeline
+        selection = selector.select(night_indices=night_indices)
+        # Run the optimizer to get the plans for the first night in the selection.
+        plans = optimizer.schedule(selection)
+        night_timeline.add(night_idx, 0, Twilight(start.to_datetime()), plans[0])
+
         if events_by_night:
             while events_by_night:
                 event = events_by_night.pop()
-                selection = selector.select(night_indices=night_indices)
-                # Run the optimizer to get the plans for the first night in the selection.
-                plans = optimizer.schedule(selection)
-                if not changes.lookup:
-                    changes.lookup[start] = plans[0]
-                else:
-                    changes.lookup[event.start] = plans[0]
+                event_start_time_slot = ceil((event.start - start.to_datetime()).total_seconds()/60)
                 if isinstance(event, WeatherChange):
                     selector.default_iq = event.new_conditions.iq
                     selector.default_cc = event.new_conditions.cc
 
-            # TODO: For now lets just display the final plan
-            night_plans = changes.get_final_plans()
-        else:
-            # eventless run
-            selection = selector.select(night_indices=night_indices)
-            # Run the optimizer to get the plans for the first night in the selection.
-            plans = optimizer.schedule(selection)
-            night_plans = plans[0]
-
+                selection = selector.select(night_indices=night_indices,
+                                            starting_time_slots={night_idx: event_start_time_slot for night_idx in night_indices})
+                # Run the optimizer to get the plans for the first night in the selection.
+                plans = optimizer.schedule(selection)
+                night_timeline.add(night_idx, event_start_time_slot, event, plans[0])
+        night_plans = night_timeline.get_final_plans(night_idx)
         overall_plans[night_idx] = night_plans
-
         # Perform the time accounting on the plans.
         collector.time_accounting(night_plans)
         selector.default_iq = ImageQuality.IQ70
         selector.default_cc = CloudCover.CC50
     overall_plans = [p for _, p in sorted(overall_plans.items())]
     plan_summary = StatCalculator.calculate_plans_stats(overall_plans, collector)
-    print_plans(overall_plans)
+    # print_plans(overall_plans)
+    night_timeline.display()
 
     print('DONE')
