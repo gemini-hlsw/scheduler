@@ -12,13 +12,15 @@ from astropy.coordinates import Angle
 from astropy.units import Quantity
 from lucupy.helpers import is_contiguous
 from lucupy.minimodel import (AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
-                              ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, UniqueGroupID, Variant)
+                              ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, TimeslotIndex,
+                              UniqueGroupID, Variant)
 from lucupy.minimodel import CloudCover, ImageQuality
 
 from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramCalculations, ProgramInfo, Selection
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.ranker import DefaultRanker, Ranker
+from scheduler.core.types import StartingTimeSlots
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 
@@ -55,9 +57,25 @@ class Selector(SchedulerComponent):
                              f'calculations only performed for {self.collector.num_nights_calculated}. '
                              'Cannot proceed.')
 
+    @staticmethod
+    def _process_starting_time_slots(night_indices: NightIndices,
+                                     starting_time_slots: Optional[StartingTimeSlots]) -> StartingTimeSlots:
+        if starting_time_slots is None:
+            starting_time_slots = {}
+        starting_time_slots.update({night_idx: 0 for night_idx in night_indices
+                                    if night_idx not in starting_time_slots})
+
+        # Check for extra indices in starting_time_slots.
+        if set(starting_time_slots) != set(night_indices):
+            extra_night_indices = set(starting_time_slots) - set(night_indices)
+            raise ValueError(f'Too many night indices in starting time slots specified: {extra_night_indices}')
+
+        return starting_time_slots
+
     def select(self,
                sites: Optional[FrozenSet[Site]] = None,
                night_indices: Optional[NightIndices] = None,
+               starting_time_slots: Optional[Dict[NightIndices, TimeslotIndex]] = None,
                ranker: Optional[Ranker] = None) -> Selection:
         """
         Perform the selection of the groups based on:
@@ -86,19 +104,16 @@ class Selector(SchedulerComponent):
         # NOTE: If night_indices is None, assume the whole calculation period.
         if night_indices is None:
             night_indices = np.arange(len(self.collector.time_grid))
-
         if not is_contiguous(night_indices):
             raise ValueError(f'Attempted to select a non-contiguous set of night indices: {set(night_indices)}')
         night_indices = np.array(sorted(night_indices))
 
+        # Set the starting time slots dictionary as necessary.
+        starting_time_slots = Selector._process_starting_time_slots(night_indices, starting_time_slots)
+
         # If no manual ranker was specified, create the default.
         if ranker is None:
             ranker = DefaultRanker(self.collector, night_indices, sites)
-
-        # TODO: ERASE?
-        # # The night_indices in the Selector and Ranker must be the same.
-        # if not np.array_equal(night_indices, ranker.night_indices):
-        #     raise ValueError(f'The Ranker must have the same night indices as the Selector select method.')
 
         # Create the structure to hold the mapping fom program ID to its group info.
         program_info_map: Dict[ProgramID, ProgramInfo] = {}
@@ -116,7 +131,7 @@ class Selector(SchedulerComponent):
             # This will allow us to use the members of this deep copy for things like internal time accounting
             # while leaving the information in the Collector intact.
             program = deepcopy(original_program)
-            program_calculations = self.score_program(program, sites, night_indices, ranker)
+            program_calculations = self.score_program(program, sites, night_indices, starting_time_slots, ranker)
             if program_calculations is None:
                 # Warning is already issued in scorer.
                 continue
@@ -143,12 +158,17 @@ class Selector(SchedulerComponent):
                       program: Program,
                       sites: Optional[FrozenSet[Site]] = None,
                       night_indices: Optional[NightIndices] = None,
+                      starting_time_slots: Optional[StartingTimeSlots] = None,
                       ranker: Optional[Ranker] = None) -> Optional[ProgramCalculations]:
         """
         Given a program and an array of night indices, score the program for the specified night indices.
 
         The sites can be specified, or if None is provided, the sites listed in the Program's root group are used.
         The night_indices is by default None, which indicates that the program should be scored across all nights.
+
+        The program's score prior to the starting time slot for a night is set to 0.
+        This is to allow for scoring of partial nights.
+
         The Ranker can be specified. In the case that it is not, the DefaultRanker is used.
 
         If the sites used by the Program do not intersect the sites parameter, then None is returned.
@@ -167,6 +187,8 @@ class Selector(SchedulerComponent):
         # If no night indices are specified, assume all night indices.
         if night_indices is None:
             night_indices = np.arange(self.collector.num_nights_calculated)
+
+        starting_time_slots = Selector._process_starting_time_slots(night_indices, starting_time_slots)
 
         # If no manual ranker was specified, create the default.
         if ranker is None:
@@ -193,6 +215,7 @@ class Selector(SchedulerComponent):
                                                           program.root_group,
                                                           sites,
                                                           night_indices,
+                                                          starting_time_slots,
                                                           night_configurations,
                                                           ranker)
 
@@ -226,6 +249,7 @@ class Selector(SchedulerComponent):
                          group: Group,
                          sites: FrozenSet[Site],
                          night_indices: NightIndices,
+                         starting_time_slots: StartingTimeSlots,
                          night_configurations: NightConfigurationData,
                          ranker: Ranker,
                          group_data_map: GroupDataMap = None) -> GroupDataMap:
@@ -244,19 +268,30 @@ class Selector(SchedulerComponent):
         else:
             raise ValueError(f'Could not process group {group.id}')
 
-        return processor(program, group, sites, night_indices, night_configurations, ranker, group_data_map)
+        return processor(program,
+                         group,
+                         sites,
+                         night_indices,
+                         starting_time_slots,
+                         night_configurations,
+                         ranker,
+                         group_data_map)
 
     def _calculate_observation_group(self,
                                      program: Program,
                                      group: Group,
                                      sites: FrozenSet[Site],
                                      night_indices: NightIndices,
+                                     starting_time_slots: StartingTimeSlots,
                                      night_configurations: NightConfigurationData,
                                      ranker: Ranker,
                                      group_data_map: GroupDataMap) -> GroupDataMap:
         """
         Calculate the GroupInfo for a group that contains an observation and add it to
         the group_data_map.
+
+        Note that the scores for times before the starting time slot for a given night index will be set to zero.
+        All other components of the score that are stored will be maintained.
 
         TODO: Not every observation has TargetInfo: if it is not in a specified class, it will not.
         TODO: How do we handle these cases? For now, I am going to skip any observation with a missing TargetInfo.
@@ -329,8 +364,7 @@ class Selector(SchedulerComponent):
             actual_conditions = Variant(iq=np.array([self.default_iq] * variant_length),
                                         cc=np.array([self.default_cc] * variant_length),
                                         wind_dir=actual_conditions.wind_dir,
-                                        wind_spd=actual_conditions.wind_spd
-                                        )
+                                        wind_spd=actual_conditions.wind_spd)
 
             # Make sure that we have conditions for every time slot.
             num_time_slots = len(night_events.times[night_idx])
@@ -373,6 +407,10 @@ class Selector(SchedulerComponent):
                 np.multiply(conditions_score[night_idx], obs_scores[night_idx]),
                 wind_score[night_idx]) for night_idx in night_indices}
 
+        # Zero out the data for each night index's starting time slots prior to the value specified.
+        for night_idx, time_slot_idx in starting_time_slots.items():
+            scores[night_idx][:time_slot_idx] = 0.0
+
         # These scores might differ from the observation score in the ranker since they have been adjusted for
         # conditions and wind.
         group_info = GroupInfo(
@@ -394,11 +432,12 @@ class Selector(SchedulerComponent):
                              group: Group,
                              sites: FrozenSet[Site],
                              night_indices: NightIndices,
+                             starting_time_slots: StartingTimeSlots,
                              night_configurations: NightConfigurationData,
                              ranker: Ranker,
                              group_data_map: GroupDataMap) -> GroupDataMap:
         """
-         Calculate the GroupInfo for an AND group that contains subgroups and add it to
+        Calculate the GroupInfo for an AND group that contains subgroups and add it to
         the group_data_map.
         """
         if not isinstance(group, AndGroup):
@@ -409,7 +448,8 @@ class Selector(SchedulerComponent):
         # Process all subgroups and then process this group directly.
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
-            self._calculate_group(program, subgroup, sites, night_indices, night_configurations, ranker, group_data_map)
+            self._calculate_group(program, subgroup, sites, night_indices, starting_time_slots, night_configurations,
+                                  ranker, group_data_map)
 
         # We can only schedule this group if its sites are all being scheduled; however, we still want to
         # score this group's children if their sites are covered: hence the check after the child scoring.
@@ -493,11 +533,14 @@ class Selector(SchedulerComponent):
     def _calculate_or_group(self,
                             program: Program,
                             group: Group,
-                            site: FrozenSet[Site],
+                            sites: FrozenSet[Site],
+                            night_indices: NightIndices,
+                            starting_time_slots: StartingTimeSlots,
+                            night_configurations: NightConfigurationData,
                             ranker: Ranker,
                             group_data_map: GroupDataMap) -> GroupDataMap:
         """
-         Calculate the GroupInfo for an AND group that contains subgroups and add it to
+        Calculate the GroupInfo for an AND group that contains subgroups and add it to
         the group_data_map.
 
         Not yet implemented.
