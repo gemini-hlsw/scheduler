@@ -53,10 +53,12 @@ class NightTimeline:
         for night_idx, entries in self.timeline.items():
             print(f'\n\n+++++ NIGHT {night_idx + 1} +++++')
             for entry in entries:
-                print(f'\t+++++ Triggered by event: {entry.event.reason} at {entry.event.start}')
+                print(f'\t+++++ Triggered by event: {entry.event.reason} at {entry.event.start} +++++')
                 for plan in entry.plans_generated:
                     print(f'Plan for site: {plan.site.name}')
                     for visit in plan.visits:
                         print(
                             f'\t{visit.start_time}   {visit.obs_id.id:20} {visit.score:8.2f} {visit.atom_start_idx:4d} '
                             f'{visit.atom_end_idx:4d}')
+                print('\t+++++ END EVENT +++++')
+
