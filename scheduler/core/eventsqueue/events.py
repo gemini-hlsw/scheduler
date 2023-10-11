@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import FrozenSet
 
-from lucupy.minimodel import Resource, Conditions
+from lucupy.minimodel import Resource, Conditions, Site
 
 from scheduler.core.meta import AbstractDataclass, FrozenAbstractDataclass
 
@@ -15,15 +15,15 @@ class Interruption(FrozenAbstractDataclass):
     """
     start: datetime
     reason: str
+    site: FrozenSet[Site]
 
     def __str__(self):
         return self.__class__.__name__
 
 
 @dataclass(frozen=True)
-class Twilight:
-    start: datetime
-    reason: str = 'Twilight'
+class Twilight(Interruption):
+    pass
 
 
 @dataclass
@@ -33,6 +33,7 @@ class Blockage(AbstractDataclass):
     """
     start: datetime
     reason: str
+    site: Site
     end: datetime = None  # needs a resume event
 
     def ends(self, end: datetime) -> None:
@@ -71,4 +72,4 @@ class Rtoos(Interruption):
     pass
 
 
-Event = Interruption | Blockage | Twilight
+Event = Interruption | Blockage

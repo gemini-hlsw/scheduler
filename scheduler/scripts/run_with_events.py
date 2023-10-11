@@ -45,6 +45,7 @@ if __name__ == '__main__':
                                                              wv=WaterVapor.WVANY),
                                    start=datetime(2018, 10, 1, 10),
                                    reason='Worst image quality',
+                                   site=frozenset([Site.GS])
                                    )
     queue.add_events(weather_change, 0)
 
@@ -102,7 +103,7 @@ if __name__ == '__main__':
         selection = selector.select(night_indices=night_indices)
         # Run the optimizer to get the plans for the first night in the selection.
         plans = optimizer.schedule(selection)
-        night_timeline.add(night_idx, 0, Twilight(start.to_datetime()), plans[0])
+        night_timeline.add(night_idx, 0, Twilight(start.to_datetime(),reason='Twilight',site=ALL_SITES), plans[0])
 
         if events_by_night:
             while events_by_night:
@@ -113,6 +114,7 @@ if __name__ == '__main__':
                     selector.default_cc = event.new_conditions.cc
 
                 selection = selector.select(night_indices=night_indices,
+                                            sites=event.site,
                                             starting_time_slots={night_idx: event_start_time_slot for night_idx in night_indices})
                 # Run the optimizer to get the plans for the first night in the selection.
                 plans = optimizer.schedule(selection)
