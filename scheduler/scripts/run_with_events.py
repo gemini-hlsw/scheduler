@@ -40,22 +40,22 @@ if __name__ == '__main__':
     )
     queue = EventQueue()
     weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQANY,
-                                                             cc=CloudCover.CC50,
-                                                             sb=SkyBackground.SBANY,
-                                                             wv=WaterVapor.WVANY),
-                                   start=datetime(2018, 10, 1, 10),
-                                   reason='Worst image quality',
-                                   site=frozenset([Site.GS]))
+                                                                   cc=CloudCover.CC50,
+                                                                   sb=SkyBackground.SBANY,
+                                                                   wv=WaterVapor.WVANY),
+                                         start=datetime(2018, 10, 1, 10),
+                                         reason='Worst image quality',
+                                         site=Site.GS)
 
-    weather_change_north = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ70,
-                                                             cc=CloudCover.CCANY,
-                                                             sb=SkyBackground.SBANY,
-                                                             wv=WaterVapor.WVANY),
-                                   start=datetime(2018, 10, 1, 11),
-                                   reason='Worst image quality',
-                                   site=frozenset([Site.GN]))
+    # weather_change_north = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ70,
+    #                                                               cc=CloudCover.CCANY,
+    #                                                               sb=SkyBackground.SBANY,
+    #                                                               wv=WaterVapor.WVANY),
+    #                                     start=datetime(2018, 10, 1, 11),
+    #                                     reason='Worst image quality',
+    #                                     site=Site.GN)
 
-    queue.add_events([weather_change_north,weather_change_south], 0)
+    queue.add_events([weather_change_south], 0)
 
     builder = ValidationBuilder(Sources(), queue)
 
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     collector = builder.build_collector(
         start=start,
         end=end,
-        sites=ALL_SITES,
+        sites=frozenset([Site.GS]),
         semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     # IQ values are IQ20, IQ70, IQ85, and IQANY. Default is IQ70 if not passed to build_selector.
     iq = ImageQuality.IQ70
 
-    selector =  builder.build_selector(collector,
+    selector = builder.build_selector(collector,
                                       num_nights_to_schedule=num_nights_to_schedule,
                                       default_cc=cc,
                                       default_iq=iq)
@@ -111,11 +111,12 @@ if __name__ == '__main__':
         selection = selector.select(night_indices=night_indices)
         # Run the optimizer to get the plans for the first night in the selection.
         plans = optimizer.schedule(selection)
-        night_timeline.add(night_idx,
-                           0,
-                           Twilight(start.to_datetime(),
-                           reason='Twilight',
-                           site=ALL_SITES), plans[0])
+        twi = Twilight(start.to_datetime(), reason='Twilight', site=Site.GS)
+        night_timeline.add(night_idx=NightIndex(night_idx),
+                           site=Site.GS,
+                           time_slot=TimeslotIndex(0),
+                           event=twi,
+                           plan_generated=plans[0][Site.GS])
 
         if events_by_night:
             while events_by_night:
@@ -131,14 +132,19 @@ if __name__ == '__main__':
                                             starting_time_slots={night_idx: event_start_time_slot for night_idx in night_indices})
                 # Run the optimizer to get the plans for the first night in the selection.
                 plans = optimizer.schedule(selection)
-                night_timeline.add(night_idx, event_start_time_slot, event, plans[0])
+                night_timeline.add(NightIndex(night_idx),
+                                   Site.GS,
+                                   TimeslotIndex(event_start_time_slot),
+                                   event,
+                                   plans[0][Site.GS])
+                collector.time_accounting(plans[0],
+                                          sites=frozenset({Site.GS}),
+                                          end_timeslot_bounds={Site.GS: TimeslotIndex(event_start_time_slot)})
 
-                plans[0][event.site] = plans[0][event.site][:event.start_time_slot]
-                collector.time_accounting(plans[0])
+        for site in collector.sites:
+            plans[0][site] = night_timeline.get_final_plan(NightIndex(night_idx), site)
 
-
-        # night_plans = night_timeline.get_final_plans(night_idx)
-        overall_plans[night_idx] = night_plans
+        overall_plans[night_idx] = plans[0]
         # Perform the time accounting on the plans.
         # collector.time_accounting(night_plans)
         selector.default_iq = ImageQuality.IQ70
