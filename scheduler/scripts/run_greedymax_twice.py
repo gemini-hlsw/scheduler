@@ -9,9 +9,7 @@
 import os
 import logging
 
-from lucupy.minimodel.constraints import CloudCover, ImageQuality
-from lucupy.minimodel.site import ALL_SITES
-from lucupy.minimodel.semester import SemesterHalf
+from lucupy.minimodel import ALL_SITES, CloudCover, ImageQuality, NightIndex, SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
@@ -28,7 +26,7 @@ if __name__ == '__main__':
     logger = logger_factory.create_logger(__name__, logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
-    print('***** RUN 1 *****')
+    print('***** RUN 1: GN and GS *****')
     # Read in a list of JSON data
     programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
@@ -79,12 +77,7 @@ if __name__ == '__main__':
     # Create the overall plans by night.
     overall_plans = {}
     for night_idx in range(selector.num_nights_to_schedule):
-        # Get the night indices for which we are selecting.
-        # TODO: We will want scores for nights to look ahead for greedy optimization.
-        # TODO: For now, we use the entire period for which visibility calculations have been done.
-        # night_indices = range(night_idx, total_nights)
         night_indices = np.array([night_idx])
-        # selection = selector.select(night_indices=np.array([0, 1, 2])
         selection = selector.select(night_indices=night_indices)
 
         # Run the optimizer to get the plans for the first night in the selection.
@@ -101,7 +94,7 @@ if __name__ == '__main__':
     overall_plans = [p for _, p in sorted(overall_plans.items())]
     print_plans(overall_plans)
 
-    print('\n\n\n***** RUN 2 *****')
+    print('\n\n\n***** RUN 2: GS ONLY *****')
     # Read in a list of JSON data
     programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
@@ -152,12 +145,7 @@ if __name__ == '__main__':
     # Create the overall plans by night.
     overall_plans = {}
     for night_idx in range(selector.num_nights_to_schedule):
-        # Get the night indices for which we are selecting.
-        # TODO: We will want scores for nights to look ahead for greedy optimization.
-        # TODO: For now, we use the entire period for which visibility calculations have been done.
-        # night_indices = range(night_idx, total_nights)
         night_indices = np.array([night_idx])
-        # selection = selector.select(night_indices=np.array([0, 1, 2])
         selection = selector.select(night_indices=night_indices)
 
         # Run the optimizer to get the plans for the first night in the selection.

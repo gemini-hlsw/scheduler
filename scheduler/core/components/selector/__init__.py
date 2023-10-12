@@ -71,7 +71,7 @@ class Selector(SchedulerComponent):
 
             # Check for extra keys.
             if extra_keys := night_dict.keys() - night_indices:
-                raise ValueError(f'Extra night indices for site {site.name}: {extra_keys}')
+                logger.warning(f'Extra night indices for site {site.name} for starting_time_slots: {extra_keys}')
 
         return starting_time_slots
 
@@ -390,10 +390,12 @@ class Selector(SchedulerComponent):
                 np.multiply(conditions_score[night_idx], obs_scores[night_idx]),
                 wind_score[night_idx]) for night_idx in night_indices}
 
-        # Zero out the data for each night index's starting time slots prior to the value specified.
+        # Zero out the data for each night index's starting time slots prior to the value specified (if specified)
+        # and the night index was included in scoring.
         starting_time_slots_for_site = starting_time_slots[obs.site]
         for night_idx, time_slot_idx in starting_time_slots_for_site.items():
-            scores[night_idx][:time_slot_idx] = 0.0
+            if night_idx in night_indices:
+                scores[night_idx][:time_slot_idx] = 0.0
 
         # These scores might differ from the observation score in the ranker since they have been adjusted for
         # conditions and wind.

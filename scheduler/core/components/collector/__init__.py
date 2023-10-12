@@ -1,19 +1,20 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from inspect import isclass
-import time
 from dataclasses import dataclass
 from datetime import timedelta
+from inspect import isclass
+import logging
+import time
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import sky
-from lucupy.minimodel import (Constraints, ElevationType, NightIndex, NightIndices, NonsiderealTarget, Observation,
-                              ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
-                              SiderealTarget, Site, SkyBackground, Target, QAState, ObservationStatus)
+from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex, NightIndices, NonsiderealTarget,
+                              Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
+                              SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus)
 import numpy as np
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
@@ -29,7 +30,8 @@ from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.resource import ResourceService
 
-logger = logger_factory.create_logger(__name__)
+# Set to INFO for now to record time accounting activity.
+logger = logger_factory.create_logger(__name__, level=logging.INFO)
 
 
 @final
@@ -502,28 +504,65 @@ class Collector(SchedulerComponent):
             self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
         ) for night_idx in night_indices}
 
-    def time_accounting(self, site_plans: Plans) -> None:
-        """ Do time accounting for Plans in both site but for only one night.
-            As implemented right now it does not consider any interruptions.
+    def time_accounting(self,
+                        plans: Plans,
+                        sites: FrozenSet[Site] = ALL_SITES,
+                        end_timeslot_bounds: Optional[Dict[Site, Optional[TimeslotIndex]]] = None) -> None:
         """
-        for plan in site_plans:
-            for v in plan.visits:
+        For the given plans, which contain a set of plans for all sites for one night,
+        perform time accounting on the plans for the specified sites up until the specified
+        end timeslot for the site.
+
+        If the end timeslot bound occurs during a visit, then that visit is ignored,
+        as are all subsequent visits.
+
+        If end_timeslot_idx is not specified or not specified for a given site,
+        then we perform time accounting across the entire night.
+        """
+        for plan in plans:
+            if plan.site not in sites:
+                continue
+
+            # Keep track of the timeslots elapsed.
+            timeslots_elapsed = 0
+
+            # Determine the end timeslot for the site if one is specified.
+            # We set to None is the whole night is to be done.
+            end_timeslot_bound = end_timeslot_bounds.get(plan.site) if end_timeslot_bounds is not None else None
+
+            # Ensure visits are processed in order of starting time slot.
+            for visit in sorted(plan.visits, key=lambda v: v.start_time_slot):
+                # In order to process this visit, we must elapse the number of timeslots taken by the visit.
+                timeslots_elapsed += visit.time_slots
+
+                # If there is a bound and this number transcends it, then neither this visit nor any subsequent
+                # visits are performed. The reason the timeslots_elapsed must be strictly greater to stop is
+                # demonstrated by the following example:
+                # Bound is 5, i.e. do not process anything that includes timeslot 5 or greater..
+                # visit 0 takes 3 timeslots: processed, timeslots_elapsed -> 3 (timeslots [0, 1, 2])
+                # visit 1 takes 2 timeslots: processed, timeslots_elapsed -> 5 (timeslots [3, 4])
+                # visit 2 and all others must abort as they will by necessity occupy timeslot 5.
+                if end_timeslot_bound is not None and timeslots_elapsed > end_timeslot_bound:
+                    break
+
+                # We process this visit.
                 # Update Observation from Collector.
-                observation = self.get_observation(v.obs_id)
+                observation = self.get_observation(visit.obs_id)
                 obs_seq = observation.sequence
-                # check that Observation is Observed
-                if v.atom_end_idx == len(obs_seq) - 1:
-                    logger.warning(f'Marking observation complete: {observation.id.id}')
+
+                # Check if the Observation has been completely observed.
+                if visit.atom_end_idx == len(obs_seq) - 1:
+                    logger.info(f'Marking observation complete: {observation.id.id}')
                     observation.status = ObservationStatus.OBSERVED
                 else:
                     observation.status = ObservationStatus.ONGOING
                       
-                # Update by atom in the sequence
-                for atom_idx in range(v.atom_start_idx, v.atom_end_idx + 1):
+                # Update by atom in the sequence.
+                for atom_idx in range(visit.atom_start_idx, visit.atom_end_idx + 1):
                     obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
                     obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
 
-                    # Charge acquisition to the first atom
+                    # Charge acquisition to the first atom.
                     if atom_idx == 0:
                         if observation.obs_class == ObservationClass.PARTNERCAL:
                             obs_seq[atom_idx].program_used += observation.acq_overhead

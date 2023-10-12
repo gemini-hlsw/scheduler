@@ -4,8 +4,7 @@
 import os
 import logging
 
-from lucupy.minimodel.constraints import CloudCover, ImageQuality
-from lucupy.minimodel.site import ALL_SITES
+from lucupy.minimodel import ALL_SITES, CloudCover, ImageQuality, NightIndex
 from lucupy.minimodel.semester import SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
@@ -90,14 +89,15 @@ if __name__ == '__main__':
     # The total nights for which visibility calculations have been done.
     total_nights = len(collector.time_grid)
 
+    # Example: ensure that the first 400 time slots for night_idx 1 for GS are empty.
+    starting_time_slots = {Site.GS: {NightIndex(1): 400}}
+    # starting_time_slots = None
+
     # Create the overall plans by night.
     overall_plans = {}
-    for night_idx in range(selector.num_nights_to_schedule):
+    for night_idx in map(NightIndex, range(selector.num_nights_to_schedule)):
         # We score one night at a time.
         night_indices = np.array([night_idx])
-
-        # TODO: Remove. Example: ensure that the first 400 time slots for each night in GS are empty.
-        starting_time_slots = {Site.GS: {night_idx: 400}}
 
         # Retrieve the Selection and run the Optimizer to get the plans.
         selection = selector.select(night_indices=night_indices, starting_time_slots=starting_time_slots)
