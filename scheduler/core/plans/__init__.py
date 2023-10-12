@@ -222,6 +222,19 @@ class Plan:
     def __contains__(self, obs: Observation) -> bool:
         return any(visit.obs_id == obs.id for visit in self.visits)
 
+    def __getitem__(self, index: int | slice) -> 'Plan':
+        visits_by_timeslot = {v.start_time_slot: v for v in self.visits}
+        visits_timeslots = [v.start_time_slot for v in self.visits]
+        plan = Plan(self.start, self.end, self.time_slot_length, self.site, self._time_slots_left)
+        if isinstance(index, slice):
+            start, stop, step = index.start, index.stop, index.step
+            step = step or 1  # If step is None, default to 1
+            plan.visits = [visits_by_timeslot[x] for x in visits_timeslots if start <= x < stop and (x % step == 0)]
+
+        else:
+            plan.visits = [visits_by_timeslot[index]]
+        return plan
+
 
 class Plans:
     """
@@ -241,6 +254,9 @@ class Plans:
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]
+
+    def __setitem__(self, key: Site, value: Plan) -> None:
+        self.plans[key] = value
 
     def __iter__(self):
         return iter(self.plans.values())

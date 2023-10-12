@@ -82,7 +82,7 @@ if __name__ == '__main__':
     # IQ values are IQ20, IQ70, IQ85, and IQANY. Default is IQ70 if not passed to build_selector.
     iq = ImageQuality.IQ70
 
-    selector = builder.build_selector(collector,
+    selector =  builder.build_selector(collector,
                                       num_nights_to_schedule=num_nights_to_schedule,
                                       default_cc=cc,
                                       default_iq=iq)
@@ -111,7 +111,11 @@ if __name__ == '__main__':
         selection = selector.select(night_indices=night_indices)
         # Run the optimizer to get the plans for the first night in the selection.
         plans = optimizer.schedule(selection)
-        night_timeline.add(night_idx, 0, Twilight(start.to_datetime(),reason='Twilight',site=ALL_SITES), plans[0])
+        night_timeline.add(night_idx,
+                           0,
+                           Twilight(start.to_datetime(),
+                           reason='Twilight',
+                           site=ALL_SITES), plans[0])
 
         if events_by_night:
             while events_by_night:
@@ -123,15 +127,20 @@ if __name__ == '__main__':
                     selector.default_cc = event.new_conditions.cc
 
                 selection = selector.select(night_indices=night_indices,
-                                            sites=event.site,
+                                            sites=frozenset([event.site]),
                                             starting_time_slots={night_idx: event_start_time_slot for night_idx in night_indices})
                 # Run the optimizer to get the plans for the first night in the selection.
                 plans = optimizer.schedule(selection)
                 night_timeline.add(night_idx, event_start_time_slot, event, plans[0])
-        night_plans = night_timeline.get_final_plans(night_idx)
+
+                plans[0][event.site] = plans[0][event.site][:event.start_time_slot]
+                collector.time_accounting(plans[0])
+
+
+        # night_plans = night_timeline.get_final_plans(night_idx)
         overall_plans[night_idx] = night_plans
         # Perform the time accounting on the plans.
-        collector.time_accounting(night_plans)
+        # collector.time_accounting(night_plans)
         selector.default_iq = ImageQuality.IQ70
         selector.default_cc = CloudCover.CC50
     overall_plans = [p for _, p in sorted(overall_plans.items())]

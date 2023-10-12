@@ -15,7 +15,7 @@ class Interruption(FrozenAbstractDataclass):
     """
     start: datetime
     reason: str
-    site: FrozenSet[Site]
+    site: Site
 
     def __str__(self):
         return self.__class__.__name__
