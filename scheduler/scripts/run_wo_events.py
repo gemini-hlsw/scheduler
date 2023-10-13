@@ -39,13 +39,6 @@ if __name__ == '__main__':
         1.0
     )
     queue = EventQueue()
-    weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQANY,
-                                                                   cc=CloudCover.CC50,
-                                                                   sb=SkyBackground.SBANY,
-                                                                   wv=WaterVapor.WVANY),
-                                         start=datetime(2018, 10, 1, 10),
-                                         reason='Worst image quality',
-                                         site=Site.GS)
 
     # weather_change_north = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ70,
     #                                                               cc=CloudCover.CCANY,
@@ -54,8 +47,6 @@ if __name__ == '__main__':
     #                                     start=datetime(2018, 10, 1, 11),
     #                                     reason='Worst image quality',
     #                                     site=Site.GN)
-
-    queue.add_events([weather_change_south], 0)
 
     builder = ValidationBuilder(Sources(), queue)
 
@@ -113,20 +104,17 @@ if __name__ == '__main__':
         # Run the optimizer to get the plans for the first night in the selection.
         plans = optimizer.schedule(selection)
         twi = Twilight(start.to_datetime(), reason='Twilight', site=Site.GS)
-
-
         night_timeline.add(night_idx=NightIndex(night_idx),
                            site=Site.GS,
                            time_slot=TimeslotIndex(0),
                            event=twi,
                            plan_generated=plans[0][Site.GS])
-        print_plans(plans)
-        input()
 
         if events_by_night:
             while events_by_night:
                 event = events_by_night.pop()
                 event_start_time_slot = ceil((event.start - start.to_datetime()).total_seconds()/60)
+                print(event_start_time_slot)
                 if isinstance(event, WeatherChange):
                     selector.default_iq = event.new_conditions.iq
                     selector.default_cc = event.new_conditions.cc
@@ -157,7 +145,5 @@ if __name__ == '__main__':
     plan_summary = StatCalculator.calculate_plans_stats(overall_plans, collector)
     # print_plans(overall_plans)
     night_timeline.display()
-
-    print_plans(overall_plans)
 
     print('DONE')

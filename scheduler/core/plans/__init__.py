@@ -231,7 +231,7 @@ class Plan:
             step = step or 1  # If step is None, default to 1
             start = start or 0
             stop = stop or visits_timeslots[-1]
-            plan.visits = [visits_by_timeslot[x] for x in visits_timeslots if start <= x < stop and (x % step == 0)]
+            plan.visits = [visits_by_timeslot[x] for x in visits_timeslots if start <= x <= stop and (x % step == 0)]
 
         else:
             print(visits_by_timeslot.keys())

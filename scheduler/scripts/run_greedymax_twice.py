@@ -17,6 +17,7 @@ from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBlueprint
 from scheduler.core.builder.builder import ValidationBuilder
 from scheduler.core.components.collector import *
+from scheduler.core.eventsqueue import EventQueue
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.services import logger_factory
@@ -36,7 +37,7 @@ if __name__ == '__main__':
         ['Q', 'LP', 'FT', 'DD'],
         1.0
     )
-    builder = ValidationBuilder(Sources())
+    builder = ValidationBuilder(Sources(), EventQueue())
 
     # start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
     # end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
@@ -104,7 +105,7 @@ if __name__ == '__main__':
         ['Q', 'LP', 'FT', 'DD'],
         1.0
     )
-    builder = ValidationBuilder(Sources())
+    builder = ValidationBuilder(Sources(), EventQueue())
 
     # start = Time("2018-10-04 08:00:00", format='iso', scale='utc')
     # end = Time("2018-10-07 08:00:00", format='iso', scale='utc')
