@@ -523,26 +523,15 @@ class Collector(SchedulerComponent):
             if plan.site not in sites:
                 continue
 
-            # Keep track of the timeslots elapsed.
-            timeslots_elapsed = 0
-
             # Determine the end timeslot for the site if one is specified.
             # We set to None is the whole night is to be done.
             end_timeslot_bound = end_timeslot_bounds.get(plan.site) if end_timeslot_bounds is not None else None
 
             # Ensure visits are processed in order of starting time slot.
             for visit in sorted(plan.visits, key=lambda v: v.start_time_slot):
-                # In order to process this visit, we must elapse the number of timeslots taken by the visit.
-                timeslots_elapsed += visit.time_slots
-
-                # If there is a bound and this number transcends it, then neither this visit nor any subsequent
-                # visits are performed. The reason the timeslots_elapsed must be strictly greater to stop is
-                # demonstrated by the following example:
-                # Bound is 5, i.e. do not process anything that includes timeslot 5 or greater..
-                # visit 0 takes 3 timeslots: processed, timeslots_elapsed -> 3 (timeslots [0, 1, 2])
-                # visit 1 takes 2 timeslots: processed, timeslots_elapsed -> 5 (timeslots [3, 4])
-                # visit 2 and all others must abort as they will by necessity occupy timeslot 5.
-                if end_timeslot_bound is not None and timeslots_elapsed > end_timeslot_bound:
+                # If this visit's starting time slot is at least the end timeslot bound, then we stop
+                # processing this and all further visits.
+                if end_timeslot_bound is not None and visit.start_time_slot >= end_timeslot_bound:
                     break
 
                 # We process this visit.
