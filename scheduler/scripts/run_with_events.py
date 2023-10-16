@@ -112,16 +112,19 @@ if __name__ == '__main__':
         selection = selector.select(night_indices=night_indices)
         # Run the optimizer to get the plans for the first night in the selection.
         plans = optimizer.schedule(selection)
-        twi = Twilight(start.to_datetime(), reason='Twilight', site=Site.GS)
-
+        # Get the night events for the site: in this case, GS.
+        night_events = collector.get_night_events(Site.GS)
+        
+        # The twilight evening time was calculated as a component of the night events.
+        # We are only scheduling one day, so it is the only value in the array.
+        twi_eve = night_events.twilight_evening_12[0]
+        twi = Twilight(twi_eve, reason='Twilight', site=Site.GS)
 
         night_timeline.add(night_idx=NightIndex(night_idx),
                            site=Site.GS,
                            time_slot=TimeslotIndex(0),
                            event=twi,
                            plan_generated=plans[0][Site.GS])
-        print_plans(plans)
-        input()
 
         if events_by_night:
             while events_by_night:
@@ -133,7 +136,7 @@ if __name__ == '__main__':
 
                 selection = selector.select(night_indices=night_indices,
                                             sites=frozenset([event.site]),
-                                            starting_time_slots={night_idx: event_start_time_slot for night_idx in night_indices})
+                                            starting_time_slots={Site.GS: {night_idx: event_start_time_slot for night_idx in night_indices}})
                 # Run the optimizer to get the plans for the first night in the selection.
                 plans = optimizer.schedule(selection)
                 night_timeline.add(NightIndex(night_idx),
