@@ -129,8 +129,11 @@ def print_plans(all_plans: List[Plans]) -> None:
         for plan in plans:
             print(f'Plan for site: {plan.site.name}')
             for visit in plan.visits:
-                print(f'\t{visit.start_time}   {visit.obs_id.id:20} {visit.score:8.2f} {visit.atom_start_idx:4d} '
-                      f'{visit.atom_end_idx:4d}')
+                start_time_str = visit.start_time.strftime('%Y-%m-%d %H:%M')
+                end_time_str = (visit.start_time + timedelta(minutes=visit.time_slots)).strftime('%Y-%m-%d %H:%M')
+                print(f'\t{start_time_str} to {end_time_str}:   {visit.obs_id.id:20} {visit.score:8.2f} '
+                      f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d} '
+                      f'{visit.time_slots:3d}')
 
 
 def plans_table(all_plans: List[Plans]) -> List[Dict[Site, DataFrame]]:
