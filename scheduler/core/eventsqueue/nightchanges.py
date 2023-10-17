@@ -47,6 +47,7 @@ class NightTimeline:
     def get_final_plan(self, night_idx: NightIndex, site: Site) -> Plan:
 
         entries = self.timeline[night_idx][site]
+        if not entries: raise RuntimeError('Index without night')
         all_generated = []
         t = 0
         for entry in reversed(entries):

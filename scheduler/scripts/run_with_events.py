@@ -37,7 +37,11 @@ if __name__ == '__main__':
         ['Q', 'LP', 'FT', 'DD'],
         1.0
     )
-    queue = EventQueue()
+    start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
+    end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
+    num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
+
+    queue = EventQueue([i for i in range(num_nights_to_schedule)], ALL_SITES)
     weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQANY,
                                                                    cc=CloudCover.CC50,
                                                                    sb=SkyBackground.SBANY,
@@ -46,26 +50,14 @@ if __name__ == '__main__':
                                          reason='Worst image quality',
                                          site=Site.GS)
 
-    # weather_change_north = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ70,
-    #                                                               cc=CloudCover.CCANY,
-    #                                                               sb=SkyBackground.SBANY,
-    #                                                               wv=WaterVapor.WVANY),
-    #                                     start=datetime(2018, 10, 1, 11),
-    #                                     reason='Worst image quality',
-    #                                     site=Site.GN)
-
-    queue.add_events([weather_change_south], 0)
+    queue.add_events(weather_change_south.site, [weather_change_south], 0, )
 
     builder = ValidationBuilder(Sources(), queue)
-
-    start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
-    end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
-    # num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
-    num_nights_to_schedule = 1
+    # num_nights_to_schedule = 1
     collector = builder.build_collector(
         start=start,
         end=end,
-        sites=frozenset(ALL_SITES),
+        sites=ALL_SITES,
         semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
@@ -100,12 +92,10 @@ if __name__ == '__main__':
 
     # Create the overall plans by night.
     overall_plans = {}
-    night_timeline = NightTimeline({})
-    for night_idx in range(selector.num_nights_to_schedule):
+    night_timeline = NightTimeline({nidx: {site: [] for site in collector.sites} for nidx in range(total_nights)})
 
-        events_by_night = queue.get_night_events(night_idx)
+    for night_idx in range(selector.num_nights_to_schedule):
         night_indices = np.array([night_idx])
-        # changes = NightChanges()
 
         # Run eventless timeline
         selection = selector.select(night_indices=night_indices)
@@ -113,7 +103,7 @@ if __name__ == '__main__':
         plans = optimizer.schedule(selection)
 
         for site in collector.sites:
-
+            events_by_night = queue.get_night_events(night_idx, site)
             # Get the night events for the site: in this case, GS.
             night_events = collector.get_night_events(site)
 
@@ -121,17 +111,17 @@ if __name__ == '__main__':
             # We are only scheduling one day, so it is the only value in the array.
             twi_eve = night_events.twilight_evening_12[0]
             twi = Twilight(twi_eve, reason='Twilight', site=site)
-
-            night_timeline.add(night_idx=NightIndex(night_idx),
-                               site=site,
-                               time_slot=TimeslotIndex(0),
-                               event=twi,
-                               plan_generated=plans[0][Site.GS])
+            if site in plans[0].plans:
+                night_timeline.add(night_idx=NightIndex(night_idx),
+                                   site=site,
+                                   time_slot=TimeslotIndex(0),
+                                   event=twi,
+                                   plan_generated=plans[0][site])
 
             if events_by_night:
                 while events_by_night:
                     event = events_by_night.pop()
-                    event_start_time_slot = ceil((event.start - start.to_datetime()).total_seconds()/collector.time_slot_length)
+                    event_start_time_slot = ceil((event.start - start.to_datetime())/collector.time_slot_length.to_datetime())
 
                     if isinstance(event, WeatherChange):
                         selector.default_iq = event.new_conditions.iq
