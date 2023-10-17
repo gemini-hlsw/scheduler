@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
-import logging
 from datetime import datetime
 from math import ceil
 
@@ -17,8 +16,8 @@ from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBluepr
 from scheduler.core.builder.builder import ValidationBuilder
 from scheduler.core.components.collector import *
 from scheduler.core.eventsqueue.events import Twilight
-from scheduler.core.eventsqueue.nightchanges import NightChanges, NightTimeline
-from scheduler.core.output import print_collector_info, print_plans
+from scheduler.core.eventsqueue.nightchanges import NightTimeline
+from scheduler.core.output import print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.eventsqueue import EventQueue, WeatherChange
@@ -66,7 +65,7 @@ if __name__ == '__main__':
     collector = builder.build_collector(
         start=start,
         end=end,
-        sites=frozenset([Site.GS]),
+        sites=frozenset(ALL_SITES),
         semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
@@ -112,42 +111,45 @@ if __name__ == '__main__':
         selection = selector.select(night_indices=night_indices)
         # Run the optimizer to get the plans for the first night in the selection.
         plans = optimizer.schedule(selection)
-        # Get the night events for the site: in this case, GS.
-        night_events = collector.get_night_events(Site.GS)
-        
-        # The twilight evening time was calculated as a component of the night events.
-        # We are only scheduling one day, so it is the only value in the array.
-        twi_eve = night_events.twilight_evening_12[0]
-        twi = Twilight(twi_eve, reason='Twilight', site=Site.GS)
 
-        night_timeline.add(night_idx=NightIndex(night_idx),
-                           site=Site.GS,
-                           time_slot=TimeslotIndex(0),
-                           event=twi,
-                           plan_generated=plans[0][Site.GS])
+        for site in collector.sites:
 
-        if events_by_night:
-            while events_by_night:
-                event = events_by_night.pop()
-                event_start_time_slot = ceil((event.start - start.to_datetime()).total_seconds()/60)
-                if isinstance(event, WeatherChange):
-                    selector.default_iq = event.new_conditions.iq
-                    selector.default_cc = event.new_conditions.cc
+            # Get the night events for the site: in this case, GS.
+            night_events = collector.get_night_events(site)
 
-                selection = selector.select(night_indices=night_indices,
-                                            sites=frozenset([event.site]),
-                                            starting_time_slots={Site.GS: {night_idx: event_start_time_slot for night_idx in night_indices}})
-                # Run the optimizer to get the plans for the first night in the selection.
-                plans = optimizer.schedule(selection)
-                night_timeline.add(NightIndex(night_idx),
-                                   Site.GS,
-                                   TimeslotIndex(event_start_time_slot),
-                                   event,
-                                   plans[0][Site.GS])
-                collector.time_accounting(plans[0],
-                                          sites=frozenset({Site.GS}),
-                                          end_timeslot_bounds={Site.GS: TimeslotIndex(event_start_time_slot)})
+            # The twilight evening time was calculated as a component of the night events.
+            # We are only scheduling one day, so it is the only value in the array.
+            twi_eve = night_events.twilight_evening_12[0]
+            twi = Twilight(twi_eve, reason='Twilight', site=site)
 
+            night_timeline.add(night_idx=NightIndex(night_idx),
+                               site=site,
+                               time_slot=TimeslotIndex(0),
+                               event=twi,
+                               plan_generated=plans[0][Site.GS])
+
+            if events_by_night:
+                while events_by_night:
+                    event = events_by_night.pop()
+                    event_start_time_slot = ceil((event.start - start.to_datetime()).total_seconds()/collector.time_slot_length)
+
+                    if isinstance(event, WeatherChange):
+                        selector.default_iq = event.new_conditions.iq
+                        selector.default_cc = event.new_conditions.cc
+
+                    selection = selector.select(night_indices=night_indices,
+                                                sites=frozenset([event.site]),
+                                                starting_time_slots={site: {night_idx: event_start_time_slot for night_idx in night_indices}})
+                    # Run the optimizer to get the plans for the first night in the selection.
+                    plans = optimizer.schedule(selection)
+                    night_timeline.add(NightIndex(night_idx),
+                                       site,
+                                       TimeslotIndex(event_start_time_slot),
+                                       event,
+                                       plans[0][site])
+                    collector.time_accounting(plans[0],
+                                              sites=frozenset({site}),
+                                              end_timeslot_bounds={site: TimeslotIndex(event_start_time_slot)})
         for site in collector.sites:
             plans[0][site] = night_timeline.get_final_plan(NightIndex(night_idx), site)
 
@@ -160,7 +162,7 @@ if __name__ == '__main__':
     plan_summary = StatCalculator.calculate_plans_stats(overall_plans, collector)
     # print_plans(overall_plans)
     night_timeline.display()
-
+    print('++++ FINAL PLANS ++++')
     print_plans(overall_plans)
 
     print('DONE')
