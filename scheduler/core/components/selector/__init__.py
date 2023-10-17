@@ -291,7 +291,7 @@ class Selector(SchedulerComponent):
 
         # This should never happen.
         if obs.site not in sites:
-            logger.error(f'Selector requested to score {obs.id}: not at a designated site.')
+            logger.warning(f'Selector ignoring request to score {obs.id}: not at a currently selected site.')
             return group_data_map
 
         # We ignore the Observation if:
