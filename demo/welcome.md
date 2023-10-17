@@ -1,4 +1,4 @@
-# Scheduler Test
+# Scheduler Validation Mode and Testing
 
 This space contains different Jupyter notebooks
 to test the capabilities of the Gemini Scheduler.

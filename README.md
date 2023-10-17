@@ -82,7 +82,7 @@ We offer Jupyter notebooks using a [Mercury](https://github.com/mljar/mercury) u
 This can be launched on `localhost:8000` as follows:
 
 ```shell
-$ cd demo # <-- Only necessary for the initial run.
+$ cd demo
 $ mercury run
 ```
 
@@ -104,3 +104,12 @@ $ docker run -dp 8000:8000 scheduler
 ```
 
 2. You can access `http://localhost:8000/graphql` to interact with the GraphQL console. 
+
+## Troubleshooting
+
+The most likely cause of issues during execution is that changes have been made to the [lucupy](https://github.com/gemini-hlsw/lucupy)
+project and an update of the package is necessary. This can be done with:
+
+```shell
+$ pip install -U lucupy
+```
