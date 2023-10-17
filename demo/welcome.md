@@ -1,10 +1,10 @@
-# Scheduler Test
+# Scheduler Validation Mode and Testing
 
-This space contains different jupyter notebooks
-to test the capabilities of GPP Scheduler
+This space contains different Jupyter notebooks
+to test the capabilities of the Gemini Scheduler.
 
-***UPDATE BLEACH DEPEDENCY TO  SEE THE PICKLE HANDLING TUTORIAL 
-NOTEBOOK. iF YOU DON'T SEE IT, RUN:***
+**Note:** If you don't see the pickle handling tutorial notebook, you need to update
+the bleach dependency. Run the following command:
 
 ```bash
 $ pip install -U bleach
