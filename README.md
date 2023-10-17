@@ -31,7 +31,7 @@ $ export PYTHONPATH=$PYTHONPATH:{path-to-project-base}
 
 #### Using [virtualenv](https://virtualenv.pypa.io/en/latest/):
 
-Make sure you have an active Python 3.10 or 3.11 distribution installed on your maching.
+Make sure you have an active Python 3.10 or 3.11 distribution installed on your machine.
 
 virtualenv can be installed using pip:
 ```shell
