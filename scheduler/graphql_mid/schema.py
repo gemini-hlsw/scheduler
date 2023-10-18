@@ -4,7 +4,7 @@
 from typing import List, Optional
 import strawberry # noqa
 from astropy.time import Time
-from lucupy.minimodel import Site
+from lucupy.minimodel import Site, ALL_SITES
 
 from scheduler.core.service.service import build_service
 from scheduler.core.sources import Services, Sources
@@ -21,7 +21,7 @@ from .scalars import SOrigin
 
 
 sources = Sources()
-event_queue = EventQueue()
+event_queue = EventQueue([0,1,3],ALL_SITES)
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 
