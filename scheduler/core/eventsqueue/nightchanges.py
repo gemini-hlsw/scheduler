@@ -1,10 +1,10 @@
-from dataclasses import dataclass, field
-from enum import Enum, auto
-from typing import Dict, Tuple, List
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import numpy as np
+from dataclasses import dataclass, field
+from typing import Dict, List
+
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
-from lucupy.types import Interval
 
 from scheduler.core.eventsqueue import Event
 from scheduler.core.plans import Plans, Plan
@@ -45,9 +45,12 @@ class NightTimeline:
             self.timeline[night_idx] = {site: [entry]}
 
     def get_final_plan(self, night_idx: NightIndex, site: Site) -> Plan:
-
+        if night_idx not in self.timeline:
+            raise RuntimeError(f'Cannot get final plan: {night_idx} for site {site.name} not in timeline.')
+        if site not in self.timeline[night_idx]:
+            raise RuntimeError(f'Cannot get final plan: {site.name} not in timeline.')
         entries = self.timeline[night_idx][site]
-        if not entries: raise RuntimeError('Index without night')
+
         all_generated = []
         t = 0
         for entry in reversed(entries):
@@ -57,7 +60,6 @@ class NightTimeline:
             all_generated += [v for v in reversed(partial_plan.visits)]
             if t < entry.start_time_slots:
                 t = entry.start_time_slots
-            print(t)
         p = Plan(start=entries[0].plan_generated.start,
                  end=entries[-1].plan_generated.end,
                  time_slot_length=entries[0].plan_generated.time_slot_length,

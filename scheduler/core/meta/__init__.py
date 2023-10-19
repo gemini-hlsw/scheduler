@@ -14,13 +14,3 @@ class Singleton(type):
         if cls not in Singleton._instances:
             Singleton._instances[cls] = super().__call__(*args, **kwargs)
         return Singleton._instances[cls]
-
-
-@dataclass
-class AbstractDataclass(ABC):
-    pass
-
-
-@dataclass(frozen=True)
-class FrozenAbstractDataclass(ABC):
-    pass
