@@ -7,6 +7,8 @@ from .builder import ValidationBuilder, SchedulerBuilder
 from scheduler.core.sources import Sources
 import strawberry
 
+from ..eventsqueue import EventQueue
+
 
 @strawberry.enum
 class SchedulerModes(Enum):
@@ -22,10 +24,10 @@ class SchedulerModes(Enum):
     VALIDATION = 'validation'
 
 
-def dispatch_with(mode: SchedulerModes, sources: Sources) -> SchedulerBuilder:
+def dispatch_with(mode: SchedulerModes, sources: Sources, events: EventQueue) -> SchedulerBuilder:
     match mode:
         case SchedulerModes.VALIDATION:
-            return ValidationBuilder(sources)
+            return ValidationBuilder(sources, events)
         case SchedulerModes.SIMULATION:
             raise ValueError(f'{mode.value} not implemented yet.')
         case SchedulerModes.OPERATION:

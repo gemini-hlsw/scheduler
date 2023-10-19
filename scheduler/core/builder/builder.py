@@ -13,14 +13,15 @@ from scheduler.core.components.selector import Selector
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
+from scheduler.core.eventsqueue import EventQueue
 
 
 class SchedulerBuilder:
     """Allows building different components individually and the general scheduler itself.
     """
-    def __init__(self, sources: Sources):
+    def __init__(self, sources: Sources, events: EventQueue):
         self.sources = sources  # Services/Files/
-        self.events = None  # EventManager() Emtpy by default
+        self.events = events  # EventManager() Emtpy by default
         self.storage = None  # DB storage
 
     def build_collector(self,
@@ -61,8 +62,8 @@ class ValidationBuilder(SchedulerBuilder):
         frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
     )
 
-    def __init__(self, sources: Sources):
-        super().__init__(sources)
+    def __init__(self, sources: Sources, events: EventQueue):
+        super().__init__(sources, events)
         self.stats = StatCalculator
         self.sim_manager = None  # This should bne called something else? Accountant?
         # Populate event manager, same as in Simulation.

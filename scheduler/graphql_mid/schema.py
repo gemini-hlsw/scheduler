@@ -1,23 +1,27 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import List
+from typing import List, Optional
 import strawberry # noqa
 from astropy.time import Time
-from lucupy.minimodel import Site
+from lucupy.minimodel import Site, ALL_SITES
 
 from scheduler.core.service.service import build_service
 from scheduler.core.sources import Services, Sources
+from scheduler.core.builder.modes import dispatch_with, SchedulerModes
+from scheduler.core.eventsqueue import WeatherChange, Fault, EventQueue
 from scheduler.db.planmanager import PlanManager
 
 
 from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
-                    SourceFileHandlerResponse)
-from .inputs import CreateNewScheduleInput, UseFilesSourceInput
+                    SourceFileHandlerResponse, NewWeatherChange,
+                    EventsAddedResponse, EventsAddedSuccess)
+from .inputs import CreateNewScheduleInput, UseFilesSourceInput, AddEventInput
 from .scalars import SOrigin
-from scheduler.core.builder.modes import dispatch_with, SchedulerModes
+
 
 sources = Sources()
+event_queue = EventQueue([0,1,3],ALL_SITES)
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 
@@ -79,6 +83,17 @@ class Mutation:
         sources.set_origin(new_origin)
         return ChangeOriginSuccess(from_origin=old, to_origin=str(new_origin))
 
+    @strawberry.mutation
+    def add_events(self, events_input: AddEventInput) -> EventsAddedResponse:
+
+        for e in events_input.events:
+            match e:
+                case isinstance(e, NewWeatherChange):
+                    event_queue.add_events(e.to_scheduler_event())
+                    return EventsAddedSuccess(True, 'Weather change')
+                case isinstance(e, NewFault):
+                    pass
+
 
 @strawberry.type
 class Query:
@@ -96,7 +111,7 @@ class Query:
     def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
         try:
 
-            builder = dispatch_with(new_schedule_input.mode, sources)
+            builder = dispatch_with(new_schedule_input.mode, sources, event_queue)
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                 Time(new_schedule_input.end_time, format='iso', scale='utc')
 
