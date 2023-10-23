@@ -54,7 +54,7 @@ if __name__ == '__main__':
                                          site=Site.GS)
 
     if use_events:
-        queue.add_event(weather_change_south.site, NightIndex(0), weather_change_south)
+        queue.add_event(NightIndex(0), weather_change_south.site, weather_change_south)
 
     builder = ValidationBuilder(Sources(), queue)
     collector = builder.build_collector(

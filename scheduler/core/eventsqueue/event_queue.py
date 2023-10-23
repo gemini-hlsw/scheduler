@@ -14,23 +14,23 @@ logger = logger_factory.create_logger(__name__)
 
 class EventQueue:
     def __init__(self, night_indices: FrozenSet[NightIndex], sites: FrozenSet[Site]):
-        self._events = {site: {night_idx: deque([]) for night_idx in night_indices} for site in sites}
+        self._events = {night_idx: {site: deque([]) for site in sites} for night_idx in night_indices}
         self._blockage_stack = []
 
-    def add_event(self, site: Site, night_idx: NightIndex, event: Event) -> None:
+    def add_event(self, night_idx: NightIndex, site: Site, event: Event) -> None:
         match event:
             case Blockage():
                 self._blockage_stack.append(event)
             case Interruption():
-                site_deque = self.get_night_events(site, night_idx)
+                site_deque = self.get_night_events(night_idx, site)
                 if site_deque is not None:
                     site_deque.append(event)
                 else:
-                    raise KeyError(f'Could not add event {event} to site {site.name} for night index {night_idx}.')
+                    raise KeyError(f'Could not add event {event} for night index {night_idx }to site {site.name}.')
 
-    def add_events(self, site: Site, events: Iterable[Event], night_idx: NightIndex) -> None:
+    def add_events(self, night_idx: NightIndex, site: Site, events: Iterable[Event]) -> None:
         for event in events:
-            self.add_event(site, night_idx, event)
+            self.add_event(night_idx, site, event)
 
     def check_blockage(self, resume_event: ResumeNight) -> Blockage:
         if self._blockage_stack and len(self._blockage_stack) == 1:
@@ -40,15 +40,15 @@ class EventQueue:
 
         raise RuntimeError('Missing blockage for ResumeNight')
 
-    def get_night_events(self, site: Site, night_idx: NightIndex) -> Optional[Deque[Event]]:
+    def get_night_events(self, night_idx: NightIndex, site: Site) -> Optional[Deque[Event]]:
         """
         Returns the deque for the site for the night index if it exists, else None.
         """
-        site_deques = self._events.get(site)
-        if site_deques is None:
-            logger.error(f'Tried to access event queue for inactive site {site.name}.')
+        night_deques = self._events.get(night_idx)
+        if night_deques is None:
+            logger.error(f'Tried to access event queue for inactive night index {night_idx}.')
             return None
-        site_deque = site_deques.get(night_idx)
+        site_deque = night_deques.get(site)
         if site_deque is None:
-            logger.error(f'Tried to access event queue for site {site.name} for inactive night index {night_idx}.')
+            logger.error(f'Tried to access event queue for night index {night_idx} for inactive site {site.name}.')
         return site_deque
