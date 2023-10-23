@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from collections import deque
-from typing import List, FrozenSet
+from typing import FrozenSet, Iterable
 
 from lucupy.minimodel import Site
 
@@ -10,11 +10,11 @@ from .events import Event, Blockage, ResumeNight
 
 
 class EventQueue:
-    def __init__(self, night_indices: List[int], sites: FrozenSet[Site]):
+    def __init__(self, night_indices: FrozenSet[int], sites: FrozenSet[Site]):
         self._events = {n_idx: {site: deque([]) for site in sites} for n_idx in night_indices}
         self._blockage_stack = []
 
-    def _add(self, e: Event, night_idx: int, site: Site) -> None:
+    def add_event(self, e: Event, night_idx: int, site: Site) -> None:
         if isinstance(e, Blockage):
             self._blockage_stack.append(e)
         else:
@@ -23,12 +23,9 @@ class EventQueue:
             except KeyError:
                 raise KeyError(f"NightIndex {night_idx} or Site {site} doesn't exist")
 
-    def add_events(self, site: Site, events: List[Event] | Event, night_idx: int) -> None:
-        if isinstance(events, list):
-            for e in events:
-                self._add(e, night_idx, site)
-        else:
-            self._add(events, night_idx, site)
+    def add_events(self, site: Site, events: Iterable[Event], night_idx: int) -> None:
+        for event in events:
+            self.add_event(event, night_idx, site)
 
     def check_blockage(self, resume_event: ResumeNight) -> Blockage:
         if self._blockage_stack and len(self._blockage_stack) == 1:

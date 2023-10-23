@@ -6,7 +6,6 @@ from datetime import datetime
 from math import ceil
 
 from lucupy.minimodel.constraints import CloudCover, ImageQuality, Conditions, WaterVapor
-from lucupy.minimodel.site import ALL_SITES
 from lucupy.minimodel.semester import SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
@@ -25,6 +24,8 @@ from scheduler.services import logger_factory
 
 
 if __name__ == '__main__':
+    use_events = True
+
     logger = logger_factory.create_logger(__name__, logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -39,9 +40,10 @@ if __name__ == '__main__':
     )
     start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
     end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
-    num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
+    num_nights_to_schedule = 1
+    sites = frozenset({Site.GS})
 
-    queue = EventQueue([i for i in range(num_nights_to_schedule)], ALL_SITES)
+    queue = EventQueue(frozenset(range(num_nights_to_schedule)), sites)
     weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQANY,
                                                                    cc=CloudCover.CC50,
                                                                    sb=SkyBackground.SBANY,
@@ -50,14 +52,15 @@ if __name__ == '__main__':
                                          reason='Worst image quality',
                                          site=Site.GS)
 
-    queue.add_events(weather_change_south.site, [weather_change_south], 0, )
+    if use_events:
+        queue.add_events(weather_change_south.site, [weather_change_south], 0)
 
     builder = ValidationBuilder(Sources(), queue)
     # num_nights_to_schedule = 1
     collector = builder.build_collector(
         start=start,
         end=end,
-        sites=ALL_SITES,
+        sites=sites,
         semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
@@ -87,14 +90,12 @@ if __name__ == '__main__':
         blueprint=optimizer_blueprint
     )
 
-    # The total nights for which visibility calculations have been done.
-    total_nights = len(collector.time_grid)
-
     # Create the overall plans by night.
     overall_plans = {}
-    night_timeline = NightTimeline({nidx: {site: [] for site in collector.sites} for nidx in range(total_nights)})
+    night_timeline = NightTimeline({nidx: {site: [] for site in sites}
+                                    for nidx in range(num_nights_to_schedule)})
 
-    for night_idx in range(selector.num_nights_to_schedule):
+    for night_idx in range(num_nights_to_schedule):
         night_indices = np.array([night_idx])
 
         # Run eventless timeline
