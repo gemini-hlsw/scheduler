@@ -40,8 +40,8 @@ if __name__ == '__main__':
     )
     start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
     end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
-    num_nights_to_schedule = 1
     sites = frozenset({Site.GS})
+    num_nights_to_schedule = 1
     night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
 
     queue = EventQueue(night_indices, sites)
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     night_timeline = NightTimeline({night_index: {site: [] for site in sites}
                                     for night_index in night_indices})
 
-    for night_idx in range(num_nights_to_schedule):
+    for night_idx in sorted(night_indices):
         night_indices = np.array([night_idx])
 
         # Run eventless timeline
@@ -104,7 +104,7 @@ if __name__ == '__main__':
         plans = optimizer.schedule(selection)
 
         for site in collector.sites:
-            events_by_night = queue.get_night_events(night_idx, site)
+            events_by_night = queue.get_night_events(site, night_idx)
             # Get the night events for the site: in this case, GS.
             night_events = collector.get_night_events(site)
 
