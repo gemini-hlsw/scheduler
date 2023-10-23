@@ -4,28 +4,29 @@
 from collections import deque
 from typing import FrozenSet, Iterable
 
-from lucupy.minimodel import Site
+from lucupy.minimodel import NightIndex, Site
 
 from .events import Event, Blockage, ResumeNight
 
 
 class EventQueue:
-    def __init__(self, night_indices: FrozenSet[int], sites: FrozenSet[Site]):
+    def __init__(self, night_indices: FrozenSet[NightIndex], sites: FrozenSet[Site]):
         self._events = {n_idx: {site: deque([]) for site in sites} for n_idx in night_indices}
         self._blockage_stack = []
 
-    def add_event(self, e: Event, night_idx: int, site: Site) -> None:
-        if isinstance(e, Blockage):
-            self._blockage_stack.append(e)
+    def add_event(self, site: Site, night_idx: NightIndex, event: Event) -> None:
+        if isinstance(event, Blockage):
+            self._blockage_stack.append(event)
         else:
             try:
-                self._events[night_idx][site].append(e)
+                self._events[night_idx][site].append(event)
             except KeyError:
-                raise KeyError(f"NightIndex {night_idx} or Site {site} doesn't exist")
+                raise KeyError(f'Tried to add event {event} for inactive combination of site {site} and '
+                               f'night index {night_idx}.')
 
-    def add_events(self, site: Site, events: Iterable[Event], night_idx: int) -> None:
+    def add_events(self, site: Site, events: Iterable[Event], night_idx: NightIndex) -> None:
         for event in events:
-            self.add_event(event, night_idx, site)
+            self.add_event(site, night_idx, event)
 
     def check_blockage(self, resume_event: ResumeNight) -> Blockage:
         if self._blockage_stack and len(self._blockage_stack) == 1:
