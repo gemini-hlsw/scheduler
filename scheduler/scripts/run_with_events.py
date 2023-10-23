@@ -104,7 +104,7 @@ if __name__ == '__main__':
         plans = optimizer.schedule(selection)
 
         for site in collector.sites:
-            events_by_night = queue.get_night_events(site, night_idx)
+            events_by_night = queue.get_night_events(night_idx, site)
             # Get the night events for the site: in this case, GS.
             night_events = collector.get_night_events(site)
 

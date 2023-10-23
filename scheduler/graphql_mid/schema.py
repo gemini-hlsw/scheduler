@@ -91,7 +91,7 @@ class Mutation:
                     event_queue.add_events(e.to_scheduler_event())
                     return EventsAddedSuccess(True, 'Weather change')
                 case NewFault():
-                    pass
+                    raise NotImplementedError()
                 case _:
                     raise NotImplementedError()
 
