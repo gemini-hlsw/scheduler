@@ -2,33 +2,35 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from collections import deque
-from typing import List, FrozenSet
+from typing import Deque, FrozenSet, Iterable, Optional
 
-from lucupy.minimodel import Site
+from lucupy.minimodel import NightIndex, Site
 
-from .events import Event, Blockage, ResumeNight
+from scheduler.services import logger_factory
+from .events import Blockage, Event, Interruption, ResumeNight
+
+logger = logger_factory.create_logger(__name__)
 
 
 class EventQueue:
-    def __init__(self, night_indices: List[int], sites: FrozenSet[Site]):
-        self._events = {n_idx: {site: deque([]) for site in sites} for n_idx in night_indices}
+    def __init__(self, night_indices: FrozenSet[NightIndex], sites: FrozenSet[Site]):
+        self._events = {night_idx: {site: deque([]) for site in sites} for night_idx in night_indices}
         self._blockage_stack = []
 
-    def _add(self, e: Event, night_idx: int, site: Site) -> None:
-        if isinstance(e, Blockage):
-            self._blockage_stack.append(e)
-        else:
-            try:
-                self._events[night_idx][site].append(e)
-            except KeyError:
-                raise KeyError(f"NightIndex {night_idx} or Site {site} doesn't exist")
+    def add_event(self, night_idx: NightIndex, site: Site, event: Event) -> None:
+        match event:
+            case Blockage():
+                self._blockage_stack.append(event)
+            case Interruption():
+                site_deque = self.get_night_events(night_idx, site)
+                if site_deque is not None:
+                    site_deque.append(event)
+                else:
+                    raise KeyError(f'Could not add event {event} for night index {night_idx }to site {site.name}.')
 
-    def add_events(self, site: Site, events: List[Event] | Event, night_idx: int) -> None:
-        if isinstance(events, list):
-            for e in events:
-                self._add(e, night_idx, site)
-        else:
-            self._add(events, night_idx, site)
+    def add_events(self, night_idx: NightIndex, site: Site, events: Iterable[Event]) -> None:
+        for event in events:
+            self.add_event(night_idx, site, event)
 
     def check_blockage(self, resume_event: ResumeNight) -> Blockage:
         if self._blockage_stack and len(self._blockage_stack) == 1:
@@ -38,6 +40,15 @@ class EventQueue:
 
         raise RuntimeError('Missing blockage for ResumeNight')
 
-    def get_night_events(self, night_idx: int, site: Site) -> deque:
-
-        return self._events.get(night_idx).get(site)
+    def get_night_events(self, night_idx: NightIndex, site: Site) -> Optional[Deque[Event]]:
+        """
+        Returns the deque for the site for the night index if it exists, else None.
+        """
+        night_deques = self._events.get(night_idx)
+        if night_deques is None:
+            logger.error(f'Tried to access event queue for inactive night index {night_idx}.')
+            return None
+        site_deque = night_deques.get(site)
+        if site_deque is None:
+            logger.error(f'Tried to access event queue for night index {night_idx} for inactive site {site.name}.')
+        return site_deque

@@ -16,7 +16,7 @@ from scheduler.db.planmanager import PlanManager
 from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
                     SourceFileHandlerResponse, NewWeatherChange,
                     EventsAddedResponse, EventsAddedSuccess)
-from .inputs import CreateNewScheduleInput, UseFilesSourceInput, AddEventInput
+from .inputs import AddEventInput, CreateNewScheduleInput, NewFault, UseFilesSourceInput
 from .scalars import SOrigin
 
 
@@ -85,14 +85,15 @@ class Mutation:
 
     @strawberry.mutation
     def add_events(self, events_input: AddEventInput) -> EventsAddedResponse:
-
         for e in events_input.events:
             match e:
-                case isinstance(e, NewWeatherChange):
+                case NewWeatherChange():
                     event_queue.add_events(e.to_scheduler_event())
                     return EventsAddedSuccess(True, 'Weather change')
-                case isinstance(e, NewFault):
-                    pass
+                case NewFault():
+                    raise NotImplementedError()
+                case _:
+                    raise NotImplementedError()
 
 
 @strawberry.type
@@ -110,7 +111,6 @@ class Query:
     @strawberry.field
     def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
         try:
-
             builder = dispatch_with(new_schedule_input.mode, sources, event_queue)
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                 Time(new_schedule_input.end_time, format='iso', scale='utc')

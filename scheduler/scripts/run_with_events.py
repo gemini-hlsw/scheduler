@@ -6,7 +6,6 @@ from datetime import datetime
 from math import ceil
 
 from lucupy.minimodel.constraints import CloudCover, ImageQuality, Conditions, WaterVapor
-from lucupy.minimodel.site import ALL_SITES
 from lucupy.minimodel.semester import SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
@@ -25,6 +24,8 @@ from scheduler.services import logger_factory
 
 
 if __name__ == '__main__':
+    use_events = True
+
     logger = logger_factory.create_logger(__name__, logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -39,25 +40,27 @@ if __name__ == '__main__':
     )
     start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
     end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
-    num_nights_to_schedule = int(round(end.jd - start.jd)) + 1
+    sites = frozenset({Site.GS})
+    num_nights_to_schedule = 1
+    night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
 
-    queue = EventQueue([i for i in range(num_nights_to_schedule)], ALL_SITES)
-    weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQANY,
+    queue = EventQueue(night_indices, sites)
+    weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ20,
                                                                    cc=CloudCover.CC50,
                                                                    sb=SkyBackground.SBANY,
                                                                    wv=WaterVapor.WVANY),
                                          start=datetime(2018, 10, 1, 10),
-                                         reason='Worst image quality',
+                                         reason='IQ70 -> IQ20, CC70 -> CC50',
                                          site=Site.GS)
 
-    queue.add_events(weather_change_south.site, [weather_change_south], 0, )
+    if use_events:
+        queue.add_event(NightIndex(0), weather_change_south.site, weather_change_south)
 
     builder = ValidationBuilder(Sources(), queue)
-    # num_nights_to_schedule = 1
     collector = builder.build_collector(
         start=start,
         end=end,
-        sites=ALL_SITES,
+        sites=sites,
         semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
@@ -67,17 +70,17 @@ if __name__ == '__main__':
 
     ValidationBuilder.update_collector(collector)  # ZeroTime observations
 
-    # TODO: SET THE WEATHER HERE.
+    # Set the initial weather.
     # CC values are CC50, CC70, CC85, CCANY. Default is CC50 if not passed to build_selector.
-    cc = CloudCover.CC50
+    initial_cc = CloudCover.CC70
 
     # IQ values are IQ20, IQ70, IQ85, and IQANY. Default is IQ70 if not passed to build_selector.
-    iq = ImageQuality.IQ70
+    initial_iq = ImageQuality.IQ70
 
     selector = builder.build_selector(collector,
                                       num_nights_to_schedule=num_nights_to_schedule,
-                                      default_cc=cc,
-                                      default_iq=iq)
+                                      default_cc=initial_cc,
+                                      default_iq=initial_iq)
 
     # Prepare the optimizer.
     optimizer_blueprint = OptimizerBlueprint(
@@ -87,14 +90,12 @@ if __name__ == '__main__':
         blueprint=optimizer_blueprint
     )
 
-    # The total nights for which visibility calculations have been done.
-    total_nights = len(collector.time_grid)
-
     # Create the overall plans by night.
     overall_plans = {}
-    night_timeline = NightTimeline({nidx: {site: [] for site in collector.sites} for nidx in range(total_nights)})
+    night_timeline = NightTimeline({night_index: {site: [] for site in sites}
+                                    for night_index in night_indices})
 
-    for night_idx in range(selector.num_nights_to_schedule):
+    for night_idx in sorted(night_indices):
         night_indices = np.array([night_idx])
 
         # Run eventless timeline

@@ -3,10 +3,11 @@
 from datetime import datetime
 
 import strawberry  # noqa
-from strawberry.file_uploads import Upload
+from strawberry.file_uploads import Upload  # noqa
 from typing import Optional, List
 from .scalars import Sites
 from scheduler.core.builder.modes import SchedulerModes
+
 
 @strawberry.input
 class CreateNewScheduleInput:
