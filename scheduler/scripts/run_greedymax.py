@@ -90,17 +90,17 @@ if __name__ == '__main__':
     total_nights = len(collector.time_grid)
 
     # Example: ensure that the first 400 time slots for night_idx 1 for GS are empty.
-    starting_time_slots = {Site.GS: {NightIndex(1): 400}}
+    # starting_time_slots = {Site.GS: {NightIndex(1): 400}}
     # starting_time_slots = None
 
     # Create the overall plans by night.
     overall_plans = {}
-    for night_idx in map(NightIndex, range(selector.num_nights_to_schedule)):
+    for night_idx in range(selector.num_nights_to_schedule):
         # We score one night at a time.
         night_indices = np.array([night_idx])
 
         # Retrieve the Selection and run the Optimizer to get the plans.
-        selection = selector.select(night_indices=night_indices, starting_time_slots=starting_time_slots)
+        selection = selector.select(night_indices=night_indices)
         plans = optimizer.schedule(selection)
 
         # The Optimizer currently returns plans for all nights. We only want the first set.
