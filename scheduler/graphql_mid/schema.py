@@ -4,7 +4,7 @@
 from typing import List, Optional
 import strawberry # noqa
 from astropy.time import Time
-from lucupy.minimodel import Site, ALL_SITES
+from lucupy.minimodel import Site, ALL_SITES, NightIndex
 
 from scheduler.core.service.service import build_service
 from scheduler.core.sources import Services, Sources
@@ -20,8 +20,9 @@ from .inputs import AddEventInput, CreateNewScheduleInput, NewFault, UseFilesSou
 from .scalars import SOrigin
 
 
+# TODO: This variables need a Redis cache to work with different mutation correctly
 sources = Sources()
-event_queue = EventQueue([0,1,3],ALL_SITES)
+event_queue = EventQueue(frozenset([NightIndex(i) for i in range(3)]), ALL_SITES)
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 
@@ -82,18 +83,6 @@ class Mutation:
             return ChangeOriginSuccess(from_origin=old, to_origin=old)
         sources.set_origin(new_origin)
         return ChangeOriginSuccess(from_origin=old, to_origin=str(new_origin))
-
-    @strawberry.mutation
-    def add_events(self, events_input: AddEventInput) -> EventsAddedResponse:
-        for e in events_input.events:
-            match e:
-                case NewWeatherChange():
-                    event_queue.add_events(e.to_scheduler_event())
-                    return EventsAddedSuccess(True, 'Weather change')
-                case NewFault():
-                    raise NotImplementedError()
-                case _:
-                    raise NotImplementedError()
 
 
 @strawberry.type
