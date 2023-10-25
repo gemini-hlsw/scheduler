@@ -1,9 +1,10 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from typing import List
 
 from scheduler.core.calculations.selection import Selection
+from scheduler.core.components.optimizer.base import BaseOptimizer
 from scheduler.core.plans import Plans
 
 from lucupy.minimodel import Program
@@ -15,7 +16,7 @@ class Optimizer:
     All algorithms need to follow the same structure to create a Plan
     """
 
-    def __init__(self, algorithm=None):
+    def __init__(self, algorithm: BaseOptimizer):
         """
         All sites schedule the same number of nights.
         The number of nights scheduled at one time is determined by the Selection.night_indices, passed

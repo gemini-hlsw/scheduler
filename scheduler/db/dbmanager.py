@@ -24,7 +24,8 @@ class DBManager:
     def __init__(self, db_path):
         self.db_path = db_path
 
-    def read(self, start_date: Optional[str] = None,
+    def read(self,
+             start_date: Optional[str] = None,
              end_date: Optional[str] = None,
              site: Optional[FrozenSet[Site]] = None) -> List[SPlans]:
         with locking(f'{self.db_path}.lock', LOCK_SH):

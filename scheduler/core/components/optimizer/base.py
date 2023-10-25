@@ -1,15 +1,14 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Mapping, List
-from lucupy.minimodel.program import ProgramID
+from typing import List
 from lucupy.types import Interval
 
 from scheduler.core.calculations.groupinfo import GroupData
-from scheduler.core.calculations.programinfo import ProgramInfo
+from scheduler.core.calculations.selection import Selection
 from scheduler.core.plans import Plans
 
 
@@ -48,8 +47,7 @@ class BaseOptimizer(ABC):
         ...
 
     @abstractmethod
-    # def setup(self, selection: Selection):
-    def setup(self, program_info: Mapping[ProgramID, ProgramInfo]):
+    def setup(self, selection: Selection):
         ...
 
     @abstractmethod

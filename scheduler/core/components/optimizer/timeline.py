@@ -87,6 +87,7 @@ class Timeline:
         else:
             print(f'ERROR: timeline.add. No empty time slots.')
 
+        # noinspection PyTypeChecker
         return start_time_slot, start
 
     def get_observation_order(self) -> List[Tuple[int, int, int]]:

@@ -3,16 +3,12 @@
 
 import os
 
-from typing import Dict, FrozenSet, Mapping, List, Tuple
+from typing import FrozenSet
 from astropy.time import Time
-from lucupy.minimodel import Site, Semester, Band, Conditions, ProgramID
-
+from lucupy.minimodel import Site, Semester
 
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.builder import SchedulerBuilder, Blueprints
-from scheduler.core.components.collector import Collector
-from scheduler.core.calculations.selection import Selection
-from scheduler.core.plans import NightStats, Plans
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.db.planmanager import PlanManager
 
@@ -84,4 +80,3 @@ def build_service(start: Time,
                            Semester.find_semester_from_date(end.to_value('datetime'))])
 
     return Service(start, end, num_nights_to_schedule, semesters, sites, builder)
-

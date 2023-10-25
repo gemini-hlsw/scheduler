@@ -11,12 +11,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from lucupy.minimodel import (NIR_INSTRUMENTS, Group, NightIndex, Observation, ObservationClass, ObservationID,
-                              ObservationStatus, Program, QAState, Sequence, Site, UniqueGroupID, Wavelengths,
-                              ObservationMode)
+                              ObservationStatus, Program, QAState, Site, UniqueGroupID, Wavelengths, ObservationMode)
 from lucupy.minimodel.resource import Resource
 from lucupy.types import Interval, ZeroTime
 
-from scheduler.core.calculations import GroupData, NightTimeSlotScores
+from scheduler.core.calculations import GroupData, NightTimeslotScores
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.components.optimizer.timeline import Timelines
 from scheduler.core.plans import Plan, Plans
@@ -78,7 +77,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return self
 
     @staticmethod
-    def non_zero_intervals(scores: NightTimeSlotScores) -> npt.NDArray[int]:
+    def non_zero_intervals(scores: NightTimeslotScores) -> npt.NDArray[int]:
         """
         Calculate the non-zero intervals in the data.
         This consists of an array with entries of the form [a, b] where
@@ -89,7 +88,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         instead of using Interval.
         """
         # Create an array that is 1 where the score is greater than 0, and pad each end with an extra 0.
-        not_zero = np.concatenate(([0], np.greater(scores, 0), [0]))
+        not_zero = np.concatenate((np.array([0]), np.greater(scores, 0), np.array([0])))
         abs_diff = np.abs(np.diff(not_zero))
 
         # Return the ranges for each nonzero interval.
@@ -673,7 +672,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         plt.show()
 
     @staticmethod
-    def _plot_interval(score: NightTimeSlotScores,
+    def _plot_interval(score: NightTimeslotScores,
                        interval: Interval,
                        best_interval: Interval,
                        label: str = "") -> None:
@@ -817,9 +816,13 @@ class GreedyMaxOptimizer(BaseOptimizer):
         atom_end = atom_start
 
         n_slots_acq = Plan.time2slots(self.time_slot_length, obs.acq_overhead)
+
+        # type inspector cannot infer that cumul_seq[idx] is a timedelta.
+        # noinspection PyTypeChecker
         visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
         while n_slots_filled + visit_length <= len(best_interval) and atom_end <= len(cumul_seq) - 2:
             atom_end += 1
+            # noinspection PyTypeChecker
             visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
 
         n_slots_filled += visit_length

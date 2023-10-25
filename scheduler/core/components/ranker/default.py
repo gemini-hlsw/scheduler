@@ -1,9 +1,9 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from copy import deepcopy
-from dataclasses import dataclass
-from typing import Callable, FrozenSet, Mapping, Tuple, final
+from dataclasses import dataclass, field
+from typing import Callable, ClassVar, Final, FrozenSet, Mapping, Tuple, final
 
 import astropy.units as u
 import numpy as np
@@ -30,18 +30,23 @@ class RankerParameters:
     """
     Global parameters for the Ranker.
     """
-    thesis_factor = 1.1
-    power: int = 2
-    met_power: float = 1.0
-    vis_power: float = 1.0
-    wha_power: float = 1.0
+    thesis_factor: Final[float] = 1.1
+    power: Final[int] = 2
+    met_power: Final[float] = 1.0
+    vis_power: Final[float] = 1.0
+    wha_power: Final[float] = 1.0
 
     # Weighted to slightly positive HA.
-    dec_diff_less_40: npt.NDArray[float] = np.array([3., 0., -0.08])
+    dec_diff_less_40: ClassVar[npt.NDArray[float]] = field(default=np.array([3., 0., -0.08]))
     # Weighted to 0 HA if Xmin > 1.3.
-    dec_diff: npt.NDArray[float] = np.array([3., 0.1, -0.06])
+    dec_diff: ClassVar[npt.NDArray[float]] = field(default=np.array([3., 0.1, -0.06]))
 
     score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = _default_score_combiner
+
+
+# Set the class-shared variables in the RankerParameters to immutable.
+RankerParameters.dec_diff_less_40.setflags(write=False)
+RankerParameters.dec_diff.setflags(write=False)
 
 
 @final
@@ -194,14 +199,9 @@ class DefaultRanker(Ranker):
         cplt = (program.total_used() + remaining) / program.total_awarded()
 
         metric, metric_s = self._metric_slope(np.array([cplt]),
-                                              np.ones(1, dtype=int) * program.band,
-                                              np.ones(1) * 0.8,
+                                              np.array([program.band.value]),
+                                              np.array([0.8]),
                                               program.thesis)
-        # print(f'{obs.id.id:20}  exec: {obs.exec_time().total_seconds() / 3600.:.2f} '
-        #      f'used: {obs.total_used().total_seconds() / 3600.:.2f} '
-        #      f'prog awarded: {program.total_awarded().total_seconds() / 3600.:.2f} '
-        #      f'prog used: {program.total_used().total_seconds() / 3600.:.2f} ')
-        # print(f'   cplt: {cplt:.2f}  metric: {metric[0]:.2f}')
 
         # Declination for the base target per night.
         dec = {night_idx: target_info[night_idx].coord.dec for night_idx in self.night_indices}
