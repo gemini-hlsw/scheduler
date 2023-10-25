@@ -1,9 +1,9 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
 from copy import deepcopy
-from typing import List, FrozenSet
+from typing import FrozenSet, List, Optional
 from lucupy.minimodel import Site
 
 from scheduler.core.plans import Plans
@@ -37,7 +37,7 @@ class PlanManager:
             raise KeyError('Error on read.')
 
     @staticmethod
-    def get_plans_by_input(start_date: str, end_date: str, site: FrozenSet[Site]) -> List[SPlans]:
+    def get_plans_by_input(start_date: str, end_date: str, site: FrozenSet[Site]) -> Optional[List[SPlans]]:
         """
         A more specific way to get plans by the `CreateNewSchedule` input.
         """

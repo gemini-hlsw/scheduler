@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import final, Dict, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -13,6 +13,7 @@ from lucupy.minimodel import NightIndex, ObservationID, SkyBackground, TargetNam
 
 
 @immutable
+@final
 @dataclass(frozen=True)
 class TargetInfo:
     """

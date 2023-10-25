@@ -1,9 +1,9 @@
-# Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import timedelta
-from typing import Callable, FrozenSet, Mapping, Optional
+from typing import final, Callable, FrozenSet, Mapping, Optional
 
 from lucupy.helpers import flatten
 from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, UniqueGroupID
@@ -13,6 +13,7 @@ from scheduler.core.types import StartingTimeslots
 from scheduler.core.calculations import GroupData, NightEvents, ProgramCalculations, ProgramInfo
 
 
+@final
 @dataclass(frozen=True)
 class Selection:
     """
@@ -37,7 +38,7 @@ class Selection:
                                         NightIndices,
                                         StartingTimeslots,
                                         Ranker],
-                              Optional[ProgramCalculations]]] = field(default=None)
+                              Optional[ProgramCalculations]]] = None
 
     def __reduce__(self):
         """

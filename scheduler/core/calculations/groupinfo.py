@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 from typing import Dict
 
-from lucupy.minimodel import Conditions, Group, NightIndex, UniqueGroupID
+from lucupy.minimodel import Conditions, Group, NightIndex, TimeslotIndex, UniqueGroupID
 import numpy.typing as npt
 
 from .scores import Scores
@@ -35,7 +35,7 @@ class GroupInfo:
     night_filtering: Dict[NightIndex, bool]
     conditions_score: Dict[NightIndex, npt.NDArray[float]]
     wind_score: Dict[NightIndex, npt.NDArray[float]]
-    schedulable_slot_indices: Dict[NightIndex, npt.NDArray[int]]
+    schedulable_slot_indices: Dict[NightIndex, npt.NDArray[TimeslotIndex]]
     scores: Scores
 
 

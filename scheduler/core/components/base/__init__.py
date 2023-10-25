@@ -4,7 +4,6 @@
 from abc import ABC
 
 
-# TODO: Perhaps makes SchedulerComponent a Singleton since we only need one instance of each during each execution.
 class SchedulerComponent(ABC):
     """
     Base class for all Scheduler components involved in the pipeline.

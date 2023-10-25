@@ -5,7 +5,7 @@
 from enum import Enum
 from .builder import ValidationBuilder, SchedulerBuilder
 from scheduler.core.sources import Sources
-import strawberry
+import strawberry  # noqa
 
 from ..eventsqueue import EventQueue
 
@@ -32,4 +32,3 @@ def dispatch_with(mode: SchedulerModes, sources: Sources, events: EventQueue) ->
             raise ValueError(f'{mode.value} not implemented yet.')
         case SchedulerModes.OPERATION:
             raise ValueError(f'{mode.value} not implemented yet.')
-

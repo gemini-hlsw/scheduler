@@ -492,6 +492,8 @@ class Selector(SchedulerComponent):
 
         # The schedulable slot indices are the unions of the schedulable slot indices for each subgroup
         # across each night.
+        # Type checker is balking here at the list of npt.NDArray[TimeslotIndex].
+        # noinspection PyTypeChecker
         schedulable_slot_indices = {
             night_idx:
             # For each night, take the concatenation of the schedulable time slots for all children of the group
