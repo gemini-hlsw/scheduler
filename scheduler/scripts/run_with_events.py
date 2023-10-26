@@ -3,6 +3,7 @@
 
 import os
 from datetime import datetime
+from typing import Final
 
 from lucupy.minimodel.constraints import CloudCover, ImageQuality, Conditions, WaterVapor
 from lucupy.minimodel.semester import SemesterHalf
@@ -20,10 +21,13 @@ from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.eventsqueue import EveningTwilight, EventQueue, WeatherChange
 from scheduler.services import logger_factory
 
+# Initial weather for the selector.
+# We will reset this each night.
+default_cc: Final[CloudCover] = CloudCover.CC50
+default_iq: Final[ImageQuality] = ImageQuality.IQ70
 
-if __name__ == '__main__':
-    use_events = True
 
+def main(use_events: bool) -> None:
     logger = logger_factory.create_logger(__name__, logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -81,15 +85,10 @@ if __name__ == '__main__':
 
     ValidationBuilder.update_collector(collector)  # ZeroTime observations
 
-    # Initial weather for the selector.
-    # We will reset this each night.
-    initial_cc = CloudCover.CC50
-    initial_iq = ImageQuality.IQ70
-
     selector = builder.build_selector(collector,
                                       num_nights_to_schedule=num_nights_to_schedule,
-                                      default_cc=initial_cc,
-                                      default_iq=initial_iq)
+                                      default_cc=default_cc,
+                                      default_iq=default_iq)
 
     # Prepare the optimizer.
     optimizer_blueprint = OptimizerBlueprint("GreedyMax")
@@ -105,8 +104,8 @@ if __name__ == '__main__':
 
         # Reset the Selector to the default weather for the night.
         # TODO: Make Selector accept site-specific values.
-        selector.default_cc = initial_cc
-        selector.default_iq = initial_iq
+        selector.default_cc = default_cc
+        selector.default_iq = default_iq
 
         # Run eventless timeline
         selection = selector.select(night_indices=night_indices)
@@ -123,8 +122,8 @@ if __name__ == '__main__':
             # TODO: Right now, it is sorted, but only because we have added the events in datetime order.
             events_by_night = queue.get_night_events(night_idx, site)
 
-            while events_by_night:
-                event = events_by_night.popleft()
+            while events_by_night.has_more_events():
+                event = events_by_night.next_event()
                 match event:
                     case EveningTwilight(new_night_start, _, _):
                         if night_start is not None:
@@ -177,3 +176,8 @@ if __name__ == '__main__':
     print_plans(overall_plans)
 
     print('DONE')
+
+
+if __name__ == '__main__':
+    use_events = True
+    main(use_events)

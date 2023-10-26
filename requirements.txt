@@ -2,7 +2,7 @@ astropy
 hypothesis
 matplotlib
 more-itertools
-numpy>=1.23.*, <1.25
+numpy
 openpyxl
 pandas
 pytest
@@ -20,4 +20,6 @@ pytest-asyncio
 gelidum
 python-dateutil
 mercury
-bleach >=6.0.0
+bleach>=6.0.0
+typing
+sortedcontainers
