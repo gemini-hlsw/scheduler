@@ -4,9 +4,10 @@
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from math import ceil
 from typing import FrozenSet
 
-from lucupy.minimodel import Resource, Conditions, Site
+from lucupy.minimodel import Resource, Conditions, Site, TimeslotIndex
 
 
 @dataclass
@@ -73,3 +74,13 @@ class WeatherChange(Interruption):
     Interruption that occurs when new weather conditions come in.
     """
     new_conditions: Conditions
+
+
+# Calculate the starting time slot of an event.
+def event_datetime_to_timeslot(event: Event, twi_eve: datetime, time_slot_length: timedelta) -> TimeslotIndex:
+    """
+    Given an event, calculate the timeslot it falls in from twilight.
+    """
+    time_from_twilight = event.start - twi_eve
+    number_timeslots = ceil(time_from_twilight / time_slot_length)
+    return TimeslotIndex(number_timeslots)

@@ -19,12 +19,12 @@ from scheduler.core.eventsqueue.nightchanges import NightTimeline
 from scheduler.core.output import print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.statscalculator import StatCalculator
-from scheduler.core.eventsqueue import EventQueue, WeatherChange
+from scheduler.core.eventsqueue import event_datetime_to_timeslot, EventQueue, WeatherChange
 from scheduler.services import logger_factory
 
 
 if __name__ == '__main__':
-    use_events = False
+    use_events = True
 
     logger = logger_factory.create_logger(__name__, logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
@@ -45,17 +45,6 @@ if __name__ == '__main__':
     night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
 
     queue = EventQueue(night_indices, sites)
-    weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ20,
-                                                                   cc=CloudCover.CC50,
-                                                                   sb=SkyBackground.SBANY,
-                                                                   wv=WaterVapor.WVANY),
-                                         start=datetime(2018, 10, 1, 10),
-                                         reason='IQ70 -> IQ20, CC70 -> CC50',
-                                         site=Site.GS)
-
-    if use_events:
-        queue.add_event(NightIndex(0), weather_change_south.site, weather_change_south)
-
     builder = ValidationBuilder(Sources(), queue)
     collector = builder.build_collector(
         start=start,
@@ -64,6 +53,23 @@ if __name__ == '__main__':
         semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
+
+    timeslot_length = collector.time_slot_length.to_datetime()
+
+    if use_events:
+        # Create a weather event at GS that starts two hours after twilight on the night of 2018-09-30
+        night_events = collector.get_night_events(Site.GS)
+        weather_change_time = night_events.twilight_evening_12[0].to_datetime() + timedelta(minutes=120)
+        weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ20,
+                                                                       cc=CloudCover.CC50,
+                                                                       sb=SkyBackground.SBANY,
+                                                                       wv=WaterVapor.WVANY),
+                                             # start=datetime(2018, 10, 1, 1, 36),
+                                             start = weather_change_time,
+                                             reason='IQ70 -> IQ20, CC70 -> CC50',
+                                             site=Site.GS)
+        queue.add_event(NightIndex(0), weather_change_south.site, weather_change_south)
+
     # Create the Collector and load the programs.
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
@@ -110,7 +116,7 @@ if __name__ == '__main__':
 
             # The twilight evening time was calculated as a component of the night events.
             # We are only scheduling one day, so it is the only value in the array.
-            twi_eve = night_events.twilight_evening_12[0]
+            twi_eve = night_events.twilight_evening_12[0].to_datetime()
             twi = Twilight(twi_eve, reason='Twilight', site=site)
             if site in plans[0].plans:
                 night_timeline.add(night_idx=NightIndex(night_idx),
@@ -121,7 +127,7 @@ if __name__ == '__main__':
 
             while events_by_night:
                 event = events_by_night.pop()
-                event_start_time_slot = ceil((event.start - start.to_datetime())/collector.time_slot_length.to_datetime())
+                event_start_time_slot = event_datetime_to_timeslot(event, twi_eve, timeslot_length)
 
                 if isinstance(event, WeatherChange):
                     selector.default_iq = event.new_conditions.iq
