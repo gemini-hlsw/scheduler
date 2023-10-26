@@ -24,7 +24,7 @@ from scheduler.services import logger_factory
 
 
 if __name__ == '__main__':
-    use_events = True
+    use_events = False
 
     logger = logger_factory.create_logger(__name__, logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
@@ -119,28 +119,29 @@ if __name__ == '__main__':
                                    event=twi,
                                    plan_generated=plans[0][site])
 
-            if events_by_night:
-                while events_by_night:
-                    event = events_by_night.pop()
-                    event_start_time_slot = ceil((event.start - start.to_datetime())/collector.time_slot_length.to_datetime())
+            while events_by_night:
+                event = events_by_night.pop()
+                event_start_time_slot = ceil((event.start - start.to_datetime())/collector.time_slot_length.to_datetime())
 
-                    if isinstance(event, WeatherChange):
-                        selector.default_iq = event.new_conditions.iq
-                        selector.default_cc = event.new_conditions.cc
+                if isinstance(event, WeatherChange):
+                    selector.default_iq = event.new_conditions.iq
+                    selector.default_cc = event.new_conditions.cc
 
-                    selection = selector.select(night_indices=night_indices,
-                                                sites=frozenset([event.site]),
-                                                starting_time_slots={site: {night_idx: event_start_time_slot for night_idx in night_indices}})
-                    # Run the optimizer to get the plans for the first night in the selection.
-                    plans = optimizer.schedule(selection)
-                    night_timeline.add(NightIndex(night_idx),
-                                       site,
-                                       TimeslotIndex(event_start_time_slot),
-                                       event,
-                                       plans[0][site])
-                    collector.time_accounting(plans[0],
-                                              sites=frozenset({site}),
-                                              end_timeslot_bounds={site: TimeslotIndex(event_start_time_slot)})
+                selection = selector.select(night_indices=night_indices,
+                                            sites=frozenset([event.site]),
+                                            starting_time_slots={site: {night_idx: event_start_time_slot for night_idx in night_indices}})
+
+                # Run the optimizer to get the plans for the first night in the selection.
+                plans = optimizer.schedule(selection)
+                night_timeline.add(NightIndex(night_idx),
+                                   site,
+                                   TimeslotIndex(event_start_time_slot),
+                                   event,
+                                   plans[0][site])
+                collector.time_accounting(plans[0],
+                                          sites=frozenset({site}),
+                                          end_timeslot_bounds={site: TimeslotIndex(event_start_time_slot)})
+
         for site in collector.sites:
             plans[0][site] = night_timeline.get_final_plan(NightIndex(night_idx), site)
 
@@ -149,6 +150,7 @@ if __name__ == '__main__':
         # collector.time_accounting(night_plans)
         selector.default_iq = ImageQuality.IQ70
         selector.default_cc = CloudCover.CC50
+
     overall_plans = [p for _, p in sorted(overall_plans.items())]
     plan_summary = StatCalculator.calculate_plans_stats(overall_plans, collector)
     # print_plans(overall_plans)
