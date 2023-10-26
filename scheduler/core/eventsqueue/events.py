@@ -19,6 +19,15 @@ class Event(ABC):
     reason: str
     site: Site
 
+    def to_timeslot_idx(self, twi_eve_time: datetime, time_slot_length: timedelta) -> TimeslotIndex:
+        """
+        Given an event, calculate the timeslot offset it falls into relative to another datetime.
+        This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.
+        """
+        time_from_twilight = self.start - twi_eve_time
+        time_slots_from_twilight = ceil(time_from_twilight / time_slot_length)
+        return TimeslotIndex(time_slots_from_twilight)
+
 
 @dataclass
 class Interruption(Event):
@@ -74,13 +83,3 @@ class WeatherChange(Interruption):
     Interruption that occurs when new weather conditions come in.
     """
     new_conditions: Conditions
-
-
-# Calculate the starting time slot of an event.
-def event_datetime_to_timeslot(event: Event, twi_eve: datetime, time_slot_length: timedelta) -> TimeslotIndex:
-    """
-    Given an event, calculate the timeslot it falls in from twilight.
-    """
-    time_from_twilight = event.start - twi_eve
-    number_timeslots = ceil(time_from_twilight / time_slot_length)
-    return TimeslotIndex(number_timeslots)

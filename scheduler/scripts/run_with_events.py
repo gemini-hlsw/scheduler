@@ -2,8 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
-from datetime import datetime
-from math import ceil
 
 from lucupy.minimodel.constraints import CloudCover, ImageQuality, Conditions, WaterVapor
 from lucupy.minimodel.semester import SemesterHalf
@@ -19,7 +17,7 @@ from scheduler.core.eventsqueue.nightchanges import NightTimeline
 from scheduler.core.output import print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.statscalculator import StatCalculator
-from scheduler.core.eventsqueue import event_datetime_to_timeslot, EventQueue, WeatherChange
+from scheduler.core.eventsqueue import EventQueue, WeatherChange
 from scheduler.services import logger_factory
 
 
@@ -126,13 +124,20 @@ if __name__ == '__main__':
                                    plan_generated=plans[0][site])
 
             while events_by_night:
+                # Get the next event and determine its timeslot.
                 event = events_by_night.pop()
-                event_start_time_slot = event_datetime_to_timeslot(event, twi_eve, timeslot_length)
+                event_start_time_slot = event.to_timeslot_idx(twi_eve, timeslot_length)
 
-                if isinstance(event, WeatherChange):
-                    selector.default_iq = event.new_conditions.iq
-                    selector.default_cc = event.new_conditions.cc
+                match event:
+                    case WeatherChange(_, _, _, new_conditions):
+                        selector.default_iq = new_conditions.iq
+                        selector.default_cc = new_conditions.cc
 
+                    case _:
+                        raise NotImplementedError(f'Received unsupported event: {event.__class__.__name__}')
+
+                # Fetch a new selection given that the candidates and scores will need to be calculated based on
+                # the event.
                 selection = selector.select(night_indices=night_indices,
                                             sites=frozenset([event.site]),
                                             starting_time_slots={site: {night_idx: event_start_time_slot for night_idx in night_indices}})
