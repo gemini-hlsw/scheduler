@@ -20,20 +20,18 @@ class Event(ABC):
 
 
 @dataclass
-class Interruption(ABC):
+class Interruption(Event):
     """
     Parent class for any interruption that might cause a new schedule to be created.
     """
-    start: datetime
-    reason: str
-    site: Site
-
-    def __str__(self):
-        return self.__class__.__name__
+    ...
 
 
 @dataclass
 class Twilight(Interruption):
+    """
+    An event indicating that the 12 degree starting twilight for a night has been reached.
+    """
     ...
 
 
@@ -75,6 +73,3 @@ class WeatherChange(Interruption):
     Interruption that occurs when new weather conditions come in.
     """
     new_conditions: Conditions
-
-
-Event = Interruption | Blockage
