@@ -30,7 +30,7 @@ class Event(ABC):
 
 
 @dataclass
-class Interruption(Event):
+class Interruption(Event, ABC):
     """
     Parent class for any interruption that might cause a new schedule to be created.
     """
@@ -38,7 +38,7 @@ class Interruption(Event):
 
 
 @dataclass
-class Twilight(Interruption):
+class Twilight(Interruption, ABC):
     """
     An event indicating that the 12 degree starting twilight for a night has been reached.
     """
@@ -54,8 +54,17 @@ class EveningTwilight(Twilight):
     ...
 
 
+@final
 @dataclass
-class Blockage(Event):
+class WeatherChange(Interruption):
+    """
+    Interruption that occurs when new weather conditions come in.
+    """
+    new_conditions: Conditions
+
+
+@dataclass
+class Blockage(Event, ABC):
     """
     Parent class for any interruption that causes a blockage and requires a resume event.
     """
@@ -85,12 +94,3 @@ class Fault(Blockage):
     Blockage that occurs when one or more resources experience a fault.
     """
     affects: FrozenSet[Resource]
-
-
-@final
-@dataclass
-class WeatherChange(Interruption):
-    """
-    Interruption that occurs when new weather conditions come in.
-    """
-    new_conditions: Conditions
