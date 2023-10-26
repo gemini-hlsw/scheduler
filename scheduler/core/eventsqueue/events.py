@@ -5,7 +5,7 @@ from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import ceil
-from typing import FrozenSet
+from typing import final, FrozenSet, Optional
 
 from lucupy.minimodel import Resource, Conditions, Site, TimeslotIndex
 
@@ -45,12 +45,21 @@ class Twilight(Interruption):
     ...
 
 
+@final
+@dataclass
+class EveningTwilight(Twilight):
+    """
+    An event indicating that the 12 degree starting twilight for a night has been reached.
+    """
+    ...
+
+
 @dataclass
 class Blockage(Event):
     """
     Parent class for any interruption that causes a blockage and requires a resume event.
     """
-    end: datetime = None  # needs a resume event
+    end: Optional[datetime] = None  # needs a resume event
 
     def ends(self, end: datetime) -> None:
         self.end = end
@@ -70,6 +79,7 @@ class ResumeNight(Interruption):
     ...
 
 
+@final
 class Fault(Blockage):
     """
     Blockage that occurs when one or more resources experience a fault.
@@ -77,6 +87,7 @@ class Fault(Blockage):
     affects: FrozenSet[Resource]
 
 
+@final
 @dataclass
 class WeatherChange(Interruption):
     """
