@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Callable, ClassVar, FrozenSet, Mapping, Tuple, final
+from typing import Callable, ClassVar, Final, FrozenSet, Mapping, Tuple, final
 
 import astropy.units as u
 import numpy as np
@@ -30,11 +30,11 @@ class RankerParameters:
     """
     Global parameters for the Ranker.
     """
-    thesis_factor = 1.1
-    power: int = 2
-    met_power: float = 1.0
-    vis_power: float = 1.0
-    wha_power: float = 1.0
+    thesis_factor: Final[float] = 1.1
+    power: Final[int] = 2
+    met_power: Final[float] = 1.0
+    vis_power: Final[float] = 1.0
+    wha_power: Final[float] = 1.0
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: ClassVar[npt.NDArray[float]] = field(default=np.array([3., 0., -0.08]))
