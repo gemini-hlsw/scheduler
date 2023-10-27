@@ -2,8 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from copy import deepcopy
-from dataclasses import dataclass
-from typing import Callable, FrozenSet, Mapping, Tuple, final
+from dataclasses import dataclass, field
+from typing import Callable, ClassVar, FrozenSet, Mapping, Tuple, final
 
 import astropy.units as u
 import numpy as np
@@ -37,11 +37,16 @@ class RankerParameters:
     wha_power: float = 1.0
 
     # Weighted to slightly positive HA.
-    dec_diff_less_40: npt.NDArray[float] = np.array([3., 0., -0.08])
+    dec_diff_less_40: ClassVar[npt.NDArray[float]] = field(default=np.array([3., 0., -0.08]))
     # Weighted to 0 HA if Xmin > 1.3.
-    dec_diff: npt.NDArray[float] = np.array([3., 0.1, -0.06])
+    dec_diff: ClassVar[npt.NDArray[float]] = field(default=np.array([3., 0.1, -0.06]))
 
     score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = _default_score_combiner
+
+
+# Set the class-shared variables in the RankerParameters to immutable.
+RankerParameters.dec_diff_less_40.setflags(write=False)
+RankerParameters.dec_diff.setflags(write=False)
 
 
 @final
