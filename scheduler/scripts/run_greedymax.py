@@ -53,7 +53,7 @@ if __name__ == '__main__':
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
 
-    ValidationBuilder.update_collector(collector)  # ZeroTime observations
+    ValidationBuilder.reset_collector_obseravtions(collector)  # ZeroTime observations
 
     # Output the state of and information calculated by the Collector.
     print_collector_info(collector, samples=60)

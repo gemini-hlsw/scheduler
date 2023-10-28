@@ -247,11 +247,29 @@ class Selector(SchedulerComponent):
             unfiltered_group_data_map=unfiltered_group_data_map
         )
 
-    def update_conditions(self, site: Site, new_conditions: Conditions) -> None:
+    def update_conditions(self,
+                          site: Site,
+                          new_conditions: Optional[Conditions] = None) -> None:
+        """
+        Extract the CC and IQ values from the new conditions and update them for the given site.
+        """
+        self.update_cc_and_iq(site,
+                              new_conditions and new_conditions.cc,
+                              new_conditions and new_conditions.iq)
+
+    def update_cc_and_iq(self,
+                         site: Site,
+                         new_cc: Optional[CloudCover] = None,
+                         new_iq: Optional[ImageQuality] = None) -> None:
+        """
+        Update the conditions at the specified site, provided the site is being used.
+        Right now, we only use CloudCover and ImageQuality in calculations, so only accept those parameters.
+        If no value is given, they are updated to the default values.
+        """
         if site not in self.collector.sites:
             raise ValueError(f'Selector update_conditions called with invalid site: {site.name}')
-        self.cc_per_site[site] = new_conditions.cc
-        self.iq_per_site[site] = new_conditions.iq
+        self.cc_per_site[site] = new_cc or Selector._default_cc
+        self.iq_per_site[site] = new_iq or Selector._default_iq
 
     def _calculate_group(self,
                          program: Program,

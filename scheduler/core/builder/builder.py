@@ -3,7 +3,7 @@
 
 from astropy.time import Time
 from lucupy.minimodel import CloudCover, ImageQuality, Semester, Site, ObservationStatus, Observation, QAState
-from typing import FrozenSet, ClassVar, Iterable, Optional, Callable
+from typing import Dict, FrozenSet, ClassVar, Iterable, Optional, Callable
 
 from lucupy.types import ZeroTime
 
@@ -37,12 +37,12 @@ class SchedulerBuilder:
     @staticmethod
     def build_selector(collector: Collector,
                        num_nights_to_schedule: int,
-                       default_cc: CloudCover = CloudCover.CC50,
-                       default_iq: ImageQuality = ImageQuality.IQ70):
+                       cc_per_site: Optional[Dict[Site, CloudCover]] = None,
+                       iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
         return Selector(collector=collector,
                         num_nights_to_schedule=num_nights_to_schedule,
-                        default_cc=default_cc,
-                        default_iq=default_iq)
+                        cc_per_site=cc_per_site or {},
+                        iq_per_site=iq_per_site or {})
 
     @staticmethod
     def build_optimizer(blueprint: OptimizerBlueprint) -> Optimizer:
@@ -99,10 +99,13 @@ class ValidationBuilder(SchedulerBuilder):
                 o.status = ObservationStatus.READY
 
     @staticmethod
-    def update_collector(clean_collector: Collector) -> None:
-
+    def reset_collector_obseravtions(collector: Collector) -> None:
+        """
+        Clear out the observation information in the Collector by setting the times used to zero and setting
+        the status of all observations to READY.
+        """
         ValidationBuilder._clear_observation_info(
-            clean_collector.get_all_observations(),
+            collector.get_all_observations(),
             ValidationBuilder._obs_statuses_to_ready
         )
 

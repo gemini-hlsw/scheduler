@@ -56,7 +56,7 @@ if __name__ == '__main__':
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
     print_collector_info(collector, samples=60)
-    ValidationBuilder.update_collector(collector)
+    ValidationBuilder.reset_collector_obseravtions(collector)
 
     cc = CloudCover.CC50
     iq = ImageQuality.IQ70
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
     print_collector_info(collector, samples=60)
-    ValidationBuilder.update_collector(collector)
+    ValidationBuilder.reset_collector_obseravtions(collector)
 
     cc = CloudCover.CC50
     iq = ImageQuality.IQ70
