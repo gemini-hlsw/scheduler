@@ -2,8 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from copy import deepcopy
-from dataclasses import dataclass
-from typing import ClassVar, Dict, FrozenSet, Optional, final
+from dataclasses import dataclass, field
+from typing import ClassVar, Dict, FrozenSet, KeysView, Optional, Set, final
 
 import astropy.units as u
 import numpy as np
@@ -43,11 +43,13 @@ class Selector(SchedulerComponent):
     """
     collector: Collector
     num_nights_to_schedule: int
-    default_cc: CloudCover = CloudCover.CC50
-    default_iq: ImageQuality = ImageQuality.IQ70
+    cc_per_site: Dict[Site, CloudCover] = field(default_factory=lambda: {})
+    iq_per_site: Dict[Site, ImageQuality] = field(default_factory=lambda: {})
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
     _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
+    _default_cc: ClassVar[CloudCover] = CloudCover.CC50
+    _default_iq: ClassVar[ImageQuality] = ImageQuality.IQ70
 
     def __post_init__(self):
         if (self.num_nights_to_schedule < 0 or
@@ -55,6 +57,24 @@ class Selector(SchedulerComponent):
             raise ValueError(f'Scheduling requested for {self.num_nights_to_schedule} nights, but visibility '
                              f'calculations only performed for {self.collector.num_nights_calculated}. '
                              'Cannot proceed.')
+
+        for site in self.collector.sites - self.cc_per_site.keys():
+            logger.warning(f'Selector has no CC data for {site.name}: setting to {Selector._default_cc.name}')
+            self.cc_per_site[site] = Selector._default_cc
+        for site in self.collector.sites - self.iq_per_site.keys():
+            logger.warning(f'Selector has no IQ data for {site.name}: setting to {Selector._default_iq.name}')
+            self.iq_per_site[site] = Selector._default_iq
+
+        def site_difference_str(sites: Set[Site] | KeysView[Site]) -> str:
+            return '{' + ', '.join({s.name for s in sites}) + '}' if sites else ''
+
+        # Make sure weather is only defined on selected sites: if not, issue a warning.
+        if self.cc_per_site.keys() != self.collector.sites:
+            logger.warning('Selector has cloud cover defined on sites that are not in use: ' +
+                           site_difference_str(self.cc_per_site.keys()) + '.')
+        if self.iq_per_site.keys() != self.collector.sites:
+            logger.warning('Selector has image quality defined on sites that are not in use: ' +
+                           site_difference_str(self.cc_per_site.keys()) + '.')
 
     @staticmethod
     def _process_starting_time_slots(sites: FrozenSet[Site],
@@ -227,9 +247,11 @@ class Selector(SchedulerComponent):
             unfiltered_group_data_map=unfiltered_group_data_map
         )
 
-    def update_conditions(self, new_conditions: Conditions)-> None:
-        self.default_cc = new_conditions.cc
-        self.default_iq = new_conditions.iq
+    def update_conditions(self, site: Site, new_conditions: Conditions) -> None:
+        if site not in self.collector.sites:
+            raise ValueError(f'Selector update_conditions called with invalid site: {site.name}')
+        self.cc_per_site[site] = new_conditions.cc
+        self.iq_per_site[site] = new_conditions.iq
 
     def _calculate_group(self,
                          program: Program,
@@ -349,8 +371,8 @@ class Selector(SchedulerComponent):
                                                                                                 end_time)
 
             variant_length = len(actual_conditions.cc)
-            actual_conditions = Variant(iq=np.array([self.default_iq] * variant_length),
-                                        cc=np.array([self.default_cc] * variant_length),
+            actual_conditions = Variant(iq=np.array([self.iq_per_site[obs.site]] * variant_length),
+                                        cc=np.array([self.cc_per_site[obs.site]] * variant_length),
                                         wind_dir=actual_conditions.wind_dir,
                                         wind_spd=actual_conditions.wind_spd)
 
