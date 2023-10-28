@@ -3,7 +3,7 @@
 
 import os
 from datetime import datetime
-from math import ceil
+from typing import Final
 
 from lucupy.minimodel.constraints import CloudCover, ImageQuality, Conditions, WaterVapor
 from lucupy.minimodel.semester import SemesterHalf
@@ -14,18 +14,20 @@ from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBlueprint
 from scheduler.core.builder.builder import ValidationBuilder
 from scheduler.core.components.collector import *
-from scheduler.core.eventsqueue.events import Twilight
 from scheduler.core.eventsqueue.nightchanges import NightTimeline
 from scheduler.core.output import print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.statscalculator import StatCalculator
-from scheduler.core.eventsqueue import EventQueue, WeatherChange
+from scheduler.core.eventsqueue import EveningTwilight, EventQueue, WeatherChange
 from scheduler.services import logger_factory
 
+# Initial weather for the selector.
+# We will reset this each night.
+default_cc: Final[CloudCover] = CloudCover.CC50
+default_iq: Final[ImageQuality] = ImageQuality.IQ70
 
-if __name__ == '__main__':
-    use_events = True
 
+def main(use_events: bool) -> None:
     logger = logger_factory.create_logger(__name__, logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -45,17 +47,6 @@ if __name__ == '__main__':
     night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
 
     queue = EventQueue(night_indices, sites)
-    weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ20,
-                                                                   cc=CloudCover.CC50,
-                                                                   sb=SkyBackground.SBANY,
-                                                                   wv=WaterVapor.WVANY),
-                                         start=datetime(2018, 10, 1, 10),
-                                         reason='IQ70 -> IQ20, CC70 -> CC50',
-                                         site=Site.GS)
-
-    if use_events:
-        queue.add_event(NightIndex(0), weather_change_south.site, weather_change_south)
-
     builder = ValidationBuilder(Sources(), queue)
     collector = builder.build_collector(
         start=start,
@@ -64,31 +55,44 @@ if __name__ == '__main__':
         semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
+    timeslot_length = collector.time_slot_length.to_datetime()
+
+    # Add a twilight event for every night at each site.
+    for site in sites:
+        night_events = collector.get_night_events(site)
+        for night_idx in night_indices:
+            twilight_time = night_events.twilight_evening_12[night_idx].to_datetime()
+            twilight = EveningTwilight(start=twilight_time, reason='Evening 12° Twilight', site=site)
+            queue.add_event(night_idx, site, twilight)
+
+    if use_events:
+        # Create a weather event at GS that starts two hours after twilight on the first night of 2018-09-30,
+        # which is why we look up the night events for night index 0 in calculating the time.
+        night_events = collector.get_night_events(Site.GS)
+        weather_change_time = night_events.twilight_evening_12[0].to_datetime() + timedelta(minutes=120)
+        weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ20,
+                                                                       cc=CloudCover.CC50,
+                                                                       sb=SkyBackground.SBANY,
+                                                                       wv=WaterVapor.WVANY),
+                                             start=weather_change_time,
+                                             reason='IQ70 -> IQ20, CC70 -> CC50',
+                                             site=Site.GS)
+        queue.add_event(NightIndex(0), weather_change_south.site, weather_change_south)
+
     # Create the Collector and load the programs.
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
 
     ValidationBuilder.update_collector(collector)  # ZeroTime observations
 
-    # Set the initial weather.
-    # CC values are CC50, CC70, CC85, CCANY. Default is CC50 if not passed to build_selector.
-    initial_cc = CloudCover.CC70
-
-    # IQ values are IQ20, IQ70, IQ85, and IQANY. Default is IQ70 if not passed to build_selector.
-    initial_iq = ImageQuality.IQ70
-
     selector = builder.build_selector(collector,
                                       num_nights_to_schedule=num_nights_to_schedule,
-                                      default_cc=initial_cc,
-                                      default_iq=initial_iq)
+                                      default_cc=default_cc,
+                                      default_iq=default_iq)
 
     # Prepare the optimizer.
-    optimizer_blueprint = OptimizerBlueprint(
-        "GreedyMax"
-    )
-    optimizer = builder.build_optimizer(
-        blueprint=optimizer_blueprint
-    )
+    optimizer_blueprint = OptimizerBlueprint("GreedyMax")
+    optimizer = builder.build_optimizer(blueprint=optimizer_blueprint)
 
     # Create the overall plans by night.
     overall_plans = {}
@@ -98,57 +102,72 @@ if __name__ == '__main__':
     for night_idx in sorted(night_indices):
         night_indices = np.array([night_idx])
 
+        # Reset the Selector to the default weather for the night.
+        # TODO: Make Selector accept site-specific values.
+        selector.default_cc = default_cc
+        selector.default_iq = default_iq
+
         # Run eventless timeline
         selection = selector.select(night_indices=night_indices)
         # Run the optimizer to get the plans for the first night in the selection.
         plans = optimizer.schedule(selection)
 
+        # The starting twilight for the night for the site.
+        night_start: Optional[datetime] = None
+
         for site in collector.sites:
-            events_by_night = queue.get_night_events(night_idx, site)
             # Get the night events for the site: in this case, GS.
-            night_events = collector.get_night_events(site)
+            # night_events = collector.get_night_events(site)
+            # TODO: This needs to be a container that is sorted by start datetime of the events.
+            # TODO: Right now, it is sorted, but only because we have added the events in datetime order.
+            events_by_night = queue.get_night_events(night_idx, site)
 
-            # The twilight evening time was calculated as a component of the night events.
-            # We are only scheduling one day, so it is the only value in the array.
-            twi_eve = night_events.twilight_evening_12[0]
-            twi = Twilight(twi_eve, reason='Twilight', site=site)
-            if site in plans[0].plans:
-                night_timeline.add(night_idx=NightIndex(night_idx),
-                                   site=site,
-                                   time_slot=TimeslotIndex(0),
-                                   event=twi,
-                                   plan_generated=plans[0][site])
+            while events_by_night.has_more_events():
+                event = events_by_night.next_event()
+                match event:
+                    case EveningTwilight(new_night_start, _, _):
+                        if night_start is not None:
+                            raise ValueError(f'Multiple twilight events for night index {night_idx} '
+                                             f'at site {site.name}: was {night_start}, now {new_night_start}.')
+                        night_start = new_night_start
 
-            if events_by_night:
-                while events_by_night:
-                    event = events_by_night.pop()
-                    event_start_time_slot = ceil((event.start - start.to_datetime())/collector.time_slot_length.to_datetime())
+                    case WeatherChange(_, _, _, new_conditions):
+                        if night_start is None:
+                            raise ValueError(f'Event for night index {night_idx} at site {site.name} occurred '
+                                             f'before twilight: {event}.')
+                        selector.default_iq = new_conditions.iq
+                        selector.default_cc = new_conditions.cc
 
-                    if isinstance(event, WeatherChange):
-                        selector.default_iq = event.new_conditions.iq
-                        selector.default_cc = event.new_conditions.cc
+                    case _:
+                        raise NotImplementedError(f'Received unsupported event: {event.__class__.__name__}')
 
-                    selection = selector.select(night_indices=night_indices,
-                                                sites=frozenset([event.site]),
-                                                starting_time_slots={site: {night_idx: event_start_time_slot for night_idx in night_indices}})
-                    # Run the optimizer to get the plans for the first night in the selection.
-                    plans = optimizer.schedule(selection)
-                    night_timeline.add(NightIndex(night_idx),
-                                       site,
-                                       TimeslotIndex(event_start_time_slot),
-                                       event,
-                                       plans[0][site])
-                    collector.time_accounting(plans[0],
-                                              sites=frozenset({site}),
-                                              end_timeslot_bounds={site: TimeslotIndex(event_start_time_slot)})
+                # Fetch a new selection given that the candidates and scores will need to be calculated based on
+                # the event.
+                event_start_time_slot = event.to_timeslot_idx(night_start, timeslot_length)
+                selection = selector.select(night_indices=night_indices,
+                                            sites=frozenset([event.site]),
+                                            starting_time_slots={site: {night_idx: event_start_time_slot
+                                                                        for night_idx in night_indices}})
+
+                # Run the optimizer to get the plans for the first night in the selection.
+                plans = optimizer.schedule(selection)
+                night_timeline.add(NightIndex(night_idx),
+                                   site,
+                                   TimeslotIndex(event_start_time_slot),
+                                   event,
+                                   plans[0][site])
+                collector.time_accounting(plans[0],
+                                          sites=frozenset({site}),
+                                          end_timeslot_bounds={site: TimeslotIndex(event_start_time_slot)})
+
         for site in collector.sites:
             plans[0][site] = night_timeline.get_final_plan(NightIndex(night_idx), site)
 
         overall_plans[night_idx] = plans[0]
+
         # Perform the time accounting on the plans.
         # collector.time_accounting(night_plans)
-        selector.default_iq = ImageQuality.IQ70
-        selector.default_cc = CloudCover.CC50
+
     overall_plans = [p for _, p in sorted(overall_plans.items())]
     plan_summary = StatCalculator.calculate_plans_stats(overall_plans, collector)
     # print_plans(overall_plans)
@@ -157,3 +176,8 @@ if __name__ == '__main__':
     print_plans(overall_plans)
 
     print('DONE')
+
+
+if __name__ == '__main__':
+    use_events = True
+    main(use_events)

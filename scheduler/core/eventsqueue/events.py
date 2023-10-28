@@ -4,9 +4,10 @@
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import FrozenSet
+from math import ceil
+from typing import final, FrozenSet, Optional
 
-from lucupy.minimodel import Resource, Conditions, Site
+from lucupy.minimodel import Resource, Conditions, Site, TimeslotIndex
 
 
 @dataclass
@@ -18,31 +19,56 @@ class Event(ABC):
     reason: str
     site: Site
 
+    def to_timeslot_idx(self, twi_eve_time: datetime, time_slot_length: timedelta) -> TimeslotIndex:
+        """
+        Given an event, calculate the timeslot offset it falls into relative to another datetime.
+        This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.
+        """
+        time_from_twilight = self.start - twi_eve_time
+        time_slots_from_twilight = ceil(time_from_twilight / time_slot_length)
+        return TimeslotIndex(time_slots_from_twilight)
+
 
 @dataclass
-class Interruption(ABC):
+class Interruption(Event, ABC):
     """
     Parent class for any interruption that might cause a new schedule to be created.
     """
-    start: datetime
-    reason: str
-    site: Site
-
-    def __str__(self):
-        return self.__class__.__name__
-
-
-@dataclass
-class Twilight(Interruption):
     ...
 
 
 @dataclass
-class Blockage(Event):
+class Twilight(Interruption, ABC):
+    """
+    An event indicating that the 12 degree starting twilight for a night has been reached.
+    """
+    ...
+
+
+@final
+@dataclass
+class EveningTwilight(Twilight):
+    """
+    An event indicating that the 12 degree starting twilight for a night has been reached.
+    """
+    ...
+
+
+@final
+@dataclass
+class WeatherChange(Interruption):
+    """
+    Interruption that occurs when new weather conditions come in.
+    """
+    new_conditions: Conditions
+
+
+@dataclass
+class Blockage(Event, ABC):
     """
     Parent class for any interruption that causes a blockage and requires a resume event.
     """
-    end: datetime = None  # needs a resume event
+    end: Optional[datetime] = None  # needs a resume event
 
     def ends(self, end: datetime) -> None:
         self.end = end
@@ -62,19 +88,9 @@ class ResumeNight(Interruption):
     ...
 
 
+@final
 class Fault(Blockage):
     """
     Blockage that occurs when one or more resources experience a fault.
     """
     affects: FrozenSet[Resource]
-
-
-@dataclass
-class WeatherChange(Interruption):
-    """
-    Interruption that occurs when new weather conditions come in.
-    """
-    new_conditions: Conditions
-
-
-Event = Interruption | Blockage
