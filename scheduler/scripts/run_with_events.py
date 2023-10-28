@@ -181,12 +181,11 @@ def main(*,
         overall_plans[night_idx] = plans[0]
 
     overall_plans = [p for _, p in sorted(overall_plans.items())]
-    plan_summary = StatCalculator.calculate_plans_stats(overall_plans, collector)
-    # print_plans(overall_plans)
+    # plan_summary = StatCalculator.calculate_plans_stats(overall_plans, collector)
     night_timeline.display()
+
     print('++++ FINAL PLANS ++++')
     print_plans(overall_plans)
-
     print('DONE')
 
 
