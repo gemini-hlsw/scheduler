@@ -53,10 +53,19 @@ class NightTimeline:
 
         all_generated = []
         t = 0
+
         for entry in reversed(entries):
             pg = entry.plan_generated
 
-            partial_plan = pg[:t] if t > 0 else pg
+            if t > 0:
+                # grab partial plan at the timeslot
+                partial_plan = pg.get_slice(stop=t)
+                # modfy reflect last visit to match starting time_slot from the visit
+                # TODO: this need to be reflected in Optimizer
+                partial_plan.visits[-1].time_slots = t - partial_plan.visits[-1].start_time_slot
+            else:
+                partial_plan = pg
+
             all_generated += [v for v in reversed(partial_plan.visits)]
             if t < entry.start_time_slots:
                 t = entry.start_time_slots
@@ -81,4 +90,3 @@ class NightTimeline:
                             f'\t{visit.start_time}   {visit.obs_id.id:20} {visit.score:8.2f} {visit.atom_start_idx:4d} '
                             f'{visit.atom_end_idx:4d} {visit.start_time_slot:4d}')
                     print('\t+++++ END EVENT +++++')
-
