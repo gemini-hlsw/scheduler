@@ -1,7 +1,3 @@
-process_manager:
-  size: 5 # Only valid for Simulation and Validation
-  timeout: 100
-
 collector:
   observation_classes: [SCIENCE, PROGCAL, PARTNERCAL]
   program_types: [Q, LP, FT, DD]
