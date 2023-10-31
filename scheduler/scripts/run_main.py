@@ -14,21 +14,22 @@ from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBluepr
 from scheduler.core.builder.builder import ValidationBuilder
 from scheduler.core.components.collector import *
 from scheduler.core.eventsqueue.nightchanges import NightTimeline
-from scheduler.core.output import print_plans
+from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.eventsqueue import EveningTwilight, EventQueue, MorningTwilight, WeatherChange
 
 
 def main(*,
+         verbose: bool = False,
+         start: Optional[Time] = Time("2018-10-01 08:00:00", format='iso', scale='utc'),
+         end: Optional[Time] = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
          num_nights_to_schedule: int = 1,
          test_events: bool = False,
          sites: FrozenSet[Site] = ALL_SITES,
          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
          iq_per_site: Optional[Dict[Site, ImageQuality]] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
-
-    # Read in a list of JSON data
     programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
     # Create the Collector and load the programs.
@@ -37,8 +38,6 @@ def main(*,
         ['Q', 'LP', 'FT', 'DD'],
         1.0
     )
-    start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
-    end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
     night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
 
     queue = EventQueue(night_indices, sites)
@@ -55,6 +54,9 @@ def main(*,
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
     ValidationBuilder.reset_collector_obseravtions(collector)
+
+    if verbose:
+        print_collector_info(collector, samples=60)
 
     # Create the Selector.
     selector = builder.build_selector(collector,
