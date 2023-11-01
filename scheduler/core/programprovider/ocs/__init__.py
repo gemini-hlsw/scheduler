@@ -53,7 +53,10 @@ class OcsProgramProvider(ProgramProvider):
     _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
-    _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
+
+    # Note that we want to include OBSERVED observations here since this is legacy data, so most if not all observations
+    # should be marked OBSERVED and we will reset this later to READY.
+    _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING, ObservationStatus.OBSERVED})
 
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
@@ -861,7 +864,6 @@ class OcsProgramProvider(ProgramProvider):
         priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY].upper()]
 
         # If the status is not legal, terminate parsing.
-        # *** HERE ***
         if status not in OcsProgramProvider._OBSERVATION_STATUSES:
             return None
 

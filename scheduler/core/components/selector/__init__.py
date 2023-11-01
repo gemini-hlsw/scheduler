@@ -287,13 +287,12 @@ class Selector(SchedulerComponent):
             raise ValueError(f'Non-observation group {group.id} cannot be treated as observation group.')
 
         obs = group.children
-        # *** HERE ***
-        # if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.INACTIVE}:
-        #     logger.warning(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
-        #     return group_data_map
-        #
-        # if obs.status not in {ObservationStatus.READY, ObservationStatus.ONGOING}:
-        #     raise ValueError(f'Observation {obs.id.id} has a status of {obs.status.name}.')
+        if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.INACTIVE}:
+            logger.warning(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
+            return group_data_map
+
+        if obs.status not in {ObservationStatus.READY, ObservationStatus.ONGOING}:
+            raise ValueError(f'Observation {obs.id.id} has a status of {obs.status.name}.')
 
         # This should never happen.
         if obs.site not in sites:
