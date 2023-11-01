@@ -16,7 +16,6 @@ from scheduler.core.components.collector import *
 from scheduler.core.eventsqueue.nightchanges import NightTimeline
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.eventsqueue import EveningTwilight, EventQueue, MorningTwilight, WeatherChange
 
 
@@ -189,11 +188,3 @@ def main(*,
     print('++++ FINAL PLANS ++++')
     print_plans(overall_plans)
     print('DONE')
-
-
-if __name__ == '__main__':
-    use_events = True
-    main(test_events=True,
-         num_nights_to_schedule=3,
-         cc_per_site={Site.GS: CloudCover.CC70},
-         iq_per_site={Site.GS: ImageQuality.IQ70})
