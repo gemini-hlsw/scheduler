@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import json
-import os
+from pathlib import Path
 from datetime import datetime, timedelta
 
 from lucupy.helpers import dmsstr2deg
@@ -25,9 +25,8 @@ def get_api_program() -> Program:
     Load the GN-2022A-Q-999 program from the JSON file.
     """
     sources = Sources()
-    with open(os.path.join('tests', 'data', 'GN-2022A-Q-999.json'), 'r') as f:
+    with open(Path('tests') / 'data' / 'GN-2022A-Q-999.json') as f:
         data = json.loads(f.read())
-
         obs_classes = frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
         return OcsProgramProvider(obs_classes, sources).parse_program(data['PROGRAM_BASIC'])
 
@@ -48,112 +47,6 @@ def create_minimodel_program() -> Program:
 
     gnirs = Resource(id='GNIRS')
     pwfs2 = Resource(id='PWFS2')
-
-    # *** GMOSN-2 OBSERVATION ***
-    gmosn2_conditions = Conditions(
-        cc=CloudCover.CCANY,
-        iq=ImageQuality.IQANY,
-        sb=SkyBackground.SBANY,
-        wv=WaterVapor.WVANY
-    )
-
-    gmosn2_constraints = Constraints(
-        conditions=gmosn2_conditions,
-        elevation_type=ElevationType.AIRMASS,
-        elevation_min=1.1,
-        elevation_max=2.1,
-        timing_windows=[],
-        strehl=None
-    )
-
-    gmosn2_target_1 = SiderealTarget(
-        name=TargetName('M11'),
-        magnitudes=frozenset({
-            Magnitude(MagnitudeBands.B, 6.32),
-            Magnitude(MagnitudeBands.V, 5.8)
-        }),
-        type=TargetType.BASE,
-        ra=sex2dec('18:51:03.840', todegree=True),
-        dec=dmsstr2deg('353:43:40.80'),
-        pm_ra=-1.568,
-        pm_dec=-4.144,
-        epoch=2000.0
-    )
-
-    gmosn2_target_2 = SiderealTarget(
-        name=TargetName('419-102509'),
-        magnitudes=frozenset({
-            Magnitude(MagnitudeBands.B, 12.261),
-            Magnitude(MagnitudeBands.g, 12.046),
-            Magnitude(MagnitudeBands.V, 11.983),
-            Magnitude(MagnitudeBands.UC, 12.0),
-            Magnitude(MagnitudeBands.r, 11.927),
-            Magnitude(MagnitudeBands.i, 11.875),
-            Magnitude(MagnitudeBands.J, 11.11),
-            Magnitude(MagnitudeBands.H, 11.0),
-            Magnitude(MagnitudeBands.K, 10.894)
-        }),
-        type=TargetType.GUIDESTAR,
-        ra=sex2dec('18:50:50.990', todegree=True),
-        dec=dmsstr2deg('353:44:28.68'),
-        pm_ra=-0.6,
-        pm_dec=-7.4,
-        epoch=2000.0
-    )
-
-    gmosn2_targets = [gmosn2_target_1, gmosn2_target_2]
-    gmosn2_guiding = {
-        gmos_oiwfs: gmosn2_target_2
-    }
-
-    gmosn2_sequence = [
-        Atom(
-            id=0,
-            exec_time=timedelta(microseconds=84300),
-            prog_time=timedelta(microseconds=84300),
-            part_time=ZeroTime,
-            program_used=ZeroTime,
-            partner_used=ZeroTime,
-            observed=False,
-            qa_state=QAState.NONE,
-            guide_state=True,
-            resources=frozenset({gmosn, mirror}),
-            wavelengths=frozenset({Wavelength(0.475)}),
-            obs_mode=ObservationMode.IMAGING
-        )
-    ]
-
-    gmosn2 = GeminiObservation(
-        id=ObservationID('GN-2022A-Q-999-3'),
-        internal_id='1a4f101b-de28-4ed1-959f-607b6618705c',
-        order=0,
-        title='GMOSN-2',
-        site=Site.GN,
-        status=ObservationStatus.PHASE2,
-        active=True,
-        priority=Priority.LOW,
-        setuptime_type=SetupTimeType.FULL,
-        acq_overhead=timedelta(minutes=6),
-        obs_class=ObservationClass.SCIENCE,
-        targets=gmosn2_targets,
-        guiding=gmosn2_guiding,
-        sequence=gmosn2_sequence,
-        constraints=gmosn2_constraints,
-        belongs_to=ProgramID('GN-2022A-Q-999'),
-        too_type=TooType.RAPID
-    )
-
-    # Create the trivial AND group containing the GMOSN-2 observation.
-    gmosn2_group = AndGroup(
-        id=GroupID(gmosn2.id.id),
-        program_id=program_id,
-        group_name=gmosn2.title,
-        number_to_observe=1,
-        delay_min=timedelta.min,
-        delay_max=timedelta.max,
-        children=gmosn2,
-        group_option=AndOption.ANYORDER
-    )
 
     # *** GNIRS2 OBSERVATION ***
     gnirs2_conditions = Conditions(
@@ -275,119 +168,11 @@ def create_minimodel_program() -> Program:
         id=GroupID('2'),
         program_id=program_id,
         group_name='TestGroup',
-        number_to_observe=2,
-        delay_min=timedelta.min,
-        delay_max=timedelta.max,
-        children=[gmosn2_group, gnirs2_group],
-        group_option=AndOption.CONSEC_ORDERED
-    )
-
-    # *** GNIRS1 OBSERVATION ***
-    gnirs1_conditions = Conditions(
-        cc=CloudCover.CC50,
-        iq=ImageQuality.IQ20,
-        sb=SkyBackground.SB20,
-        wv=WaterVapor.WV20
-    )
-
-    gnirs1_constraints = Constraints(
-        conditions=gnirs1_conditions,
-        elevation_type=ElevationType.NONE,
-        elevation_min=0.0,
-        elevation_max=0.0,
-        timing_windows=[],
-        strehl=None
-    )
-
-    gnirs1_target_1 = SiderealTarget(
-        name=TargetName('M10'),
-        magnitudes=frozenset({
-            Magnitude(MagnitudeBands.g, value=6.842),
-            Magnitude(MagnitudeBands.V, value=4.98),
-            Magnitude(MagnitudeBands.K, value=3.6)
-        }),
-        type=TargetType.BASE,
-        ra=sex2dec('16:57:09.050', todegree=True),
-        dec=dmsstr2deg('355:53:58.88'),
-        pm_ra=-4.72,
-        pm_dec=-6.54,
-        epoch=2000.0
-    )
-
-    gnirs1_target_2 = SiderealTarget(
-        name=TargetName('430-067087'),
-        magnitudes=frozenset({
-            Magnitude(MagnitudeBands.V, value=11.78),
-            Magnitude(MagnitudeBands.K, value=8.916),
-            Magnitude(MagnitudeBands.i, value=11.04),
-            Magnitude(MagnitudeBands.UC, value=11.637),
-            Magnitude(MagnitudeBands.g, value=12.321),
-            Magnitude(MagnitudeBands.B, value=12.927),
-            Magnitude(MagnitudeBands.r, value=11.389),
-            Magnitude(MagnitudeBands.H, value=9.082),
-            Magnitude(MagnitudeBands.J, value=9.628)
-        }),
-        type=TargetType.GUIDESTAR,
-        ra=sex2dec('16:57:12.230', todegree=True),
-        dec=dmsstr2deg('355:48:33.04'),
-        pm_ra=-2.7,
-        pm_dec=5.7,
-        epoch=2000.0
-    )
-
-    gnirs1_targets = [gnirs1_target_1, gnirs1_target_2]
-
-    gnirs1_guiding = {
-        pwfs2: gnirs1_target_2
-    }
-
-    gnirs1_sequence = [
-        Atom(
-            id=0,
-            exec_time=timedelta(microseconds=26190),
-            prog_time=timedelta(microseconds=26190),
-            part_time=ZeroTime,
-            program_used=ZeroTime,
-            partner_used=ZeroTime,
-            observed=False,
-            qa_state=QAState.NONE,
-            guide_state=True,
-            resources=frozenset({gnirs}),
-            wavelengths=frozenset({Wavelength(2.2)}),
-            obs_mode=ObservationMode.IMAGING
-        )
-    ]
-
-    gnirs1_observation = GeminiObservation(
-        id=ObservationID('GN-2022A-Q-999-2'),
-        internal_id='f1e411e3-ec93-430a-ac1d-1c5db3a103e6',
-        order=2,
-        title='GNIRS-1',
-        site=Site.GN,
-        status=ObservationStatus.PHASE2,
-        active=True,
-        priority=Priority.LOW,
-        setuptime_type=SetupTimeType.FULL,
-        acq_overhead=timedelta(minutes=15),
-        obs_class=ObservationClass.SCIENCE,
-        targets=gnirs1_targets,
-        guiding=gnirs1_guiding,
-        sequence=gnirs1_sequence,
-        constraints=gnirs1_constraints,
-        belongs_to=ProgramID('GN-2022A-Q-999'),
-        too_type=TooType.RAPID
-    )
-
-    # Create the trivial AND group containing the gnirs1 observation.
-    gnirs1_group = AndGroup(
-        id=GroupID(gnirs1_observation.id.id),
-        program_id=program_id,
-        group_name='GNIRS-1',
         number_to_observe=1,
         delay_min=timedelta.min,
         delay_max=timedelta.max,
-        children=gnirs1_observation,
-        group_option=AndOption.ANYORDER
+        children=[gnirs2_group],
+        group_option=AndOption.CONSEC_ORDERED
     )
 
     # *** GMOSN-1 OBSERVATION ***
@@ -567,13 +352,14 @@ def create_minimodel_program() -> Program:
     )
 
     # *** ROOT GROUP ***
-    root_children = [sched_group, gnirs1_group, gmosn1_group]
+    # root_children = [sched_group, gnirs1_group, gmosn1_group]
+    root_children = [sched_group, gmosn1_group]
 
     root_group = AndGroup(
         id=ROOT_GROUP_ID,
         program_id=program_id,
         group_name=ROOT_GROUP_ID.id,
-        number_to_observe=3,
+        number_to_observe=2,
         delay_min=timedelta.min,
         delay_max=timedelta.max,
         children=root_children,
