@@ -99,7 +99,7 @@ class ValidationBuilder(SchedulerBuilder):
                 o.status = ObservationStatus.READY
 
     @staticmethod
-    def reset_collector_obseravtions(collector: Collector) -> None:
+    def reset_collector_observations(collector: Collector) -> None:
         """
         Clear out the observation information in the Collector by setting the times used to zero and setting
         the status of all observations to READY.

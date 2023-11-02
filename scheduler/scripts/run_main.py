@@ -52,7 +52,7 @@ def main(*,
     )
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
-    ValidationBuilder.reset_collector_obseravtions(collector)
+    ValidationBuilder.reset_collector_observations(collector)
 
     if verbose:
         print_collector_info(collector, samples=60)
