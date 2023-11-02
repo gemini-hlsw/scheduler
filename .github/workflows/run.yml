@@ -16,18 +16,13 @@
             python-version: "3.10"
 
         - name: Install dependencies
-          run: |
-            # $CONDA is an environment variable pointing to the root of the miniconda directory
-            $CONDA/bin/conda env update --file environment.yml --name base
+          run: $CONDA/bin/conda env update --file environment.yml --name base
 
         - name: Add $PYTHONPATH
-          run: |
-            echo "PYTHONPATH=/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
+          run: echo "PYTHONPATH=/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
+
         - name: Run Greedymax
           run: $CONDA/bin/python scheduler/scripts/run_greedymax.py
-
-        - name: Run Greedymax twice
-          run: $CONDA/bin/python scheduler/scripts/run_greedymax_twice.py
 
         - name: Run with Events
           run: $CONDA/bin/python scheduler/scripts/run_with_events.py

@@ -56,6 +56,16 @@ class EveningTwilight(Twilight):
 
 @final
 @dataclass
+class MorningTwilight(Twilight):
+    """
+    An event indicating that the 12 degree morning twilight for a night has been reached.
+    This is used to finalize the time accounting for the night.
+    """
+    ...
+
+
+@final
+@dataclass
 class WeatherChange(Interruption):
     """
     Interruption that occurs when new weather conditions come in.
