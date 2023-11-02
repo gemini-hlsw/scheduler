@@ -22,8 +22,7 @@ jobs:
           $CONDA/bin/conda env update --file environment.yml --name base
 
       - name: Add $PYTHONPATH
-        run: |
-          echo "PYTHONPATH=/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
+        run: echo "PYTHONPATH=/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
       
       - name: Generate Report
         run: |
