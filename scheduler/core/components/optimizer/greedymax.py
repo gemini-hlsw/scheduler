@@ -393,7 +393,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             for idx in range(max_group_info.interval[0],
                              max_group_info.interval[-1] - max_group_info.n_slots_remaining + 2):
 
-                integral_score = sum(scores[idx:idx + max_group_info.n_slots_remaining])
+                integral_score = sum(scores[idx:idx + max_group_info.n_slots_remaining + 1])
 
                 if integral_score > max_integral_score:
                     max_integral_score = integral_score
@@ -795,6 +795,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # Write observations from the timelines to the output plan
         self.output_plans(plans)
 
+    def _length_visit(self, n_acq, n_seq):
+        return n_acq + Plan.time2slots(self.time_slot_length, n_seq)
+
     def _add_visit(self,
                    night_idx: NightIndex,
                    obs: Observation,
@@ -808,7 +811,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         site = max_group_info.group_data.group.observations()[0].site
         timeline = self.timelines[night_idx][site]
-        program = self.selection.program_info[max_group_info.group_data.group.program_id].program
+        # program = self.selection.program_info[max_group_info.group_data.group.program_id].program
 
         iobs = self.obs_group_ids.index(obs.to_unique_group_id)
         cumul_seq = obs.cumulative_exec_times()
@@ -822,14 +825,33 @@ class GreedyMaxOptimizer(BaseOptimizer):
             atom_end += 1
             visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
 
+
+        # type inspector cannot infer that cumul_seq[idx] is a timedelta.
+        # noinspection PyTypeChecker
+        # visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
+        visit_length = self._length_visit(n_slots_acq, cumul_seq[atom_end])
+        next_atom = atom_end + 1
+        while (next_atom <= len(cumul_seq) - 1 and
+               n_slots_filled + self._length_visit(n_slots_acq, cumul_seq[next_atom]) <= len(best_interval)):
+            atom_end += 1
+            # noinspection PyTypeChecker
+            visit_length = self._length_visit(n_slots_acq, cumul_seq[atom_end])
+            next_atom = atom_end + 1
+
         n_slots_filled += visit_length
 
         # add to timeline (time_slots)
         start_time_slot, start = timeline.add(iobs, visit_length, best_interval)
 
         # Get visit score and store information for the output plans
-        end_time_slot = start_time_slot + visit_length
-        visit_score = sum(max_group_info.group_data.group_info.scores[night_idx][start_time_slot:end_time_slot])
+        end_time_slot = start_time_slot + visit_length - 1
+        visit_score = sum(max_group_info.group_data.group_info.scores[night_idx][start_time_slot:end_time_slot + 1])
+
+        # print(timeline)
+        # print(f'Adding {obs.to_unique_group_id.id} start_slot {start_time_slot}, end_slot {end_time_slot}, '
+        #       f'atom_end {atom_end}, last atom {len(cumul_seq) - 1}, '
+        #       f'visit_length {visit_length}, len(best_interval) {len(best_interval)}')
+        # timeline.print(self.obs_group_ids)
 
         self.obs_in_plan[site][start_time_slot] = ObsPlanData(
             obs=obs,
@@ -870,7 +892,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         if not timeline.is_full:
             # Find the best location in timeline for the group
-            best_interval = GreedyMaxOptimizer._find_group_position(night_idx, max_group_info)
+            best_interval = self._find_group_position(night_idx, max_group_info)
 
             if self.show_plots:
                 self._plot_interval(max_group_info.group_data.group_info.scores[night_idx], max_group_info.interval,
@@ -932,6 +954,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # TODO: Shift to remove any gaps in the plan?
 
             # Re-score program (pseudo time accounting)
+            # print(f'Rescore {program.id}')
             self._update_score(program, night_idx=night_idx)
 
             if timeline.slots_unscheduled() <= 0:
@@ -944,6 +967,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
     def output_plans(self, plans: Plans) -> None:
         """Write visit information from timelines to output plans, ensures chronological order"""
+
+        # print(f'output_plans')
 
         for timeline in self.timelines[plans.night_idx]:
             obs_order = timeline.get_observation_order()
@@ -959,6 +984,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
                     # Add visit to final plan
                     obs_in_plan = self.obs_in_plan[timeline.site][start_time_slot]
+                    # print(f'{obs_in_plan.obs.id.id:20} {start_time_slot:4} {end_time_slot:4} {end_time_slot - start_time_slot + 1:4} '
+                    #       f'{obs_in_plan.obs_len:4}')
                     plans[timeline.site].add(obs_in_plan.obs,
                                              obs_in_plan.obs_start,
                                              obs_in_plan.atom_start,
@@ -967,3 +994,4 @@ class GreedyMaxOptimizer(BaseOptimizer):
                                              obs_in_plan.obs_len,
                                              obs_in_plan.visit_score)
                     plans[timeline.site].update_time_slots(timeline.slots_unscheduled())
+            print('')
