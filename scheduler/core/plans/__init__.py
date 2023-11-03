@@ -7,14 +7,11 @@ from math import ceil
 from typing import List, Mapping, Optional, Tuple
 
 from lucupy.minimodel import Band, Conditions, NightIndex, Observation, ObservationID, Resource, Site, ObservationClass
-import numpy as np
-import numpy.typing as npt
 
-from scheduler.core.calculations import TargetInfoNightIndexMap
 from scheduler.core.calculations.nightevents import NightEvents
 
 
-@dataclass(order=True, frozen=True)
+@dataclass(order=True)
 class Visit:
     start_time: datetime  # Unsure if this or something else
     obs_id: ObservationID
@@ -136,24 +133,22 @@ class Plan:
     def update_time_slots(self, time: int):
         self._time_slots_left = time
 
-    def __contains__(self, obs: Observation) -> bool:
-        return any(visit.obs_id == obs.id for visit in self.visits)
+    def get_slice(self, start: Optional[int] = None, stop: Optional[int] = None) -> 'Plan':
+        if not start and not stop:
+            return self
+        else:
+            visits_by_timeslot = {v.start_time_slot: v for v in self.visits}
+            visits_timeslots = [v.start_time_slot for v in self.visits]
+            plan = Plan(self.start, self.end, self.time_slot_length, self.site, self._time_slots_left)
 
-    def __getitem__(self, index: int | slice) -> 'Plan':
-        visits_by_timeslot = {v.start_time_slot: v for v in self.visits}
-        visits_timeslots = [v.start_time_slot for v in self.visits]
-        plan = Plan(self.start, self.end, self.time_slot_length, self.site, self._time_slots_left)
-        if isinstance(index, slice):
-            start, stop, step = index.start, index.stop, index.step
-            step = step or 1  # If step is None, default to 1
             start = start or 0
             stop = stop or visits_timeslots[-1]
-            plan.visits = [visits_by_timeslot[x] for x in visits_timeslots if start <= x <= stop and (x % step == 0)]
+            plan.visits = [visits_by_timeslot[x] for x in visits_timeslots if
+                           start < x <= stop]
+            return plan
 
-        else:
-            print(visits_by_timeslot.keys())
-            plan.visits = [visits_by_timeslot[index]]
-        return plan
+    def __contains__(self, obs: Observation) -> bool:
+        return any(visit.obs_id == obs.id for visit in self.visits)
 
 
 class Plans:
