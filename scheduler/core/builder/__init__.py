@@ -2,4 +2,4 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from .builder import *
-from .blueprint import Blueprints
+from .blueprint import *
