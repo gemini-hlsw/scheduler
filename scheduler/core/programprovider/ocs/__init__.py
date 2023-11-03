@@ -680,7 +680,9 @@ class OcsProgramProvider(ProgramProvider):
         # Remove the None values.
         resources = frozenset([res for res in resources if res is not None])
         mode = determine_mode(instrument)
-        if instrument == 'GPI':
+        # For now we do not split NIR spectroscopy
+        if (mode != ObservationMode.IMAGING and
+                instrument in ['GPI', 'GNIRS', 'NIFS', 'IGRINS', 'Flamingos2', 'Phoenix']):
             do_not_split = True
 
         # Analyze sky offset patterns using auto-correlation
