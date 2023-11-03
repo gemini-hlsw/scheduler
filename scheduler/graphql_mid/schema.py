@@ -1,7 +1,7 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import List, Optional
+from typing import List
 import strawberry # noqa
 from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, NightIndex
@@ -9,14 +9,13 @@ from lucupy.minimodel import Site, ALL_SITES, NightIndex
 from scheduler.core.service.service import build_service
 from scheduler.core.sources import Services, Sources
 from scheduler.core.builder.modes import dispatch_with, SchedulerModes
-from scheduler.core.eventsqueue import WeatherChange, Fault, EventQueue
+from scheduler.core.eventsqueue import EventQueue
 from scheduler.db.planmanager import PlanManager
 
 
 from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
-                    SourceFileHandlerResponse, NewWeatherChange,
-                    EventsAddedResponse, EventsAddedSuccess)
-from .inputs import AddEventInput, CreateNewScheduleInput, NewFault, UseFilesSourceInput
+                    SourceFileHandlerResponse)
+from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
 
 

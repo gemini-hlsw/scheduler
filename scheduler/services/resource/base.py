@@ -272,7 +272,7 @@ class FileBasedResourceService(ResourceService):
                 # Advance the previous row date where data was defined.
                 prev_row_date = row_date
 
-        if type(data_source) is str:
+        if isinstance(data_source, str):
             with open(os.path.join(self._path, data_source)) as f:
                 _process_file(f)
         else:

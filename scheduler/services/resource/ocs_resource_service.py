@@ -5,7 +5,6 @@
 import os
 from lucupy.minimodel import ALL_SITES
 
-from scheduler.core.meta import Singleton
 from scheduler.services import logger_factory
 from scheduler.services.resource.filters import *
 from scheduler.services.resource.night_resource_configuration import *
