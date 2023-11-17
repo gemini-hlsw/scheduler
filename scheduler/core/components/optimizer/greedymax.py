@@ -509,7 +509,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         placement = []
 
         if verbose:
-            print(f'Running place_standards')
+            print('Running place_standards')
 
         xdiff_min = xdiff_before_min = xdiff_after_min = 99999.
         std_before = None
@@ -533,7 +533,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 print(f'Standard {partcal_obs.id.id}')
                 print(f'\t n_slots_acq = {n_slots_acq}, n_slots_cal = {n_slots_cal}')
                 print(f'\n\t slot_start = {slot_start} slot_end = {slot_end}')
-                print(f'\t Try std before')
+                print('\t Try std before')
                 print(f'\t {len(interval[slot_start:slot_end + 1])} xmean_cal_before = {xmean_cal}')
 
             if self.show_plots:
@@ -566,7 +566,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             xmean_cal = self.mean_airmass(partcal_obs.id, interval[slot_start:slot_end + 1], night_idx=night_idx)
 
             if verbose:
-                print(f'\n\t Try std after')
+                print('\n\t Try std after')
                 print(f'\t slot_start = {slot_start} slot_end = {slot_end} len_int = {len_int}')
                 print(f'\t {len(interval[slot_start:slot_end + 1])} xmean_cal_after = {xmean_cal}')
 

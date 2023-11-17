@@ -515,7 +515,7 @@ def group_proc(group,
     """
     Process observations within groups.
     """
-    ws = None
+    # ws = None
     obs_num = []
     for item in list(group.keys()):
         # obs_id = ''
@@ -537,13 +537,13 @@ def group_proc(group,
             obs_stat = group[item]['obsStatus'].upper()
             # print(obs_class, phase2stat, obs_stat)
             if obs_class in sel_obs_class and obs_stat in sel_obs_status:
-                if wb is not None:
-                    ws = wb.create_sheet(title=obs_id.split('-')[-1])
+                # if wb is not None:
+                #    ws = wb.create_sheet(title=obs_id.split('-')[-1])
                 # ws['A1'] = obsid
 
                 # Atoms in each sequence
                 # TODO: Return value is not used but if this is not called, obs_id is not set and an error occurs.
-                atoms = find_atoms(group[item], verbose=verbose, ws=ws, fid=fid)
+                # atoms = find_atoms(group[item], verbose=verbose, ws=ws, fid=fid)
                 # Summary of atoms
                 #                 classes = []
                 #                 qastates = []
@@ -695,7 +695,7 @@ def seqxlsx(sequence, comment: str = '', path: str = '') -> None:
 
     row = 2
     for col_idx, col_data in enumerate(columns):
-        ws.cell(column=col_idx + 1, row=row, value=f'col_data')
+        ws.cell(column=col_idx + 1, row=row, value='col_data')
     row += 1
 
     for step in list(sequence):

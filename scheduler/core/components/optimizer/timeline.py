@@ -85,7 +85,7 @@ class Timeline:
             # Clock time for the starting index
             start = self.start + start_time_slot * self.time_slot_length
         else:
-            print(f'ERROR: timeline.add. No empty time slots.')
+            print('ERROR: timeline.add. No empty time slots.')
 
         # noinspection PyTypeChecker
         return start_time_slot, start

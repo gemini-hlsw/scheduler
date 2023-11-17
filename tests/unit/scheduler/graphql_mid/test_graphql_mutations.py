@@ -57,3 +57,4 @@ async def test_load_files_mutation():
         'fpu': gmos_fpu,
         'gratings': gmos_grat,
     },)
+    assert res

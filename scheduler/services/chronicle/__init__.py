@@ -112,8 +112,7 @@ class FileBasedChronicle(ChronicleService):
                 line = original_line.rstrip()  # remove trail spaces
                 if line:  # ignore empty lines
                     if line[0].isdigit():
-                        # TODO: Unused variable and just a string, not a semester.
-                        semester = line
+                        pass
                     elif line.startswith('FR'):  # found a fault
                         items = line.split('\t')
                         # Create timestamp with ts_clean var removed

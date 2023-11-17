@@ -90,6 +90,7 @@ class Sources:
         self.origin = origin.load()
 
     def use_file(self,
+                 files_input,
                  service: Services,
                  calendar: BytesIO,
                  gmos_fpu: BytesIO,
@@ -106,7 +107,7 @@ class Sources:
                     file_resource = FileResourceService()
 
                     # TODO: files_input is undefined. This will be fixed later.
-                    for sites in files_input.sites:
+                    for site in files_input.sites:
                         suffix = ('s' if site == Site.GS else 'n').upper()
                         file_resource.load_files(f'GMOS{suffix}_fpu_barcode.txt',
                                                  gmos_fpu,

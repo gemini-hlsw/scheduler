@@ -36,7 +36,7 @@ def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.js
 
 def print_collector_info(collector: Collector, samples: int = 60) -> None:
     # Output some information.
-    print(f'Pre-Collector / Collector running from:')
+    print('Pre-Collector / Collector running from:')
     print(f'   start time:       {collector.start_vis_time}')
     print(f'   end time:         {collector.end_vis_time}')
     print(f'   time slot length: {collector.time_slot_length.to(u.min)}')
