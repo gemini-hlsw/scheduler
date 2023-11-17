@@ -530,7 +530,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             xmean_cal = self.mean_airmass(partcal_obs.id, interval[slot_start:slot_end + 1], night_idx=night_idx)
 
             if verbose:
-                print('Standard {partcal_obs.id.id}')
+                print(f'Standard {partcal_obs.id.id}')
                 print(f'\t n_slots_acq = {n_slots_acq}, n_slots_cal = {n_slots_cal}')
                 print(f'\n\t slot_start = {slot_start} slot_end = {slot_end}')
                 print('\t Try std before')
