@@ -3,7 +3,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from scheduler.graphql_mid import graphql_server
+from scheduler.graphql_mid.server import graphql_server
 
 app = FastAPI()
 

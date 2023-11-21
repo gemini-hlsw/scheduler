@@ -32,6 +32,12 @@ class SchedulerBuilder:
                         blueprint: CollectorBlueprint) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
+
+        if isinstance(self.__class__, ValidationBuilder):
+            collector = Collector(start, end, sites, semesters, self.sources, *blueprint)
+            ValidationBuilder.reset_collector_observations(collector)
+            return collector
+
         return Collector(start, end, sites, semesters, self.sources, *blueprint)
 
     @staticmethod

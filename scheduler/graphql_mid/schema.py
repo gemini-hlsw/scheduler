@@ -6,9 +6,9 @@ import strawberry # noqa
 from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, NightIndex
 
-from scheduler.core.service.service import build_service
+from scheduler.core.service.service import Service
 from scheduler.core.sources import Services, Sources
-from scheduler.core.builder.modes import dispatch_with, SchedulerModes
+from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.eventsqueue import EventQueue
 from scheduler.db.planmanager import PlanManager
 
@@ -99,18 +99,16 @@ class Query:
     @strawberry.field
     def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
         try:
-            builder = dispatch_with(new_schedule_input.mode, sources, event_queue)
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
-                Time(new_schedule_input.end_time, format='iso', scale='utc')
+                         Time(new_schedule_input.end_time, format='iso', scale='utc')
 
-            scheduler = build_service(start, end,
-                                      new_schedule_input.num_nights_to_schedule,
-                                      new_schedule_input.site,
-                                      builder)
-            plans, plans_summary = scheduler()
-            splans = [SPlans.from_computed_plans(p, new_schedule_input.site) for p in plans]
+            plans, plans_summary = Service.run(new_schedule_input.mode,
+                                               start,
+                                               end,
+                                               new_schedule_input.num_nights_to_schedule,
+                                               new_schedule_input.sites)
+            splans = [SPlans.from_computed_plans(p, new_schedule_input.sites) for p in plans]
 
         except RuntimeError as e:
             raise RuntimeError(f'Schedule query error: {e}')
-        # json_summary = json.dumps(plans_summary)
         return NewNightPlans(night_plans=splans, plans_summary=plans_summary)
