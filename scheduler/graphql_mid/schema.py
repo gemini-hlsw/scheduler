@@ -14,7 +14,7 @@ from scheduler.db.planmanager import PlanManager
 
 
 from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
-                    SourceFileHandlerResponse)
+                    SourceFileHandlerResponse, SNightTimelines)
 from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
 
@@ -102,12 +102,12 @@ class Query:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                          Time(new_schedule_input.end_time, format='iso', scale='utc')
 
-            plans, plans_summary = Service.run(new_schedule_input.mode,
-                                               start,
-                                               end,
-                                               new_schedule_input.num_nights_to_schedule,
-                                               new_schedule_input.sites)
-            splans = [SPlans.from_computed_plans(p, new_schedule_input.sites) for p in plans]
+            timelines, plans_summary = Service.run(new_schedule_input.mode,
+                                                   start,
+                                                   end,
+                                                   new_schedule_input.num_nights_to_schedule,
+                                                   new_schedule_input.sites)
+            s_timelines = SNightTimelines.from_computed_timelines(timelines)
 
         except RuntimeError as e:
             raise RuntimeError(f'Schedule query error: {e}')

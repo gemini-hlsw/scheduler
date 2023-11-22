@@ -34,7 +34,7 @@ class Service:
 
     @staticmethod
     def _schedule_nights(night_indices, sites, collector, selector, optimizer, queue, cc_per_site, iq_per_site):
-        overall_plans = {}
+
         night_timeline = NightTimeline({night_index: {site: [] for site in sites}
                                         for night_index in night_indices})
 
@@ -113,13 +113,7 @@ class Service:
                     collector.time_accounting(plans[0],
                                               sites=frozenset({site}),
                                               end_timeslot_bounds=end_timeslot_bounds)
-
-            # Piece together the plans for the night to get the overall plans.
-            for site in collector.sites:
-                plans[0][site] = night_timeline.get_final_plan(NightIndex(night_idx), site)
-            overall_plans[night_idx] = plans[0]
-
-            return overall_plans
+            return night_timeline
 
     def run(self,
             mode,

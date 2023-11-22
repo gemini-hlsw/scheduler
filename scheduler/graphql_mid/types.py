@@ -12,6 +12,7 @@ from strawberry.scalars import JSON
 from lucupy.minimodel import (Site, Conditions, ImageQuality,
                               CloudCover, WaterVapor, SkyBackground)
 
+from scheduler.core.eventsqueue.nightchanges import NightTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.core.eventsqueue import WeatherChange
 from scheduler.graphql_mid.scalars import SObservationID
@@ -112,8 +113,50 @@ class SPlans:
 
 
 @strawberry.type
+class STimeLineEntry:
+    start_time_slots: int
+    event: str
+    plan: SPlan
+
+
+@strawberry.type
+class TimelineEntriesBySite:
+    site: Site
+    time_entries: List[STimeLineEntry]
+
+
+@strawberry.type
+class SNightTimelineEntry:
+    night_index: int
+    time_entries_by_site: List[TimelineEntriesBySite]
+
+
+@strawberry.type
+class SNightTimelines:
+    night_timeline: List[SNightTimelineEntry]
+
+    @staticmethod
+    def from_computed_timelines(timeline: NightTimeline) -> 'SNightTimelines':
+        timelines = []
+        for n_idx, timeline_by_site in timeline.timeline.items():
+            s_timeline_entries = []
+            for site, entries in timeline_by_site.items():
+                s_entries = []
+                for entry in entries:
+                    e = SNightTimelineEntry(int(entry.start_time_slots),
+                                            entry.event.reason,
+                                            SPlan.from_computed_plan(entry.plan_generated))
+                    s_entries.append(e)
+                te = TimelineEntriesBySite(site, s_entries)
+                s_timeline_entries.append(te)
+            sn = SNightTimelineEntry(n_idx, s_timeline_entries)
+            timelines.append(sn)
+        return SNightTimelines(timelines)
+
+
+@strawberry.type
 class NewNightPlans:
-    night_plans: List[SPlans]
+    night_plans: List[SNightTimelines]
     plans_summary: JSON
 
 
