@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 
@@ -44,6 +44,13 @@ class NightTimeline:
         else:
             self.timeline[night_idx] = {site: [entry]}
 
+    def get_plan_by_event(self, night_idx: NightIndex, site: Site, event: type) -> Optional[Plan]:
+        entries = self.timeline[night_idx][site]
+        for entry in entries:
+            if isinstance(entry.event, event):
+                return entry.plan_generated
+        return None
+
     def get_final_plan(self, night_idx: NightIndex, site: Site) -> Plan:
         if night_idx not in self.timeline:
             raise RuntimeError(f'Cannot get final plan: {night_idx} for site {site.name} not in timeline.')
@@ -69,6 +76,7 @@ class NightTimeline:
             all_generated += [v for v in reversed(partial_plan.visits)]
             if t < entry.start_time_slots:
                 t = entry.start_time_slots
+
         p = Plan(start=entries[0].plan_generated.start,
                  end=entries[-1].plan_generated.end,
                  time_slot_length=entries[0].plan_generated.time_slot_length,

@@ -102,13 +102,13 @@ class Query:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                          Time(new_schedule_input.end_time, format='iso', scale='utc')
 
-            timelines, plans_summary = Service.run(new_schedule_input.mode,
-                                                   start,
-                                                   end,
-                                                   new_schedule_input.num_nights_to_schedule,
-                                                   new_schedule_input.sites)
+            timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
+                                                     start_vis=start,
+                                                     end_vis=end,
+                                                     num_nights_to_schedule=new_schedule_input.num_nights_to_schedule,
+                                                     sites=new_schedule_input.sites)
             s_timelines = SNightTimelines.from_computed_timelines(timelines)
 
         except RuntimeError as e:
             raise RuntimeError(f'Schedule query error: {e}')
-        return NewNightPlans(night_plans=splans, plans_summary=plans_summary)
+        return NewNightPlans(night_plans=s_timelines, plans_summary=plans_summary)

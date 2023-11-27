@@ -4,15 +4,19 @@
 import os
 from datetime import datetime
 
-from typing import FrozenSet, Optional
+from typing import FrozenSet, Optional, List, Dict
 
 import numpy as np
 from astropy.time import Time
-from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex
+from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex, CloudCover, ImageQuality
 
-from scheduler.core.builder.modes import dispatch_with
+from scheduler.core.builder.modes import dispatch_with, SchedulerModes
+from scheduler.core.components.collector import Collector
+from scheduler.core.components.optimizer import Optimizer
+from scheduler.core.components.selector import Selector
 from scheduler.core.eventsqueue import EventQueue, EveningTwilight, MorningTwilight, WeatherChange
 from scheduler.core.eventsqueue.nightchanges import NightTimeline
+from scheduler.core.plans import Plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.builder import SchedulerBuilder, Blueprints
 from scheduler.core.sources import Sources
@@ -24,6 +28,9 @@ from definitions import ROOT_DIR
 
 class Service:
 
+    def __init__(self):
+        pass
+
     @staticmethod
     def _setup(night_indices, sites, mode):
 
@@ -33,7 +40,14 @@ class Service:
         return builder
 
     @staticmethod
-    def _schedule_nights(night_indices, sites, collector, selector, optimizer, queue, cc_per_site, iq_per_site):
+    def _schedule_nights(night_indices: FrozenSet[NightIndex],
+                         sites: FrozenSet[Site],
+                         collector: Collector,
+                         selector: Selector,
+                         optimizer: Optimizer,
+                         queue: EventQueue,
+                         cc_per_site: Optional[Dict[Site, CloudCover]] = None,
+                         iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
 
         night_timeline = NightTimeline({night_index: {site: [] for site in sites}
                                         for night_index in night_indices})
@@ -41,18 +55,13 @@ class Service:
         for night_idx in sorted(night_indices):
             night_indices = np.array([night_idx])
 
-            # Reset the Selector to the default weather for the night.
             for site in sites:
+
+                # Reset the Selector to the default weather for the night.
                 cc_value = cc_per_site and cc_per_site.get(site)
                 iq_value = iq_per_site and iq_per_site.get(site)
                 selector.update_cc_and_iq(site, cc_value, iq_value)
 
-            # Run eventless timeline
-            selection = selector.select(night_indices=night_indices)
-            # Run the optimizer to get the plans for the first night in the selection.
-            plans = optimizer.schedule(selection)
-
-            for site in collector.sites:
                 # The starting twilight for the night for the site.
                 night_start: Optional[datetime] = None
                 night_done = False
@@ -77,6 +86,15 @@ class Service:
                             if night_start is None:
                                 raise ValueError(f'Morning twilight event for night index {night_idx} '
                                                  f'at site {site.name} before evening twilight event.')
+                            event_start_time_slot = event.to_timeslot_idx(night_start,
+                                                                          collector.time_slot_length.to_datetime())
+                            plan = night_timeline.get_final_plan(night_idx, site)
+                            night_timeline.add(NightIndex(night_idx),
+                                               site,
+                                               TimeslotIndex(event_start_time_slot),
+                                               event,
+                                               plan)
+
                             night_start = None
                             night_done = True
 
@@ -113,16 +131,17 @@ class Service:
                     collector.time_accounting(plans[0],
                                               sites=frozenset({site}),
                                               end_timeslot_bounds=end_timeslot_bounds)
-            return night_timeline
+
+        return night_timeline
 
     def run(self,
-            mode,
-            start_vis,
-            end_vis,
-            num_nights_to_schedule,
-            sites,
-            cc_per_site,
-            iq_per_site):
+            mode: SchedulerModes,
+            start_vis: Time,
+            end_vis: Time,
+            num_nights_to_schedule: int,
+            sites: FrozenSet[Site],
+            cc_per_site: Optional[Dict[Site, CloudCover]] = None,
+            iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
 
         night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
         semesters = frozenset([Semester.find_semester_from_date(start_vis.to_value('datetime')),
@@ -161,13 +180,26 @@ class Service:
                 morn_twilight = MorningTwilight(start=morn_twilight_time, reason='Morning 12° Twilight', site=site)
                 builder.events.add_event(night_idx, site, morn_twilight)
 
-        plans = self._schedule_nights(night_indices, sites, collector, selector, optimizer, builder.events)
-        sorted_plans = [p for _, p in sorted(plans.items())]
-
-        selection = selector.select(sites=sites)
-
-        plans = optimizer.schedule(selection)
+        timelines = self._schedule_nights(night_indices,
+                                          sites,
+                                          collector,
+                                          selector,
+                                          optimizer,
+                                          builder.events,
+                                          cc_per_site,
+                                          iq_per_site)
+        plans = []
+        for n_idx in night_indices:
+            p = Plans(collector.night_events, n_idx)
+            for site in sites:
+                plan = timelines.get_plan_by_event(n_idx, site, MorningTwilight)
+                if plan:
+                    p[site] = plan
+                else:
+                    raise ValueError(f'Plan not found for site {site} at night {n_idx}')
+            plans.append(p)
 
         # Calculate plans stats
-        plan_summary = StatCalculator.calculate_plans_stats(sorted_plans, collector)
-        return plans, plan_summary
+        plan_summary = StatCalculator.calculate_timeline_stats(timelines, night_indices, sites, collector)
+
+        return timelines, plan_summary
