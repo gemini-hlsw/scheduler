@@ -8,28 +8,39 @@ from lucupy.observatory.gemini import GeminiProperties
 def test_schedule_query():
     ObservatoryProperties.set_properties(GeminiProperties)
     query = """
-        query getNightPlans {
-                schedule(newScheduleInput: {startTime: "2018-10-01 08:00:00",
-                                            endTime: "2018-10-03 08:00:00",
-                                            numNightsToSchedule: 3,
-                                            site: "ALL_SITES",
-                                            mode: VALIDATION},) {
-                nightPlans {
-                    nightIdx
-                    plansPerSite {
-                        endTime
-                        site
-                        startTime
-                        visits {
-                            atomEndIdx
-                            atomStartIdx
-                            obsId
-                            startTime
-                        }
+        query schedule {
+            schedule(
+                newScheduleInput: {
+                  startTime: "2018-10-01 08:00:00", 
+                  numNightsToSchedule: 3, 
+                  sites: "GN", 
+                  mode: VALIDATION, 
+                  endTime: "2018-10-03 08:00:00"}
+            ) {
+            nightPlans{
+              nightTimeline{
+                nightIndex
+                timeEntriesBySite{
+                  site,
+                  timeEntries{
+                    startTimeSlots,
+                    event,
+                    plan{
+                      startTime,
+                      visits{
+                        obsId
+                      },
+                      nightStats{
+                        timeloss
+                      }
                     }
+                  }
                 }
-            }
+              }
+            },
+            plansSummary
         }
+    }
     """
     result = schema.execute_sync(query)
     assert result is not None
@@ -41,12 +52,10 @@ def test_schedule_query():
     assert 'nightPlans' in schedule
     night_plans = schedule['nightPlans']
     assert night_plans is not None
-    assert len(night_plans) >= 1
-    night_plan = night_plans[0]
-    assert night_plan is not None
-    assert 'plansPerSite' in night_plan
-    plan_per_site = night_plan['plansPerSite']
-    assert plan_per_site is not None
-    assert len(plan_per_site) >= 0
-    plan = plan_per_site[0]
-    assert plan is not None
+    assert 'nightTimeline' in night_plans
+    plan_per_night = night_plans['nightTimeline']
+    assert plan_per_night is not None
+    assert len(plan_per_night) >= 0
+    time_entry = plan_per_night[0]
+    assert time_entry is not None
+    assert 'timeEntriesBySite' in time_entry
