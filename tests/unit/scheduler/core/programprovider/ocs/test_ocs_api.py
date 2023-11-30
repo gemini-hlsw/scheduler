@@ -80,7 +80,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.K, 1.71)
         }),
         type=TargetType.BASE,
-        ra=sex2dec('18:36:23.940', todegree=True),
+        ra=sex2dec('18:36:23.940', to_degree=True),
         dec=dmsstr2deg('336:05:42.90'),
         pm_ra=9.82,
         pm_dec=-5.54,
@@ -101,7 +101,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.K, 6.769)
         }),
         type=TargetType.GUIDESTAR,
-        ra=sex2dec('18:36:36.196', todegree=True),
+        ra=sex2dec('18:36:36.196', to_degree=True),
         dec=dmsstr2deg('336:00:20.55'),
         pm_ra=10.6,
         pm_dec=0.1,
@@ -229,7 +229,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.g, value=7.101)
         }),
         type=TargetType.BASE,
-        ra=sex2dec('21:29:58.330', todegree=True),
+        ra=sex2dec('21:29:58.330', to_degree=True),
         dec=dmsstr2deg('12:10:01.20'),
         pm_ra=-0.63,
         pm_dec=-3.8,
@@ -250,7 +250,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.V, value=12.834)
         }),
         type=TargetType.GUIDESTAR,
-        ra=sex2dec('21:29:54.924', todegree=True),
+        ra=sex2dec('21:29:54.924', to_degree=True),
         dec=dmsstr2deg('12:13:22.47'),
         pm_ra=-7.2,
         pm_dec=-6.8,
@@ -270,7 +270,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.J, value=14.455)
         }),
         type=TargetType.TUNING_STAR,
-        ra=sex2dec('21:29:46.873', todegree=True),
+        ra=sex2dec('21:29:46.873', to_degree=True),
         dec=dmsstr2deg('12:12:57.61'),
         pm_ra=4.9,
         pm_dec=0.9,
@@ -286,7 +286,7 @@ def create_minimodel_program() -> Program:
             Magnitude(MagnitudeBands.J, 13.504)
         }),
         type=TargetType.BLIND_OFFSET,
-        ra=sex2dec('21:29:42.967', todegree=True),
+        ra=sex2dec('21:29:42.967', to_degree=True),
         dec=dmsstr2deg('12:09:53.42'),
         pm_ra=-21.0,
         pm_dec=-12.9,
