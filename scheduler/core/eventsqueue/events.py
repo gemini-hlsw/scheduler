@@ -4,6 +4,7 @@
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import Enum
 from math import ceil
 from typing import final, FrozenSet, Optional
 

@@ -4,18 +4,19 @@
 from typing import List
 import strawberry # noqa
 from astropy.time import Time
-from lucupy.minimodel import Site, ALL_SITES, NightIndex
+from lucupy.minimodel import Site, ALL_SITES, NightIndex, Conditions, CloudCover, SkyBackground, WaterVapor, \
+    ImageQuality
 
 from scheduler.core.service.service import Service
 from scheduler.core.sources import Services, Sources
 from scheduler.core.builder.modes import SchedulerModes
-from scheduler.core.eventsqueue import EventQueue
+from scheduler.core.eventsqueue import EventQueue, WeatherChange
 from scheduler.db.planmanager import PlanManager
 
 
 from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
-                    SourceFileHandlerResponse, SNightTimelines)
-from .inputs import CreateNewScheduleInput, UseFilesSourceInput
+                    SourceFileHandlerResponse, SNightTimelines, EventsAddedSuccess, EventsAddedError)
+from .inputs import CreateNewScheduleInput, UseFilesSourceInput, NewWeatherChangeInput
 from .scalars import SOrigin
 
 
@@ -82,6 +83,38 @@ class Mutation:
             return ChangeOriginSuccess(from_origin=old, to_origin=old)
         sources.set_origin(new_origin)
         return ChangeOriginSuccess(from_origin=old, to_origin=str(new_origin))
+
+    @strawberry.mutation
+    def add_weather_change(self, new_weather_change: NewWeatherChangeInput):
+        try:
+            new_cc = new_weather_change.new_CC
+            new_sb = new_weather_change.new_SB
+            new_wv = new_weather_change.new_WV
+            new_iq = new_weather_change.new_IQ
+            c = Conditions(cc=CloudCover[new_cc.name] if new_cc else None,
+                           sb=SkyBackground[new_sb.name] if new_sb else None,
+                           wv=WaterVapor[new_wv.name] if new_wv else None,
+                           iq=ImageQuality[new_iq.name] if new_iq else None)
+            wc = WeatherChange(start=new_weather_change.start,
+                               reason=new_weather_change.reason,
+                               new_conditions=c)
+            event_queue.add_event(wc, new_weather_change.site)
+        except KeyError:
+            return EventsAddedError(error='Weather Condition not valid!')
+        else:
+            return EventsAddedSuccess(added_event=f'Weather change added at {new_weather_change.start.timestamp()}')
+
+    @strawberry.mutation
+    def remove_weather_change(self, new_weather_change: input):
+        pass
+
+    @strawberry.mutation
+    def add_fault(self, new_weather_change: input):
+        pass
+
+    @strawberry.mutation
+    def remove_fault(self, new_weather_change: input):
+        pass
 
 
 @strawberry.type

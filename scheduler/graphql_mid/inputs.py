@@ -4,11 +4,33 @@
 from datetime import datetime
 
 import strawberry  # noqa
+from lucupy.minimodel import Site
 from strawberry.file_uploads import Upload  # noqa
 from typing import Optional, List
 
 from .scalars import Sites
 from scheduler.core.builder.modes import SchedulerModes
+from .types import CC, SB, WV, IQ
+
+
+@strawberry.input
+class NewWeatherChangeInput:
+    start: datetime
+    reason: str
+    site: Site
+    new_CC: Optional[CC]
+    new_SB: Optional[SB]
+    new_WV: Optional[WV]
+    new_IQ: Optional[IQ]
+
+
+@strawberry.input
+class NewFaultInput:
+    start: datetime
+    end: datetime
+    reason: str
+    site: Site
+    affects: str
 
 
 @strawberry.input
@@ -21,7 +43,6 @@ class CreateNewScheduleInput:
     num_nights_to_schedule: int
     sites: Sites
     mode: SchedulerModes
-
 
 @strawberry.input
 class UseFilesSourceInput:

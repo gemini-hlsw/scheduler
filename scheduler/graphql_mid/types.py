@@ -3,6 +3,7 @@
 
 import json
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import List, FrozenSet, Optional
 
 import pytz
@@ -105,6 +106,13 @@ class SPlans:
             plans_per_site=[plans for plans in self.plans_per_site if plans.site == site])
 
 
+@strawberry.enum
+class SEventTypes(Enum):
+    FAULT = "Fault"
+    WEATHERCHANGE = 'WeatherChange'
+    RTOO = 'rToO'
+
+
 @strawberry.type
 class STimelineEntry:
     start_time_slots: int
@@ -199,32 +207,13 @@ IQ = strawberry.enum(ImageQuality)
 
 
 @strawberry.type
-class NewWeatherChange:
-    start: datetime
-    reason: str
-    new_CC: Optional[CC]
-    new_SB: Optional[SB]
-    new_WV: Optional[WV]
-    new_IQ: Optional[IQ]
-
-    def to_scheduler_event(self) -> WeatherChange:
-        c = Conditions(cc=CloudCover[self.new_CC.name] if self.new_CC else None,
-                       sb=SkyBackground[self.new_SB.name] if self.new_SB else None,
-                       wv=WaterVapor[self.new_WV.name] if self.new_WV else None,
-                       iq=ImageQuality[self.new_IQ.name] if self.new_IQ else None)
-        return WeatherChange(start=self.start,
-                             reason=self.reason,
-                             new_conditions=c
-                             )
-
-
-@strawberry.type
 class EventsAddedSuccess:
     """
     Success response for creating a new schedule.
     """
-    success: bool
     added_event: str
+    success: bool = True
+
 
 
 @strawberry.type
@@ -233,6 +222,7 @@ class EventsAddedError:
     Error response for creating a new schedule.
     """
     error: str
+    success: bool = False
 
 
 EventsAddedResponse = EventsAddedSuccess | EventsAddedError
