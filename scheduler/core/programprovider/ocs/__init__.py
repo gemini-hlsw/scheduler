@@ -433,7 +433,7 @@ class OcsProgramProvider(ProgramProvider):
         dec_ddmmss = data[OcsProgramProvider._TargetKeys.DEC]
 
         # TODO: Is this the proper way to handle conversions from hms and dms?
-        ra = sex2dec(ra_hhmmss, todegree=True)
+        ra = sex2dec(ra_hhmmss, to_degree=True)
         dec = dmsstr2deg(dec_ddmmss)
 
         pm_ra = data.setdefault(OcsProgramProvider._TargetKeys.DELTA_RA, 0.0)
