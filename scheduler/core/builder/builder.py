@@ -117,7 +117,7 @@ class ValidationBuilder(SchedulerBuilder):
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint) -> Collector:
 
-        collector = super().build_collector(start, end, sites, semesters, self.sources, blueprint)
+        collector = super().build_collector(start, end, sites, semesters, blueprint)
         ValidationBuilder.reset_collector_observations(collector)
         return collector
 
