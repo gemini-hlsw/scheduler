@@ -188,16 +188,6 @@ class Service:
                                           builder.events,
                                           cc_per_site,
                                           iq_per_site)
-        plans = []
-        for n_idx in night_indices:
-            p = Plans(collector.night_events, n_idx)
-            for site in sites:
-                plan = timelines.get_plan_by_event(n_idx, site, MorningTwilight)
-                if plan:
-                    p[site] = plan
-                else:
-                    raise ValueError(f'Plan not found for site {site} at night {n_idx}')
-            plans.append(p)
 
         # Calculate plans stats
         plan_summary = StatCalculator.calculate_timeline_stats(timelines, night_indices, sites, collector)

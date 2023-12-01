@@ -44,13 +44,6 @@ class NightTimeline:
         else:
             self.timeline[night_idx] = {site: [entry]}
 
-    def get_plan_by_event(self, night_idx: NightIndex, site: Site, event: type) -> Optional[Plan]:
-        entries = self.timeline[night_idx][site]
-        for entry in entries:
-            if isinstance(entry.event, event):
-                return entry.plan_generated
-        return None
-
     def get_final_plan(self, night_idx: NightIndex, site: Site) -> Plan:
         if night_idx not in self.timeline:
             raise RuntimeError(f'Cannot get final plan: {night_idx} for site {site.name} not in timeline.')
