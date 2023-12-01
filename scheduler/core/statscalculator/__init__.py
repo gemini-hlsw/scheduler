@@ -27,7 +27,7 @@ class StatCalculator:
                                  sites: Sites,
                                  collector: Collector) -> Dict[str, Tuple[str, float]]:
 
-        all_programs_scores: Dict[ProgramID, float] = {}
+        scores_per_program: Dict[ProgramID, float] = {}
 
         for night_idx in nights:
             for site in sites:
@@ -50,8 +50,8 @@ class StatCalculator:
                         # check completion
                         program = collector.get_program(obs.belongs_to)
 
-                        all_programs_scores.setdefault(program.id, 0)
-                        all_programs_scores[program.id] += visit.score
+                        scores_per_program.setdefault(program.id, 0)
+                        scores_per_program[program.id] += visit.score
                         completion_fraction[program.band] += 1
 
                         # Calculate altitude data
@@ -67,14 +67,14 @@ class StatCalculator:
                                                   completion_fraction)
 
         plans_summary = {}
-        for p_id in all_programs_scores:
+        for p_id in scores_per_program:
             program = collector.get_program(p_id)
             total_used = program.total_used()
             prog_total = sum((o.part_time() + o.acq_overhead + o.prog_time() for o in program.observations()),
                              start=ZeroTime)
 
             completion = f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'
-            score = all_programs_scores[p_id]
+            score = scores_per_program[p_id]
             # print(completion, score)
             plans_summary[p_id.id] = (completion, score)
 
