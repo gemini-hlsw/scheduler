@@ -12,6 +12,7 @@ from strawberry.scalars import JSON
 from lucupy.minimodel import (Site, Conditions, ImageQuality,
                               CloudCover, WaterVapor, SkyBackground)
 
+from scheduler.core.eventsqueue.nightchanges import NightTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.core.eventsqueue import WeatherChange
 from scheduler.graphql_mid.scalars import SObservationID
@@ -24,21 +25,14 @@ class SNightStats:
     """
     timeloss: str
     plan_score: float
-    plan_conditions: JSON
     n_toos: int
     completion_fraction: JSON
 
     @staticmethod
     def from_computed_night_stats(ns: NightStats) -> 'SNightStats':
-        conditions = {'cc': ns.plan_conditions.cc,
-                      'iq': ns.plan_conditions.iq,
-                      'wv': ns.plan_conditions.wv,
-                      'sb': ns.plan_conditions.sb}
-        conditions = json.dumps(conditions)
         cf = json.dumps(ns.completion_fraction)
         return SNightStats(timeloss=ns.time_loss,
                            plan_score=ns.plan_score,
-                           plan_conditions=conditions,
                            n_toos=ns.n_toos,
                            completion_fraction=cf)
 
@@ -112,8 +106,51 @@ class SPlans:
 
 
 @strawberry.type
+class STimelineEntry:
+    start_time_slots: int
+    event: str
+    plan: SPlan
+
+
+@strawberry.type
+class TimelineEntriesBySite:
+    site: Site
+    time_entries: List[STimelineEntry]
+
+
+@strawberry.type
+class SNightInTimeline:
+    night_index: int
+    time_entries_by_site: List[TimelineEntriesBySite]
+
+
+@strawberry.type
+class SNightTimelines:
+    night_timeline: List[SNightInTimeline]
+
+    @staticmethod
+    def from_computed_timelines(timeline: NightTimeline) -> 'SNightTimelines':
+        timelines = []
+        for n_idx in timeline.timeline:
+            s_timeline_entries = []
+            for site in timeline.timeline[n_idx]:
+                s_entries = []
+                for entry in timeline.timeline[n_idx][site]:
+
+                    e = STimelineEntry(start_time_slots=int(entry.start_time_slots),
+                                       event=entry.event.reason,
+                                       plan=SPlan.from_computed_plan(entry.plan_generated))
+                    s_entries.append(e)
+                te = TimelineEntriesBySite(site=site, time_entries=s_entries)
+                s_timeline_entries.append(te)
+            sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
+            timelines.append(sn)
+        return SNightTimelines(night_timeline=timelines)
+
+
+@strawberry.type
 class NewNightPlans:
-    night_plans: List[SPlans]
+    night_plans: SNightTimelines
     plans_summary: JSON
 
 

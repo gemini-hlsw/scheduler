@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 
@@ -69,6 +69,7 @@ class NightTimeline:
             all_generated += [v for v in reversed(partial_plan.visits)]
             if t < entry.start_time_slots:
                 t = entry.start_time_slots
+
         p = Plan(start=entries[0].plan_generated.start,
                  end=entries[-1].plan_generated.end,
                  time_slot_length=entries[0].plan_generated.time_slot_length,

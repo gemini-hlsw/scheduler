@@ -28,7 +28,6 @@ class Visit:
 class NightStats:
     time_loss: str
     plan_score: float
-    plan_conditions: Conditions
     n_toos: int
     completion_fraction: Mapping[Band, int]
 
