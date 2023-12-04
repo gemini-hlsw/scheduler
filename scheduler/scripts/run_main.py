@@ -110,11 +110,6 @@ def main(*,
             iq_value = iq_per_site and iq_per_site.get(site)
             selector.update_cc_and_iq(site, cc_value, iq_value)
 
-        # Run eventless timeline
-        selection = selector.select(night_indices=night_indices)
-        # Run the optimizer to get the plans for the first night in the selection.
-        plans = optimizer.schedule(selection)
-
         for site in collector.sites:
             # The starting twilight for the night for the site.
             night_start: Optional[datetime] = None
