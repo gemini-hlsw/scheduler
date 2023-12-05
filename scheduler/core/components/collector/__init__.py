@@ -4,7 +4,6 @@
 from dataclasses import dataclass
 from datetime import timedelta
 from inspect import isclass
-import logging
 import time
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 
@@ -31,7 +30,7 @@ from scheduler.services import logger_factory
 from scheduler.services.resource import ResourceService
 
 # Set to INFO for now to record time accounting activity.
-logger = logger_factory.create_logger(__name__, level=logging.INFO)
+logger = logger_factory.create_logger(__name__)
 
 
 @final
