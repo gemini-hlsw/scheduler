@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from math import ceil
 from typing import final, FrozenSet, Optional
+from uuid import UUID
 
 from lucupy.minimodel import Resource, Conditions, Site, TimeslotIndex
 
@@ -16,6 +17,7 @@ class Event(ABC):
     """
     Superclass for all events, i.e. Interruption and Blockage.
     """
+    event_id: UUID
     start: datetime
     reason: str
     site: Site

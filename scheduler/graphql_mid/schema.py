@@ -1,6 +1,6 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
+import uuid
 from typing import List
 import strawberry # noqa
 from astropy.time import Time
@@ -15,14 +15,17 @@ from scheduler.db.planmanager import PlanManager
 
 
 from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
-                    SourceFileHandlerResponse, SNightTimelines, EventsAddedSuccess, EventsAddedError)
+                    SourceFileHandlerResponse, SNightTimelines, EventsAddedSuccess, EventsAddedError,
+                    EventsAddedResponse, EventRemovedResponse)
 from .inputs import CreateNewScheduleInput, UseFilesSourceInput, NewWeatherChangeInput
 from .scalars import SOrigin
-
+from ..config import config
+from ..core.time import TimeHandler
 
 # TODO: This variables need a Redis cache to work with different mutation correctly
 sources = Sources()
 event_queue = EventQueue(frozenset([NightIndex(i) for i in range(3)]), ALL_SITES)
+time_handler = TimeHandler(start=None, num_nights_to_schedule=None, time_slot_length=config.collector.time_slot_length)
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 
@@ -85,7 +88,7 @@ class Mutation:
         return ChangeOriginSuccess(from_origin=old, to_origin=str(new_origin))
 
     @strawberry.mutation
-    def add_weather_change(self, new_weather_change: NewWeatherChangeInput):
+    def add_weather_change(self, new_weather_change: NewWeatherChangeInput) -> EventsAddedResponse:
         try:
             new_cc = new_weather_change.new_CC
             new_sb = new_weather_change.new_SB
@@ -95,26 +98,20 @@ class Mutation:
                            sb=SkyBackground[new_sb.name] if new_sb else None,
                            wv=WaterVapor[new_wv.name] if new_wv else None,
                            iq=ImageQuality[new_iq.name] if new_iq else None)
-            wc = WeatherChange(start=new_weather_change.start,
+            wc = WeatherChange(event_id=uuid.uuid4(),
+                               start=new_weather_change.start,
                                reason=new_weather_change.reason,
+                               site=new_weather_change.site,
                                new_conditions=c)
-            event_queue.add_event(wc, new_weather_change.site)
+            event_queue.add_event(time_handler.dt2night_index(new_weather_change.start), new_weather_change.site, wc)
         except KeyError:
             return EventsAddedError(error='Weather Condition not valid!')
         else:
             return EventsAddedSuccess(added_event=f'Weather change added at {new_weather_change.start.timestamp()}')
 
     @strawberry.mutation
-    def remove_weather_change(self, new_weather_change: input):
-        pass
-
-    @strawberry.mutation
-    def add_fault(self, new_weather_change: input):
-        pass
-
-    @strawberry.mutation
-    def remove_fault(self, new_weather_change: input):
-        pass
+    def remove_weather_change(self, night: int, site: Site, event_id: uuid.UUID) -> EventRemovedResponse:
+        return EventRemovedResponse(success=event_queue.remove_event(NightIndex(night), site, event_id))
 
 
 @strawberry.type
@@ -134,6 +131,9 @@ class Query:
         try:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                          Time(new_schedule_input.end_time, format='iso', scale='utc')
+
+            time_handler.start = start.to_datetime()
+            time_handler.num_nights_to_schedule = new_schedule_input.num_nights_to_schedule
 
             timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
                                                      start_vis=start,

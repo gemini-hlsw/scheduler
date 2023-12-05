@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
+import uuid
 from datetime import datetime
 
 from typing import FrozenSet, Optional, List, Dict
@@ -75,7 +76,7 @@ class Service:
                 while events_by_night.has_more_events():
                     event = events_by_night.next_event()
                     match event:
-                        case EveningTwilight(new_night_start, _, _):
+                        case EveningTwilight(_,new_night_start, _, _):
                             if night_start is not None:
                                 raise ValueError(f'Multiple evening twilight events for night index {night_idx} '
                                                  f'at site {site.name}: was {night_start}, now {new_night_start}.')
@@ -172,12 +173,18 @@ class Service:
             night_events = collector.get_night_events(site)
             for night_idx in night_indices:
                 eve_twilight_time = night_events.twilight_evening_12[night_idx].to_datetime()
-                eve_twilight = EveningTwilight(start=eve_twilight_time, reason='Evening 12° Twilight', site=site)
+                eve_twilight = EveningTwilight(event_id=uuid.uuid4(),
+                                               start=eve_twilight_time,
+                                               reason='Evening 12° Twilight',
+                                               site=site)
                 builder.events.add_event(night_idx, site, eve_twilight)
 
                 # Add one time slot to the morning twilight to make sure time accounting is done for entire night.
                 morn_twilight_time = night_events.twilight_morning_12[night_idx].to_datetime()
-                morn_twilight = MorningTwilight(start=morn_twilight_time, reason='Morning 12° Twilight', site=site)
+                morn_twilight = MorningTwilight(event_id=uuid.uuid4(),
+                                                start=morn_twilight_time,
+                                                reason='Morning 12° Twilight',
+                                                site=site)
                 builder.events.add_event(night_idx, site, morn_twilight)
 
         timelines = self._schedule_nights(night_indices,

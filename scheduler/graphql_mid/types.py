@@ -215,7 +215,6 @@ class EventsAddedSuccess:
     success: bool = True
 
 
-
 @strawberry.type
 class EventsAddedError:
     """
@@ -223,6 +222,11 @@ class EventsAddedError:
     """
     error: str
     success: bool = False
+
+
+@strawberry.type
+class EventRemovedResponse:
+    success: bool
 
 
 EventsAddedResponse = EventsAddedSuccess | EventsAddedError

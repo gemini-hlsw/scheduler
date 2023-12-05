@@ -2,6 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass, field
+from uuid import UUID
+
 from sortedcontainers import SortedList
 from typing import FrozenSet, Iterable, Optional
 
@@ -54,6 +56,21 @@ class EventQueue:
     def add_events(self, night_idx: NightIndex, site: Site, events: Iterable[Event]) -> None:
         for event in events:
             self.add_event(night_idx, site, event)
+
+    def remove_event(self, night: NightIndex, site: Site, event_id: UUID) -> bool:
+        for idx, e in enumerate(self._events[night][site].events):
+            if e.event_id == event_id:
+                try:
+                    self._events[night][site].events.pop(idx)
+                except ValueError:
+                    return False
+                else:
+                    return True
+        return False
+
+
+
+
 
     def check_blockage(self, resume_event: ResumeNight) -> Blockage:
         if self._blockage_stack and len(self._blockage_stack) == 1:
