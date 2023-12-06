@@ -17,6 +17,10 @@ from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.eventsqueue import EveningTwilight, EventQueue, MorningTwilight, WeatherChange
+from scheduler.services import logger_factory
+
+
+logger = logger_factory.create_logger(__name__)
 
 
 def main(*,
@@ -123,6 +127,7 @@ def main(*,
 
             while events_by_night.has_more_events():
                 event = events_by_night.next_event()
+                logger.info(f"Received event for night idx {night_idx} at site {site.name}: {event.__class__.__name__}")
                 match event:
                     case EveningTwilight(new_night_start, _, _):
                         if night_start is not None:
@@ -149,6 +154,7 @@ def main(*,
 
                 # Calculate the time slot of the event. Note that if the night is done, it is None.
                 if night_done:
+                    event_start_time_slot = None
                     end_timeslot_bounds = None
                 else:
                     event_start_time_slot = event.to_timeslot_idx(night_start, collector.time_slot_length.to_datetime())
@@ -163,6 +169,8 @@ def main(*,
                 # This will also perform the final time accounting when the night is done and the morning twilight
                 # event has occurred.
                 if plans is not None:
+                    logger.info(f'Performing time accounting for night index {night_idx} '
+                                f'at {site.name} up to timeslot {event_start_time_slot}.')
                     collector.time_accounting(plans,
                                               sites=frozenset({site}),
                                               end_timeslot_bounds=end_timeslot_bounds)
@@ -172,7 +180,8 @@ def main(*,
                 # 2. a new plan is to be produced (TODO: GSCHED-515)
                 # fetch a new selection and produce a new plan.
                 if not night_done:
-                    event_start_time_slot = event.to_timeslot_idx(night_start, collector.time_slot_length.to_datetime())
+                    logger.info(f'Retrieving selection for night index {night_idx} '
+                                f'at {site.name} starting at time slot {event_start_time_slot}.')
                     selection = selector.select(night_indices=night_indices,
                                                 sites=frozenset([event.site]),
                                                 starting_time_slots={site: {night_idx: event_start_time_slot
@@ -181,6 +190,8 @@ def main(*,
                     # Right now the optimizer generates List[Plans], a list of plans indexed by
                     # every night in the selection. We only want the first one, which corresponds
                     # to the current night index we are looping over.
+                    logger.info(f'Running optimizer for night index {night_idx} '
+                                f'at {site.name} starting at time slot {event_start_time_slot}.')
                     plans = optimizer.schedule(selection)[0]
                     nightly_timeline.add(NightIndex(night_idx),
                                          site,
@@ -191,6 +202,7 @@ def main(*,
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
         # TODO: There appears to be a bug here. See GSCHED-517.
+        logger.info(f'Assembling plans for night index {night_idx}.')
         night_events = {site: collector.get_night_events(site) for site in collector.sites}
         final_plans = Plans(night_events, NightIndex(night_idx))
         for site in collector.sites:
