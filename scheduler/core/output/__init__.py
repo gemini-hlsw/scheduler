@@ -34,7 +34,7 @@ def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.js
     program.show()
 
 
-def print_collector_info(collector: Collector, samples: int = 60) -> None:
+def print_collector_info(collector: Collector) -> None:
     # Output some information.
     print('Pre-Collector / Collector running from:')
     print(f'   start time:       {collector.start_vis_time}')
@@ -52,25 +52,13 @@ def print_collector_info(collector: Collector, samples: int = 60) -> None:
             end = night_events.local_times[idx][-1]
             num_slots = len(night_events.times[idx])
             print(f'* DAY {idx}: {start} to {end}, {num_slots} time slots.')
-            print(f'\tmidnight:         {night_events.midnight[idx]}')
-            print(f'\tsunset:           {night_events.sunset[idx]}')
-            print(f'\tsunrise:          {night_events.sunrise[idx]}')
-            print(f'\t12° eve twilight: {night_events.twilight_evening_12[idx]}')
-            print(f'\t12° mor twilight: {night_events.twilight_morning_12[idx]}')
-            print(f'\tmoonrise:         {night_events.moonrise[idx]}')
-            print(f'\tmoonset:          {night_events.moonset[idx]}')
-            # print(f'\n\tSun information (deg, sampled every {samples} time slots):')
-            # print(f'\tAlt:    {[a.to_value(u.deg) for a in night_events.sun_alt[idx][::samples]]}')
-            # print(f'\tAz:     {[a.to_value(u.deg) for a in night_events.sun_az[idx][::samples]]}')
-            # print(f'\tParAng: {[a.to_value(u.deg) for a in night_events.sun_par_ang[idx][::samples]]}')
-            # print(f'\n\tMoon information (km or deg, sampled every {samples} time slots):')
-            # print(f'\tDist:   {[a.to_value(u.km) for a in night_events.moon_dist[idx][::samples]]}')
-            # print(f'\tAlt:    {[a.to_value(u.deg) for a in night_events.moon_alt[idx][::samples]]}')
-            # print(f'\tAz:     {[a.to_value(u.deg) for a in night_events.moon_az[idx][::samples]]}')
-            # print(f'\tParAng: {[a.to_value(u.deg) for a in night_events.moon_par_ang[idx][::samples]]}')
-            # print(f'\n\tSun-Moon angle (deg, sampled every {samples} time slots):')
-            # print(f'\t{[a.to_value(u.deg) for a in night_events.sun_moon_ang[idx][::samples]]}')
-            # print('\n\n')
+            print(f'\tmidnight:              {night_events.midnight[idx]}')
+            print(f'\tsunset:                {night_events.sunset[idx]}')
+            print(f'\tsunrise:               {night_events.sunrise[idx]}')
+            print(f'\t12° eve twilight:      {night_events.twilight_evening_12[idx]}')
+            print(f'\t12° mor twilight:      {night_events.twilight_morning_12[idx]}')
+            print(f'\tmoonrise:              {night_events.moonrise[idx]}')
+            print(f'\tmoonset:               {night_events.moonset[idx]}')
             print(f"\tInstruments available: {', '.join(sorted(r.id for r in nc[idx].resources))}")
 
 
@@ -83,7 +71,6 @@ def atoms_to_sheet(dt: Program | Observation | Group) -> None:
     """
     Print out the atoms in a program or observation to a spreadsheet.
     """
-
     wb = Workbook()
     ws = wb.active
     ws.append(['id', 'exec_time', 'prog_time', 'part_time', 'observed', 'qa_state', 'guide_state'])
@@ -123,10 +110,9 @@ def print_plans(all_plans: List[Plans]) -> None:
     """
     Print out the visit plans.
     """
-
     for plans in all_plans:
         print(f'\n\n+++++ NIGHT {plans.night_idx + 1} +++++')
-        for plan in plans:
+        for plan in sorted(plans, key=lambda x: x.site.name):
             print(f'Plan for site: {plan.site.name}')
             # Print header information
             max_score_length = max(len(f'{visit.score:8.2f}') for visit in plan.visits)
