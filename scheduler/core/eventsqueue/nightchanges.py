@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass, field
+import sys
 from typing import Dict, List
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
@@ -78,6 +79,7 @@ class NightlyTimeline:
         return p
 
     def display(self) -> None:
+        sys.stderr.flush()
         for night_idx, entries_by_site in self.timeline.items():
             print(f'\n\n+++++ NIGHT {night_idx + 1} +++++')
             for site, entries in sorted(entries_by_site.items(), key=lambda x: x[0].name):
@@ -89,3 +91,4 @@ class NightlyTimeline:
                             f'\t{visit.start_time}   {visit.obs_id.id:20} {visit.score:8.2f} {visit.atom_start_idx:4d} '
                             f'{visit.atom_end_idx:4d} {visit.start_time_slot:4d}')
                     print('\t+++++ END EVENT +++++')
+        sys.stdout.flush()

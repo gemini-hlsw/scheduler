@@ -1,11 +1,12 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+from datetime import timedelta
+import gzip
 import json
 import os
-import gzip
 import pickle
-from datetime import timedelta
+import sys
 from typing import List, Dict
 
 from astropy import units as u
@@ -35,6 +36,7 @@ def print_program_from_provider(filename=os.path.join('data', 'GN-2018B-Q-101.js
 
 
 def print_collector_info(collector: Collector) -> None:
+    sys.stderr.flush()
     # Output some information.
     print('Pre-Collector / Collector running from:')
     print(f'   start time:       {collector.start_vis_time}')
@@ -60,6 +62,7 @@ def print_collector_info(collector: Collector) -> None:
             print(f'\tmoonrise:              {night_events.moonrise[idx]}')
             print(f'\tmoonset:               {night_events.moonset[idx]}')
             print(f"\tInstruments available: {', '.join(sorted(r.id for r in nc[idx].resources))}")
+    sys.stdout.flush()
 
 
 def print_atoms_for_observation(observation: Observation) -> None:
