@@ -30,7 +30,7 @@ class NightlyTimeline:
     """
     A collection of timeline entries per night and site.
     """
-    timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=lambda: {})
+    timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
 
     def add(self,
             night_idx: NightIndex,
