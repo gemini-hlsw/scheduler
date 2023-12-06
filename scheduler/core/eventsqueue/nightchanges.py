@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 
@@ -12,7 +12,7 @@ from scheduler.core.plans import Plans, Plan
 
 @dataclass
 class NightChanges:
-    lookup: Dict[Event, Plans] = field(default_factory=dict)
+    lookup: Dict[Event, Plans] = field(init=False, default_factory=dict)
 
     def get_final_plans(self):
         return list(self.lookup.values())[-1]
@@ -20,13 +20,16 @@ class NightChanges:
 
 @dataclass(frozen=True)
 class TimelineEntry:
-    start_time_slots: TimeslotIndex
+    start_time_slot: TimeslotIndex
     event: Event
     plan_generated: Plan
 
 
 @dataclass
 class NightTimeline:
+    """
+    A collection of timeline entries per night and site.
+    """
     timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]]
 
     def add(self,
@@ -35,14 +38,10 @@ class NightTimeline:
             time_slot: TimeslotIndex,
             event: Event,
             plan_generated: Plan) -> None:
-
         entry = TimelineEntry(time_slot,
                               event,
                               plan_generated)
-        if night_idx in self.timeline:
-            self.timeline[night_idx][site].append(entry)
-        else:
-            self.timeline[night_idx] = {site: [entry]}
+        self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
 
     def get_final_plan(self, night_idx: NightIndex, site: Site) -> Plan:
         if night_idx not in self.timeline:
@@ -67,8 +66,8 @@ class NightTimeline:
                 partial_plan = pg
 
             all_generated += [v for v in reversed(partial_plan.visits)]
-            if t < entry.start_time_slots:
-                t = entry.start_time_slots
+            if t < entry.start_time_slot:
+                t = entry.start_time_slot
 
         p = Plan(start=entries[0].plan_generated.start,
                  end=entries[-1].plan_generated.end,
@@ -79,12 +78,11 @@ class NightTimeline:
         return p
 
     def display(self) -> None:
-
         for night_idx, entries_by_site in self.timeline.items():
             print(f'\n\n+++++ NIGHT {night_idx + 1} +++++')
-            for site, entries in entries_by_site.items():
+            for site, entries in sorted(entries_by_site.items(), key=lambda x: x[0].name):
                 for entry in entries:
-                    print(f'\t+++++ Triggered by event: {entry.event.reason} at {entry.start_time_slots} on {site} +++++')
+                    print(f'\t+++++ Triggered by event: {entry.event.reason} at {entry.start_time_slot} on {site} +++++')
                     # print(f'Plan for site: {plan.site.name}')
                     for visit in entry.plan_generated.visits:
                         print(
