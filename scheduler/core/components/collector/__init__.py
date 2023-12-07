@@ -13,7 +13,8 @@ from astropy.time import Time, TimeDelta
 from lucupy import sky
 from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex, NightIndices, NonsiderealTarget,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
-                              SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus)
+                              SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus,
+                              Group)
 import numpy as np
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
@@ -503,6 +504,19 @@ class Collector(SchedulerComponent):
             self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
         ) for night_idx in night_indices}
 
+    def _get_sched_group(self, observation: Observation) -> Group:
+        """Return the scheduling group that an observation is a member of"""
+        schedgroup = None
+        program = self.get_program(observation.belongs_to)
+        for group in program.root_group.children:
+            if group.is_scheduling_group():
+                for subgroup in group.children:
+                    for obs in subgroup.observations():
+                        if obs == observation:
+                            schedgroup = group
+                            break
+        return schedgroup
+
     def time_accounting(self,
                         plans: Plans,
                         sites: FrozenSet[Site] = ALL_SITES,
@@ -530,12 +544,20 @@ class Collector(SchedulerComponent):
             for visit in sorted(plan.visits, key=lambda v: v.start_time_slot):
                 # If this visit's starting time slot is at least the end timeslot bound, then we stop
                 # processing this and all further visits.
+                # TODO: check end_timeslot_bound atom by atom
                 if end_timeslot_bound is not None and visit.start_time_slot >= end_timeslot_bound:
                     break
 
                 # We process this visit.
                 # Update Observation from Collector.
                 observation = self.get_observation(visit.obs_id)
+                print(f'time_accounting for visit {visit.obs_id.id}')
+                sched_group = self._get_sched_group(observation)
+                if sched_group is not None:
+                    print(f'\t scheduling group: {sched_group.unique_id}')
+                else:
+                    print(f'\t scheduling group: None')
+
                 obs_seq = observation.sequence
 
                 # Check if the Observation has been completely observed.
@@ -551,7 +573,7 @@ class Collector(SchedulerComponent):
                     obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
 
                     # Charge acquisition to the first atom.
-                    if atom_idx == 0:
+                    if atom_idx == visit.atom_start_idx:
                         if observation.obs_class == ObservationClass.PARTNERCAL:
                             obs_seq[atom_idx].program_used += observation.acq_overhead
                         elif (observation.obs_class == ObservationClass.SCIENCE or

@@ -9,5 +9,7 @@ from run_main import main
 if __name__ == '__main__':
     main(
         num_nights_to_schedule=3,
-        sites=ALL_SITES
+        sites=ALL_SITES,
+        test_events=True,
+        verbose=False
     )
