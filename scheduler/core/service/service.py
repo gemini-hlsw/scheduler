@@ -15,7 +15,7 @@ from scheduler.core.components.collector import Collector
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.components.selector import Selector
 from scheduler.core.eventsqueue import EventQueue, EveningTwilight, MorningTwilight, WeatherChange
-from scheduler.core.eventsqueue.nightchanges import NightTimeline
+from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plans
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.builder import SchedulerBuilder, Blueprints
@@ -49,8 +49,8 @@ class Service:
                          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
                          iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
 
-        night_timeline = NightTimeline({night_index: {site: [] for site in sites}
-                                        for night_index in night_indices})
+        night_timeline = NightlyTimeline({night_index: {site: [] for site in sites}
+                                          for night_index in night_indices})
 
         for night_idx in sorted(night_indices):
             night_indices = np.array([night_idx])

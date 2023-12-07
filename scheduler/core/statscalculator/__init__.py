@@ -8,7 +8,7 @@ from lucupy.minimodel import Band, Conditions, ProgramID, NightIndex
 from lucupy.types import ZeroTime
 
 from scheduler.core.components.collector import Collector
-from scheduler.core.eventsqueue.nightchanges import NightTimeline
+from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import NightStats, Plans
 from scheduler.graphql_mid.scalars import Sites
 from scheduler.services import logger_factory
@@ -22,7 +22,7 @@ class StatCalculator:
     """
 
     @staticmethod
-    def calculate_timeline_stats(timeline: NightTimeline,
+    def calculate_timeline_stats(timeline: NightlyTimeline,
                                  nights: FrozenSet[NightIndex],
                                  sites: Sites,
                                  collector: Collector) -> Dict[str, Tuple[str, float]]:

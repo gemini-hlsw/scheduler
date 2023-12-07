@@ -4,9 +4,9 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from math import ceil
-from typing import List, Mapping, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Tuple
 
-from lucupy.minimodel import Band, Conditions, NightIndex, Observation, ObservationID, Resource, Site, ObservationClass
+from lucupy.minimodel import Band, NightIndex, Observation, ObservationID, Resource, Site, ObservationClass
 
 from scheduler.core.calculations.nightevents import NightEvents
 
@@ -152,11 +152,11 @@ class Plan:
 
 class Plans:
     """
-    A collection of Plan from all sites for a specific night
+    A collection of Plan for all sites for a specific night.
     """
 
     def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: NightIndex):
-        self.plans = {}
+        self.plans: Dict[Site, Plan] = {}
         self.night_idx = night_idx
         for site, ne in night_events.items():
             if ne is not None:

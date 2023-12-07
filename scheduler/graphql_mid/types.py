@@ -12,7 +12,7 @@ from strawberry.scalars import JSON
 from lucupy.minimodel import (Site, Conditions, ImageQuality,
                               CloudCover, WaterVapor, SkyBackground)
 
-from scheduler.core.eventsqueue.nightchanges import NightTimeline
+from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.core.eventsqueue import WeatherChange
 from scheduler.graphql_mid.scalars import SObservationID
@@ -129,7 +129,7 @@ class SNightTimelines:
     night_timeline: List[SNightInTimeline]
 
     @staticmethod
-    def from_computed_timelines(timeline: NightTimeline) -> 'SNightTimelines':
+    def from_computed_timelines(timeline: NightlyTimeline) -> 'SNightTimelines':
         timelines = []
         for n_idx in timeline.timeline:
             s_timeline_entries = []
@@ -137,7 +137,7 @@ class SNightTimelines:
                 s_entries = []
                 for entry in timeline.timeline[n_idx][site]:
 
-                    e = STimelineEntry(start_time_slots=int(entry.start_time_slots),
+                    e = STimelineEntry(start_time_slots=int(entry.start_time_slot),
                                        event=entry.event.reason,
                                        plan=SPlan.from_computed_plan(entry.plan_generated))
                     s_entries.append(e)
