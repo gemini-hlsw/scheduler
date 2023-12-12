@@ -8,7 +8,7 @@ from typing import FrozenSet, Iterable, Optional
 from lucupy.minimodel import NightIndex, Site
 
 from scheduler.services import logger_factory
-from .events import Blockage, Event, Interruption, ResumeNight
+from .events import Event, Interruption
 
 logger = logger_factory.create_logger(__name__)
 
@@ -42,8 +42,6 @@ class EventQueue:
 
     def add_event(self, night_idx: NightIndex, site: Site, event: Event) -> None:
         match event:
-            case Blockage():
-                self._blockage_stack.append(event)
             case Interruption():
                 site_events = self.get_night_events(night_idx, site)
                 if site_events is not None:
@@ -54,13 +52,6 @@ class EventQueue:
     def add_events(self, night_idx: NightIndex, site: Site, events: Iterable[Event]) -> None:
         for event in events:
             self.add_event(night_idx, site, event)
-
-    def check_blockage(self, resume_event: ResumeNight) -> Blockage:
-        if self._blockage_stack and len(self._blockage_stack) == 1:
-            b = self._blockage_stack.pop()
-            b.ends(resume_event.start)
-            return b
-        raise RuntimeError('Missing blockage for ResumeNight')
 
     def get_night_events(self, night_idx: NightIndex, site: Site) -> Optional[NightEventQueue]:
         """

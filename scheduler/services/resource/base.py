@@ -3,6 +3,7 @@
 
 import os
 import csv
+import re
 from copy import copy
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Set, Tuple, Union, Final
@@ -12,7 +13,9 @@ from lucupy.minimodel import Site, ALL_SITES, Resource
 from lucupy.helpers import str_to_bool
 import gelidum
 import requests
+from lucupy.sky import night_events
 from openpyxl import load_workbook
+from astropy.time import Time
 
 from definitions import ROOT_DIR
 from .filters import *
@@ -20,6 +23,7 @@ from .night_resource_configuration import NightConfiguration
 from .google_drive_downloader import GoogleDriveDownloader
 from scheduler.services.abstract import ExternalService
 from scheduler.services import logger_factory
+from ...core.eventsqueue import Fault, EngTask
 
 logger = logger_factory.create_logger(__name__)
 
@@ -105,6 +109,11 @@ class ResourceService(ExternalService):
 
         # The final output from this class: the configuration per night.
         self._night_configurations: Dict[Site, Dict[date, NightConfiguration]] = {site: {} for site in self._sites}
+
+        self._faults: Dict[Site, Dict[date, Set[Fault]]] = {site: {} for site in self._sites}
+
+        # Engineering Task by datetime.
+        self._eng_task: Dict[Site, Dict[date, Set[EngTask]]] = {site: {} for site in self._sites}
 
     def _mdf_to_barcode(self, mdfname: str, inst: str) -> Optional[Resource]:
         """Legacy MOS mask barcode convention"""
@@ -575,12 +584,98 @@ class FileBasedResourceService(ResourceService):
     def _mirror_parser(r: List[str], site: Site) -> Set[str]:
         return {'Mirror'} | {i.strip().replace('+', '') for i in r}
 
+    def _parse_eng_task_file(self, site: Site, to_file: str) -> None:
+        """
+        Parse Engineering task that block moments or the entire night.
+        Each twilight is calculated using lucupy.sky, some discrepancies might affect.
+        """
+        pattern = r'(\[.*\])'
+        # Ignore GS until the file is created.
+        if site is Site.GS:
+            return
+
+        with open(os.path.join(self._path, to_file), 'r') as file:
+            for line_num, line in enumerate(file):
+                # Find pattern to keep bracket comments not split.
+                match = re.search(pattern, line)
+                if match:
+                    comment = match.group(1)
+                    rest_of_line = re.sub(pattern, '', line)
+                    eng_date, start_time, end_time = rest_of_line.strip().split()
+                    #  Single date for key
+                    just_date = datetime.strptime(eng_date, '%Y-%m-%d')
+                    # Time day in jd to calculate twilight
+                    time = Time(just_date)
+                    _, _, _, even_12twi, morn_12twi, _, _ = night_events(time,
+                                                                         site.location,
+                                                                         site.timezone)
+
+                    # Handle twilight
+                    if start_time == 'twi':
+                        start_date = even_12twi.datetime
+                        end_date = (morn_12twi.datetime if end_time == 'twi' else
+                                    datetime.strptime(f'{eng_date} {end_time}', '%Y-%m-%d %H:%M'))
+                    else:
+                        start_date = datetime.strptime(f'{eng_date} {start_time}', '%Y-%m-%d %H:%M')
+                        end_date = (morn_12twi.datetime if end_time == 'twi'
+                                    else datetime.strptime(f'{eng_date} {end_time}', '%Y-%m-%d %H:%M'))
+
+                    time_loss = end_date - start_date
+                    eng_task = EngTask(start=start_date,
+                                       end=end_date,
+                                       time_loss=time_loss,
+                                       reason=comment)
+
+                    if just_date in self._eng_task[site]:
+                        self._eng_task[site][just_date].add(eng_task)
+                    else:
+                        self._eng_task[site][just_date] = {eng_task}
+                else:
+                    raise ValueError(f'Pattern not found. Format error on Eng Task file at line {line_num}')
+
+    def _parse_faults_file(self, site: Site, to_file: str) -> None:
+        """Parse faults from files.
+        This is purposeful left non-private as might be used with incoming files from
+        the React app.
+        """
+        # Files contains this repetitive string in each timestamp, if we need them
+        # we could add them as constants.
+        ts_clean = ' 04:00' if site is Site.GS else ' 10:00'
+        with open(os.path.join(self._path, to_file), 'r') as file:
+            for line_num, original_line in enumerate(file):
+                line = original_line.rstrip()  # remove trail spaces
+                if line:  # ignore empty lines
+                    if line[0].isdigit():
+                        pass
+                    elif line.startswith('FR'):  # found a fault
+                        items = line.split('\t')
+                        # Create timestamp with ts_clean var removed
+                        ts = datetime.strptime(items[1].replace(ts_clean, ''),
+                                               '%Y %m %d  %H:%M:%S')
+                        loss = timedelta(hours=float(items[2]))
+                        fault = Fault(start=ts,  # date with time
+                                      reason=items[3],
+                                      site=site,
+                                      id=items[0],
+                                      end=ts+loss,
+                                      time_loss=loss,  # time loss
+                                      affects
+                                      )  # comment for the fault
+                        if ts.date() in self._faults[site]:
+                            self._faults[site][ts.date()].add(fault)
+                        else:
+                            self._faults[site][ts.date()] = {fault}
+                    else:
+                        raise ValueError(f'Fault file has wrong format at line {line_num}')
+
     def load_files(self,
                    site: Site,
                    fpu_to_barcodes_path: str,
                    fpus_path: Union[str, BytesIO],
                    gratings_path: Union[str, BytesIO],
                    spreadsheet: Union[str, BytesIO],
+                   faults:  Union[str, BytesIO],
+                   eng_task: Union[str, BytesIO],
                    from_gdrive: bool = False):
         """
         Load all files necessaries to the correct functioning of the ResourceManager.
@@ -606,3 +701,6 @@ class FileBasedResourceService(ResourceService):
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_spreadsheet(spreadsheet, from_gdrive=from_gdrive)
+
+        self._parse_faults_file(site, faults)
+        self._parse_eng_task_file(site, eng_task)

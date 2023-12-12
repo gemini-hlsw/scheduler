@@ -43,6 +43,8 @@ class OcsResourceService(FileBasedResourceService):
                             f'GMOS{suffix}_FPUr201789.txt',
                             f'GMOS{suffix}_GRAT201789.txt',
                             os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE),
+                            f'Faults_AllG{suffix}.txt',
+                            f'ClosedDomeG{suffix}_Eng.txt',
                             from_gdrive=True)
 
         # TODO: Remove this after discussion with science.

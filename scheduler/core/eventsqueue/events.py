@@ -72,35 +72,19 @@ class WeatherChange(Interruption):
     """
     new_conditions: Conditions
 
-
-@dataclass
-class Blockage(Event, ABC):
-    """
-    Parent class for any interruption that causes a blockage and requires a resume event.
-    """
-    end: Optional[datetime] = None  # needs a resume event
-
-    def ends(self, end: datetime) -> None:
-        self.end = end
-
-    def time_loss(self) -> timedelta:
-        if self.end:
-            return self.end - self.start
-        else:
-            raise ValueError("Can't calculate Blockage time loss without end value.")
-
-
-@dataclass
-class ResumeNight(Interruption):
-    """
-    Event that lets the scheduler knows that the night can be resumed.
-    """
-    ...
-
-
 @final
-class Fault(Blockage):
+class Fault(Interruption):
     """
     Blockage that occurs when one or more resources experience a fault.
     """
+    id: str
+    end: datetime
+    time_loss: timedelta
     affects: FrozenSet[Resource]
+
+
+@final
+class EngTask(Interruption):
+
+    end: datetime
+    time_loss: timedelta
