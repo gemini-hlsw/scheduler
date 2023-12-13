@@ -598,6 +598,7 @@ class FileBasedResourceService(ResourceService):
             for line_num, line in enumerate(file):
                 # Find pattern to keep bracket comments not split.
                 match = re.search(pattern, line)
+                print(match)
                 if match:
                     comment = match.group(1)
                     rest_of_line = re.sub(pattern, '', line)
@@ -623,6 +624,7 @@ class FileBasedResourceService(ResourceService):
                     time_loss = end_date - start_date
                     eng_task = EngTask(start=start_date,
                                        end=end_date,
+                                       site=site,
                                        time_loss=time_loss,
                                        reason=comment)
 
@@ -659,7 +661,7 @@ class FileBasedResourceService(ResourceService):
                                       id=items[0],
                                       end=ts+loss,
                                       time_loss=loss,  # time loss
-                                      affects
+                                      affects=frozenset()
                                       )  # comment for the fault
                         if ts.date() in self._faults[site]:
                             self._faults[site][ts.date()].add(fault)

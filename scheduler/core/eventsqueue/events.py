@@ -72,7 +72,9 @@ class WeatherChange(Interruption):
     """
     new_conditions: Conditions
 
+
 @final
+@dataclass(unsafe_hash=True)
 class Fault(Interruption):
     """
     Blockage that occurs when one or more resources experience a fault.
@@ -84,6 +86,7 @@ class Fault(Interruption):
 
 
 @final
+@dataclass(unsafe_hash=True)
 class EngTask(Interruption):
 
     end: datetime
