@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, FrozenSet, Mapping, Tuple, final
 
 import astropy.units as u
@@ -30,16 +30,16 @@ class RankerParameters:
     """
     Global parameters for the Ranker.
     """
-    thesis_factor = 1.1
+    thesis_factor: float = 1.1
     power: int = 2
     met_power: float = 1.0
     vis_power: float = 1.0
     wha_power: float = 1.0
 
     # Weighted to slightly positive HA.
-    dec_diff_less_40: npt.NDArray[float] = np.array([3., 0., -0.08])
+    dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
     # Weighted to 0 HA if Xmin > 1.3.
-    dec_diff: npt.NDArray[float] = np.array([3., 0.1, -0.06])
+    dec_diff: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0.1, -0.06]))
 
     score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = _default_score_combiner
 

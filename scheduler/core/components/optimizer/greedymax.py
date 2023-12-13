@@ -11,12 +11,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from lucupy.minimodel import (NIR_INSTRUMENTS, Group, NightIndex, Observation, ObservationClass, ObservationID,
-                              ObservationStatus, Program, QAState, Sequence, Site, UniqueGroupID, Wavelengths,
-                              ObservationMode)
+                              ObservationStatus, Program, QAState, Site, UniqueGroupID, Wavelengths, ObservationMode)
 from lucupy.minimodel.resource import Resource
 from lucupy.types import Interval, ZeroTime
 
-from scheduler.core.calculations import GroupData, NightTimeSlotScores
+from scheduler.core.calculations import GroupData, NightTimeslotScores
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.components.optimizer.timeline import Timelines
 from scheduler.core.plans import Plan, Plans
@@ -68,7 +67,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         self.group_ids = list(selection.schedulable_groups)
         self.group_data_list = list(selection.schedulable_groups.values())
         # self._process_group_data(self.group_data_list)
-        self.obs_group_ids = list(selection.obs_group_ids) # noqa
+        self.obs_group_ids = list(selection.obs_group_ids)  # noqa
         self.timelines = {night_idx: Timelines(selection.night_events, night_idx)
                           for night_idx in selection.night_indices}
         self.sites = selection.sites
@@ -78,7 +77,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return self
 
     @staticmethod
-    def non_zero_intervals(scores: NightTimeSlotScores) -> npt.NDArray[int]:
+    def non_zero_intervals(scores: NightTimeslotScores) -> npt.NDArray[int]:
         """
         Calculate the non-zero intervals in the data.
         This consists of an array with entries of the form [a, b] where
@@ -89,7 +88,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         instead of using Interval.
         """
         # Create an array that is 1 where the score is greater than 0, and pad each end with an extra 0.
-        not_zero = np.concatenate(([0], np.greater(scores, 0), [0]))
+        not_zero = np.concatenate((np.array([0]), np.greater(scores, 0), np.array([0])))
         abs_diff = np.abs(np.diff(not_zero))
 
         # Return the ranges for each nonzero interval.
@@ -403,7 +402,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # Shift to window boundary if within minimum block time of edge.
         # If near both boundaries, choose boundary with higher score.
         score_start = scores[start]  # score at start
-        score_end = scores[end-1]  # score at end
+        score_end = scores[end - 1]  # score at end
         delta_start = start - max_group_info.interval[0]  # difference between start of window and block
         delta_end = max_group_info.interval[-1] - end  # difference between end of window and block
 
@@ -422,7 +421,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             end = max_group_info.interval[-1]
 
         # Make final list of indices for the highest scoring shifted sub-interval
-        best_interval = np.arange(start=start, stop=end+1)
+        best_interval = np.arange(start=start, stop=end + 1)
 
         return best_interval
 
@@ -510,7 +509,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         placement = []
 
         if verbose:
-            print(f'Running place_standards')
+            print('Running place_standards')
 
         xdiff_min = xdiff_before_min = xdiff_after_min = 99999.
         std_before = None
@@ -534,7 +533,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 print(f'Standard {partcal_obs.id.id}')
                 print(f'\t n_slots_acq = {n_slots_acq}, n_slots_cal = {n_slots_cal}')
                 print(f'\n\t slot_start = {slot_start} slot_end = {slot_end}')
-                print(f'\t Try std before')
+                print('\t Try std before')
                 print(f'\t {len(interval[slot_start:slot_end + 1])} xmean_cal_before = {xmean_cal}')
 
             if self.show_plots:
@@ -567,7 +566,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             xmean_cal = self.mean_airmass(partcal_obs.id, interval[slot_start:slot_end + 1], night_idx=night_idx)
 
             if verbose:
-                print(f'\n\t Try std after')
+                print('\n\t Try std after')
                 print(f'\t slot_start = {slot_start} slot_end = {slot_end} len_int = {len_int}')
                 print(f'\t {len(interval[slot_start:slot_end + 1])} xmean_cal_after = {xmean_cal}')
 
@@ -616,7 +615,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             standards = [std_before, std_after]
 
         return standards, placement
-    
+
     @staticmethod
     def _charge_time(observation: Observation, atom_start: int = 0, atom_end: int = -1) -> None:
         """Pseudo (internal to GM) time accounting, or charging.
@@ -673,7 +672,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         plt.show()
 
     @staticmethod
-    def _plot_interval(score: NightTimeSlotScores,
+    def _plot_interval(score: NightTimeslotScores,
                        interval: Interval,
                        best_interval: Interval,
                        label: str = "") -> None:
@@ -820,11 +819,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
         atom_end = atom_start
 
         n_slots_acq = Plan.time2slots(self.time_slot_length, obs.acq_overhead)
-        visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
-        while n_slots_filled + visit_length <= len(best_interval) and atom_end <= len(cumul_seq) - 2:
-            atom_end += 1
-            visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
-
 
         # type inspector cannot infer that cumul_seq[idx] is a timedelta.
         # noinspection PyTypeChecker
