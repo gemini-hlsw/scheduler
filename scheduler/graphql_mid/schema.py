@@ -21,7 +21,6 @@ from .scalars import SOrigin
 
 # TODO: This variables need a Redis cache to work with different mutation correctly
 sources = Sources()
-event_queue = EventQueue(frozenset([NightIndex(i) for i in range(3)]), ALL_SITES)
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 

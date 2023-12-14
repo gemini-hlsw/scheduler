@@ -195,6 +195,20 @@ class ResourceService(ExternalService):
 
         return frozenset(self._resources[site][night_date])
 
+    def get_faults(self, site: Site, night_date: date):
+        if site not in self._sites:
+            raise ValueError(f'Request for fault for illegal site: {site.name}')
+        if date not in self._faults[site]:
+            return set()
+        return self._faults[site][night_date]
+
+    def get_eng_tasks(self, site: Site, night_date: date):
+        if site not in self._sites:
+            raise ValueError(f'Request for fault for illegal site: {site.name}')
+        if date not in self._eng_task[site]:
+            return set()
+        return self._eng_task[site][night_date]
+
     def fpu_to_barcode(self, site: Site, fpu_name: str, instrument: str) -> Optional[Resource]:
         """
         Convert a long FPU name into the barcode, if it exists.
@@ -598,7 +612,6 @@ class FileBasedResourceService(ResourceService):
             for line_num, line in enumerate(file):
                 # Find pattern to keep bracket comments not split.
                 match = re.search(pattern, line)
-                print(match)
                 if match:
                     comment = match.group(1)
                     rest_of_line = re.sub(pattern, '', line)

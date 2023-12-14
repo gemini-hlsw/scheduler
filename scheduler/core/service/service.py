@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from typing import FrozenSet, Optional, List, Dict
 
@@ -32,15 +32,21 @@ class Service:
         pass
 
     @staticmethod
-    def _setup(night_indices, sites, mode):
+    def _setup(sites: FrozenSet[Site],
+               mode: SchedulerModes,
+               star_vis: Time,
+               end_vis: Time):
 
-        queue = EventQueue(night_indices, sites)
+        queue = EventQueue(star_vis, end_vis, sites)
         sources = Sources()
         builder = dispatch_with(mode, sources, queue)
+        builder.load_events(sites, star_vis, end_vis)
         return builder
 
     @staticmethod
     def _schedule_nights(night_indices: FrozenSet[NightIndex],
+                         start: Time,
+                         end: Time,
                          sites: FrozenSet[Site],
                          collector: Collector,
                          selector: Selector,
@@ -51,7 +57,10 @@ class Service:
 
         nightly_timeline = NightlyTimeline()
 
-        for night_idx in sorted(night_indices):
+        curr = start.to_datetime()
+        night_idx = NightIndex(0)
+        while curr <= end.to_datetime():
+
             night_indices = np.array([night_idx])
 
             for site in sites:
@@ -70,7 +79,7 @@ class Service:
                 # night_events = collector.get_night_events(site)
                 # TODO: This needs to be a container that is sorted by start datetime of the events.
                 # TODO: Right now, it is sorted, but only because we have added the events in datetime order.
-                events_by_night = queue.get_night_events(night_idx, site)
+                events_by_night = queue.get_night_events(curr, site)
 
                 while events_by_night.has_more_events():
                     event = events_by_night.next_event()
@@ -140,6 +149,9 @@ class Service:
                                              event,
                                              plans[site])
 
+            curr += timedelta(days=1)
+            night_idx += 1
+
         return nightly_timeline
 
     def run(self,
@@ -155,7 +167,7 @@ class Service:
         semesters = frozenset([Semester.find_semester_from_date(start_vis.to_value('datetime')),
                                Semester.find_semester_from_date(end_vis.to_value('datetime'))])
 
-        builder = self._setup(night_indices, sites, mode)
+        builder = self._setup(sites, mode, start_vis, end_vis)
 
         # Build
         collector = builder.build_collector(start_vis,
@@ -177,17 +189,23 @@ class Service:
         # Add events for twilight
         for site in sites:
             night_events = collector.get_night_events(site)
-            for night_idx in night_indices:
+            curr = start_vis.to_datetime()
+            night_idx = 0
+            while curr <= end_vis.to_datetime():
                 eve_twilight_time = night_events.twilight_evening_12[night_idx].to_datetime()
                 eve_twilight = EveningTwilight(start=eve_twilight_time, reason='Evening 12° Twilight', site=site)
-                builder.events.add_event(night_idx, site, eve_twilight)
+                builder.events.add_event(curr, site, eve_twilight)
 
                 # Add one time slot to the morning twilight to make sure time accounting is done for entire night.
                 morn_twilight_time = night_events.twilight_morning_12[night_idx].to_datetime()
                 morn_twilight = MorningTwilight(start=morn_twilight_time, reason='Morning 12° Twilight', site=site)
-                builder.events.add_event(night_idx, site, morn_twilight)
+                builder.events.add_event(curr, site, morn_twilight)
+                curr += timedelta(days=1)
+                night_idx += 1
 
         timelines = self._schedule_nights(night_indices,
+                                          start_vis,
+                                          end_vis,
                                           sites,
                                           collector,
                                           selector,

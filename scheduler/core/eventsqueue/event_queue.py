@@ -2,6 +2,9 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass, field
+from datetime import timedelta, datetime
+
+from astropy.time import Time
 from sortedcontainers import SortedList
 from typing import FrozenSet, Iterable, Optional
 
@@ -35,33 +38,35 @@ class NightEventQueue:
 
 
 class EventQueue:
-    def __init__(self, night_indices: FrozenSet[NightIndex], sites: FrozenSet[Site]):
-        self._events = {night_idx: {site: NightEventQueue(night_idx=night_idx, site=site) for site in sites}
-                        for night_idx in night_indices}
+    def __init__(self, start: Time, end: Time, sites: FrozenSet[Site]):
+        curr = start.to_datetime()
+        self._events = {}
+        night_idx = 0
+        while curr <= end.to_datetime():
+            self._events[curr] = {site: NightEventQueue(night_idx=NightIndex(night_idx), site=site) for site in sites}
+            night_idx += 1
+            curr += timedelta(days=1)
+
         self._blockage_stack = []
 
-    def add_event(self, night_idx: NightIndex, site: Site, event: Event) -> None:
+    def add_event(self, night_date: datetime, site: Site, event: Event) -> None:
         match event:
             case Interruption():
-                site_events = self.get_night_events(night_idx, site)
+                site_events = self.get_night_events(night_date, site)
                 if site_events is not None:
                     site_events.add_event(event)
                 else:
-                    raise KeyError(f'Could not add event {event} for night index {night_idx} to site {site.name}.')
+                    raise KeyError(f'Could not add event {event} for date {night_date} to site {site.name}.')
 
-    def add_events(self, night_idx: NightIndex, site: Site, events: Iterable[Event]) -> None:
-        for event in events:
-            self.add_event(night_idx, site, event)
-
-    def get_night_events(self, night_idx: NightIndex, site: Site) -> Optional[NightEventQueue]:
+    def get_night_events(self, night_date: datetime, site: Site) -> Optional[NightEventQueue]:
         """
         Returns the sorted list for the site for the night index if it exists, else None.
         """
-        night_lists = self._events.get(night_idx)
+        night_lists = self._events.get(night_date)
         if night_lists is None:
-            logger.error(f'Tried to access event queue for inactive night index {night_idx}.')
+            logger.error(f'Tried to access event queue for inactive date {night_date}.')
             return None
         site_list = night_lists.get(site)
         if site_list is None:
-            logger.error(f'Tried to access event queue for night index {night_idx} for inactive site {site.name}.')
+            logger.error(f'Tried to access event queue for date {night_date} for inactive site {site.name}.')
         return site_list

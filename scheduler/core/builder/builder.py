@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+from abc import abstractmethod
+from datetime import timedelta
 
 from astropy.time import Time
 from lucupy.minimodel import CloudCover, ImageQuality, Semester, Site, ObservationStatus, Observation, QAState
@@ -48,6 +50,10 @@ class SchedulerBuilder:
     @staticmethod
     def build_optimizer(blueprint: OptimizerBlueprint) -> Optimizer:
         return Optimizer(algorithm=blueprint.algorithm)
+
+    @abstractmethod
+    def load_events(self, sites: FrozenSet[Site], start: Time, end: Time):
+        pass
 
 
 class ValidationBuilder(SchedulerBuilder):
@@ -120,6 +126,18 @@ class ValidationBuilder(SchedulerBuilder):
         collector = super().build_collector(start, end, sites, semesters, blueprint)
         ValidationBuilder.reset_collector_observations(collector)
         return collector
+
+    def load_events(self, sites: FrozenSet[Site], start: Time, end: Time):
+
+        for site in sites:
+            curr = start.to_datetime()
+            while curr <= end.to_datetime():
+                for e in self.sources.origin.resource.get_faults(site, curr):
+                    self.events.add_event(curr, site, e)
+                for e in self.sources.origin.resource.get_eng_tasks(site, curr):
+                    self.events.add_event(curr, site, e)
+                curr += timedelta(days=1)
+
 
 class SimulationBuilder:
     pass
