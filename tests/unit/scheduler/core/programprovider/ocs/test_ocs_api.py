@@ -15,6 +15,7 @@ from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Condi
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 
+from definitions import ROOT_DIR
 from scheduler.core.programprovider.ocs import OcsProgramProvider
 from scheduler.core.sources import Sources
 from lucupy.types import ZeroTime
@@ -25,7 +26,7 @@ def get_api_program() -> Program:
     Load the GN-2022A-Q-999 program from the JSON file.
     """
     sources = Sources()
-    with open(Path('tests') / 'data' / 'GN-2022A-Q-999.json') as f:
+    with open(Path(ROOT_DIR) / 'tests' / 'data' / 'GN-2022A-Q-999.json') as f:
         data = json.loads(f.read())
         obs_classes = frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
         return OcsProgramProvider(obs_classes, sources).parse_program(data['PROGRAM_BASIC'])
