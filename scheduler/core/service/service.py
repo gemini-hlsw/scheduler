@@ -56,7 +56,6 @@ class Service:
                          iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
 
         nightly_timeline = NightlyTimeline()
-
         curr = start.to_datetime()
         night_idx = NightIndex(0)
         while curr <= end.to_datetime():
