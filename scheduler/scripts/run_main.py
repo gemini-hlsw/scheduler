@@ -42,7 +42,7 @@ def main(*,
     )
     night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
 
-    queue = EventQueue(night_indices, sites)
+    queue = EventQueue(start, end, sites)
     builder = ValidationBuilder(Sources(), queue)
 
     # Create the Collector, load the programs, and zero out the time used by the observations.
@@ -71,15 +71,19 @@ def main(*,
     # The morning twilight will force time accounting to be done on the last generated plan for the night.
     for site in sites:
         night_events = collector.get_night_events(site)
-        for night_idx in night_indices:
+        curr = start.to_datetime()
+        night_idx = 0
+        while curr <= end.to_datetime():
             eve_twilight_time = night_events.twilight_evening_12[night_idx].to_datetime()
             eve_twilight = EveningTwilight(start=eve_twilight_time, reason='Evening 12° Twilight', site=site)
-            queue.add_event(night_idx, site, eve_twilight)
+            builder.events.add_event(curr, site, eve_twilight)
 
             # Add one time slot to the morning twilight to make sure time accounting is done for entire night.
             morn_twilight_time = night_events.twilight_morning_12[night_idx].to_datetime()
             morn_twilight = MorningTwilight(start=morn_twilight_time, reason='Morning 12° Twilight', site=site)
-            queue.add_event(night_idx, site, morn_twilight)
+            builder.events.add_event(curr, site, morn_twilight)
+            curr += timedelta(days=1)
+            night_idx += 1
 
     if test_events:
         # Create a weather event at GS that starts two hours after twilight on the first night of 2018-09-30,
@@ -94,7 +98,7 @@ def main(*,
                                              start=weather_change_time,
                                              reason='IQ -> IQ20, CC -> CC50',
                                              site=Site.GS)
-        queue.add_event(NightIndex(0), weather_change_south.site, weather_change_south)
+        queue.add_event(start.to_datetime(), weather_change_south.site, weather_change_south)
 
     # Prepare the optimizer.
     optimizer_blueprint = OptimizerBlueprint("GreedyMax")
@@ -104,7 +108,9 @@ def main(*,
     overall_plans: Dict[NightIndex, Plans] = {}
     nightly_timeline = NightlyTimeline()
 
-    for night_idx in sorted(night_indices):
+    curr = start.to_datetime()
+    night_idx = NightIndex(0)
+    while curr <= end.to_datetime():
         night_indices = np.array([night_idx])
 
         # Reset the Selector to the default weather for the night.
@@ -123,7 +129,7 @@ def main(*,
             # night_events = collector.get_night_events(site)
             # TODO: This needs to be a container that is sorted by start datetime of the events.
             # TODO: Right now, it is sorted, but only because we have added the events in datetime order.
-            events_by_night = queue.get_night_events(night_idx, site)
+            events_by_night = queue.get_night_events(curr, site)
 
             while events_by_night.has_more_events():
                 event = events_by_night.next_event()
@@ -199,6 +205,8 @@ def main(*,
                                          event,
                                          plans[site])
 
+        curr += timedelta(days=1)
+        night_idx += 1
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
         # TODO: There appears to be a bug here. See GSCHED-517.
