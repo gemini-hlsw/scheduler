@@ -205,8 +205,6 @@ def main(*,
                                          event,
                                          plans[site])
 
-        curr += timedelta(days=1)
-        night_idx += 1
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
         # TODO: There appears to be a bug here. See GSCHED-517.
@@ -216,6 +214,8 @@ def main(*,
         for site in collector.sites:
             final_plans[site] = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
         overall_plans[night_idx] = final_plans
+        curr += timedelta(days=1)
+        night_idx += 1
 
     # Make sure we have a list of the final plans sorted by night index.
     plans_list = [p for _, p in sorted(overall_plans.items())]
