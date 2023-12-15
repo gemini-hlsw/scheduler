@@ -14,7 +14,8 @@ from lucupy import sky
 from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex, NightIndices, NonsiderealTarget,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus,
-                              Group, UniqueGroupID)
+                              Group)
+
 import numpy as np
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
@@ -578,6 +579,7 @@ class Collector(SchedulerComponent):
                 # We process this visit.
                 # Update Observation from Collector.
                 observation = self.get_observation(visit.obs_id)
+
                 # print(f'time_accounting for visit {visit.obs_id.id}')
                 group = self._get_group(observation)
                 # if group is not None:
