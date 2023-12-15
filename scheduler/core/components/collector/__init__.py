@@ -14,14 +14,14 @@ from lucupy import sky
 from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex, NightIndices, NonsiderealTarget,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus,
-                              Group)
+                              Group, UniqueGroupID)
 import numpy as np
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.programprovider.abstract import ProgramProvider
-from scheduler.core.plans import Plans
+from scheduler.core.plans import Plans, Visit
 from scheduler.services.resource import NightConfiguration
 
 # TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
@@ -33,6 +33,19 @@ from scheduler.services.resource import ResourceService
 # Set to INFO for now to record time accounting activity.
 logger = logger_factory.create_logger(__name__)
 
+
+class GroupVisits():
+    """Container for holding group information for each visit"""
+    def __init__(self, group:Group, visit=Visit):
+        self.group: Group = group
+        self.visits: List[Visit] = [visit]
+
+    def start_time_slot(self):
+        # return min([v.start_time_slot for v in self.visits])
+        return self.visits[0].start_time_slot
+
+    def end_time_slot(self):
+        return self.visits[-1].start_time_slot + self.visits[-1].time_slots - 1
 
 @final
 @dataclass
@@ -504,18 +517,32 @@ class Collector(SchedulerComponent):
             self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
         ) for night_idx in night_indices}
 
-    def _get_sched_group(self, observation: Observation) -> Group:
-        """Return the scheduling group that an observation is a member of"""
-        schedgroup = None
+    def _get_group(self, observation: Observation) -> Group:
+        """Return the group that an observation is a member of"""
+        outgroup = None
+
+        def _find_obs(group: Group, observation: Observation) -> bool:
+            found = False
+            for obs in group.observations():
+                if obs == observation:
+                    found = True
+                    break
+            return found
+
         program = self.get_program(observation.belongs_to)
+        # print(program.id)
         for group in program.root_group.children:
             if group.is_scheduling_group():
                 for subgroup in group.children:
-                    for obs in subgroup.observations():
-                        if obs == observation:
-                            schedgroup = group
-                            break
-        return schedgroup
+                    if _find_obs(subgroup, observation):
+                        outgroup = group
+                        break
+            else:
+                found = _find_obs(group, observation)
+                if found:
+                    outgroup = group
+                    break
+        return outgroup
 
     def time_accounting(self,
                         plans: Plans,
@@ -551,12 +578,12 @@ class Collector(SchedulerComponent):
                 # We process this visit.
                 # Update Observation from Collector.
                 observation = self.get_observation(visit.obs_id)
-                print(f'time_accounting for visit {visit.obs_id.id}')
-                sched_group = self._get_sched_group(observation)
-                if sched_group is not None:
-                    print(f'\t scheduling group: {sched_group.unique_id}')
-                else:
-                    print(f'\t scheduling group: None')
+                # print(f'time_accounting for visit {visit.obs_id.id}')
+                group = self._get_group(observation)
+                # if group is not None:
+                #     print(f'\t scheduling group: {group.unique_id}')
+                # else:
+                #     print(f'\t scheduling group: None')
 
                 obs_seq = observation.sequence
 
