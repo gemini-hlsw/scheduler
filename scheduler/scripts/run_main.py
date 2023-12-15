@@ -33,7 +33,6 @@ def main(*,
          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
          iq_per_site: Optional[Dict[Site, ImageQuality]] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
-    programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
 
     # Create the Collector and load the programs.
     collector_blueprint = CollectorBlueprint(
@@ -54,12 +53,13 @@ def main(*,
         semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
+    programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
     collector.load_programs(program_provider_class=OcsProgramProvider,
                             data=programs)
     ValidationBuilder.reset_collector_observations(collector)
 
     if verbose:
-        print_collector_info(collector, samples=60)
+        print_collector_info(collector)
 
     # Create the Selector.
     selector = builder.build_selector(collector,

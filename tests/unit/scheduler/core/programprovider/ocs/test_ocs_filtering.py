@@ -1,16 +1,16 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os
+from pathlib import Path
 from typing import FrozenSet, List
 
 import pytest
 
 from lucupy.minimodel import ObservationClass, Program
 
+from definitions import ROOT_DIR
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.sources import Sources
-from definitions import ROOT_DIR
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def obs_classes() -> FrozenSet[ObservationClass]:
 def programs(obs_classes: FrozenSet[ObservationClass]) -> List[Program]:
     sources = Sources()
     program_provider = OcsProgramProvider(obs_classes, sources)
-    program_data = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
+    program_data = read_ocs_zipfile(Path(ROOT_DIR) / 'scheduler' / 'data' / '2018B_program_samples.zip')
     return [program_provider.parse_program(data['PROGRAM_BASIC']) for data in program_data]
 
 
