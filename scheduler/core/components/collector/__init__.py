@@ -21,6 +21,7 @@ import numpy as np
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
+from scheduler.core.plans import Plan, Plans
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.plans import Plans, Visit
 from scheduler.services.resource import NightConfiguration
@@ -554,12 +555,13 @@ class Collector(SchedulerComponent):
         perform time accounting on the plans for the specified sites up until the specified
         end timeslot for the site.
 
-        If the end timeslot bound occurs during a visit, then that visit is ignored,
-        as are all subsequent visits.
+        If the end timeslot bound occurs during a visit, charge up to that timeslot
+        For now, scheduling groups are charged only if they can be done completely.
 
         If end_timeslot_idx is not specified or not specified for a given site,
         then we perform time accounting across the entire night.
         """
+
         for plan in plans:
             if plan.site not in sites:
                 continue
@@ -568,46 +570,122 @@ class Collector(SchedulerComponent):
             # We set to None is the whole night is to be done.
             end_timeslot_bound = end_timeslot_bounds.get(plan.site) if end_timeslot_bounds is not None else None
 
-            # Ensure visits are processed in order of starting time slot.
-            for visit in sorted(plan.visits, key=lambda v: v.start_time_slot):
-                # If this visit's starting time slot is at least the end timeslot bound, then we stop
-                # processing this and all further visits.
-                # TODO: check end_timeslot_bound atom by atom
-                if end_timeslot_bound is not None and visit.start_time_slot >= end_timeslot_bound:
-                    break
+            # print(f'\ntime_accounting')
+            # print(f'{plan.site} {end_timeslot_bound}')
 
-                # We process this visit.
-                # Update Observation from Collector.
-                observation = self.get_observation(visit.obs_id)
-
-                # print(f'time_accounting for visit {visit.obs_id.id}')
-                group = self._get_group(observation)
-                # if group is not None:
-                #     print(f'\t scheduling group: {group.unique_id}')
-                # else:
-                #     print(f'\t scheduling group: None')
-
-                obs_seq = observation.sequence
-
-                # Check if the Observation has been completely observed.
-                if visit.atom_end_idx == len(obs_seq) - 1:
-                    logger.info(f'Marking observation complete: {observation.id.id}')
-                    observation.status = ObservationStatus.OBSERVED
+            group_visits = []
+            for ii, visit in enumerate(sorted(plan.visits, key=lambda v: v.start_time_slot)):
+                obs = self.get_observation(visit.obs_id)
+                group = self._get_group(obs)
+                # print(
+                #     f'{ii} {visit.obs_id.id} {group.unique_id.id} {visit.start_time_slot} {visit.start_time_slot + visit.time_slots - 1}')
+                if ii > 1 and group.is_scheduling_group() and group == group_visits[-1].group:
+                    group_visits[-1].visits.append(visit)
                 else:
-                    observation.status = ObservationStatus.ONGOING
-                      
-                # Update by atom in the sequence.
-                for atom_idx in range(visit.atom_start_idx, visit.atom_end_idx + 1):
-                    obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
-                    obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
+                    group_visits.append(GroupVisits(group=group, visit=visit))
 
-                    # Charge acquisition to the first atom.
-                    if atom_idx == visit.atom_start_idx:
-                        if observation.obs_class == ObservationClass.PARTNERCAL:
-                            obs_seq[atom_idx].program_used += observation.acq_overhead
-                        elif (observation.obs_class == ObservationClass.SCIENCE or
-                              observation.obs_class == ObservationClass.PROGCAL):
-                            obs_seq[atom_idx].program_used += observation.acq_overhead
+            for grpvisit in group_visits:
+                # print(grpvisit.group.unique_id.id, grpvisit.start_time_slot(), grpvisit.end_time_slot())
+                # Determine if group should be charged
+                if grpvisit.group.is_scheduling_group():
+                    # For now, only change a scheduling group if it can be done fully
+                    charge_group = end_timeslot_bound > grpvisit.end_time_slot() if end_timeslot_bound is not None else True
+                else:
+                    charge_group = end_timeslot_bound > grpvisit.start_time_slot() if end_timeslot_bound is not None else True
 
-                    obs_seq[atom_idx].observed = True
-                    obs_seq[atom_idx].qa_state = QAState.PASS
+                # Charge if the end slot is less than this
+                end_timeslot_charge = end_timeslot_bound if end_timeslot_bound is not None else grpvisit.end_time_slot() + 1
+
+                # Charge to not_charged if the bound occurs during an AND (scheduling) group
+                # TODO: for NIR + telluric, check if the standard was taken before the event, if so then charge for
+                # what was observed and make a new copy of the telluric
+                not_charged = grpvisit.group.is_scheduling_group and \
+                              (grpvisit.start_time_slot() <= end_timeslot_charge <= grpvisit.end_time_slot())
+                # print(f'charge_group = {charge_group}, charge_unused = {not_charged}')
+
+                # print(f'\tGroup observations')
+                # prog_obs = grpvisit.group.program_observations()
+                part_obs = grpvisit.group.partner_observations()
+                # print(f'\t\t Science')
+                # for obs in prog_obs:
+                #     print(f'\t\t {obs.unique_id.id}')
+                # print(f'\t\t Partner')
+                # for obs in part_obs:
+                #     print(f'\t\t {obs.unique_id.id}')
+
+                # print(f'\tVisits scheduled')
+                for visit in grpvisit.visits:
+                    # print(
+                    #     f'\t\t{visit.obs_id.id} {visit.atom_start_idx} {visit.atom_end_idx} {visit.start_time_slot} '
+                    #     f'{visit.time_slots} {visit.start_time_slot + visit.time_slots - 1}')
+
+                    # Observation information
+                    observation = self.get_observation(visit.obs_id)
+
+                    # Number of slots in acquisition
+                    n_slots_acq = Plan.time2slots(self.time_slot_length,
+                                                  observation.acq_overhead.total_seconds() * u.s)
+                    # print(f'\t\t{observation.acq_overhead.total_seconds()} {n_slots_acq}')
+
+                    # Cumulative exec_times of unobserved atoms
+                    cumul_seq = observation.cumulative_exec_times()
+                    obs_seq = observation.sequence
+
+                    # Check if the Observation has been completely observed.
+                    if charge_group and visit.atom_end_idx == len(obs_seq) - 1:
+                        logger.info(f'Marking observation complete: {observation.id.id}')
+                        observation.status = ObservationStatus.OBSERVED
+                        if observation in part_obs:
+                            part_obs.remove(observation)
+                    elif not_charged:
+                        observation.status = ObservationStatus.ONGOING
+
+                    # Loop over atoms
+                    for atom_idx in range(visit.atom_start_idx, visit.atom_end_idx + 1):
+                        # calculate end time slot for each atom and compare with end_timeslot_charge
+                        slot_length_visit = n_slots_acq + Plan.time2slots(self.time_slot_length,
+                                                                          cumul_seq[atom_idx].total_seconds() * u.s)
+                        slot_atom_end = visit.start_time_slot + slot_length_visit - 1
+
+                        if atom_idx == visit.atom_start_idx:
+                            slot_atom_length = slot_length_visit
+                        else:
+                            slot_atom_length = slot_length_visit - \
+                                               (n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[
+                                                   atom_idx - 1].total_seconds() * u.s))
+
+                        slot_atom_start = slot_atom_end - slot_atom_length + 1 if slot_atom_length > 0 else slot_atom_end - slot_atom_length
+
+                        if slot_atom_end < end_timeslot_charge:
+                            if charge_group:
+                                # Charge to program or partner
+                                obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
+                                obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
+
+                                # Charge acquisition to the first atom.
+                                if atom_idx == visit.atom_start_idx:
+                                    if observation.obs_class == ObservationClass.PARTNERCAL:
+                                        obs_seq[atom_idx].program_used += observation.acq_overhead
+                                    elif (observation.obs_class == ObservationClass.SCIENCE or
+                                          observation.obs_class == ObservationClass.PROGCAL):
+                                        obs_seq[atom_idx].program_used += observation.acq_overhead
+
+                                obs_seq[atom_idx].observed = True
+                                obs_seq[atom_idx].qa_state = QAState.PASS
+
+                            elif not_charged:
+                                # charge to not_charged
+                                # obs_seq[atom_idx].not_charged += (end_timeslot_charge - slot_atom_start + 1) * self.time_slot_length
+                                continue
+
+                        # print(
+                        #     f'\t\t\t{observation.sequence[atom_idx].id:3} {slot_atom_start:3} {observation.sequence[atom_idx].exec_time} ' \
+                        #     f'{cumul_seq[atom_idx]} {slot_atom_length:3} {slot_atom_end:3} observed:{obs_seq[atom_idx].observed} ' \
+                        #     f'not_charged:{not_charged}')
+
+                # If charging the groups, set remaining partner cals to INACTIVE
+                if charge_group:
+                    for obs in part_obs:
+                        # print(f'\t Setting {obs.unique_id.id} to INACTIVE.')
+                        logger.info(f'\t time_accounting setting {obs.unique_id.id} to INACTIVE.')
+                        obs.status = ObservationStatus.INACTIVE
