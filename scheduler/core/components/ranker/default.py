@@ -44,11 +44,6 @@ class RankerParameters:
     score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = _default_score_combiner
 
 
-# Set the class-shared variables in the RankerParameters to immutable.
-RankerParameters.dec_diff_less_40.setflags(write=False)
-RankerParameters.dec_diff.setflags(write=False)
-
-
 @final
 @dataclass(frozen=True)
 class RankerBandParameters:
