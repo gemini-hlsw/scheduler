@@ -529,14 +529,17 @@ class Collector(SchedulerComponent):
         program = self.get_program(obs.belongs_to)
         # print(program.id)
 
-        # Compare by ID to avoid comparing full objects.
+        # Look for obs in the specified group. Compare by ID to avoid comparing full objects.
+        def find_obs(g: Group) -> bool:
+            return any(obs.unique_id == group_obs.unique_id for group_obs in g.observations())
+
         for group in program.root_group.children:
             if group.is_scheduling_group():
                 for subgroup in group.children:
-                    if any(obs.unique_id == subgroup_obs.unique_id for subgroup_obs in subgroup.observations()):
+                    if find_obs(subgroup):
                         return group
             else:
-                if any(obs.unique_id == group_obs.unique_id for group_obs in group.observations()):
+                if find_obs(group):
                     return group
 
         # This should never happen: cannot find observation in program.
