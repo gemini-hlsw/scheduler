@@ -1,13 +1,14 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import time
 from dataclasses import dataclass
 from datetime import timedelta
 from inspect import isclass
-import time
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 
 import astropy.units as u
+import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import sky
@@ -16,38 +17,39 @@ from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex,
                               SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus,
                               Group)
 
-import numpy as np
-
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
-from scheduler.core.plans import Plan, Plans
+from scheduler.core.plans import Plan, Plans, Visit
 from scheduler.core.programprovider.abstract import ProgramProvider
-from scheduler.core.plans import Plans, Visit
-from scheduler.services.resource import NightConfiguration
-
-# TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
-
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
+from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
 
 # Set to INFO for now to record time accounting activity.
 logger = logger_factory.create_logger(__name__)
 
 
-class GroupVisits():
+# TODO: Merge this if possible with Visit.
+@final
+@dataclass(frozen=True)
+class GroupVisits:
     """Container for holding group information for each visit"""
-    def __init__(self, group:Group, visit=Visit):
-        self.group: Group = group
-        self.visits: List[Visit] = [visit]
+    group: Group
+    visits: List[Visit]
 
     def start_time_slot(self):
+        if not self.visits:
+            raise RuntimeError(f'start_time_slot requested, but no visits recorded for {self.group.unique_id}')
         # return min([v.start_time_slot for v in self.visits])
         return self.visits[0].start_time_slot
 
     def end_time_slot(self):
+        if not self.visits:
+            raise RuntimeError(f'end_time_slot requested, but no visits recorder for {self.group.unique_id}')
         return self.visits[-1].start_time_slot + self.visits[-1].time_slots - 1
+
 
 @final
 @dataclass
@@ -519,32 +521,27 @@ class Collector(SchedulerComponent):
             self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
         ) for night_idx in night_indices}
 
-    def _get_group(self, observation: Observation) -> Group:
-        """Return the group that an observation is a member of"""
-        outgroup = None
-
-        def _find_obs(group: Group, observation: Observation) -> bool:
-            found = False
-            for obs in group.observations():
-                if obs == observation:
-                    found = True
-                    break
-            return found
-
-        program = self.get_program(observation.belongs_to)
+    def _get_group(self, obs: Observation) -> Group:
+        """Return the group that an observation is a member of."""
+        # TODO: How do we handle nested scheduling groups? Right now, if in a subgroup of a scheduling group, will fail.
+        program = self.get_program(obs.belongs_to)
         # print(program.id)
+
+        # Look for obs in the specified group. Compare by ID to avoid comparing full objects.
+        def find_obs(g: Group) -> bool:
+            return any(obs.unique_id == group_obs.unique_id for group_obs in g.observations())
+
         for group in program.root_group.children:
             if group.is_scheduling_group():
                 for subgroup in group.children:
-                    if _find_obs(subgroup, observation):
-                        outgroup = group
-                        break
+                    if find_obs(subgroup):
+                        return group
             else:
-                found = _find_obs(group, observation)
-                if found:
-                    outgroup = group
-                    break
-        return outgroup
+                if find_obs(group):
+                    return group
+
+        # This should never happen: cannot find observation in program.
+        raise RuntimeError(f'Could not find observation {obs.id.id} in program {program.id.id}.')
 
     def time_accounting(self,
                         plans: Plans,
@@ -561,6 +558,8 @@ class Collector(SchedulerComponent):
         If end_timeslot_idx is not specified or not specified for a given site,
         then we perform time accounting across the entire night.
         """
+        # Avoids repeated conversions in loop.
+        time_slot_length = self.time_slot_length.to_datetime()
 
         for plan in plans:
             if plan.site not in sites:
@@ -573,34 +572,39 @@ class Collector(SchedulerComponent):
             # print(f'\ntime_accounting')
             # print(f'{plan.site} {end_timeslot_bound}')
 
-            group_visits = []
-            for ii, visit in enumerate(sorted(plan.visits, key=lambda v: v.start_time_slot)):
+            grpvisits = []
+            # Restore this if we actually need ii, but seems it was just being used to check that grpvisits nonempty.
+            # for ii, visit in enumerate(sorted(plan.visits, key=lambda v: v.start_time_slot)):
+            for visit in sorted(plan.visits, key=lambda v: v.start_time_slot):
                 obs = self.get_observation(visit.obs_id)
                 group = self._get_group(obs)
-                # print(
-                #     f'{ii} {visit.obs_id.id} {group.unique_id.id} {visit.start_time_slot} {visit.start_time_slot + visit.time_slots - 1}')
-                if ii > 1 and group.is_scheduling_group() and group == group_visits[-1].group:
-                    group_visits[-1].visits.append(visit)
+                # print(f'{ii} {visit.obs_id.id} {group.unique_id.id} {visit.start_time_slot} '
+                #       f'{visit.start_time_slot + visit.time_slots - 1}')
+                if grpvisits and group.is_scheduling_group() and group == grpvisits[-1].group:
+                    grpvisits[-1].visits.append(visit)
                 else:
-                    group_visits.append(GroupVisits(group=group, visit=visit))
+                    grpvisits.append(GroupVisits(group=group, visits=[visit]))
 
-            for grpvisit in group_visits:
+            for grpvisit in grpvisits:
                 # print(grpvisit.group.unique_id.id, grpvisit.start_time_slot(), grpvisit.end_time_slot())
                 # Determine if group should be charged
                 if grpvisit.group.is_scheduling_group():
                     # For now, only change a scheduling group if it can be done fully
-                    charge_group = end_timeslot_bound > grpvisit.end_time_slot() if end_timeslot_bound is not None else True
+                    charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.end_time_slot()
                 else:
-                    charge_group = end_timeslot_bound > grpvisit.start_time_slot() if end_timeslot_bound is not None else True
+                    charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.start_time_slot()
 
                 # Charge if the end slot is less than this
-                end_timeslot_charge = end_timeslot_bound if end_timeslot_bound is not None else grpvisit.end_time_slot() + 1
+                if end_timeslot_bound is not None:
+                    end_timeslot_charge = end_timeslot_bound
+                else:
+                    end_timeslot_charge = grpvisit.end_time_slot() + 1
 
                 # Charge to not_charged if the bound occurs during an AND (scheduling) group
                 # TODO: for NIR + telluric, check if the standard was taken before the event, if so then charge for
                 # what was observed and make a new copy of the telluric
-                not_charged = grpvisit.group.is_scheduling_group and \
-                              (grpvisit.start_time_slot() <= end_timeslot_charge <= grpvisit.end_time_slot())
+                not_charged = (grpvisit.group.is_scheduling_group() and
+                               grpvisit.start_time_slot() <= end_timeslot_charge <= grpvisit.end_time_slot())
                 # print(f'charge_group = {charge_group}, charge_unused = {not_charged}')
 
                 # print(f'\tGroup observations')
@@ -623,8 +627,7 @@ class Collector(SchedulerComponent):
                     observation = self.get_observation(visit.obs_id)
 
                     # Number of slots in acquisition
-                    n_slots_acq = Plan.time2slots(self.time_slot_length,
-                                                  observation.acq_overhead.total_seconds() * u.s)
+                    n_slots_acq = Plan.time2slots(time_slot_length, observation.acq_overhead)
                     # print(f'\t\t{observation.acq_overhead.total_seconds()} {n_slots_acq}')
 
                     # Cumulative exec_times of unobserved atoms
@@ -643,18 +646,19 @@ class Collector(SchedulerComponent):
                     # Loop over atoms
                     for atom_idx in range(visit.atom_start_idx, visit.atom_end_idx + 1):
                         # calculate end time slot for each atom and compare with end_timeslot_charge
-                        slot_length_visit = n_slots_acq + Plan.time2slots(self.time_slot_length,
-                                                                          cumul_seq[atom_idx].total_seconds() * u.s)
+                        slot_length_visit = n_slots_acq + Plan.time2slots(time_slot_length, cumul_seq[atom_idx])  # noqa
                         slot_atom_end = visit.start_time_slot + slot_length_visit - 1
 
-                        if atom_idx == visit.atom_start_idx:
-                            slot_atom_length = slot_length_visit
-                        else:
-                            slot_atom_length = slot_length_visit - \
-                                               (n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[
-                                                   atom_idx - 1].total_seconds() * u.s))
-
-                        slot_atom_start = slot_atom_end - slot_atom_length + 1 if slot_atom_length > 0 else slot_atom_end - slot_atom_length
+                        # Not currently in use.
+                        # if atom_idx == visit.atom_start_idx:
+                        #     slot_atom_length = slot_length_visit
+                        # else:
+                        #     time_slots = Plan.time2slots(time_slot_length, cumul_seq[atom_idx-1])  # noqa
+                        #     slot_atom_length = slot_length_visit - n_slots_acq - time_slots
+                        # if slot_atom_length > 0:
+                        #     slot_atom_start = slot_atom_end - slot_atom_length + 1
+                        # else:
+                        #     slot_atom_start = slot_atom_end - slot_atom_length
 
                         if slot_atom_end < end_timeslot_charge:
                             if charge_group:
@@ -678,14 +682,13 @@ class Collector(SchedulerComponent):
                                 # obs_seq[atom_idx].not_charged += (end_timeslot_charge - slot_atom_start + 1) * self.time_slot_length
                                 continue
 
-                        # print(
-                        #     f'\t\t\t{observation.sequence[atom_idx].id:3} {slot_atom_start:3} {observation.sequence[atom_idx].exec_time} ' \
-                        #     f'{cumul_seq[atom_idx]} {slot_atom_length:3} {slot_atom_end:3} observed:{obs_seq[atom_idx].observed} ' \
+                        # print(f'\t\t\t{observation.sequence[atom_idx].id:3} {slot_atom_start:3} {observation.sequence[atom_idx].exec_time} '
+                        #     f'{cumul_seq[atom_idx]} {slot_atom_length:3} {slot_atom_end:3} observed:{obs_seq[atom_idx].observed} '
                         #     f'not_charged:{not_charged}')
 
                 # If charging the groups, set remaining partner cals to INACTIVE
                 if charge_group:
                     for obs in part_obs:
                         # print(f'\t Setting {obs.unique_id.id} to INACTIVE.')
-                        logger.info(f'\t time_accounting setting {obs.unique_id.id} to INACTIVE.')
+                        logger.info(f'\tTime_accounting setting {obs.unique_id.id} to INACTIVE.')
                         obs.status = ObservationStatus.INACTIVE
