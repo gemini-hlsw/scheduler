@@ -16,6 +16,7 @@ from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus,
                               Group)
+from lucupy.timeutils import time2slots
 
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
@@ -627,7 +628,7 @@ class Collector(SchedulerComponent):
                     observation = self.get_observation(visit.obs_id)
 
                     # Number of slots in acquisition
-                    n_slots_acq = Plan.time2slots(time_slot_length, observation.acq_overhead)
+                    n_slots_acq = time2slots(time_slot_length, observation.acq_overhead)
                     # print(f'\t\t{observation.acq_overhead.total_seconds()} {n_slots_acq}')
 
                     # Cumulative exec_times of unobserved atoms
@@ -646,7 +647,7 @@ class Collector(SchedulerComponent):
                     # Loop over atoms
                     for atom_idx in range(visit.atom_start_idx, visit.atom_end_idx + 1):
                         # calculate end time slot for each atom and compare with end_timeslot_charge
-                        slot_length_visit = n_slots_acq + Plan.time2slots(time_slot_length, cumul_seq[atom_idx])  # noqa
+                        slot_length_visit = n_slots_acq + time2slots(time_slot_length, cumul_seq[atom_idx])  # noqa
                         slot_atom_end = visit.start_time_slot + slot_length_visit - 1
 
                         # Not currently in use.

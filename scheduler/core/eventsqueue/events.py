@@ -4,10 +4,10 @@
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from math import ceil
 from typing import final, FrozenSet, Optional
 
 from lucupy.minimodel import Resource, Conditions, Site, TimeslotIndex
+from lucupy.timeutils import time2slots
 
 
 @dataclass
@@ -25,7 +25,7 @@ class Event(ABC):
         This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.
         """
         time_from_twilight = self.start - twi_eve_time
-        time_slots_from_twilight = ceil(time_from_twilight / time_slot_length)
+        time_slots_from_twilight = time2slots(time_slot_length, time_from_twilight)
         return TimeslotIndex(time_slots_from_twilight)
 
 
