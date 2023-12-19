@@ -6,7 +6,7 @@ import logging
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-DEFAULT_LOGGING_LEVEL = logging.ERROR
+DEFAULT_LOGGING_LEVEL = logging.INFO
 
 # Enable this turn off logging entirely.
 # DEFAULT_LOGGING_LEVEL = None

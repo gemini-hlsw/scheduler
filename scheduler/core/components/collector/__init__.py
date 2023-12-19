@@ -519,32 +519,22 @@ class Collector(SchedulerComponent):
             self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
         ) for night_idx in night_indices}
 
-    def _get_group(self, observation: Observation) -> Group:
-        """Return the group that an observation is a member of"""
-        outgroup = None
-
-        def _find_obs(group: Group, observation: Observation) -> bool:
-            found = False
-            for obs in group.observations():
-                if obs == observation:
-                    found = True
-                    break
-            return found
-
-        program = self.get_program(observation.belongs_to)
+    def _get_group(self, obs: Observation) -> Group:
+        """Return the group that an observation is a member of."""
+        # TODO: How do we handle nested scheduling groups? Right now, if in a subgroup of a scheduling group, will fail.
+        program = self.get_program(obs.belongs_to)
         # print(program.id)
         for group in program.root_group.children:
             if group.is_scheduling_group():
                 for subgroup in group.children:
-                    if _find_obs(subgroup, observation):
-                        outgroup = group
-                        break
+                    if obs in subgroup.observations():
+                        return group
             else:
-                found = _find_obs(group, observation)
-                if found:
-                    outgroup = group
-                    break
-        return outgroup
+                if obs in group.observations():
+                    return group
+
+        # This should never happen: cannot find observation in program.
+        raise RuntimeError(f'Could not find observation {obs.id.id} in program {program.id.id}.')
 
     def time_accounting(self,
                         plans: Plans,
