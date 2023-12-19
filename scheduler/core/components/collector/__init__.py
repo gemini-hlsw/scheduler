@@ -27,8 +27,6 @@ from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
 
-# TODO HACK: This is a hack to zero out the observation times in the current architecture from ValidationMode.
-
 # Set to INFO for now to record time accounting activity.
 logger = logger_factory.create_logger(__name__)
 
