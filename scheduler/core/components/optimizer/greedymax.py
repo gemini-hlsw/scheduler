@@ -821,7 +821,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         # type inspector cannot infer that cumul_seq[idx] is a timedelta.
         # noinspection PyTypeChecker
-        # visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
+        # visit_length = n_slots_acq + time2slots(self.time_slot_length, cumul_seq[atom_end])
         visit_length = self._length_visit(n_slots_acq, cumul_seq[atom_end])
         next_atom = atom_end + 1
         while (next_atom <= len(cumul_seq) - 1 and

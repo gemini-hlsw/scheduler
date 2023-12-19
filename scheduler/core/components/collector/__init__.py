@@ -654,7 +654,7 @@ class Collector(SchedulerComponent):
                         # if atom_idx == visit.atom_start_idx:
                         #     slot_atom_length = slot_length_visit
                         # else:
-                        #     time_slots = Plan.time2slots(time_slot_length, cumul_seq[atom_idx-1])  # noqa
+                        #     time_slots = time2slots(time_slot_length, cumul_seq[atom_idx-1])  # noqa
                         #     slot_atom_length = slot_length_visit - n_slots_acq - time_slots
                         # if slot_atom_length > 0:
                         #     slot_atom_start = slot_atom_end - slot_atom_length + 1
