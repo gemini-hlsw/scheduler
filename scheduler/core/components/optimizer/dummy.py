@@ -7,6 +7,7 @@ import random
 from datetime import datetime
 from typing import Optional, Tuple
 
+from lucupy.timeutils import time2slots
 from lucupy.types import Interval
 
 from scheduler.core.calculations import GroupData
@@ -59,7 +60,7 @@ class DummyOptimizer(BaseOptimizer):
         for observation in group.group.observations():
             plan = plans[observation.site]
             if not plan.is_full and plan.site == observation.site:
-                obs_len = plan.time2slots(plan.time_slot_length, observation.exec_time())
+                obs_len = time2slots(plan.time_slot_length, observation.exec_time())
                 if plan.time_left() >= obs_len and observation not in plan:
                     atom_start = 0
                     atom_end = len(observation.sequence) - 1

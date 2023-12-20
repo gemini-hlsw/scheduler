@@ -3,10 +3,10 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from math import ceil
 from typing import Dict, List, Mapping, Optional, Tuple
 
 from lucupy.minimodel import Band, NightIndex, Observation, ObservationID, Resource, Site, ObservationClass
+from lucupy.timeutils import time2slots
 
 from scheduler.core.calculations.nightevents import NightEvents
 
@@ -76,14 +76,13 @@ class Plan:
             atom_start = 0
             atom_end = atom_start
 
-            n_slots_acq = Plan.time2slots(self.time_slot_length, obs.acq_overhead)
-            visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length,
-                                                         cumul_seq[atom_end])
+            n_slots_acq = time2slots(self.time_slot_length, obs.acq_overhead)
+            visit_length = n_slots_acq + time2slots(self.time_slot_length, cumul_seq[atom_end])
 
             # TODO: can this be done w/o a loop? convert cumm_seq to slots, and find the value that fits
             while n_slots_filled + visit_length <= len_interval and atom_end <= len(cumul_seq) - 2:
                 atom_end += 1
-                visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
+                visit_length = n_slots_acq + time2slots(self.time_slot_length, cumul_seq[atom_end])
 
             slot_end = slot_start + visit_length - 1
             # NIR science time for to determine the number of tellurics
@@ -98,13 +97,6 @@ class Plan:
             slot_start = slot_end + 1  # for the next iteration
 
         return slot_start_nir, slot_end_nir, obs_id_nir
-
-    @staticmethod
-    def time2slots(time_slot_length: timedelta, time: timedelta) -> int:
-        """
-        Return the number of timeslots represented by the given time.
-        """
-        return ceil(time / time_slot_length)
 
     def add(self,
             obs: Observation,

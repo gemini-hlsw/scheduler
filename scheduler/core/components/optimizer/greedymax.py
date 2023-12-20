@@ -13,6 +13,7 @@ import numpy.typing as npt
 from lucupy.minimodel import (NIR_INSTRUMENTS, Group, NightIndex, Observation, ObservationClass, ObservationID,
                               ObservationStatus, Program, QAState, Site, UniqueGroupID, Wavelengths, ObservationMode)
 from lucupy.minimodel.resource import Resource
+from lucupy.timeutils import time2slots
 from lucupy.types import Interval, ZeroTime
 
 from scheduler.core.calculations import GroupData, NightTimeslotScores
@@ -223,7 +224,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
 
         # the number of time slots in the minimum visit length
-        n_slots_min_visit = int(np.ceil(self.min_visit_len / self.time_slot_length))
+        n_slots_min_visit = time2slots(self.time_slot_length, self.min_visit_len)
         # print(f"n_min_visit: {n_min_visit}")
 
         # Calculate the remaining clock time necessary for the group to be complete.
@@ -233,10 +234,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
         time_remaining, time_remaining_min, exec_sci_nir, n_std = self._exec_time_remaining(group)
 
         # Calculate the number of time slots needed to complete the group.
-        # n_slots_remaining = int(np.ceil((time_remaining / self.time_slot_length)))  # number of time slots
-        # This use of time2slots works but is probably not kosher, need to make this more general
-        n_slots_remaining = Plan.time2slots(self.time_slot_length, time_remaining)
-        n_slots_remaining_min = Plan.time2slots(self.time_slot_length, time_remaining_min)
+        # This use of time2slots works but is probably not kosher, need to make this more general.
+        n_slots_remaining = time2slots(self.time_slot_length, time_remaining)
+        n_slots_remaining_min = time2slots(self.time_slot_length, time_remaining_min)
 
         # Time slots corresponding to the max of minimum time remaining and the minimum visit length
         # This supports long observations than cannot be split. helps prevent splitting into very small pieces
@@ -432,8 +432,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         # This repeats the calculation from find_max_group, pass this instead?
         # time_remaining = group_data.group.exec_time() - group_data.group.total_used()  # clock time
-        # This is the same as time2slots, need to make that more generally available
-        # n_time_remaining = int(np.ceil((time_remaining / self.time_slot_length)))  # number of time slots
+        # n_time_remaining = time2slots(self.time_slot_length, time_remaining)  # number of time slots
         # n_min, n_slots_remaining = self._min_slots_remaining(max_group_info.group_data.group)
 
         if max_group_info.n_slots_remaining < len(max_group_info.interval):
@@ -462,13 +461,13 @@ class GreedyMaxOptimizer(BaseOptimizer):
             atom_start = self._first_nonzero_time_idx(cumul_seq)
             atom_end = atom_start
 
-            n_slots_acq = Plan.time2slots(self.time_slot_length, obs.acq_overhead)
-            visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length,
-                                                         cumul_seq[atom_end])
+            n_slots_acq = time2slots(self.time_slot_length, obs.acq_overhead)
+            visit_length = n_slots_acq + time2slots(self.time_slot_length, cumul_seq[atom_end])
+
             # TODO: can this be done w/o a loop? convert cumm_seq to slots, and find the value that fits
             while n_slots_filled + visit_length <= len_interval and atom_end <= len(cumul_seq) - 2:
                 atom_end += 1
-                visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
+                visit_length = n_slots_acq + time2slots(self.time_slot_length, cumul_seq[atom_end])
 
             slot_end = slot_start + visit_length - 1
             # NIR science time for to determine the number of tellurics
@@ -519,8 +518,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # TODO: Check scores to confirm that the observations are scheduleable (?)
         for partcal_obs in partner_obs:
             # Need the length of the calibration sequence only
-            n_slots_cal = Plan.time2slots(self.time_slot_length, partcal_obs.exec_time())
-            n_slots_acq = Plan.time2slots(self.time_slot_length, partcal_obs.acq_overhead)
+            n_slots_cal = time2slots(self.time_slot_length, partcal_obs.exec_time())
+            n_slots_acq = time2slots(self.time_slot_length, partcal_obs.acq_overhead)
 
             # Try std first
             # Mean std airmass
@@ -795,7 +794,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         self.output_plans(plans)
 
     def _length_visit(self, n_acq, n_seq):
-        return n_acq + Plan.time2slots(self.time_slot_length, n_seq)
+        return n_acq + time2slots(self.time_slot_length, n_seq)
 
     def _add_visit(self,
                    night_idx: NightIndex,
@@ -818,11 +817,11 @@ class GreedyMaxOptimizer(BaseOptimizer):
         atom_start = self._first_nonzero_time_idx(cumul_seq)
         atom_end = atom_start
 
-        n_slots_acq = Plan.time2slots(self.time_slot_length, obs.acq_overhead)
+        n_slots_acq = time2slots(self.time_slot_length, obs.acq_overhead)
 
         # type inspector cannot infer that cumul_seq[idx] is a timedelta.
         # noinspection PyTypeChecker
-        # visit_length = n_slots_acq + Plan.time2slots(self.time_slot_length, cumul_seq[atom_end])
+        # visit_length = n_slots_acq + time2slots(self.time_slot_length, cumul_seq[atom_end])
         visit_length = self._length_visit(n_slots_acq, cumul_seq[atom_end])
         next_atom = atom_end + 1
         while (next_atom <= len(cumul_seq) - 1 and
@@ -910,7 +909,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     standards, place_before = self.place_standards(night_idx, best_interval, prog_obs, part_obs,
                                                                    max_group_info.n_std)
                     for ii, std in enumerate(standards):
-                        n_slots_cal += Plan.time2slots(self.time_slot_length, std.exec_time())
+                        n_slots_cal += time2slots(self.time_slot_length, std.exec_time())
                         # print(f"{std.id.id} {place_before[ii]} {n_slots_cal}")
                         if place_before[ii]:
                             before_std = std
@@ -933,7 +932,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 n_slots_filled = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
                 if after_std is not None:
                     # "put back" time for the final standard
-                    n_slots_filled -= Plan.time2slots(self.time_slot_length, standards[-1].exec_time())
+                    n_slots_filled -= time2slots(self.time_slot_length, standards[-1].exec_time())
 
             if after_std is not None:
                 obs = after_std
