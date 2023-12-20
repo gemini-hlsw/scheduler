@@ -77,7 +77,7 @@ class WeatherChange(Interruption):
 @dataclass(unsafe_hash=True)
 class Fault(Interruption):
     """
-    Blockage that occurs when one or more resources experience a fault.
+    Interruption that occurs when one or more resources experience a fault.
     """
     id: str
     end: datetime

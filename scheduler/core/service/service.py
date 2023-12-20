@@ -34,13 +34,13 @@ class Service:
     @staticmethod
     def _setup(sites: FrozenSet[Site],
                mode: SchedulerModes,
-               star_vis: Time,
+               start_vis: Time,
                end_vis: Time):
 
-        queue = EventQueue(star_vis, end_vis, sites)
+        queue = EventQueue(start_vis, end_vis, sites)
         sources = Sources()
         builder = dispatch_with(mode, sources, queue)
-        builder.load_events(sites, star_vis, end_vis)
+        builder.load_events(sites, start_vis, end_vis)
         return builder
 
     @staticmethod

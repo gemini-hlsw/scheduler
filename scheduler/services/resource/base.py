@@ -204,7 +204,7 @@ class ResourceService(ExternalService):
 
     def get_eng_tasks(self, site: Site, night_date: date):
         if site not in self._sites:
-            raise ValueError(f'Request for fault for illegal site: {site.name}')
+            raise ValueError(f'Request for engineering tasks for illegal site: {site.name}')
         if date not in self._eng_task[site]:
             return set()
         return self._eng_task[site][night_date]
@@ -650,8 +650,6 @@ class FileBasedResourceService(ResourceService):
 
     def _parse_faults_file(self, site: Site, to_file: str) -> None:
         """Parse faults from files.
-        This is purposeful left non-private as might be used with incoming files from
-        the React app.
         """
         # Files contains this repetitive string in each timestamp, if we need them
         # we could add them as constants.
