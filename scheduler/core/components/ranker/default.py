@@ -111,8 +111,8 @@ class DefaultRanker(Ranker):
 
     def _metric_slope(self,
                       completion: ListOrNDArray[float],
-                      band: npt.NDArray[Band],
-                      b3min: npt.NDArray[float],
+                      band: ListOrNDArray[Band],
+                      b3min: ListOrNDArray[float],
                       thesis: bool) -> Tuple[npt.NDArray[float], npt.NDArray[float]]:
         """
         Compute the metric and the slope as a function of completeness fraction and band.
