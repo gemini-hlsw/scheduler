@@ -160,7 +160,7 @@ class NightEvents:
         If there is no corresponding NightIndex or TimeslotIndex, None is returned.
         """
         if dt.tzinfo is None:
-            # Even if this is the wonky LMT from pytz, this seems to localize propertly.
+            # Even if this is the wonky LMT from pytz, this seems to localize properly.
             dt = self.site.timezone.localize(dt)
 
         # To work around the LMT value from pytz, we localize now to get the proper timezone so that this call does
