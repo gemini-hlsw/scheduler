@@ -1,13 +1,11 @@
 # Copyright (c) 2016-2022 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os
-
 from lucupy.minimodel.observation import ObservationClass, ObservationStatus
 from lucupy.types import ZeroTime
 
 from scheduler.core.builder import ValidationBuilder
-from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
+from scheduler.core.programprovider.ocs import ocs_program_data, OcsProgramProvider
 from scheduler.core.sources import Sources
 from definitions import ROOT_DIR
 
@@ -22,7 +20,7 @@ def test_clear_observations():
     bad_status = frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
 
     # Read in a list of JSON data and parse into programs.
-    program_data = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
+    program_data = ocs_program_data()
     programs = [program_provider.parse_program(data['PROGRAM_BASIC']) for data in program_data]
 
     for program in programs:

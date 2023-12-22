@@ -1,20 +1,17 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os
 import logging
 
-from lucupy.minimodel import ALL_SITES
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 from lucupy.minimodel import SemesterHalf
 
-from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint
-from scheduler.core.builder.builder import SchedulerBuilder
+from scheduler.core.builder.builder import ValidationBuilder
 from scheduler.core.components.collector import *
+from scheduler.core.eventsqueue import EventQueue
 from scheduler.core.output import print_collector_info
-from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.services import logger_factory
 from scheduler.services.resource import (CompositeFilter, OcsResourceService, ProgramPriorityFilter,
                                          ProgramPermissionFilter, ResourcesAvailableFilter)
@@ -24,31 +21,27 @@ if __name__ == '__main__':
     logger = logger_factory.create_logger(__name__, logging.INFO)
     ObservatoryProperties.set_properties(GeminiProperties)
 
-    # Configure and build the components.
-    builder = SchedulerBuilder()
+    num_nights_to_schedule = 1
+    night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
+    queue = EventQueue(night_indices, ALL_SITES)
+    builder = ValidationBuilder(Sources(), queue)
 
-    # Read in a list of JSON data
-    programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
-
+    # Create the Collector and load the programs.
     collector_blueprint = CollectorBlueprint(
         ['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
         ['Q', 'LP', 'FT', 'DD'],
         1.0
     )
-
-    collector = SchedulerBuilder.build_collector(
+    collector = builder.build_collector(
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
         semesters=frozenset({Semester(2018, SemesterHalf.B)}),
         sites=ALL_SITES,
         blueprint=collector_blueprint
     )
-    # Create the Collector and load the programs.
-    collector.load_programs(program_provider_class=OcsProgramProvider,
-                            data=programs)
 
     # Output the state of and information calculated by the Collector.
-    print_collector_info(collector, samples=60)
+    print_collector_info(collector)
 
     # Store the programs from the collector.
     program_data = collector._programs # noqa

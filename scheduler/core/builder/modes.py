@@ -1,12 +1,13 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-
 from enum import Enum
-from .builder import ValidationBuilder, SchedulerBuilder
-from scheduler.core.sources import Sources
+
 import strawberry  # noqa
 
+from scheduler.core.sources import Sources
+from .schedulerbuilder import SchedulerBuilder
+from .validationbuilder import ValidationBuilder
 from ..eventsqueue import EventQueue
 
 
