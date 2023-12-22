@@ -3,7 +3,7 @@
 
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site, ObservationStatus, Observation, QAState
-from typing import FrozenSet, ClassVar, Iterable, Optional, Callable
+from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable
 
 from lucupy.types import ZeroTime
 
@@ -16,6 +16,7 @@ from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.eventsqueue import EventQueue
 
 
+@final
 class ValidationBuilder(SchedulerBuilder):
     """Validation mode is used for validate the proper functioning
 
