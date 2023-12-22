@@ -9,13 +9,11 @@ from lucupy.minimodel.semester import SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
-from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBlueprint
-from scheduler.core.builder.builder import ValidationBuilder
+from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.components.collector import *
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.output import print_collector_info, print_plans
-from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
 from scheduler.core.eventsqueue import EveningTwilight, EventQueue, MorningTwilight, WeatherChange
 from scheduler.services import logger_factory
 
@@ -53,10 +51,6 @@ def main(*,
         semesters=frozenset([Semester(2018, SemesterHalf.B)]),
         blueprint=collector_blueprint
     )
-    programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
-    collector.load_programs(program_provider_class=OcsProgramProvider,
-                            data=programs)
-    ValidationBuilder.reset_collector_observations(collector)
 
     if verbose:
         print_collector_info(collector)

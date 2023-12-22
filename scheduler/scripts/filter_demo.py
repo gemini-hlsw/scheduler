@@ -11,7 +11,7 @@ from lucupy.minimodel import SemesterHalf
 
 from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint
-from scheduler.core.builder.builder import SchedulerBuilder
+from scheduler.core.builder.schedulerbuilder import SchedulerBuilder
 from scheduler.core.components.collector import *
 from scheduler.core.output import print_collector_info
 from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
