@@ -9,7 +9,7 @@ from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
 from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBlueprint
-from scheduler.core.builder.builder import ValidationBuilder
+from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.components.collector import *
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.output import print_collector_info, print_plans
