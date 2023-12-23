@@ -1,9 +1,10 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import bisect
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List, Tuple
+from datetime import datetime, timedelta
+from typing import List, Optional, Tuple
 
 import astropy.units as u
 import numpy as np
@@ -13,7 +14,7 @@ from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import helpers, sky
 from lucupy.decorators import immutable
-from lucupy.minimodel import Site
+from lucupy.minimodel import NightIndex, Site, TimeslotIndex
 from lucupy.sky.constants import JYEAR, J2000
 
 
@@ -141,3 +142,89 @@ class NightEvents:
         # List of numpy arrays used to calculate proper motion of sidereal targets for the night.
         pm_array = [(t.value - J2000) / JYEAR for t in times]
         object.__setattr__(self, 'pm_array', pm_array)
+
+    def utc_dt_to_time_coords(self, dt: datetime) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
+        """
+        Given a datetime, set the timezone to UTC and determine its time coordinates as a NightIndex and TimeslotIndex
+        if possible.
+        If it does not correspond to a NightIndex or TimeslotIndex, return None.
+        """
+        dt = dt.replace(tzinfo=pytz.UTC)
+        return dt_to_time_coords(dt, self.time_slot_length.to_datetime(), self.utc_times)
+
+    def local_dt_to_time_coords(self, dt: datetime) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
+        """
+        Given a (local) datetime, convert it to a NightIndex and a TimeslotIndex if possible.
+        If the timezone associated with the datetime is None, the timezone is set.
+        If it is anything other than the timezone associated with the site, a ValueError is raised.
+        If there is no corresponding NightIndex or TimeslotIndex, None is returned.
+        """
+        if dt.tzinfo is None:
+            # Even if this is the wonky LMT from pytz, this seems to localize properly.
+            dt = self.site.timezone.localize(dt)
+
+        # To work around the LMT value from pytz, we localize now to get the proper timezone so that this call does
+        # not fail.
+        expected_tz = self.site.timezone.localize(datetime.now()).tzinfo
+        if dt.tzinfo != expected_tz:
+            raise ValueError(f'Expected timezone {expected_tz}, got {dt.tzinfo}.')
+        return dt_to_time_coords(dt, self.time_slot_length.to_datetime(), self.local_times)
+
+    def time_coords_to_local_dt(self, night_idx: NightIndex, timeslot_idx: TimeslotIndex) -> Optional[datetime]:
+        """
+        Given time coordinates, convert to a local datetime.
+        """
+        return time_coords_to_dt(night_idx, timeslot_idx, self.local_times)
+
+    def time_coords_to_utc_dt(self, night_idx: NightIndex, timeslot_idx: TimeslotIndex) -> Optional[datetime]:
+        """
+        Given time coordinates, convert to UTC datetime.
+        """
+        return time_coords_to_dt(night_idx, timeslot_idx, self.utc_times)
+
+
+def dt_to_time_coords(dt: datetime,
+                      timeslot_length: timedelta,
+                      times: List[List[datetime]]) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
+    """
+    Given:
+    * a datetime
+    * an array of arrays of datetime where the flattened array would be sorted (representing night indices and
+        times of timeslots during the night)
+    If dt falls within the ranges represented by times, return the NightIndex and TimeslotIndex which corresponds.
+    If no such value is found, return None.
+    """
+
+    # Given that we rounded all times up, if dt is:
+    # * before the first eve twi by at least time_slot_length; or
+    # * after the end of the last twilight;
+    # then there is no corresponding night index.
+    if dt < times[0][0] - timeslot_length or dt >= times[-1][-1]:
+        return None
+
+    # Binary search to find the night_idx in which dt falls, if any.
+    # Since we rounded times up for each night, we use bisect_left on the end times per night.
+    night_idx = bisect.bisect_left([night[-1] for night in times], dt)
+    night_times = times[night_idx]
+
+    # Binary search to find the timeslot_idx in which dt falls.
+    timeslot_idx = bisect.bisect_left(night_times, dt)
+    if timeslot_idx == len(night_times) or dt <= night_times[timeslot_idx] - timeslot_length:
+        return None
+
+    return NightIndex(night_idx), TimeslotIndex(timeslot_idx)
+
+
+def time_coords_to_dt(night_idx: NightIndex,
+                      timeslot_idx: TimeslotIndex,
+                      times: List[List[datetime]]) -> Optional[datetime]:
+    """
+    Given night coordinates (a night index and a timeslot index) and an array of night data, convert the time
+    coordinates to a time in the night data.
+    If no such time exists, return None.
+    """
+    if 0 <= night_idx < len(times):
+        night_times = times[night_idx]
+        if 0 <= timeslot_idx < len(night_times):
+            return night_times[timeslot_idx]
+    return None

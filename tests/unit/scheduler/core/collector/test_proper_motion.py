@@ -3,7 +3,7 @@
 
 import pytest
 from astropy.time import Time
-from lucupy.minimodel import SiderealTarget, TargetType
+from lucupy.minimodel import SiderealTarget, TargetName, TargetType
 
 from scheduler.core.components.collector import Collector
 
@@ -15,7 +15,9 @@ def time():
 
 @pytest.fixture
 def target():
-    return SiderealTarget('', frozenset(), TargetType.OTHER,
+    return SiderealTarget(name=TargetName(''),
+                          magnitudes=frozenset(),
+                          type=TargetType.OTHER,
                           ra=78.85743749999999,
                           dec=15.630119444444444,
                           pm_ra=-5.718,
