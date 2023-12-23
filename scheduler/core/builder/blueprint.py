@@ -20,7 +20,7 @@ def parse_configuration(enum_class: Type[Enum], value: str) -> Any:
 
     Args:
         enum_class (Type): Enum corresponding to the setting to parse
-        value     (str): Value on config.yml
+        value (str): Value on config.yml
 
     Raises:
         ConfigurationError: General configuration error in case the string

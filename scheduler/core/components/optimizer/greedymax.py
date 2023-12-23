@@ -14,12 +14,12 @@ from lucupy.minimodel import (NIR_INSTRUMENTS, Group, NightIndex, Observation, O
                               ObservationStatus, Program, QAState, Site, UniqueGroupID, Wavelengths, ObservationMode)
 from lucupy.minimodel.resource import Resource
 from lucupy.timeutils import time2slots
-from lucupy.types import Interval, ZeroTime
+from lucupy.types import Interval, ListOrNDArray, ZeroTime
 
 from scheduler.core.calculations import GroupData, NightTimeslotScores
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.components.optimizer.timeline import Timelines
-from scheduler.core.plans import Plan, Plans
+from scheduler.core.plans import Plans
 from scheduler.services import logger_factory
 from .base import BaseOptimizer, MaxGroup
 
@@ -96,7 +96,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         return np.where(abs_diff == 1)[0].reshape(-1, 2)
 
     @staticmethod
-    def _first_nonzero_time_idx(inlist: npt.NDArray[timedelta]) -> int:
+    def _first_nonzero_time_idx(inlist: ListOrNDArray[timedelta]) -> int:
         """
         Find the index of the first nonzero timedelta in inlist
         Designed to work with the output from cumulative_seq_exec_times

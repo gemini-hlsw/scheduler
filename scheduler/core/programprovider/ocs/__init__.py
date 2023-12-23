@@ -23,12 +23,19 @@ from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
 from scipy.signal import find_peaks
 
-
+from definitions import ROOT_DIR
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
 
 logger = logger_factory.create_logger(__name__)
+
+
+DEFAULT_OCS_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / '2018B_program_samples.zip'
+
+
+def ocs_program_data() -> Iterable[dict]:
+    return read_ocs_zipfile(DEFAULT_OCS_DATA_PATH)
 
 
 def read_ocs_zipfile(zip_file: str | PathLike[str]) -> Iterable[dict]:

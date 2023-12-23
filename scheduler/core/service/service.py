@@ -1,29 +1,22 @@
 # Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os
 from datetime import datetime
-
-from typing import FrozenSet, Optional, List, Dict
+from typing import FrozenSet, Optional, Dict
 
 import numpy as np
 from astropy.time import Time
 from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex, CloudCover, ImageQuality
 
+from scheduler.core.builder import Blueprints
 from scheduler.core.builder.modes import dispatch_with, SchedulerModes
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.components.selector import Selector
 from scheduler.core.eventsqueue import EventQueue, EveningTwilight, MorningTwilight, WeatherChange
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
-from scheduler.core.plans import Plans
-from scheduler.core.programprovider.ocs import read_ocs_zipfile, OcsProgramProvider
-from scheduler.core.builder import SchedulerBuilder, Blueprints
 from scheduler.core.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
-from scheduler.db.planmanager import PlanManager
-
-from definitions import ROOT_DIR
 
 
 class Service:
@@ -163,9 +156,6 @@ class Service:
                                             sites,
                                             semesters,
                                             Blueprints.collector)
-        programs = read_ocs_zipfile(os.path.join(ROOT_DIR, 'scheduler', 'data', '2018B_program_samples.zip'))
-        collector.load_programs(program_provider_class=OcsProgramProvider,
-                                data=programs)
 
         selector = builder.build_selector(collector,
                                           num_nights_to_schedule,
