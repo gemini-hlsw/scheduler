@@ -116,17 +116,18 @@ def print_plans(all_plans: List[Plans]) -> None:
     for plans in all_plans:
         print(f'\n\n+++++ NIGHT {plans.night_idx + 1} +++++')
         for plan in sorted(plans, key=lambda x: x.site.name):
-            print(f'Plan for site: {plan.site.name}')
-            # Print header information
-            max_score_length = max(len(f'{visit.score:8.2f}') for visit in plan.visits)
-            print(f'\t{"Execution time":{36}}    {"ObsID":{20}} {"Score":>{max_score_length}}'
-                  '  StartAtom    EndAtom  StartSlot    EndSlot   NumSlots')
-            for visit in plan.visits:
-                start_time_str = visit.start_time.strftime('%Y-%m-%d %H:%M')
-                end_time_str = (visit.start_time + timedelta(minutes=visit.time_slots)).strftime('%Y-%m-%d %H:%M')
-                print(f'\t{start_time_str} to {end_time_str}   {visit.obs_id.id:20} {visit.score:8.2f}  '
-                      f'{visit.atom_start_idx:9d}  {visit.atom_end_idx:9d}  {visit.start_time_slot:9d}  '
-                      f' {(visit.start_time_slot + visit.time_slots - 1):9d} {visit.time_slots:9d}')
+            if max_score_length := max((len(f'{visit.score:8.2f}') for visit in plan.visits), default=0):
+                print(f'Plan for site: {plan.site.name}')
+                print(f'\t{"Execution time":{36}}    {"ObsID":{20}} {"Score":>{max_score_length}}'
+                      '  StartAtom    EndAtom  StartSlot    EndSlot   NumSlots')
+                for visit in plan.visits:
+                    start_time_str = visit.start_time.strftime('%Y-%m-%d %H:%M')
+                    end_time_str = (visit.start_time + timedelta(minutes=visit.time_slots)).strftime('%Y-%m-%d %H:%M')
+                    print(f'\t{start_time_str} to {end_time_str}   {visit.obs_id.id:20} {visit.score:8.2f}  '
+                          f'{visit.atom_start_idx:9d}  {visit.atom_end_idx:9d}  {visit.start_time_slot:9d}  '
+                          f' {(visit.start_time_slot + visit.time_slots - 1):9d} {visit.time_slots:9d}')
+            else:
+                print(f'Empty plan for site: {plan.site.name}')
 
 
 def plans_table(all_plans: List[Plans]) -> List[Dict[Site, DataFrame]]:

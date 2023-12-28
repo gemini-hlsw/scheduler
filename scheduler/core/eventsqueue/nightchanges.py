@@ -58,11 +58,23 @@ class NightlyTimeline:
             pg = entry.plan_generated
 
             if t > 0:
-                # grab partial plan at the timeslot
+                # Get the partial plan, i.e. all visits up to and including time slot t.
                 partial_plan = pg.get_slice(stop=t)
-                # modfy reflect last visit to match starting time_slot from the visit
+
+                # If there was a last_visit (i.e. partial_plan.visits[-1]), then it:
+                # * started at last_visit.start_time_slot;
+                # * was scheduled for last_visit.time_slots; and thus
+                # * ended at last_visit.start_time_slot + last_visit.time_slots.
+                # If the visit was cut off, i.e:
+                #     t in [last_visit.start_time_slot, last_end_time_slot)
+                # then mark the actual number of time slots the visit was able to run.
                 # TODO: this need to be reflected in Optimizer
-                partial_plan.visits[-1].time_slots = t - partial_plan.visits[-1].start_time_slot
+                if partial_plan.visits:
+                    last_visit = partial_plan.visits[-1]
+                    last_start_time_slot = last_visit.start_time_slot
+                    last_end_time_slot = last_start_time_slot + last_visit.time_slots
+                    if last_start_time_slot <= t < last_end_time_slot:
+                        last_visit.time_slots = t - last_start_time_slot
             else:
                 partial_plan = pg
 
