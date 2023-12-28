@@ -462,6 +462,9 @@ class FileBasedResourceService(ResourceService):
                 # Determine instrument and WFS resources available.
                 resources: Set[Resource] = set()
 
+                # The site is available on the day, so add it to the resources.
+                resources.add(site.resource)
+
                 # The next five entries contain instrument ports.
                 # Filter out any ports that are not empty.
                 # We then have to check to see what the status of the instrument is for the night.
