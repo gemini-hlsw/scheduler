@@ -1,3 +1,5 @@
+# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import pytest
 
@@ -5,7 +7,7 @@ from astropy.time import Time
 from lucupy.minimodel import ALL_SITES, NightIndex, Semester, SemesterHalf
 
 from scheduler.core.builder.blueprint import CollectorBlueprint
-from scheduler.core.builder.builder import ValidationBuilder
+from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.sources import Sources
 from scheduler.core.eventsqueue import EventQueue
 

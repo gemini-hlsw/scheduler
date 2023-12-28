@@ -19,6 +19,7 @@ def year():
 
 def test_specific_date_gn():
     expected = sorted([
+        Site.GN.resource,
         Resource(id='Altair'),
         Resource(id='NIRI'),
         Resource(id='GMOS OI'),
@@ -58,6 +59,7 @@ def test_specific_date_gn():
 
 def test_specific_date_gs():
     expected = sorted([
+        Site.GS.resource,
         Resource(id='B600'),
         Resource(id='R150'),
         Resource(id='R400'),
