@@ -4,10 +4,12 @@
 from lucupy.minimodel import CloudCover, ImageQuality, Site
 
 from run_main import main
+from scheduler.core.components.ranker import RankerParameters
 
 if __name__ == '__main__':
     use_events = True
     main(test_events=True,
          num_nights_to_schedule=3,
+         ranker_parameters=RankerParameters(),
          cc_per_site={Site.GS: CloudCover.CC70},
          iq_per_site={Site.GS: ImageQuality.IQ70})

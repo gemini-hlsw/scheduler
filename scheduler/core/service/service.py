@@ -12,6 +12,7 @@ from scheduler.core.builder import Blueprints
 from scheduler.core.builder.modes import dispatch_with, SchedulerModes
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.optimizer import Optimizer
+from scheduler.core.components.ranker import RankerParameters, DefaultRanker
 from scheduler.core.components.selector import Selector
 from scheduler.core.eventsqueue import EventQueue, EveningTwilight, MorningTwilight, WeatherChange
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
@@ -39,6 +40,7 @@ class Service:
                          selector: Selector,
                          optimizer: Optimizer,
                          queue: EventQueue,
+                         ranker_parameters: RankerParameters,
                          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
                          iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
 
@@ -46,6 +48,7 @@ class Service:
 
         for night_idx in sorted(night_indices):
             night_indices = np.array([night_idx])
+            custom_ranker = DefaultRanker(collector, night_indices, sites, params=ranker_parameters)
 
             for site in sites:
                 # Reset the Selector to the default weather for the night.
@@ -121,7 +124,8 @@ class Service:
                         selection = selector.select(night_indices=night_indices,
                                                     sites=frozenset([event.site]),
                                                     starting_time_slots={site: {night_idx: event_start_time_slot
-                                                                                for night_idx in night_indices}})
+                                                                                for night_idx in night_indices}},
+                                                    ranker=custom_ranker)
 
                         # Right now the optimizer generates List[Plans], a list of plans indexed by
                         # every night in the selection. We only want the first one, which corresponds
@@ -141,6 +145,7 @@ class Service:
             end_vis: Time,
             num_nights_to_schedule: int,
             sites: FrozenSet[Site],
+            ranker_parameters: RankerParameters = RankerParameters(),
             cc_per_site: Optional[Dict[Site, CloudCover]] = None,
             iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
 
@@ -183,6 +188,7 @@ class Service:
                                           selector,
                                           optimizer,
                                           builder.events,
+                                          ranker_parameters,
                                           cc_per_site,
                                           iq_per_site)
 
