@@ -11,6 +11,7 @@ from lucupy.observatory.gemini import GeminiProperties
 from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBlueprint
 from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.components.collector import *
+from scheduler.core.components.ranker import RankerParameters, DefaultRanker
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.eventsqueue import EveningTwilight, EventQueue, MorningTwilight, WeatherChange
@@ -27,6 +28,7 @@ def main(*,
          num_nights_to_schedule: int = 1,
          test_events: bool = False,
          sites: FrozenSet[Site] = ALL_SITES,
+         ranker_parameters: RankerParameters = RankerParameters(),
          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
          iq_per_site: Optional[Dict[Site, ImageQuality]] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
@@ -100,6 +102,7 @@ def main(*,
     for night_idx in sorted(night_indices):
         night_indices = np.array([night_idx])
 
+        ranker = DefaultRanker(collector, night_indices, sites, params=ranker_parameters)
         # Reset the Selector to the default weather for the night.
         for site in sites:
             cc_value = cc_per_site and cc_per_site.get(site)
@@ -178,7 +181,8 @@ def main(*,
                     selection = selector.select(night_indices=night_indices,
                                                 sites=frozenset([event.site]),
                                                 starting_time_slots={site: {night_idx: event_start_time_slot
-                                                                            for night_idx in night_indices}})
+                                                                            for night_idx in night_indices}},
+                                                ranker=ranker)
 
                     # Right now the optimizer generates List[Plans], a list of plans indexed by
                     # every night in the selection. We only want the first one, which corresponds

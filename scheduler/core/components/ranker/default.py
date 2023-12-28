@@ -25,16 +25,16 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
 
 
 @final
-@dataclass(frozen=True)
+@dataclass
 class RankerParameters:
     """
     Global parameters for the Ranker.
     """
-    thesis_factor: Final[float] = 1.1
-    power: Final[int] = 2
-    met_power: Final[float] = 1.0
-    vis_power: Final[float] = 1.0
-    wha_power: Final[float] = 1.0
+    thesis_factor: float = 1.1
+    power: int = 2
+    met_power: float = 1.0
+    vis_power: float = 1.0
+    wha_power: float = 1.0
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
