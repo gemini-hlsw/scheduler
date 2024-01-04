@@ -113,6 +113,7 @@ def print_plans(all_plans: List[Plans]) -> None:
     """
     Print out the visit plans.
     """
+    sys.stderr.flush()
     for plans in all_plans:
         print(f'\n\n+++++ NIGHT {plans.night_idx + 1} +++++')
         for plan in sorted(plans, key=lambda x: x.site.name):
@@ -131,6 +132,7 @@ def print_plans(all_plans: List[Plans]) -> None:
 
 
 def plans_table(all_plans: List[Plans]) -> List[Dict[Site, DataFrame]]:
+    sys.stderr.flush()
     per_night = []
     for plans in all_plans:
         per_site = {}

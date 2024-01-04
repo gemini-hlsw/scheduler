@@ -43,7 +43,7 @@ class Service:
                          ranker_parameters: RankerParameters,
                          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
                          iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
-
+        time_slot_length = collector.time_slot_length.to_datetime()
         nightly_timeline = NightlyTimeline()
 
         for night_idx in sorted(night_indices):
@@ -99,8 +99,7 @@ class Service:
                         event_start_time_slot = None
                         end_timeslot_bounds = None
                     else:
-                        event_start_time_slot = event.to_timeslot_idx(night_start,
-                                                                      collector.time_slot_length.to_datetime())
+                        event_start_time_slot = event.to_timeslot_idx(night_start, time_slot_length)
                         end_timeslot_bounds = {site: TimeslotIndex(event_start_time_slot)}
 
                         # If tbe following conditions are met:
