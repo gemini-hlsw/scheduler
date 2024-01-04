@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 import os
-from scheduler.graphql_mid.server import  schema
+from scheduler.graphql_mid.server import schema
 from definitions import ROOT_DIR
 
 
