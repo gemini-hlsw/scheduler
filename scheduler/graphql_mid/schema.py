@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2023 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from typing import List
@@ -6,7 +6,7 @@ import strawberry # noqa
 from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, NightIndex
 
-from scheduler.core.service.service import Service
+from scheduler.core.service import Service
 from scheduler.core.sources import Services, Sources
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.eventsqueue import EventQueue
