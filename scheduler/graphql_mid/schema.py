@@ -60,10 +60,6 @@ class Mutation:
                 return SourceFileHandlerResponse(service=files_input.service,
                                                  loaded=False,
                                                  msg='Handler not implemented yet!')
-            case Services.CHRONICLE:
-                return SourceFileHandlerResponse(service=files_input.service,
-                                                 loaded=False,
-                                                 msg='Handler not implemented yet!')
 
     # @strawberry.mutation
     # async def load_sources_form(self):

@@ -19,18 +19,15 @@ from lucupy.minimodel import Site
 class Services(Enum):
     ENV = 'env'
     RESOURCE = 'resource'
-    CHRONICLE = 'chronicle'
 
 
 class Origin(ABC):
     def __init__(self,
                  resource: Optional[ExternalService] = None,
                  env: Optional[ExternalService] = None,
-                 chronicle: Optional[ExternalService] = None,
                  is_loaded: bool = False):
         self.resource = resource
         self.env = env
-        self.chronicle = chronicle
         self.is_loaded = is_loaded
 
     @abstractmethod
@@ -42,12 +39,10 @@ class Origin(ABC):
 
 
 class OCSOrigin(Origin):
-
     def load(self) -> OCSOrigin:
         if not self.is_loaded:
             self.resource = OcsResourceService()
             self.env = OcsEnvService()
-            # OCSOrigin.chronicle
             self.is_loaded = True
             return self
         return self
@@ -114,13 +109,9 @@ class Sources:
                                                  gmos_gratings,
                                                  calendar)
 
-                    self.set_origin(Origin.FILE.value)
+                    self.set_origin(Origins.FILE.value)
                     self.origin.resource = file_resource
                     return True
 
                 else:
                     raise ValueError('Missing files to load for service ')
-            case Services.CHRONICLE:
-                # Faults
-                # Task
-                return False

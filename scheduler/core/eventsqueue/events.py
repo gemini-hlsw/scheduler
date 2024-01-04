@@ -1,8 +1,9 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import uuid
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, FrozenSet, Optional
 
@@ -11,7 +12,17 @@ from lucupy.timeutils import time2slots
 
 
 @dataclass
-class Event(ABC):
+class UUIDIdentified(ABC):
+    id: uuid.UUID = field(default_factory=uuid.uuid4, init=False)
+
+    def __eq__(self, other):
+        if isinstance(other, UUIDIdentified):
+            return self.id == other.id
+        return False
+
+
+@dataclass
+class Event(UUIDIdentified, ABC):
     """
     Superclass for all events, i.e. Interruption and Blockage.
     """
@@ -99,8 +110,27 @@ class ResumeNight(Interruption):
 
 
 @final
-class Fault(Blockage):
+class Fault(Interruption):
     """
-    Blockage that occurs when one or more resources experience a fault.
+    Interruption that occurs when there is a fault in a resource.
+    TODO: Should this be one resource, or more than one resource?
     """
     affects: FrozenSet[Resource]
+
+
+@final
+class FaultResolution(Interruption):
+    """
+    Interruption that occurs when a Fault is resolved.
+    TODO: Should this be the UUID, or the Fault?
+    """
+    resolves: Fault
+
+
+@dataclass
+class EngTask(Interruption):
+    end: datetime
+
+    @property
+    def time_loss(self) -> timedelta:
+        return self.end - self.start
