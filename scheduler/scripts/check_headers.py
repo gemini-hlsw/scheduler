@@ -53,4 +53,5 @@ def update_copyright(directory):
 
 if __name__ == '__main__':
     update_copyright(Path(ROOT_DIR) / 'scheduler')
+    update_copyright(Path(ROOT_DIR) / 'tests')
     update_file(Path(ROOT_DIR) / 'definitions.py')
