@@ -1,9 +1,10 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from dataclasses import dataclass, field
 import sys
-from typing import Dict, List
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import ClassVar, Dict, List
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 
@@ -32,6 +33,7 @@ class NightlyTimeline:
     A collection of timeline entries per night and site.
     """
     timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
+    _datetime_formatter: ClassVar[str] = field(init=False, default='%Y-%m-%d %H:%M')
 
     def add(self,
             night_idx: NightIndex,
@@ -91,16 +93,21 @@ class NightlyTimeline:
         return p
 
     def display(self) -> None:
+        def rnd_min(dt: datetime) -> datetime:
+            return dt + timedelta(minutes=1 - (dt.minute % 1))
+
         sys.stderr.flush()
         for night_idx, entries_by_site in self.timeline.items():
             print(f'\n\n+++++ NIGHT {night_idx + 1} +++++')
             for site, entries in sorted(entries_by_site.items(), key=lambda x: x[0].name):
                 for entry in entries:
-                    print(f'\t+++++ Triggered by event: {entry.event.reason} at {entry.start_time_slot} on {site} +++++')
+                    time = rnd_min(entry.event.time).strftime(self._datetime_formatter)
+                    print(f'\t+++++ Triggered by event: {entry.event.description} at {time} '
+                          f'(time slot {entry.start_time_slot}) at site {site.name}')
                     # print(f'Plan for site: {plan.site.name}')
                     for visit in entry.plan_generated.visits:
-                        print(
-                            f'\t{visit.start_time}   {visit.obs_id.id:20} {visit.score:8.2f} {visit.atom_start_idx:4d} '
-                            f'{visit.atom_end_idx:4d} {visit.start_time_slot:4d}')
+                        visit_time = rnd_min(visit.start_time).strftime(self._datetime_formatter)
+                        print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
+                              f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}')
                     print('\t+++++ END EVENT +++++')
         sys.stdout.flush()

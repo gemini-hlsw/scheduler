@@ -14,7 +14,7 @@ from scheduler.core.components.collector import Collector
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.components.ranker import RankerParameters, DefaultRanker
 from scheduler.core.components.selector import Selector
-from scheduler.core.eventsqueue import EventQueue, EveningTwilight, MorningTwilight, WeatherChange
+from scheduler.core.eventsqueue import EventQueue, EveningTwilightEvent, MorningTwilightEvent, WeatherChangeEvent
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
@@ -71,13 +71,13 @@ class Service:
                 while events_by_night.has_more_events():
                     event = events_by_night.next_event()
                     match event:
-                        case EveningTwilight(new_night_start, _, _):
+                        case EveningTwilightEvent(new_night_start, _):
                             if night_start is not None:
                                 raise ValueError(f'Multiple evening twilight events for night index {night_idx} '
                                                  f'at site {site.name}: was {night_start}, now {new_night_start}.')
                             night_start = new_night_start
 
-                        case MorningTwilight():
+                        case MorningTwilightEvent():
                             # This just marks the end of the observing night and triggers the time accounting.
                             if night_start is None:
                                 raise ValueError(f'Morning twilight event for night index {night_idx} '
@@ -85,11 +85,11 @@ class Service:
                             night_start = None
                             night_done = True
 
-                        case WeatherChange(_, _, affected_site, new_conditions):
+                        case WeatherChangeEvent(_, _, new_conditions):
                             if night_start is None:
                                 raise ValueError(f'Event for night index {night_idx} at site {site.name} occurred '
                                                  f'before twilight: {event}.')
-                            selector.update_conditions(affected_site, new_conditions)
+                            selector.update_conditions(site, new_conditions)
 
                         case _:
                             raise NotImplementedError(f'Received unsupported event: {event.__class__.__name__}')
@@ -121,7 +121,7 @@ class Service:
                         # fetch a new selection and produce a new plan.
                     if not night_done:
                         selection = selector.select(night_indices=night_indices,
-                                                    sites=frozenset([event.site]),
+                                                    sites=frozenset([site]),
                                                     starting_time_slots={site: {night_idx: event_start_time_slot
                                                                                 for night_idx in night_indices}},
                                                     ranker=custom_ranker)
@@ -173,12 +173,12 @@ class Service:
             night_events = collector.get_night_events(site)
             for night_idx in night_indices:
                 eve_twilight_time = night_events.twilight_evening_12[night_idx].to_datetime()
-                eve_twilight = EveningTwilight(start=eve_twilight_time, reason='Evening 12° Twilight', site=site)
+                eve_twilight = EveningTwilightEvent(time=eve_twilight_time, description='Evening 12° Twilight')
                 builder.events.add_event(night_idx, site, eve_twilight)
 
                 # Add one time slot to the morning twilight to make sure time accounting is done for entire night.
                 morn_twilight_time = night_events.twilight_morning_12[night_idx].to_datetime()
-                morn_twilight = MorningTwilight(start=morn_twilight_time, reason='Morning 12° Twilight', site=site)
+                morn_twilight = MorningTwilightEvent(time=morn_twilight_time, description='Morning 12° Twilight')
                 builder.events.add_event(night_idx, site, morn_twilight)
 
         timelines = self._schedule_nights(night_indices,

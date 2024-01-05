@@ -8,7 +8,7 @@ from typing import FrozenSet, Iterable, Optional
 from lucupy.minimodel import NightIndex, Site
 
 from scheduler.services import logger_factory
-from .events import Blockage, Event, Interruption, ResumeNight
+from .events import Event, InterruptionEvent, RoutineEvent
 
 logger = logger_factory.create_logger(__name__)
 
@@ -22,7 +22,7 @@ class NightEventQueue:
     site: Site
 
     # events is a list managed by heapq.
-    events: SortedList[Event] = field(init=False, default_factory=lambda: SortedList(key=lambda evt: evt.start))
+    events: SortedList[Event] = field(init=False, default_factory=lambda: SortedList(key=lambda evt: evt.time))
 
     def has_more_events(self) -> bool:
         return len(self.events) > 0
@@ -38,29 +38,20 @@ class EventQueue:
     def __init__(self, night_indices: FrozenSet[NightIndex], sites: FrozenSet[Site]):
         self._events = {night_idx: {site: NightEventQueue(night_idx=night_idx, site=site) for site in sites}
                         for night_idx in night_indices}
-        self._blockage_stack = []
 
     def add_event(self, night_idx: NightIndex, site: Site, event: Event) -> None:
         match event:
-            case Blockage():
-                self._blockage_stack.append(event)
-            case Interruption():
+            case RoutineEvent() | InterruptionEvent():
                 site_events = self.get_night_events(night_idx, site)
                 if site_events is not None:
                     site_events.add_event(event)
-                else:
-                    raise KeyError(f'Could not add event {event} for night index {night_idx} to site {site.name}.')
+            case _:
+                raise KeyError(f'Could not add event {event} of type {event.__class__.__name__} for night index '
+                               f'{night_idx} to site {site.name}.')
 
     def add_events(self, night_idx: NightIndex, site: Site, events: Iterable[Event]) -> None:
         for event in events:
             self.add_event(night_idx, site, event)
-
-    def check_blockage(self, resume_event: ResumeNight) -> Blockage:
-        if self._blockage_stack and len(self._blockage_stack) == 1:
-            b = self._blockage_stack.pop()
-            b.ends(resume_event.start)
-            return b
-        raise RuntimeError('Missing blockage for ResumeNight')
 
     def get_night_events(self, night_idx: NightIndex, site: Site) -> Optional[NightEventQueue]:
         """

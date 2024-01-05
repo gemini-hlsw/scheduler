@@ -119,7 +119,7 @@ def print_plans(all_plans: List[Plans]) -> None:
         for plan in sorted(plans, key=lambda x: x.site.name):
             if max_score_length := max((len(f'{visit.score:8.2f}') for visit in plan.visits), default=0):
                 print(f'Plan for site: {plan.site.name}')
-                print(f'\t{"Execution time":{36}}    {"ObsID":{20}} {"Score":>{max_score_length}}'
+                print(f'\t{"Execution time":{36}}   {"ObsID":{20}} {"Score":>{max_score_length}}'
                       '  StartAtom    EndAtom  StartSlot    EndSlot   NumSlots')
                 for visit in plan.visits:
                     start_time_str = visit.start_time.strftime('%Y-%m-%d %H:%M')

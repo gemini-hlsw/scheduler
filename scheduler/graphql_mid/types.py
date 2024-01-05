@@ -7,14 +7,14 @@ from typing import List, FrozenSet, Optional
 
 import pytz
 import strawberry  # noqa
-from strawberry.scalars import JSON
+from strawberry.scalars import JSON  # noqa
 
 from lucupy.minimodel import (Site, Conditions, ImageQuality,
                               CloudCover, WaterVapor, SkyBackground)
 
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
-from scheduler.core.eventsqueue import WeatherChange
+from scheduler.core.eventsqueue import WeatherChangeEvent
 from scheduler.graphql_mid.scalars import SObservationID
 from scheduler.config import config
 
@@ -138,7 +138,7 @@ class SNightTimelines:
                 for entry in timeline.timeline[n_idx][site]:
 
                     e = STimelineEntry(start_time_slots=int(entry.start_time_slot),
-                                       event=entry.event.reason,
+                                       event=entry.event.description,
                                        plan=SPlan.from_computed_plan(entry.plan_generated))
                     s_entries.append(e)
                 te = TimelineEntriesBySite(site=site, time_entries=s_entries)
@@ -200,22 +200,21 @@ IQ = strawberry.enum(ImageQuality)
 
 @strawberry.type
 class NewWeatherChange:
-    start: datetime
-    reason: str
+    time: datetime
+    description: str
     new_CC: Optional[CC]
     new_SB: Optional[SB]
     new_WV: Optional[WV]
     new_IQ: Optional[IQ]
 
-    def to_scheduler_event(self) -> WeatherChange:
+    def to_scheduler_event(self) -> WeatherChangeEvent:
         c = Conditions(cc=CloudCover[self.new_CC.name] if self.new_CC else None,
                        sb=SkyBackground[self.new_SB.name] if self.new_SB else None,
                        wv=WaterVapor[self.new_WV.name] if self.new_WV else None,
                        iq=ImageQuality[self.new_IQ.name] if self.new_IQ else None)
-        return WeatherChange(start=self.start,
-                             reason=self.reason,
-                             new_conditions=c
-                             )
+        return WeatherChangeEvent(time=self.time,
+                                  description=self.description,
+                                  new_conditions=c)
 
 
 @strawberry.type
