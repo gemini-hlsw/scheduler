@@ -5,14 +5,18 @@ import uuid
 from abc import ABC
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import final, FrozenSet, Optional
+from typing import final, FrozenSet
 
-from lucupy.minimodel import Resource, Conditions, Site, TimeslotIndex
+from lucupy.minimodel import Resource, Conditions, TimeslotIndex
 from lucupy.timeutils import time2slots
 
 
 @dataclass
 class UUIDIdentified(ABC):
+    """
+    A class with an automatic UUID attached to it.
+    TODO: This should be moved to lucupy.
+    """
     id: uuid.UUID = field(default_factory=uuid.uuid4, init=False)
 
     def __eq__(self, other):
@@ -21,35 +25,46 @@ class UUIDIdentified(ABC):
         return False
 
 
+class UUIDReferenced(ABC):
+    """
+    A class for an object that maintains a reference to a UUIDIdentified object.
+    """
+    def __init__(self, uuid_identified: UUIDIdentified):
+        self.uuid_identified = uuid_identified
+        self.uuid_referenced = uuid_identified.id
+
+
 @dataclass
 class Event(UUIDIdentified, ABC):
     """
-    Superclass for all events, i.e. Interruption and Blockage.
+    Superclass for all events. They contain:
+    1. The time (as a datetime object) at which an event occurred.
+    2. A human-readable description of the event.
     """
-    start: datetime
-    reason: str
-    site: Site
+    time: datetime
+    description: str
 
     def to_timeslot_idx(self, twi_eve_time: datetime, time_slot_length: timedelta) -> TimeslotIndex:
         """
         Given an event, calculate the timeslot offset it falls into relative to another datetime.
         This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.
         """
-        time_from_twilight = self.start - twi_eve_time
+        time_from_twilight = self.time - twi_eve_time
         time_slots_from_twilight = time2slots(time_slot_length, time_from_twilight)
         return TimeslotIndex(time_slots_from_twilight)
 
 
 @dataclass
-class Interruption(Event, ABC):
+class RoutineEvent(Event, ABC):
     """
-    Parent class for any interruption that might cause a new schedule to be created.
+    A routine event that is predictable and processed by the Scheduler.
+    Examples include evening and morning twilight.
     """
     ...
 
 
 @dataclass
-class Twilight(Interruption, ABC):
+class TwilightEvent(RoutineEvent, ABC):
     """
     An event indicating that the 12 degree starting twilight for a night has been reached.
     """
@@ -58,7 +73,7 @@ class Twilight(Interruption, ABC):
 
 @final
 @dataclass
-class EveningTwilight(Twilight):
+class EveningTwilightEvent(TwilightEvent):
     """
     An event indicating that the 12 degree starting twilight for a night has been reached.
     """
@@ -67,7 +82,7 @@ class EveningTwilight(Twilight):
 
 @final
 @dataclass
-class MorningTwilight(Twilight):
+class MorningTwilightEvent(TwilightEvent):
     """
     An event indicating that the 12 degree morning twilight for a night has been reached.
     This is used to finalize the time accounting for the night.
@@ -75,62 +90,87 @@ class MorningTwilight(Twilight):
     ...
 
 
+@dataclass
+class InterruptionEvent(Event, ABC):
+    """
+    Parent class for any interruption that might cause a new schedule to be created.
+    These events include:
+    1. Events that have no specified end time (e.g. weather changes).
+    2. Events that have a specified end time (e.g. engineering tasks, faults) and thus are paired together
+       with an InterruptionResolutionEvent.
+    """
+    ...
+
+
 @final
 @dataclass
-class WeatherChange(Interruption):
+class WeatherChangeEvent(InterruptionEvent):
     """
     Interruption that occurs when new weather conditions come in.
     """
     new_conditions: Conditions
 
 
-@dataclass
-class Blockage(Event, ABC):
-    """
-    Parent class for any interruption that causes a blockage and requires a resume event.
-    """
-    end: Optional[datetime] = None  # needs a resume event
-
-    def ends(self, end: datetime) -> None:
-        self.end = end
-
-    def time_loss(self) -> timedelta:
-        if self.end:
-            return self.end - self.start
-        else:
-            raise ValueError("Can't calculate Blockage time loss without end value.")
-
-
-@dataclass
-class ResumeNight(Interruption):
-    """
-    Event that lets the scheduler knows that the night can be resumed.
-    """
-    ...
-
-
 @final
-class Fault(Interruption):
+@dataclass
+class FaultEvent(InterruptionEvent):
     """
     Interruption that occurs when there is a fault in a resource.
-    TODO: Should this be one resource, or more than one resource?
+    TODO: Should we have one per Resource (probably), or one for multiple resources?
     """
     affects: FrozenSet[Resource]
 
 
 @final
-class FaultResolution(Interruption):
+@dataclass
+class EngineeringTaskEvent(InterruptionEvent):
     """
-    Interruption that occurs when a Fault is resolved.
-    TODO: Should this be the UUID, or the Fault?
+    A class representing software engineering tasks.
     """
-    resolves: Fault
+    ...
 
 
 @dataclass
-class EngTask(Interruption):
-    end: datetime
+class InterruptionResolutionEvent(InterruptionEvent, UUIDReferenced, ABC):
+    """
+    A class representing the resolution of an interruption that can be resolved (e.g. a resolved fault
+    or the end of an engineering task.)
 
+    These events, signifying the end of a period of time, can be used to generate a time loss.
+    """
     @property
     def time_loss(self) -> timedelta:
-        return self.end - self.start
+        """
+        Calculate the time loss from this InterruptionEvent to this InterruptionEventResolution as a timedelta.
+        """
+        if not isinstance(self.uuid_identified, InterruptionEvent):
+            raise ValueError(f'{self.__class__.__name__} ({self.description}) does not have a corresponding '
+                             'interruption event.')
+        return self.time - self.uuid_identified.time
+
+    def time_slot_loss(self, time_slot_length: timedelta) -> int:
+        """
+        Given the length of a time slot, calculate the number of time slots lost from the InterruptionEvent to
+        this InterruptionEventResolution.
+        """
+        return time2slots(time_slot_length, self.time_loss)
+
+
+@final
+class FaultResolutionEvent(InterruptionEvent, UUIDReferenced):
+    """
+    Interruption that occurs when a Fault is resolved.
+    """
+    def __post_init__(self):
+        if not isinstance(self.uuid_identified, FaultEvent):
+            raise ValueError('FaultResolutionEvent is not paired with a FaultEvent.')
+
+
+@dataclass
+class EngineeringTaskResolutionEvent(InterruptionEvent, UUIDReferenced):
+    """
+    Interruption that occurs when an EngineeringTask is completed.
+    """
+    def __post_init__(self):
+        if not isinstance(self.uuid_identified, EngineeringTaskEvent):
+            raise ValueError('EngineeringTaskResolutionEvent is not paired with an EngineeringTaskEvent.')

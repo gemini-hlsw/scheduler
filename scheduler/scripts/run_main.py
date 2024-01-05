@@ -14,7 +14,7 @@ from scheduler.core.components.collector import *
 from scheduler.core.components.ranker import RankerParameters, DefaultRanker
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.output import print_collector_info, print_plans
-from scheduler.core.eventsqueue import EveningTwilight, EventQueue, MorningTwilight, WeatherChange
+from scheduler.core.eventsqueue import EveningTwilightEvent, EventQueue, MorningTwilightEvent, WeatherChangeEvent
 from scheduler.services import logger_factory
 
 
@@ -69,12 +69,12 @@ def main(*,
         night_events = collector.get_night_events(site)
         for night_idx in night_indices:
             eve_twilight_time = night_events.twilight_evening_12[night_idx].to_datetime()
-            eve_twilight = EveningTwilight(start=eve_twilight_time, reason='Evening 12° Twilight', site=site)
+            eve_twilight = EveningTwilightEvent(time=eve_twilight_time, description='Evening 12° Twilight')
             queue.add_event(night_idx, site, eve_twilight)
 
             # Add one time slot to the morning twilight to make sure time accounting is done for entire night.
             morn_twilight_time = night_events.twilight_morning_12[night_idx].to_datetime()
-            morn_twilight = MorningTwilight(start=morn_twilight_time, reason='Morning 12° Twilight', site=site)
+            morn_twilight = MorningTwilightEvent(time=morn_twilight_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twilight)
 
     if test_events:
@@ -83,14 +83,13 @@ def main(*,
         night_events = collector.get_night_events(Site.GS)
         event_night_idx = 0
         weather_change_time = night_events.twilight_evening_12[event_night_idx].to_datetime() + timedelta(minutes=120)
-        weather_change_south = WeatherChange(new_conditions=Conditions(iq=ImageQuality.IQ20,
-                                                                       cc=CloudCover.CC50,
-                                                                       sb=SkyBackground.SBANY,
-                                                                       wv=WaterVapor.WVANY),
-                                             start=weather_change_time,
-                                             reason='IQ -> IQ20, CC -> CC50',
-                                             site=Site.GS)
-        queue.add_event(NightIndex(0), weather_change_south.site, weather_change_south)
+        weather_change_south = WeatherChangeEvent(time=weather_change_time,
+                                                  description='IQ -> IQ20, CC -> CC50',
+                                                  new_conditions=Conditions(iq=ImageQuality.IQ20,
+                                                                            cc=CloudCover.CC50,
+                                                                            sb=SkyBackground.SBANY,
+                                                                            wv=WaterVapor.WVANY))
+        queue.add_event(NightIndex(0), Site.GS, weather_change_south)
 
     # Prepare the optimizer.
     optimizer_blueprint = OptimizerBlueprint("GreedyMax")
@@ -126,13 +125,13 @@ def main(*,
                 event = events_by_night.next_event()
                 logger.info(f"Received event for night idx {night_idx} at site {site.name}: {event.__class__.__name__}")
                 match event:
-                    case EveningTwilight(new_night_start, _, _):
+                    case EveningTwilightEvent(new_night_start, _):
                         if night_start is not None:
                             raise ValueError(f'Multiple evening twilight events for night index {night_idx} '
                                              f'at site {site.name}: was {night_start}, now {new_night_start}.')
                         night_start = new_night_start
 
-                    case MorningTwilight():
+                    case MorningTwilightEvent():
                         # This just marks the end of the observing night and triggers the time accounting.
                         if night_start is None:
                             raise ValueError(f'Morning twilight event for night index {night_idx} '
@@ -140,11 +139,11 @@ def main(*,
                         night_start = None
                         night_done = True
 
-                    case WeatherChange(_, _, affected_site, new_conditions):
+                    case WeatherChangeEvent(_, _, new_conditions):
                         if night_start is None:
                             raise ValueError(f'Event for night index {night_idx} at site {site.name} occurred '
                                              f'before twilight: {event}.')
-                        selector.update_conditions(affected_site, new_conditions)
+                        selector.update_conditions(site, new_conditions)
 
                     case _:
                         raise NotImplementedError(f'Received unsupported event: {event.__class__.__name__}')
@@ -180,7 +179,7 @@ def main(*,
                     logger.info(f'Retrieving selection for night index {night_idx} '
                                 f'at {site.name} starting at time slot {event_start_time_slot}.')
                     selection = selector.select(night_indices=night_indices,
-                                                sites=frozenset([event.site]),
+                                                sites=frozenset([site]),
                                                 starting_time_slots={site: {night_idx: event_start_time_slot
                                                                             for night_idx in night_indices}},
                                                 ranker=ranker)
