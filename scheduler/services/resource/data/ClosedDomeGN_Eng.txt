@@ -68,7 +68,7 @@
 2018-12-31    twi             19:20    [ENT]
 2019-02-04    22:19           00:11    [NIFS checkouts]
 2019-02-25    20:46           23:25    [NIFS LGS checkouts]
-2019-03-08    twi             21:12    [NIRI checkouts
+2019-03-08    twi             21:12    [NIRI checkouts]
 2019-03-13    twi             19:49    [NIRI checkouts]
 2019-03-14    twi             20:10    [NIRI checkouts]
 2019-03-19    twi             20:27    [NIRI checkouts]
