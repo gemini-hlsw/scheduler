@@ -131,7 +131,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
     def _exec_time_remaining(self,
                              group: Group,
-                             verbose: bool = False) -> Tuple[timedelta, timedelta, timedelta, int]:
+                             verbose: bool = False) -> Tuple[timedelta, timedelta, timedelta, int, int]:
         """Determine the total and minimum remaining execution times.
            If an observation can't be split, then there should only be one atom, so min time is the full time.
            """
@@ -150,6 +150,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         time_per_standard = ZeroTime
         sci_times = ZeroTime
         n_std = 0
+        n_slots_remaining = 0
         part_times = []
         sci_times_min = []
 
@@ -171,6 +172,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # Calculate the program time remaining, we won't split program standards
                     nsci += 1
                     sci_times += time_remain
+                    # Add number of slots, to avoid rounding problems
+                    n_slots_remaining += time2slots(self.time_slot_length, time_remain)
                     if obs.obs_class == ObservationClass.SCIENCE:
                         sci_times_min.append(time_remain_min)
                     else:
@@ -207,16 +210,18 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # the same star could be picked for before and after
         if n_std >= 1:
             exec_prt = n_std * max(part_times)
+            # Slots needed, avoid rounding problems
+            n_slots_remaining += n_std * time2slots(self.time_slot_length, max(part_times))
 
         exec_remain = exec_sci + exec_prt
         exec_remain_min = exec_sci_min + exec_prt
 
         if verbose:
             print(f"\t nsci = {nsci} {exec_sci} {exec_prt} nprt = {nprt} time_per_std = {time_per_standard}"
-                  f" n_std = {n_std}")
+                  f" n_std = {n_std} n_slots_remaining = {n_slots_remaining}" )
         #     print(f"\t n_std = {n_std} exec_remain = {exec_remain} exec_remain_min = {exec_remain_min}")
 
-        return exec_remain, exec_remain_min, exec_sci_nir, n_std
+        return exec_remain, exec_remain_min, exec_sci_nir, n_std, n_slots_remaining
 
     def _min_slots_remaining(self, group: Group) -> Tuple[int, int, int, timedelta]:
         """
@@ -229,13 +234,13 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         # Calculate the remaining clock time necessary for the group to be complete.
         # time_remaining = group.exec_time() - group.total_used()
-        # TODO: consider whether to use steps remaining rather than clock time, esp. for operations
         # the following does this
-        time_remaining, time_remaining_min, exec_sci_nir, n_std = self._exec_time_remaining(group)
+        time_remaining, time_remaining_min, exec_sci_nir, n_std, n_slots_remaining = self._exec_time_remaining(group,\
+                                                                                                        verbose=False)
 
         # Calculate the number of time slots needed to complete the group.
         # This use of time2slots works but is probably not kosher, need to make this more general.
-        n_slots_remaining = time2slots(self.time_slot_length, time_remaining)
+        # n_slots_remaining = time2slots(self.time_slot_length, time_remaining)
         n_slots_remaining_min = time2slots(self.time_slot_length, time_remaining_min)
 
         # Time slots corresponding to the max of minimum time remaining and the minimum visit length

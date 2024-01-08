@@ -1,6 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
+import logging
 import time
 from dataclasses import dataclass
 from datetime import timedelta
@@ -650,20 +650,20 @@ class Collector(SchedulerComponent):
                         slot_length_visit = n_slots_acq + time2slots(time_slot_length, cumul_seq[atom_idx])  # noqa
                         slot_atom_end = visit.start_time_slot + slot_length_visit - 1
 
-                        # Not currently in use.
-                        # if atom_idx == visit.atom_start_idx:
-                        #     slot_atom_length = slot_length_visit
-                        # else:
-                        #     time_slots = time2slots(time_slot_length, cumul_seq[atom_idx-1])  # noqa
-                        #     slot_atom_length = slot_length_visit - n_slots_acq - time_slots
-                        # if slot_atom_length > 0:
-                        #     slot_atom_start = slot_atom_end - slot_atom_length + 1
-                        # else:
-                        #     slot_atom_start = slot_atom_end - slot_atom_length
+                        if atom_idx == visit.atom_start_idx:
+                            slot_atom_length = slot_length_visit
+                        else:
+                            time_slots = time2slots(time_slot_length, cumul_seq[atom_idx-1])  # noqa
+                            slot_atom_length = slot_length_visit - n_slots_acq - time_slots
+                        if slot_atom_length > 0:
+                            slot_atom_start = slot_atom_end - slot_atom_length + 1
+                        else:
+                            slot_atom_start = slot_atom_end - slot_atom_length
 
                         if slot_atom_end < end_timeslot_charge:
                             if charge_group:
                                 # Charge to program or partner
+                                # print(f'\t\t Charging program/partner times')
                                 obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
                                 obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
 
@@ -680,8 +680,10 @@ class Collector(SchedulerComponent):
 
                             elif not_charged:
                                 # charge to not_charged
-                                # obs_seq[atom_idx].not_charged += (end_timeslot_charge - slot_atom_start + 1) * self.time_slot_length
-                                continue
+                                not_charged_time = (end_timeslot_charge -
+                                                    slot_atom_start + 1) * self.time_slot_length.to_datetime()
+                                obs_seq[atom_idx].not_charged += not_charged_time
+                                # print(f'\t\t Charging {not_charged_time} to not_charged')
 
                         # print(f'\t\t\t{observation.sequence[atom_idx].id:3} {slot_atom_start:3} {observation.sequence[atom_idx].exec_time} '
                         #     f'{cumul_seq[atom_idx]} {slot_atom_length:3} {slot_atom_end:3} observed:{obs_seq[atom_idx].observed} '
