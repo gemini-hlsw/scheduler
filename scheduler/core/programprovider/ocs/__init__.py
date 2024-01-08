@@ -788,6 +788,7 @@ class OcsProgramProvider(ProgramProvider):
                                   part_time=ZeroTime,
                                   program_used=ZeroTime,
                                   partner_used=ZeroTime,
+                                  not_charged=ZeroTime,
                                   observed=False,
                                   qa_state=QAState.NONE,
                                   guide_state=False,
