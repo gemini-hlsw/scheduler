@@ -2,11 +2,12 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
+import sys
 import logging
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-DEFAULT_LOGGING_LEVEL = logging.INFO
-
-# Enable this turn off logging entirely.
-# DEFAULT_LOGGING_LEVEL = None
+if len(sys.argv) > 1:
+    DEFAULT_LOGGING_LEVEL = None
+else:
+    DEFAULT_LOGGING_LEVEL = logging.INFO
