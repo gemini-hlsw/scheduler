@@ -4,8 +4,9 @@
 import os
 import csv
 from copy import copy
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Set, Tuple, Union, Final
+from typing import Dict, Final, List, Set, Tuple, Union
 from io import BytesIO, StringIO
 
 from lucupy.minimodel import Site, ALL_SITES, Resource
@@ -18,10 +19,47 @@ from definitions import ROOT_DIR
 from .filters import *
 from .night_resource_configuration import NightConfiguration
 from .google_drive_downloader import GoogleDriveDownloader
+from scheduler.core.components.collector import NightEvents
+from scheduler.core.eventsqueue import (FaultEvent, FaultResolutionEvent, EngineeringTaskEvent,
+                                        EngineeringTaskResolutionEvent)
 from scheduler.services.abstract import ExternalService
 from scheduler.services import logger_factory
 
 logger = logger_factory.create_logger(__name__)
+
+
+@dataclass(frozen=True)
+class EngineeringTask:
+    start_time: datetime
+    end_time: datetime
+    description: str
+
+    def to_events(self) -> (EngineeringTaskEvent, EngineeringTaskResolutionEvent):
+        eng_task_event = EngineeringTaskEvent(time=self.start_time,
+                                              description=self.description)
+        eng_task_resolution_event = EngineeringTaskResolutionEvent(time=self.end_time,
+                                                                   description=f'Completed: {self.description}',
+                                                                   uuid_identified=eng_task_event)
+        return eng_task_event, eng_task_resolution_event
+
+
+@dataclass(frozen=True)
+class Fault:
+    time: datetime
+    duration: timedelta
+    description: str
+
+    # Assume unless otherwise stated that a fault affects no resources
+    affects: FrozenSet[Resource] = field(default_factory=lambda: frozenset())
+
+    def to_events(self) -> (FaultEvent, FaultResolutionEvent):
+        fault_event = FaultEvent(time=self.time,
+                                 description=self.description,
+                                 affects=self.affects)
+        fault_resolution_event = FaultResolutionEvent(time=self.time + self.duration,
+                                                      description=f'Resolved: {self.description}',
+                                                      uuid_identified=fault_event)
+        return fault_event, fault_resolution_event
 
 
 class ResourceService(ExternalService):
@@ -85,6 +123,10 @@ class ResourceService(ExternalService):
         # Earliest and latest dates per site.
         self._earliest_date_per_site: Dict[Site, date] = {site: date.max for site in self._sites}
         self._latest_date_per_site: Dict[Site, date] = {site: date.min for site in self._sites}
+
+        # Faults and engineering tasks.
+        self._faults: Dict[Site, Dict[date, Set[Fault]]] = {site: {} for site in self._sites}
+        self._eng_tasks: Dict[Site, Dict[date, Set[EngineeringTask]]] = {site: {} for site in self._sites}
 
         # Determines which nights are blocked.
         self._blocked: Dict[Site, Set[date]] = {site: set() for site in self._sites}
@@ -245,13 +287,12 @@ class FileBasedResourceService(ResourceService):
         If a date is missing from the CSV file, copy the data from the previously defined date through to just before
         the new date.
         """
-
-        def _process_file(f) -> None:
-            reader = csv.reader(f, delimiter=',')
+        def _process_file(io) -> None:
+            reader = csv.reader(io, delimiter=',')
             prev_row_date: Optional[date] = None
 
             for row in reader:
-                # Get rid of the byte-order marker, which causes datetime.strptime to gail.
+                # Get rid of the byte-order marker, which causes datetime.strptime to fail.
                 row = [col.replace('\ufeff', '') for col in row]
                 row_date = datetime.strptime(row[0].strip(), '%Y-%m-%d').date()
 
@@ -577,6 +618,90 @@ class FileBasedResourceService(ResourceService):
     @staticmethod
     def _mirror_parser(r: List[str], site: Site) -> Set[str]:
         return {'Mirror'} | {i.strip().replace('+', '') for i in r}
+
+    def _parse_eng_tasks(self, site: Site, night_events: NightEvents, to_file: str) -> None:
+        """
+        Parse the engineering tasks from
+        twi entries are calculated using lucupy.sky
+        """
+        # Ignore GS until the file is created.
+        if site is Site.GS:
+            return
+
+        with open(os.path.join(self._path, to_file), 'r') as file:
+            for line_num, line in enumerate(file):
+                # Find pattern to keep bracket comments not split.
+                match = re.search(pattern, line)
+                if match:
+                    comment = match.group(1)
+                    rest_of_line = re.sub(pattern, '', line)
+                    eng_date, start_time, end_time = rest_of_line.strip().split()
+                    #  Single date for key
+                    just_date = datetime.strptime(eng_date, '%Y-%m-%d')
+                    # Time day in jd to calculate twilight
+                    time = Time(just_date)
+                    _, _, _, even_12twi, morn_12twi, _, _ = night_events(time,
+                                                                         site.location,
+                                                                         site.timezone)
+
+                    # Handle twilight
+                    if start_time == 'twi':
+                        start_date = even_12twi.datetime
+                        end_date = (morn_12twi.datetime if end_time == 'twi' else
+                                    datetime.strptime(f'{eng_date} {end_time}', '%Y-%m-%d %H:%M'))
+                    else:
+                        start_date = datetime.strptime(f'{eng_date} {start_time}', '%Y-%m-%d %H:%M')
+                        end_date = (morn_12twi.datetime if end_time == 'twi'
+                                    else datetime.strptime(f'{eng_date} {end_time}', '%Y-%m-%d %H:%M'))
+
+                    time_loss = end_date - start_date
+                    eng_task = EngTask(start=start_date,
+                                       end=end_date,
+                                       site=site,
+                                       time_loss=time_loss,
+                                       reason=comment)
+
+                    if just_date in self._eng_task[site]:
+                        self._eng_task[site][just_date].add(eng_task)
+                    else:
+                        self._eng_task[site][just_date] = {eng_task}
+                else:
+                    raise ValueError(f'Pattern not found. Format error on Eng Task file at line {line_num}')
+
+    def _parse_faults_file(self, site: Site, to_file: str) -> None:
+        """Parse faults from files.
+        This is purposeful left non-private as might be used with incoming files from
+        the React app.
+        """
+        # Files contains this repetitive string in each timestamp, if we need them
+        # we could add them as constants.
+        ts_clean = ' 04:00' if site is Site.GS else ' 10:00'
+        with open(os.path.join(self._path, to_file), 'r') as file:
+            for line_num, original_line in enumerate(file):
+                line = original_line.rstrip()  # remove trail spaces
+                if line:  # ignore empty lines
+                    if line[0].isdigit():
+                        pass
+                    elif line.startswith('FR'):  # found a fault
+                        items = line.split('\t')
+                        # Create timestamp with ts_clean var removed
+                        ts = datetime.strptime(items[1].replace(ts_clean, ''),
+                                               '%Y %m %d  %H:%M:%S')
+                        loss = timedelta(hours=float(items[2]))
+                        fault = Fault(start=ts,  # date with time
+                                      reason=items[3],
+                                      site=site,
+                                      id=items[0],
+                                      end=ts+loss,
+                                      time_loss=loss,  # time loss
+                                      affects=frozenset()
+                                      )  # comment for the fault
+                        if ts.date() in self._faults[site]:
+                            self._faults[site][ts.date()].add(fault)
+                        else:
+                            self._faults[site][ts.date()] = {fault}
+                    else:
+                        raise ValueError(f'Fault file has wrong format at line {line_num}')
 
     def load_files(self,
                    site: Site,

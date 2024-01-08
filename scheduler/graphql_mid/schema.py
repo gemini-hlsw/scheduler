@@ -19,7 +19,7 @@ from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
 
 
-# TODO: This variables need a Redis cache to work with different mutation correctly
+# TODO: This variables need a Redis cache to work with different mutations correctly.
 sources = Sources()
 event_queue = EventQueue(frozenset([NightIndex(i) for i in range(3)]), ALL_SITES)
 

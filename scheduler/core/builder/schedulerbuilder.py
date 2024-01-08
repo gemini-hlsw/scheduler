@@ -1,7 +1,8 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from abc import ABC
+from abc import abstractmethod, ABC
+
 from astropy.time import Time
 from lucupy.minimodel import CloudCover, ImageQuality, Semester, Site
 from typing import Dict, FrozenSet, Optional
@@ -19,9 +20,11 @@ class SchedulerBuilder(ABC):
     Allows building different components individually and the general scheduler itself.
     """
     def __init__(self, sources: Sources, events: EventQueue):
-        self.sources = sources  # Services/Files/
-        self.events = events  # EventManager() Emtpy by default
-        self.storage = None  # DB storage
+        self.sources = sources
+        self.events = events
+
+        # TODO: DB storage?
+        self.storage = None
 
     def build_collector(self,
                         start: Time,
@@ -31,8 +34,8 @@ class SchedulerBuilder(ABC):
                         blueprint: CollectorBlueprint) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
-
-        return Collector(start, end, sites, semesters, self.sources, *blueprint)
+        collector = Collector(start, end, sites, semesters, self.sources, *blueprint)
+        return collector
 
     @staticmethod
     def build_selector(collector: Collector,
@@ -47,3 +50,15 @@ class SchedulerBuilder(ABC):
     @staticmethod
     def build_optimizer(blueprint: OptimizerBlueprint) -> Optimizer:
         return Optimizer(algorithm=blueprint.algorithm)
+
+    @abstractmethod
+    def _setup_event_queue(self,
+                           start: Time,
+                           num_nights_to_schedule: int,
+                           sites: FrozenSet[Site]) -> None:
+        """
+        Set up the event queue for this particular mode of the Scheduler.
+        Note that we pass AstroPy times to this method because we will localize them for each site
+        since data regarding events is typically provided in local time.
+        """
+        ...

@@ -25,13 +25,16 @@ class UUIDIdentified(ABC):
         return False
 
 
+@dataclass
 class UUIDReferenced(ABC):
     """
     A class for an object that maintains a reference to a UUIDIdentified object.
     """
-    def __init__(self, uuid_identified: UUIDIdentified):
-        self.uuid_identified = uuid_identified
-        self.uuid_referenced = uuid_identified.id
+    uuid_identified: UUIDIdentified
+
+    @property
+    def uuid_referenced(self) -> uuid:
+        return self.uuid_identified.id
 
 
 @dataclass
