@@ -26,7 +26,7 @@ jobs:
       
       - name: Generate Report
         run: |
-          $CONDA/bin/coverage run -m pytest --import-mode=importlib 
+          $CONDA/bin/coverage run -m pytest --import-mode=importlib
           $CONDA/bin/coverage xml
 
       - name: Upload Coverage to Codecov

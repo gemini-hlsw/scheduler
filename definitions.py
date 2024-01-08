@@ -2,11 +2,27 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import os
+import sys
 import logging
+from enum import IntEnum
+from typing import NoReturn
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-DEFAULT_LOGGING_LEVEL = logging.INFO
 
-# Enable this turn off logging entirely.
-# DEFAULT_LOGGING_LEVEL = None
+class LoggingLevels(IntEnum):
+    INFO = logging.INFO
+    WARNING = logging.WARNING
+    ERROR = logging.ERROR
+    CRITICAL = logging.CRITICAL
+    FATAL = logging.FATAL
+    OFF = 100
+
+
+# Default is full logging.
+DEFAULT_LOGGING_LEVEL = LoggingLevels.INFO
+if len(sys.argv) == 2:
+    try:
+        DEFAULT_LOGGING_LEVEL = LoggingLevels[sys.argv[1].upper()]
+    except KeyError:
+        ...
