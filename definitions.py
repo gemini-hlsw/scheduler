@@ -25,12 +25,10 @@ def _print_usage() -> NoReturn:
 
 
 # Default is full logging.
-if len(sys.argv) == 1:
-    DEFAULT_LOGGING_LEVEL = LoggingLevels.INFO
-elif len(sys.argv) == 2:
+if len(sys.argv) > 1:
     try:
         DEFAULT_LOGGING_LEVEL = LoggingLevels[sys.argv[1].upper()]
     except KeyError:
         _print_usage()
 else:
-    _print_usage()
+    DEFAULT_LOGGING_LEVEL = LoggingLevels.INFO
