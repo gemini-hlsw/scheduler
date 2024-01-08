@@ -339,7 +339,8 @@ class FileBasedResourceService(ResourceService):
             date_set = prog_dict.setdefault(prog_id, set())
             date_set.add(add_date)
 
-    def _load_spreadsheet(self, file_source: Union[str, BytesIO],
+    def _load_spreadsheet(self,
+                          file_source: Union[str, BytesIO],
                           from_gdrive: bool = False) -> None:
         """
         Process an Excel spreadsheet containing instrument, mode, and LGS information.
@@ -705,9 +706,12 @@ class FileBasedResourceService(ResourceService):
 
     def load_files(self,
                    site: Site,
+                   night_events: NightEvents,
                    fpu_to_barcodes_path: str,
                    fpus_path: Union[str, BytesIO],
                    gratings_path: Union[str, BytesIO],
+                   faults_path: Union[str, BytesIO],
+                   eng_tasks_path: Union[str, BytesIO],
                    spreadsheet: Union[str, BytesIO],
                    from_gdrive: bool = False):
         """
@@ -731,6 +735,9 @@ class FileBasedResourceService(ResourceService):
         self._load_csv(site,
                        self._mirror_parser,
                        gratings_path)
+
+        self._parse_faults_file(site, night_events, faults_path)
+        self._parse_eng_tasks(site, night_events, eng_tasks_path)
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_spreadsheet(spreadsheet, from_gdrive=from_gdrive)

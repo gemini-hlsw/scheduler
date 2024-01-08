@@ -31,7 +31,7 @@ class OcsResourceService(FileBasedResourceService):
 
     def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
         """
-        Create and initialize the ResourceMock object with the specified sites.
+        Create and initialize the OCS Resource object with the specified sites.
         """
         super().__init__(sites)
 
@@ -42,6 +42,8 @@ class OcsResourceService(FileBasedResourceService):
                             f'GMOS{suffix}_fpu_barcode.txt',
                             f'GMOS{suffix}_FPUr201789.txt',
                             f'GMOS{suffix}_GRAT201789.txt',
+                            f'G{suffix}_faults.txt',
+                            f'G{suffix}_engtasks.txt',
                             os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE),
                             from_gdrive=True)
 
