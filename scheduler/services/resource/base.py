@@ -1,16 +1,20 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os
 import csv
+import os
+import re
 from copy import copy
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+import datetime as dt
 from typing import Dict, Final, List, Set, Tuple, Union
 from io import BytesIO, StringIO
 
+from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, Resource
 from lucupy.helpers import str_to_bool
+from lucupy.sky import night_events
 import gelidum
 import requests
 from openpyxl import load_workbook
@@ -19,7 +23,6 @@ from definitions import ROOT_DIR
 from .filters import *
 from .night_resource_configuration import NightConfiguration
 from .google_drive_downloader import GoogleDriveDownloader
-from scheduler.core.components.collector import NightEvents
 from scheduler.core.eventsqueue import (FaultEvent, FaultResolutionEvent, EngineeringTaskEvent,
                                         EngineeringTaskResolutionEvent)
 from scheduler.services.abstract import ExternalService
@@ -148,15 +151,15 @@ class ResourceService(ExternalService):
         # The final output from this class: the configuration per night.
         self._night_configurations: Dict[Site, Dict[date, NightConfiguration]] = {site: {} for site in self._sites}
 
-    def _mdf_to_barcode(self, mdfname: str, inst: str) -> Optional[Resource]:
+    def _mdf_to_barcode(self, mdf_name: str, inst: str) -> Optional[Resource]:
         """Legacy MOS mask barcode convention"""
         barcode = None
         if inst in ResourceService._instd.keys():
             # Collect the components of the string from the MDF name.
             inst_id = ResourceService._instd[inst]
-            sem_id = ResourceService._semd[mdfname[6]]
-            progtype_id = ResourceService._progd[mdfname[7]]
-            barcode = f'{inst_id}{sem_id}{progtype_id}{mdfname[-6:-3]}{mdfname[-2:]}'
+            sem_id = ResourceService._semd[mdf_name[6]]
+            progtype_id = ResourceService._progd[mdf_name[7]]
+            barcode = f'{inst_id}{sem_id}{progtype_id}{mdf_name[-6:-3]}{mdf_name[-2:]}'
         return self.lookup_resource(barcode)
 
     def _itcd_fpu_to_barcode_parser(self, r: List[str], site: Site) -> Set[str]:
@@ -359,15 +362,15 @@ class FileBasedResourceService(ResourceService):
         if from_gdrive:
             logger.info('Retrieving site configuration file from Google Drive...')
             try:
-                GoogleDriveDownloader.download_file_from_google_drive(file_id=FileBasedResourceService._SITE_CONFIG_GOOGLE_ID,
-                                                                      overwrite=True,
-                                                                      dest_path=file_source)
+                GoogleDriveDownloader.download_file(file_id=FileBasedResourceService._SITE_CONFIG_GOOGLE_ID,
+                                                    overwrite=True,
+                                                    dest_path=file_source)
             except requests.RequestException:
                 logger.warning('Could not retrieve site configuration file from Google Drive.')
 
             if not os.path.exists(file_source):
-                raise FileNotFoundError(
-                    f'No site configuration data available for {__class__.__name__} at: {file_source}')
+                raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: '
+                                        f'{file_source}')
 
         workbook = load_workbook(filename=file_source,
                                  read_only=True,
@@ -541,7 +544,8 @@ class FileBasedResourceService(ResourceService):
                         resources.add(self.lookup_resource(name))
                     elif not wfs_status or wfs_status:
                         logger.warning(f'{msg} for WFS {name} contains no status. Using default of Not Available.')
-                    elif wfs_status not in [FileBasedResourceService._NOT_AVAILABLE, FileBasedResourceService._ENGINEERING]:
+                    elif (wfs_status not in
+                          [FileBasedResourceService._NOT_AVAILABLE, FileBasedResourceService._ENGINEERING]):
                         raise ValueError(f'{msg} for WFS {name} contains illegal status: {wfs_status}.')
 
                 # Add the resource data to the dates. Union returns a new set.
@@ -617,103 +621,135 @@ class FileBasedResourceService(ResourceService):
                     s.add(LgsFilter())
 
     @staticmethod
-    def _mirror_parser(r: List[str], site: Site) -> Set[str]:
+    def _mirror_parser(r: List[str], _: Site) -> Set[str]:
         return {'Mirror'} | {i.strip().replace('+', '') for i in r}
 
-    def _parse_eng_tasks(self, site: Site, night_events: NightEvents, to_file: str) -> None:
+    def _load_eng_tasks(self, site: Site, name: str) -> None:
         """
-        Parse the engineering tasks from
-        twi entries are calculated using lucupy.sky
+        Load the faults from the specified file.
+        Times in faults are stored in local time with no timezone information.
         """
-        # Ignore GS until the file is created.
-        if site is Site.GS:
-            return
+        path = os.path.join(self._path, name)
 
-        with open(os.path.join(self._path, to_file), 'r') as file:
-            for line_num, line in enumerate(file):
-                # Find pattern to keep bracket comments not split.
-                match = re.search(pattern, line)
-                if match:
-                    comment = match.group(1)
-                    rest_of_line = re.sub(pattern, '', line)
-                    eng_date, start_time, end_time = rest_of_line.strip().split()
-                    #  Single date for key
-                    just_date = datetime.strptime(eng_date, '%Y-%m-%d')
-                    # Time day in jd to calculate twilight
-                    time = Time(just_date)
-                    _, _, _, even_12twi, morn_12twi, _, _ = night_events(time,
-                                                                         site.location,
-                                                                         site.timezone)
+        try:
+            with open(path, 'r') as input_file:
+                pattern = r'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}|twi)\s+(\d{2}:\d{2}|twi)\s+\[(.*?)\]'
+                eng_tasks = self._eng_tasks[site]
 
-                    # Handle twilight
-                    if start_time == 'twi':
-                        start_date = even_12twi.datetime
-                        end_date = (morn_12twi.datetime if end_time == 'twi' else
-                                    datetime.strptime(f'{eng_date} {end_time}', '%Y-%m-%d %H:%M'))
-                    else:
-                        start_date = datetime.strptime(f'{eng_date} {start_time}', '%Y-%m-%d %H:%M')
-                        end_date = (morn_12twi.datetime if end_time == 'twi'
-                                    else datetime.strptime(f'{eng_date} {end_time}', '%Y-%m-%d %H:%M'))
+                for line_num, line in enumerate(input_file):
+                    line = line.strip()
 
-                    time_loss = end_date - start_date
-                    eng_task = EngTask(start=start_date,
-                                       end=end_date,
-                                       site=site,
-                                       time_loss=time_loss,
-                                       reason=comment)
+                    # Skip blank lines or lines that start with a #
+                    if not line or line[0] == '#':
+                        continue
 
-                    if just_date in self._eng_task[site]:
-                        self._eng_task[site][just_date].add(eng_task)
-                    else:
-                        self._eng_task[site][just_date] = {eng_task}
-                else:
-                    raise ValueError(f'Pattern not found. Format error on Eng Task file at line {line_num}')
+                    match = re.match(pattern, line)
+                    if not match:
+                        logger.warning(f'Illegal line {name}@{line_num + 1}: "{line}"')
+                        continue
 
-    def _parse_faults_file(self, site: Site, to_file: str) -> None:
-        """Parse faults from files.
-        This is purposeful left non-private as might be used with incoming files from
-        the React app.
-        """
-        # Files contains this repetitive string in each timestamp, if we need them
-        # we could add them as constants.
-        ts_clean = ' 04:00' if site is Site.GS else ' 10:00'
-        with open(os.path.join(self._path, to_file), 'r') as file:
-            for line_num, original_line in enumerate(file):
-                line = original_line.rstrip()  # remove trail spaces
-                if line:  # ignore empty lines
-                    if line[0].isdigit():
-                        pass
-                    elif line.startswith('FR'):  # found a fault
-                        items = line.split('\t')
-                        # Create timestamp with ts_clean var removed
-                        ts = datetime.strptime(items[1].replace(ts_clean, ''),
-                                               '%Y %m %d  %H:%M:%S')
-                        loss = timedelta(hours=float(items[2]))
-                        fault = Fault(start=ts,  # date with time
-                                      reason=items[3],
-                                      site=site,
-                                      id=items[0],
-                                      end=ts+loss,
-                                      time_loss=loss,  # time loss
-                                      affects=frozenset()
-                                      )  # comment for the fault
-                        if ts.date() in self._faults[site]:
-                            self._faults[site][ts.date()].add(fault)
+                    local_date_str, start_time_str, end_time_str, description = match.groups()
+                    local_date = datetime.strptime(local_date_str, '%Y-%m-%d').date()
+
+                    # Determine the start and end times.
+                    start_time = None
+                    end_time = None
+
+                    if start_time_str != 'twi':
+                        start_time = datetime.strptime(start_time_str, '%H:%M').time()
+                    if end_time_str != 'twi':
+                        end_time = datetime.strptime(end_time_str, '%H:%M').time()
+
+                    if start_time is None or end_time is None:
+                        # We need the twilights in this case.
+                        if start_time is not None:
+                            astropy_time = Time(datetime.combine(local_date, start_time).astimezone(site.timezone))
+                        elif end_time is not None:
+                            astropy_time = Time(datetime.combine(local_date, end_time).astimezone(site.timezone))
                         else:
-                            self._faults[site][ts.date()] = {fault}
+                            noon = dt.time(12, 0)
+                            astropy_time = Time(datetime.combine(local_date, noon).astimezone(site.timezone))
+
+                        _, sunset, sunrise, eve_twi, morn_twi, _, _ = night_events(astropy_time,
+                                                                                   site.location,
+                                                                                   site.timezone)
+
+                        if start_time is None:
+                            start_time = eve_twi.to_datetime(site.timezone).replace(tzinfo=None,
+                                                                                    second=0,
+                                                                                    microsecond=0).time()
+                        if end_time is None:
+                            end_time = morn_twi.to_datetime(site.timezone).replace(tzinfo=None,
+                                                                                   second=0,
+                                                                                   microsecond=0).time()
+
+                    start_datetime = datetime.combine(local_date, start_time)
+                    end_datetime = datetime.combine(local_date, end_time)
+                    if end_time < start_time:
+                        end_datetime += dt.timedelta(days=1)
+
+                    eng_tasks.setdefault(local_date, set())
+                    eng_task = EngineeringTask(start_time=start_datetime,
+                                               end_time=end_datetime,
+                                               description=description)
+                    eng_tasks[local_date].add(eng_task)
+        except FileNotFoundError:
+            logger.error(f'Eng tasks file not available: {path}')
+
+    def _load_faults(self, site: Site, name: str) -> None:
+        """
+        Load the faults from the specified file.
+        """
+        path = os.path.join(self._path, name)
+
+        try:
+            with open(path, 'r') as input_file:
+                pattern = r'FR-(\d+)\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+\[([^\]]+)\]'
+                faults = self._faults[site]
+
+                for line_num, line in enumerate(input_file):
+                    line = line.strip()
+
+                    # Skip blank lines or lines that start with a # indicating a comment.
+                    if not line or line[0] == '#':
+                        continue
+
+                    match = re.match(pattern, line)
+                    if not match:
+                        logger.warning(f'Illegal line {name}@{line_num + 1}: "{line}"')
+                        continue
+
+                    fr_id, local_datetime_str, duration_str, description = match.groups()
+                    local_datetime = datetime.strptime(local_datetime_str, '%Y-%m-%d %H:%M:%S')
+                    duration = timedelta(hours=float(duration_str))
+
+                    # Determine the night of the fault report from the local datetime.
+                    # If it is before noon, it belongs to the previous night.
+                    if local_datetime.time() < dt.time(hour=12):
+                        night_date = local_datetime.date() - timedelta(days=1)
                     else:
-                        raise ValueError(f'Fault file has wrong format at line {line_num}')
+                        night_date = local_datetime.date()
+
+                    # Add the fault to the night.
+                    # TODO: Right now, not sure how to handle faults in terms of resources.
+                    # TODO: Just specify the entire site as a resource for now, indicating that the site cannot be used
+                    # TODO: for the specified period.
+                    faults.setdefault(night_date, set())
+                    fault = Fault(time=local_datetime,
+                                  duration=duration,
+                                  description=f'FR-{fr_id}: {description}',
+                                  affects=frozenset({site.resource}))
+                    faults[night_date].add(fault)
+        except FileNotFoundError:
+            logger.error(f'Faults file not available: {path}')
 
     def load_files(self,
                    site: Site,
-                   night_events: NightEvents,
                    fpu_to_barcodes_path: str,
                    fpus_path: Union[str, BytesIO],
                    gratings_path: Union[str, BytesIO],
                    faults_path: Union[str, BytesIO],
-                   eng_tasks_path: Union[str, BytesIO],
-                   spreadsheet: Union[str, BytesIO],
-                   from_gdrive: bool = False):
+                   eng_tasks_path: Union[str, BytesIO]):
         """
         Load all files necessaries to the correct functioning of the ResourceManager.
         """
@@ -736,8 +772,6 @@ class FileBasedResourceService(ResourceService):
                        self._mirror_parser,
                        gratings_path)
 
-        self._parse_faults_file(site, night_events, faults_path)
-        self._parse_eng_tasks(site, night_events, eng_tasks_path)
-
-        # Process the spreadsheet information for instrument, mode, and LGS settings.
-        self._load_spreadsheet(spreadsheet, from_gdrive=from_gdrive)
+        self._load_faults(site, faults_path)
+        self._load_eng_tasks(site, eng_tasks_path)
+        logger.info('Successfully loaded resource data.')

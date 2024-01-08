@@ -42,7 +42,7 @@ class GoogleDriveDownloader:
     DOWNLOAD_URL = 'https://docs.google.com/uc?export=download'
 
     @staticmethod
-    def download_file_from_google_drive(file_id, dest_path, overwrite=False):
+    def download_file(file_id, dest_path, overwrite=False):
         """
         Downloads a shared file from Google Drive into a given folder.
         Optionally unzips it.
