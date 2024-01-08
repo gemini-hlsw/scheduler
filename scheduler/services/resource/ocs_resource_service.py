@@ -31,7 +31,7 @@ class OcsResourceService(FileBasedResourceService):
 
     def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
         """
-        Create and initialize the ResourceMock object with the specified sites.
+        Create and initialize the OCS Resource object with the specified sites.
         """
         super().__init__(sites)
 
@@ -42,8 +42,12 @@ class OcsResourceService(FileBasedResourceService):
                             f'GMOS{suffix}_fpu_barcode.txt',
                             f'GMOS{suffix}_FPUr201789.txt',
                             f'GMOS{suffix}_GRAT201789.txt',
-                            os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE),
-                            from_gdrive=True)
+                            f'G{suffix}_faults.txt',
+                            f'G{suffix}_engtasks.txt')
+
+            # Process the spreadsheet information for instrument, mode, and LGS settings.
+            spreadsheet = os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE)
+            self._load_spreadsheet(spreadsheet, from_gdrive=True)
 
         # TODO: Remove this after discussion with science.
         # TODO: There are entries here outside of the Telescope Schedules Spreadsheet.

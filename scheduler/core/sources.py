@@ -109,7 +109,7 @@ class Sources:
                                                  gmos_gratings,
                                                  calendar)
 
-                    self.set_origin(Origins.FILE.value)
+                    self.set_origin(Origins.FILE.value())
                     self.origin.resource = file_resource
                     return True
 

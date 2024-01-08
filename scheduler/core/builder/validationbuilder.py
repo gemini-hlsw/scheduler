@@ -88,3 +88,13 @@ class ValidationBuilder(SchedulerBuilder):
         collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data())
         ValidationBuilder.reset_collector_observations(collector)
         return collector
+
+    def _setup_event_queue(self,
+                           start: Time,
+                           num_nights_to_schedule: int,
+                           sites: FrozenSet[Site]) -> None:
+        """
+        Load all the events for the event queue from the different services for the number of nights to schedule.
+        """
+        for site in sites:
+            ...
