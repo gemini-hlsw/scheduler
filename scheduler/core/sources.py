@@ -6,7 +6,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
 from io import BytesIO
-from typing import Optional, NoReturn
+from typing import Optional, NoReturn, FrozenSet
 
 from scheduler.services.abstract import ExternalService
 from scheduler.services.environment import OcsEnvService
@@ -85,7 +85,7 @@ class Sources:
         self.origin = origin.load()
 
     def use_file(self,
-                 files_input,
+                 sites: FrozenSet[Site],
                  service: Services,
                  calendar: BytesIO,
                  gmos_fpu: BytesIO,
@@ -101,10 +101,10 @@ class Sources:
                 if calendar and gmos_fpu and gmos_gratings:
                     file_resource = FileResourceService()
 
-                    # TODO: files_input is undefined. This will be fixed later.
-                    for site in files_input.sites:
+                    for site in sites:
                         suffix = ('s' if site == Site.GS else 'n').upper()
-                        file_resource.load_files(f'GMOS{suffix}_fpu_barcode.txt',
+                        file_resource.load_files(site,
+                                                 f'GMOS{suffix}_fpu_barcode.txt',
                                                  gmos_fpu,
                                                  gmos_gratings,
                                                  calendar)
