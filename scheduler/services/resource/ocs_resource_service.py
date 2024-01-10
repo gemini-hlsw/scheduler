@@ -43,11 +43,8 @@ class OcsResourceService(FileBasedResourceService):
                             f'GMOS{suffix}_FPUr201789.txt',
                             f'GMOS{suffix}_GRAT201789.txt',
                             f'G{suffix}_faults.txt',
-                            f'G{suffix}_engtasks.txt')
-
-            # Process the spreadsheet information for instrument, mode, and LGS settings.
-            spreadsheet = os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE)
-            self._load_spreadsheet(spreadsheet, from_gdrive=True)
+                            f'G{suffix}_engtasks.txt',
+                            OcsResourceService._SITE_CONFIG_FILE)
 
         # TODO: Remove this after discussion with science.
         # TODO: There are entries here outside of the Telescope Schedules Spreadsheet.

@@ -5,7 +5,6 @@ import os
 import sys
 import logging
 from enum import IntEnum
-from typing import NoReturn
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 

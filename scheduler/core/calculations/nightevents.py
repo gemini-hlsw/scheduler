@@ -122,10 +122,10 @@ class NightEvents:
         sun_alt_indices = [np.where(sun_alt[night_idx] <= -12 * u.deg)[0] for night_idx, _ in enumerate(self.time_grid)]
         object.__setattr__(self, 'sun_alt_indices', sun_alt_indices)
 
-        # accumoon produces a tuple, (SkyCoord, ndarray) indicating position and distance.
+        # Produces a tuple, (SkyCoord, float) indicating position and distance.
+        # TODO: No idea what the unit of distance is.
         # In order to populate both moon_pos and moon_dist, we use the zip(*...) technique to
-        # collect the SkyCoords into one tuple, and the ndarrays into another.
-        # The moon_dist are already a Quantity: error if try to convert.
+        # collect the SkyCoords into one tuple, and the floats into another.
         moon_pos, moon_dist = zip(*[sky.Moon().at(t).accurate_location(self.site.location) for t in times])
         object.__setattr__(self, 'moon_pos', moon_pos)
         object.__setattr__(self, 'moon_dist', moon_dist)

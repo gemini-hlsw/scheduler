@@ -1,6 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-import logging
+
 import time
 from dataclasses import dataclass
 from datetime import timedelta
@@ -21,7 +21,7 @@ from lucupy.timeutils import time2slots
 from scheduler.core.calculations import NightEvents, TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
-from scheduler.core.plans import Plan, Plans, Visit
+from scheduler.core.plans import Plans, Visit
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
@@ -337,6 +337,8 @@ class Collector(SchedulerComponent):
 
             # Determine time slot indices where the sky brightness and elevation constraints are met.
             # By default, in the case where an observation has no constraints, we use SB ANY.
+            # TODO: moon_dist here is a List[float], when calculate_sky_brightness expects a Distance.
+            # TODO: code still works, bt we should be very careful here.
             if obs.constraints and obs.constraints.conditions.sb < SkyBackground.SBANY:
                 targ_sb = obs.constraints.conditions.sb
                 targ_moon_ang = coord.separation(night_events.moon_pos[night_idx])

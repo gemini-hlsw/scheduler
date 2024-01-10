@@ -264,13 +264,14 @@ class FileBasedResourceService(ResourceService):
     # Name of the spreadsheet file containing telescope configurations.
     _SITE_CONFIG_FILE: Final[str] = 'telescope_schedules.xlsx'
 
-    def _load_fpu_to_barcodes(self, site: Site, name: str) -> None:
+    def _load_fpu_to_barcodes(self, site: Site,
+                              filename: str) -> None:
         """
         FPUs at each site map to a unique barcode as defined in the files:
             * gmos[ns]_fpu_barcode.txt
         These are site-dependent values.
         """
-        with open(os.path.join(self._path, name)) as f:
+        with open(os.path.join(self._path, filename)) as f:
             for row in f:
                 fpu, barcode = row.split()
 
@@ -278,7 +279,8 @@ class FileBasedResourceService(ResourceService):
                 if fpu is not None:
                     self._itcd_fpu_to_barcode[site][fpu] = self.lookup_resource(barcode)
 
-    def _load_csv(self, site: Site,
+    def _load_csv(self,
+                  site: Site,
                   c: Callable[[List[str], Site], Set[str]],
                   data_source: Union[str, BytesIO]) -> None:
         """
@@ -342,9 +344,10 @@ class FileBasedResourceService(ResourceService):
             date_set = prog_dict.setdefault(prog_id, set())
             date_set.add(add_date)
 
-    def _load_spreadsheet(self,
-                          file_source: Union[str, BytesIO],
-                          from_gdrive: bool = False) -> None:
+    def _load_instrument_data(self,
+                              site: Site,
+                              filename: str,
+                              from_gdrive: bool = False) -> None:
         """
         Process an Excel spreadsheet containing instrument, mode, and LGS information.
 
@@ -355,270 +358,270 @@ class FileBasedResourceService(ResourceService):
         def none_to_str(value) -> str:
             return '' if value is None else value
 
-        if not file_source:
+        if not filename:
             raise ValueError('file_source cannot be empty')
 
-        # filename = os.path.join(self._path, OcsResourceService._SITE_CONFIG_FILE)
+        file_path = os.path.join(self._path, filename)
         if from_gdrive:
             logger.info('Retrieving site configuration file from Google Drive...')
             try:
                 GoogleDriveDownloader.download_file(file_id=FileBasedResourceService._SITE_CONFIG_GOOGLE_ID,
                                                     overwrite=True,
-                                                    dest_path=file_source)
+                                                    dest_path=file_path)
             except requests.RequestException:
                 logger.warning('Could not retrieve site configuration file from Google Drive.')
 
-            if not os.path.exists(file_source):
+            if not os.path.exists(file_path):
                 raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: '
-                                        f'{file_source}')
+                                        f'{file_path}')
 
-        workbook = load_workbook(filename=file_source,
+        workbook = load_workbook(filename=file_path,
                                  read_only=True,
                                  data_only=True)
-        for site in self._sites:
-            try:
-                sheet = workbook[site.name]
-            except KeyError:
-                # Make the KeyError more clear.
-                raise KeyError(f'{__class__.__name__}: No tab for {site.name} in the '
-                               'telescope schedule configuration spreadsheet.')
 
-            # A set consisting of the dates that are not blocked.
-            dates: Set[date] = set()
+        try:
+            sheet = workbook[site.name]
+        except KeyError:
+            # Make the KeyError more clear.
+            raise KeyError(f'{__class__.__name__}: No tab for {site.name} in the '
+                           'telescope schedule configuration spreadsheet.')
 
-            # We need to determine what programs are prohibited from what nights.
-            # PV programs can only be done on PV nights or later, so we store the night they first appear.
-            # They also receive boosted pri
-            pv_programs: Dict[ProgramID, Set[date]] = {}
+        # A set consisting of the dates that are not blocked.
+        dates: Set[date] = set()
 
-            # Classical programs can only be done on specifically designated nights.
-            classical_programs: Dict[ProgramID, Set[date]] = {}
+        # We need to determine what programs are prohibited from what nights.
+        # PV programs can only be done on PV nights or later, so we store the night they first appear.
+        # They also receive boosted pri
+        pv_programs: Dict[ProgramID, Set[date]] = {}
 
-            # Programs that get a boost on dates.
-            score_boost: Dict[ProgramID, Set[date]] = {}
+        # Classical programs can only be done on specifically designated nights.
+        classical_programs: Dict[ProgramID, Set[date]] = {}
 
-            # Partner blocks are when the mode indicates that the night is restricted to a partner.
-            partner_blocks: Dict[date, TimeAccountingCode] = {}
+        # Programs that get a boost on dates.
+        score_boost: Dict[ProgramID, Set[date]] = {}
 
-            # Instrument runs, where observations associated with certain instruments get a boost.
-            instrument_run: Dict[Resource, Set[date]] = {}
+        # Partner blocks are when the mode indicates that the night is restricted to a partner.
+        partner_blocks: Dict[date, TimeAccountingCode] = {}
 
-            # Process the header.
-            # We need to make mappings from all the instrument names to their column number.
-            # We also need the names of the WFS columns. These are reversed because we want to go from column idx to
-            #   resource.
-            instrument_column_mapping: Dict[str, int] = {}
-            wfs_columns: Dict[int, str] = {}
+        # Instrument runs, where observations associated with certain instruments get a boost.
+        instrument_run: Dict[Resource, Set[date]] = {}
 
-            column_idx = 11
+        # Process the header.
+        # We need to make mappings from all the instrument names to their column number.
+        # We also need the names of the WFS columns. These are reversed because we want to go from column idx to
+        #   resource.
+        instrument_column_mapping: Dict[str, int] = {}
+        wfs_columns: Dict[int, str] = {}
 
-            # sheet.max_column is returning None, probably because of missing data in PWFS columns,
-            # so we loop over the header row to calculate the max column.
-            max_column_idx = 0
-            while sheet.cell(row=1, column=max_column_idx + 1).value is not None:
-                max_column_idx += 1
+        column_idx = 11
 
-            # Subtract one from column_idx since we will be iterating over a row, which is a 0-based
-            # list, even though getting cells is a 1-based operation.
-            while (cell := sheet.cell(row=1, column=column_idx)).value != 'PWFS1':
-                instrument_column_mapping[cell.value] = column_idx - 1
-                column_idx += 1
+        # sheet.max_column is returning None, probably because of missing data in PWFS columns,
+        # so we loop over the header row to calculate the max column.
+        max_column_idx = 0
+        while sheet.cell(row=1, column=max_column_idx + 1).value is not None:
+            max_column_idx += 1
 
-            while column_idx <= max_column_idx:
-                wfs_columns[column_idx - 1] = sheet.cell(row=1, column=column_idx).value
-                column_idx += 1
+        # Subtract one from column_idx since we will be iterating over a row, which is a 0-based
+        # list, even though getting cells is a 1-based operation.
+        while (cell := sheet.cell(row=1, column=column_idx)).value != 'PWFS1':
+            instrument_column_mapping[cell.value] = column_idx - 1
+            column_idx += 1
 
-            # Skip the header row (row 1).
-            for idxOffset, row in enumerate(sheet.iter_rows(min_row=2)):
-                idx = idxOffset + 2
+        while column_idx <= max_column_idx:
+            wfs_columns[column_idx - 1] = sheet.cell(row=1, column=column_idx).value
+            column_idx += 1
 
-                # The error and logging messages all start with:
-                msg = f'Configuration file for site {site} row {idx}'
+        # Skip the header row (row 1).
+        for idxOffset, row in enumerate(sheet.iter_rows(min_row=2)):
+            idx = idxOffset + 2
 
-                # Read the date and create an entry for the site and date.
-                row_date = row[0].value.date()
+            # The error and logging messages all start with:
+            msg = f'Configuration file for site {site} row {idx}'
 
-                # Check the telescope status. If it is closed, we ignore the rest of the row.
-                status = row[1].value.upper().strip()
-                if status == 'CLOSED':
-                    self._blocked[site].add(row_date)
+            # Read the date and create an entry for the site and date.
+            row_date = row[0].value.date()
 
-                    continue
-                elif status != 'OPEN':
-                    raise ValueError(f'{msg} has illegal value in Telescope column: {status}.')
+            # Check the telescope status. If it is closed, we ignore the rest of the row.
+            status = row[1].value.upper().strip()
+            if status == 'CLOSED':
+                self._blocked[site].add(row_date)
+                continue
 
-                # Process the mode.
-                original_mode = row[2].value
-                mode = original_mode.upper().strip()
+            elif status != 'OPEN':
+                raise ValueError(f'{msg} has illegal value in Telescope column: {status}.')
 
-                # We process the modes in the following order:
-                # 1. Engineering / Shutdown (terminates)
-                # 2. Visitor block <instrument-name>
-                # 3. <partner> block
-                # 4. PV: <prog-id-list>
-                # 5. Classical: <prog-id-list>
-                # 6. Priority: <prog-id-list>
-                if mode in {FileBasedResourceService._ENGINEERING, 'SHUTDOWN'}:
-                    self._blocked[site].add(row_date)
-                    continue
+            # Process the mode.
+            original_mode = row[2].value
+            mode = original_mode.upper().strip()
 
-                # Now we can add the date to dates since it will require further processing.
-                dates.add(row_date)
+            # We process the modes in the following order:
+            # 1. Engineering / Shutdown (terminates)
+            # 2. Visitor block <instrument-name>
+            # 3. <partner> block
+            # 4. PV: <prog-id-list>
+            # 5. Classical: <prog-id-list>
+            # 6. Priority: <prog-id-list>
+            if mode in {FileBasedResourceService._ENGINEERING, 'SHUTDOWN'}:
+                self._blocked[site].add(row_date)
+                continue
 
-                if mode.startswith('VISITOR:'):
-                    instrument = self.lookup_resource(original_mode[8:].strip())
-                    instrument_run.setdefault(instrument, set()).add(row_date)
+            # Now we can add the date to dates since it will require further processing.
+            dates.add(row_date)
 
-                elif mode.startswith('PARTNER:'):
-                    try:
-                        partner = TimeAccountingCode[mode[8:].strip()]
-                    except KeyError as ex:
-                        raise KeyError(f'{msg} has illegal time account {ex} in mode: {mode}.')
-                    partner_blocks[row_date] = partner
+            if mode.startswith('VISITOR:'):
+                instrument = self.lookup_resource(original_mode[8:].strip())
+                instrument_run.setdefault(instrument, set()).add(row_date)
 
-                elif mode.startswith('PV:'):
-                    FileBasedResourceService._add_dates_to_dict(pv_programs, mode[3:], row_date)
+            elif mode.startswith('PARTNER:'):
+                try:
+                    partner = TimeAccountingCode[mode[8:].strip()]
+                except KeyError as ex:
+                    raise KeyError(f'{msg} has illegal time account {ex} in mode: {mode}.')
+                partner_blocks[row_date] = partner
 
-                elif mode.startswith('CLASSICAL:'):
-                    FileBasedResourceService._add_dates_to_dict(classical_programs, mode[10:], row_date)
+            elif mode.startswith('PV:'):
+                FileBasedResourceService._add_dates_to_dict(pv_programs, mode[3:], row_date)
 
-                elif mode.startswith('PRIORITY:'):
-                    FileBasedResourceService._add_dates_to_dict(score_boost, mode[9:], row_date)
+            elif mode.startswith('CLASSICAL:'):
+                FileBasedResourceService._add_dates_to_dict(classical_programs, mode[10:], row_date)
 
-                elif mode != 'QUEUE':
-                    raise ValueError(f'{msg} has illegal mode: {mode}.')
+            elif mode.startswith('PRIORITY:'):
+                FileBasedResourceService._add_dates_to_dict(score_boost, mode[9:], row_date)
 
-                # Get the LGS status of the row. The default, if no LGS is specified, is False.
-                lgs = str_to_bool(row[3].value)
-                if not row[3].value:
-                    logger.warning(f'{msg} has no LGS entry. Using default value of No.')
-                    self._lgs[site][row_date] = False
-                else:
-                    self._lgs[site][row_date] = lgs
+            elif mode != 'QUEUE':
+                raise ValueError(f'{msg} has illegal mode: {mode}.')
 
-                # Get the ToO status for the night...
-                too = str_to_bool(row[4].value)
-                if not row[4].value:
-                    logger.warning(f'{msg} has no ToO entry. Using default value of Yes.')
-                    self._too[site][row_date] = True
-                else:
-                    self._too[site][row_date] = too
+            # Get the LGS status of the row. The default, if no LGS is specified, is False.
+            lgs = str_to_bool(row[3].value)
+            if not row[3].value:
+                logger.warning(f'{msg} has no LGS entry. Using default value of No.')
+                self._lgs[site][row_date] = False
+            else:
+                self._lgs[site][row_date] = lgs
 
-                # Determine instrument and WFS resources available.
-                resources: Set[Resource] = set()
+            # Get the ToO status for the night...
+            too = str_to_bool(row[4].value)
+            if not row[4].value:
+                logger.warning(f'{msg} has no ToO entry. Using default value of Yes.')
+                self._too[site][row_date] = True
+            else:
+                self._too[site][row_date] = too
 
-                # The site is available on the day, so add it to the resources.
-                resources.add(site.resource)
+            # Determine instrument and WFS resources available.
+            resources: Set[Resource] = set()
 
-                # The next five entries contain instrument ports.
-                # Filter out any ports that are not empty.
-                # We then have to check to see what the status of the instrument is for the night.
-                instrument_names = {row[i].value for i in range(5, 10) if row[i].value is not None and row[i].value}
+            # The site is available on the day, so add it to the resources.
+            resources.add(site.resource)
 
-                for name in instrument_names:
-                    if name not in instrument_column_mapping:
-                        raise KeyError(f'{msg} contains illegal instrument name: {name}.')
-                    try:
-                        instrument_status = none_to_str(row[instrument_column_mapping[name]].value).strip().upper()
-                    except IndexError:
-                        # This happens if the row ends prematurely.
-                        instrument_status = ''
-                    if instrument_status == FileBasedResourceService._SCIENCE:
-                        resources.add(self.lookup_resource(name))
-                    elif not instrument_status:
-                        logger.warning(f'{msg} contains no instrument status. Using default of Not Available.')
-                    elif instrument_status not in [FileBasedResourceService._NOT_AVAILABLE,
-                                                   FileBasedResourceService._ENGINEERING,
-                                                   FileBasedResourceService._CALIBRATION]:
-                        raise ValueError(f'{msg} for instrument {name} '
-                                         f'contains illegal status: {instrument_status}.')
+            # The next five entries contain instrument ports.
+            # Filter out any ports that are not empty.
+            # We then have to check to see what the status of the instrument is for the night.
+            instrument_names = {row[i].value for i in range(5, 10) if row[i].value is not None and row[i].value}
 
-                # The remaining columns are WFS. Check the status and if available, add to resources.
-                for idx, name in wfs_columns.items():
-                    try:
-                        wfs_status = none_to_str(row[idx].value).strip().upper()
-                    except IndexError:
-                        # This happens if the row ends prematurely.
-                        wfs_status = ''
-                    if wfs_status == FileBasedResourceService._SCIENCE:
-                        resources.add(self.lookup_resource(name))
-                    elif not wfs_status or wfs_status:
-                        logger.warning(f'{msg} for WFS {name} contains no status. Using default of Not Available.')
-                    elif (wfs_status not in
-                          [FileBasedResourceService._NOT_AVAILABLE, FileBasedResourceService._ENGINEERING]):
-                        raise ValueError(f'{msg} for WFS {name} contains illegal status: {wfs_status}.')
+            for filename in instrument_names:
+                if filename not in instrument_column_mapping:
+                    raise KeyError(f'{msg} contains illegal instrument name: {filename}.')
+                try:
+                    instrument_status = none_to_str(row[instrument_column_mapping[filename]].value).strip().upper()
+                except IndexError:
+                    # This happens if the row ends prematurely.
+                    instrument_status = ''
+                if instrument_status == FileBasedResourceService._SCIENCE:
+                    resources.add(self.lookup_resource(filename))
+                elif not instrument_status:
+                    logger.warning(f'{msg} contains no instrument status. Using default of Not Available.')
+                elif instrument_status not in [FileBasedResourceService._NOT_AVAILABLE,
+                                               FileBasedResourceService._ENGINEERING,
+                                               FileBasedResourceService._CALIBRATION]:
+                    raise ValueError(f'{msg} for instrument {filename} '
+                                     f'contains illegal status: {instrument_status}.')
 
-                # Add the resource data to the dates. Union returns a new set.
-                self._resources[site][row_date] = self._resources[site].setdefault(row_date, set()).union(resources)
+            # The remaining columns are WFS. Check the status and if available, add to resources.
+            for idx, filename in wfs_columns.items():
+                try:
+                    wfs_status = none_to_str(row[idx].value).strip().upper()
+                except IndexError:
+                    # This happens if the row ends prematurely.
+                    wfs_status = ''
+                if wfs_status == FileBasedResourceService._SCIENCE:
+                    resources.add(self.lookup_resource(filename))
+                elif not wfs_status or wfs_status:
+                    logger.warning(f'{msg} for WFS {filename} contains no status. Using default of Not Available.')
+                elif (wfs_status not in
+                        [FileBasedResourceService._NOT_AVAILABLE, FileBasedResourceService._ENGINEERING]):
+                    raise ValueError(f'{msg} for WFS {filename} contains illegal status: {wfs_status}.')
 
-            # Determine the earliest and latest date for the site.
-            self._earliest_date_per_site[site] = min(dates.union(self._blocked[site]))
-            self._latest_date_per_site[site] = max(dates.union(self._blocked[site]))
+            # Add the resource data to the dates. Union returns a new set.
+            self._resources[site][row_date] = self._resources[site].setdefault(row_date, set()).union(resources)
 
-            # Block out the blocked dates.
-            for d in self._blocked[site]:
+        # Determine the earliest and latest date for the site.
+        self._earliest_date_per_site[site] = min(dates.union(self._blocked[site]))
+        self._latest_date_per_site[site] = max(dates.union(self._blocked[site]))
+
+        # Block out the blocked dates.
+        for d in self._blocked[site]:
+            s = self._positive_filters[site].setdefault(d, set())
+            s.add(NothingFilter())
+
+        # PV rules:
+        for pv_program_id, pv_dates in pv_programs.items():
+            pv_starting_date = min(pv_dates)
+
+            # 1. PV programs get priority on the nights they are listed.
+            for d in pv_dates:
                 s = self._positive_filters[site].setdefault(d, set())
-                s.add(NothingFilter())
+                s.add(ProgramPriorityFilter(frozenset({pv_program_id})))
 
-            # PV rules:
-            for pv_program_id, pv_dates in pv_programs.items():
-                pv_starting_date = min(pv_dates)
+            # 2. PV programs are not allowed in nights before they are first listed.
+            pv_prohibited_dates = {d for d in dates if d < pv_starting_date}
+            for d in pv_prohibited_dates:
+                s = self._negative_filters[site].setdefault(d, set())
+                s.add(ProgramPermissionFilter(frozenset({pv_program_id})))
 
-                # 1. PV programs get priority on the nights they are listed.
-                for d in pv_dates:
+        # Classical rules:
+        for classical_program_id, classical_dates in classical_programs.items():
+            for d in dates:
+                # Classical programs can only be performed in their designated blocks.
+                if d in classical_dates:
                     s = self._positive_filters[site].setdefault(d, set())
-                    s.add(ProgramPriorityFilter(frozenset({pv_program_id})))
-
-                # 2. PV programs are not allowed in nights before they are first listed.
-                pv_prohibited_dates = {d for d in dates if d < pv_starting_date}
-                for d in pv_prohibited_dates:
+                    s.add(ProgramPriorityFilter(frozenset({classical_program_id})))
+                else:
                     s = self._negative_filters[site].setdefault(d, set())
-                    s.add(ProgramPermissionFilter(frozenset({pv_program_id})))
+                    s.add(ProgramPermissionFilter(frozenset({classical_program_id})))
 
-            # Classical rules:
-            for classical_program_id, classical_dates in classical_programs.items():
-                for d in dates:
-                    # Classical programs can only be performed in their designated blocks.
-                    if d in classical_dates:
-                        s = self._positive_filters[site].setdefault(d, set())
-                        s.add(ProgramPriorityFilter(frozenset({classical_program_id})))
-                    else:
-                        s = self._negative_filters[site].setdefault(d, set())
-                        s.add(ProgramPermissionFilter(frozenset({classical_program_id})))
-
-            # Priority rules:
-            for priority_program_id, priority_dates in score_boost.items():
-                # Priority is given to programs in the priority block.
-                for d in priority_dates:
-                    s = self._positive_filters[site].setdefault(d, set())
-                    s.add(ProgramPriorityFilter(frozenset({priority_program_id})))
-
-            # Partner rules:
-            for d, partner_code in partner_blocks.items():
-                # On a partner night, we only allow programs that include the partner.
+        # Priority rules:
+        for priority_program_id, priority_dates in score_boost.items():
+            # Priority is given to programs in the priority block.
+            for d in priority_dates:
                 s = self._positive_filters[site].setdefault(d, set())
-                s.add(TimeAccountingCodeFilter(frozenset({partner_code})))
+                s.add(ProgramPriorityFilter(frozenset({priority_program_id})))
 
-            # Visitor instrument rules:
-            for resource, resource_dates in instrument_run.items():
-                # Priority is given to scheduling blocks using the resource.
-                for d in resource_dates:
-                    s = self._positive_filters[site].setdefault(d, set())
-                    s.add(ResourcePriorityFilter(frozenset({resource})))
+        # Partner rules:
+        for d, partner_code in partner_blocks.items():
+            # On a partner night, we only allow programs that include the partner.
+            s = self._positive_filters[site].setdefault(d, set())
+            s.add(TimeAccountingCodeFilter(frozenset({partner_code})))
 
-            # ToO rules:
-            for d in dates:
-                # Block ToOs on nights where they are not allowed.
-                if not self._too[site][d]:
-                    s = self._negative_filters[site].setdefault(d, set())
-                    s.add(TooFilter())
+        # Visitor instrument rules:
+        for resource, resource_dates in instrument_run.items():
+            # Priority is given to scheduling blocks using the resource.
+            for d in resource_dates:
+                s = self._positive_filters[site].setdefault(d, set())
+                s.add(ResourcePriorityFilter(frozenset({resource})))
 
-            # LGS rules:
-            for d in dates:
-                # Block LGS on nights where they are not allowed
-                if not self._lgs[site][d]:
-                    s = self._negative_filters[site].setdefault(d, set())
-                    s.add(LgsFilter())
+        # ToO rules:
+        for d in dates:
+            # Block ToOs on nights where they are not allowed.
+            if not self._too[site][d]:
+                s = self._negative_filters[site].setdefault(d, set())
+                s.add(TooFilter())
+
+        # LGS rules:
+        for d in dates:
+            # Block LGS on nights where they are not allowed
+            if not self._lgs[site][d]:
+                s = self._negative_filters[site].setdefault(d, set())
+                s.add(LgsFilter())
 
     @staticmethod
     def _mirror_parser(r: List[str], _: Site) -> Set[str]:
@@ -745,17 +748,17 @@ class FileBasedResourceService(ResourceService):
 
     def load_files(self,
                    site: Site,
-                   fpu_to_barcodes_path: str,
-                   fpus_path: Union[str, BytesIO],
-                   gratings_path: Union[str, BytesIO],
-                   faults_path: Union[str, BytesIO],
-                   eng_tasks_path: Union[str, BytesIO]):
+                   fpu_to_barcodes_file: str,
+                   fpus_data: Union[str, BytesIO],
+                   gratings_data: Union[str, BytesIO],
+                   faults_data: Union[str, BytesIO],
+                   eng_tasks_data: Union[str, BytesIO],
+                   spreadsheet_file: str) -> None:
         """
         Load all files necessaries to the correct functioning of the ResourceManager.
         """
-
         # Load the mappings from the ITCD FPU values to the barcodes.
-        self._load_fpu_to_barcodes(site, fpu_to_barcodes_path)
+        self._load_fpu_to_barcodes(site, fpu_to_barcodes_file)
 
         # Load the FPUrs.
         # This will put both the IFU and the FPU barcodes available on a given date as Resources.
@@ -763,15 +766,19 @@ class FileBasedResourceService(ResourceService):
         # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take its ID.
         self._load_csv(site,
                        self._itcd_fpu_to_barcode_parser,
-                       fpus_path)
+                       fpus_data)
 
         # Load the gratings.
         # This will put the mirror and the grating names available on a given date as Resources.
         # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
         self._load_csv(site,
                        self._mirror_parser,
-                       gratings_path)
+                       gratings_data)
 
-        self._load_faults(site, faults_path)
-        self._load_eng_tasks(site, eng_tasks_path)
+        # Process the spreadsheet information for instrument, mode, and LGS settings.
+        self._load_instrument_data(site, spreadsheet_file, from_gdrive=True)
+
+        self._load_faults(site, faults_data)
+        self._load_eng_tasks(site, eng_tasks_data)
+
         logger.info('Successfully loaded resource data.')
