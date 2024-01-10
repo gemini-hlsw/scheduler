@@ -110,8 +110,8 @@ class Sources:
                                                  gmos_fpu,
                                                  gmos_gratings,
                                                  faults,
-                                                 eng_tasks
-                                                 )
+                                                 eng_tasks,
+                                                 'telescope_schedules.xlsx')
 
                     self.set_origin(Origins.FILE.value())
                     self.origin.resource = file_resource
