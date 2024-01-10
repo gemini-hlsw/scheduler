@@ -21,6 +21,11 @@ class CreateNewScheduleInput:
     num_nights_to_schedule: int
     sites: Sites
     mode: SchedulerModes
+    thesis_factor: Optional[float] = 1.1
+    power: Optional[int] = 2
+    met_power: Optional[float] = 1.0
+    vis_power: Optional[float] = 1.0
+    wha_power: Optional[float] = 1.0
 
 
 @strawberry.input
