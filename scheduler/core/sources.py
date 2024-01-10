@@ -89,7 +89,9 @@ class Sources:
                  service: Services,
                  calendar: BytesIO,
                  gmos_fpu: BytesIO,
-                 gmos_gratings: BytesIO) -> bool:
+                 gmos_gratings: BytesIO,
+                 faults: BytesIO,
+                 eng_tasks: BytesIO) -> bool:
 
         match service:
             case Services.ENV:
@@ -98,7 +100,7 @@ class Sources:
 
             case Services.RESOURCE:
                 # Check that the amount of files is correct
-                if calendar and gmos_fpu and gmos_gratings:
+                if gmos_fpu and gmos_gratings and faults and eng_tasks:
                     file_resource = FileResourceService()
 
                     for site in sites:
@@ -107,7 +109,9 @@ class Sources:
                                                  f'GMOS{suffix}_fpu_barcode.txt',
                                                  gmos_fpu,
                                                  gmos_gratings,
-                                                 calendar)
+                                                 faults,
+                                                 eng_tasks
+                                                 )
 
                     self.set_origin(Origins.FILE.value())
                     self.origin.resource = file_resource

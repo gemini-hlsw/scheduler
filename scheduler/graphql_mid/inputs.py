@@ -30,6 +30,9 @@ class UseFilesSourceInput:
     calendar: Optional[Upload] = None
     gmos_fpus: Optional[Upload] = None
     gmos_gratings: Optional[Upload] = None
+    faults: Optional[Upload] = None
+    eng_tasks: Optional[Upload] = None
+
 
 
 @strawberry.input
