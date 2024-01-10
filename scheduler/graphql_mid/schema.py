@@ -43,11 +43,16 @@ class Mutation:
                 calendar = await files_input.calendar.read()
                 gmos_fpu = await files_input.gmos_fpus.read()
                 gmos_gratings = await files_input.gmos_gratings.read()
+                faults = await files_input.faults.read()
+                eng_tasks = await files_input.eng_tasks.read()
 
-                loaded = sources.use_file(service,
+                loaded = sources.use_file(files_input.sites,
+                                          service,
                                           calendar,
                                           gmos_fpu,
-                                          gmos_gratings)
+                                          gmos_gratings,
+                                          faults,
+                                          eng_tasks)
                 if loaded:
                     return SourceFileHandlerResponse(service=files_input.service,
                                                      loaded=loaded,
@@ -60,10 +65,6 @@ class Mutation:
                 return SourceFileHandlerResponse(service=files_input.service,
                                                  loaded=False,
                                                  msg='Handler not implemented yet!')
-
-    # @strawberry.mutation
-    # async def load_sources_form(self):
-    # This method loads basic conditions from a form similar to Mercury demo.
 
     @strawberry.mutation
     def change_origin(self, new_origin: SOrigin, mode: SchedulerModes) -> ChangeOriginSuccess:

@@ -10,7 +10,7 @@ from lucupy.types import ZeroTime
 from .blueprint import CollectorBlueprint
 from .schedulerbuilder import SchedulerBuilder
 from scheduler.core.components.collector import Collector
-from scheduler.core.sources import Sources
+from scheduler.core.sources import Sources, Origins
 from scheduler.core.programprovider.ocs import ocs_program_data, OcsProgramProvider
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.eventsqueue import EventQueue
@@ -33,9 +33,7 @@ class ValidationBuilder(SchedulerBuilder):
     def __init__(self, sources: Sources, events: EventQueue):
         super().__init__(sources, events)
         self.stats = StatCalculator
-        self.sim_manager = None  # This should bne called something else? Accountant?
-        # Populate event manager, same as in Simulation.
-        # EventManager.add(events)
+        self.sources.set_origin(Origins.OCS.value())
 
     @staticmethod
     def _clear_observation_info(obs: Iterable[Observation],

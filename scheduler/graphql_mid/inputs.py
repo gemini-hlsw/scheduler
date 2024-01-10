@@ -26,10 +26,13 @@ class CreateNewScheduleInput:
 @strawberry.input
 class UseFilesSourceInput:
     service: str
-    site: Sites
+    sites: Sites
     calendar: Optional[Upload] = None
     gmos_fpus: Optional[Upload] = None
     gmos_gratings: Optional[Upload] = None
+    faults: Optional[Upload] = None
+    eng_tasks: Optional[Upload] = None
+
 
 
 @strawberry.input
