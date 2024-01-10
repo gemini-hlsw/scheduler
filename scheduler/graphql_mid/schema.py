@@ -17,7 +17,7 @@ from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
                     SourceFileHandlerResponse, SNightTimelines)
 from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
-
+from ..core.components.ranker import RankerParameters
 
 # TODO: This variables need a Redis cache to work with different mutations correctly.
 sources = Sources()
@@ -98,11 +98,18 @@ class Query:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                          Time(new_schedule_input.end_time, format='iso', scale='utc')
 
+            ranker_params = RankerParameters(new_schedule_input.thesis_factor,
+                                             new_schedule_input.power,
+                                             new_schedule_input.met_power,
+                                             new_schedule_input.vis_power,
+                                             new_schedule_input.wha_power)
+
             timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
                                                      start_vis=start,
                                                      end_vis=end,
                                                      num_nights_to_schedule=new_schedule_input.num_nights_to_schedule,
-                                                     sites=new_schedule_input.sites)
+                                                     sites=new_schedule_input.sites,
+                                                     ranker_parameters=ranker_params)
             s_timelines = SNightTimelines.from_computed_timelines(timelines)
 
         except RuntimeError as e:
