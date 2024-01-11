@@ -135,7 +135,7 @@ class Plan:
             start = start or 0
             stop = stop or visits_timeslots[-1]
             plan.visits = [visits_by_timeslot[x] for x in visits_timeslots if
-                           start < x <= stop]
+                           start <= x <= stop]
             return plan
 
     def __contains__(self, obs: Observation) -> bool:
