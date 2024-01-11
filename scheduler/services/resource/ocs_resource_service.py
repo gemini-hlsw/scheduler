@@ -1,15 +1,18 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+from datetime import date
+from typing import final, FrozenSet
 
-import os
-from lucupy.minimodel import ALL_SITES
+from lucupy.minimodel import ALL_SITES, Site
 
 from scheduler.services import logger_factory
-from scheduler.services.resource.filters import *
-from scheduler.services.resource.night_resource_configuration import *
-from .base import FileBasedResourceService
+from .filters import CompositeFilter, ResourcesAvailableFilter
+from .night_configuration import NightConfiguration
+from .file_based_resource_service import FileBasedResourceService
 
+
+__all__ = ['OcsResourceService']
 
 logger = logger_factory.create_logger(__name__)
 
@@ -80,9 +83,3 @@ class OcsResourceService(FileBasedResourceService):
                 )
 
                 d += OcsResourceService._day
-
-
-class FileResourceService(FileBasedResourceService):
-    def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
-        # Init an empty ResourceService
-        super().__init__(sites)

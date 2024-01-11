@@ -5,9 +5,12 @@ from dataclasses import dataclass
 from datetime import date
 from typing import FrozenSet
 
-from scheduler.services.resource.filters import AbstractFilter
-
 from lucupy.minimodel import Resource, Site
+
+# from .event_generators import EngineeringTask, Fault
+from .filters import AbstractFilter
+
+__all__ = ['NightConfiguration']
 
 
 # An instance of this class exists for every night in the configuration file.
@@ -32,9 +35,8 @@ class NightConfiguration:
     # The list of resources available for the night.
     resources: FrozenSet[Resource]
 
-    # List of faults that happened in the night causing time losses.
+    # Historical faults that happened during the night.
     # faults: FrozenSet[Fault]
 
-    # List of Engineering Task, this would block part of the night.
-    # Some are bound in the twilight so should be completed in Collector.
-    # eng_tasks: FrozenSet[EngTask]
+    # Historical engineering tasks that block part of the night.
+    # eng_tasks: FrozenSet[EngineeringTask]

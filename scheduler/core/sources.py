@@ -10,7 +10,7 @@ from typing import Optional, NoReturn, FrozenSet
 
 from scheduler.services.abstract import ExternalService
 from scheduler.services.environment import OcsEnvService
-from scheduler.services.resource import OcsResourceService, FileResourceService
+from scheduler.services.resource import FileResourceService, OcsResourceService
 
 from lucupy.minimodel import Site
 
@@ -79,6 +79,7 @@ class Sources:
     """
 
     def __init__(self, origin: Origin = Origins.OCS.value()):
+        self.origin = None
         self.set_origin(origin)
 
     def set_origin(self, origin: Origin):
@@ -101,20 +102,20 @@ class Sources:
             case Services.RESOURCE:
                 # Check that the amount of files is correct
                 if gmos_fpu and gmos_gratings and faults and eng_tasks:
-                    file_resource = FileResourceService()
+                    file_resource_service = FileResourceService()
 
                     for site in sites:
                         suffix = ('s' if site == Site.GS else 'n').upper()
-                        file_resource.load_files(site,
-                                                 f'GMOS{suffix}_fpu_barcode.txt',
-                                                 gmos_fpu,
-                                                 gmos_gratings,
-                                                 faults,
-                                                 eng_tasks,
-                                                 'telescope_schedules.xlsx')
+                        file_resource_service.load_files(site,
+                                                         f'GMOS{suffix}_fpu_barcode.txt',
+                                                         gmos_fpu,
+                                                         gmos_gratings,
+                                                         faults,
+                                                         eng_tasks,
+                                                         'telescope_schedules.xlsx')
 
                     self.set_origin(Origins.FILE.value())
-                    self.origin.resource = file_resource
+                    self.origin.resource = file_resource_service
                     return True
 
                 else:

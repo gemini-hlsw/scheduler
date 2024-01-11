@@ -26,20 +26,22 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from os import makedirs
-from os.path import dirname
-from os.path import exists
+import os
+import os.path
 import requests
+from abc import ABC
+from typing import Final
 
 
-class GoogleDriveDownloader:
+# This is just a collection of static methods grouped together, so make it abstract.
+class GoogleDriveDownloader(ABC):
     """
     Minimal class to download shared files from Google Drive.
     """
-    _timeout = 9.0
+    _timeout: Final[float] = 9.0
 
-    CHUNK_SIZE = 32768
-    DOWNLOAD_URL = 'https://docs.google.com/uc?export=download'
+    _CHUNK_SIZE: Final[int] = 32768
+    _DOWNLOAD_URL: Final[str] = 'https://docs.google.com/uc?export=download'
 
     @staticmethod
     def download_file(file_id, dest_path, overwrite=False):
@@ -62,14 +64,14 @@ class GoogleDriveDownloader:
         None
         """
 
-        destination_directory = dirname(dest_path)
-        if not exists(destination_directory):
-            makedirs(destination_directory)
+        destination_directory = os.path.dirname(dest_path)
+        if not os.path.exists(destination_directory):
+            os.makedirs(destination_directory)
 
-        if not exists(dest_path) or overwrite:
+        if not os.path.exists(dest_path) or overwrite:
             session = requests.Session()
             params = {'id': file_id}
-            response = session.get(GoogleDriveDownloader.DOWNLOAD_URL,
+            response = session.get(GoogleDriveDownloader._DOWNLOAD_URL,
                                    params=params,
                                    stream=True,
                                    timeout=GoogleDriveDownloader._timeout)
@@ -78,6 +80,6 @@ class GoogleDriveDownloader:
     @staticmethod
     def _save_response_content(response, destination):
         with open(destination, 'wb') as f:
-            for chunk in response.iter_content(GoogleDriveDownloader.CHUNK_SIZE):
+            for chunk in response.iter_content(GoogleDriveDownloader._CHUNK_SIZE):
                 if chunk:  # filter out keep-alive new chunks
                     f.write(chunk)
