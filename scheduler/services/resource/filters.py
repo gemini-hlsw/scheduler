@@ -7,6 +7,20 @@ from typing import Callable, FrozenSet, Optional, final
 
 from lucupy.minimodel import Group, Program, ProgramID, Resource, TimeAccountingCode
 
+__all__ = [
+    'AbstractFilter',
+    'CompositeFilter',
+    'GroupFilter',
+    'LgsFilter',
+    'NothingFilter',
+    'ProgramFilter',
+    'ProgramPermissionFilter',
+    'ProgramPriorityFilter',
+    'ResourcePriorityFilter',
+    'ResourcesAvailableFilter',
+    'TimeAccountingCodeFilter',
+    'TooFilter'
+]
 
 # A filter applied to the programs for the night.
 ProgramFilter = Callable[[Program], bool]
