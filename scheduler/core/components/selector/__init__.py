@@ -361,8 +361,14 @@ class Selector(SchedulerComponent):
 
         # Calculate a numpy array of bool indexed by night to determine when the group can be added to the plan
         # based on the night configuration filtering.
-        night_filtering = {night_idx: night_configurations[obs.site][night_idx].filter.group_filter(group)
-                           for night_idx in night_indices}
+        # TODO: We also filter on program here, but this would be better done in score_program.
+        # TODO: That would require some thought as to how to do this there given the structure of a Selection.
+        night_filtering: Dict[NightIndex, bool] = {}
+        for night_idx in night_indices:
+            night_filter = night_configurations[obs.site][night_idx].filter
+            # NOTE: to only do group filtering, comment out the first line and use the second line.
+            night_filtering[night_idx] = night_filter.program_filter(program) and night_filter.group_filter(group)
+            # night_filtering[night_idx] = night_filter.group_filter(group)
 
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
             # If we are science or progcal, then the neg HA value for a night is if the first HA for the night
