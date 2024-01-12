@@ -310,17 +310,23 @@ class FileBasedResourceService(ResourceService):
             instrument_names = {row[i].value for i in range(5, 10) if row[i].value is not None and row[i].value}
 
             for filename in instrument_names:
-                if filename not in instrument_column_mapping:
-                    raise KeyError(f'{msg} contains illegal instrument name: {filename}.')
+                # TODO: Temporary: GCAL does not have its own column. Unsure of how to handle this.
+                if filename != 'GCAL' and filename not in instrument_column_mapping:
+                    raise KeyError(f'{msg} contains instrument name with no column: {filename}.')
                 try:
-                    instrument_status = none_to_str(row[instrument_column_mapping[filename]].value).strip().upper()
+                    # TODO: Temporary: GCAL does not have its own column. Unsure of how to handle this.
+                    if filename == 'GCAL':
+                        instrument_status = ''
+                    else:
+                        instrument_status = none_to_str(row[instrument_column_mapping[filename]].value).strip().upper()
                 except IndexError:
                     # This happens if the row ends prematurely.
                     instrument_status = ''
                 if instrument_status == FileBasedResourceService._SCIENCE:
                     resources.add(self.lookup_resource(filename))
                 elif not instrument_status:
-                    logger.warning(f'{msg} contains no instrument status. Using default of Not Available.')
+                    logger.warning(f'{msg} contains no instrument status for {filename}. '
+                                   'Using default of Not Available.')
                 elif instrument_status not in [FileBasedResourceService._NOT_AVAILABLE,
                                                FileBasedResourceService._ENGINEERING,
                                                FileBasedResourceService._CALIBRATION]:
@@ -567,7 +573,7 @@ class FileBasedResourceService(ResourceService):
                        gratings_data)
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
-        self._load_instrument_data(site, spreadsheet_file, from_gdrive=True)
+        self._load_instrument_data(site, spreadsheet_file, from_gdrive=False)
 
         self._load_faults(site, faults_data)
         self._load_eng_tasks(site, eng_tasks_data)
