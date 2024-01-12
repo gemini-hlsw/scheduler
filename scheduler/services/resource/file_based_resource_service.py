@@ -37,6 +37,7 @@ class FileBasedResourceService(ResourceService):
     # Statuses of instruments and WFS.
     _SCIENCE: Final[str] = 'SCIENCE'
     _ENGINEERING: Final[str] = 'ENGINEERING'
+    _SHUTDOWN: Final[str] = 'SHUTDOWN'
     _NOT_AVAILABLE: Final[str] = 'NOT AVAILABLE'
     _CALIBRATION: Final[str] = 'CALIBRATION'
 
@@ -232,46 +233,54 @@ class FileBasedResourceService(ResourceService):
             elif status != 'OPEN':
                 raise ValueError(f'{msg} has illegal value in Telescope column: {status}.')
 
-            # Process the mode.
-            original_mode = row[2].value
-            mode = original_mode.upper().strip()
+            # Process the mode entries. There may be more than one, separated by |.
+            modes_entry = row[2].value
 
-            # We process the modes in the following order:
-            # 1. Engineering / Shutdown (terminates)
-            # 2. Visitor block <instrument-name>
-            # 3. <partner> block
-            # 4. PV: <prog-id-list>
-            # 5. Classical: <prog-id-list>
-            # 6. Priority: <prog-id-list>
-            if mode in {FileBasedResourceService._ENGINEERING, 'SHUTDOWN'}:
+            # Remove all parenthetical expressions from modes_entry.
+            # TODO: We may have to handle these at some point.
+            # Substitute the parenthetical expressions with an empty string.
+            # We handle all in uppercase to reduce need for absolute precision.
+            # Partner codes, program IDs, and instrument names are all in uppercase anyway.
+            modes_entry = re.sub(r"\([^)]*\)", "", modes_entry).upper().strip()
+
+            # If ENGINEERING or SHUTDOWN is in the mode entries, there is nothing else to do for the night.
+            if (FileBasedResourceService._ENGINEERING in modes_entry
+                    or FileBasedResourceService._SHUTDOWN in modes_entry):
                 self._blocked[site].add(row_date)
                 continue
 
             # Now we can add the date to dates since it will require further processing.
             dates.add(row_date)
 
-            if mode.startswith('VISITOR:'):
-                instrument = self.lookup_resource(original_mode[8:].strip())
-                instrument_run.setdefault(instrument, set()).add(row_date)
+            for mode_entry in (entry.strip() for entry in modes_entry.split('|')):
+                # We process the modes in the following order:
+                # 1. Visitor block <instrument-name>
+                # 2. <partner> block
+                # 3. PV: <prog-id-list>
+                # 4. Classical: <prog-id-list>
+                # 5. Priority: <prog-id-list>
+                if mode_entry.startswith('VISITOR:'):
+                    instrument = self.lookup_resource(mode_entry[8:].strip())
+                    instrument_run.setdefault(instrument, set()).add(row_date)
 
-            elif mode.startswith('PARTNER:'):
-                try:
-                    partner = TimeAccountingCode[mode[8:].strip()]
-                except KeyError as ex:
-                    raise KeyError(f'{msg} has illegal time account {ex} in mode: {mode}.')
-                partner_blocks[row_date] = partner
+                elif mode_entry.startswith('PARTNER:'):
+                    try:
+                        partner = TimeAccountingCode[mode_entry[8:].strip()]
+                    except KeyError as ex:
+                        raise KeyError(f'{msg} has illegal time account {ex} in mode: {mode_entry}.')
+                    partner_blocks[row_date] = partner
 
-            elif mode.startswith('PV:'):
-                FileBasedResourceService._add_dates_to_dict(pv_programs, mode[3:], row_date)
+                elif mode_entry.startswith('PV:'):
+                    FileBasedResourceService._add_dates_to_dict(pv_programs, mode_entry[3:], row_date)
 
-            elif mode.startswith('CLASSICAL:'):
-                FileBasedResourceService._add_dates_to_dict(classical_programs, mode[10:], row_date)
+                elif mode_entry.startswith('CLASSICAL:'):
+                    FileBasedResourceService._add_dates_to_dict(classical_programs, mode_entry[10:], row_date)
 
-            elif mode.startswith('PRIORITY:'):
-                FileBasedResourceService._add_dates_to_dict(score_boost, mode[9:], row_date)
+                elif mode_entry.startswith('PRIORITY:'):
+                    FileBasedResourceService._add_dates_to_dict(score_boost, mode_entry[9:], row_date)
 
-            elif mode != 'QUEUE':
-                raise ValueError(f'{msg} has illegal mode: {mode}.')
+                elif mode_entry != 'QUEUE':
+                    raise ValueError(f'{msg} has illegal mode: {mode_entry}.')
 
             # Get the LGS status of the row. The default, if no LGS is specified, is False.
             lgs = str_to_bool(row[3].value)
