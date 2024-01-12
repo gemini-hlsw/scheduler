@@ -234,9 +234,18 @@ class FileBasedResourceService(ResourceService):
                 raise ValueError(f'{msg} has illegal value in Telescope column: {status}.')
 
             # Process the mode entries. There may be more than one, separated by |.
+            modes_entry = row[2].value
+
+            # Remove all parenthetical expressions from modes_entry.
+            # TODO: We may have to handle these at some point.
+            # Substitute the parenthetical expressions with an empty string.
+            # We handle all in uppercase to reduce need for absolute precision.
+            # Partner codes, program IDs, and instrument names are all in uppercase anyway.
+            modes_entry = re.sub(r"\([^)]*\)", "", modes_entry).upper().strip()
+
             # If ENGINEERING or SHUTDOWN is in the mode entries, there is nothing else to do for the night.
-            modes_entry = row[2].value.upper().strip()
-            if modes_entry in {FileBasedResourceService._ENGINEERING, FileBasedResourceService._SHUTDOWN}:
+            if (FileBasedResourceService._ENGINEERING in modes_entry
+                    or FileBasedResourceService._SHUTDOWN in modes_entry):
                 self._blocked[site].add(row_date)
                 continue
 
