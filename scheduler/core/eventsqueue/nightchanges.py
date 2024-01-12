@@ -62,7 +62,6 @@ class NightlyTimeline:
             if t > 0:
                 # Get the partial plan, i.e. all visits up to and including time slot t.
                 partial_plan = pg.get_slice(stop=t)
-
                 # If there was a last_visit (i.e. partial_plan.visits[-1]), then it:
                 # * started at last_visit.start_time_slot;
                 # * was scheduled for last_visit.time_slots; and thus
