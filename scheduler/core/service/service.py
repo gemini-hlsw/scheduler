@@ -85,11 +85,11 @@ class Service:
                             night_start = None
                             night_done = True
 
-                        case WeatherChangeEvent(_, _, new_conditions):
+                        case WeatherChangeEvent(variant_change=variant_change):
                             if night_start is None:
                                 raise ValueError(f'Event for night index {night_idx} at site {site.name} occurred '
                                                  f'before twilight: {event}.')
-                            selector.update_conditions(site, new_conditions)
+                            selector.update_variant(site, variant_change)
 
                         case _:
                             raise NotImplementedError(f'Received unsupported event: {event.__class__.__name__}')

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, FrozenSet
 
-from lucupy.minimodel import Resource, Conditions, TimeslotIndex
+from lucupy.minimodel import Resource, TimeslotIndex, VariantChange
 from lucupy.timeutils import time2slots
 
 
@@ -109,9 +109,9 @@ class InterruptionEvent(Event, ABC):
 @dataclass
 class WeatherChangeEvent(InterruptionEvent):
     """
-    Interruption that occurs when new weather conditions come in.
+    Interruption that occurs when new a new weather variant comes in.
     """
-    new_conditions: Conditions
+    variant_change: VariantChange
 
 
 @final

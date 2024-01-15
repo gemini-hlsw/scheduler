@@ -3,7 +3,7 @@
 
 from datetime import datetime
 
-from lucupy.minimodel.constraints import CloudCover, ImageQuality, Conditions, WaterVapor
+from lucupy.minimodel.constraints import CloudCover, ImageQuality, VariantChange
 from lucupy.minimodel.semester import SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
@@ -85,10 +85,10 @@ def main(*,
         weather_change_time = night_events.twilight_evening_12[event_night_idx].to_datetime() + timedelta(minutes=120)
         weather_change_south = WeatherChangeEvent(time=weather_change_time,
                                                   description='IQ -> IQ20, CC -> CC50',
-                                                  new_conditions=Conditions(iq=ImageQuality.IQ20,
-                                                                            cc=CloudCover.CC50,
-                                                                            sb=SkyBackground.SBANY,
-                                                                            wv=WaterVapor.WVANY))
+                                                  variant_change=VariantChange(iq=ImageQuality.IQ20,
+                                                                               cc=CloudCover.CC50,
+                                                                               wind_dir=None,
+                                                                               wind_spd=None))
         queue.add_event(NightIndex(0), Site.GS, weather_change_south)
 
     # Prepare the optimizer.
@@ -139,11 +139,11 @@ def main(*,
                         night_start = None
                         night_done = True
 
-                    case WeatherChangeEvent(_, _, new_conditions):
+                    case WeatherChangeEvent(variant_change=variant_change):
                         if night_start is None:
                             raise ValueError(f'Event for night index {night_idx} at site {site.name} occurred '
                                              f'before twilight: {event}.')
-                        selector.update_conditions(site, new_conditions)
+                        selector.update_variant(site, variant_change)
 
                     case _:
                         raise NotImplementedError(f'Received unsupported event: {event.__class__.__name__}')

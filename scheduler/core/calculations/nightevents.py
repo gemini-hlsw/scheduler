@@ -40,6 +40,8 @@ class NightEvents:
     moonset: Time
 
     # post-init calculated values.
+    num_timeslots_per_night: List[int] = field(init=False)
+    num_nights: List[int] = field(init=False)
     night_length: TimeDelta = field(init=False)
     times: List[npt.NDArray[float]] = field(init=False)
     utc_times: List[List[datetime]] = field(init=False)
@@ -75,12 +77,15 @@ class NightEvents:
         time_ends = helpers.round_minute(self.twilight_morning_12, up=True)
 
         # n in an array with the number of time slots in a night.
+        # This could be calculated by taking the length of other arrays, but it is convenient.
         n = ((time_ends.jd - time_starts.jd) / time_slot_length_days + 0.5).astype(int)
+        object.__setattr__(self, 'num_timeslots_per_night', n)
 
         # Calculate a list of arrays per night of the times.
         # We want this as a Python list because the arrays will have different lengths.
         times = [Time(np.linspace(start.jd, end.jd - time_slot_length_days, i), format='jd')
                  for start, end, i in zip(time_starts, time_ends, n)]
+        object.__setattr__(self, 'num_nights', len(times))
         object.__setattr__(self, 'times', times)
 
         # Pre-calculate the different times.

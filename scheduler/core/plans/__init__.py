@@ -1,7 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, InitVar
 from datetime import datetime, timedelta
 from typing import Dict, List, Mapping, Optional, Tuple
 
@@ -45,11 +45,10 @@ class Plan:
     site: Site
     _time_slots_left: int
 
-    def __post_init__(self):
-        self.visits: List[Visit] = []
-        self.is_full = False
-        self.night_stats: Optional[NightStats] = None
-        self.alt_degs: List[List[float]] = []
+    visits: List[Visit] = field(init=False, default_factory=lambda: [])
+    is_full: bool = field(init=False, default=False)
+    night_stats: Optional[NightStats] = field(init=False, default=None)
+    alt_degs: List[List[float]] = field(init=False, default_factory=lambda: [])
 
     def nir_slots(self,
                   science_obs: List[Observation],
@@ -142,21 +141,24 @@ class Plan:
         return any(visit.obs_id == obs.id for visit in self.visits)
 
 
+@dataclass
 class Plans:
     """
     A collection of Plan for all sites for a specific night.
     """
+    night_events: InitVar[Mapping[Site, NightEvents]]
+    night_idx: NightIndex
+    plans: Dict[Site, Plan] = field(init=False, default_factory=lambda: {})
 
-    def __init__(self, night_events: Mapping[Site, NightEvents], night_idx: NightIndex):
+    def __post_init__(self, night_events: Mapping[Site, NightEvents]):
         self.plans: Dict[Site, Plan] = {}
-        self.night_idx = night_idx
         for site, ne in night_events.items():
             if ne is not None:
-                self.plans[site] = Plan(ne.local_times[night_idx][0],
-                                        ne.local_times[night_idx][-1],
+                self.plans[site] = Plan(ne.local_times[self.night_idx][0],
+                                        ne.local_times[self.night_idx][-1],
                                         ne.time_slot_length.to_datetime(),
                                         site,
-                                        len(ne.times[night_idx]))
+                                        len(ne.times[self.night_idx]))
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]

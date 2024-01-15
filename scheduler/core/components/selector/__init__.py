@@ -12,7 +12,8 @@ from astropy.coordinates import Angle
 from astropy.units import Quantity
 from lucupy.helpers import is_contiguous
 from lucupy.minimodel import (AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
-                              ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, UniqueGroupID, Variant)
+                              ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, UniqueGroupID, Variant,
+                              VariantChange)
 from lucupy.minimodel import CloudCover, ImageQuality
 
 from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramCalculations, ProgramInfo, Selection
@@ -247,15 +248,15 @@ class Selector(SchedulerComponent):
             unfiltered_group_data_map=unfiltered_group_data_map
         )
 
-    def update_conditions(self,
-                          site: Site,
-                          new_conditions: Optional[Conditions] = None) -> None:
+    def update_variant(self,
+                       site: Site,
+                       variant_change: Optional[VariantChange] = None) -> None:
         """
         Extract the CC and IQ values from the new conditions and update them for the given site.
         """
         self.update_cc_and_iq(site,
-                              new_conditions and new_conditions.cc,
-                              new_conditions and new_conditions.iq)
+                              variant_change and variant_change.cc,
+                              variant_change and variant_change.iq)
 
     def update_cc_and_iq(self,
                          site: Site,
@@ -267,7 +268,7 @@ class Selector(SchedulerComponent):
         If no value is given, they are updated to the default values.
         """
         if site not in self.collector.sites:
-            raise ValueError(f'Selector update_conditions called with invalid site: {site.name}')
+            raise ValueError(f'Selector update_cc_and_iq called with invalid site: {site.name}')
         self.cc_per_site[site] = new_cc or Selector._default_cc
         self.iq_per_site[site] = new_iq or Selector._default_iq
 
@@ -411,10 +412,10 @@ class Selector(SchedulerComponent):
             # If we can obtain the conditions variant, calculate the conditions and wind mapping.
             # Otherwise, use arrays of all zeros to indicate that we cannot calculate this information.
             if actual_conditions is not None:
-                conditions_score[night_idx] = Selector._match_conditions(mrc,
-                                                                         actual_conditions,
-                                                                         neg_ha[night_idx],
-                                                                         too_type)
+                conditions_score[night_idx] = Selector.match_conditions(mrc,
+                                                                        actual_conditions,
+                                                                        neg_ha[night_idx],
+                                                                        too_type)
                 wind_score[night_idx] = Selector._wind_conditions(actual_conditions, target_info[night_idx].az)
             else:
                 zero = np.zeros(len(night_events.times[night_idx]))
@@ -603,10 +604,10 @@ class Selector(SchedulerComponent):
         return wind
 
     @staticmethod
-    def _match_conditions(required_conditions: Conditions,
-                          actual_conditions: Variant,
-                          neg_ha: bool,
-                          too_status: Optional[TooType]) -> npt.NDArray[float]:
+    def match_conditions(required_conditions: Conditions,
+                         actual_conditions: Variant,
+                         neg_ha: bool,
+                         too_status: Optional[TooType]) -> npt.NDArray[float]:
         """
         Determine if the required conditions are satisfied by the actual conditions variant.
         * required_conditions: the conditions required by an observation
