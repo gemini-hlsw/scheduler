@@ -25,3 +25,8 @@ if len(sys.argv) == 2:
         DEFAULT_LOGGING_LEVEL = LoggingLevels[sys.argv[1].upper()]
     except KeyError:
         ...
+else:
+    try:
+        DEFAULT_LOGGING_LEVEL = LoggingLevels[os.environ['SCHEDULER_DEBUGGING'].upper()]
+    except KeyError:
+        ...
