@@ -99,7 +99,7 @@ def main(*,
             morn_twi = MorningTwilightEvent(time=morn_twi_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twi)
 
-    if False:
+    if test_events:
         # Create a weather event at GS that starts two hours after twilight on the first night of 2018-09-30,
         # which is why we look up the night events for night index 0 in calculating the time.
         night_events = collector.get_night_events(Site.GS)
@@ -112,7 +112,7 @@ def main(*,
                                                                                cc=CloudCover.CC50,
                                                                                wind_dir=None,
                                                                                wind_spd=None))
-        # queue.add_event(NightIndex(0), Site.GS, weather_change_south)
+        queue.add_event(NightIndex(0), Site.GS, weather_change_south)
 
     # Prepare the optimizer.
     optimizer_blueprint = OptimizerBlueprint("GreedyMax")
