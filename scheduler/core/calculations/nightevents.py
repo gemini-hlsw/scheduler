@@ -5,11 +5,11 @@ import bisect
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
-import pytz
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time, TimeDelta
 from lucupy import helpers, sky
@@ -85,7 +85,7 @@ class NightEvents:
 
         # Pre-calculate the different times.
         # We want these as Python lists because the entries will have different lengths.
-        utc_times = [t.to_datetime(pytz.UTC) for t in times]
+        utc_times = [t.to_datetime(ZoneInfo('UTC')) for t in times]
         object.__setattr__(self, 'utc_times', utc_times)
 
         local_times = [t.to_datetime(self.site.timezone) for t in times]
@@ -149,7 +149,7 @@ class NightEvents:
         if possible.
         If it does not correspond to a NightIndex or TimeslotIndex, return None.
         """
-        dt = dt.replace(tzinfo=pytz.UTC)
+        dt = dt.replace(tzinfo=ZoneInfo('UTC'))
         return dt_to_time_coords(dt, self.time_slot_length.to_datetime(), self.utc_times)
 
     def local_dt_to_time_coords(self, dt: datetime) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
@@ -160,14 +160,7 @@ class NightEvents:
         If there is no corresponding NightIndex or TimeslotIndex, None is returned.
         """
         if dt.tzinfo is None:
-            # Even if this is the wonky LMT from pytz, this seems to localize properly.
-            dt = self.site.timezone.localize(dt)
-
-        # To work around the LMT value from pytz, we localize now to get the proper timezone so that this call does
-        # not fail.
-        expected_tz = self.site.timezone.localize(datetime.now()).tzinfo
-        if dt.tzinfo != expected_tz:
-            raise ValueError(f'Expected timezone {expected_tz}, got {dt.tzinfo}.')
+            dt = dt.replace(self.site.timezone)
         return dt_to_time_coords(dt, self.time_slot_length.to_datetime(), self.local_times)
 
     def time_coords_to_local_dt(self, night_idx: NightIndex, timeslot_idx: TimeslotIndex) -> Optional[datetime]:

@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import List
+
 from lucupy.types import Interval
 
 from scheduler.core.calculations.groupinfo import GroupData
