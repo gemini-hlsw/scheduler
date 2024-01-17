@@ -4,8 +4,8 @@
 import json
 from datetime import datetime, timedelta
 from typing import List, FrozenSet, Optional
+from zoneinfo import ZoneInfo
 
-import pytz
 import strawberry  # noqa
 from strawberry.scalars import JSON  # noqa
 
@@ -52,9 +52,10 @@ class SVisit:
 
     @staticmethod
     def from_computed_visit(visit: Visit, alt_degs: List[float]) -> 'SVisit':
+        utc = ZoneInfo('UTC')
         end_time = visit.start_time + timedelta(minutes=visit.time_slots*config.collector.time_slot_length)
-        return SVisit(start_time=visit.start_time.astimezone(pytz.UTC),
-                      end_time=end_time.astimezone(pytz.UTC),
+        return SVisit(start_time=visit.start_time.astimezone(utc),
+                      end_time=end_time.astimezone(utc),
                       obs_id=visit.obs_id,
                       atom_start_idx=visit.atom_start_idx,
                       atom_end_idx=visit.atom_end_idx,
@@ -75,10 +76,11 @@ class SPlan:
 
     @staticmethod
     def from_computed_plan(plan: Plan) -> 'SPlan':
+        utc = ZoneInfo('UTC')
         return SPlan(
             site=plan.site,
-            start_time=plan.start.astimezone(pytz.UTC),
-            end_time=plan.end.astimezone(pytz.UTC),
+            start_time=plan.start.astimezone(utc),
+            end_time=plan.end.astimezone(utc),
             visits=[SVisit.from_computed_visit(visit, alt) for visit, alt in zip(plan.visits, plan.alt_degs)],
             night_stats=SNightStats.from_computed_night_stats(plan.night_stats)
         )

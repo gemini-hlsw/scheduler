@@ -7,9 +7,9 @@ from typing import ClassVar, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 from lucupy.minimodel import NightIndex, Observation, ObservationID, Site
+from lucupy.types import Interval, ZeroTime
 
 from scheduler.core.calculations.nightevents import NightEvents
-from lucupy.types import Interval, ZeroTime
 
 
 @dataclass

@@ -5,8 +5,8 @@ more-itertools
 numpy
 openpyxl
 pandas
-pytest
 pytz
+pytest
 tabulate
 scipy
 coverage
