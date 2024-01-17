@@ -72,18 +72,23 @@ class NightEvents:
         # Create the time arrays, which are arrays that represent the earliest starting
         # time to the latest ending time, divided into segments of length time_slot_length.
         # We want one entry per time slot grid, i.e. per night, measured in UTC, local, and local sidereal.
-        time_slot_length_days = self.time_slot_length.to(u.day).value
+        timeslot_length_days = self.time_slot_length.to(u.day).value
         time_starts = helpers.round_minute(self.twilight_evening_12, up=True)
         time_ends = helpers.round_minute(self.twilight_morning_12, up=True)
 
         # n in an array with the number of time slots in a night.
         # This could be calculated by taking the length of other arrays, but it is convenient.
-        n = ((time_ends.jd - time_starts.jd) / time_slot_length_days + 0.5).astype(int)
+        # We have to add 1 to count the last time slot:
+        # start = Time('2020-01-01 0:00:00')
+        # end = Time('2020-01-01 1:00:00')
+        # (end - start) / TimeDelta(1 * u.min) gives 60
+        # np.linspace(end, start, 60)
+        n = ((time_ends.jd - time_starts.jd) / timeslot_length_days + 0.5).astype(int)
         object.__setattr__(self, 'num_timeslots_per_night', n)
 
         # Calculate a list of arrays per night of the times.
         # We want this as a Python list because the arrays will have different lengths.
-        times = [Time(np.linspace(start.jd, end.jd - time_slot_length_days, i), format='jd')
+        times = [Time(np.linspace(start.jd, end.jd - timeslot_length_days, i), format='jd')
                  for start, end, i in zip(time_starts, time_ends, n)]
         object.__setattr__(self, 'num_nights', len(times))
         object.__setattr__(self, 'times', times)
@@ -168,6 +173,22 @@ class NightEvents:
             dt = dt.replace(self.site.timezone)
         return dt_to_time_coords(dt, self.time_slot_length.to_datetime(), self.local_times)
 
+    @property
+    def twilight_eve_local(self) -> List[datetime]:
+        return [local[0].replace(tzinfo=self.site.timezone) for local in self.local_times]
+
+    @property
+    def twilight_morn_local(self) -> List[datetime]:
+        return [local[-1].replace(tzinfo=self.site.timezone) for local in self.local_times]
+
+    @property
+    def twilight_eve_utc(self) -> List[datetime]:
+        return [utc[0].replace(tzinfo=self.site.timezone) for utc in self.utc_times]
+
+    @property
+    def twilight_morn_utc(self) -> List[datetime]:
+        return [utc[-1].replace(tzinfo=self.site.timezone) for utc in self.utc_times]
+
     def time_coords_to_local_dt(self, night_idx: NightIndex, timeslot_idx: TimeslotIndex) -> Optional[datetime]:
         """
         Given time coordinates, convert to a local datetime.
@@ -181,15 +202,6 @@ class NightEvents:
         return time_coords_to_dt(night_idx, timeslot_idx, self.utc_times)
 
 
-def _ceil_dt_to_minute(dt: datetime) -> datetime:
-    # If there are no seconds and no microseconds, the datetime is already at the ceil.
-    if dt.second == 0 and dt.microsecond == 0:
-        return dt
-    else:
-        # Add one minute and reset seconds and microseconds to zero
-        return dt.replace(second=0, microsecond=0) + timedelta(minutes=1)
-
-
 def dt_to_time_coords(dt: datetime,
                       timeslot_length: timedelta,
                       times: List[List[datetime]]) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
@@ -201,7 +213,7 @@ def dt_to_time_coords(dt: datetime,
     If dt falls within the ranges represented by times, return the NightIndex and TimeslotIndex which corresponds.
     If no such value is found, return None.
     """
-    dt = _ceil_dt_to_minute(dt)
+    dt = dt.replace(second=0, microsecond=0)
 
     # Given that we rounded all times up, if dt is:
     # * before the first eve twi by at least time_slot_length; or

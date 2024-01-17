@@ -11,13 +11,12 @@ from .collector_fixture import scheduler_collector
 
 def test_utc_dt_to_time_coords(scheduler_collector):
     site = Site.GN
-    timeslot_length = scheduler_collector.time_slot_length.to_datetime()
     ne = scheduler_collector.get_night_events(site)
 
     for night_idx in range(len(ne.time_grid)):
         # Twilights are in UTC. Convert to local time.
-        start_time = ne.twilight_evening_12[night_idx].to_datetime()
-        end_time = ne.twilight_morning_12[night_idx].to_datetime() - timeslot_length
+        start_time = ne.twilight_eve_utc[night_idx]
+        end_time = ne.twilight_morn_utc[night_idx]
 
         curr_time = start_time
         times = []
@@ -35,13 +34,12 @@ def test_utc_dt_to_time_coords(scheduler_collector):
 
 def test_local_dt_to_time_coords(scheduler_collector):
     site = Site.GN
-    timeslot_length = scheduler_collector.time_slot_length.to_datetime()
     ne = scheduler_collector.get_night_events(site)
 
     for night_idx in range(len(ne.time_grid)):
         # Twilights are in UTC. Convert to local time.
-        start_time = ne.twilight_evening_12[night_idx].to_datetime(site.timezone)
-        end_time = ne.twilight_morning_12[night_idx].to_datetime(site.timezone) - timeslot_length
+        start_time = ne.twilight_eve_local[night_idx]
+        end_time = ne.twilight_morn_local[night_idx]
 
         curr_time = start_time
         times = []
