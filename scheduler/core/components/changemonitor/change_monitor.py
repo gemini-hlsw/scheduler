@@ -194,9 +194,10 @@ class ChangeMonitor(SchedulerComponent):
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
-                # Otherwise, we can finish the observation. Start the weather change at the end time slot + 1.
+                # Otherwise, we can finish the observation. Start the weather change at the end time slot.
+                # TODO: end time slot + 1?
                 return TimeCoordinateRecord(event=event,
-                                            timeslot_idx=TimeslotIndex(end_time_slot + 1))
+                                            timeslot_idx=TimeslotIndex(end_time_slot))
 
             # For now, for all other events, just recalculate immediately.
             case _:

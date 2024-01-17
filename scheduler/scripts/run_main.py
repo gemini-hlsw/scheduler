@@ -85,7 +85,7 @@ def main(*,
     for site in sorted(sites, key=lambda site: site.name):
         night_events = collector.get_night_events(site)
         for night_idx in night_indices:
-            eve_twi_time = night_events.twilight_eve_local[night_idx]
+            eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
             eve_twi = EveningTwilightEvent(time=eve_twi_time, description='Evening 12° Twilight')
             queue.add_event(night_idx, site, eve_twi)
 
@@ -93,7 +93,7 @@ def main(*,
             # morn_twilight_time = night_events.twilight_morning_12[night_idx].to_datetime(site.timezone)
             # morn_twilight = MorningTwilightEvent(time=morn_twilight_time, description='Morning 12° Twilight')
             # queue.add_event(night_idx, site, morn_twilight)
-            morn_twi_time = night_events.twilight_morn_local[night_idx]
+            morn_twi_time = night_events.twilight_morning_12[night_idx].to_datetime(site.timezone) - time_slot_length
             morn_twi = MorningTwilightEvent(time=morn_twi_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twi)
 
@@ -102,7 +102,7 @@ def main(*,
         # which is why we look up the night events for night index 0 in calculating the time.
         night_events = collector.get_night_events(Site.GS)
         event_night_idx = 0
-        eve_twi_time = night_events.twilight_eve_local[event_night_idx]
+        eve_twi_time = night_events.twilight_evening_12[0].to_datetime(Site.GS.timezone)
         weather_change_time = eve_twi_time + timedelta(minutes=120)
         weather_change_south = WeatherChangeEvent(time=weather_change_time,
                                                   description='IQ -> IQ20, CC -> CC50',
@@ -147,7 +147,7 @@ def main(*,
             # We need the start of the night for checking if an event has been reached.
             # Next update indicates when we will recalculate the plan.
             night_events = collector.get_night_events(site)
-            night_start = night_events.twilight_eve_local[night_idx]
+            night_start = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
             next_update[site] = None
 
             # TODO: Do we want the timeslot counter in its own class? If we are going to make this work for GPP,
@@ -165,6 +165,8 @@ def main(*,
             # 2. If there is a next event, calculate its processing time.
             # 3. If there is no existing processing time, set
             # while next_update[site] is None or not next_update[site].done:
+
+            # TODO: This code is consuming both events for some reason, and so loops endlessly.
             while not night_done:
                 # If our next update isn't done, and we are out of events, we're missing the morning twilight.
                 if next_event is None and events_by_night.is_empty():
@@ -179,7 +181,8 @@ def main(*,
                 # Example: for twilights, we want these to be scheduled.
 
                 # Keep processing events until we find an event in the future, which will be stored in next_event.
-                while next_event is None or current_timeslot >= next_event_timeslot:
+                while (events_by_night.has_more_events() and
+                       (next_event is None or current_timeslot >= next_event_timeslot)):
                     if next_event is None:
                         # Get a new event and determine when it should be processed.
                         next_event = events_by_night.pop_next_event()
@@ -271,11 +274,12 @@ def main(*,
 
                 # Advance the current timeslot.
                 current_timeslot += 1
-                print(f'Timeslot now: {current_timeslot}, waiting={next_update[site].timeslot_idx}')
+                print(f'Timeslot now: {current_timeslot}, done: {night_done}')
+                if current_timeslot > 800:
+                    break
 
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
-        # TODO: There appears to be a bug here. See GSCHED-517.
         _logger.info(f'Assembling plans for night index {night_idx}.')
         night_events = {site: collector.get_night_events(site) for site in collector.sites}
         final_plans = Plans(night_events, NightIndex(night_idx))

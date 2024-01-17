@@ -76,13 +76,6 @@ class NightEvents:
         time_starts = helpers.round_minute(self.twilight_evening_12, up=True)
         time_ends = helpers.round_minute(self.twilight_morning_12, up=True)
 
-        # n in an array with the number of time slots in a night.
-        # This could be calculated by taking the length of other arrays, but it is convenient.
-        # We have to add 1 to count the last time slot:
-        # start = Time('2020-01-01 0:00:00')
-        # end = Time('2020-01-01 1:00:00')
-        # (end - start) / TimeDelta(1 * u.min) gives 60
-        # np.linspace(end, start, 60)
         n = ((time_ends.jd - time_starts.jd) / timeslot_length_days + 0.5).astype(int)
         object.__setattr__(self, 'num_timeslots_per_night', n)
 
@@ -173,22 +166,6 @@ class NightEvents:
             dt = dt.replace(self.site.timezone)
         return dt_to_time_coords(dt, self.time_slot_length.to_datetime(), self.local_times)
 
-    @property
-    def twilight_eve_local(self) -> List[datetime]:
-        return [local[0].replace(tzinfo=self.site.timezone) for local in self.local_times]
-
-    @property
-    def twilight_morn_local(self) -> List[datetime]:
-        return [local[-1].replace(tzinfo=self.site.timezone) for local in self.local_times]
-
-    @property
-    def twilight_eve_utc(self) -> List[datetime]:
-        return [utc[0].replace(tzinfo=self.site.timezone) for utc in self.utc_times]
-
-    @property
-    def twilight_morn_utc(self) -> List[datetime]:
-        return [utc[-1].replace(tzinfo=self.site.timezone) for utc in self.utc_times]
-
     def time_coords_to_local_dt(self, night_idx: NightIndex, timeslot_idx: TimeslotIndex) -> Optional[datetime]:
         """
         Given time coordinates, convert to a local datetime.
@@ -213,7 +190,6 @@ def dt_to_time_coords(dt: datetime,
     If dt falls within the ranges represented by times, return the NightIndex and TimeslotIndex which corresponds.
     If no such value is found, return None.
     """
-    dt = dt.replace(second=0, microsecond=0)
 
     # Given that we rounded all times up, if dt is:
     # * before the first eve twi by at least time_slot_length; or
