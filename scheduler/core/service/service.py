@@ -69,7 +69,7 @@ class Service:
                 events_by_night = queue.get_night_events(night_idx, site)
 
                 while events_by_night.has_more_events():
-                    event = events_by_night.next_event()
+                    event = events_by_night.pop_next_event()
                     match event:
                         case EveningTwilightEvent(new_night_start, _):
                             if night_start is not None:

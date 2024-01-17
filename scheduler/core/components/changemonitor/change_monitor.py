@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import final, Optional
 
 import numpy as np
-from lucupy.minimodel import NightIndex, Site, TimeslotIndex, ObservationClass, Variant
+from lucupy.minimodel import Site, TimeslotIndex, ObservationClass, Variant
 
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
@@ -32,10 +32,8 @@ class ChangeMonitor(SchedulerComponent):
 
     def process_event(self,
                       site: Site,
-                      curr_night: NightIndex,
-                      curr_timeslot: TimeslotIndex,
                       event: Event,
-                      plans: Optional[Plans]) -> TimeCoordinateRecord:
+                      plans: Optional[Plans]) -> Optional[TimeCoordinateRecord]:
         """
         TODO: Might want to make return type a Tuple[NightIndex, TimeslotIndex].
 
@@ -49,8 +47,6 @@ class ChangeMonitor(SchedulerComponent):
         when the plan should be calculated is returned, and if no new plan should be calculated, then None is returned.
 
         :param site: the site at which the event occurred
-        :param curr_night: the current night index
-        :param curr_timeslot: the current timeslot index
         :param event: the event that occurred
         :param plans: the plans that are currently in action (if any) for the night, which consist of a plan per site
 
@@ -65,17 +61,17 @@ class ChangeMonitor(SchedulerComponent):
         event_night, event_timeslot = night_events.local_dt_to_time_coords(event.time)
 
         # Check that the event is valid.
-        if event_night > curr_night:
-            raise ValueError(f'Site {site_name} is running night index {curr_night}, but received event {event} '
-                             f'for night index {event_night}.')
-        if (event_night < curr_night or
-                (event_night == curr_night and event_timeslot < curr_timeslot)):
-            raise ValueError(f'Site {site_name} is running night index {curr_night} and time slot index '
-                             f'{curr_timeslot}, received event {event} for earlier time: '
-                             f'night index {event_night} and time slot index {event_timeslot}.')
+        # if event_night > curr_night:
+        #     raise ValueError(f'Site {site_name} is running night index {curr_night}, but received event {event} '
+        #                      f'for night index {event_night}.')
+        # if (event_night < curr_night or
+        #         (event_night == curr_night and event_timeslot < curr_timeslot)):
+        #     raise ValueError(f'Site {site_name} is running night index {curr_night} and time slot index '
+        #                      f'{curr_timeslot}, received event {event} for earlier time: '
+        #                      f'night index {event_night} and time slot index {event_timeslot}.')
 
-        num_timeslots_for_night = night_events.num_timeslots_per_night[curr_night]
-        last_timeslot_for_night = num_timeslots_for_night - 1
+        num_timeslots_for_night = night_events.num_timeslots_per_night[event_night]
+        last_timeslot_for_night = TimeslotIndex(num_timeslots_for_night - 1)
 
         # Process the event based on its type:
         match event:
@@ -84,22 +80,27 @@ class ChangeMonitor(SchedulerComponent):
                 if event_timeslot != 0:
                     _logger.warning(f'EveningTwilightEvent for site {site_name} should be scheduled for timeslot 0, '
                                     f'but is scheduled for timeslot {event_timeslot}.')
-                    # We do not perform any time accounting for the evening twilight.
-                    return TimeCoordinateRecord(night_idx=event_night,
-                                                timeslot_idx=event_timeslot,
-                                                perform_time_accounting=False)
+                # We do not perform any time accounting for the evening twilight.
+                return TimeCoordinateRecord(event=event,
+                                            timeslot_idx=event_timeslot,
+                                            perform_time_accounting=False)
 
             case MorningTwilightEvent():
-                if event_timeslot != night_events.num_timeslots_per_night[curr_night]:
+                if event_timeslot != night_events.num_timeslots_per_night[event_night]:
                     _logger.warning(f'MorningTwilightEvent for site {site_name} should be scheduled for '
                                     f'timeslot {last_timeslot_for_night} but is scheduled for '
                                     f'timeslot {event_timeslot}.')
-                    # TODO: Do we want to return any other information?
-                    return TimeCoordinateRecord(done=True)
+                # TODO: Do we want to return any other information?
+                return TimeCoordinateRecord(event=event,
+                                            timeslot_idx=last_timeslot_for_night,
+                                            done=True)
 
             case WeatherChangeEvent(variant_change=variant_change):
                 # Regardless, we want to change the weather values for CC and IQ.
                 self.selector.update_variant(site, variant_change)
+
+                # There should be plans already established.
+                assert plans is not None, f"WeatherChangeEvent received for {event_night}, but no plans have been made."
 
                 # Check if there is a visit running now.
                 plan = plans[site]
@@ -109,7 +110,7 @@ class ChangeMonitor(SchedulerComponent):
 
                 # There are no visits currently in progress, so immediately calculate new plan and do TA.
                 if visit_idx is None or visit.start_time_slot + visit.time_slots < event_timeslot:
-                    return TimeCoordinateRecord(night_idx=event_night,
+                    return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
                 # Otherwise, we are in the middle of a visit.
@@ -190,9 +191,14 @@ class ChangeMonitor(SchedulerComponent):
                 slot_values = Selector.match_conditions(mrc, actual_conditions, neg_ha, too_type)
 
                 if not np.all(slot_values > 0):
-                    return TimeCoordinateRecord(night_idx=event_night,
+                    return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
                 # Otherwise, we can finish the observation. Start the weather change at the end time slot + 1.
-                return TimeCoordinateRecord(night_idx=event_night,
+                return TimeCoordinateRecord(event=event,
                                             timeslot_idx=TimeslotIndex(end_time_slot + 1))
+
+            # For now, for all other events, just recalculate immediately.
+            case _:
+                return TimeCoordinateRecord(event=event,
+                                            timeslot_idx=event_timeslot)

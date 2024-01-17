@@ -6,6 +6,8 @@ from typing import final, Optional
 
 from lucupy.minimodel import NightIndex, TimeslotIndex
 
+from scheduler.core.eventsqueue.events import Event
+
 
 __all__ = [
     'TimeCoordinateRecord',
@@ -18,12 +20,12 @@ class TimeCoordinateRecord:
     """
     Time coordinate record calculated for an event.
     Attributes:
-        night_idx: the night index for which the event was recorded
+        event: the event for which this time coordinate record holds
         timeslot_idx: the timeslot index for which the plan should be recalculated
         perform_time_accounting: True if time accounting should be performed, and False to suppress time accounting
         done: True if the night is done, and False otherwise
     """
-    night_idx: Optional[NightIndex] = field(default=None)
-    timeslot_idx: Optional[TimeslotIndex] = field(default=None)
+    event: Event
+    timeslot_idx: Optional[TimeslotIndex]
     perform_time_accounting: bool = field(default=True)
     done: bool = field(default=False)

@@ -181,6 +181,15 @@ class NightEvents:
         return time_coords_to_dt(night_idx, timeslot_idx, self.utc_times)
 
 
+def _ceil_dt_to_minute(dt: datetime) -> datetime:
+    # If there are no seconds and no microseconds, the datetime is already at the ceil.
+    if dt.second == 0 and dt.microsecond == 0:
+        return dt
+    else:
+        # Add one minute and reset seconds and microseconds to zero
+        return dt.replace(second=0, microsecond=0) + timedelta(minutes=1)
+
+
 def dt_to_time_coords(dt: datetime,
                       timeslot_length: timedelta,
                       times: List[List[datetime]]) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
@@ -192,6 +201,7 @@ def dt_to_time_coords(dt: datetime,
     If dt falls within the ranges represented by times, return the NightIndex and TimeslotIndex which corresponds.
     If no such value is found, return None.
     """
+    dt = _ceil_dt_to_minute(dt)
 
     # Given that we rounded all times up, if dt is:
     # * before the first eve twi by at least time_slot_length; or

@@ -53,6 +53,7 @@ class Event(UUIDIdentified, ABC):
         This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.
         """
         time_from_twilight = self.time - twi_eve_time
+        print(f'Converting to timeslot: {self.time} - {twi_eve_time} = {time_from_twilight}')
         time_slots_from_twilight = time2slots(time_slot_length, time_from_twilight)
         return TimeslotIndex(time_slots_from_twilight)
 
