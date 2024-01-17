@@ -35,11 +35,11 @@ class _logger:
         print(f'ERROR: {message}')
 
 def main(*,
+         test_events: bool = False,
          verbose: bool = False,
          start: Optional[Time] = Time("2018-10-01 08:00:00", format='iso', scale='utc'),
          end: Optional[Time] = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
          num_nights_to_schedule: int = 1,
-         test_events: bool = False,
          sites: FrozenSet[Site] = ALL_SITES,
          ranker_parameters: RankerParameters = RankerParameters(),
          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
@@ -78,18 +78,20 @@ def main(*,
 
     # Create the ChangeMonitor and keep track of when we should recalculate the plan for each site.
     change_monitor = ChangeMonitor(collector=collector, selector=selector)
+
+    # Don't use this now, but we will use it when scheduling sites at the same time.
     next_update: Dict[Site, Optional[TimeCoordinateRecord]] = {site: None for site in sites}
 
     # Add the twilight events for every night at each site.
     # The morning twilight will force time accounting to be done on the last generated plan for the night.
-    for site in sorted(sites, key=lambda site: site.name):
+    for site in sites:
         night_events = collector.get_night_events(site)
         for night_idx in night_indices:
             eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
             eve_twi = EveningTwilightEvent(time=eve_twi_time, description='Evening 12° Twilight')
             queue.add_event(night_idx, site, eve_twi)
 
-            # Add one time slot to the morning twilight to make sure time accounting is done for entire night.
+            # TODO: Add one time slot to the morning twilight to make sure time accounting is done for entire night?
             # morn_twilight_time = night_events.twilight_morning_12[night_idx].to_datetime(site.timezone)
             # morn_twilight = MorningTwilightEvent(time=morn_twilight_time, description='Morning 12° Twilight')
             # queue.add_event(night_idx, site, morn_twilight)
@@ -97,7 +99,7 @@ def main(*,
             morn_twi = MorningTwilightEvent(time=morn_twi_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twi)
 
-    if test_events:
+    if False:
         # Create a weather event at GS that starts two hours after twilight on the first night of 2018-09-30,
         # which is why we look up the night events for night index 0 in calculating the time.
         night_events = collector.get_night_events(Site.GS)
@@ -158,15 +160,6 @@ def main(*,
             next_event_timeslot: Optional[TimeslotIndex] = None
             night_done = False
 
-            # If next_update[site] is None, we are just starting.
-            # We continue until the next update to perform indicates that the night is done.
-            # LOGIC:
-            # 1. If there is no next event, then get one.
-            # 2. If there is a next event, calculate its processing time.
-            # 3. If there is no existing processing time, set
-            # while next_update[site] is None or not next_update[site].done:
-
-            # TODO: This code is consuming both events for some reason, and so loops endlessly.
             while not night_done:
                 # If our next update isn't done, and we are out of events, we're missing the morning twilight.
                 if next_event is None and events_by_night.is_empty():
@@ -181,27 +174,40 @@ def main(*,
                 # Example: for twilights, we want these to be scheduled.
 
                 # Keep processing events until we find an event in the future, which will be stored in next_event.
-                while (events_by_night.has_more_events() and
-                       (next_event is None or current_timeslot >= next_event_timeslot)):
-                    if next_event is None:
-                        # Get a new event and determine when it should be processed.
-                        next_event = events_by_night.pop_next_event()
-                        next_event_timeslot = next_event.to_timeslot_idx(night_start, time_slot_length)
+                # next_event should be the top of the event queue, the next event scheduled for the future.
+
+                # There may be more than one event scheduled at the same time, so we must process all of them
+                # that occur now and determine the one that causes the earliest recalculation of the plan.
+
+                # If we don't know when the next event is, or we do and it is now, go over events.
+                # Do we have events to perform? If so, consume all the events for the current time.
+                if next_event_timeslot is None or current_timeslot == next_event_timeslot:
+                    # Stop if there are no more events.
+                    while events_by_night.has_more_events():
+                        top_event = events_by_night.top_event()
+                        top_event_timeslot = top_event.to_timeslot_idx(night_start, time_slot_length)
+
+                        # TODO: Check this over to make sure if there is an event now, it is processed.
+                        # If we don't know the next event timeslot, set it.
+                        if next_event_timeslot is None:
+                            next_event_timeslot = top_event_timeslot
+
+                        # The next event happens in the future, so record that time.
+                        if top_event_timeslot > current_timeslot:
+                            next_event_timeslot = top_event_timeslot
+                            break
+
+                        # We have an event that occurs at this time slot and is in top_event, so pop it from the
+                        # queue and process it.
+                        events_by_night.pop_next_event()
                         _logger.info(f'Received event for site {site_name} for night idx {night_idx} to be processed '
                                      f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
 
-                    # At this point, there should always be a next_event entry.
-                    # If we have reached the next event, then process it.
-                    print(f'Current timeslot: {current_timeslot}, next_event_timeslot: {next_event_timeslot}')
-                    if current_timeslot >= next_event_timeslot:
-                        print('Processing...')
-                        if current_timeslot > next_event_timeslot:
-                            _logger.error(f'Event was supposed to be processed at site {site.name} for night '
-                                          f'{night_idx} at time {next_event_timeslot}, but now timeslot is '
-                                          f'{current_timeslot}: {next_event.__class__.__name__}')
-
+                        # Process the event: find out when it should occur.
+                        # If there is no next update planned, then take it to be the next update.
+                        # If there is a next update planned, then take it if it happens before the next update.
                         # Process the event to find out if we should recalculate the plan based on it and when.
-                        time_record = change_monitor.process_event(site, next_event, plans)
+                        time_record = change_monitor.process_event(site, top_event, plans)
                         if time_record is not None:
                             # In the case that:
                             # * there is no next update scheduled; or
@@ -211,12 +217,7 @@ def main(*,
                                 print(f'Setting next_update to {time_record.timeslot_idx}')
                                 next_update[site] = time_record
 
-                        # As we processed the event, set it and the next_event_timeslot to None to indicate this
-                        # and to continue processing to get next event.
-                        next_event = None
-                        next_event_timeslot = None
-
-                # If we have reached the time for the next update, then perform it.
+                # If there is a next update and we have reached its time, then perform it.
                 # This is where we perform time accounting (if necessary), get a selection, and create a plan.
                 if next_update[site] is not None and current_timeslot >= next_update[site].timeslot_idx:
                     # Remove the update and perform it.
@@ -272,7 +273,8 @@ def main(*,
                     print(f'Setting night_done from {night_done} to {update.done}.')
                     night_done = update.done
 
-                # Advance the current timeslot.
+                # We have processed all events for this timeslot and performed an update if necessary.
+                # Advance the current time.
                 current_timeslot += 1
                 print(f'Timeslot now: {current_timeslot}, done: {night_done}')
                 if current_timeslot > 800:
