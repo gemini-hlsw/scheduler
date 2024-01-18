@@ -10,7 +10,9 @@ from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, Uniq
 
 from scheduler.core.components.ranker import Ranker
 from scheduler.core.types import StartingTimeslots
-from scheduler.core.calculations import GroupData, NightEvents, ProgramCalculations, ProgramInfo
+from scheduler.core.calculations.nightevents import NightEvents
+from scheduler.core.calculations.programinfo import ProgramCalculations, ProgramInfo
+from scheduler.core.calculations.groupinfo import GroupData
 
 
 @final

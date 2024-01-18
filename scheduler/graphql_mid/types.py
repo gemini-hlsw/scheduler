@@ -7,10 +7,10 @@ from typing import List, FrozenSet, Optional
 from zoneinfo import ZoneInfo
 
 import strawberry  # noqa
+import astropy.units as u
 from strawberry.scalars import JSON  # noqa
 
-from lucupy.minimodel import (Site, Conditions, ImageQuality,
-                              CloudCover, WaterVapor, SkyBackground)
+from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantChange
 
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
@@ -194,9 +194,7 @@ class SourceFileHandlerResponse:
 
 NewScheduleResponse = NewScheduleSuccess | NewScheduleError
 
-SB = strawberry.enum(SkyBackground)
 CC = strawberry.enum(CloudCover)
-WV = strawberry.enum(WaterVapor)
 IQ = strawberry.enum(ImageQuality)
 
 
@@ -205,18 +203,26 @@ class NewWeatherChange:
     time: datetime
     description: str
     new_CC: Optional[CC]
-    new_SB: Optional[SB]
-    new_WV: Optional[WV]
     new_IQ: Optional[IQ]
+    new_wind_direction: Optional[float]
+    new_wind_speed: Optional[float]
 
     def to_scheduler_event(self) -> WeatherChangeEvent:
-        c = Conditions(cc=CloudCover[self.new_CC.name] if self.new_CC else None,
-                       sb=SkyBackground[self.new_SB.name] if self.new_SB else None,
-                       wv=WaterVapor[self.new_WV.name] if self.new_WV else None,
-                       iq=ImageQuality[self.new_IQ.name] if self.new_IQ else None)
+        if self.new_wind_direction is None:
+            wind_dir = None
+        else:
+            wind_dir = self.new_wind_direction * u.degrees
+        if self.new_wind_speed is None:
+            wind_spd = None
+        else:
+            wind_spd = self.new_wind_speed * (u.m / u.s)
+        variant_change = VariantChange(cc=CloudCover[self.new_CC.name] if self.new_CC else None,
+                                       iq=ImageQuality[self.new_IQ.name] if self.new_IQ else None,
+                                       wind_dir=wind_dir,
+                                       wind_spd=wind_spd)
         return WeatherChangeEvent(time=self.time,
                                   description=self.description,
-                                  new_conditions=c)
+                                  variant_change=variant_change)
 
 
 @strawberry.type

@@ -1,7 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from typing import Dict, FrozenSet
 
 import numpy as np
@@ -9,17 +9,22 @@ import numpy.typing as npt
 from lucupy.minimodel import ALL_SITES, AndGroup, OrGroup, Group, NightIndex, NightIndices, Observation, Program, Site
 
 from scheduler.core.calculations import Scores, GroupDataMap
-from scheduler.core.components.collector import Collector
 
 
-class Ranker:
+__all__ = [
+    'Ranker',
+]
+
+
+class Ranker(ABC):
     def __init__(self,
-                 collector: Collector,
+                 collector: 'Collector',
                  night_indices: NightIndices,
                  sites: FrozenSet[Site] = ALL_SITES):
         """
         We only want to calculate the parameters once since they do not change.
         """
+        self.collector = collector
         self.night_indices = night_indices
         self.sites = sites
 

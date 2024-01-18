@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Callable, ClassVar, Final, FrozenSet, Mapping, Tuple, final
+from typing import Callable, FrozenSet, Mapping, Tuple, final
 
 import astropy.units as u
 import numpy as np
@@ -12,8 +12,14 @@ from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndices, Observatio
 from lucupy.types import ListOrNDArray
 
 from scheduler.core.calculations import Scores, GroupDataMap
-from scheduler.core.components.collector import Collector
 from .base import Ranker
+
+
+__all__ = [
+    'DefaultRanker',
+    'RankerBandParameters',
+    'RankerParameters',
+]
 
 
 def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
@@ -95,7 +101,7 @@ class DefaultRanker(Ranker):
     """
 
     def __init__(self,
-                 collector: Collector,
+                 collector: 'Collector',
                  night_indices: NightIndices,
                  sites: FrozenSet[Site] = ALL_SITES,
                  params: RankerParameters = RankerParameters(),
@@ -186,7 +192,7 @@ class DefaultRanker(Ranker):
         # target_info is a map from night index to TargetInfo.
         # We require it to proceed for hour angle / elevation information and coordinates.
         # If it is missing, just return scores of 0.
-        target_info = Collector.get_target_info(obs.id)
+        target_info = self.collector.get_target_info(obs.id)
         if target_info is None:
             return scores
 

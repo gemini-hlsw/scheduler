@@ -27,7 +27,13 @@ class NightEventQueue:
     def has_more_events(self) -> bool:
         return len(self.events) > 0
 
-    def next_event(self) -> Event:
+    def is_empty(self) -> bool:
+        return not self.has_more_events()
+
+    def top_event(self) -> Event:
+        return self.events[0]
+
+    def pop_next_event(self) -> Event:
         return self.events.pop(0)
 
     def add_event(self, event: Event) -> None:

@@ -40,6 +40,8 @@ class NightEvents:
     moonset: Time
 
     # post-init calculated values.
+    num_timeslots_per_night: List[int] = field(init=False)
+    num_nights: List[int] = field(init=False)
     night_length: TimeDelta = field(init=False)
     times: List[npt.NDArray[float]] = field(init=False)
     utc_times: List[List[datetime]] = field(init=False)
@@ -70,17 +72,18 @@ class NightEvents:
         # Create the time arrays, which are arrays that represent the earliest starting
         # time to the latest ending time, divided into segments of length time_slot_length.
         # We want one entry per time slot grid, i.e. per night, measured in UTC, local, and local sidereal.
-        time_slot_length_days = self.time_slot_length.to(u.day).value
+        timeslot_length_days = self.time_slot_length.to(u.day).value
         time_starts = helpers.round_minute(self.twilight_evening_12, up=True)
         time_ends = helpers.round_minute(self.twilight_morning_12, up=True)
 
-        # n in an array with the number of time slots in a night.
-        n = ((time_ends.jd - time_starts.jd) / time_slot_length_days + 0.5).astype(int)
+        n = ((time_ends.jd - time_starts.jd) / timeslot_length_days + 0.5).astype(int)
+        object.__setattr__(self, 'num_timeslots_per_night', n)
 
         # Calculate a list of arrays per night of the times.
         # We want this as a Python list because the arrays will have different lengths.
-        times = [Time(np.linspace(start.jd, end.jd - time_slot_length_days, i), format='jd')
+        times = [Time(np.linspace(start.jd, end.jd - timeslot_length_days, i), format='jd')
                  for start, end, i in zip(time_starts, time_ends, n)]
+        object.__setattr__(self, 'num_nights', len(times))
         object.__setattr__(self, 'times', times)
 
         # Pre-calculate the different times.

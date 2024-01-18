@@ -15,7 +15,8 @@ from openpyxl import Workbook
 from pandas import DataFrame
 import numpy as np
 
-from scheduler.core.components.collector import Collector, NightEventsManager
+from scheduler.core.components.collector import Collector
+from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.plans import Plans
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.programprovider.ocs import OcsProgramProvider
