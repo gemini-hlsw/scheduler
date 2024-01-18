@@ -131,16 +131,13 @@ def main(*,
         for site in sorted(sites, key=lambda site: site.name):
             # Site name so we can change this if we see fit.
             site_name = site.name
-            print(f'\n\n----- PROCESSING SITE {site_name}, NIGHT {night_idx} ------')
 
             # TODO: When weather service is working again, we will not do this.
             # Reset the Selector to the default weather for the night and reset the time record. The evening twilight
             # should trigger the initial plan generation.
-            print(f'Resetting conditions at {site.name} for night index {night_idx}.')
             cc_value = cc_per_site and cc_per_site.get(site)
             iq_value = iq_per_site and iq_per_site.get(site)
             selector.update_cc_and_iq(site, cc_value, iq_value)
-            print(f'\tConditions are now: {selector.cc_per_site[site]}, {selector.iq_per_site[site]}')
 
             # Plan and event queue management.
             plans: Optional[Plans] = None

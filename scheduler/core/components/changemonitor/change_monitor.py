@@ -88,7 +88,7 @@ class ChangeMonitor(SchedulerComponent):
                                             perform_time_accounting=False)
 
             case MorningTwilightEvent():
-                if event_timeslot != night_events.num_timeslots_per_night[event_night]:
+                if event_timeslot != last_timeslot_for_night:
                     _logger.warning(f'MorningTwilightEvent for site {site_name} should be scheduled for '
                                     f'timeslot {last_timeslot_for_night} but is scheduled for '
                                     f'timeslot {event_timeslot}.')
