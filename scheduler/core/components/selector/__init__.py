@@ -1,7 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from copy import deepcopy
+from copy import copy, deepcopy
 from dataclasses import dataclass, field
 from typing import ClassVar, Dict, FrozenSet, KeysView, Optional, Set, final
 
@@ -53,6 +53,10 @@ class Selector(SchedulerComponent):
     _default_iq: ClassVar[ImageQuality] = ImageQuality.IQ70
 
     def __post_init__(self):
+        # We need to copy or changing these values will modify the external dictionaries passed in.
+        self.cc_per_site = copy(self.cc_per_site)
+        self.iq_per_site = copy(self.iq_per_site)
+
         if (self.num_nights_to_schedule < 0 or
                 self.num_nights_to_schedule > self.collector.num_nights_calculated):
             raise ValueError(f'Scheduling requested for {self.num_nights_to_schedule} nights, but visibility '

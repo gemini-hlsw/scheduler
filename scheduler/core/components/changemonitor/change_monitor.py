@@ -80,6 +80,8 @@ class ChangeMonitor(SchedulerComponent):
                 if event_timeslot != 0:
                     _logger.warning(f'EveningTwilightEvent for site {site_name} should be scheduled for timeslot 0, '
                                     f'but is scheduled for timeslot {event_timeslot}.')
+                    print(f'EveningTwilightEvent for site {site_name} should be scheduled for timeslot 0, '
+                          f'but is scheduled for timeslot {event_timeslot}.')
                 # We do not perform any time accounting for the evening twilight.
                 return TimeCoordinateRecord(event=event,
                                             timeslot_idx=event_timeslot,
@@ -90,6 +92,9 @@ class ChangeMonitor(SchedulerComponent):
                     _logger.warning(f'MorningTwilightEvent for site {site_name} should be scheduled for '
                                     f'timeslot {last_timeslot_for_night} but is scheduled for '
                                     f'timeslot {event_timeslot}.')
+                    print(f'MorningTwilightEvent for site {site_name} should be scheduled for '
+                          f'timeslot {last_timeslot_for_night} but is scheduled for '
+                          f'timeslot {event_timeslot}.')
                 # TODO: Do we want to return any other information?
                 return TimeCoordinateRecord(event=event,
                                             timeslot_idx=last_timeslot_for_night,

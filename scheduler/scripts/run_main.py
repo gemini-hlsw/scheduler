@@ -25,14 +25,8 @@ from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
 
 
-# _logger = logger_factory.create_logger(__name__)
-class _logger:
-    @staticmethod
-    def info(message: str):
-        print(f'INFO: {message}')
-    @staticmethod
-    def error(message: str):
-        print(f'ERROR: {message}')
+_logger = logger_factory.create_logger(__name__)
+
 
 def main(*,
          test_events: bool = False,
@@ -103,13 +97,19 @@ def main(*,
         # Create a weather event at GS that starts two hours after twilight on the first night of 2018-09-30,
         # which is why we look up the night events for night index 0 in calculating the time.
         night_events = collector.get_night_events(Site.GS)
-        event_night_idx = 0
         eve_twi_time = night_events.twilight_evening_12[0].to_datetime(Site.GS.timezone)
         weather_change_time = eve_twi_time + timedelta(minutes=120)
         weather_change_south = WeatherChangeEvent(time=weather_change_time,
                                                   description='IQ -> IQ20, CC -> CC50',
                                                   variant_change=VariantChange(iq=ImageQuality.IQ20,
                                                                                cc=CloudCover.CC50,
+                                                                               wind_dir=None,
+                                                                               wind_spd=None))
+
+        weather_change_south = WeatherChangeEvent(time=weather_change_time,
+                                                  description='IQ -> IQANY, CC -> CCANY',
+                                                  variant_change=VariantChange(iq=ImageQuality.IQANY,
+                                                                               cc=CloudCover.CCANY,
                                                                                wind_dir=None,
                                                                                wind_spd=None))
         queue.add_event(NightIndex(0), Site.GS, weather_change_south)
@@ -126,19 +126,21 @@ def main(*,
         night_indices = np.array([night_idx])
         ranker = DefaultRanker(collector, night_indices, sites, params=ranker_parameters)
 
-        # TODO: When weather service is working again, we will not do this.
-        # Reset the Selector to the default weather for the night and reset the time record. The evening twilight
-        # should trigger the initial plan generation.
-        for site in sites:
+        # TODO: This needs reworking. We should be treating time linearly instead of iterating over sites and
+        # TODO: processing them one after the other.
+        for site in sorted(sites, key=lambda site: site.name):
+            # Site name so we can change this if we see fit.
+            site_name = site.name
+            print(f'\n\n----- PROCESSING SITE {site_name}, NIGHT {night_idx} ------')
+
+            # TODO: When weather service is working again, we will not do this.
+            # Reset the Selector to the default weather for the night and reset the time record. The evening twilight
+            # should trigger the initial plan generation.
+            print(f'Resetting conditions at {site.name} for night index {night_idx}.')
             cc_value = cc_per_site and cc_per_site.get(site)
             iq_value = iq_per_site and iq_per_site.get(site)
             selector.update_cc_and_iq(site, cc_value, iq_value)
-
-        # TODO: This needs reworking. We should be treating time linearly instead of iterating over sites and
-        # TODO: processing them one after the other.
-        for site in collector.sites:
-            # Site name so we can change this if we see fit.
-            site_name = site.name
+            print(f'\tConditions are now: {selector.cc_per_site[site]}, {selector.iq_per_site[site]}')
 
             # Plan and event queue management.
             plans: Optional[Plans] = None
@@ -181,7 +183,7 @@ def main(*,
 
                 # If we don't know when the next event is, or we do and it is now, go over events.
                 # Do we have events to perform? If so, consume all the events for the current time.
-                if next_event_timeslot is None or current_timeslot == next_event_timeslot:
+                if next_event_timeslot is None or current_timeslot >= next_event_timeslot:
                     # Stop if there are no more events.
                     while events_by_night.has_more_events():
                         top_event = events_by_night.top_event()
@@ -191,6 +193,10 @@ def main(*,
                         # If we don't know the next event timeslot, set it.
                         if next_event_timeslot is None:
                             next_event_timeslot = top_event_timeslot
+
+                        if current_timeslot > next_event_timeslot:
+                            _logger.warning(f'Received event for site {site_name} for night idx {night_idx} at '
+                                            f'timeslot {next_event_timeslot} < current time slot {current_timeslot}.')
 
                         # The next event happens in the future, so record that time.
                         if top_event_timeslot > current_timeslot:
@@ -214,8 +220,9 @@ def main(*,
                             # * this update happens before the next update
                             # then set to this update.
                             if next_update[site] is None or time_record.timeslot_idx < next_update[site].timeslot_idx:
-                                print(f'Setting next_update to {time_record.timeslot_idx}')
                                 next_update[site] = time_record
+                                _logger.info(f'Next update for site {site_name} scheduled at '
+                                             f'timeslot {next_update[site].timeslot_idx}')
 
                 # If there is a next update and we have reached its time, then perform it.
                 # This is where we perform time accounting (if necessary), get a selection, and create a plan.
@@ -269,16 +276,12 @@ def main(*,
                                              update.event,
                                              plans[site])
 
-                    # If the update indicates that the night is done, then exit.
-                    print(f'Setting night_done from {night_done} to {update.done}.')
+                    # Update night_done based on time update record.
                     night_done = update.done
 
                 # We have processed all events for this timeslot and performed an update if necessary.
                 # Advance the current time.
                 current_timeslot += 1
-                print(f'Timeslot now: {current_timeslot}, done: {night_done}')
-                if current_timeslot > 800:
-                    break
 
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
