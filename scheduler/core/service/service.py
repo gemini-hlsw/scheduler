@@ -20,6 +20,9 @@ from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plans
 from scheduler.core.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
+from scheduler.services import logger_factory
+
+_logger = logger_factory.create_logger(__name__)
 
 
 class Service:
@@ -120,6 +123,9 @@ class Service:
                             # We have an event that occurs at this time slot and is in top_event, so pop it from the
                             # queue and process it.
                             events_by_night.pop_next_event()
+                            _logger.info(
+                                f'Received event for site {site_name} for night idx {night_idx} to be processed '
+                                f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
 
                             # Process the event: find out when it should occur.
                             # If there is no next update planned, then take it to be the next update.
@@ -141,6 +147,11 @@ class Service:
                         update = next_update[site]
                         next_update[site] = None
 
+                        if current_timeslot > update.timeslot_idx:
+                            _logger.error(
+                                f'Plan update was supposed to happen at site {site.name} for night {night_idx} '
+                                f'at timeslot {update.timeslot_idx}, but now timeslot is {current_timeslot}.')
+
                         # We will update the plan up until the time that the update happens.
                         # If this update corresponds to the night being done, then use None.
                         if update.done:
@@ -154,6 +165,8 @@ class Service:
                                 ta_description = 'for rest of night.'
                             else:
                                 ta_description = f'up to timeslot {update.timeslot_idx}.'
+                            _logger.info(f'Performing time accounting at site {site_name} for night {night_idx} '
+                                         + ta_description)
 
                             collector.time_accounting(plans,
                                                       sites=frozenset({site}),
@@ -161,12 +174,15 @@ class Service:
 
                         # Get a new selection and request a new plan if the night is not done.
                         if not update.done:
+                            _logger.info(f'Retrieving selection for {site_name} for night {night_idx} '
+                                         f'starting at time slot {current_timeslot}.')
                             selection = selector.select(night_indices=night_indices,
                                                         sites=frozenset([site]),
                                                         starting_time_slots={site: {night_idx: current_timeslot
                                                                                     for night_idx in night_indices}},
                                                         ranker=ranker)
-
+                            _logger.info(f'Running optimizer for {site_name} for night {night_idx} '
+                                         f'starting at time slot {current_timeslot}.')
                             plans = optimizer.schedule(selection)[0]
                             nightly_timeline.add(NightIndex(night_idx),
                                                  site,
