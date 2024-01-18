@@ -10,12 +10,14 @@ from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex, CloudCov
 
 from scheduler.core.builder import Blueprints
 from scheduler.core.builder.modes import dispatch_with, SchedulerModes
+from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.components.ranker import RankerParameters, DefaultRanker
 from scheduler.core.components.selector import Selector
-from scheduler.core.eventsqueue import EventQueue, EveningTwilightEvent, MorningTwilightEvent, WeatherChangeEvent
+from scheduler.core.eventsqueue import EventQueue, EveningTwilightEvent, MorningTwilightEvent, WeatherChangeEvent, Event
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
+from scheduler.core.plans import Plans
 from scheduler.core.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
 
@@ -39,102 +41,145 @@ class Service:
                          collector: Collector,
                          selector: Selector,
                          optimizer: Optimizer,
+                         change_monitor: ChangeMonitor,
+                         next_update: Dict[Site, Optional[TimeCoordinateRecord]],
                          queue: EventQueue,
                          ranker_parameters: RankerParameters,
                          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
                          iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
+
         time_slot_length = collector.time_slot_length.to_datetime()
         nightly_timeline = NightlyTimeline()
 
+        # Add the twilight events for every night at each site.
+        # The morning twilight will force time accounting to be done on the last generated plan for the night.
+        for site in sites:
+            night_events = collector.get_night_events(site)
+            for night_idx in night_indices:
+                eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
+                eve_twi = EveningTwilightEvent(time=eve_twi_time, description='Evening 12° Twilight')
+                queue.add_event(night_idx, site, eve_twi)
+
+                morn_twi_time = night_events.twilight_morning_12[night_idx].to_datetime(
+                    site.timezone) - time_slot_length
+                morn_twi = MorningTwilightEvent(time=morn_twi_time, description='Morning 12° Twilight')
+                queue.add_event(night_idx, site, morn_twi)
+
         for night_idx in sorted(night_indices):
             night_indices = np.array([night_idx])
-            custom_ranker = DefaultRanker(collector, night_indices, sites, params=ranker_parameters)
+            ranker = DefaultRanker(collector, night_indices, sites, params=ranker_parameters)
 
-            for site in sites:
-                # Reset the Selector to the default weather for the night.
+            for site in sorted(sites, key=lambda site: site.name):
+                # Site name so we can change this if we see fit.
+                site_name = site.name
+
+                # Reset the Selector to the default weather for the night and reset the time record.
+                # The evening twilight should trigger the initial plan generation.
                 cc_value = cc_per_site and cc_per_site.get(site)
                 iq_value = iq_per_site and iq_per_site.get(site)
                 selector.update_cc_and_iq(site, cc_value, iq_value)
 
-            for site in collector.sites:
-                # Initial values until the evening twilight is executed, and a plan is made.
-                night_start: Optional[datetime] = None
-                night_done = False
-                plans = None
-
-                # Get the night events for the site: in this case, GS.
-                # night_events = collector.get_night_events(site)
-                # TODO: This needs to be a container that is sorted by start datetime of the events.
-                # TODO: Right now, it is sorted, but only because we have added the events in datetime order.
+                # Plan and event queue management.
+                plans: Optional[Plans] = None
                 events_by_night = queue.get_night_events(night_idx, site)
+                if events_by_night.is_empty():
+                    raise RuntimeError(f'No events for site {site_name} for night {night_idx}.')
 
-                while events_by_night.has_more_events():
-                    event = events_by_night.pop_next_event()
-                    match event:
-                        case EveningTwilightEvent(new_night_start, _):
-                            if night_start is not None:
-                                raise ValueError(f'Multiple evening twilight events for night index {night_idx} '
-                                                 f'at site {site.name}: was {night_start}, now {new_night_start}.')
-                            night_start = new_night_start
+                # We need the start of the night for checking if an event has been reached.
+                # Next update indicates when we will recalculate the plan.
+                night_events = collector.get_night_events(site)
+                night_start = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
+                next_update[site] = None
 
-                        case MorningTwilightEvent():
-                            # This just marks the end of the observing night and triggers the time accounting.
-                            if night_start is None:
-                                raise ValueError(f'Morning twilight event for night index {night_idx} '
-                                                 f'at site {site.name} before evening twilight event.')
-                            night_start = None
-                            night_done = True
+                current_timeslot: TimeslotIndex = TimeslotIndex(0)
+                next_event: Optional[Event] = None
+                next_event_timeslot: Optional[TimeslotIndex] = None
+                night_done = False
 
-                        case WeatherChangeEvent(variant_change=variant_change):
-                            if night_start is None:
-                                raise ValueError(f'Event for night index {night_idx} at site {site.name} occurred '
-                                                 f'before twilight: {event}.')
-                            selector.update_variant(site, variant_change)
+                while not night_done:
+                    # If our next update isn't done, and we are out of events, we're missing the morning twilight.
+                    if next_event is None and events_by_night.is_empty():
+                        raise RuntimeError(f'No morning twilight found for site {site_name} for night {night_idx}.')
 
-                        case _:
-                            raise NotImplementedError(f'Received unsupported event: {event.__class__.__name__}')
+                    if next_event_timeslot is None or current_timeslot >= next_event_timeslot:
+                        # Stop if there are no more events.
+                        while events_by_night.has_more_events():
+                            top_event = events_by_night.top_event()
+                            top_event_timeslot = top_event.to_timeslot_idx(night_start, time_slot_length)
 
-                    # Calculate the time slot of the event. Note that if the night is done, it is None.
-                    if night_done:
-                        event_start_time_slot = None
-                        end_timeslot_bounds = None
-                    else:
-                        event_start_time_slot = event.to_timeslot_idx(night_start, time_slot_length)
-                        end_timeslot_bounds = {site: TimeslotIndex(event_start_time_slot)}
+                            # TODO: Check this over to make sure if there is an event now, it is processed.
+                            # If we don't know the next event timeslot, set it.
+                            if next_event_timeslot is None:
+                                next_event_timeslot = top_event_timeslot
 
-                        # If tbe following conditions are met:
-                        # 1. there are plans (i.e. plans have been generated by this point, meaning at least the
-                        #    evening twilight event has occurred); and
-                        # 2. a new plan is to be produced (TODO: GSCHED-515)
-                        # then perform time accounting.
-                        #
-                        # This will also perform the final time accounting when the night is done and the
-                        # morning twilight event has occurred.
-                    if plans is not None:
-                        collector.time_accounting(plans,
-                                                  sites=frozenset({site}),
-                                                  end_timeslot_bounds=end_timeslot_bounds)
+                            # The next event happens in the future, so record that time.
+                            if top_event_timeslot > current_timeslot:
+                                next_event_timeslot = top_event_timeslot
+                                break
 
-                        # If the following conditions are met:
-                        # 1. the night is not done;
-                        # 2. a new plan is to be produced (TODO: GSCHED-515)
-                        # fetch a new selection and produce a new plan.
-                    if not night_done:
-                        selection = selector.select(night_indices=night_indices,
-                                                    sites=frozenset([site]),
-                                                    starting_time_slots={site: {night_idx: event_start_time_slot
-                                                                                for night_idx in night_indices}},
-                                                    ranker=custom_ranker)
+                            # We have an event that occurs at this time slot and is in top_event, so pop it from the
+                            # queue and process it.
+                            events_by_night.pop_next_event()
 
-                        # Right now the optimizer generates List[Plans], a list of plans indexed by
-                        # every night in the selection. We only want the first one, which corresponds
-                        # to the current night index we are looping over.
-                        plans = optimizer.schedule(selection)[0]
-                        nightly_timeline.add(NightIndex(night_idx),
-                                             site,
-                                             TimeslotIndex(event_start_time_slot),
-                                             event,
-                                             plans[site])
+                            # Process the event: find out when it should occur.
+                            # If there is no next update planned, then take it to be the next update.
+                            # If there is a next update planned, then take it if it happens before the next update.
+                            # Process the event to find out if we should recalculate the plan based on it and when.
+                            time_record = change_monitor.process_event(site, top_event, plans)
+                            if time_record is not None:
+                                # In the case that:
+                                # * there is no next update scheduled; or
+                                # * this update happens before the next update
+                                # then set to this update.
+                                if next_update[site] is None or time_record.timeslot_idx < next_update[site].timeslot_idx:
+                                    next_update[site] = time_record
+
+                    # If there is a next update and we have reached its time, then perform it.
+                    # This is where we perform time accounting (if necessary), get a selection, and create a plan.
+                    if next_update[site] is not None and current_timeslot >= next_update[site].timeslot_idx:
+                        # Remove the update and perform it.
+                        update = next_update[site]
+                        next_update[site] = None
+
+                        # We will update the plan up until the time that the update happens.
+                        # If this update corresponds to the night being done, then use None.
+                        if update.done:
+                            end_timeslot_bounds = {}
+                        else:
+                            end_timeslot_bounds = {site: update.timeslot_idx}
+
+                        # If there was an old plan and time accounting is to be done, then process it.
+                        if plans is not None and update.perform_time_accounting:
+                            if update.done:
+                                ta_description = 'for rest of night.'
+                            else:
+                                ta_description = f'up to timeslot {update.timeslot_idx}.'
+
+                            collector.time_accounting(plans,
+                                                      sites=frozenset({site}),
+                                                      end_timeslot_bounds=end_timeslot_bounds)
+
+                        # Get a new selection and request a new plan if the night is not done.
+                        if not update.done:
+                            selection = selector.select(night_indices=night_indices,
+                                                        sites=frozenset([site]),
+                                                        starting_time_slots={site: {night_idx: current_timeslot
+                                                                                    for night_idx in night_indices}},
+                                                        ranker=ranker)
+
+                            plans = optimizer.schedule(selection)[0]
+                            nightly_timeline.add(NightIndex(night_idx),
+                                                 site,
+                                                 current_timeslot,
+                                                 update.event,
+                                                 plans[site])
+
+                        # Update night_done based on time update record.
+                        night_done = update.done
+
+                    # We have processed all events for this timeslot and performed an update if necessary.
+                    # Advance the current time.
+                    current_timeslot += 1
 
         return nightly_timeline
 
@@ -166,26 +211,20 @@ class Service:
                                           cc_per_site=cc_per_site,
                                           iq_per_site=iq_per_site
                                           )
+        # Create the ChangeMonitor and keep track of when we should recalculate the plan for each site.
+        change_monitor = ChangeMonitor(collector=collector, selector=selector)
+        # Don't use this now, but we will use it when scheduling sites at the same time.
+        next_update: Dict[Site, Optional[TimeCoordinateRecord]] = {site: None for site in sites}
+
         optimizer = builder.build_optimizer(Blueprints.optimizer)
-
-        # Add events for twilight
-        for site in sites:
-            night_events = collector.get_night_events(site)
-            for night_idx in night_indices:
-                eve_twilight_time = night_events.twilight_evening_12[night_idx].to_datetime()
-                eve_twilight = EveningTwilightEvent(time=eve_twilight_time, description='Evening 12° Twilight')
-                builder.events.add_event(night_idx, site, eve_twilight)
-
-                # Add one time slot to the morning twilight to make sure time accounting is done for entire night.
-                morn_twilight_time = night_events.twilight_morning_12[night_idx].to_datetime()
-                morn_twilight = MorningTwilightEvent(time=morn_twilight_time, description='Morning 12° Twilight')
-                builder.events.add_event(night_idx, site, morn_twilight)
 
         timelines = self._schedule_nights(night_indices,
                                           sites,
                                           collector,
                                           selector,
                                           optimizer,
+                                          change_monitor,
+                                          next_update,
                                           builder.events,
                                           ranker_parameters,
                                           cc_per_site,
