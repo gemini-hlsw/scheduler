@@ -184,7 +184,7 @@ class ChangeMonitor(SchedulerComponent):
                 if remaining_time_slots != len(actual_conditions.wind_spd):
                     _logger.error(f'Expected {remaining_time_slots} entries in wind speed, got '
                                   f'{len(actual_conditions.wind_spd)}.')
-                remaining_time_slots = max(remaining_time_slots, len(actual_conditions))
+                remaining_time_slots = max(remaining_time_slots, len(actual_conditions.cc))
 
                 # Since a Variant is a frozen dataclass, swap the new values in.
                 # Check to make sure the number of values agree.
