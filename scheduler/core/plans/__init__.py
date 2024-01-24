@@ -22,6 +22,7 @@ class Visit:
     time_slots: int
     score: float
     instrument: Optional[Resource]
+    completion: str
 
 
 @dataclass(frozen=True)
@@ -113,7 +114,8 @@ class Plan:
                       start_time_slot,
                       time_slots,
                       score,
-                      obs.instrument())
+                      obs.instrument(),
+                      f'{atom_end+1}/{len(obs.sequence)}')
         self.visits.append(visit)
         self._time_slots_left -= time_slots
 
