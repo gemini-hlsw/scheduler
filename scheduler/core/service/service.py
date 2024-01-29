@@ -213,11 +213,23 @@ class Service:
         semesters = frozenset([Semester.find_semester_from_date(start_vis.to_value('datetime')),
                                Semester.find_semester_from_date(end_vis.to_value('datetime'))])
 
+        try:
+            dates = []
+            for s in semesters:
+                dates.append(s.start_date())
+                dates.append(s.end_date())
+
+            dates.sort()
+            start = Time(datetime(dates[0].year, dates[0].month, dates[0].day).strftime("%Y-%m-%d %H:%M:%S"))
+            end = Time(datetime(dates[-1].year, dates[-1].month, dates[-1].day).strftime("%Y-%m-%d %H:%M:%S"))
+        except KeyError:
+            raise KeyError('No semesters date were found.')
+
         builder = self._setup(night_indices, sites, mode)
 
         # Build
-        collector = builder.build_collector(start_vis,
-                                            end_vis,
+        collector = builder.build_collector(start,
+                                            end,
                                             sites,
                                             semesters,
                                             Blueprints.collector)
