@@ -209,7 +209,6 @@ class Service:
             cc_per_site: Optional[Dict[Site, CloudCover]] = None,
             iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
 
-        night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
         semesters = frozenset([Semester.find_semester_from_date(start_vis.to_value('datetime')),
                                Semester.find_semester_from_date(end_vis.to_value('datetime'))])
 
@@ -224,6 +223,13 @@ class Service:
             end = Time(datetime(dates[-1].year, dates[-1].month, dates[-1].day).strftime("%Y-%m-%d %H:%M:%S"))
         except KeyError:
             raise KeyError('No semesters date were found.')
+
+        diff = end - start
+        nights = int(diff.jd)
+        # create night indices
+        s_diff = nights - int((end - start_vis).jd) - 1
+        e_diff = nights - int((end - end_vis).jd)
+        night_indices = frozenset(NightIndex(idx) for idx in range(s_diff, e_diff))
 
         builder = self._setup(night_indices, sites, mode)
 
