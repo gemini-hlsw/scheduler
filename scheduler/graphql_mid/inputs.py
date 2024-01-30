@@ -18,7 +18,6 @@ class CreateNewScheduleInput:
     """
     start_time: str
     end_time: str
-    num_nights_to_schedule: int
     sites: Sites
     mode: SchedulerModes
     thesis_factor: Optional[float] = 1.1

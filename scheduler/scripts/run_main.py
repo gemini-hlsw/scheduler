@@ -1,7 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Dict, FrozenSet, Optional
 
 import numpy as np
@@ -33,7 +33,6 @@ def main(*,
          verbose: bool = False,
          start: Optional[Time] = Time("2018-10-01 08:00:00", format='iso', scale='utc'),
          end: Optional[Time] = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
-         num_nights_to_schedule: int = 1,
          sites: FrozenSet[Site] = ALL_SITES,
          ranker_parameters: RankerParameters = RankerParameters(),
          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
@@ -46,17 +45,40 @@ def main(*,
         ['Q', 'LP', 'FT', 'DD'],
         1.0
     )
-    night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
+
+    semesters = frozenset([Semester.find_semester_from_date(start.to_value('datetime')),
+                           Semester.find_semester_from_date(end.to_value('datetime'))])
+
+    try:
+        dates = []
+        for s in semesters:
+            dates.append(s.start_date())
+            dates.append(s.end_date())
+
+        dates.sort()
+        start_vis = Time(datetime(dates[0].year, dates[0].month, dates[0].day).strftime("%Y-%m-%d %H:%M:%S"))
+        end_vis = Time(datetime(dates[-1].year, dates[-1].month, dates[-1].day).strftime("%Y-%m-%d %H:%M:%S"))
+    except KeyError:
+        raise KeyError('No semesters date were found.')
+
+    diff = end_vis - start_vis
+    nights = int(diff.jd)
+    # create night indices
+    s_diff = nights - int((end_vis - start).jd) - 1
+    e_diff = nights - int((end_vis - end).jd)
+    night_indices = frozenset(NightIndex(idx) for idx in range(s_diff, e_diff))
+    num_nights_to_schedule = len(night_indices)
+
 
     queue = EventQueue(night_indices, sites)
     builder = ValidationBuilder(Sources(), queue)
 
     # Create the Collector, load the programs, and zero out the time used by the observations.
     collector = builder.build_collector(
-        start=start,
-        end=end,
+        start=start_vis,
+        end=end_vis,
         sites=sites,
-        semesters=frozenset([Semester(2018, SemesterHalf.B)]),
+        semesters=semesters,
         blueprint=collector_blueprint
     )
     time_slot_length = collector.time_slot_length.to_datetime()

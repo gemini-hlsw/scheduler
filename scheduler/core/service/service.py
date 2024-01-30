@@ -203,7 +203,6 @@ class Service:
             mode: SchedulerModes,
             start_vis: Time,
             end_vis: Time,
-            num_nights_to_schedule: int,
             sites: FrozenSet[Site],
             ranker_parameters: RankerParameters = RankerParameters(),
             cc_per_site: Optional[Dict[Site, CloudCover]] = None,
@@ -230,6 +229,7 @@ class Service:
         s_diff = nights - int((end - start_vis).jd) - 1
         e_diff = nights - int((end - end_vis).jd)
         night_indices = frozenset(NightIndex(idx) for idx in range(s_diff, e_diff))
+        num_nights_to_schedule = len(night_indices)
 
         builder = self._setup(night_indices, sites, mode)
 
