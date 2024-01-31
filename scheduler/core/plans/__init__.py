@@ -21,6 +21,7 @@ class Visit:
     start_time_slot: int
     time_slots: int
     score: float
+    peak_score: float
     instrument: Optional[Resource]
     completion: str
 
@@ -105,7 +106,8 @@ class Plan:
             atom_end: int,
             start_time_slot: int,
             time_slots: int,
-            score: float) -> None:
+            score: float,
+            peak_score: float) -> None:
         visit = Visit(start,
                       obs.id,
                       obs.obs_class,
@@ -114,6 +116,7 @@ class Plan:
                       start_time_slot,
                       time_slots,
                       score,
+                      peak_score,
                       obs.instrument(),
                       f'{atom_end+1}/{len(obs.sequence)}')
         self.visits.append(visit)
