@@ -52,30 +52,23 @@ def main(*,
     try:
         dates = []
         for s in semesters:
-            dates.append(s.start_date())
             dates.append(s.end_date())
-
         dates.sort()
-        start_vis = Time(datetime(dates[0].year, dates[0].month, dates[0].day).strftime("%Y-%m-%d %H:%M:%S"))
         end_vis = Time(datetime(dates[-1].year, dates[-1].month, dates[-1].day).strftime("%Y-%m-%d %H:%M:%S"))
     except KeyError:
         raise KeyError('No semesters date were found.')
 
-    diff = end_vis - start_vis
-    nights = int(diff.jd)
-    # create night indices
-    s_diff = nights - int((end_vis - start).jd) - 1
-    e_diff = nights - int((end_vis - end).jd)
-    night_indices = frozenset(NightIndex(idx) for idx in range(s_diff, e_diff))
-    num_nights_to_schedule = len(night_indices)
-
+    diff = end - start + 1
+    diff = int(diff.jd)
+    night_indices = frozenset(NightIndex(idx) for idx in range(diff))
+    num_nights_to_schedule = diff
 
     queue = EventQueue(night_indices, sites)
     builder = ValidationBuilder(Sources(), queue)
 
     # Create the Collector, load the programs, and zero out the time used by the observations.
     collector = builder.build_collector(
-        start=start_vis,
+        start=start,
         end=end_vis,
         sites=sites,
         semesters=semesters,

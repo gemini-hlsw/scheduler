@@ -214,27 +214,21 @@ class Service:
         try:
             dates = []
             for s in semesters:
-                dates.append(s.start_date())
                 dates.append(s.end_date())
-
             dates.sort()
-            start = Time(datetime(dates[0].year, dates[0].month, dates[0].day).strftime("%Y-%m-%d %H:%M:%S"))
             end = Time(datetime(dates[-1].year, dates[-1].month, dates[-1].day).strftime("%Y-%m-%d %H:%M:%S"))
         except KeyError:
             raise KeyError('No semesters date were found.')
 
-        diff = end - start
-        nights = int(diff.jd)
-        # create night indices
-        s_diff = nights - int((end - start_vis).jd) - 1
-        e_diff = nights - int((end - end_vis).jd)
-        night_indices = frozenset(NightIndex(idx) for idx in range(s_diff, e_diff))
-        num_nights_to_schedule = len(night_indices)
+        diff = end_vis - start_vis + 1
+        diff = int(diff.jd)
+        night_indices = frozenset(NightIndex(idx) for idx in range(diff))
+        num_nights_to_schedule = diff
 
         builder = self._setup(night_indices, sites, mode)
 
         # Build
-        collector = builder.build_collector(start,
+        collector = builder.build_collector(start_vis,
                                             end,
                                             sites,
                                             semesters,
