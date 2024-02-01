@@ -470,21 +470,19 @@ class FileBasedResourceService(ResourceService):
                             noon = time(12, 0)
                             astropy_time = Time(datetime.combine(local_date, noon).astimezone(site.timezone))
 
-                        _, sunset, sunrise, eve_twi, morn_twi, _, _ = night_events(astropy_time,
-                                                                                   site.location,
-                                                                                   site.timezone)
+                        # Get the twilights and localize them.
+                        eve_twi, morn_twi = night_events(astropy_time, site.location, site.timezone)[3:5]
+                        eve_twi = eve_twi.to_datetime(site.timezone)
+                        morn_twi = morn_twi.to_datetime(site.timezone)
 
                         if start_time is None:
-                            start_time = eve_twi.to_datetime(site.timezone).replace(tzinfo=None,
-                                                                                    second=0,
-                                                                                    microsecond=0).time()
+                            start_time = eve_twi.replace(second=0, microsecond=0).time()
                         if end_time is None:
-                            end_time = morn_twi.to_datetime(site.timezone).replace(tzinfo=None,
-                                                                                   second=0,
-                                                                                   microsecond=0).time()
+                            end_time = morn_twi.replace(second=0, microsecond=0).time()
 
-                    start_datetime = datetime.combine(local_date, start_time)
-                    end_datetime = datetime.combine(local_date, end_time)
+                    # Localize the datetimes. If the end time is before the start time, it happens on the next day.
+                    start_datetime = datetime.combine(local_date, start_time).replace(tzinfo=site.timezone)
+                    end_datetime = datetime.combine(local_date, end_time).replace(tzinfo=site.timezone)
                     if end_time < start_time:
                         end_datetime += timedelta(days=1)
 
@@ -521,6 +519,7 @@ class FileBasedResourceService(ResourceService):
 
                     fr_id, local_datetime_str, duration_str, description = match.groups()
                     local_datetime = datetime.strptime(local_datetime_str, '%Y-%m-%d %H:%M:%S')
+                    local_datetime = local_datetime.replace(tzinfo=site.timezone)
                     duration = timedelta(hours=float(duration_str))
 
                     # Determine the night of the fault report from the local datetime.
