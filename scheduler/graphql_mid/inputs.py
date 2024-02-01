@@ -20,6 +20,8 @@ class CreateNewScheduleInput:
     end_time: str
     sites: Sites
     mode: SchedulerModes
+    semester_visibility: bool = True
+    num_nights_to_schedule: Optional[int] = None
     thesis_factor: Optional[float] = 1.1
     power: Optional[int] = 2
     met_power: Optional[float] = 1.0

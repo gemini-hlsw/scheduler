@@ -205,25 +205,33 @@ class Service:
             end_vis: Time,
             sites: FrozenSet[Site],
             ranker_parameters: RankerParameters = RankerParameters(),
+            semester_visibility: bool = True,
+            num_nights_to_schedule: Optional[int] = None,
             cc_per_site: Optional[Dict[Site, CloudCover]] = None,
             iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
 
         semesters = frozenset([Semester.find_semester_from_date(start_vis.to_value('datetime')),
                                Semester.find_semester_from_date(end_vis.to_value('datetime'))])
 
-        try:
-            dates = []
-            for s in semesters:
-                dates.append(s.end_date())
-            dates.sort()
-            end = Time(datetime(dates[-1].year, dates[-1].month, dates[-1].day).strftime("%Y-%m-%d %H:%M:%S"))
-        except KeyError:
-            raise KeyError('No semesters date were found.')
+        if semester_visibility:
+            try:
+                dates = []
+                for s in semesters:
+                    dates.append(s.end_date())
+                dates.sort()
+                end = Time(datetime(dates[-1].year, dates[-1].month, dates[-1].day).strftime("%Y-%m-%d %H:%M:%S"))
+            except KeyError:
+                raise KeyError('No semesters date were found.')
 
-        diff = end_vis - start_vis + 1
-        diff = int(diff.jd)
-        night_indices = frozenset(NightIndex(idx) for idx in range(diff))
-        num_nights_to_schedule = diff
+            diff = end_vis - start_vis + 1
+            diff = int(diff.jd)
+            night_indices = frozenset(NightIndex(idx) for idx in range(diff))
+            num_nights_to_schedule = diff
+        else:
+            night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
+            end = end_vis
+            if not num_nights_to_schedule:
+                raise ValueError("num_nights_to_schedule can't be None when visibility is given by end date")
 
         builder = self._setup(night_indices, sites, mode)
 
