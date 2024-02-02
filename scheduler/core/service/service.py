@@ -210,19 +210,12 @@ class Service:
             cc_per_site: Optional[Dict[Site, CloudCover]] = None,
             iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
 
-        semesters = frozenset([Semester.find_semester_from_date(start_vis.to_value('datetime')),
-                               Semester.find_semester_from_date(end_vis.to_value('datetime'))])
+        semesters = frozenset([Semester.find_semester_from_date(start_vis.datetime),
+                               Semester.find_semester_from_date(end_vis.datetime)])
 
         if semester_visibility:
-            try:
-                dates = []
-                for s in semesters:
-                    dates.append(s.end_date())
-                dates.sort()
-                end = Time(datetime(dates[-1].year, dates[-1].month, dates[-1].day).strftime("%Y-%m-%d %H:%M:%S"))
-            except KeyError:
-                raise KeyError('No semesters date were found.')
-
+            end_date = max(s.end_date() for s in semesters)
+            end = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
             diff = end_vis - start_vis + 1
             diff = int(diff.jd)
             night_indices = frozenset(NightIndex(idx) for idx in range(diff))

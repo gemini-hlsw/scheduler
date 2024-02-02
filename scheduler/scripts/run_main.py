@@ -48,19 +48,12 @@ def main(*,
         1.0
     )
 
-    semesters = frozenset([Semester.find_semester_from_date(start.to_value('datetime')),
-                           Semester.find_semester_from_date(end.to_value('datetime'))])
+    semesters = frozenset([Semester.find_semester_from_date(start.datetime),
+                           Semester.find_semester_from_date(end.datetime)])
 
     if semester_visibility:
-        try:
-            dates = []
-            for s in semesters:
-                dates.append(s.end_date())
-            dates.sort()
-            end_vis = Time(datetime(dates[-1].year, dates[-1].month, dates[-1].day).strftime("%Y-%m-%d %H:%M:%S"))
-        except KeyError:
-            raise KeyError('No semesters date were found.')
-
+        end_date = max(s.end_date() for s in semesters)
+        end_vis = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
         diff = end - start + 1
         diff = int(diff.jd)
         night_indices = frozenset(NightIndex(idx) for idx in range(diff))
