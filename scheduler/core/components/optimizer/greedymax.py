@@ -38,6 +38,7 @@ class ObsPlanData:
     atom_start: int
     atom_end: int
     visit_score: float
+    peak_score: float
 
 
 @final
@@ -844,12 +845,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # Get visit score and store information for the output plans
         end_time_slot = start_time_slot + visit_length - 1
         visit_score = sum(max_group_info.group_data.group_info.scores[night_idx][start_time_slot:end_time_slot + 1])
-
-        # print(timeline)
-        # print(f'Adding {obs.to_unique_group_id.id} start_slot {start_time_slot}, end_slot {end_time_slot}, '
-        #       f'atom_end {atom_end}, last atom {len(cumul_seq) - 1}, '
-        #       f'visit_length {visit_length}, len(best_interval) {len(best_interval)}')
-        # timeline.print(self.obs_group_ids)
+        peak_score = max(max_group_info.group_data.group_info.scores[night_idx][start_time_slot:end_time_slot + 1])
 
         self.obs_in_plan[site][start_time_slot] = ObsPlanData(
             obs=obs,
@@ -857,7 +853,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
             obs_len=visit_length,
             atom_start=atom_start,
             atom_end=atom_end,
-            visit_score=visit_score
+            visit_score=visit_score,
+            peak_score=peak_score
         )
 
         # pseudo (internal) time charging
@@ -990,6 +987,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                                              obs_in_plan.atom_end,
                                              start_time_slot,
                                              obs_in_plan.obs_len,
-                                             obs_in_plan.visit_score)
+                                             obs_in_plan.visit_score,
+                                             obs_in_plan.peak_score)
                     plans[timeline.site].update_time_slots(timeline.slots_unscheduled())
             print('')

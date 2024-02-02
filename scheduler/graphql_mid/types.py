@@ -51,6 +51,7 @@ class SVisit:
     instrument: str
     obs_class: str
     score: float
+    peak_score: float
     completion: str
 
     @staticmethod
@@ -65,6 +66,7 @@ class SVisit:
                       altitude=alt_degs,
                       instrument=visit.instrument.id if visit.instrument is not None else 'None',
                       score=visit.score,
+                      peak_score=visit.peak_score,
                       obs_class=visit.obs_class.name,
                       completion=visit.completion)
 
