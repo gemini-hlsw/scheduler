@@ -1,7 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Dict, FrozenSet, Optional
 
 import numpy as np
@@ -33,9 +33,10 @@ def main(*,
          verbose: bool = False,
          start: Optional[Time] = Time("2018-10-01 08:00:00", format='iso', scale='utc'),
          end: Optional[Time] = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
-         num_nights_to_schedule: int = 1,
          sites: FrozenSet[Site] = ALL_SITES,
          ranker_parameters: RankerParameters = RankerParameters(),
+         semester_visibility: bool = True,
+         num_nights_to_schedule: Optional[int] = None,
          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
          iq_per_site: Optional[Dict[Site, ImageQuality]] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
@@ -46,7 +47,22 @@ def main(*,
         ['Q', 'LP', 'FT', 'DD'],
         1.0
     )
-    night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
+
+    semesters = frozenset([Semester.find_semester_from_date(start.datetime),
+                           Semester.find_semester_from_date(end.datetime)])
+
+    if semester_visibility:
+        end_date = max(s.end_date() for s in semesters)
+        end_vis = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
+        diff = end - start + 1
+        diff = int(diff.jd)
+        night_indices = frozenset(NightIndex(idx) for idx in range(diff))
+        num_nights_to_schedule = diff
+    else:
+        night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
+        end_vis = end
+        if not num_nights_to_schedule:
+            raise ValueError("num_nights_to_schedule can't be None when visibility is given by end date")
 
     queue = EventQueue(night_indices, sites)
     builder = ValidationBuilder(Sources(), queue)
@@ -54,9 +70,9 @@ def main(*,
     # Create the Collector, load the programs, and zero out the time used by the observations.
     collector = builder.build_collector(
         start=start,
-        end=end,
+        end=end_vis,
         sites=sites,
-        semesters=frozenset([Semester(2018, SemesterHalf.B)]),
+        semesters=semesters,
         blueprint=collector_blueprint
     )
     time_slot_length = collector.time_slot_length.to_datetime()

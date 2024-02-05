@@ -203,21 +203,34 @@ class Service:
             mode: SchedulerModes,
             start_vis: Time,
             end_vis: Time,
-            num_nights_to_schedule: int,
             sites: FrozenSet[Site],
             ranker_parameters: RankerParameters = RankerParameters(),
+            semester_visibility: bool = True,
+            num_nights_to_schedule: Optional[int] = None,
             cc_per_site: Optional[Dict[Site, CloudCover]] = None,
             iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
 
-        night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
-        semesters = frozenset([Semester.find_semester_from_date(start_vis.to_value('datetime')),
-                               Semester.find_semester_from_date(end_vis.to_value('datetime'))])
+        semesters = frozenset([Semester.find_semester_from_date(start_vis.datetime),
+                               Semester.find_semester_from_date(end_vis.datetime)])
+
+        if semester_visibility:
+            end_date = max(s.end_date() for s in semesters)
+            end = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
+            diff = end_vis - start_vis + 1
+            diff = int(diff.jd)
+            night_indices = frozenset(NightIndex(idx) for idx in range(diff))
+            num_nights_to_schedule = diff
+        else:
+            night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
+            end = end_vis
+            if not num_nights_to_schedule:
+                raise ValueError("num_nights_to_schedule can't be None when visibility is given by end date")
 
         builder = self._setup(night_indices, sites, mode)
 
         # Build
         collector = builder.build_collector(start_vis,
-                                            end_vis,
+                                            end,
                                             sites,
                                             semesters,
                                             Blueprints.collector)

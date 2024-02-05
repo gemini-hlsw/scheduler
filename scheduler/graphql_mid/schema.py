@@ -108,9 +108,10 @@ class Query:
             timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
                                                      start_vis=start,
                                                      end_vis=end,
-                                                     num_nights_to_schedule=new_schedule_input.num_nights_to_schedule,
                                                      sites=new_schedule_input.sites,
-                                                     ranker_parameters=ranker_params)
+                                                     ranker_parameters=ranker_params,
+                                                     semester_visibility=new_schedule_input.semester_visibility,
+                                                     num_nights_to_schedule=new_schedule_input.num_nights_to_schedule)
             s_timelines = SNightTimelines.from_computed_timelines(timelines)
 
         except RuntimeError as e:

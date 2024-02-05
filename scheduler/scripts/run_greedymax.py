@@ -6,6 +6,5 @@ from scheduler.core.components.ranker import RankerParameters
 
 if __name__ == '__main__':
     main(test_events=True,
-         num_nights_to_schedule=3,
          ranker_parameters=RankerParameters(),
          verbose=False)

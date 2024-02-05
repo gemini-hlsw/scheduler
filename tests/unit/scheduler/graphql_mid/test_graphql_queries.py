@@ -14,7 +14,6 @@ def test_schedule_query():
             schedule(
                 newScheduleInput: {
                   startTime: "2018-10-01 08:00:00", 
-                  numNightsToSchedule: 3, 
                   sites: "GN", 
                   mode: VALIDATION, 
                   endTime: "2018-10-03 08:00:00"}
