@@ -31,7 +31,7 @@ from scheduler.services import logger_factory
 logger = logger_factory.create_logger(__name__)
 
 
-DEFAULT_OCS_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / '2018B_program_samples.zip'
+DEFAULT_OCS_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
 
 
 def ocs_program_data() -> Iterable[dict]:
@@ -841,19 +841,23 @@ class OcsProgramProvider(ProgramProvider):
 
     def parse_observation(self,
                           data: dict,
-                          num: int,
+                          num: Tuple[Optional[int], int],
                           program_id: ProgramID,
                           split: bool) -> Optional[Observation]:
         """
+        Right now, obs_num contains an optional organizational folder number and
+        a mandatory observation number, which may overlap with others in organizational folders.
+
         In the current list of observations, we are parsing the data for:
-        OBSERVATION_BASIC-{num}. Note that these numbers ARE in the correct order
-        for scheduling groups, so we should sort on the OBSERVATION_BASIC-{num}
-        keys prior to doing the parsing.
+        OBSERVATION_BASIC-{num[1]}
+        in (if defined) GROUP_GROUP_FOLDER-{num[0]}.
         """
+        # folder_num is not currently used.
+        folder_num, obs_num = num
+
         # Check the obs_class. If it is illegal, return None.
         # At the same time, ignore inactive observations.
         obs_id = data[OcsProgramProvider._ObsKeys.ID]
-        # print(f'\t\t {obs_id}')
         active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
         if not active:
             logger.warning(f"Observation {obs_id} is inactive (skipping).")
@@ -976,7 +980,7 @@ class OcsProgramProvider(ProgramProvider):
         return GeminiObservation(
             id=ObservationID(obs_id),
             internal_id=internal_id,
-            order=num,
+            order=obs_num,
             title=title,
             site=site,
             status=status,
@@ -1053,36 +1057,45 @@ class OcsProgramProvider(ProgramProvider):
             if subgroup is not None:
                 children.append(subgroup)
 
-        # Grab the observation data from the complete data.
-        top_level_obs_data = [(key, data[key]) for key in data
-                              if key.startswith(OcsProgramProvider._ObsKeys.KEY)]
-
         # Grab the observation data from any organizational folders.
-        org_folders = [data[key] for key in data
+        # We want the number of the organizational folder that the observation is in so that we can make it unique
+        # since observation IDs in organizational folders may clash with top-level observation IDs or observation IDs
+        # in other organizational folders.
+        # org_folders contains entries of the form (organizational_folder_key, data).
+        def parse_unique_obs_id(of_key: Optional[str], obs_key: str) -> Tuple[Optional[int], int]:
+            """
+            Generate a unique observation ID. This is done to handle observational folders.
+            Convert an organizational folder key and an observation key to a hybrid key to make an observation
+            in an organizational folder have a unique key.
+            """
+            of_num = '' if of_key is None else int(of_key.split('-')[-1])
+            obs_num = int(obs_key.split('-')[-1])
+            return of_num, obs_num
+
+        # Get the top-level observation data and represent it as:
+        # (None, 'OBSERVATION_BASIC-#', obs_data)
+        # with the None indicating that it is not part of an organizational folder.
+        top_level_obs_data_blocks = [(None, obs_key, data[obs_key]) for obs_key in data
+                                     if obs_key.startswith(OcsProgramProvider._ObsKeys.KEY)]
+
+        # Get the org_folders and store as entries of form ('GROUP_GROUP_FOLDER-#', folder-data).
+        # Then convert to:
+        # ('GROUP_GROUP_FOLDER-#', 'OBSERVATION_BASIC-#', obs-data)
+        # to be consistent with the top_level_obs_data.
+        org_folders = [(key, data[key]) for key in data
                        if key.startswith(OcsProgramProvider._GroupKeys.ORGANIZATIONAL_FOLDER)]
-        org_folders_obs_data = [(key, of[key]) for of in org_folders
-                                for key in of if key.startswith(OcsProgramProvider._ObsKeys.KEY)]
+        org_folders_obs_data_blocks = [(of_key, obs_key, of[obs_key]) for of_key, of in org_folders
+                                       for obs_key in of if obs_key.startswith(OcsProgramProvider._ObsKeys.KEY)]
 
-        # If we have organizational folders and there is any overlap between:
-        # 1. the top level observation keys; and
-        # 2. the organizational folder keys
-        # then terminate immediately.
-        if len(org_folders):
-            top_level_obs_data_keys = {key for key, _ in top_level_obs_data}
-            org_folder_obs_data_keys = {key for key, _ in org_folders_obs_data}
-            repeated_keys = top_level_obs_data_keys.intersection(org_folder_obs_data_keys)
-            if repeated_keys:
-                repeated_key_str = ', '.join(repeated_keys)
-                raise RuntimeError(f'Repeated keys in program {program_id}: {repeated_key_str}. Cannot continue.')
-
-        obs_data_blocks = top_level_obs_data + org_folders_obs_data
+        # Combine the top-level data and the organizational folder data.
+        obs_data_blocks = top_level_obs_data_blocks + org_folders_obs_data_blocks
 
         # Parse out all the top level observations in this group.
         # Only observations that are valid, active, and have on acceptable obs_class will be returned.
         observations = []
-        for obs_key, obs_data in obs_data_blocks:
-            obs_num = int(obs_key.split('-')[-1])
-            obs = self.parse_observation(obs_data, obs_num, program_id, split=split)
+        for *keys, obs_data in obs_data_blocks:
+            obs_id = parse_unique_obs_id(*keys)
+            obs = self.parse_observation(obs_data, obs_id, program_id, split=split)
             if obs is not None:
                 observations.append(obs)
 
@@ -1128,7 +1141,6 @@ class OcsProgramProvider(ProgramProvider):
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
         program_id = ProgramID(data[OcsProgramProvider._ProgramKeys.ID])
-        # print(program_id)
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
 
         # # Get all the note information as they may contain FT scheduling data comments.
