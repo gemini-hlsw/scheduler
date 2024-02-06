@@ -3,7 +3,6 @@
 
 from copy import copy, deepcopy
 from dataclasses import dataclass, field
-from functools import reduce
 from typing import ClassVar, Dict, FrozenSet, KeysView, Optional, Set, final
 
 import astropy.units as u
@@ -155,8 +154,6 @@ class Selector(SchedulerComponent):
             if original_program is None:
                 logger.error(f'Program {program_id} was not found in the Collector.')
                 continue
-            if original_program.id.id == 'GN-2018B-Q-104':
-                print('Starting GN-2018B-Q-104')
 
             # We make a deep copy of the Program to work with to not change the Program in the Collector.
             # This will allow us to use the members of this deep copy for things like internal time accounting
@@ -206,8 +203,6 @@ class Selector(SchedulerComponent):
         Otherwise, the data is bundled in a ProgramCalculations object.
         """
         # The night_indices in the Selector must be a subset of the Ranker.
-        if program.id.id == 'GN-201BB-Q-104':
-            print("_calculate_program: GN-2018B-Q-104")
         night_indices_set = set(night_indices)
         if not night_indices_set.issubset(ranker.night_indices):
             ranker_night_indices = set(ranker.night_indices)
@@ -232,29 +227,11 @@ class Selector(SchedulerComponent):
                                                           night_configurations,
                                                           ranker)
 
-        if program.id.id == 'GN-2018B-Q-104':
-            temp_dict = {}
-            print('Calculated unfiltered_group_data_map.')
-            for gp_id, gp_data in unfiltered_group_data_map.items():
-                print(f'* Checking {gp_id} schedulable slot indices.')
-                for index in gp_data.group_info.schedulable_slot_indices.values():
-                    empty = index.size == 0
-                    print(f'\tindex: {index}')
-                    print(f'\tlen(index) = {len(index)}')
-                    print(f'\tempty: {empty}')
-                    if not empty:
-                        temp_dict[gp_id] = gp_data
-            print('DONE.')
-
         # We want to check if there are any time slots where a group can be scheduled: otherwise, we omit it.
         group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
                           if any(indices.size > 0 for indices in gp_data.group_info.schedulable_slot_indices.values())
                           and gp_data.group.id != ROOT_GROUP_ID}
-        print('*** IDS ***')
-        for key in group_data_map:
-            print(f'\t {key.id}')
-        if program.id.id == 'GN-2018B-Q-104':
-            print('Calculated group_data_map from unfiltered_group_data_map.')
+
         # In an observation group, the only child is an Observation:
         # hence, references here to group.children are simply the Observation.
         observations = {group_data.group.children.id: group_data.group.children
@@ -506,8 +483,6 @@ class Selector(SchedulerComponent):
         Calculate the GroupInfo for an AND group that contains subgroups and add it to
         the group_data_map.
         """
-        if program.id.id == 'GN-2018B-Q-104':
-            print(f'_calculate_and_group: {group.unique_id}')
         if not isinstance(group, AndGroup):
             raise ValueError(f'Tried to process group {group.id} as an AND group.')
         if isinstance(group.children, Observation):
@@ -525,23 +500,14 @@ class Selector(SchedulerComponent):
             logger.warning(f'Cannot score group {group.id}: contains observations in sites not being scheduled.')
             return group_data_map
 
-        # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
-        if program.id.id == 'GN-2018B-Q-104':
-            print(f'checking subgroups for: {group.unique_id}')
         if any(sg.unique_id not in group_data_map for sg in group.children):
-            if program.id.id == 'GN-2018B-Q-104':
-                print(f'subgroups for {group.unique_id} not all in group_data_map')
             # We don't include the root group for scheduling, so if it is missing children, we don't output a warning.
             if group.id != ROOT_GROUP_ID:
-                if program.id.id == 'GN-2018B-Q-104':
-                    print(f'subgroup {group.unique_id} is not ROOT_GROUP')
                 missing_subgroups = [sg.unique_id.id for sg in group.children if sg.unique_id not in group_data_map]
                 missing_str = ', '.join(missing_subgroups)
-                # logger.warning(f'Selector skipping group {group.unique_id}: scores missing for children: '
-                #                f'{missing_str}.')
-                if program.id.id == 'GN-2018B-Q-104':
-                    print(f'missing data for children: {missing_str}... skipping')
+                logger.warning(f'Selector skipping group {group.unique_id}: scores missing for children: '
+                               f'{missing_str}.')
             return group_data_map
 
         # Calculate the most restrictive conditions.
@@ -588,6 +554,8 @@ class Selector(SchedulerComponent):
                 group_data_map[sg.unique_id].group_info.schedulable_slot_indices[night_idx]
                 for sg in group.children
             ]))
+            # If we want intersection of schedulable nights instead of union, use this code.
+            # Requires: from functools import reduce
             # np.array([reduce(np.intersect1d,
             #                  [group_data_map[sg.unique_id].group_info.schedulable_slot_indices[night_idx]
             #                   for sg in group.children])])

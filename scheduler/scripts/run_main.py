@@ -277,32 +277,6 @@ def main(*,
                                                                                 for night_idx in night_indices}},
                                                     ranker=ranker)
 
-                        # print('*** SELECTION ***')
-                        # for p in selection.program_info.values():
-                        #     print(f'Program: {p.program.id.id}')
-                        #     for k, g in p.group_data_map.items():
-                        #         print(f'Looking at {k.id}.')
-                        #         # The 'root' check is a workaround'
-                        #         print(f'\t Group: uiq={g.group.unique_id.id} obs={g.group.is_observation_group()} '
-                        #               f'sched={g.group.is_scheduling_group()} and={g.group.is_and_group()}')
-                        #         print(f'\t Night: {night_idx}, score num: {len(g.group_info.scores)}')
-                        #         print(f'\t Scores: {g.group_info.scores}')
-                        #         print(f'\t\t Max score: {np.max(g.group_info.scores[0])}')
-                        #         if 'root' in g.group.unique_id.id:
-                        #             print('HERE')
-                        #         if g.group.is_scheduling_group():
-                        #             for subgroup in g.group.children:
-                        #                 sg = p.group_data_map[subgroup.unique_id]
-                        #                 print(f'\t\t {subgroup.unique_id.id} {subgroup.exec_time()} {subgroup.is_observation_group()} {np.max(sg.group_info.scores[0]):7.2f}')
-                        #                 # print(g.group.children)
-                        #                 for obs in subgroup.observations():
-                        #                     print(
-                        #                         f'\t\t\t Obs: {obs.id.id} {obs.exec_time()} {obs.obs_class.name:12} {obs.total_used()} ' \
-                        #                         f'{obs.status.name} {min(p.target_info[obs.id][0].airmass):5.2f}')
-                        #                     for target in obs.targets:
-                        #                         print(f'\t\t\t\t {target.name} {target.type} {target.ra}')
-                        # print('*** SELECTION DONE ***')
-
                         # Right now the optimizer generates List[Plans], a list of plans indexed by
                         # every night in the selection. We only want the first one, which corresponds
                         # to the current night index we are looping over.
