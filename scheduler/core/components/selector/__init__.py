@@ -229,7 +229,8 @@ class Selector(SchedulerComponent):
 
         # We want to check if there are any time slots where a group can be scheduled: otherwise, we omit it.
         group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
-                          if any(len(indices) > 0 for indices in gp_data.group_info.schedulable_slot_indices.values())}
+                          if any(indices.size > 0 for indices in gp_data.group_info.schedulable_slot_indices.values())
+                          and gp_data.group.id != ROOT_GROUP_ID}
 
         # In an observation group, the only child is an Observation:
         # hence, references here to group.children are simply the Observation.
@@ -499,7 +500,6 @@ class Selector(SchedulerComponent):
             logger.warning(f'Cannot score group {group.id}: contains observations in sites not being scheduled.')
             return group_data_map
 
-        # TODO: Confirm that this is correct behavior.
         # Make sure that there is an entry for each subgroup. If not, we skip.
         if any(sg.unique_id not in group_data_map for sg in group.children):
             # We don't include the root group for scheduling, so if it is missing children, we don't output a warning.
@@ -554,6 +554,11 @@ class Selector(SchedulerComponent):
                 group_data_map[sg.unique_id].group_info.schedulable_slot_indices[night_idx]
                 for sg in group.children
             ]))
+            # If we want intersection of schedulable nights instead of union, use this code.
+            # Requires: from functools import reduce
+            # np.array([reduce(np.intersect1d,
+            #                  [group_data_map[sg.unique_id].group_info.schedulable_slot_indices[night_idx]
+            #                   for sg in group.children])])
             for night_idx in night_indices
         }
 
@@ -570,7 +575,6 @@ class Selector(SchedulerComponent):
             schedulable_slot_indices=schedulable_slot_indices,
             scores=scores
         )
-
         group_data_map[group.unique_id] = GroupData(group, group_info)
         return group_data_map
 
