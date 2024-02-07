@@ -155,7 +155,10 @@ class SNightTimelines:
                                        event=entry.event.description,
                                        plan=SPlan.from_computed_plan(entry.plan_generated))
                     s_entries.append(e)
-                te = TimelineEntriesBySite(site=site, time_entries=s_entries, eve_twilight=eve_twi, morn_twi=morn_twi)
+                te = TimelineEntriesBySite(site=site,
+                                           time_entries=s_entries,
+                                           eve_twilight=eve_twi,
+                                           morn_twilight=morn_twi)
                 s_timeline_entries.append(te)
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
             timelines.append(sn)
