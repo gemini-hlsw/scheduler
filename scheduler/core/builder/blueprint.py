@@ -11,8 +11,7 @@ from lucupy.minimodel.observation import ObservationClass
 from lucupy.minimodel.program import ProgramTypes
 
 from scheduler.config import config, ConfigurationError
-from scheduler.core.components.optimizer.dummy import DummyOptimizer
-from scheduler.core.components.optimizer.greedymax import GreedyMaxOptimizer
+from scheduler.core.components.optimizer.optimizers import BaseOptimizer, Optimizers
 
 
 def parse_configuration(enum_class: Type[Enum], value: str) -> Any:
@@ -74,14 +73,11 @@ class OptimizerBlueprint(Blueprint):
         self.algorithm = OptimizerBlueprint._parse_optimizer(algorithm)
 
     @staticmethod
-    def _parse_optimizer(algorithm_name: str):
-        # TODO: Enums are needed but for now is just Dummy
-        # TODO: When GMax is ready we can expand
-        if algorithm_name.upper() == 'DUMMY':
-            return DummyOptimizer()
-        elif algorithm_name.upper() == 'GREEDYMAX':
-            return GreedyMaxOptimizer()
-        else:
+    def _parse_optimizer(algorithm_name: str) -> BaseOptimizer:
+        try:
+            instantiator = Optimizers[algorithm_name.upper()]
+            return instantiator.value()
+        except KeyError:
             raise ConfigurationError('Optimizer', config.optimizer.name)
 
     def __iter__(self):
