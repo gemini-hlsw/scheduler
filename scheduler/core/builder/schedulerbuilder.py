@@ -7,9 +7,10 @@ from astropy.time import Time
 from lucupy.minimodel import CloudCover, ImageQuality, Semester, Site
 from typing import Dict, FrozenSet, Optional
 
-from .blueprint import CollectorBlueprint, OptimizerBlueprint
+from .blueprint import CollectorBlueprint, SelectorBlueprint, OptimizerBlueprint
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.selector import Selector
+from scheduler.core.components.selector.timebuffer import create_time_buffer
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.sources import Sources
 from scheduler.core.eventsqueue import EventQueue
@@ -40,10 +41,12 @@ class SchedulerBuilder(ABC):
     @staticmethod
     def build_selector(collector: Collector,
                        num_nights_to_schedule: int,
+                       blueprint: SelectorBlueprint,
                        cc_per_site: Optional[Dict[Site, CloudCover]] = None,
-                       iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
+                       iq_per_site: Optional[Dict[Site, ImageQuality]] = None) -> Selector:
         return Selector(collector=collector,
                         num_nights_to_schedule=num_nights_to_schedule,
+                        time_buffer=create_time_buffer(*blueprint),
                         cc_per_site=cc_per_site or {},
                         iq_per_site=iq_per_site or {})
 

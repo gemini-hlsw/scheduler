@@ -20,6 +20,7 @@ from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, Prog
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.ranker import DefaultRanker, Ranker
+from scheduler.core.components.selector.timebuffer import TimeBuffer
 from scheduler.core.types import StartingTimeslots
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
@@ -44,6 +45,7 @@ class Selector(SchedulerComponent):
     """
     collector: Collector
     num_nights_to_schedule: int
+    time_buffer: TimeBuffer
     cc_per_site: Dict[Site, CloudCover] = field(default_factory=lambda: {})
     iq_per_site: Dict[Site, ImageQuality] = field(default_factory=lambda: {})
 

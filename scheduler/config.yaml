@@ -8,7 +8,7 @@ optimizer:
 
 selector:
   buffer_type: FLAT_MINUTES
-  buffer_amount: 30
+  buffer_amount: 30.0
   
 server:
   port: 8000
