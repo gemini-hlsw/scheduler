@@ -204,6 +204,11 @@ class Selector(SchedulerComponent):
         If the sites used by the Program do not intersect the sites parameter, then None is returned.
         Otherwise, the data is bundled in a ProgramCalculations object.
         """
+        # Check if there is any time left for the program, allowing for the time buffer. If not, skip it.
+        if program.program_awarded() + self.time_buffer(program) <= program.program_used():
+            logger.info(f'Program {program.id.id} out of time: skipping.')
+            return None
+
         # The night_indices in the Selector must be a subset of the Ranker.
         night_indices_set = set(night_indices)
         if not night_indices_set.issubset(ranker.night_indices):

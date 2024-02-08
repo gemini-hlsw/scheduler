@@ -748,6 +748,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         # print("Running score_program")
         program_calculations = self.selection.score_program(program)
+        if program_calculations is None:
+            return None
 
         # print("Re-score incomplete schedulable_groups")
         for unique_group_id in program_calculations.top_level_groups:
