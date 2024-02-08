@@ -237,11 +237,13 @@ class Service:
 
         selector = builder.build_selector(collector,
                                           num_nights_to_schedule,
-                                          cc_per_site=cc_per_site,
-                                          iq_per_site=iq_per_site
-                                          )
+                                          Blueprints.selector,
+                                          cc_per_site,
+                                          iq_per_site)
+
         # Create the ChangeMonitor and keep track of when we should recalculate the plan for each site.
         change_monitor = ChangeMonitor(collector=collector, selector=selector)
+
         # Don't use this now, but we will use it when scheduling sites at the same time.
         next_update: Dict[Site, Optional[TimeCoordinateRecord]] = {site: None for site in sites}
 

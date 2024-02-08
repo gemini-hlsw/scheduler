@@ -8,12 +8,12 @@ import numpy as np
 from astropy.time import Time
 from lucupy.minimodel import NightIndex, TimeslotIndex
 from lucupy.minimodel.constraints import CloudCover, ImageQuality, VariantChange
-from lucupy.minimodel.semester import Semester, SemesterHalf
+from lucupy.minimodel.semester import Semester
 from lucupy.minimodel.site import ALL_SITES, Site
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
-from scheduler.core.builder.blueprint import CollectorBlueprint, OptimizerBlueprint
+from scheduler.core.builder.blueprint import CollectorBlueprint, SelectorBlueprint, OptimizerBlueprint
 from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.components.ranker import RankerParameters, DefaultRanker
 from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
@@ -81,8 +81,13 @@ def main(*,
         print_collector_info(collector)
 
     # Create the Selector.
+    selector_blueprint = SelectorBlueprint(
+        'FLAT_MINUTES',
+        30
+    )
     selector = builder.build_selector(collector,
                                       num_nights_to_schedule=num_nights_to_schedule,
+                                      blueprint=selector_blueprint,
                                       cc_per_site=cc_per_site,
                                       iq_per_site=iq_per_site)
 

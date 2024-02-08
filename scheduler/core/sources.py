@@ -6,13 +6,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
 from io import BytesIO
-from typing import Optional, NoReturn, FrozenSet
+from typing import Callable, FrozenSet, NoReturn, Optional
 
 from scheduler.services.abstract import ExternalService
 from scheduler.services.environment import OcsEnvService
 from scheduler.services.resource import FileResourceService, OcsResourceService
 
 from lucupy.minimodel import Site
+from lucupy.types import Instantiable
 
 
 # TODO: This file will need significant cleanup after the initial demo version is released.
@@ -58,15 +59,7 @@ class FileOrigin(Origin):
         return self
 
 
-class Instantiable:
-    def __init__(self, func):
-        self.func = func
-
-    def __call__(self):
-        return self.func()
-
-
-class Origins(Enum):
+class Origins(Instantiable[Origin], Enum):
     FILE = Instantiable(lambda: FileOrigin())
     OCS = Instantiable(lambda: OCSOrigin())
     GPP = Instantiable(lambda: GPPOrigin())

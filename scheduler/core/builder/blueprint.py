@@ -3,6 +3,7 @@
 
 from typing import Any, FrozenSet, List, Type
 from enum import Enum
+from typing import Optional
 
 from astropy.time import TimeDelta
 import astropy.units as u
@@ -11,8 +12,7 @@ from lucupy.minimodel.observation import ObservationClass
 from lucupy.minimodel.program import ProgramTypes
 
 from scheduler.config import config, ConfigurationError
-from scheduler.core.components.optimizer.dummy import DummyOptimizer
-from scheduler.core.components.optimizer.greedymax import GreedyMaxOptimizer
+from scheduler.core.components.optimizer.optimizers import BaseOptimizer, Optimizers
 
 
 def parse_configuration(enum_class: Type[Enum], value: str) -> Any:
@@ -37,7 +37,7 @@ def parse_configuration(enum_class: Type[Enum], value: str) -> Any:
 
 
 class Blueprint:
-    """Base class for Blueprint
+    """Base class for a Blueprint.
     """
     pass
 
@@ -65,8 +65,24 @@ class CollectorBlueprint(Blueprint):
                      self.obs_classes))
 
 
-class OptimizerBlueprint(Blueprint):
+class SelectorBlueprint(Blueprint):
     """Blueprint for the Selector.
+    This is based on the configuration in config.yml used to specify the buffer time to determine by how much programs
+    may go over their time limit.
+    """
+    def __init__(self,
+                 buffer_type_str: str,
+                 buffer_amount: Optional[float]):
+        self.buffer_type_str = buffer_type_str
+        self.buffer_amount = buffer_amount
+
+    def __iter__(self):
+        return iter((self.buffer_type_str,
+                     self.buffer_amount))
+
+
+class OptimizerBlueprint(Blueprint):
+    """Blueprint for the Optimizer.
     This is based on the configuration in config.yml.
     """
 
@@ -74,22 +90,21 @@ class OptimizerBlueprint(Blueprint):
         self.algorithm = OptimizerBlueprint._parse_optimizer(algorithm)
 
     @staticmethod
-    def _parse_optimizer(algorithm_name: str):
-        # TODO: Enums are needed but for now is just Dummy
-        # TODO: When GMax is ready we can expand
-        if algorithm_name.upper() == 'DUMMY':
-            return DummyOptimizer()
-        elif algorithm_name.upper() == 'GREEDYMAX':
-            return GreedyMaxOptimizer()
-        else:
+    def _parse_optimizer(algorithm_name: str) -> BaseOptimizer:
+        try:
+            instantiator = Optimizers[algorithm_name.upper()]
+            return instantiator.value()
+        except KeyError:
             raise ConfigurationError('Optimizer', config.optimizer.name)
 
     def __iter__(self):
-        return iter([self.algorithm])
+        return iter((self.algorithm,))
 
 
 class Blueprints:
     collector: CollectorBlueprint = CollectorBlueprint(config.collector.observation_classes,
                                                        config.collector.program_types,
                                                        config.collector.time_slot_length)
+    selector: SelectorBlueprint = SelectorBlueprint(config.selector.buffer_type,
+                                                    config.selector.buffer_amount)
     optimizer: OptimizerBlueprint = OptimizerBlueprint(config.optimizer.name)

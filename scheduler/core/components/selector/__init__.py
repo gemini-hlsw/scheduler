@@ -20,6 +20,7 @@ from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, Prog
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.ranker import DefaultRanker, Ranker
+from scheduler.core.components.selector.timebuffer import TimeBuffer
 from scheduler.core.types import StartingTimeslots
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
@@ -44,6 +45,7 @@ class Selector(SchedulerComponent):
     """
     collector: Collector
     num_nights_to_schedule: int
+    time_buffer: TimeBuffer
     cc_per_site: Dict[Site, CloudCover] = field(default_factory=lambda: {})
     iq_per_site: Dict[Site, ImageQuality] = field(default_factory=lambda: {})
 
@@ -202,6 +204,11 @@ class Selector(SchedulerComponent):
         If the sites used by the Program do not intersect the sites parameter, then None is returned.
         Otherwise, the data is bundled in a ProgramCalculations object.
         """
+        # Check if there is any time left for the program, allowing for the time buffer. If not, skip it.
+        if program.program_awarded() + self.time_buffer(program) <= program.program_used():
+            logger.info(f'Program {program.id.id} out of time: skipping.')
+            return None
+
         # The night_indices in the Selector must be a subset of the Ranker.
         night_indices_set = set(night_indices)
         if not night_indices_set.issubset(ranker.night_indices):

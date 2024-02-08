@@ -6,6 +6,10 @@ collector:
 optimizer:
   name: GREEDYMAX
 
+selector:
+  buffer_type: FLAT_MINUTES
+  buffer_amount: 30.0
+  
 server:
   port: 8000
   host: 0.0.0.0
