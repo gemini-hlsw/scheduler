@@ -171,7 +171,7 @@ class Service:
                             collector.time_accounting(plans,
                                                       sites=frozenset({site}),
                                                       end_timeslot_bounds=end_timeslot_bounds)
-                            if isinstance(update.event, MorningTwilightEvent):
+                            if update.done:
                                 nightly_timeline.add(NightIndex(night_idx),
                                                      site,
                                                      current_timeslot,
