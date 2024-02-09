@@ -140,7 +140,7 @@ class Service:
                                 if next_update[site] is None or time_record.timeslot_idx < next_update[site].timeslot_idx:
                                     next_update[site] = time_record
 
-                    # If there is a next update and we have reached its time, then perform it.
+                    # If there is a next update, and we have reached its time, then perform it.
                     # This is where we perform time accounting (if necessary), get a selection, and create a plan.
                     if next_update[site] is not None and current_timeslot >= next_update[site].timeslot_idx:
                         # Remove the update and perform it.
@@ -171,6 +171,12 @@ class Service:
                             collector.time_accounting(plans,
                                                       sites=frozenset({site}),
                                                       end_timeslot_bounds=end_timeslot_bounds)
+                            if update.done:
+                                nightly_timeline.add(NightIndex(night_idx),
+                                                     site,
+                                                     current_timeslot,
+                                                     update.event,
+                                                     plans[site])
 
                         # Get a new selection and request a new plan if the night is not done.
                         if not update.done:

@@ -126,6 +126,8 @@ class STimelineEntry:
 class TimelineEntriesBySite:
     site: Site
     time_entries: List[STimelineEntry]
+    eve_twilight: datetime
+    morn_twilight: datetime
 
 
 @strawberry.type
@@ -145,13 +147,18 @@ class SNightTimelines:
             s_timeline_entries = []
             for site in timeline.timeline[n_idx]:
                 s_entries = []
+                eve_twi = timeline.timeline[n_idx][site][0].event.time
+                morn_twi = timeline.timeline[n_idx][site][-1].event.time
                 for entry in timeline.timeline[n_idx][site]:
 
                     e = STimelineEntry(start_time_slots=int(entry.start_time_slot),
                                        event=entry.event.description,
                                        plan=SPlan.from_computed_plan(entry.plan_generated))
                     s_entries.append(e)
-                te = TimelineEntriesBySite(site=site, time_entries=s_entries)
+                te = TimelineEntriesBySite(site=site,
+                                           time_entries=s_entries,
+                                           eve_twilight=eve_twi,
+                                           morn_twilight=morn_twi)
                 s_timeline_entries.append(te)
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
             timelines.append(sn)

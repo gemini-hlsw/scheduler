@@ -271,6 +271,13 @@ def main(*,
                         collector.time_accounting(plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
+                        if update.done:
+                            nightly_timeline.add(NightIndex(night_idx),
+                                                 site,
+                                                 current_timeslot,
+                                                 update.event,
+                                                 plans[site])
+
 
                     # Get a new selection and request a new plan if the night is not done.
                     if not update.done:
