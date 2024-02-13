@@ -13,7 +13,7 @@ from typing import Callable, Dict, Final, List, Optional, Set, Union
 from astropy.time import Time
 from openpyxl.reader.excel import load_workbook
 from lucupy.helpers import str_to_bool
-from lucupy.minimodel import ProgramID, Resource, Site, TimeAccountingCode
+from lucupy.minimodel import ProgramID, Resource, Site, TimeAccountingCode, ResourceType
 from lucupy.sky import night_events
 
 from scheduler.services import logger_factory
@@ -60,12 +60,15 @@ class FileBasedResourceService(ResourceService):
 
                 # Only map if the FPU is a resource.
                 if fpu is not None:
-                    self._itcd_fpu_to_barcode[site][fpu] = self.lookup_resource(barcode)
+                    self._itcd_fpu_to_barcode[site][fpu] = self.lookup_resource(barcode, description=fpu,
+                                                                                type=ResourceType.FPU)
 
     def _load_csv(self,
                   site: Site,
                   c: Callable[[List[str], Site], Set[str]],
-                  data_source: Union[str, BytesIO]) -> None:
+                  data_source: Union[str, BytesIO],
+                  desc: Optional[str] = None,
+                  type: Optional[int] = ResourceType.NONE) -> None:
         """
         Process a CSV file as a table, where:
 
@@ -95,7 +98,8 @@ class FileBasedResourceService(ResourceService):
 
                 # Get or create date_set for the date, and append new resources from table, ignoring blank entries.
                 date_set = self._resources[site].setdefault(row_date, set())
-                new_entries = {self.lookup_resource(r) for r in c(row[1:], site) if r}
+                # new_entries = {self.lookup_resource(r) for r in c(row[1:], site) if r}
+                new_entries = {self.lookup_resource(r, description=desc, type=type) for r in c(row[1:], site) if r}
                 self._resources[site][row_date] = date_set | new_entries
 
                 # Advance the previous row date where data was defined.
@@ -260,7 +264,7 @@ class FileBasedResourceService(ResourceService):
                 # 4. Classical: <prog-id-list>
                 # 5. Priority: <prog-id-list>
                 if mode_entry.startswith('VISITOR:'):
-                    instrument = self.lookup_resource(mode_entry[8:].strip())
+                    instrument = self.lookup_resource(mode_entry[8:].strip(), type=ResourceType.INSTRUMENT)
                     instrument_run.setdefault(instrument, set()).add(row_date)
 
                 elif mode_entry.startswith('PARTNER:'):
@@ -323,7 +327,7 @@ class FileBasedResourceService(ResourceService):
                     # This happens if the row ends prematurely.
                     instrument_status = ''
                 if instrument_status == FileBasedResourceService._SCIENCE:
-                    resources.add(self.lookup_resource(filename))
+                    resources.add(self.lookup_resource(filename, type=ResourceType.INSTRUMENT))
                 elif not instrument_status:
                     logger.warning(f'{msg} contains no instrument status for {filename}. '
                                    'Using default of Not Available.')
@@ -341,7 +345,7 @@ class FileBasedResourceService(ResourceService):
                     # This happens if the row ends prematurely.
                     wfs_status = ''
                 if wfs_status == FileBasedResourceService._SCIENCE:
-                    resources.add(self.lookup_resource(filename))
+                    resources.add(self.lookup_resource(filename, type=ResourceType.WFS))
                 elif not wfs_status or wfs_status:
                     logger.warning(f'{msg} for WFS {filename} contains no status. Using default of Not Available.')
                 elif (wfs_status not in
@@ -562,14 +566,16 @@ class FileBasedResourceService(ResourceService):
         # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take its ID.
         self._load_csv(site,
                        self._itcd_fpu_to_barcode_parser,
-                       fpus_data)
+                       fpus_data,
+                       type=ResourceType.FPU)
 
         # Load the gratings.
         # This will put the mirror and the grating names available on a given date as Resources.
         # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
         self._load_csv(site,
                        self._mirror_parser,
-                       gratings_data)
+                       gratings_data,
+                       type=ResourceType.DISPERSER)
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_instrument_data(site, spreadsheet_file, from_gdrive=False)

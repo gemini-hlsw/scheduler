@@ -6,7 +6,7 @@ from datetime import date
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 import gelidum
-from lucupy.minimodel import Site, ALL_SITES, Resource
+from lucupy.minimodel import Site, ALL_SITES, Resource, ResourceType
 
 from definitions import ROOT_DIR
 from scheduler.services import logger_factory
@@ -42,7 +42,7 @@ class ResourceService(ExternalService):
         'Longslit 0.50 arcsec': '0.5arcsec',
         'Longslit 0.75 arcsec': '0.75arcsec',
         'Longslit 1.00 arcsec': '1.0arcsec',
-        'Longslit 1.5 arcsec': '1.5arcsec',
+        'Longslit 1.50 arcsec': '1.5arcsec',
         'Longslit 2.00 arcsec': '2.0arcsec',
         'Longslit 5.00 arcsec': '5.0arcsec',
         'N and S 0.50 arcsec': 'NS0.5arcsec',
@@ -57,7 +57,7 @@ class ResourceService(ExternalService):
         'IFU N and S 2 Slits': 'IFU-NS-2',
         'IFU N and S Left Slit (blue)': 'IFU-NS-B',
         'IFU N and S Right Slit (red)': 'IFU-NS-R',
-        # TODO: Not in OCS?
+        # TODO: Not in OCS? Correct, ENG observations that use this enter it as a Custom Mask
         'PinholeC': 'PinholeC'
     }})
 
@@ -116,7 +116,7 @@ class ResourceService(ExternalService):
             sem_id = ResourceService._semd[mdf_name[6]]
             progtype_id = ResourceService._progd[mdf_name[7]]
             barcode = f'{inst_id}{sem_id}{progtype_id}{mdf_name[-6:-3]}{mdf_name[-2:]}'
-        return self.lookup_resource(barcode)
+        return self.lookup_resource(barcode, description=mdf_name, type=ResourceType.FPU)
 
     def _itcd_fpu_to_barcode_parser(self, r: List[str], site: Site) -> Set[str]:
         return {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]}
@@ -131,7 +131,7 @@ class ResourceService(ExternalService):
             return self._gmoss_ifu_dict.get(fpu_name)
         return None
 
-    def lookup_resource(self, resource_id: str) -> Optional[Resource]:
+    def lookup_resource(self, resource_id: str, description=None, type=ResourceType.NONE) -> Optional[Resource]:
         """
         Function to perform Resource caching and minimize the number of Resource objects by attempting to reuse
         Resource objects with the same ID.
@@ -148,7 +148,10 @@ class ResourceService(ExternalService):
         if not resource_id:
             return None
         if resource_id not in self._all_resources:
-            self._all_resources[resource_id] = Resource(id=resource_id)
+            self._all_resources[resource_id] = Resource(id=resource_id, description=description, type=type)
+        # Update description (e.g. MDF) if different from the original. For when the description can be changed.
+        # if self._all_resources[resource_id].description != description:
+        #     self._all_resources[resource_id].description = description
         return self._all_resources[resource_id]
 
     def date_range_for_site(self, site: Site) -> Tuple[date, date]:
@@ -198,5 +201,5 @@ class ResourceService(ExternalService):
             barcode = self._itcd_fpu_to_barcode[site].get(itcd_fpu_name)
         elif fpu_name.startswith('G'):
             barcode = self._mdf_to_barcode(fpu_name, inst=instrument)
-        # print(f'\t barcode {barcode}')
+        # print(f'\t barcode {barcode.id} {barcode.description}')
         return barcode
