@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, InitVar
 from datetime import datetime, timedelta
 from typing import Dict, List, Mapping, Optional, Tuple
 
-from lucupy.minimodel import Band, NightIndex, Observation, ObservationID, Resource, Site, ObservationClass
+from lucupy.minimodel import Band, NightIndex, Observation, ObservationID, Resource, Site, ObservationClass, ProgramID
 from lucupy.timeutils import time2slots
 
 from scheduler.core.calculations.nightevents import NightEvents
@@ -32,6 +32,7 @@ class NightStats:
     plan_score: float
     n_toos: int
     completion_fraction: Mapping[Band, int]
+    program_completion: Mapping[ProgramID, str]
 
 
 @dataclass
