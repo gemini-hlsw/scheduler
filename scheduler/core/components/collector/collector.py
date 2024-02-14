@@ -319,7 +319,7 @@ class Collector(SchedulerComponent):
 
         for ridx, jday in enumerate(reversed(self.time_grid)):
             # Convert to the actual time grid index.
-            night_idx = len(self.time_grid) - ridx - 1
+            night_idx = NightIndex(len(self.time_grid) - ridx - 1)
 
             # Calculate the ra and dec for each target.
             # In case we decide to go with numpy arrays instead of SkyCoord,
@@ -339,6 +339,9 @@ class Collector(SchedulerComponent):
 
             # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
             lst = night_events.local_sidereal_times[night_idx]
+            # TODO: Remove debugging
+            # print(f'Night idx: {night_idx}, num time slots: {lst.size}')
+
             hourangle = lst - coord.ra
             hourangle.wrap_at(12.0 * u.hour, inplace=True)
             alt, az, par_ang = sky.Altitude.above(coord.dec, hourangle, obs.site.location.lat)
@@ -385,11 +388,21 @@ class Collector(SchedulerComponent):
             avail_resources = np.full([len(night_events.times[night_idx])], int(has_resources), dtype=int)
 
             # Calculate the time slot indices for the night where:
+            # TODO: Are we calculating (1) correctly? I am not convinced.
             # 1. The sun altitude requirement is met (precalculated in night_events)
             # 2. The sky background constraint is met
             # 3. The elevation constraints are met
-            # TODO: Are we calculating this correctly? I am not convinced.
             sa_idx = night_events.sun_alt_indices[night_idx]
+
+            # TODO: This is to help diagnose GSCHED-613.
+            if len(sa_idx) != len(night_events.times[night_idx]):
+                # This is for the purposes of setting a breakpoint to intercept when we know that the following c_idx
+                # calculation will fail due to broadcasting incompatible numpy arrays.
+                # In the typical default date case, this happens at night_idx 6 for GN, with shapes:
+                # (633,) for sa_idx
+                # (634,) for the other arrays.
+                set_breakpoint_here = 1
+
             c_idx = np.where(
                 np.logical_and(sb[sa_idx] <= targ_sb,
                                np.logical_and(avail_resources == 1,
