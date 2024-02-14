@@ -7,7 +7,7 @@ import zipfile
 from datetime import datetime, timedelta
 from os import PathLike
 from pathlib import Path
-from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
+from typing import FrozenSet, Iterable, List, Mapping, Optional, Set, Tuple
 
 import numpy as np
 from lucupy.helpers import dmsstr2deg
@@ -38,17 +38,21 @@ def ocs_program_data() -> Iterable[dict]:
     return read_ocs_zipfile(DEFAULT_OCS_DATA_PATH)
 
 
-def read_ocs_zipfile(zip_file: str | PathLike[str]) -> Iterable[dict]:
+def read_ocs_zipfile(zip_file: str | PathLike[str], program_ids: Optional[Set[str]] = None) -> Iterable[dict]:
     """
     Since for OCS we will use a collection of extracted ODB data, this is a
     convenience method to parse the data into a list of the JSON program data.
     """
     with zipfile.ZipFile(zip_file, 'r') as zf:
         for filename in zf.namelist():
-            with zf.open(filename) as f:
-                contents = f.read().decode('utf-8')
-                logger.info(f'Adding program {Path(filename).with_suffix("")}.')
-                yield json.loads(contents)
+            program_id = Path(filename).stem
+            if program_ids is None or program_id in program_ids:
+                with zf.open(filename) as f:
+                    contents = f.read().decode('utf-8')
+                    logger.info(f'Adding program {program_id}.')
+                    yield json.loads(contents)
+            else:
+                logger.info(f'Skipping program {program_id} as it is not in the list.')
 
 
 class OcsProgramProvider(ProgramProvider):
@@ -463,7 +467,7 @@ class OcsProgramProvider(ProgramProvider):
         TODO: Should we be doing this here, or in the Collector?
         """
         name, magnitudes, target_type = self._parse_target_header(data)
-        des = data[OcsProgramProvider._TargetKeys.DES]
+        des = data.get(OcsProgramProvider._TargetKeys.DES, name)
         tag = data[OcsProgramProvider._TargetKeys.TAG]
 
         # TODO: ra and dec are last two parameters. Fill here or elsewhere?
@@ -533,8 +537,14 @@ class OcsProgramProvider(ProgramProvider):
                 filt = 'Unknown'
         if instrument == 'NIFS' and 'Same as Disperser' in filt:
             filt = find_filter(disperser[0], OcsProgramProvider._NIFS_FILTER_WAVELENGTHS)
-        wavelength = Wavelength(OcsProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI'
-                                else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH]))
+
+        # TODO GSCHED-568: This was an assumption made because we have a GMOS-N configuration without a wavelength.
+        # Try to get a wavelength, and if we cannot get one, return None.
+        try:
+            wavelength = Wavelength(OcsProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI'
+                                    else float(data[OcsProgramProvider._AtomKeys.WAVELENGTH]))
+        except KeyError:
+            wavelength = None
 
         # Identify GRACES - ToDo: check if needed
         # if instrument == 'GMOS-N' and fpu == 'IFU Left Slit (blue)':
@@ -745,7 +755,8 @@ class OcsProgramProvider(ProgramProvider):
                 if offset_lag != 0 or not exp_time_groups:
                     # For NIR imaging, need to have at least two offset positions if no repeating pattern
                     # New atom after every 2nd offset (noffsets is odd)
-                    if mode is ObservationMode.IMAGING and offset_lag == 0 and all(w > 1.0 for w in wavelengths):
+                    if (mode is ObservationMode.IMAGING and offset_lag == 0 and
+                            all(w > 1.0 for w in wavelengths if w is not None)):
                         if step_id == 0:
                             n_offsets += 1
                         else:
@@ -858,144 +869,158 @@ class OcsProgramProvider(ProgramProvider):
         # Check the obs_class. If it is illegal, return None.
         # At the same time, ignore inactive observations.
         obs_id = data[OcsProgramProvider._ObsKeys.ID]
-        active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
-        if not active:
-            logger.warning(f"Observation {obs_id} is inactive (skipping).")
-            return None
 
-        obs_class = ObservationClass[data[OcsProgramProvider._ObsKeys.OBS_CLASS].upper()]
-        if obs_class not in self._obs_classes or not active:
-            logger.warning(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
-            return None
+        try:
+            active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
+            if not active:
+                logger.warning(f"Observation {obs_id} is inactive (skipping).")
+                return None
 
-        # By default, assume ToOType of None unless otherwise indicated.
-        too_type: Optional[TooType] = None
+            obs_class = ObservationClass[data[OcsProgramProvider._ObsKeys.OBS_CLASS].upper()]
+            if obs_class not in self._obs_classes or not active:
+                logger.warning(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
+                return None
 
-        internal_id = data[OcsProgramProvider._ObsKeys.INTERNAL_ID]
-        title = data[OcsProgramProvider._ObsKeys.TITLE]
-        site = Site[data[OcsProgramProvider._ObsKeys.ID].split('-')[0]]
-        status = ObservationStatus[data[OcsProgramProvider._ObsKeys.STATUS].upper()]
-        priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY].upper()]
+            # By default, assume ToOType of None unless otherwise indicated.
+            too_type: Optional[TooType] = None
 
-        # If the status is not legal, terminate parsing.
-        if status not in OcsProgramProvider._OBSERVATION_STATUSES:
-            return None
+            internal_id = data[OcsProgramProvider._ObsKeys.INTERNAL_ID]
+            title = data[OcsProgramProvider._ObsKeys.TITLE]
+            site = Site[data[OcsProgramProvider._ObsKeys.ID].split('-')[0]]
+            status = ObservationStatus[data[OcsProgramProvider._ObsKeys.STATUS].upper()]
+            priority = Priority[data[OcsProgramProvider._ObsKeys.PRIORITY].upper()]
 
-        setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
-        acq_overhead = timedelta(milliseconds=data[OcsProgramProvider._ObsKeys.SETUPTIME])
+            # If the status is not legal, terminate parsing.
+            if status not in OcsProgramProvider._OBSERVATION_STATUSES:
+                return None
 
-        find_constraints = [data[key] for key in data.keys() if key.startswith(OcsProgramProvider._ConstraintKeys.KEY)]
-        constraints = self.parse_constraints(find_constraints[0]) if find_constraints else None
+            setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
+            acq_overhead = timedelta(milliseconds=data[OcsProgramProvider._ObsKeys.SETUPTIME])
 
-        # TODO: Do we need this? It is being passed to the parse_atoms method.
-        # TODO: We have a qaState on the Observation as well.
-        qa_states = [QAState[log_entry[OcsProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
-                     data[OcsProgramProvider._ObsKeys.LOG]]
+            find_constraints = [data[key] for key in data.keys()
+                                if key.startswith(OcsProgramProvider._ConstraintKeys.KEY)]
+            constraints = self.parse_constraints(find_constraints[0]) if find_constraints else None
 
-        # Parse notes for "do not split" information if not found previously
-        if split:
-            notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
-                     for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
-            split = self.parse_notes_split(notes)
+            # TODO: Do we need this? It is being passed to the parse_atoms method.
+            # TODO: We have a qaState on the Observation as well.
+            qa_states = [QAState[log_entry[OcsProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
+                         data[OcsProgramProvider._ObsKeys.LOG]]
 
-        atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states, split=split)
-        # exec_time = sum([atom.exec_time for atom in atoms], ZeroTime) + acq_overhead
-        # for atom in atoms:
-        #     print(f'\t\t\t {atom.id} {atom.exec_time} {atom.obs_mode}')
+            # Parse notes for "do not split" information if not found previously
+            if split:
+                notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
+                         for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
+                split = self.parse_notes_split(notes)
 
-        # TODO: Should this be a list of all targets for the observation?
-        targets = []
+            atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states, split=split)
+            # exec_time = sum([atom.exec_time for atom in atoms], ZeroTime) + acq_overhead
+            # for atom in atoms:
+            #     print(f'\t\t\t {atom.id} {atom.exec_time} {atom.obs_mode}')
 
-        # Get the target environment. Each observation should have exactly one, but the name will
-        # not necessarily be predictable as we number them.
-        guiding = {}
-        target_env_keys = [key for key in data.keys() if key.startswith(OcsProgramProvider._TargetKeys.KEY)]
-        if len(target_env_keys) > 1:
-            raise ValueError(f'Observation {obs_id} has multiple target environments. Cannot process.')
+            # TODO: Should this be a list of all targets for the observation?
+            targets = []
 
-        if not target_env_keys:
-            # No target environment. Use the empty target.
-            logger.warning(f'No target environment found for observation {obs_id}. Using empty base target.')
-            targets.append(OcsProgramProvider._EMPTY_BASE_TARGET)
+            # Get the target environment. Each observation should have exactly one, but the name will
+            # not necessarily be predictable as we number them.
+            guiding = {}
+            target_env_keys = [key for key in data.keys() if key.startswith(OcsProgramProvider._TargetKeys.KEY)]
+            if len(target_env_keys) > 1:
+                raise ValueError(f'Observation {obs_id} has multiple target environments. Cannot process.')
 
-        else:
-            # Process the target environment.
-            target_env = data[target_env_keys[0]]
-
-            # Get the base.
-            try:
-                base = self.parse_target(target_env[OcsProgramProvider._TargetKeys.BASE])
-                targets.append(base)
-            except KeyError:
-                logger.warning(f"No base target found for observation {obs_id}. Using empty base target.")
+            if not target_env_keys:
+                # No target environment. Use the empty target.
+                logger.warning(f'No target environment found for observation {obs_id}. Using empty base target.')
                 targets.append(OcsProgramProvider._EMPTY_BASE_TARGET)
 
-            # Parse the guide stars if guide star data is supplied.
-            # We are only interested in the auto guide group, or the primary guide group if there
-            # is not the auto guide group.
-            try:
-                guide_groups = target_env[OcsProgramProvider._TargetEnvKeys.GUIDE_GROUPS]
-                auto_guide_group = [group for group in guide_groups
-                                    if group[OcsProgramProvider._TargetEnvKeys.GUIDE_GROUP_NAME] ==
-                                    OcsProgramProvider._TargetEnvKeys.AUTO_GROUP]
-                primary_guide_group = [group for group in guide_groups
-                                       if group[OcsProgramProvider._TargetEnvKeys.GUIDE_GROUP_PRIMARY]]
+            else:
+                # Process the target environment.
+                target_env = data[target_env_keys[0]]
 
-                guide_group = None
-                if auto_guide_group:
-                    if len(auto_guide_group) > 1:
-                        raise ValueError(f'Multiple auto guide groups found for {obs_id}.')
-                    guide_group = auto_guide_group[0]
-                elif primary_guide_group:
-                    if len(primary_guide_group) > 1:
-                        raise ValueError(f'Multiple primary guide groups found for {obs_id}.')
-                    guide_group = primary_guide_group[0]
+                # Get the base.
+                try:
+                    base = self.parse_target(target_env[OcsProgramProvider._TargetKeys.BASE])
+                    targets.append(base)
+                except KeyError:
+                    logger.warning(f"No base target found for observation {obs_id}. Using empty base target.")
+                    targets.append(OcsProgramProvider._EMPTY_BASE_TARGET)
 
-                # Now we parse out the guideProbe list, which contains the information about the
-                # guide probe keys and the targets.
-                if guide_group is not None:
-                    for guide_data in guide_group[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE]:
-                        guider = guide_data[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE_KEY]
-                        # TODO: We don't have guiders as resources in ResourceMock.
-                        resource = Resource(id=guider)
-                        target = self.parse_target(guide_data[OcsProgramProvider._TargetEnvKeys.TARGET])
-                        guiding[resource] = target
-                        targets.append(target)
+                # Parse the guide stars if guide star data is supplied.
+                # We are only interested in the auto guide group, or the primary guide group if there
+                # is not the auto guide group.
+                try:
+                    guide_groups = target_env[OcsProgramProvider._TargetEnvKeys.GUIDE_GROUPS]
+                    auto_guide_group = [group for group in guide_groups
+                                        if group[OcsProgramProvider._TargetEnvKeys.GUIDE_GROUP_NAME] ==
+                                        OcsProgramProvider._TargetEnvKeys.AUTO_GROUP]
+                    primary_guide_group = [group for group in guide_groups
+                                           if group[OcsProgramProvider._TargetEnvKeys.GUIDE_GROUP_PRIMARY]]
 
-            except KeyError:
-                logger.warning(f'No guide group data found for observation {obs_id}')
+                    guide_group = None
+                    if auto_guide_group:
+                        if len(auto_guide_group) > 1:
+                            raise ValueError(f'Multiple auto guide groups found for {obs_id}.')
+                        guide_group = auto_guide_group[0]
+                    elif primary_guide_group:
+                        if len(primary_guide_group) > 1:
+                            raise ValueError(f'Multiple primary guide groups found for {obs_id}.')
+                        guide_group = primary_guide_group[0]
 
-            # Process the user targets.
-            user_targets_data = target_env.setdefault(OcsProgramProvider._TargetEnvKeys.USER_TARGETS, [])
-            for user_target_data in user_targets_data:
-                user_target = self.parse_target(user_target_data)
-                targets.append(user_target)
+                    # Now we parse out the guideProbe list, which contains the information about the
+                    # guide probe keys and the targets.
+                    if guide_group is not None:
+                        for guide_data in guide_group[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE]:
+                            guider = guide_data[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE_KEY]
+                            # TODO: We don't have guiders as resources in ResourceMock.
+                            resource = Resource(id=guider)
+                            target = self.parse_target(guide_data[OcsProgramProvider._TargetEnvKeys.TARGET])
+                            guiding[resource] = target
+                            targets.append(target)
 
-            # If the ToO override rapid setting is in place, set to RAPID.
-            # Otherwise, set as None, and we will propagate down from the groups.
-            if (OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and
-                    data[OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]):
-                too_type = TooType.RAPID
+                except KeyError:
+                    logger.warning(f'No guide group data found for observation {obs_id}')
 
-        return GeminiObservation(
-            id=ObservationID(obs_id),
-            internal_id=internal_id,
-            order=obs_num,
-            title=title,
-            site=site,
-            status=status,
-            active=active,
-            priority=priority,
-            setuptime_type=setuptime_type,
-            acq_overhead=acq_overhead,
-            obs_class=obs_class,
-            targets=targets,
-            guiding=guiding,
-            sequence=atoms,
-            constraints=constraints,
-            belongs_to=program_id,
-            too_type=too_type
-        )
+                # Process the user targets.
+                user_targets_data = target_env.setdefault(OcsProgramProvider._TargetEnvKeys.USER_TARGETS, [])
+                for user_target_data in user_targets_data:
+                    user_target = self.parse_target(user_target_data)
+                    targets.append(user_target)
+
+                # If the ToO override rapid setting is in place, set to RAPID.
+                # Otherwise, set as None, and we will propagate down from the groups.
+                if (OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and
+                        data[OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]):
+                    too_type = TooType.RAPID
+
+            return GeminiObservation(
+                id=ObservationID(obs_id),
+                internal_id=internal_id,
+                order=obs_num,
+                title=title,
+                site=site,
+                status=status,
+                active=active,
+                priority=priority,
+                setuptime_type=setuptime_type,
+                acq_overhead=acq_overhead,
+                obs_class=obs_class,
+                targets=targets,
+                guiding=guiding,
+                sequence=atoms,
+                constraints=constraints,
+                belongs_to=program_id,
+                too_type=too_type
+            )
+
+        except KeyError as ex:
+            logger.error(f'KeyError while reading {obs_id}: {ex} (skipping).')
+
+        except ValueError as ex:
+            logger.error(f'ValueError while reading {obs_id}: {ex} (skipping).')
+
+        except Exception as ex:
+            logger.error(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
+
+        return None
 
     def parse_time_allocation(self, data: dict) -> TimeAllocation:
         category = TimeAccountingCode(data[OcsProgramProvider._TAKeys.CATEGORY])
@@ -1141,6 +1166,7 @@ class OcsProgramProvider(ProgramProvider):
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
         program_id = ProgramID(data[OcsProgramProvider._ProgramKeys.ID])
+        print(f'Parsing program: {program_id.id}')
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
 
         # # Get all the note information as they may contain FT scheduling data comments.

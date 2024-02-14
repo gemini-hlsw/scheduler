@@ -84,6 +84,7 @@ class ValidationBuilder(SchedulerBuilder):
 
         collector = super().build_collector(start, end, sites, semesters, blueprint)
         collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data())
+        print('DONE LOADING')
         ValidationBuilder.reset_collector_observations(collector)
         return collector
 

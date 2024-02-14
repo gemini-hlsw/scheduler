@@ -1,10 +1,10 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import time
 from dataclasses import dataclass
 from datetime import timedelta
 from inspect import isclass
+import time
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 
 import astropy.units as u
@@ -17,6 +17,7 @@ from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex,
                               SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus,
                               Group)
 from lucupy.timeutils import time2slots
+from lucupy.types import ZeroTime
 
 from scheduler.core.calculations.nightevents import NightEvents
 from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
@@ -468,6 +469,15 @@ class Collector(SchedulerComponent):
         # Count the number of parse failures.
         bad_program_count = 0
 
+        elapsed_max_read_time = 0
+        total_read_time = 0
+        elapsed_max_tw_time = 0
+        total_tw_time = 0
+        elapsed_max_ti_time = 0
+        total_ti_time = 0
+        elapsed_max_total_time = 0
+        total_start_time = time.perf_counter()
+
         for json_program in data:
             try:
                 if len(json_program.keys()) != 1:
@@ -476,7 +486,16 @@ class Collector(SchedulerComponent):
 
                 # Extract the data from the JSON program. We do not need the top label.
                 data = next(iter(json_program.values()))
+
+                # TODO: REMOVE THIS AFTERWARD.
+                initial_start_time = time.perf_counter()
+
                 program = program_provider.parse_program(data)
+
+                # TODO: Remove this after.
+                elapsed_read_time = time.perf_counter() - initial_start_time
+                elapsed_tw_time = 0
+                elapsed_ti_time = 0
 
                 # If program could not be parsed, skip. This happens in one of three cases:
                 # 1. Program semester cannot be determined from ID.
@@ -485,9 +504,17 @@ class Collector(SchedulerComponent):
                 if program is None:
                     continue
 
+                # TODO: improve this. Pass the semesters into the program_provider and return None as soon
+                # TODO: as we know that the program is not from a semester in which we are interested.
                 # If program semester is not in the list of specified semesters, skip.
                 if program.semester is None or program.semester not in self.semesters:
-                    logger.warning(f'Program {program.id} has semester {program.semester} (not included). Skipping.')
+                    logger.warning(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                    continue
+
+                # TODO: Check on this.
+                # If a program has no time awarded, then we will get a divide by zero in scoring, so skip it.
+                if program.program_awarded() == ZeroTime:
+                    logger.error(f'Program {program.id} has awarded time of zero (skipping).')
                     continue
 
                 # If a program ID is repeated, warn and overwrite.
@@ -517,12 +544,30 @@ class Collector(SchedulerComponent):
 
                         # Compute the timing window expansion for the observation and then calculate the target
                         # information.
+                        # TODO: Remove timing here.
+                        start_time = time.perf_counter()
                         tw = self._process_timing_windows(program, obs)
+                        elapsed_tw_time += time.perf_counter() - start_time
+                        start_time = time.perf_counter()
                         ti = self._calculate_target_info(obs, base, tw)
+                        elapsed_ti_time += time.perf_counter() - start_time
                         logger.info(f'Processed observation {obs.id}.')
 
                         # Compute the TargetInfo.
                         Collector._target_info[(base.name, obs.id)] = ti
+
+                elapsed_time = time.perf_counter() - initial_start_time
+                print(f'\tRead: {elapsed_read_time:.4f} s')
+                print(f'\tProcess timing windows: {elapsed_tw_time:.4f} s')
+                print(f'\tCalculate target info: {elapsed_ti_time:.4f} s')
+                print(f'\tTotal time: {elapsed_time:.4f} s')
+                elapsed_max_read_time = max(elapsed_read_time, elapsed_max_read_time)
+                total_read_time += elapsed_read_time
+                elapsed_max_tw_time = max(elapsed_tw_time, elapsed_max_tw_time)
+                total_tw_time += elapsed_tw_time
+                elapsed_max_ti_time = max(elapsed_ti_time, elapsed_max_ti_time)
+                total_ti_time += elapsed_ti_time
+                elapsed_max_total_time = max(elapsed_time, elapsed_max_total_time)
 
             except ValueError as e:
                 bad_program_count += 1
@@ -530,6 +575,19 @@ class Collector(SchedulerComponent):
 
         if bad_program_count:
             logger.error(f'Could not parse {bad_program_count} programs.')
+
+        elapsed_total_time = time.perf_counter() - total_start_time
+        pct_read_time = total_read_time / elapsed_total_time * 100
+        pct_tw_time = total_tw_time / elapsed_total_time * 100
+        pct_ti_time = total_ti_time / elapsed_total_time * 100
+
+        print('*** MAX TIMES ***')
+        print(f'Total read time: {total_read_time:.4f} s ({pct_read_time:.2f}%), max: {elapsed_max_read_time:.4f} s')
+        print(f'Total timing window time: {total_tw_time:.4f} s ({pct_tw_time:.2f}%), max: {elapsed_max_tw_time:.4f} s')
+        print(f'Total target_info_time: {total_ti_time:.4f} s, ({pct_ti_time:.2f}%), max: {elapsed_max_ti_time:.4f} s')
+        print(f'Total time: {elapsed_total_time:.4f} s, max: {elapsed_max_total_time:.4f} s')
+        print()
+        print()
 
     def night_configurations(self,
                              site: Site,
