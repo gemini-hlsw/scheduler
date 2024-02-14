@@ -300,6 +300,9 @@ class Collector(SchedulerComponent):
         # Get the night events.
         night_events = self.night_events[obs.site]
 
+        # Get the night configurations (for resources)
+        nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
+
         # Iterate over the time grid, checking to see if there is already a TargetInfo
         # for the target for the given day at the given site.
         # If so, we skip.
@@ -322,6 +325,9 @@ class Collector(SchedulerComponent):
             # this information is already stored in decimal degrees at this point.
             if isinstance(target, SiderealTarget):
                 # Take proper motion into account over the time slots.
+                # NOTE: GPP should provide this info if possible
+                # TODO: It seems that the pm correction should be done earlier, equivalent to when
+                #  the nonsidereal coordinates are determined (Bryan)
                 coord = Collector._calculate_proper_motion(target, self.time_grid[night_idx])
             elif isinstance(target, NonsiderealTarget):
                 coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
@@ -371,6 +377,12 @@ class Collector(SchedulerComponent):
                 elev_min = Constraints.DEFAULT_AIRMASS_ELEVATION_MIN
                 elev_max = Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
 
+            # Are all the required resources available?
+            # This works for validation mode. In RT mode this may need to be statistical if resources are not known
+            # and they could change with time, so the visfrac calc may need to be extracted from this method
+            has_resources = all([resource in nc[night_idx].resources for resource in obs.required_resources()])
+            avail_resources = np.full([len(night_events.times[night_idx])], int(has_resources), dtype=int)
+
             # Calculate the time slot indices for the night where:
             # 1. The sun altitude requirement is met (precalculated in night_events)
             # 2. The sky background constraint is met
@@ -379,8 +391,9 @@ class Collector(SchedulerComponent):
             sa_idx = night_events.sun_alt_indices[night_idx]
             c_idx = np.where(
                 np.logical_and(sb[sa_idx] <= targ_sb,
-                               np.logical_and(targ_prop[sa_idx] >= elev_min,
-                                              targ_prop[sa_idx] <= elev_max))
+                               np.logical_and(avail_resources == 1,
+                                              np.logical_and(targ_prop[sa_idx] >= elev_min,
+                                                             targ_prop[sa_idx] <= elev_max)))
             )[0]
 
             # Apply timing window constraints.
