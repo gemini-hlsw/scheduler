@@ -1,10 +1,10 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import time
 from dataclasses import dataclass
 from datetime import timedelta
 from inspect import isclass
-import time
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 
 import astropy.units as u
