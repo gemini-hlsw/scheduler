@@ -27,14 +27,17 @@ class SNightStats:
     plan_score: float
     n_toos: int
     completion_fraction: JSON
+    program_completion: JSON
 
     @staticmethod
     def from_computed_night_stats(ns: NightStats) -> 'SNightStats':
         cf = json.dumps(ns.completion_fraction)
+        pc = json.dumps(ns.program_completion)
         return SNightStats(timeloss=ns.time_loss,
                            plan_score=ns.plan_score,
                            n_toos=ns.n_toos,
-                           completion_fraction=cf)
+                           completion_fraction=cf,
+                           program_completion=pc)
 
 
 @strawberry.type

@@ -4,7 +4,7 @@
 from collections import Counter
 from typing import Dict, List, Tuple, FrozenSet
 
-from lucupy.minimodel import Band, Conditions, ProgramID, NightIndex
+from lucupy.minimodel import Band, Conditions, ProgramID, NightIndex, Program
 from lucupy.types import ZeroTime
 
 from scheduler.core.components.collector import Collector
@@ -22,13 +22,18 @@ class StatCalculator:
     """
 
     @staticmethod
+    def program_real_total_used(program: Program):
+        return sum((o.part_time() + o.acq_overhead + o.prog_time() for o in program.observations()),
+                   start=ZeroTime)
+
+    @staticmethod
     def calculate_timeline_stats(timeline: NightlyTimeline,
                                  nights: FrozenSet[NightIndex],
                                  sites: Sites,
                                  collector: Collector) -> Dict[str, Tuple[str, float]]:
 
         scores_per_program: Dict[ProgramID, float] = {}
-
+        programs = {}
         for night_idx in nights:
             for site in sites:
                 for entry in timeline.timeline[night_idx][site]:
@@ -49,6 +54,7 @@ class StatCalculator:
                         plan_conditions.append(obs.constraints.conditions)
                         # check completion
                         program = collector.get_program(obs.belongs_to)
+                        programs[program.id] = program
 
                         scores_per_program.setdefault(program.id, 0)
                         scores_per_program[program.id] += visit.score
@@ -61,17 +67,18 @@ class StatCalculator:
                         alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
                         plan.alt_degs.append(alt_degs)
 
+                    program_completion = {p.id: StatCalculator.calculate_program_completion(programs[p]) for p in programs}
                     plan.night_stats = NightStats(f'{plan.time_left()} min',
                                                   plan_score,
                                                   n_toos,
-                                                  completion_fraction)
+                                                  completion_fraction,
+                                                  program_completion)
 
         plans_summary = {}
         for p_id in scores_per_program:
             program = collector.get_program(p_id)
             total_used = program.total_used()
-            prog_total = sum((o.part_time() + o.acq_overhead + o.prog_time() for o in program.observations()),
-                             start=ZeroTime)
+            prog_total = StatCalculator.program_real_total_used(program)
 
             completion = f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'
             score = scores_per_program[p_id]
@@ -79,3 +86,10 @@ class StatCalculator:
             plans_summary[p_id.id] = (completion, score)
 
         return plans_summary
+
+    @staticmethod
+    def calculate_program_completion(program: Program) -> str:
+        total_used = program.total_used()
+        prog_total = StatCalculator.program_real_total_used(program)
+        return f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'
+
