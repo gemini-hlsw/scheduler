@@ -7,7 +7,7 @@ import zipfile
 from datetime import datetime, timedelta
 from os import PathLike
 from pathlib import Path
-from typing import FrozenSet, Iterable, List, Mapping, Optional, Set, Tuple
+from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
 
 import numpy as np
 from lucupy.helpers import dmsstr2deg
@@ -32,13 +32,21 @@ logger = logger_factory.create_logger(__name__)
 
 
 DEFAULT_OCS_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
+DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt'
 
 
 def ocs_program_data() -> Iterable[dict]:
-    return read_ocs_zipfile(DEFAULT_OCS_DATA_PATH)
+    try:
+        # Try to read the file and create a frozenset from its lines
+        with DEFAULT_PROGRAM_ID_PATH.open('r') as file:
+            id_frozenset = frozenset(line.strip() for line in file if line.strip())
+    except FileNotFoundError:
+        # If the file does not exist, set id_frozenset to None
+        id_frozenset = None
+    return read_ocs_zipfile(DEFAULT_OCS_DATA_PATH, id_frozenset)
 
 
-def read_ocs_zipfile(zip_file: str | PathLike[str], program_ids: Optional[Set[str]] = None) -> Iterable[dict]:
+def read_ocs_zipfile(zip_file: str | PathLike[str], program_ids: Optional[FrozenSet[str]] = None) -> Iterable[dict]:
     """
     Since for OCS we will use a collection of extracted ODB data, this is a
     convenience method to parse the data into a list of the JSON program data.

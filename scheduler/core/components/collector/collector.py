@@ -469,15 +469,6 @@ class Collector(SchedulerComponent):
         # Count the number of parse failures.
         bad_program_count = 0
 
-        elapsed_max_read_time = 0
-        total_read_time = 0
-        elapsed_max_tw_time = 0
-        total_tw_time = 0
-        elapsed_max_ti_time = 0
-        total_ti_time = 0
-        elapsed_max_total_time = 0
-        total_start_time = time.perf_counter()
-
         for json_program in data:
             try:
                 if len(json_program.keys()) != 1:
@@ -486,16 +477,7 @@ class Collector(SchedulerComponent):
 
                 # Extract the data from the JSON program. We do not need the top label.
                 data = next(iter(json_program.values()))
-
-                # TODO: REMOVE THIS AFTERWARD.
-                initial_start_time = time.perf_counter()
-
                 program = program_provider.parse_program(data)
-
-                # TODO: Remove this after.
-                elapsed_read_time = time.perf_counter() - initial_start_time
-                elapsed_tw_time = 0
-                elapsed_ti_time = 0
 
                 # If program could not be parsed, skip. This happens in one of three cases:
                 # 1. Program semester cannot be determined from ID.
@@ -523,9 +505,6 @@ class Collector(SchedulerComponent):
 
                 Collector._programs[program.id] = program
 
-                # TODO HACK: Zero out times for Bryan.
-                # ValidationMode._clear_observation_info(program.observations()) # noqa
-
                 # Set the observation IDs for this program.
                 # Collector._observations_per_program[program.id] = frozenset(obs.id for obs in good_obs)
                 Collector._observations_per_program[program.id] = frozenset(obs.id for obs in program.observations())
@@ -543,51 +522,20 @@ class Collector(SchedulerComponent):
                             raise RuntimeError(f'No base target found for observation {obs.id}.')
 
                         # Compute the timing window expansion for the observation and then calculate the target
-                        # information.
-                        # TODO: Remove timing here.
-                        start_time = time.perf_counter()
+                        # information, which performs the visibility calculations.
                         tw = self._process_timing_windows(program, obs)
-                        elapsed_tw_time += time.perf_counter() - start_time
-                        start_time = time.perf_counter()
                         ti = self._calculate_target_info(obs, base, tw)
-                        elapsed_ti_time += time.perf_counter() - start_time
                         logger.info(f'Processed observation {obs.id}.')
 
                         # Compute the TargetInfo.
                         Collector._target_info[(base.name, obs.id)] = ti
 
-                elapsed_time = time.perf_counter() - initial_start_time
-                print(f'\tRead: {elapsed_read_time:.4f} s')
-                print(f'\tProcess timing windows: {elapsed_tw_time:.4f} s')
-                print(f'\tCalculate target info: {elapsed_ti_time:.4f} s')
-                print(f'\tTotal time: {elapsed_time:.4f} s')
-                elapsed_max_read_time = max(elapsed_read_time, elapsed_max_read_time)
-                total_read_time += elapsed_read_time
-                elapsed_max_tw_time = max(elapsed_tw_time, elapsed_max_tw_time)
-                total_tw_time += elapsed_tw_time
-                elapsed_max_ti_time = max(elapsed_ti_time, elapsed_max_ti_time)
-                total_ti_time += elapsed_ti_time
-                elapsed_max_total_time = max(elapsed_time, elapsed_max_total_time)
-
-            except ValueError as e:
+            except Exception as e:
                 bad_program_count += 1
                 logger.warning(f'Could not parse program: {e}')
 
         if bad_program_count:
             logger.error(f'Could not parse {bad_program_count} programs.')
-
-        elapsed_total_time = time.perf_counter() - total_start_time
-        pct_read_time = total_read_time / elapsed_total_time * 100
-        pct_tw_time = total_tw_time / elapsed_total_time * 100
-        pct_ti_time = total_ti_time / elapsed_total_time * 100
-
-        print('*** MAX TIMES ***')
-        print(f'Total read time: {total_read_time:.4f} s ({pct_read_time:.2f}%), max: {elapsed_max_read_time:.4f} s')
-        print(f'Total timing window time: {total_tw_time:.4f} s ({pct_tw_time:.2f}%), max: {elapsed_max_tw_time:.4f} s')
-        print(f'Total target_info_time: {total_ti_time:.4f} s, ({pct_ti_time:.2f}%), max: {elapsed_max_ti_time:.4f} s')
-        print(f'Total time: {elapsed_total_time:.4f} s, max: {elapsed_max_total_time:.4f} s')
-        print()
-        print()
 
     def night_configurations(self,
                              site: Site,
