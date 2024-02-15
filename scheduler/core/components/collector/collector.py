@@ -17,6 +17,7 @@ from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex,
                               SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus,
                               Group)
 from lucupy.timeutils import time2slots
+from lucupy.types import ZeroTime
 
 from scheduler.core.calculations.nightevents import NightEvents
 from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
@@ -318,7 +319,7 @@ class Collector(SchedulerComponent):
 
         for ridx, jday in enumerate(reversed(self.time_grid)):
             # Convert to the actual time grid index.
-            night_idx = len(self.time_grid) - ridx - 1
+            night_idx = NightIndex(len(self.time_grid) - ridx - 1)
 
             # Calculate the ra and dec for each target.
             # In case we decide to go with numpy arrays instead of SkyCoord,
@@ -338,6 +339,9 @@ class Collector(SchedulerComponent):
 
             # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
             lst = night_events.local_sidereal_times[night_idx]
+            # TODO: Remove debugging
+            # print(f'Night idx: {night_idx}, num time slots: {lst.size}')
+
             hourangle = lst - coord.ra
             hourangle.wrap_at(12.0 * u.hour, inplace=True)
             alt, az, par_ang = sky.Altitude.above(coord.dec, hourangle, obs.site.location.lat)
@@ -384,11 +388,21 @@ class Collector(SchedulerComponent):
             avail_resources = np.full([len(night_events.times[night_idx])], int(has_resources), dtype=int)
 
             # Calculate the time slot indices for the night where:
+            # TODO: Are we calculating (1) correctly? I am not convinced.
             # 1. The sun altitude requirement is met (precalculated in night_events)
             # 2. The sky background constraint is met
             # 3. The elevation constraints are met
-            # TODO: Are we calculating this correctly? I am not convinced.
             sa_idx = night_events.sun_alt_indices[night_idx]
+
+            # TODO: This is to help diagnose GSCHED-613.
+            if len(sa_idx) != len(night_events.times[night_idx]):
+                # This is for the purposes of setting a breakpoint to intercept when we know that the following c_idx
+                # calculation will fail due to broadcasting incompatible numpy arrays.
+                # In the typical default date case, this happens at night_idx 6 for GN, with shapes:
+                # (633,) for sa_idx
+                # (634,) for the other arrays.
+                set_breakpoint_here = 1
+
             c_idx = np.where(
                 np.logical_and(sb[sa_idx] <= targ_sb,
                                np.logical_and(avail_resources == 1,
@@ -485,9 +499,17 @@ class Collector(SchedulerComponent):
                 if program is None:
                     continue
 
+                # TODO: improve this. Pass the semesters into the program_provider and return None as soon
+                # TODO: as we know that the program is not from a semester in which we are interested.
                 # If program semester is not in the list of specified semesters, skip.
                 if program.semester is None or program.semester not in self.semesters:
-                    logger.warning(f'Program {program.id} has semester {program.semester} (not included). Skipping.')
+                    logger.warning(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                    continue
+
+                # TODO: Check on this.
+                # If a program has no time awarded, then we will get a divide by zero in scoring, so skip it.
+                if program.program_awarded() == ZeroTime:
+                    logger.error(f'Program {program.id} has awarded time of zero (skipping).')
                     continue
 
                 # If a program ID is repeated, warn and overwrite.
@@ -495,9 +517,6 @@ class Collector(SchedulerComponent):
                     logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
 
                 Collector._programs[program.id] = program
-
-                # TODO HACK: Zero out times for Bryan.
-                # ValidationMode._clear_observation_info(program.observations()) # noqa
 
                 # Set the observation IDs for this program.
                 # Collector._observations_per_program[program.id] = frozenset(obs.id for obs in good_obs)
@@ -516,7 +535,7 @@ class Collector(SchedulerComponent):
                             raise RuntimeError(f'No base target found for observation {obs.id}.')
 
                         # Compute the timing window expansion for the observation and then calculate the target
-                        # information.
+                        # information, which performs the visibility calculations.
                         tw = self._process_timing_windows(program, obs)
                         ti = self._calculate_target_info(obs, base, tw)
                         logger.info(f'Processed observation {obs.id}.')
@@ -524,7 +543,7 @@ class Collector(SchedulerComponent):
                         # Compute the TargetInfo.
                         Collector._target_info[(base.name, obs.id)] = ti
 
-            except ValueError as e:
+            except Exception as e:
                 bad_program_count += 1
                 logger.warning(f'Could not parse program: {e}')
 

@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import ABC, abstractmethod
-from typing import FrozenSet, List, Optional
+from typing import FrozenSet, List, Optional, Tuple
 
 from lucupy.minimodel import (AndGroup, Atom, Conditions, Constraints, GroupID, Magnitude, NonsiderealTarget,
                               Observation, ObservationClass, OrGroup, Program, ProgramID, QAState, SiderealTarget,
@@ -83,7 +83,11 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_observation(self, data: dict, num: int, program_id: ProgramID, split: bool) -> Optional[Observation]:
+    def parse_observation(self,
+                          data: dict,
+                          num: Tuple[Optional[int], int],
+                          program_id: ProgramID,
+                          split: bool) -> Optional[Observation]:
         """
         Given an associative array that contains observation data, retrieve the data
         and populate an Observation object, provided the obs_class for the observation is in
