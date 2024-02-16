@@ -94,7 +94,7 @@ class Query:
         return [plans.for_site(site) for plans in PlanManager.get_plans()]
 
     @strawberry.field
-    def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
+    async def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
         try:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                          Time(new_schedule_input.end_time, format='iso', scale='utc')
@@ -104,6 +104,10 @@ class Query:
                                              new_schedule_input.met_power,
                                              new_schedule_input.vis_power,
                                              new_schedule_input.wha_power)
+            if new_schedule_input.program_file:
+                program_file = (await new_schedule_input.program_file.read())
+            else:
+                program_file = new_schedule_input.program_file
 
             timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
                                                      start_vis=start,
@@ -111,7 +115,8 @@ class Query:
                                                      sites=new_schedule_input.sites,
                                                      ranker_parameters=ranker_params,
                                                      semester_visibility=new_schedule_input.semester_visibility,
-                                                     num_nights_to_schedule=new_schedule_input.num_nights_to_schedule)
+                                                     num_nights_to_schedule=new_schedule_input.num_nights_to_schedule,
+                                                     program_file=program_file)
             s_timelines = SNightTimelines.from_computed_timelines(timelines)
 
         except RuntimeError as e:

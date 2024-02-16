@@ -80,7 +80,8 @@ class ValidationBuilder(SchedulerBuilder):
                         end: Time,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
-                        blueprint: CollectorBlueprint) -> Collector:
+                        blueprint: CollectorBlueprint,
+                        program_list: Optional[bytes] = None) -> Collector:
 
         collector = super().build_collector(start, end, sites, semesters, blueprint)
         collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data())

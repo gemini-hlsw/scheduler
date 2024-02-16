@@ -35,11 +35,14 @@ DEFAULT_OCS_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
 DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt'
 
 
-def ocs_program_data() -> Iterable[dict]:
+def ocs_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
     try:
         # Try to read the file and create a frozenset from its lines
-        with DEFAULT_PROGRAM_ID_PATH.open('r') as file:
-            id_frozenset = frozenset(line.strip() for line in file if line.strip())
+        if program_list:
+            id_frozenset = frozenset(line.strip() for line in program_list.decode("utf-8") if line.strip())
+        else:
+            with DEFAULT_PROGRAM_ID_PATH.open('r') as file:
+                id_frozenset = frozenset(line.strip() for line in file if line.strip())
     except FileNotFoundError:
         # If the file does not exist, set id_frozenset to None
         id_frozenset = None
