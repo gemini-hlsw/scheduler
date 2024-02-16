@@ -394,18 +394,9 @@ class Collector(SchedulerComponent):
             # 3. The elevation constraints are met
             sa_idx = night_events.sun_alt_indices[night_idx]
 
-            # TODO: This is to help diagnose GSCHED-613.
-            if len(sa_idx) != len(night_events.times[night_idx]):
-                # This is for the purposes of setting a breakpoint to intercept when we know that the following c_idx
-                # calculation will fail due to broadcasting incompatible numpy arrays.
-                # In the typical default date case, this happens at night_idx 6 for GN, with shapes:
-                # (633,) for sa_idx
-                # (634,) for the other arrays.
-                set_breakpoint_here = 1
-
             c_idx = np.where(
                 np.logical_and(sb[sa_idx] <= targ_sb,
-                               np.logical_and(avail_resources == 1,
+                               np.logical_and(avail_resources[sa_idx] == 1,
                                               np.logical_and(targ_prop[sa_idx] >= elev_min,
                                                              targ_prop[sa_idx] <= elev_max)))
             )[0]
