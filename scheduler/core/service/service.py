@@ -7,7 +7,6 @@ from typing import FrozenSet, Optional, Dict
 import numpy as np
 from astropy.time import Time
 from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex, CloudCover, ImageQuality
-from strawberry.file_uploads import Upload
 
 from scheduler.core.builder import Blueprints
 from scheduler.core.builder.modes import dispatch_with, SchedulerModes
