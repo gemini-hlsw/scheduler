@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from datetime import timedelta, datetime
+from pathlib import Path
 from typing import Dict, FrozenSet, Optional
 
 import numpy as np
@@ -38,7 +39,8 @@ def main(*,
          semester_visibility: bool = True,
          num_nights_to_schedule: Optional[int] = None,
          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
-         iq_per_site: Optional[Dict[Site, ImageQuality]] = None) -> None:
+         iq_per_site: Optional[Dict[Site, ImageQuality]] = None,
+         programs_ids: Optional[str] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
 
     # Create the Collector and load the programs.
@@ -67,13 +69,22 @@ def main(*,
     queue = EventQueue(night_indices, sites)
     builder = ValidationBuilder(Sources(), queue)
 
+    # check if path exist and read
+    programs_path = Path(programs_ids)
+    f_programs = None
+    if programs_path.exists():
+        f_programs = open(programs_path, "r+")
+    else:
+        raise ValueError(f'Path {programs_path} does not exist.')
+
     # Create the Collector, load the programs, and zero out the time used by the observations.
     collector = builder.build_collector(
         start=start,
         end=end_vis,
         sites=sites,
         semesters=semesters,
-        blueprint=collector_blueprint
+        blueprint=collector_blueprint,
+        programs_list=f_programs
     )
     time_slot_length = collector.time_slot_length.to_datetime()
 
