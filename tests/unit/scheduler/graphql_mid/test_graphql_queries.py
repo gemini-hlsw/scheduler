@@ -1,13 +1,16 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import pytest
+
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
 from scheduler.graphql_mid.server import schema
 
 
-def test_schedule_query():
+@pytest.mark.asyncio
+async def test_schedule_query():
     ObservatoryProperties.set_properties(GeminiProperties)
     query = """
         query schedule {
@@ -43,7 +46,7 @@ def test_schedule_query():
         }
     }
     """
-    result = schema.execute_sync(query)
+    result = await schema.execute(query)
     assert result is not None
     result_data = result.data
     assert result_data is not None
