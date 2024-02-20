@@ -214,7 +214,8 @@ class Service:
             semester_visibility: bool = True,
             num_nights_to_schedule: Optional[int] = None,
             cc_per_site: Optional[Dict[Site, CloudCover]] = None,
-            iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
+            iq_per_site: Optional[Dict[Site, ImageQuality]] = None,
+            program_file: Optional[bytes] = None):
 
         semesters = frozenset([Semester.find_semester_from_date(start_vis.datetime),
                                Semester.find_semester_from_date(end_vis.datetime)])
@@ -239,7 +240,8 @@ class Service:
                                             end,
                                             sites,
                                             semesters,
-                                            Blueprints.collector)
+                                            Blueprints.collector,
+                                            program_file)
 
         selector = builder.build_selector(collector,
                                           num_nights_to_schedule,
