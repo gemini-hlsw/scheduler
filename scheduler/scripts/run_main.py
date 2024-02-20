@@ -70,12 +70,14 @@ def main(*,
     builder = ValidationBuilder(Sources(), queue)
 
     # check if path exist and read
-    programs_path = Path(programs_ids)
     f_programs = None
-    if programs_path.exists():
-        f_programs = open(programs_path, "r+")
-    else:
-        raise ValueError(f'Path {programs_path} does not exist.')
+    if programs_ids:
+        programs_path = Path(programs_ids)
+
+        if programs_path.exists():
+            f_programs = open(programs_path, "r+")
+        else:
+            raise ValueError(f'Path {programs_path} does not exist.')
 
     # Create the Collector, load the programs, and zero out the time used by the observations.
     collector = builder.build_collector(
@@ -84,7 +86,7 @@ def main(*,
         sites=sites,
         semesters=semesters,
         blueprint=collector_blueprint,
-        programs_list=f_programs
+        program_list=f_programs
     )
     time_slot_length = collector.time_slot_length.to_datetime()
 
