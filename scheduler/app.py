@@ -8,11 +8,11 @@ from scheduler.graphql_mid.server import graphql_server
 app = FastAPI()
 
 origins = [
+    "https://schedule-staging.gemini.edu/",
+    "https://schedule.gemini.edu/",
     "https://schedule-subscriber-staging.herokuapp.com",
     "https://gpp-schedule-ui-staging.herokuapp.com",
-    "http://scheduler.lucuma.xyz:5173" # dev,
-    "https://schedule-staging.gemini.edu/",
-    "https://schedule.gemini.edu/"
+    "http://scheduler.lucuma.xyz:5173",  # dev
 ]
 
 app.add_middleware(
