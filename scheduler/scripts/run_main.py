@@ -46,7 +46,7 @@ def main(*,
     # Create the Collector and load the programs.
     collector_blueprint = CollectorBlueprint(
         ['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
-        ['Q', 'LP', 'FT', 'DD'],
+        ['Q', 'LP', 'FT', 'DD', 'C'],
         1.0
     )
 
@@ -75,7 +75,7 @@ def main(*,
         programs_path = Path(programs_ids)
 
         if programs_path.exists():
-            f_programs = open(programs_path, "r+")
+            f_programs = programs_path
         else:
             raise ValueError(f'Path {programs_path} does not exist.')
 
