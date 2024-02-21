@@ -169,6 +169,7 @@ class OcsProgramProvider(ProgramProvider):
     class _AtomKeys:
         OBS_CLASS = 'observe:class'
         INSTRUMENT = 'instrument:instrument'
+        INST_NAME = 'instrument:name'
         WAVELENGTH = 'instrument:observingWavelength'
         OBSERVED = 'metadata:complete'
         TOTAL_TIME = 'totalTime'
@@ -491,6 +492,29 @@ class OcsProgramProvider(ProgramProvider):
             ra=np.empty([]),
             dec=np.empty([]))
 
+
+    @staticmethod
+    def _parse_instrument(data: dict) -> str:
+        """Get the instrument name"""
+
+        instrument = ''
+        fpu = None
+
+        inst_key = OcsProgramProvider._AtomKeys.INSTRUMENT
+        # Visitor instrument names are in OcsProgramProvider._AtomKeys.INST_NAME
+        if OcsProgramProvider._AtomKeys.INST_NAME in data:
+            inst_key = OcsProgramProvider._AtomKeys.INST_NAME
+        instrument = data[inst_key].split(' ')[0]
+
+        if instrument in OcsProgramProvider.FPU_FOR_INSTRUMENT:
+            if OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
+                fpu = data[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
+
+        if instrument == 'GMOS-N' and fpu == 'IFU Left Slit (blue)':
+            instrument = 'GRACES'
+
+        return instrument
+
     @staticmethod
     def _parse_instrument_configuration(data: dict, instrument: str) \
             -> Tuple[Optional[str], Optional[str], Optional[str], Optional[Wavelength]]:
@@ -501,24 +525,13 @@ class OcsProgramProvider(ProgramProvider):
         def find_filter(filter_input: str, filter_dict: Mapping[str, float]) -> Optional[str]:
             return next(filter(lambda f: f in filter_input, filter_dict), None)
 
-        if instrument == 'Visitor Instrument':
-            instrument = data[OcsProgramProvider._InstrumentKeys.NAME].split(' ')[0]
-            if instrument in ["'Alopeke", "Zorro"]:
-                fpu = None
-            else:
-                fpu = instrument
-        else:
-            if instrument in OcsProgramProvider.FPU_FOR_INSTRUMENT:
-                if OcsProgramProvider._FPUKeys.CUSTOM in data:
-                    # This will assign the MDF name to the FPU
-                    fpu = data[OcsProgramProvider._FPUKeys.CUSTOM]
-                elif OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
-                    fpu = data[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
-                else:
-                    # TODO: Might need to raise an exception here. Check code with science.
-                    fpu = None
-            else:
-                raise ValueError(f'Instrument {instrument} not supported')
+        fpu = None
+        if instrument in OcsProgramProvider.FPU_FOR_INSTRUMENT:
+            if OcsProgramProvider._FPUKeys.CUSTOM in data:
+                # This will assign the MDF name to the FPU
+                fpu = data[OcsProgramProvider._FPUKeys.CUSTOM]
+            elif OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
+                fpu = data[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
 
         if OcsProgramProvider._AtomKeys.DISPERSER in data:
             disperser = data[OcsProgramProvider._AtomKeys.DISPERSER]
@@ -557,9 +570,8 @@ class OcsProgramProvider(ProgramProvider):
         except KeyError:
             wavelength = None
 
-        # Identify GRACES - ToDo: check if needed
-        # if instrument == 'GMOS-N' and fpu == 'IFU Left Slit (blue)':
-        #     instrument = 'GRACES'
+        # Identify GRACES
+        # if instrument == 'GRACES':
         #     if 'DS920' in filt:
         #         fpu = '1-fiber'
         #     elif 'HeIIC' in filt:
@@ -660,9 +672,10 @@ class OcsProgramProvider(ProgramProvider):
         # print(f'\t\t\t do_not_split: {do_not_split}')
 
         # all atoms must have the same instrument
-        instrument = sequence[0][OcsProgramProvider._AtomKeys.INSTRUMENT]
-        for step in sequence:
+        instrument = self._parse_instrument(sequence[0])
+        # print(f'instrument {instrument}')
 
+        for step in sequence:
             # Instrument configuration aka Resource.
             fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
 
@@ -1219,9 +1232,17 @@ class OcsProgramProvider(ProgramProvider):
             logger.warning(f'Could not determine program type for program {program_id}. Skipping.')
             return None
 
-        band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
-        thesis = data[OcsProgramProvider._ProgramKeys.THESIS]
         program_mode = ProgramMode[data[OcsProgramProvider._ProgramKeys.MODE].upper()]
+        try:
+            band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
+        except ValueError:
+            # Treat classical as Band 1, other types as Band 2
+            if program_mode == ProgramMode.CLASSICAL:
+                band = Band(1)
+            else:
+                band = Band(2)
+        thesis = data[OcsProgramProvider._ProgramKeys.THESIS]
+        # print(f'\t program_mode = {program_mode}, band = {band}')
 
         # Determine the start and end date of the program.
         # NOTE that this includes the fuzzy boundaries.

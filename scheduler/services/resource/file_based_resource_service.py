@@ -318,9 +318,9 @@ class FileBasedResourceService(ResourceService):
                 if filename != 'GCAL' and filename not in instrument_column_mapping:
                     raise KeyError(f'{msg} contains instrument name with no column: {filename}.')
                 try:
-                    # TODO: Temporary: GCAL does not have its own column. Unsure of how to handle this.
+                    # GCAL does not have its own column, treat as always available
                     if filename == 'GCAL':
-                        instrument_status = ''
+                        instrument_status = FileBasedResourceService._SCIENCE
                     else:
                         instrument_status = none_to_str(row[instrument_column_mapping[filename]].value).strip().upper()
                 except IndexError:
