@@ -1,4 +1,4 @@
-2018-08-01 aug01-aug02	0
+2018 aug01-aug02	0
 2018 aug02-aug03	0
 2018 aug03-aug04	0
 2018 aug04-aug05	0
@@ -66,7 +66,7 @@
 2018 oct09-oct10	0
 2018 oct10-oct11	0
 2018 oct11-oct12	0
-2018 oct12-oct13	5.47	20:30-02:12   F2 ENT
+2018 oct12-oct13	5.47	20:30-02:12   F2 ENT 
 2018 oct13-oct14	0
 2018 oct14-oct15	0
 2018 oct15-oct16	3.6   GSAOI ENT
@@ -118,7 +118,7 @@
 2018 nov30-dec01	0.85 23:15-00:06
 2018 dec01-dec02	0
 2018 dec02-dec03	0
-2018 dec03-dec04	0
+2018 dec03-dec04	0	
 2018 dec04-dec05	0
 2018 dec05-dec06	0
 2018 dec06-dec07	0

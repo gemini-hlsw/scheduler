@@ -1,92 +1,92 @@
 2018-01-31	twi	21:24	[Wind]
-2018-02-01	twi	twi	[None given]
-2018-02-02	twi	twi	[None given]
-2018-02-04	twi	twi	[None given]
-2018-02-05	twi	twi	[None given]
-2018-02-06	twi	twi	[None given]
-2018-02-07	twi	twi	[None given]
+2018-02-01	twi	twi
+2018-02-02	twi	twi
+2018-02-04	twi	twi
+2018-02-05	twi	twi
+2018-02-06	twi	twi
+2018-02-07	twi	twi
 2018-02-08	23:30	02:57	[Wind]
 2018-02-08	04:15	twi	[Wind]
 2018-02-09	03:26	twi	[Wind]
 2018-02-10	twi	19:49	[Wind]
-2018-02-13	twi	00:17	[CC	Any]
-2018-02-13	00:59	twi	[CC	Any]
-2018-02-14	twi	twi	[None given]
-2018-02-15	twi	twi	[None given]
+2018-02-13	twi	00:17	[CC Any]
+2018-02-13	00:59	twi	[CC Any]
+2018-02-14	twi	twi
+2018-02-15	twi	twi
 2018-02-16	1:43	twi	[Fog]
 2018-02-17	twi	23:05	[Fog]
 2018-02-17	1:53	twi	[Fog]
-2018-02-18	twi	twi	[None given]
-2018-02-19	twi	twi	[None given]
-2018-02-20	twi	twi	[None given]
-2018-02-21	twi	twi	[None given]
-2018-02-22	twi	twi	[None given]
-2018-02-23	twi	twi	[None given]
-2018-02-24	twi	twi	[None given]
-2018-02-25	twi	twi	[None given]
-2018-02-26	twi	twi	[None given]
-2018-02-27	twi	23:50	[CC	Any]
-2018-02-28	twi	twi	[None given]
+2018-02-18	twi	twi
+2018-02-19	twi	twi
+2018-02-20	twi	twi
+2018-02-21	twi	twi
+2018-02-22	twi	twi
+2018-02-23	twi	twi
+2018-02-24	twi	twi
+2018-02-25	twi	twi
+2018-02-26	twi	twi
+2018-02-27	twi	23:50	[CC Any]
+2018-02-28	twi	twi
 2018-03-02	twi	20:50	[CC Any]
 2018-03-03	twi	23:12	[CC Any]
 2018-03-04	19:54	twi	[CC Any]
 2018-03-05	19:47	21:22	[Fog]
 2018-03-06	1:32	twi	[Fog]
-2018-03-07	twi	twi	[None given]
-2018-03-08	twi	twi	[None given]
-2018-03-09	twi	twi	[None given]
-2018-03-10	twi	twi	[None given]
-2018-03-11	twi	twi	[None given]
-2018-03-12	twi	twi	[None given]
-2018-03-13	twi	twi	[None given]
+2018-03-07	twi	twi
+2018-03-08	twi	twi
+2018-03-09	twi	twi
+2018-03-10	twi	twi
+2018-03-11	twi	twi
+2018-03-12	twi	twi
+2018-03-13	twi	twi
 3018-03-14	twi	22:35	[Fog]
-3018-03-15	twi	twi	[None given]
+3018-03-15	twi	twi
 3018-03-16	twi	00:21	[Fog]
 2018-03-17	twi	20:19	[Fog]
-2018-03-19	twi	twi	[None given]
-2018-03-20	twi	twi	[None given]
+2018-03-19	twi	twi
+2018-03-20	twi	twi
 2018-03-21	twi	20:47	[CC Any]
 2018-03-21	21:48	00:31	[CC Any]
-2018-03-22	twi	twi	[None given]
-2018-03-23	twi	twi	[None given]
-2018-03-24	twi	twi	[None given]
-2018-03-25	twi	twi	[None given]
-2018-03-26	twi	twi	[None given]
-2018-03-27	twi	twi	[None given]
+2018-03-22	twi	twi
+2018-03-23	twi	twi
+2018-03-24	twi	twi
+2018-03-25	twi	twi
+2018-03-26	twi	twi
+2018-03-27	twi	twi
 2018-03-31	twi	23:02	[CC Any]
 2018-04-01	twi	21:58	[CC Any]
 2018-04-01	22:23	23:48	[CC Any]
 2018-04-01	00:33	01:31	[CC Any]
-2018-04-02	twi	twi	[None given]
-2018-04-03	twi	twi	[None given]
-2018-04-04	twi	twi	[None given]
-2018-04-05	twi	twi	[None given]
-2018-04-06	twi	twi	[None given]
-2018-04-07	twi	twi	[None given]
-2018-04-08	twi	twi	[None given]
-2018-04-09	twi	twi	[None given]
+2018-04-02	twi	twi
+2018-04-03	twi	twi
+2018-04-04	twi	twi
+2018-04-05	twi	twi
+2018-04-06	twi	twi
+2018-04-07	twi	twi
+2018-04-08	twi	twi
+2018-04-09	twi	twi
 2018-04-10	23:00	01:12	[Fog]
 2018-04-10	1:55	twi	[Fog]
-2018-04-11	twi	twi	[None given]
-2018-04-13	twi	twi	[None given]
-2018-04-14	twi	twi	[None given]
-2018-04-15	twi	twi	[None given]
+2018-04-11	twi	twi
+2018-04-13	twi	twi
+2018-04-14	twi	twi
+2018-04-15	twi	twi
 2018-04-16	twi	23:42	[Fog]
 2018-04-17	21:13	22:23	[CC Any]
 2018-04-18	1:25	2:37	[CC Any]
 2018-04-18	3:38	twi	[CC Any]
-2018-04-19	twi	twi	[None given]
+2018-04-19	twi	twi
 2018-04-20	twi	22:36	[Fog]
 2018-04-26	21:58	23:17	[CC Any]
 2018-04-26	00:43	1:28	[CC Any]
 2018-04-26	3:05	3:34	[CC Any]
 2018-04-26	4:45	twi	[CC Any]
-2018-04-27	twi	twi	[None given]
-2018-04-28	twi	twi	[None given]
-2018-04-29	twi	twi	[None given]
-2018-04-30	twi	twi	[None given]
-2018-05-01	twi	twi	[None given]
-2018-05-02	twi	twi	[None given]
+2018-04-27	twi	twi
+2018-04-28	twi	twi
+2018-04-29	twi	twi
+2018-04-30	twi	twi
+2018-05-01	twi	twi
+2018-05-02	twi	twi
 2018-05-03	twi	23:55	[Fog]
 2018-05-03	00:41	3:16	[Fog]
 2018-05-03	03:37	twi	[Fog]
@@ -108,21 +108,21 @@
 2018-05-26	23:35	00:11	[CC Any]
 2018-05-27	twi	20:09	[CC Any]
 2018-05-27	22:07	23:29	[CC Any]
-2018-05-28	twi	twi	[None given]
-2018-05-29	twi	twi	[None given]
+2018-05-28	twi	twi
+2018-05-29	twi	twi
 2018-06-01	twi	20:00	[CC Any]
 2018-06-02	22:43	23:57	[CC Any]
 2018-06-06	22:49	twi	[CC Any]
-2018-06-07	twi	twi	[None given]
-2018-06-08	twi	twi	[None given]
+2018-06-07	twi	twi
+2018-06-08	twi	twi
 2018-06-10	22:02	23:49	[CC Any]
 2018-06-17	22:30	twi	[Fog]
-2018-06-18	twi	twi	[None given]
-2018-06-19	twi	twi	[None given]
+2018-06-18	twi	twi
+2018-06-19	twi	twi
 2018-06-26	1:13	twi	[Fog]
 2018-06-29	1:24	1:50	[CC Any]
 2018-07-01	twi	2:28	[CC Any]
-2018-07-02	twi	twi	[None given]
+2018-07-02	twi	twi
 2018-07-06	twi	2:43	[Fog]
 2018-07-06	4:20	twi	[Fog]
 2018-07-07	21:00	22:30	[Fog]
@@ -140,7 +140,7 @@
 2018-07-20	3:54	twi	[CC Any]
 2018-07-25	20:34	2:08	[Fog]
 2018-07-25	2:16	twi	[Fog]
-2018-07-26	twi	twi	[None given]
+2018-07-26	twi	twi
 2018-08-01	23:56	1:43	[Fog]
 2018-08-03	21:10	3:00	[Fog]
 2018-08-07	00:03	twi	[Wind, Humidity]
@@ -194,7 +194,7 @@
 2018-10-30	twi	twi	[Fog]
 2018-10-31	twi	21:50	[Fog]
 2018-11-01	1:00	1:30	[Fog]
-2018-11-02	00:42	twi	[CC,	Snow]
+2018-11-02	00:42	twi	[CC, Snow]
 2018-11-03	twi	1:07	[Humidity]
 2018-11-03	5:05	twi	[Humidity]
 2018-11-04	twi	21:45	[Humidity]

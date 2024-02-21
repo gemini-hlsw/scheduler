@@ -1,0 +1,164 @@
+ Local time nt  (UT nt = 1 + local)
+               WL start        WL end HST    Cause
+2018-01-31     twi             21:24        Winds
+2018-02-01     twi             twi
+2018-02-02     twi             twi
+2018-02-04     twi             twi
+2018-02-05     twi             twi
+2018-02-06     twi             twi
+2018-02-07     twi             twi
+2018-02-08     23:30           02:57         Winds
+               4:15            twi           Winds
+2018-02-09     3:26            twi           Winds
+2018-02-10     twi             19:49         Winds
+               19:49           22:35     [NIRI checkouts]
+2018-02-13     twi             00:17        CC Any
+               00:59           twi          CC Any
+2018-02-14     twi             twi
+2018-02-15     twi             twi
+2018-02-16     1:43            twi          fog
+2018-02-17     twi             23:05        fog
+               1:53            twi          fog
+2018-02-18     twi             twi
+2018-02-19     twi             twi
+2018-02-20     twi             twi
+2018-02-21     twi             twi
+2018-02-22     twi             twi
+2018-02-23     twi             twi
+2018-02-24     twi             twi
+2018-02-25     twi             twi
+2018-02-26     twi             twi
+2018-02-27     twi             23:50        CC Any
+2018-02-28     twi             twi
+2018-03-02     twi             20:50        CC Any
+2018-03-03     twi             23:12        CC Any
+2018-03-04     19:54           twi          CC Any
+2018-03-05     19:47           21:22        fog
+               1:23            3:24     [NIRI checkouts]
+2018-03-06     1:32            twi          fog
+2018-03-07     twi             twi
+2018-03-08     twi             twi
+2018-03-09     twi             twi
+2018-03-10     twi             twi
+2018-03-11     twi             twi
+2018-03-12     twi             twi
+2018-03-13     twi             twi
+3018-03-14     twi             22:35        fog
+3018-03-15     twi             twi
+3018-03-16     twi             00:21        fog
+2018-03-17     twi             20:19        fog
+2018-03-19     twi             twi
+2018-03-20     twi             twi
+2018-03-21     twi             20:47       CC Any
+               21:48           00:31       CC Any
+2018-03-22     twi             twi
+2018-03-23     twi             twi
+2018-03-24     twi             twi
+2018-03-25     twi             twi
+2018-03-26     twi             twi
+2018-03-27     twi             twi
+2018-03-29     twi             22:55  [Alopeke commissioning]
+               1:20            2:25   [Alopeke commissioning]
+2018-03-31     twi             23:02       CC Any
+2018-04-01     twi             21:58       CC Any
+               22:23           23:48       CC Any
+               00:33           01:31       CC Any
+2018-04-02     twi             twi
+2018-04-03     twi             twi
+2018-04-04     twi             twi
+2018-04-05     twi             twi
+2018-04-06     twi             twi
+2018-04-07     twi             twi
+2018-04-08     twi             twi
+2018-04-09     twi             twi
+2018-04-10     23:00           01:12       fog
+               1:55            twi         fog
+2018-04-11     twi             twi
+2018-04-13     twi             twi
+2018-04-14     twi             twi
+2018-04-15     twi             twi
+2018-04-16     twi             23:42       fog
+2018-04-17     21:13           22:23       CC Any
+2018-04-18     1:25            2:37        CC Any
+               3:38            twi         CC Any
+2018-04-19     twi             twi
+2018-04-20     twi             22:36       fog
+2018-04-26     21:58           23:17       CC Any
+               00:43           1:28        CC Any
+               3:05            3:34        CC Any
+               4:45            twi         CC Any
+2018-04-27     twi             twi
+2018-04-28     twi             twi
+2018-04-29     twi             twi
+2018-04-30     twi             twi
+2018-05-01     twi             twi
+2018-05-02     twi             twi
+2018-05-03     twi             23:55      fog
+               00:41           3:16       fog
+               03:37           twi        fog
+2018-05-04     20:57           21:17      CC Any
+               21:31           22:45      CC Any
+               23:58           twi        fog
+2018-05-05     1:47            twi        CC Any
+2018-05-07     twi             20:27      CC Any
+               21:54           22:36      CC Any
+               1:39            2:03       CC Any
+               2:23            2:55       CC Any
+2018-05-08     22:40           23:46      fog
+               1:46            twi        CC Any
+2018-05-10     twi             21:07      fog
+2018-05-12     twi             20:50  [NIFS checkouts] 
+2018-05-16     21:33           00:40      fog
+               1:06            2:50       fog
+2018-05-23     23:21           1:00       CC Any
+2018-05-24     1:27            2:19   [ENT]
+2018-05-25     19:38           21:29  [NIRI checkouts]
+               23:06           23:15     CC Any
+2018-05-26     19:56           21:24  [NIRI checkouts continued]
+               23:35           00:11     CC Any
+2018-05-27     twi             20:09     CC Any
+               22:07           23:29     CC Any
+2018-05-28     twi             twi       
+2018-05-29     twi             twi
+2018-05-30     21:22           23:13  [NIRI checkouts completed]
+2018-06-01     twi             20:00    CC Any
+2018-06-02     22:43           23:57    CC Any
+2018-06-06     22:49           twi      CC Any
+2018-06-07     twi             twi      
+2018-06-08     twi             twi
+2018-06-10     22:02           23:49   CC Any
+2018-06-11     4:44            twi    [ENT]
+2018-06-17     22:30           twi     fog
+2018-06-18     twi             twi     
+2018-06-19     twi             twi
+2018-06-24     2:33            twi    [ENTs]
+2018-06-26     1:13            twi     fog
+2018-06-29     1:24            1:50    CC Any
+2018-07-01     twi             2:28    CC Any
+2018-07-02     twi             twi
+2018-07-03     twi             22:08  [Hippi comm.]
+2018-07-04     twi             twi    [Hippi comm.]
+2018-07-05     twi             twi    [Hippi comm.]
+2018-07-06     twi             2:43    fog
+               4:20            twi     fog
+2018-07-07     19:50           21:00  [NIRI checkouts]
+               21:00           22:30   fog
+               1:16            1:59    fog
+2018-07-08     twi             20:53   fog
+               20:53           22:41  [NIRI checkouts]
+2018-07-10     twi             22:05   CC Any
+2018-07-12     00:03           01:52  [ENT]
+2018-07-13     twi             20:33   CC Any
+               23:48           twi     CC Any
+2018-07-14     twi             1:13    fog
+2018-07-16     twi             20:37  [ENT]
+               3:46            twi     CC Any
+2018-07-17     twi             22:01   CC Any
+               22:39           twi     fog
+2018-07-20     twi             21:36   CC Any
+               23:05           3:20    CC Any
+               3:54            twi     CC Any
+2018-07-25     20:34           2:08    fog
+               2:16            twi     fog
+2018-07-26     twi             twi
+

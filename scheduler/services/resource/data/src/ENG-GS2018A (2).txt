@@ -1,0 +1,177 @@
+Date			total 	Start-Stop (CST)	Info
+2018 feb01-feb02	1.21	03:05-04:19		TCS ENT
+2018 feb02-feb03	1.88	21:36-23:29		F2 ENT-18 0918
+2018 feb03-feb04	0
+2018 feb04-feb05	0
+2018 feb05-feb06	0
+2018 feb06-feb07	0
+2018 feb07-feb08	0
+2018 feb08-feb09	0
+2018 feb09-feb10	0
+2018 feb11-feb12	0
+2018 feb12-feb13	4.53	21:28-02:00	 	TCS RTEM testing
+2018 feb13-feb14	0
+2018 feb14-feb15	1.5	21:26-22:56		TCS RTEM testing
+2018 feb15-feb16	3.51	21:11-23:00	04:00-6:30  F2 ENT and AO ENT	
+2018 feb16-feb17	1.53	21:00-22:56		F2 ENT
+2018 feb17-feb18	0
+2018 feb18-feb19	0
+2018 feb19-feb20	0
+2018 feb20-feb21	1.42	04:03-5:28		TCS RTEMS ENT to check GeMS NGS AO
+2018 feb21-feb22	1.78	21:00-22:47		F2 ENT-18 0918
+2018 feb22-feb23	4.28	21:18-01:45		F2 ENT-18 0918
+2018 feb23-feb24	3.63	21:09-00:45		F2 ENT-18 0918 and ENT-17 0907
+2018 feb24-feb25	1.58	21:00-23:35		F2 ENT-18 0918
+2018 feb25-feb26	0
+2018 feb26-feb27	0
+2018 feb27-feb28	0
+2018 feb28-mar01	3.12	21:10-23:17		GSAOI ENT-18 0923
+2018 mar01-mar02	0
+2018 mar02-mar03	0
+2018 mar03-mar04	0
+2018 mar04-mar05	0
+2018 mar05-mar06	1.166	22:00-23:10		ENT-18 0926
+2018 mar06-mar07	0
+2018 mar07-mar08	0
+2018 mar08-mar09	0
+2018 mar09-mar10	0
+2018 mar10-mar11	0
+2018 mar11-mar12	0
+2018 mar12-mar13	2.45	21:00-22:27		F2-OIWF ENT
+2018 mar13-mar14	1.78	20:56-22:43		GMOS ENT
+2018 mar14-mar15	1.33	20:53-22:13		GMOS ENT
+2018 mar15-mar16	0
+2018 mar16-mar17	0
+2018 mar17-mar18	0
+2018 mar18-mar19	0
+2018 mar19-mar20	0
+2018 mar20-mar21	0
+2018 mar21-mar22	0
+2018 mar22-mar23	0
+2018 mar23-mar24	0
+2018 mar24-mar25	0
+2018 mar25-mar26	0
+2018 mar27-mar28	1.1	20:54-22:00		GMOS ENT 
+2018 mar28-mar29	0
+2018 mar29-mar30	0
+2018 mar30-mar31	0
+2018 mar31-apr01	0
+2018 apr01-apr02	0
+2018 apr02-apr03	0
+2018 apr03-apr04	0
+2018 apr04-apr05	0
+2018 apr05-apr06	0
+2018 apr06-apr07	0
+2018 apr07-apr08	0
+2018 apr08-apr09	0
+2018 apr09-apr10	1.183	21:27	22:01	F2 checks
+2018 apr10-apr11	0
+2018 apr11-apr12	0.434	04:36	04:55	F2 checks
+2018 apr12-apr13	0
+2018 apr13-apr14	1.55	20:13	21:50 	F2 checks
+2018 apr14-apr15	0
+2018 apr15-apr16	0
+2018 apr16-apr17	0
+2018 apr17-apr18	0.0
+2018 apr18-apr19	0.62	19:15	19:52	ENT-18 0934
+2018 apr19-apr20	0
+2018 apr20-apr21	0
+2018 apr21-apr22	0
+2018 apr22-apr23	0
+2018 apr23-apr24	0
+2018 apr24-apr25	0
+2018 apr25-apr26	0
+2018 apr26-apr27	0
+2018 apr27-apr28	0
+2018 apr28-apr29	0
+2018 apr30-may01	0
+2018 may01-may02	0
+2018 may02-may03	0
+2018 may03-may04	0
+2018 may04-may05	0
+2018 may05-may06	0
+2018 may06-may07	0
+2018 may07-may08	0
+2018 may08-may09	0
+2018 may09-may10	0
+2018 may10-may11	0
+2018 may11-may12	0
+2018 may12-may13	0
+2018 may13-may14	0
+2018 may14-may15	0
+2018 may15-may16	0
+2018 may16-may17	0
+2018 may17-may18	0
+2018 may18-may19	0
+2018 may19-may20	0
+2018 may20-may21	0
+2018 may21-may22	0
+2018 may22-may23	0
+2018 may23-may24	0
+2018 may24-may25	0
+2018 may25-may26	0
+2018 may26-may27	0
+2018 may27-may28	0
+2018 may28-may29	0
+2018 may30-may31	0
+2018 may31-jun01	0
+2018 jun01-jun02	0
+2018 jun02-jun03	0
+2018 jun03-jun04	0
+2018 jun04-jun05	1.33	19:46-20:18		ENT-18 0937
+2018 jun05-jun06	0
+2018 jun06-jun07	0
+2018 jun07-jun08	0
+2018 jun08-jun09	0
+2018 jun09-jun10	0
+2018 jun09-jun10	0
+2018 jun11-jun12	0
+2018 jun12-jun13	0
+2018 jun13-jun14	0
+2018 jun14-jun15	0
+2018 jun15-jun16	0
+2018 jun16-jun17	0
+2018 jun17-jun18	0
+2018 jun18-jun19	0.58	00:29-01:05	ENT-18 0935
+2018 jun19-jun20	0.65	00:20-00:59	ENT-18 0935
+2018 jun20-jun21	0
+2018 jun21-jun22	0
+2018 jun22-jun23	0
+2018 jun23-jun24	0
+2018 jun24-jun25	0
+2018 jun25-jun26	0
+2018 jun26-jun27	0
+2018 jun27-jun28	0
+2018 jun28-jun29	0
+2018 jun29-jun30	0
+2018 jun30-jul01	0
+2018 jul01-jul02	0
+2018 jul02-jul03	0
+2018 jul03-jul04	0
+2018 jul04-jul05	0
+2018 jul05-jul06	0
+2018 jul06-jul07	0
+2018 jul07-jul08	0
+2018 jul08-jul09	0
+2018 jul09-jul10	0
+2018 jul10-jul11	0
+2018 jul11-jul12	0
+2018 jul12-jul13	0
+2018 jul13-jul14	0
+2018 jul14-jul15	0
+2018 jul15-jul16	0
+2018 jul16-jul17	0
+2018 jul17-jul18	0
+2018 jul18-jul19	0
+2018 jul19-jul20	0
+2018 jul20-jul21	0
+2018 jul21-jul22	0
+2018 jul22-jul23	0
+2018 jul23-jul24	0
+2018 jul24-jul25	0
+2018 jul25-jul26	0
+2018 jul26-jul27	0
+2018 jul27-jul28	0
+2018 jul28-jul29	0
+2018 jul29-jul30	11.55	19:03-06:36	GeMS ENT
+2018 jul30-jul31	2.6	19:04-21:40	GeMS ENT

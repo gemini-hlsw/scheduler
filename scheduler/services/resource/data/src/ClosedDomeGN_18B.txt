@@ -1,0 +1,140 @@
+ Local time nt  (UT nt = 1 + local)
+               WL start        WL end
+
+2018-08-01    23:56            1:43     fog
+2018-08-03    21:10            3:00     fog
+2018-08-07    20:03           21:24     [NIFS checkouts]
+              00:03            twi      winds and humidity
+2018-08-08     twi             twi      hurricane
+2018-08-09     twi             1:27     humidity
+2018-08-12    3:19             twi      humidity
+2018-08-14     twi             twi      humidity
+2018-08-15     twi            21:18     humidity
+              3:29            twi       humidity
+2018-08-18     twi             twi      humidity
+2018-08-19     twi            22:25     humidity
+2018-08-22     twi            twi       hurricane
+2018-08-23     twi            twi       hurricane
+2018-08-24     twi            twi       hurricane
+2018-08-25     twi            twi       hurricane
+2018-08-26     twi            twi       hurricane
+2018-08-27     twi            twi       humidity
+2018-08-28     twi            twi       humidity
+2018-08-29    22:40           00:14     humidity
+2018-09-02    2:44            twi       humidity
+2018-09-03     twi            twi       humidity
+2018-09-06     twi            3:56      fog
+2018-09-07     twi            00:39     humidity
+2018-09-08     twi            22:04     humidity
+2018-09-11    20:44           twi       humidity
+2018-09-12     twi            twi       humidity
+2018-09-13     twi            23:31     humidity
+               2:55           twi    [NIFS crash, cannot be recovered)
+2018-09-17  - 2018-09-27  [telescope shutdown]
+2018-09-28    twi             twi    [telescope checkouts]
+2018-09-29    twi             twi    [GMOS, GNIRS, NIRI checkouts]
+2018-09-30    twi             1:06   [LGS toptica comm.]
+2018-10-01    twi             4:30   [Toptica comm.]
+2018-10-02    twi             21:40  [Toptica comm.]
+             21:40            1:47   [NIRI LGS checkouts]
+2018-10-03    twi             twi    [LGS & NIRI comm./checkouts]
+2018-10-04    twi             22:25  [LGS work]
+2018-10-05    twi             00:00  [LSG work]
+              00:00           3:39   [ENT]
+              3:39            twi     humidity
+2018-10-06    twi             twi     humidity
+2018-10-07    twi             twi     humidity
+2018-10-08    twi             twi     humidity
+2018-10-10    20:25           21:37   [NIRI eng]
+              22:05           22:25    fog   
+2018-10-12    twi              twi     snow
+2018-10-13    twi              twi     humidity
+2018-10-14    twi              19:19   humidity
+2018-10-15    18:49            19:33   CC
+              4:40             twi     CC
+2018-10-16    twi              19:08   CC
+2018-10-17    twi              20:35   humidity
+2018-10-18    twi              twi     snow
+2018-10-19    twi              twi     humidity
+2018-10-20    twi              twi     snow
+2018-10-23    20:02            4:00    humidity
+2018-10-24    3:14             twi     fog
+2018-10-25    twi              19:49   humidity
+2018-10-26    19:21            22:32   humidity
+2018-10-27    19:58            22:00   CC
+              00:07            twi     fog
+2018-10-28    22:57            twi     CC
+2018-10-29    twi              twi     fog
+2018-10-30    twi              twi     fog
+2018-10-31    twi              21:50   fog
+2018-11-01    1:00             1:30    fog
+2018-11-02    00:42            twi     CC, snow
+2018-11-03    twi              1:07    humidity
+              5:05             twi     humidity
+2018-11-04    twi              21:45   humidity
+2018-11-05    twi              18:52   humidity
+2018-11-06    twi              3:53    humidity
+2018-11-07    18:39            20:19   humidity
+2018-11-08    20:14            twi     fog
+2018-11-09    18:16            19:43   [ENTs]
+2018-11-10    twi              23:04   humidity
+              5:19             twi      CC
+2018-11-12    18:55            19:58    [LGS ENT]
+              21:55            23:26    [ENT]
+              23:55            00:26    [ENT]
+2018-11-13    4:45             5:08     CC
+              5:08             5:34     [ENT]
+2018-11-14    19:13            22:32    [ENTs]
+              00:45            2:21     CC
+2018-11-15    20:20            00:22    [LGS ENT toptica comm]
+2018-11-16    twi              21:10    CC
+              23:23            twi      CC, humidity   
+2018-11-17    18:55            twi      CC, fog
+2018-11-18    twi              twi      snow
+2018-11-19    twi              22:41    [NIFS checkouts]
+2018-11-20    twi              19:20    [NIFS + LGS checkouts]
+2018-11-26    twi              21:06    [NIRI checkouts]
+2018-11-27    twi              18:47    [NIRI checkouts][no P2 for night P2 FR]
+2018-11-28    twi              22:17    [NIRI checkouts]
+2018-11-29    2:01             twi       fog
+2018-12-03    twi              18:58     [NIFS+P2 checkouts]
+              20:42            21:49     fog
+              1:07             twi       wind
+2018-12-04    19:31            19:57     [NIRI checkouts]
+2018-12-05    18:28            19:57     [NIRI checkouts]
+2018-12-10    twi              20:38     [MAROON-X tests]
+2018-12-11    twi              19:22     [MAROON-X comm]
+2018-12-12    twi              20:09     [MAROON-X comm]
+2018-12-13    19:17            20:36      wind
+2018-12-14    twi              21:03     [GNIRS checkouts]
+2018-12-15    23:31            00:05      wind
+2018-12-17    twi              19:26      CC
+              19:26            20:34      [NIRI checkouts]
+              21:02            21:27      CC
+2018-12-18    twi              23:33      [NIRI checkouts with additional faults]
+2018-12-20    21:06            00:39      [NIRI checkouts]
+2018-12-21    19:32            20:02      [NIRI checkouts]
+2018-12-24    20:29            twi         fog
+2018-12-25    twi              twi         snow
+2018-12-26    twi              twi         snow
+2018-12-27    twi              twi         humidity
+2018-12-28    twi              twi         humidity
+2018-12-29    twi              22:50       humidity
+              23:55            twi         CC
+2018-12-30    twi              20:41       [ENT]
+              21:20            00:00       CC
+              1:32             2:50        CC
+2018-12-31    twi              19:20       [ENT]
+2019-01-17    20:24            21:14       wind
+              5:39             twi         wind
+2019-01-18    twi              20:57       humidity
+              22:07            00:22       humidity
+2019-01-23    21:06            22:03       CC
+2019-01-25    twi              twi         wind, fog
+2019-01-27    twi              twi         temperature
+2019-01-28    twi              twi         temperature
+2019-01-29    twi              twi         humidity
+2019-01-30    twi              twi         ice
+2019-01-31    twi              21:01       humidity
+
+
