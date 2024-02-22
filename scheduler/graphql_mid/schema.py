@@ -106,8 +106,10 @@ class Query:
                                              new_schedule_input.wha_power)
             if new_schedule_input.program_file:
                 program_file = (await new_schedule_input.program_file.read())
+                print(program_file)
             else:
                 program_file = new_schedule_input.program_file
+                print('nullazo')
 
             timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
                                                      start_vis=start,
