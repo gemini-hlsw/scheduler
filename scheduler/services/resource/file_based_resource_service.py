@@ -60,15 +60,16 @@ class FileBasedResourceService(ResourceService):
 
                 # Only map if the FPU is a resource.
                 if fpu is not None:
-                    self._itcd_fpu_to_barcode[site][fpu] = self.lookup_resource(barcode, description=fpu,
-                                                                                type=ResourceType.FPU)
+                    self._itcd_fpu_to_barcode[site][fpu] = self.lookup_resource(barcode,
+                                                                                description=fpu,
+                                                                                resource_type=ResourceType.FPU)
 
     def _load_csv(self,
                   site: Site,
                   c: Callable[[List[str], Site], Set[str]],
                   data_source: Union[str, BytesIO],
                   desc: Optional[str] = None,
-                  type: Optional[int] = ResourceType.NONE) -> None:
+                  resource_type: Optional[int] = ResourceType.NONE) -> None:
         """
         Process a CSV file as a table, where:
 
@@ -99,7 +100,8 @@ class FileBasedResourceService(ResourceService):
                 # Get or create date_set for the date, and append new resources from table, ignoring blank entries.
                 date_set = self._resources[site].setdefault(row_date, set())
                 # new_entries = {self.lookup_resource(r) for r in c(row[1:], site) if r}
-                new_entries = {self.lookup_resource(r, description=desc, type=type) for r in c(row[1:], site) if r}
+                new_entries = {self.lookup_resource(r, description=desc, resource_type=resource_type)
+                               for r in c(row[1:], site) if r}
                 self._resources[site][row_date] = date_set | new_entries
 
                 # Advance the previous row date where data was defined.
@@ -264,7 +266,7 @@ class FileBasedResourceService(ResourceService):
                 # 4. Classical: <prog-id-list>
                 # 5. Priority: <prog-id-list>
                 if mode_entry.startswith('VISITOR:'):
-                    instrument = self.lookup_resource(mode_entry[8:].strip(), type=ResourceType.INSTRUMENT)
+                    instrument = self.lookup_resource(mode_entry[8:].strip(), resource_type=ResourceType.INSTRUMENT)
                     instrument_run.setdefault(instrument, set()).add(row_date)
 
                 elif mode_entry.startswith('PARTNER:'):
@@ -327,7 +329,7 @@ class FileBasedResourceService(ResourceService):
                     # This happens if the row ends prematurely.
                     instrument_status = ''
                 if instrument_status == FileBasedResourceService._SCIENCE:
-                    resources.add(self.lookup_resource(filename, type=ResourceType.INSTRUMENT))
+                    resources.add(self.lookup_resource(filename, resource_type=ResourceType.INSTRUMENT))
                 elif not instrument_status:
                     logger.warning(f'{msg} contains no instrument status for {filename}. '
                                    'Using default of Not Available.')
@@ -345,7 +347,7 @@ class FileBasedResourceService(ResourceService):
                     # This happens if the row ends prematurely.
                     wfs_status = ''
                 if wfs_status == FileBasedResourceService._SCIENCE:
-                    resources.add(self.lookup_resource(filename, type=ResourceType.WFS))
+                    resources.add(self.lookup_resource(filename, resource_type=ResourceType.WFS))
                 elif not wfs_status or wfs_status:
                     logger.warning(f'{msg} for WFS {filename} contains no status. Using default of Not Available.')
                 elif (wfs_status not in
@@ -567,7 +569,7 @@ class FileBasedResourceService(ResourceService):
         self._load_csv(site,
                        self._itcd_fpu_to_barcode_parser,
                        fpus_data,
-                       type=ResourceType.FPU)
+                       resource_type=ResourceType.FPU)
 
         # Load the gratings.
         # This will put the mirror and the grating names available on a given date as Resources.
@@ -575,7 +577,7 @@ class FileBasedResourceService(ResourceService):
         self._load_csv(site,
                        self._mirror_parser,
                        gratings_data,
-                       type=ResourceType.DISPERSER)
+                       resource_type=ResourceType.DISPERSER)
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         self._load_instrument_data(site, spreadsheet_file, from_gdrive=False)

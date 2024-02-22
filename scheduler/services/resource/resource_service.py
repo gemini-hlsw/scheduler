@@ -3,7 +3,7 @@
 
 import os
 from datetime import date
-from typing import Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Dict, FrozenSet, List, Optional, Set, Tuple, TypeAlias, TypeVar
 
 import gelidum
 from lucupy.minimodel import Site, ALL_SITES, Resource, ResourceType
@@ -18,6 +18,7 @@ from .night_configuration import NightConfiguration
 __all__ = ['ResourceService']
 
 logger = logger_factory.create_logger(__name__)
+T: TypeAlias = TypeVar('T')
 
 
 # Note: ExternalService makes this a Singleton.
@@ -116,7 +117,7 @@ class ResourceService(ExternalService):
             sem_id = ResourceService._semd[mdf_name[6]]
             progtype_id = ResourceService._progd[mdf_name[7]]
             barcode = f'{inst_id}{sem_id}{progtype_id}{mdf_name[-6:-3]}{mdf_name[-2:]}'
-        return self.lookup_resource(barcode, description=mdf_name, type=ResourceType.FPU)
+        return self.lookup_resource(barcode, description=mdf_name, resource_type=ResourceType.FPU)
 
     def _itcd_fpu_to_barcode_parser(self, r: List[str], site: Site) -> Set[str]:
         return {self._itcd_fpu_to_barcode[site][r[0].strip()].id} | {i.strip() for i in r[1:]}
@@ -131,7 +132,10 @@ class ResourceService(ExternalService):
             return self._gmoss_ifu_dict.get(fpu_name)
         return None
 
-    def lookup_resource(self, resource_id: str, description=None, type=ResourceType.NONE) -> Optional[Resource]:
+    def lookup_resource(self,
+                        resource_id: str,
+                        description=None,
+                        resource_type=ResourceType.NONE) -> Optional[Resource]:
         """
         Function to perform Resource caching and minimize the number of Resource objects by attempting to reuse
         Resource objects with the same ID.
@@ -148,7 +152,7 @@ class ResourceService(ExternalService):
         if not resource_id:
             return None
         if resource_id not in self._all_resources:
-            self._all_resources[resource_id] = Resource(id=resource_id, description=description, type=type)
+            self._all_resources[resource_id] = Resource(id=resource_id, description=description, type=resource_type)
         # Update description (e.g. MDF) if different from the original. For when the description can be changed.
         # if self._all_resources[resource_id].description != description:
         #     self._all_resources[resource_id].description = description
@@ -173,22 +177,32 @@ class ResourceService(ExternalService):
             raise ValueError(f'Request for night configuration for site {site.name} for illegal date: {local_date}')
         return self._night_configurations[site][local_date]
 
-    def get_resources(self, site: Site, night_date: date) -> FrozenSet[Resource]:
+    def _get_entries(self,
+                     site: Site,
+                     night_date: date,
+                     name_of_object: str,
+                     entries: Dict[Site, Dict[date, Set[T]]]) -> FrozenSet[T]:
         """
-        For a site and a local date, return the set of available resources.
+        For a site and a local date, return the set of available entries.
         The date is currently the truncation to day of the astropy Time objects in the time_grid, which are in UTC
-           and have times of 8:00 am, so to get local dates, in the Collector we subtract one day.
+            and have times of 8:00 am, so to get local dates, in the Collector we subtract one day.
         If the date falls before any resource data for the site, return the empty set.
         If the date falls after any resource data for the site, return the last resource set.
         """
         if site not in self._sites:
-            raise ValueError(f'Request for resources for illegal site: {site.name}')
+            raise ValueError(f'Request for {name_of_object} for illegal site: {site.name}')
 
         # If the date is before the first date or after the last date, return the empty set.
         if night_date < self._earliest_date_per_site[site] or night_date > self._latest_date_per_site[site]:
             return frozenset()
 
-        return frozenset(self._resources[site][night_date])
+        return frozenset(entries[site][night_date])
+
+    def get_resources(self, site: Site, night_date: date) -> FrozenSet[Resource]:
+        return self._get_entries(site, night_date, "resources", self._resources)
+
+    def get_eng_tasks(self, site: Site, night_date: date) -> FrozenSet[EngineeringTask]:
+        return self._get_entries(site, night_date, "engineering tasks", self._eng_tasks)
 
     def fpu_to_barcode(self, site: Site, fpu_name: str, instrument: str) -> Optional[Resource]:
         """
