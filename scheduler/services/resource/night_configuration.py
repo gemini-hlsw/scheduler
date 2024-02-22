@@ -7,7 +7,7 @@ from typing import FrozenSet
 
 from lucupy.minimodel import Resource, Site
 
-# from .event_generators import EngineeringTask, Fault
+from .event_generators import EngineeringTask
 from .filters import AbstractFilter
 
 __all__ = ['NightConfiguration']
@@ -39,4 +39,12 @@ class NightConfiguration:
     # faults: FrozenSet[Fault]
 
     # Historical engineering tasks that block part of the night.
-    # eng_tasks: FrozenSet[EngineeringTask]
+    eng_tasks: FrozenSet[EngineeringTask]
+
+    def __post_init__(self):
+        """
+        Calculate values once to avoid recalculation.
+        """
+        # We have to iterate over the eng_tasks and determine what time slots they cover.
+        # For this, we need the night events to get the length of the night.
+        ...

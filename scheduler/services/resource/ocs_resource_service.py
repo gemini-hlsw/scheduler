@@ -80,6 +80,9 @@ class OcsResourceService(FileBasedResourceService):
                     too_status=(d not in self._blocked[site] and self._too[site][d]),
                     filter=composite_filter,
                     resources=frozenset(self._resources[site][d]),
+
+                    # There may not be eng_tasks for the site or for the date at the site.
+                    eng_tasks=frozenset(self._eng_tasks.get(site, {}).get(d, {}))
                 )
 
                 d += OcsResourceService._day
