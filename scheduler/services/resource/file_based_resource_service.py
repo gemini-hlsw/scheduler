@@ -437,7 +437,7 @@ class FileBasedResourceService(ResourceService):
 
         try:
             with open(path, 'r') as input_file:
-                pattern = r'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}|twi)\s+(\d{2}:\d{2}|twi)\s+\[(.*?)\]'
+                pattern = r'(\d{4}-\d{2}-\d{2})\s+((?:\d{2}:\d{2})|twi)\s+((?:\d{2}:\d{2})|twi)(?:\s+\[(.*?)\])?'
                 eng_tasks = self._eng_tasks[site]
 
                 for line_num, line in enumerate(input_file):
