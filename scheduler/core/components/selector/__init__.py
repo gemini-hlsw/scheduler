@@ -12,9 +12,10 @@ from astropy.coordinates import Angle
 from astropy.units import Quantity
 from lucupy.helpers import is_contiguous
 from lucupy.minimodel import (AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
-                              ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, UniqueGroupID, Variant,
-                              VariantChange)
+                              ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, TimeslotIndex,
+                              UniqueGroupID, Variant, VariantChange)
 from lucupy.minimodel import CloudCover, ImageQuality
+from lucupy.timeutils import time2slots
 
 from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramCalculations, ProgramInfo, Selection
 from scheduler.core.components.base import SchedulerComponent
@@ -23,7 +24,7 @@ from scheduler.core.components.ranker import DefaultRanker, Ranker
 from scheduler.core.components.selector.timebuffer import TimeBuffer
 from scheduler.core.types import StartingTimeslots
 from scheduler.services import logger_factory
-from scheduler.services.resource import NightConfiguration
+from scheduler.services.resource import NightConfiguration, night_configuration
 
 logger = logger_factory.create_logger(__name__)
 
@@ -83,6 +84,9 @@ class Selector(SchedulerComponent):
             logger.warning('Selector has image quality defined on sites that are not in use: ' +
                            site_difference_str(self.cc_per_site.keys()) + '.')
 
+        # Calculate the blocked indices.
+        self._blocked_timeslots = self._calculate_blocked_timeslots()
+
     @staticmethod
     def _process_starting_time_slots(sites: FrozenSet[Site],
                                      night_indices: NightIndices,
@@ -101,6 +105,77 @@ class Selector(SchedulerComponent):
                 logger.warning(f'Extra night indices for site {site.name} for starting_time_slots: {extra_keys}')
 
         return starting_time_slots
+
+    def _calculate_blocked_timeslots(self) -> Dict[Site, Dict[NightIndex, npt.NDArray[TimeslotIndex]]]:
+        """
+        For each site, calculate the blocked timeslots for each night.
+        This information comes from the Engineering Tasks, but it may be expanded in the future to contain more
+        information.
+
+        INFO: This demonstrates the calculations from time to timeslot in a robust way, given that one has access to
+        the NightEvents, the Events, and the night_index.
+        The NightEvents.local_dt_to_time_coords sometimes borks, as is the case here.
+        """
+        sites = self.collector.sites
+
+        # TODO: This seems like an overcalculation: we only need to calculate for the number of nights we are
+        # TODO: scheduling and not the visibility period. Posssible room for improvement.
+        night_indices = np.arange(len(self.collector.time_grid))
+        time_slot_length = self.collector.time_slot_length.to_datetime()
+
+        blocked_indices_by_site = {site: {} for site in sites}
+        for site in sites:
+            night_events = self.collector.get_night_events(site)
+            night_configurations = self.collector.night_configurations(site, night_indices)
+
+            blocked_indices_by_night = {}
+            for night_idx in night_indices:
+                # Twilights for night_idx.
+                earliest_time = night_events.local_times[night_idx][0]
+                latest_time = night_events.local_times[night_idx][-1]
+
+                # Ideally, dtype would be TimeslotIndex, but numpy borks on this.
+                blocked_timeslot_indices = np.array([], dtype=int)
+
+                eng_tasks = night_configurations[night_idx].eng_tasks
+                for eng_task in eng_tasks:
+                    # Bound the start_time and end_time by the twilights.
+                    start_time = max(eng_task.start_time, earliest_time)
+                    start_delta = start_time - earliest_time
+                    start_timeslot_idx = time2slots(time_slot_length, start_delta)
+
+                    # This doesn't work, but not removing yet as we should know this is unreliable.
+                    # start_indices = night_events.local_dt_to_time_coords(start_time)
+                    # if start_indices is None:
+                    #     logger.error(f'Engineering task {eng_task} does not have a valid start time: '
+                    #                  f'determined: {start_time}, latest possible: {earliest_time}')
+                    #     continue
+                    # start_night_idx, start_timeslot_idx = start_indices
+
+                    end_time = min(eng_task.end_time, latest_time)
+                    end_delta = end_time - earliest_time
+                    end_timeslot_idx = time2slots(time_slot_length, end_delta)
+
+                    # This doesn't work, but not removing yet as we should know this is unreliable.
+                    # end_indices = night_events.local_dt_to_time_coords(end_time)
+                    # if end_indices is None:
+                    #     logger.error(f'Engineering task {eng_task} does not have a valid end time: '
+                    #                  f'determined: {end_time}, latest possible: {latest_time}')
+                    #     continue
+                    # end_night_idx, end_timeslot_idx = end_indices
+
+                    # if start_night_idx != night_idx or end_night_idx != night_idx:
+                    #     raise ValueError(f'Calculating blocked slots for {eng_task} spans multiple nights: '
+                    #                      f'{start_night_idx} to {end_night_idx}, should be {night_idx}.')
+                    # blocked_timeslot_indices = np.union1d(blocked_timeslot_indices,
+                    #                                       np.arange(start_timeslot_idx, end_timeslot_idx))
+
+                    # Continue to take the union of the time slots that are blocked off for the site for the night_idx.
+                    blocked_timeslot_indices = np.union1d(blocked_timeslot_indices,
+                                                          np.arange(start_timeslot_idx, end_timeslot_idx))
+                blocked_indices_by_night[night_idx] = blocked_timeslot_indices
+            blocked_indices_by_site[site] = blocked_indices_by_night
+        return blocked_indices_by_site
 
     def select(self,
                sites: Optional[FrozenSet[Site]] = None,
@@ -453,6 +528,11 @@ class Selector(SchedulerComponent):
         scores = {night_idx: np.multiply(
                 np.multiply(conditions_score[night_idx], obs_scores[night_idx]),
                 wind_score[night_idx]) for night_idx in night_indices}
+
+        # Zero out the scores for the blocked timeslots.
+        blocked_timeslots = self._blocked_timeslots[obs.site]
+        for night_idx in night_indices:
+            scores[night_idx][blocked_timeslots[night_idx]] = 0.0
 
         # Zero out the data for each night index's starting time slots prior to the value specified (if specified)
         # and the night index was included in scoring.

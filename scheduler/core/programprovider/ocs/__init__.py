@@ -1191,7 +1191,7 @@ class OcsProgramProvider(ProgramProvider):
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
         program_id = ProgramID(data[OcsProgramProvider._ProgramKeys.ID])
-        print(f'Parsing program: {program_id.id}')
+        # print(f'Parsing program: {program_id.id}')
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
 
         # # Get all the note information as they may contain FT scheduling data comments.

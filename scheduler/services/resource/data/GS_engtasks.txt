@@ -1,0 +1,56 @@
+2018-02-01  03:05   04:19   [TCS ENT]
+2018-02-02  21:36   23:29   [F2 ENT-18 0918]
+2018-02-12  21:28   02:00   [TCS RTEM testing]
+2018-02-14  21:26   22:56   [TCS RTEM testing]
+
+# TODO: Make sure that this double engineering task on 2018-02-15 works. It should
+# TODO: based on GN_engtasks.txt, e.g. 2019-04-16, which also spans midnight like this does.
+2018-02-15  21:11   23:00   [F2 ENT and AO ENT]
+2018-02-15  04:00   06:30   [F2 ENT and AO ENT]
+
+2018-02-16  21:00   22:56   [F2 ENT]
+2018-02-20  04:03   05:28   [TCS RTEMS ENT to check GeMS NGS AO]
+2018-02-21  21:00   22:47   [F2 ENT-18 0918]
+2018-02-22  21:18   01:45   [F2 ENT-18 0918]
+2018-02-23  21:09   00:45   [F2 ENT-18 0918 and ENT-17 0907]
+2018-02-24  21:00   23:35   [F2 ENT-18 0918]
+2018-02-28  21:10   23:17   [GSAOI ENT-18 0923]
+2018-03-05  22:00   23:10   [ENT-18 0926]
+2018-03-12  21:00   22:27   [F2-OIWF ENT]
+2018-03-13  20:56   22:43   [GMOS ENT]
+2018-03-14  20:53   22:13   [GMOS ENT]
+2018-03-27  20:54   22:00   [GMOS ENT]
+2018-04-09  21:27   22:01   [F2 checks]
+2018-04-11  04:36   04:55   [F2 checks]
+2018-04-13  20:13   21:50   [F2 checks]
+2018-04-18  19:15   19:52   [ENT-18 0934]
+2018-06-04  19:46   20:18   [ENT-18 0937]
+2018-06-18  00:29   01:05   [ENT-18 0935]
+2018-06-19  00:20   00:59   [ENT-18 0935]
+2018-07-29  19:03   06:36   [GeMS ENT]
+2018-07-30  19:04   21:40   [GeMS ENT]
+
+# Shutdown here (removed) began at night of 2018-08-19.
+# In telescope schedules, it began at night of 2018-08-20.
+# See GSCHED-619: https://noirlab.atlassian.net/jira/software/c/projects/GSCHED/boards/62?selectedIssue=GSCHED-619
+
+2018-09-01  20:20 07:06     [Back on sky checks]
+2018-09-02  20:20 03:40   [Back on sky checks]
+2018-10-12  20:30 02:12   [F2 ENT]
+
+# Duration present, time missing!
+# 2018-10-15	3.6   [GSAOI ENT]
+# As per German, goes from start of night and has a duration of 3.6 hours.
+2018-10-15  twi 00:23   [GSAOI ENT]
+# See GSCHED-619: https://noirlab.atlassian.net/jira/software/c/projects/GSCHED/boards/62?selectedIssue=GSCHED-619
+
+2018-10-21  01:59 03:22 [F2 and GeMS/TCS ENT]
+2018-10-24  20:54 22:34  [F2 ENT]
+2018-11-13  21:13 03:00  [F2 ENT]
+2018-11-16  21:16 23:06
+2018-11-23  23:00 01:20  [F2 ENT]
+2018-11-25  04:41 05:35  [F2 ENT]
+2018-11-30  23:15 00:06
+2018-12-09  03:10 04:05 [F2 OIWFS ENT]
+2019-01-14  21:45 00:20  [GSAOI/GeMS ENT]
+2019-01-24  23:35 00:05  [Pointing ENT]

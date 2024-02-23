@@ -1,0 +1,177 @@
+2018 aug01-aug02	0
+2018 aug02-aug03	0
+2018 aug03-aug04	0
+2018 aug04-aug05	0
+2018 aug05-aug06	0
+2018 aug06-aug07	0
+2018 aug07-aug08	0
+2018 aug08-aug09	0
+2018 aug09-aug10	0
+2018 aug10-aug11	0
+2018 aug11-aug12	0
+2018 aug12-aug13	0
+2018 aug13-aug14	0
+2018 aug14-aug15	0
+2018 aug15-aug16	0
+2018 aug16-aug17	0
+2018 aug17-aug18	0
+2018 aug18-aug19	0
+2018 aug19-aug20	11.07  Shutdown
+2018 aug20-aug21	11.07  Shutdown
+2018 aug21-aug22	11.02  Shutdown
+2018 aug26-aug27	11.02  Shutdown
+2018 aug27-aug28	10.88  Shutdown
+2018 aug28-aug29	10.87  Shutdown
+2018 aug29-aug30	10.83  Shutdown
+2018 aug30-aug31	10.82  Shutdown
+2018 aug31-sep01	0
+2018 sep01-sep02	10.77  20:20-07:06     Back on sky checks
+2018 sep02-sep03	7.19	20:20-03:40   Back on sky checks
+2018 sep03-sep04	0
+2018 sep04-sep05	0
+2018 sep05-sep06	0
+2018 sep06-sep07	0
+2018 sep07-sep08	0
+2018 sep08-sep09	0
+2018 sep09-sep10	0
+2018 sep10-sep11	0
+2018 sep11-sep12	0
+2018 sep12-sep13	0
+2018 sep13-sep14	0
+2018 sep14-sep15	0
+2018 sep15-sep16	0
+2018 sep16-sep17	0
+2018 sep17-sep18	0
+2018 sep18-sep19	0
+2018 sep19-sep20	0
+2018 sep20-sep21	0
+2018 sep21-sep22	0
+2018 sep22-sep23	0
+2018 sep23-sep24	0
+2018 sep24-sep25	0
+2018 sep25-sep26	0
+2018 sep26-sep27	0
+2018 sep27-sep28	0
+2018 sep28-sep29	0
+2018 sep29-sep30	0
+2018 sep30-oct01	0
+2018 oct01-oct02	0
+2018 oct02-oct03	0
+2018 oct03-oct04	0
+2018 oct04-oct05	0
+2018 oct05-oct06	0
+2018 oct06-oct07	0
+2018 oct07-oct08	0
+2018 oct08-oct09	0
+2018 oct09-oct10	0
+2018 oct10-oct11	0
+2018 oct11-oct12	0
+2018 oct12-oct13	5.47	20:30-02:12   F2 ENT 
+2018 oct13-oct14	0
+2018 oct14-oct15	0
+2018 oct15-oct16	3.6   GSAOI ENT
+2018 oct16-oct17	0
+2018 oct17-oct18	0
+2018 oct18-oct19	0
+2018 oct19-oct20	0
+2018 oct20-oct21	0.
+2018 oct21-oct22	1.417   01:59-03:22 F2 and GeMS/TCS ENT
+2018 oct22-oct23	0
+2018 oct23-oct24	0
+2018 oct24-oct25	1.667   20:54-22:34  F2 ENT
+2018 oct25-oct26	0
+2018 oct26-oct27	0
+2018 oct27-oct28	0
+2018 oct28-oct29	0
+2018 oct29-oct30	0
+2018 oct30-oct31	0
+2018 oct31-nov01	0
+2018 nov01-nov02	0
+2018 nov02-nov03	0
+2018 nov03-nov04	0
+2018 nov04-nov05	0
+2018 nov05-nov06	0
+2018 nov06-nov07	0
+2018 nov07-nov08	0
+2018 nov08-nov09	0
+2018 nov09-nov10	0
+2018 nov10-nov11	0
+2018 nov11-nov12	0
+2018 nov12-nov13	0
+2018 nov13-nov14	5.78  21:13-03:00  F2 ENT
+2018 nov14-nov15	0
+2018 nov15-nov16	0
+2018 nov16-nov17	3.47  21:16-23:06
+2018 nov17-nov18	0
+2018 nov18-nov19	0
+2018 nov19-nov20	0
+2018 nov20-nov21	0
+2018 nov21-nov22	0
+2018 nov22-nov23	0
+2018 nov23-nov24	2.55  23:00-01:20  F2 ENT
+2018 nov24-nov25	0
+2018 nov25-nov26	0.9   4:41-05:35  F2 ENT
+2018 nov26-nov27	0
+2018 nov27-nov28	0
+2018 nov28-nov29	0
+2018 nov29-nov30	0
+2018 nov30-dec01	0.85 23:15-00:06
+2018 dec01-dec02	0
+2018 dec02-dec03	0
+2018 dec03-dec04	0	
+2018 dec04-dec05	0
+2018 dec05-dec06	0
+2018 dec06-dec07	0
+2018 dec07-dec08	0
+2018 dec08-dec09	0
+2018 dec09-dec10	0.75	03:10-04:05 F2 OIWFS ENT
+2018 dec10-dec11	0
+2018 dec11-dec12	0
+2018 dec12-dec13	0
+2018 dec13-dec14	0
+2018 dec14-dec15	0
+2018 dec15-dec16	0
+2018 dec16-dec17	0
+2018 dec17-dec18	0
+2018 dec18-dec19	0
+2018 dec19-dec20	0
+2018 dec20-dec21	0
+2018 dec21-dec22	0
+2018 dec22-dec23	0
+2018 dec23-dec24	0
+2018 dec24-dec25	0
+2018 dec25-dec26	0
+2018 dec26-dec27	0
+2018 dec27-dec28	0
+2018 dec28-dec29	0
+2018 dec29-dec30	0
+2018 dec31-jan01	0
+2019 jan01-jan02	0
+2019 jan02-jan03	0
+2019 jan03-jan04	0
+2019 jan04-jan05	0
+2019 jan05-jan06	0
+2019 jan06-jan07	0
+2019 jan07-jan08	0
+2019 jan08-jan09	0
+2019 jan09-jan10	0
+2019 jan10-jan11	0
+2019 jan11-jan12	0
+2019 jan12-jan13	0
+2019 jan13-jan14	0
+2019 jan14-jan15	2.53 21:45-00:20  GSAOI/GeMS ENT
+2019 jan15-jan16	0
+2019 jan16-jan17	0
+2019 jan17-jan18	0
+2019 jan19-jan20	0
+2019 jan20-jan21	0
+2019 jan21-jan22	0
+2019 jan22-jan23	0
+2019 jan23-jan24	0
+2019 jan24-jan25	1.33  23:35-00:05  Pointing ENT
+2019 jan25-jan26	0
+2019 jan26-jan27	0
+2019 jan27-jan28	0
+2019 jan28-jan29	0
+2019 jan29-jan30	0
+2019 jan30-jan31	0

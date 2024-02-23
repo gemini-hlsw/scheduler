@@ -388,7 +388,6 @@ class Collector(SchedulerComponent):
             avail_resources = np.full([len(night_events.times[night_idx])], int(has_resources), dtype=int)
 
             # Calculate the time slot indices for the night where:
-            # TODO: Are we calculating (1) correctly? I am not convinced.
             # 1. The sun altitude requirement is met (precalculated in night_events)
             # 2. The sky background constraint is met
             # 3. The elevation constraints are met

@@ -1,0 +1,110 @@
+Local time nt  (UT nt = 1 + local)
+              WL start          WL end             What
+2019-02-01      twi             twi               fog
+2019-02-02      23:34           4:09              fog
+2019-02-03      4:40            twi               fog
+2019-02-04      22:19           00:11          [NIFS checkouts]
+2019-02-05      05:49           twi               fog
+2019-02-06      twi             twi                humidity
+2019-02-07      twi             twi                storm
+2019-02-08      5:07            5:23               wind
+2019-02-09      twi             twi                wind
+2019-02-10      twi             twi                wind
+2019-02-11      twi             twi                 ice
+2019-02-12      20:29           1:40                temp
+                4:21            twi                 temp
+2019-02-13      twi             twi                 temp
+2019-02-14      twi             twi                 storm
+2019-02-15      twi             20:20              humidity
+                22:56           00:00              humidity
+2019-02-16      21:37           22:00              humidity
+2018-02-18      twi             twi                 snow
+2019-02-19      twi             twi                 storm
+2019-02-20      twi             twi                 storm
+2019-02-21      twi             twi                  ice
+2019-02-22      twi             twi                  ice
+2019-02-23      twi             twi                  snow
+2019-02-24      twi             twi                   ice
+2019-02-25      20:46           23:25             [NIFS LGS checkouts]
+2019-02-26      twi             twi                  snow
+2019-02-27      twi             twi                  ice
+2019-02-28      twi             23:09                wind
+                1:08            4:50                 wind
+2019-03-05      21:10           00:30                CC
+                1:04            twi                   CC
+2019-03-06      twi             23:11                 CC
+2019-03-08      twi             21:12               [NIRI checkouts
+2019-03-10      twi             4:10                 CC
+2019-03-12      00:55           twi                 earthquake
+2019-03-13      twi             19:49               [NIRI checkouts]
+2019-03-14      twi             20:10               [NIRI checkouts]
+2019-03-16      twi             19:27               winds
+2019-03-19      twi             20:27               [NIRI checkouts]
+2019-03-27      twi             00:43               humidity
+2019-03-29      3:40            4:52                  wind
+2019-03-31      twi             twi                   wind
+2019-04-01      00:37           3:59                 humidity
+2019-04-09      19:58           20:51               humidity
+2019-04-10      20:48           twi                  humidity
+2019-04-11      twi             twi                  fog
+2019-04-12      twi             twi                  ice
+2019-04-13      twi             twi                  temp
+2019-04-14      4:24            5:22                 [NIFS checkouts]
+2019-04-16      twi             19:55               [LGS checkouts]
+                21:37           1:34                 humidity
+                1:34            2:40                 [NIFS + LGS checks]
+2019-04-19      2:39            twi                   [LGS abandoned, fault]
+2019-04-20      20:11           twi                   [P2 abandoned, fault]
+2019-04-24      1:50            3:45                 [P1 ENT]
+2019-04-27      twi             twi                   CC
+2019-04-28      twi             twi                   ice
+2019-04-29      twi             twi                   humidity
+2019-04-30      4:48            twi                   [ENT]
+2019-05-02      twi             23:57                humidity
+2019-05-03      twi             twi                  wind, humidity
+2019-05-04      twi             twi                  wind, humidity          
+2019-05-05      twi             twi                   ice
+2019-05-17      4:14            twi                  humidity
+2019-05-21      20:43           23:20               [NIRI checkouts]
+2019-05-22      21:21           22:44               [NIRI checkouts]
+2019-05-29      2:45            4:26                 [ENT]
+2019-06-02      twi             00:14                humidity
+2019-06-03      20:33           21:22                fog
+                22:05           twi                  fog
+2019-06-04      twi             23:46                humidity
+2019-06-05      21:03           22:58                humidity
+                00:15           2:55                  humidity
+2019-06-13      1:11            3:34                  [ENT]
+2019-06-19      2:50            3:11                   CC
+2019-06-20      21:45           22:27                  CC
+                3:15            twi                    CC
+2019-06-21      4:20            4:27                   humidity
+2019-06-22      twi             twi                     humidity
+2019-06-23      twi             twi                     humidity
+2019-06-25      twi             20:04                  humidity
+2019-06-26      twi             1:54                   humidity
+2019-06-28      20:18           00:59                  humidity
+2019-06-29      21:30           21:53                [LGS checks]
+                23:01           00:05                [LGS checks]
+2019-07-07      00:08           twi                    fog
+2019-07-08      twi             twi                    tropical storm
+2019-07-09      twi             21:06                 humidity
+2019-07-13      twi             20:45                 humidity
+2019-07-14      twi             twi                    TMT protest
+2019-07-15      twi             twi                    TMT protest
+2019-07-16      twi             twi                    TMT protest
+2019-07-17      twi             twi                    TMT protest
+2019-07-18      twi             twi                    TMT protest
+2019-07-19      twi             twi                    TMT protest
+2019-07-20      twi             twi                    TMT protest
+2019-07-21      twi             twi                    TMT protest
+2019-07-22      twi             twi                    TMT protest
+2019-07-23      twi             twi                    TMT protest
+2019-07-24      twi             twi                    TMT protest
+2019-07-25      twi             twi                    TMT protest
+2019-07-26      twi             twi                    TMT protest
+2019-07-27      twi             twi                    TMT protest
+2019-07-28      twi             twi                    TMT protest
+2019-07-29      twi             twi                    TMT protest
+2019-07-30      twi             twi                    TMT protest
+2019-07-31      twi             twi                    TMT protest
