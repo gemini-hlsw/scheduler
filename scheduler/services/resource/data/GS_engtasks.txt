@@ -40,6 +40,8 @@
 
 # Duration present, time missing!
 # 2018-10-15	3.6   [GSAOI ENT]
+# As per German, goes from start of night and has a duration of 3.6 hours.
+2018-10-15  twi 00:23   [GSAOI ENT]
 # See GSCHED-619: https://noirlab.atlassian.net/jira/software/c/projects/GSCHED/boards/62?selectedIssue=GSCHED-619
 
 2018-10-21  01:59 03:22 [F2 and GeMS/TCS ENT]
