@@ -29,7 +29,7 @@ from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
-
+from scheduler.services.resource.filters import ProgramPermissionFilter
 
 __all__ = [
     'Collector',
@@ -387,6 +387,12 @@ class Collector(SchedulerComponent):
             has_resources = all([resource in nc[night_idx].resources for resource in obs.required_resources()])
             avail_resources = np.full([len(night_events.times[night_idx])], int(has_resources), dtype=int)
 
+            # Is the program excluded on a given night due to block scheduling
+            prog = self.get_program(obs.id.program_id())
+            can_schedule = nc[night_idx].filter.program_filter(prog)
+            is_schedulable = np.full([len(night_events.times[night_idx])], int(can_schedule), dtype=int)
+            # print(f"{obs.unique_id} {has_resources} {can_schedule}")
+
             # Calculate the time slot indices for the night where:
             # TODO: Are we calculating (1) correctly? I am not convinced.
             # 1. The sun altitude requirement is met (precalculated in night_events)
@@ -397,8 +403,9 @@ class Collector(SchedulerComponent):
             c_idx = np.where(
                 np.logical_and(sb[sa_idx] <= targ_sb,
                                np.logical_and(avail_resources[sa_idx] == 1,
-                                              np.logical_and(targ_prop[sa_idx] >= elev_min,
-                                                             targ_prop[sa_idx] <= elev_max)))
+                                              np.logical_and(is_schedulable[sa_idx] == 1,
+                                                             np.logical_and(targ_prop[sa_idx] >= elev_min,
+                                                                            targ_prop[sa_idx] <= elev_max))))
             )[0]
 
             # Apply timing window constraints.

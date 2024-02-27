@@ -49,6 +49,13 @@ class AbstractFilter(ABC):
         return None
 
     @property
+    def program_priority_filter_any(self) -> Optional[ProgramFilter]:
+        """
+        Determine if a program is in the Priority Filter positive list
+        """
+        return None
+
+    @property
     def group_filter(self) -> Optional[GroupFilter]:
         """
         Determine the groups that can be added to the plan.
@@ -168,6 +175,10 @@ class NothingFilter(AbstractFilter):
         return lambda _: False
 
     @property
+    def program_priority_filter_any(self) -> Optional[ProgramFilter]:
+        return lambda _: False
+
+    @property
     def group_filter(self) -> Optional[GroupFilter]:
         return lambda _: False
 
@@ -226,6 +237,13 @@ class CompositeFilter(AbstractFilter):
     @property
     def program_priority_filter(self) -> Optional[ProgramFilter]:
         return (lambda p: all(pf.program_priority_filter(p) for pf in self.positive_filters
+                              if pf.program_priority_filter is not None) and
+                not any(nf.program_priority_filter(p) for nf in self.negative_filters
+                        if nf.program_priority_filter is not None))
+
+    @property
+    def program_priority_filter_any(self) -> Optional[ProgramFilter]:
+        return (lambda p: any(pf.program_priority_filter(p) for pf in self.positive_filters
                               if pf.program_priority_filter is not None) and
                 not any(nf.program_priority_filter(p) for nf in self.negative_filters
                         if nf.program_priority_filter is not None))

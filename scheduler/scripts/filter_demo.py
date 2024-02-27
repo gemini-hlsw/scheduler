@@ -2,16 +2,22 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import logging
+from astropy.time import Time
 
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 from lucupy.minimodel import SemesterHalf
+from lucupy.minimodel.site import ALL_SITES, Site
+from lucupy.minimodel import NightIndex, TimeslotIndex
+from lucupy.minimodel.semester import Semester
+from lucupy.minimodel import ProgramID
 
 from scheduler.core.builder.blueprint import CollectorBlueprint
-from scheduler.core.builder.builder import ValidationBuilder
+from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.components.collector import *
 from scheduler.core.eventsqueue import EventQueue
 from scheduler.core.output import print_collector_info
+from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.resource import (CompositeFilter, OcsResourceService, ProgramPriorityFilter,
                                          ProgramPermissionFilter, ResourcesAvailableFilter)
@@ -66,6 +72,7 @@ if __name__ == '__main__':
     f_program_filtering = ProgramPermissionFilter(
         program_ids=program_ids
     )
+
     print(f'\n\nPROGRAM FILTERING ON {program_ids}:')
     for pid, program in program_data.items():
         if f_program_filtering.program_filter(program):
@@ -84,6 +91,7 @@ if __name__ == '__main__':
             print(f'--- Program {pid} is rejected.')
 
     resources = frozenset({
+            resource_service.lookup_resource('Gemini South'),
             resource_service.lookup_resource('GMOS-S'),
             resource_service.lookup_resource('Mirror'),
             resource_service.lookup_resource('B600'),
