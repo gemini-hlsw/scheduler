@@ -6,8 +6,8 @@ from typing import final, Dict, Mapping
 
 from lucupy.minimodel import NightIndex, Site
 
+from .plan import Plan
 from scheduler.core.calculations.nightevents import NightEvents
-
 
 __all__ = [
     'Plans',

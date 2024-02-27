@@ -6,8 +6,7 @@ from lucupy.types import ZeroTime
 
 from scheduler.core.builder import ValidationBuilder
 from scheduler.core.programprovider.ocs import ocs_program_data, OcsProgramProvider
-from scheduler.core.sources import Sources
-from definitions import ROOT_DIR
+from scheduler.core.sources.sources import Sources
 
 
 def test_clear_observations():

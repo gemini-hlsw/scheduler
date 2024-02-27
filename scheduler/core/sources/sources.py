@@ -3,66 +3,19 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from enum import Enum
 from io import BytesIO
-from typing import Callable, FrozenSet, NoReturn, Optional
-
-from scheduler.services.abstract import ExternalService
-from scheduler.services.environment import OcsEnvService
-from scheduler.services.resource import FileResourceService, OcsResourceService
+from typing import FrozenSet
 
 from lucupy.minimodel import Site
-from lucupy.types import Instantiable
+
+from scheduler.services.resource import FileResourceService
+from .origins import Origin, Origins
+from .services import Services
 
 
-# TODO: This file will need significant cleanup after the initial demo version is released.
-class Services(Enum):
-    ENV = 'env'
-    RESOURCE = 'resource'
-
-
-class Origin(ABC):
-    def __init__(self,
-                 resource: Optional[ExternalService] = None,
-                 env: Optional[ExternalService] = None,
-                 is_loaded: bool = False):
-        self.resource = resource
-        self.env = env
-        self.is_loaded = is_loaded
-
-    @abstractmethod
-    def load(self) -> NoReturn:
-        raise NotImplementedError('load Origin')
-
-    def __str__(self):
-        return self.__class__.__name__.replace('Origin', '').upper()
-
-
-class OCSOrigin(Origin):
-    def load(self) -> OCSOrigin:
-        if not self.is_loaded:
-            self.resource = OcsResourceService()
-            self.env = OcsEnvService()
-            self.is_loaded = True
-            return self
-        return self
-
-
-class GPPOrigin(Origin):
-    def load(self) -> NoReturn:
-        raise NotImplementedError('GPP sources are not implemented')
-
-
-class FileOrigin(Origin):
-    def load(self):
-        return self
-
-
-class Origins(Instantiable[Origin], Enum):
-    FILE = Instantiable(lambda: FileOrigin())
-    OCS = Instantiable(lambda: OCSOrigin())
-    GPP = Instantiable(lambda: GPPOrigin())
+__all__ = [
+    'Sources',
+]
 
 
 class Sources:

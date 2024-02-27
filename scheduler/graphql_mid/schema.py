@@ -7,7 +7,7 @@ from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, NightIndex
 
 from scheduler.core.service import Service
-from scheduler.core.sources import Services, Sources
+from scheduler.core.sources.sources import Services, Sources
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.eventsqueue import EventQueue
 from scheduler.db.planmanager import PlanManager

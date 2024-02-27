@@ -8,7 +8,7 @@ from lucupy.minimodel import (AndGroup, Atom, Conditions, Constraints, GroupID, 
                               Observation, ObservationClass, OrGroup, Program, ProgramID, QAState, SiderealTarget,
                               Site, Target, TimeAllocation, TimingWindow)
 
-from scheduler.core.sources import Sources
+from scheduler.core.sources.sources import Sources
 
 
 __all__ = [

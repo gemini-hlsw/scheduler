@@ -6,7 +6,7 @@ from typing import final
 
 import strawberry  # noqa
 
-from scheduler.core.sources import Sources
+from scheduler.core.sources.sources import Sources
 from .schedulerbuilder import SchedulerBuilder
 from .validationbuilder import ValidationBuilder
 from ..eventsqueue import EventQueue

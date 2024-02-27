@@ -22,7 +22,7 @@ from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.plans import Plans
 from scheduler.core.eventsqueue import EveningTwilightEvent, Event, EventQueue, MorningTwilightEvent, WeatherChangeEvent
-from scheduler.core.sources import Sources
+from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
 
 

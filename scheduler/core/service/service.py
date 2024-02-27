@@ -18,7 +18,7 @@ from scheduler.core.components.selector import Selector
 from scheduler.core.eventsqueue import EventQueue, EveningTwilightEvent, MorningTwilightEvent, Event
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plans
-from scheduler.core.sources import Sources
+from scheduler.core.sources.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.services import logger_factory
 

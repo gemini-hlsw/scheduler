@@ -25,7 +25,7 @@ from scipy.signal import find_peaks
 
 from definitions import ROOT_DIR
 from scheduler.core.programprovider.abstract import ProgramProvider
-from scheduler.core.sources import Sources
+from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
 
 

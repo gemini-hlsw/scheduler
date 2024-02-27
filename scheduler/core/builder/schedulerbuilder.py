@@ -12,7 +12,7 @@ from scheduler.core.components.collector import Collector
 from scheduler.core.components.selector import Selector
 from scheduler.core.components.selector.timebuffer import create_time_buffer
 from scheduler.core.components.optimizer import Optimizer
-from scheduler.core.sources import Sources
+from scheduler.core.sources.sources import Sources
 from scheduler.core.eventsqueue import EventQueue
 
 

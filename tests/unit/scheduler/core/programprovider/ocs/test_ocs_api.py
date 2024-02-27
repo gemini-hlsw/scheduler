@@ -17,7 +17,7 @@ from lucupy.timeutils import sex2dec
 
 from definitions import ROOT_DIR
 from scheduler.core.programprovider.ocs import OcsProgramProvider
-from scheduler.core.sources import Sources
+from scheduler.core.sources.sources import Sources
 from lucupy.types import ZeroTime
 
 

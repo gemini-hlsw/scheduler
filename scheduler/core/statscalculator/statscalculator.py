@@ -54,13 +54,15 @@ class StatCalculator:
                         # check if obs is a too
                         if obs.too_type is not None:
                             n_toos += 1
+
                         # add to plan_score
                         plan_score += visit.score
+
                         # add used conditions
                         plan_conditions.append(obs.constraints.conditions)
+
                         # check completion
                         program = collector.get_program(obs.belongs_to)
-                        programs[program.id] = program
 
                         scores_per_program.setdefault(program.id, 0)
                         scores_per_program[program.id] += visit.score
@@ -73,7 +75,8 @@ class StatCalculator:
                         alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
                         plan.alt_degs.append(alt_degs)
 
-                    program_completion = {p.id: StatCalculator.calculate_program_completion(programs[p]) for p in programs}
+                    program_completion = {p.id: StatCalculator.calculate_program_completion(programs[p])
+                                          for p in programs}
                     plan.night_stats = NightStats(f'{plan.time_left()} min',
                                                   plan_score,
                                                   n_toos,
