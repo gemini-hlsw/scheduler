@@ -16,6 +16,11 @@ from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.eventsqueue import EventQueue
 
 
+__all__ = [
+    'ValidationBuilder',
+]
+
+
 @final
 class ValidationBuilder(SchedulerBuilder):
     """Validation mode is used for validate the proper functioning

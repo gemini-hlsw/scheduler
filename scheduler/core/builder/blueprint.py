@@ -1,7 +1,8 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import Any, FrozenSet, List, Type
+from abc import ABC
+from typing import final, Any, FrozenSet, List, Type
 from enum import Enum
 from typing import Optional
 
@@ -13,6 +14,16 @@ from lucupy.minimodel.program import ProgramTypes
 
 from scheduler.config import config, ConfigurationError
 from scheduler.core.components.optimizer.optimizers import BaseOptimizer, Optimizers
+
+
+__all__ = [
+    'parse_configuration',
+    'Blueprint',
+    'Blueprints',
+    'CollectorBlueprint',
+    'SelectorBlueprint',
+    'OptimizerBlueprint',
+]
 
 
 def parse_configuration(enum_class: Type[Enum], value: str) -> Any:
@@ -36,12 +47,13 @@ def parse_configuration(enum_class: Type[Enum], value: str) -> Any:
         raise ConfigurationError(enum_class.__name__, value)
 
 
-class Blueprint:
+class Blueprint(ABC):
     """Base class for a Blueprint.
     """
     pass
 
 
+@final
 class CollectorBlueprint(Blueprint):
     """Blueprint for the Collector.
     This is based on the configuration in config.yml.
@@ -65,6 +77,7 @@ class CollectorBlueprint(Blueprint):
                      self.obs_classes))
 
 
+@final
 class SelectorBlueprint(Blueprint):
     """Blueprint for the Selector.
     This is based on the configuration in config.yml used to specify the buffer time to determine by how much programs
@@ -81,6 +94,7 @@ class SelectorBlueprint(Blueprint):
                      self.buffer_amount))
 
 
+@final
 class OptimizerBlueprint(Blueprint):
     """Blueprint for the Optimizer.
     This is based on the configuration in config.yml.
@@ -101,6 +115,7 @@ class OptimizerBlueprint(Blueprint):
         return iter((self.algorithm,))
 
 
+@final
 class Blueprints:
     collector: CollectorBlueprint = CollectorBlueprint(config.collector.observation_classes,
                                                        config.collector.program_types,

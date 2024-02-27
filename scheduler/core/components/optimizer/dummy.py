@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 import random
+from dataclasses import dataclass, field, InitVar
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import final, List, Optional, Tuple
 
 from lucupy.timeutils import time2slots
 from lucupy.types import Interval
@@ -16,15 +17,24 @@ from scheduler.core.plans import Plan, Plans
 from scheduler.services import logger_factory
 from .base import BaseOptimizer
 
+
+__all__ = [
+    'DummyOptimizer',
+]
+
+
 logger = logger_factory.create_logger(__name__)
 
 
+@final
+@dataclass
 class DummyOptimizer(BaseOptimizer):
+    groups: List[GroupData] = field(default_factory=list, init=False, repr=False)
+    seed: InitVar[int] = field(default=42, init=False, repr=False)
 
-    def __init__(self, seed=42):
+    def __post_init__(self, seed: int) -> None:
         # Set seed for replication
         random.seed(seed)
-        self.groups = []
 
     def _run(self, plans: Plans):
         """
@@ -67,6 +77,8 @@ class DummyOptimizer(BaseOptimizer):
                     start, start_time_slot = DummyOptimizer._first_free_time(plan)
                     end_time_slot = start_time_slot + obs_len
                     visit_score = sum(group.group_info.scores[plans.night_idx][start_time_slot:end_time_slot])
+
+                    # TODO: This is currently broken (no peak_score).
                     plan.add(observation, start, atom_start, atom_end, start_time_slot, obs_len, visit_score)
                     return True
                 else:

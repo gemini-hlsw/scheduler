@@ -15,6 +15,11 @@ from scheduler.core.calculations.programinfo import ProgramCalculations, Program
 from scheduler.core.calculations.groupinfo import GroupData
 
 
+__all__ = [
+    'Selection',
+]
+
+
 @final
 @dataclass(frozen=True)
 class Selection:

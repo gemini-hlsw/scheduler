@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import List
+from typing import final, List
 
 from lucupy.types import Interval
 
@@ -13,6 +13,13 @@ from scheduler.core.calculations.selection import Selection
 from scheduler.core.plans import Plans
 
 
+__all__ = [
+    'BaseOptimizer',
+    'MaxGroup',
+]
+
+
+@final
 @dataclass(frozen=True)
 class MaxGroup:
     """

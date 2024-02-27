@@ -4,7 +4,7 @@
 import bisect
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import final, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 import astropy.units as u
@@ -18,6 +18,12 @@ from lucupy.minimodel import NightIndex, Site, TimeslotIndex
 from lucupy.sky.constants import JYEAR, J2000
 
 
+__all__ = [
+    'NightEvents',
+]
+
+
+@final
 @immutable
 @dataclass(frozen=True)
 class NightEvents:
@@ -153,7 +159,7 @@ class NightEvents:
         If it does not correspond to a NightIndex or TimeslotIndex, return None.
         """
         dt = dt.replace(tzinfo=ZoneInfo('UTC'))
-        return dt_to_time_coords(dt, self.time_slot_length.to_datetime(), self.utc_times)
+        return _dt_to_time_coords(dt, self.time_slot_length.to_datetime(), self.utc_times)
 
     def local_dt_to_time_coords(self, dt: datetime) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
         """
@@ -164,24 +170,24 @@ class NightEvents:
         """
         if dt.tzinfo is None:
             dt = dt.replace(self.site.timezone)
-        return dt_to_time_coords(dt, self.time_slot_length.to_datetime(), self.local_times)
+        return _dt_to_time_coords(dt, self.time_slot_length.to_datetime(), self.local_times)
 
     def time_coords_to_local_dt(self, night_idx: NightIndex, timeslot_idx: TimeslotIndex) -> Optional[datetime]:
         """
         Given time coordinates, convert to a local datetime.
         """
-        return time_coords_to_dt(night_idx, timeslot_idx, self.local_times)
+        return _time_coords_to_dt(night_idx, timeslot_idx, self.local_times)
 
     def time_coords_to_utc_dt(self, night_idx: NightIndex, timeslot_idx: TimeslotIndex) -> Optional[datetime]:
         """
         Given time coordinates, convert to UTC datetime.
         """
-        return time_coords_to_dt(night_idx, timeslot_idx, self.utc_times)
+        return _time_coords_to_dt(night_idx, timeslot_idx, self.utc_times)
 
 
-def dt_to_time_coords(dt: datetime,
-                      timeslot_length: timedelta,
-                      times: List[List[datetime]]) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
+def _dt_to_time_coords(dt: datetime,
+                       timeslot_length: timedelta,
+                       times: List[List[datetime]]) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
     """
     Given:
     * a datetime
@@ -211,9 +217,9 @@ def dt_to_time_coords(dt: datetime,
     return NightIndex(night_idx), TimeslotIndex(timeslot_idx)
 
 
-def time_coords_to_dt(night_idx: NightIndex,
-                      timeslot_idx: TimeslotIndex,
-                      times: List[List[datetime]]) -> Optional[datetime]:
+def _time_coords_to_dt(night_idx: NightIndex,
+                       timeslot_idx: TimeslotIndex,
+                       times: List[List[datetime]]) -> Optional[datetime]:
     """
     Given night coordinates (a night index and a timeslot index) and an array of night data, convert the time
     coordinates to a time in the night data.

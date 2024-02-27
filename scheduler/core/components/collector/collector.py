@@ -39,6 +39,7 @@ logger = logger_factory.create_logger(__name__)
 
 
 # TODO: Merge this if possible with Visit.
+# TODO: This is just used internally to the Collector and thus we do not export it outside of this package.
 @final
 @dataclass(frozen=True)
 class GroupVisits:

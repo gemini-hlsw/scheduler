@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from typing import final, Dict, Tuple
+from typing import final, Dict, TypeAlias, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -12,8 +12,15 @@ from lucupy.decorators import immutable
 from lucupy.minimodel import NightIndex, ObservationID, SkyBackground, TargetName
 
 
-@immutable
+__all__ = [
+    'TargetInfo',
+    'TargetInfoMap',
+    'TargetInfoNightIndexMap',
+]
+
+
 @final
+@immutable
 @dataclass(frozen=True)
 class TargetInfo:
     """
@@ -59,5 +66,5 @@ class TargetInfo:
 
 
 # Type aliases for TargetInfo information.
-TargetInfoNightIndexMap = Dict[NightIndex, TargetInfo]
-TargetInfoMap = Dict[Tuple[TargetName, ObservationID], TargetInfoNightIndexMap]
+TargetInfoNightIndexMap: TypeAlias = Dict[NightIndex, TargetInfo]
+TargetInfoMap: TypeAlias = Dict[Tuple[TargetName, ObservationID], TargetInfoNightIndexMap]

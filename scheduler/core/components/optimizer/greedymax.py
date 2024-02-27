@@ -23,6 +23,12 @@ from scheduler.core.plans import Plans
 from scheduler.services import logger_factory
 from .base import BaseOptimizer, MaxGroup
 
+
+__all__ = [
+    'GreedyMaxOptimizer',
+]
+
+
 logger = logger_factory.create_logger(__name__)
 
 

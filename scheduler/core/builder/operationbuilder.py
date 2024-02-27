@@ -9,6 +9,11 @@ from lucupy.minimodel import Site
 from .schedulerbuilder import SchedulerBuilder
 
 
+__all__ = [
+    'OperationBuilder',
+]
+
+
 @final
 class OperationBuilder(SchedulerBuilder):
     def _setup_event_queue(self,
