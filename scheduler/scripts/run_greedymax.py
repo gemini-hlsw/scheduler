@@ -7,5 +7,5 @@ from scheduler.core.components.ranker import RankerParameters
 if __name__ == '__main__':
     main(test_events=True,
          ranker_parameters=RankerParameters(),
-         programs_ids = None,
+         programs_ids=None,
          verbose=False)

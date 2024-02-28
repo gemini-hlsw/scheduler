@@ -41,6 +41,7 @@ class RankerParameters:
     met_power: float = 1.0
     vis_power: float = 1.0
     wha_power: float = 1.0
+    program_priority: float = 10.0
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
@@ -230,9 +231,17 @@ class DefaultRanker(Ranker):
             wha[night_idx][kk[night_idx]] = 0.
         # print(f'   max wha: {np.max(wha[0]):.2f}  visfrac: {target_info[0].rem_visibility_frac:.5f}')
 
-        p = {night_idx: (metric[0] ** self.params.met_power) *
-             (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
-             (wha[night_idx] ** self.params.wha_power)
+        # Program priority (from calendar)
+        nc = self.collector.night_configurations(obs.site, np.arange(self.collector.num_nights_calculated))
+        program = self.collector.get_program(obs.id.program_id())
+        prog_priority = {night_idx: self.params.program_priority if nc[night_idx].filter.program_priority_filter_any(program)
+                         else 1.0 for night_idx in self.night_indices}
+        # print(obs.unique_id, night_idx, prog_priority)
+
+        # p = {night_idx: (metric[0] ** self.params.met_power) *
+        p = {night_idx: (prog_priority[night_idx]) * (metric[0] ** self.params.met_power) *
+                        (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
+                        (wha[night_idx] ** self.params.wha_power)
              for night_idx in self.night_indices}
 
         # Assign scores in p to all indices where visibility constraints are met.
