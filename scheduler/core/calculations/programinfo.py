@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass, field
-from typing import FrozenSet, Mapping
+from typing import final, FrozenSet, Mapping
 
 from lucupy.minimodel import GroupID, Program, NightIndices, Observation, ObservationID, ROOT_GROUP_ID, UniqueGroupID
 
@@ -10,7 +10,14 @@ from .groupinfo import GroupDataMap
 from .targetinfo import TargetInfoNightIndexMap
 
 
+__all__ = [
+    'ProgramCalculations',
+    'ProgramInfo',
+]
+
+
 # Leave this as non-immutable, as program, group_data, and observations all might change.
+@final
 @dataclass(frozen=True)
 class ProgramInfo:
     """
@@ -41,6 +48,7 @@ class ProgramInfo:
         object.__setattr__(self, 'group_ids', frozenset(self.group_data_map.keys()))
 
 
+@final
 @dataclass(frozen=True)
 class ProgramCalculations:
     """

@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import final, Dict, TypeAlias
 
 from lucupy.minimodel import Conditions, Group, NightIndex, TimeslotIndex, UniqueGroupID
 import numpy.typing as npt
@@ -10,6 +10,14 @@ import numpy.typing as npt
 from .scores import Scores
 
 
+__all__ = [
+    'GroupData',
+    'GroupDataMap',
+    'GroupInfo',
+]
+
+
+@final
 @dataclass
 class GroupInfo:
     """
@@ -59,4 +67,4 @@ class GroupData:
 # Map to access GroupData from a UniqueGroupID in the ProgramInfo.
 # Since scheduling groups get integer names from OCS, they will overwrite each other if two programs have
 # a scheduling group with the same GroupID, so we must make the key include the ProgramID.
-GroupDataMap = Dict[UniqueGroupID, GroupData]
+GroupDataMap: TypeAlias = Dict[UniqueGroupID, GroupData]

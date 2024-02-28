@@ -4,7 +4,7 @@
 from dataclasses import dataclass, field
 from typing import final, Optional
 
-from lucupy.minimodel import NightIndex, TimeslotIndex
+from lucupy.minimodel import TimeslotIndex
 
 from scheduler.core.eventsqueue.events import Event
 

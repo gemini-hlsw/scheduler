@@ -2,18 +2,23 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import abstractmethod, ABC
+from typing import Dict, FrozenSet, Optional
 
 from astropy.time import Time
 from lucupy.minimodel import CloudCover, ImageQuality, Semester, Site
-from typing import Dict, FrozenSet, Optional
 
 from .blueprint import CollectorBlueprint, SelectorBlueprint, OptimizerBlueprint
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.selector import Selector
 from scheduler.core.components.selector.timebuffer import create_time_buffer
 from scheduler.core.components.optimizer import Optimizer
-from scheduler.core.sources import Sources
+from scheduler.core.sources.sources import Sources
 from scheduler.core.eventsqueue import EventQueue
+
+
+__all__ = [
+    'SchedulerBuilder',
+]
 
 
 class SchedulerBuilder(ABC):
@@ -32,7 +37,8 @@ class SchedulerBuilder(ABC):
                         end: Time,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
-                        blueprint: CollectorBlueprint) -> Collector:
+                        blueprint: CollectorBlueprint,
+                        program_list: Optional[bytes] = None) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
         collector = Collector(start, end, sites, semesters, self.sources, *blueprint)

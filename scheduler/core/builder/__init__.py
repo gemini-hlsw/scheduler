@@ -2,6 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from .blueprint import *
-from .operationsbuilder import *
+from .operationbuilder import *
 from .schedulerbuilder import *
 from .validationbuilder import *

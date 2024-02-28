@@ -10,6 +10,11 @@ from .greedymax import GreedyMaxOptimizer
 from lucupy.types import Instantiable
 
 
+__all__ = [
+    'Optimizers',
+]
+
+
 class Optimizers(Instantiable[BaseOptimizer], Enum):
     DUMMY = Instantiable(lambda: DummyOptimizer())
     GREEDYMAX = Instantiable(lambda: GreedyMaxOptimizer())

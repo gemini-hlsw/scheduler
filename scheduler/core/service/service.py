@@ -15,12 +15,18 @@ from scheduler.core.components.collector import Collector
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.components.ranker import RankerParameters, DefaultRanker
 from scheduler.core.components.selector import Selector
-from scheduler.core.eventsqueue import EventQueue, EveningTwilightEvent, MorningTwilightEvent, WeatherChangeEvent, Event
+from scheduler.core.eventsqueue import EventQueue, EveningTwilightEvent, MorningTwilightEvent, Event
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plans
-from scheduler.core.sources import Sources
+from scheduler.core.sources.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.services import logger_factory
+
+
+__all__ = [
+    'Service',
+]
+
 
 _logger = logger_factory.create_logger(__name__)
 

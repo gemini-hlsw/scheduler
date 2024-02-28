@@ -25,7 +25,7 @@ from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.plans import Plans, Visit
 from scheduler.core.programprovider.abstract import ProgramProvider
-from scheduler.core.sources import Sources
+from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
@@ -39,6 +39,7 @@ logger = logger_factory.create_logger(__name__)
 
 
 # TODO: Merge this if possible with Visit.
+# TODO: This is just used internally to the Collector and thus we do not export it outside of this package.
 @final
 @dataclass(frozen=True)
 class GroupVisits:

@@ -4,7 +4,7 @@
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import ClassVar, Dict, List
+from typing import final, ClassVar, Dict, List
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 
@@ -12,6 +12,14 @@ from scheduler.core.eventsqueue import Event
 from scheduler.core.plans import Plans, Plan
 
 
+__all__ = [
+    'NightChanges',
+    'TimelineEntry',
+    'NightlyTimeline'
+]
+
+
+@final
 @dataclass
 class NightChanges:
     lookup: Dict[Event, Plans] = field(init=False, default_factory=dict)
@@ -20,6 +28,7 @@ class NightChanges:
         return list(self.lookup.values())[-1]
 
 
+@final
 @dataclass(frozen=True)
 class TimelineEntry:
     start_time_slot: TimeslotIndex
@@ -27,6 +36,7 @@ class TimelineEntry:
     plan_generated: Plan
 
 
+@final
 @dataclass
 class NightlyTimeline:
     """
