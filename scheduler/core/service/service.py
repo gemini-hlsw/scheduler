@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import FrozenSet, Optional, Dict
 
 import numpy as np
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex, CloudCover, ImageQuality
 
 from scheduler.core.builder import Blueprints
@@ -15,7 +15,7 @@ from scheduler.core.components.collector import Collector
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.components.ranker import RankerParameters, DefaultRanker
 from scheduler.core.components.selector import Selector
-from scheduler.core.eventsqueue import EventQueue, EveningTwilightEvent, MorningTwilightEvent, Event
+from scheduler.core.eventsqueue import EventQueue, EveningTwilightEvent, MorningTwilightEvent, Event, WeatherChangeEvent
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plans
 from scheduler.core.sources.sources import Sources
@@ -46,6 +46,8 @@ class Service:
 
     @staticmethod
     def _schedule_nights(night_indices: FrozenSet[NightIndex],
+                         start_vis: Time,
+                         end_vis: Time,
                          sites: FrozenSet[Site],
                          collector: Collector,
                          selector: Selector,
@@ -72,6 +74,18 @@ class Service:
                 morn_twi_time = night_events.twilight_morning_12[night_idx].to_datetime(site.timezone) - time_slot_length
                 morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
                 queue.add_event(night_idx, site, morn_twi)
+
+                # Add weather changes to queue
+                delta = TimeDelta(1, format='jd')
+
+                night_variants = collector.sources.origin.env.get_night_weather_changes(site, Time(eve_twi_time), Time(morn_twi_time))
+                for dt, variant in night_variants.items():
+
+                    weather_change = WeatherChangeEvent(time=dt.replace(tzinfo=site.timezone),
+                                                        description=f'New conditions:',
+                                                        variant_change=variant)
+                    queue.add_event(NightIndex(night_idx), site, weather_change)
+
 
         for night_idx in sorted(night_indices):
             night_indices = np.array([night_idx])
@@ -277,6 +291,8 @@ class Service:
         optimizer = builder.build_optimizer(Blueprints.optimizer)
 
         timelines = self._schedule_nights(night_indices,
+                                          start_vis,
+                                          end_vis,
                                           sites,
                                           collector,
                                           selector,

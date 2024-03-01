@@ -3,6 +3,7 @@
 
 import bz2
 import os
+from datetime import datetime, timedelta
 from typing import Dict, Final, FrozenSet, Optional
 
 import astropy.units as u
@@ -105,3 +106,27 @@ class OcsEnvService(ExternalService):
             wind_dir=wind_dir_array,
             wind_spd=wind_spd_array
         )
+
+    def get_night_weather_changes(self,
+                                   site: Site,
+                                   start_time: Time,
+                                   end_time: Time) -> Dict[datetime, Variant]:
+
+        def _get_changes(array):
+            changes = np.diff(array) != 0
+            change_indices = np.where(changes)[0] + 1
+            change_values = array[change_indices]
+            return change_indices, change_values
+
+        variants = {}
+        variant = self.get_actual_conditions_variant(site, start_time, end_time)
+        change_cc_idx, change_cc_val = _get_changes(variant.cc)
+        change_iq_idx, change_iq_val = _get_changes(variant.iq)
+
+        for cc_i, cc_v, iq_i, iq_v in zip(change_cc_idx, change_cc_val, change_iq_idx, change_iq_val):
+            variants[start_time.to_datetime()+timedelta(minutes=int(cc_i)+1)] = Variant(iq=np.array([iq_v]),
+                                                                                        cc=np.array([cc_v]),
+                                                                                        wind_dir=variant.wind_dir[cc_i],
+                                                                                        wind_spd=variant.wind_spd[cc_i])
+        print(variants)
+        return variants
