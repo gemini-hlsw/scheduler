@@ -2,9 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import csv
-import os
 import re
-import requests
 from copy import copy
 from datetime import date, datetime, time, timedelta
 from io import BytesIO, StringIO
@@ -20,10 +18,14 @@ from scheduler.services import logger_factory
 from .event_generators import EngineeringTask, Fault
 from .filters import (LgsFilter, NothingFilter, ProgramPermissionFilter, ProgramPriorityFilter, ResourcePriorityFilter,
                       TimeAccountingCodeFilter, TooFilter)
-from .google_drive_downloader import GoogleDriveDownloader
+from .resource_manager import ResourceManager
 from .resource_service import ResourceService
 
-__all__ = ['FileBasedResourceService']
+
+__all__ = [
+    'FileBasedResourceService',
+]
+
 
 logger = logger_factory.create_logger(__name__)
 
@@ -54,7 +56,7 @@ class FileBasedResourceService(ResourceService):
             * gmos[ns]_fpu_barcode.txt
         These are site-dependent values.
         """
-        with open(os.path.join(self._path, filename)) as f:
+        with open(self._path / filename) as f:
             for row in f:
                 fpu, barcode = row.split()
 
@@ -108,7 +110,7 @@ class FileBasedResourceService(ResourceService):
                 prev_row_date = row_date
 
         if isinstance(data_source, str):
-            with open(os.path.join(self._path, data_source)) as f:
+            with open(self._path / data_source) as f:
                 _process_file(f)
         else:
             data_str = data_source.getvalue().decode()
@@ -135,14 +137,14 @@ class FileBasedResourceService(ResourceService):
 
     def _load_instrument_data(self,
                               site: Site,
-                              filename: str,
-                              from_gdrive: bool = False) -> None:
+                              filename: str) -> None:
         """
         Process an Excel spreadsheet containing instrument, mode, and LGS information.
 
         The Excel spreadsheets have information available for every date, so we do not have to concern ourselves
         as in the _load_csv file above.
         """
+        rm = ResourceManager()
 
         def none_to_str(value) -> str:
             return '' if value is None else value
@@ -150,19 +152,10 @@ class FileBasedResourceService(ResourceService):
         if not filename:
             raise ValueError('file_source cannot be empty')
 
-        file_path = os.path.join(self._path, filename)
-        if from_gdrive:
-            logger.info('Retrieving site configuration file from Google Drive...')
-            try:
-                GoogleDriveDownloader.download_file(file_id=FileBasedResourceService._SITE_CONFIG_GOOGLE_ID,
-                                                    overwrite=True,
-                                                    dest_path=file_path)
-            except requests.RequestException:
-                logger.warning('Could not retrieve site configuration file from Google Drive.')
-
-            if not os.path.exists(file_path):
-                raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: '
-                                        f'{file_path}')
+        file_path = self._path / filename
+        if not file_path.exists():
+            raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: '
+                                    f'{file_path}')
 
         workbook = load_workbook(filename=file_path,
                                  read_only=True,
@@ -435,7 +428,7 @@ class FileBasedResourceService(ResourceService):
         Load the faults from the specified file.
         Times in faults are stored in local time with no timezone information.
         """
-        path = os.path.join(self._path, name)
+        path = self._path / name
 
         try:
             with open(path, 'r') as input_file:
@@ -504,7 +497,7 @@ class FileBasedResourceService(ResourceService):
         """
         Load the faults from the specified file.
         """
-        path = os.path.join(self._path, name)
+        path = self._path / name
 
         try:
             with open(path, 'r') as input_file:
@@ -536,14 +529,15 @@ class FileBasedResourceService(ResourceService):
                         night_date = local_datetime.date()
 
                     # Add the fault to the night.
-                    # TODO: Right now, not sure how to handle faults in terms of resources.
+                    # TODO: Right now, not sure how to handle faults in terms of Resources.
                     # TODO: Just specify the entire site as a resource for now, indicating that the site cannot be used
                     # TODO: for the specified period.
+                    # TODO: Fix duration as per email discussion.
                     faults.setdefault(night_date, set())
-                    fault = Fault(time=local_datetime,
+                    fault = Fault(site=site,
+                                  time=local_datetime,
                                   duration=duration,
-                                  description=f'FR-{fr_id}: {description}',
-                                  affects=frozenset({site.resource}))
+                                  description=f'FR-{fr_id}: {description}')
                     faults[night_date].add(fault)
         except FileNotFoundError:
             logger.error(f'Faults file not available: {path}')
@@ -580,7 +574,7 @@ class FileBasedResourceService(ResourceService):
                        resource_type=ResourceType.DISPERSER)
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
-        self._load_instrument_data(site, spreadsheet_file, from_gdrive=False)
+        self._load_instrument_data(site, spreadsheet_file)
 
         self._load_faults(site, faults_data)
         self._load_eng_tasks(site, eng_tasks_data)

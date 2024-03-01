@@ -12,7 +12,10 @@ from .night_configuration import NightConfiguration
 from .file_based_resource_service import FileBasedResourceService
 
 
-__all__ = ['OcsResourceService']
+__all__ = [
+    'OcsResourceService',
+]
+
 
 logger = logger_factory.create_logger(__name__)
 

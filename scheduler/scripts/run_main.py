@@ -116,7 +116,7 @@ def main(*,
         night_events = collector.get_night_events(site)
         for night_idx in night_indices:
             eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
-            eve_twi = EveningTwilightEvent(time=eve_twi_time, description='Evening 12° Twilight')
+            eve_twi = EveningTwilightEvent(site=site, time=eve_twi_time, description='Evening 12° Twilight')
             queue.add_event(night_idx, site, eve_twi)
 
             # TODO: Add one time slot to the morning twilight to make sure time accounting is done for entire night?
@@ -124,7 +124,7 @@ def main(*,
             # morn_twilight = MorningTwilightEvent(time=morn_twilight_time, description='Morning 12° Twilight')
             # queue.add_event(night_idx, site, morn_twilight)
             morn_twi_time = night_events.twilight_morning_12[night_idx].to_datetime(site.timezone) - time_slot_length
-            morn_twi = MorningTwilightEvent(time=morn_twi_time, description='Morning 12° Twilight')
+            morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twi)
 
     if test_events:
@@ -133,14 +133,16 @@ def main(*,
         night_events = collector.get_night_events(Site.GS)
         eve_twi_time = night_events.twilight_evening_12[0].to_datetime(Site.GS.timezone)
         weather_change_time = eve_twi_time + timedelta(minutes=120)
-        weather_change_south = WeatherChangeEvent(time=weather_change_time,
-                                                  description='IQ -> IQ20, CC -> CC50',
-                                                  variant_change=VariantChange(iq=ImageQuality.IQ20,
-                                                                               cc=CloudCover.CC50,
-                                                                               wind_dir=None,
-                                                                               wind_spd=None))
+        # weather_change_south = WeatherChangeEvent(site=Site.GS,
+        #                                           time=weather_change_time,
+        #                                           description='IQ -> IQ20, CC -> CC50',
+        #                                           variant_change=VariantChange(iq=ImageQuality.IQ20,
+        #                                                                        cc=CloudCover.CC50,
+        #                                                                        wind_dir=None,
+        #                                                                        wind_spd=None))
 
-        weather_change_south = WeatherChangeEvent(time=weather_change_time,
+        weather_change_south = WeatherChangeEvent(site=Site.GS,
+                                                  time=weather_change_time,
                                                   description='IQ -> IQANY, CC -> CCANY',
                                                   variant_change=VariantChange(iq=ImageQuality.IQANY,
                                                                                cc=CloudCover.CCANY,
@@ -290,7 +292,6 @@ def main(*,
                                                  current_timeslot,
                                                  update.event,
                                                  plans[site])
-
 
                     # Get a new selection and request a new plan if the night is not done.
                     if not update.done:

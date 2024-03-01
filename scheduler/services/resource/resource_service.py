@@ -1,8 +1,8 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os
 from datetime import date
+from pathlib import Path
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple, TypeAlias, TypeVar
 
 import gelidum
@@ -14,8 +14,13 @@ from scheduler.services.abstract import ExternalService
 from .event_generators import EngineeringTask, Fault
 from .filters import *
 from .night_configuration import NightConfiguration
+from .resource_manager import ResourceManager
 
-__all__ = ['ResourceService']
+
+__all__ = [
+    'ResourceService',
+]
+
 
 logger = logger_factory.create_logger(__name__)
 T: TypeAlias = TypeVar('T')
@@ -68,9 +73,8 @@ class ResourceService(ExternalService):
     _progd = {'Q': '0', 'C': '1', 'L': '2', 'F': '3', 'S': '8', 'D': '9'}
 
     def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
-        self._all_resources: Dict[str, Resource] = {}
         self._sites = sites
-        self._path = os.path.join(ROOT_DIR, 'scheduler', 'services', 'resource', 'data')
+        self._path = Path(ROOT_DIR) / 'scheduler' / 'services' / 'resource' / 'data'
 
         # The map from site and date to the set of resources.
         self._resources: Dict[Site, Dict[date, Set[Resource]]] = {site: {} for site in self._sites}
@@ -108,6 +112,16 @@ class ResourceService(ExternalService):
         # The final output from this class: the configuration per night.
         self._night_configurations: Dict[Site, Dict[date, NightConfiguration]] = {site: {} for site in self._sites}
 
+    def lookup_resource(self,
+                        resource_id: str,
+                        description: Optional[str] = None,
+                        resource_type: Optional[ResourceType] = ResourceType.NONE) -> Optional[Resource]:
+        """
+        This is a helper method that just delegates to the ResourceManager cache.
+        It is designed to minimize code changes and make the ResourceService use the cache transparently.
+        """
+        return ResourceManager().lookup_resource(resource_id, description, resource_type)
+
     def _mdf_to_barcode(self, mdf_name: str, inst: str) -> Optional[Resource]:
         """Legacy MOS mask barcode convention"""
         barcode = None
@@ -131,32 +145,6 @@ class ResourceService(ExternalService):
         if Site.GS in self._sites and site == Site.GS:
             return self._gmoss_ifu_dict.get(fpu_name)
         return None
-
-    def lookup_resource(self,
-                        resource_id: str,
-                        description=None,
-                        resource_type=ResourceType.NONE) -> Optional[Resource]:
-        """
-        Function to perform Resource caching and minimize the number of Resource objects by attempting to reuse
-        Resource objects with the same ID.
-
-        If resource_id evaluates to False, return None.
-        Otherwise, check if a Resource with id already exists.
-        If it does, return it.
-        If not, create it, add it to the map of all Resources, and then return it.
-
-        Note that even if multiple objects do exist with the same ID, they will be considered equal by the
-        Resource equality comparator.
-        """
-        # The Resource constructor raises an exception for id None or containing any capitalization of "none".
-        if not resource_id:
-            return None
-        if resource_id not in self._all_resources:
-            self._all_resources[resource_id] = Resource(id=resource_id, description=description, type=resource_type)
-        # Update description (e.g. MDF) if different from the original. For when the description can be changed.
-        # if self._all_resources[resource_id].description != description:
-        #     self._all_resources[resource_id].description = description
-        return self._all_resources[resource_id]
 
     def date_range_for_site(self, site: Site) -> Tuple[date, date]:
         """

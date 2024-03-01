@@ -66,12 +66,12 @@ class Service:
             night_events = collector.get_night_events(site)
             for night_idx in night_indices:
                 eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
-                eve_twi = EveningTwilightEvent(time=eve_twi_time, description='Evening 12° Twilight')
+                eve_twi = EveningTwilightEvent(site=site, time=eve_twi_time, description='Evening 12° Twilight')
                 queue.add_event(night_idx, site, eve_twi)
 
                 morn_twi_time = night_events.twilight_morning_12[night_idx].to_datetime(
                     site.timezone) - time_slot_length
-                morn_twi = MorningTwilightEvent(time=morn_twi_time, description='Morning 12° Twilight')
+                morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
                 queue.add_event(night_idx, site, morn_twi)
 
         for night_idx in sorted(night_indices):
