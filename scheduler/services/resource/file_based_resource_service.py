@@ -440,7 +440,7 @@ class FileBasedResourceService(ResourceService):
 
         try:
             with open(path, 'r') as input_file:
-                pattern = r'(\d{4}-\d{2}-\d{2})\s+((?:\d{2}:\d{2})|twi)\s+((?:\d{2}:\d{2})|twi)(?:\s+\[(.*?)\])?'
+                pattern = r'(\d{4}-\d{2}-\d{2})\s+((?:\d{1,2}:\d{2})|twi)\s+((?:\d{1,2}:\d{2})|twi)(?:\s+\[(.*?)\])?'
                 entries = site_dict[site]
 
                 for line_num, line in enumerate(input_file):
@@ -492,7 +492,6 @@ class FileBasedResourceService(ResourceService):
                     end_datetime = datetime.combine(local_date, end_time).replace(tzinfo=site.timezone)
                     if end_time < start_time:
                         end_datetime += timedelta(days=1)
-
                     entries.setdefault(local_date, set())
                     entry = constructor(site=site,
                                         start_time=start_datetime,
