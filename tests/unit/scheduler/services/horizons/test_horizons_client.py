@@ -8,7 +8,7 @@ import pytest
 from hypothesis import note
 from hypothesis import given, strategies as st
 from hypothesis.strategies import composite
-from lucupy.minimodel import Site, NonsiderealTarget, TargetTag, TargetType
+from lucupy.minimodel import Site, NonsiderealTarget, TargetName, TargetTag, TargetType
 
 from scheduler.services.horizons import Coordinates, HorizonsAngle, horizons_session
 
@@ -25,7 +25,7 @@ def coordinates(draw):
 
 @pytest.fixture
 def target():
-    return NonsiderealTarget('Jupiter', frozenset(), type=TargetType.BASE,
+    return NonsiderealTarget(TargetName('Jupiter'), frozenset(), type=TargetType.BASE,
                              tag=TargetTag.MAJOR_BODY, des='jupiter', ra=np.array([]), dec=np.array([]))
 
 

@@ -16,10 +16,10 @@ from pandas import DataFrame
 import numpy as np
 
 from scheduler.core.components.collector import Collector
-from scheduler.core.components.nighteventsmanager import NightEventsManager
+from scheduler.core.components.night_events_manager import NightEventsManager
 from scheduler.core.plans import Plans
-from scheduler.core.programprovider.abstract import ProgramProvider
-from scheduler.core.programprovider.ocs import OcsProgramProvider
+from scheduler.core.program_provider.abstract import ProgramProvider
+from scheduler.core.program_provider.ocs import OcsProgramProvider
 from scheduler.core.calculations.selection import Selection
 
 

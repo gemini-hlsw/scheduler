@@ -7,9 +7,9 @@ from typing import final
 import strawberry  # noqa
 
 from scheduler.core.sources.sources import Sources
-from .schedulerbuilder import SchedulerBuilder
-from .validationbuilder import ValidationBuilder
-from ..eventsqueue import EventQueue
+from .scheduler_builder import SchedulerBuilder
+from .validation_builder import ValidationBuilder
+from ..events_queue import EventQueue
 
 
 __all__ = [

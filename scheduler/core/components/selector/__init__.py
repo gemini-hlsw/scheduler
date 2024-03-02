@@ -2,4 +2,4 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from .selector import *
-from .timebuffer import *
+from .time_buffer import *

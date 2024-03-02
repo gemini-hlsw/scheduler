@@ -13,7 +13,7 @@ from lucupy.minimodel.observation import ObservationClass
 from lucupy.minimodel.program import ProgramTypes
 
 from scheduler.config import config, ConfigurationError
-from scheduler.core.components.optimizer.optimizers import BaseOptimizer, Optimizers
+from scheduler.core.components.optimizer import BaseOptimizer, Optimizers
 
 
 __all__ = [

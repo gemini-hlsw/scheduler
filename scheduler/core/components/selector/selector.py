@@ -20,8 +20,8 @@ from lucupy.timeutils import time2slots
 from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramCalculations, ProgramInfo, Selection
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
-from scheduler.core.components.ranker import DefaultRanker, Ranker
-from scheduler.core.components.selector.timebuffer import TimeBuffer
+from scheduler.core.components.ranker import DefaultRanker, AbstractRanker
+from scheduler.core.components.selector.time_buffer import TimeBuffer
 from scheduler.core.types import StartingTimeslots
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
@@ -55,8 +55,8 @@ class Selector(SchedulerComponent):
     collector: Collector
     num_nights_to_schedule: int
     time_buffer: TimeBuffer
-    cc_per_site: Dict[Site, CloudCover] = field(default_factory=lambda: {})
-    iq_per_site: Dict[Site, ImageQuality] = field(default_factory=lambda: {})
+    cc_per_site: Dict[Site, CloudCover] = field(default_factory=dict)
+    iq_per_site: Dict[Site, ImageQuality] = field(default_factory=dict)
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
     _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
@@ -189,7 +189,7 @@ class Selector(SchedulerComponent):
                sites: Optional[FrozenSet[Site]] = None,
                night_indices: Optional[NightIndices] = None,
                starting_time_slots: Optional[StartingTimeslots] = None,
-               ranker: Optional[Ranker] = None) -> Selection:
+               ranker: Optional[AbstractRanker] = None) -> Selection:
         """
         Perform the selection of the groups based on:
         * Resource availability
@@ -274,7 +274,7 @@ class Selector(SchedulerComponent):
                       sites: FrozenSet[Site],
                       night_indices: NightIndices,
                       starting_time_slots: StartingTimeslots,
-                      ranker: Ranker) -> Optional[ProgramCalculations]:
+                      ranker: AbstractRanker) -> Optional[ProgramCalculations]:
         """
         Given a program and an array of night indices, score the program for the specified night indices
         starting at the specified time slot.
@@ -374,7 +374,7 @@ class Selector(SchedulerComponent):
                          night_indices: NightIndices,
                          starting_time_slots: StartingTimeslots,
                          night_configurations: NightConfigurationData,
-                         ranker: Ranker,
+                         ranker: AbstractRanker,
                          group_data_map: GroupDataMap = None) -> GroupDataMap:
         """
         Delegate this group to the proper calculation method.
@@ -407,7 +407,7 @@ class Selector(SchedulerComponent):
                                      night_indices: NightIndices,
                                      starting_time_slots: StartingTimeslots,
                                      night_configurations: NightConfigurationData,
-                                     ranker: Ranker,
+                                     ranker: AbstractRanker,
                                      group_data_map: GroupDataMap) -> GroupDataMap:
         """
         Calculate the GroupInfo for a group that contains an observation and add it to
@@ -572,7 +572,7 @@ class Selector(SchedulerComponent):
                              night_indices: NightIndices,
                              starting_time_slots: StartingTimeslots,
                              night_configurations: NightConfigurationData,
-                             ranker: Ranker,
+                             ranker: AbstractRanker,
                              group_data_map: GroupDataMap) -> GroupDataMap:
         """
         Calculate the GroupInfo for an AND group that contains subgroups and add it to
@@ -680,7 +680,7 @@ class Selector(SchedulerComponent):
                             night_indices: NightIndices,
                             starting_time_slots: StartingTimeslots,
                             night_configurations: NightConfigurationData,
-                            ranker: Ranker,
+                            ranker: AbstractRanker,
                             group_data_map: GroupDataMap) -> GroupDataMap:
         """
         Calculate the GroupInfo for an AND group that contains subgroups and add it to

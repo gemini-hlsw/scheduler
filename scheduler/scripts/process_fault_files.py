@@ -73,8 +73,10 @@ def process_eng_task_file(input_file_path: Path, output_file_path: Path) -> None
                 if match:
                     entry_lines += 1
                     date, start_time, end_time, description = match.groups()
-                    if len(start_time) == 4: start_time = '0' + start_time
-                    if len(end_time) == 4: end_time = '0' + end_time
+                    if len(start_time) == 4:
+                        start_time = '0' + start_time
+                    if len(end_time) == 4:
+                        end_time = '0' + end_time
                     description = description.replace('\t', ' ')
                     formatted_line = f'{date}\t{start_time}\t{end_time}\t{description}\n'
                     output_file.write(formatted_line)

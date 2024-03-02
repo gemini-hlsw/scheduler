@@ -10,16 +10,15 @@ from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex, CloudCov
 
 from scheduler.core.builder import Blueprints
 from scheduler.core.builder.modes import dispatch_with, SchedulerModes
-from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
+from scheduler.core.components.change_monitor import ChangeMonitor, TimeCoordinateRecord
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.components.ranker import RankerParameters, DefaultRanker
 from scheduler.core.components.selector import Selector
-from scheduler.core.eventsqueue import EventQueue, EveningTwilightEvent, MorningTwilightEvent, Event
-from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
+from scheduler.core.events_queue import EventQueue, EveningTwilightEvent, MorningTwilightEvent, NightlyTimeline, Event
 from scheduler.core.plans import Plans
 from scheduler.core.sources.sources import Sources
-from scheduler.core.statscalculator import StatCalculator
+from scheduler.core.stats_calculator import StatCalculator
 from scheduler.services import logger_factory
 
 
@@ -78,7 +77,7 @@ class Service:
             night_indices = np.array([night_idx])
             ranker = DefaultRanker(collector, night_indices, sites, params=ranker_parameters)
 
-            for site in sorted(sites, key=lambda site: site.name):
+            for site in sorted(sites, key=lambda s: s.name):
                 # Site name so we can change this if we see fit.
                 site_name = site.name
 
@@ -143,7 +142,8 @@ class Service:
                                 # * there is no next update scheduled; or
                                 # * this update happens before the next update
                                 # then set to this update.
-                                if next_update[site] is None or time_record.timeslot_idx < next_update[site].timeslot_idx:
+                                if (next_update[site] is None
+                                        or time_record.timeslot_idx < next_update[site].timeslot_idx):
                                     next_update[site] = time_record
 
                     # If there is a next update, and we have reached its time, then perform it.

@@ -7,10 +7,10 @@ from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, NightIndex
 
 from scheduler.core.service import Service
-from scheduler.core.sources.sources import Services, Sources
+from scheduler.core.sources import Services, Sources
 from scheduler.core.builder.modes import SchedulerModes
-from scheduler.core.eventsqueue import EventQueue
-from scheduler.db.planmanager import PlanManager
+from scheduler.core.events_queue import EventQueue
+from scheduler.db.plan_manager import PlanManager
 
 
 from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
@@ -18,6 +18,13 @@ from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
 from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
 from ..core.components.ranker import RankerParameters
+
+
+__all__ = [
+    'Query',
+    'Mutation',
+]
+
 
 # TODO: This variables need a Redis cache to work with different mutations correctly.
 sources = Sources()

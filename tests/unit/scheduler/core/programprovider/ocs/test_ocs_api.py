@@ -16,7 +16,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.timeutils import sex2dec
 
 from definitions import ROOT_DIR
-from scheduler.core.programprovider.ocs import OcsProgramProvider
+from scheduler.core.program_provider.ocs import OcsProgramProvider
 from scheduler.core.sources.sources import Sources
 from lucupy.types import ZeroTime
 

@@ -1,0 +1,67 @@
+# Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
+from copy import deepcopy
+from pathlib import Path
+from typing import FrozenSet, List, Optional
+from lucupy.minimodel import Site
+
+from scheduler.core.plans import Plans
+from scheduler.graphql_mid.types import SPlans
+from definitions import ROOT_DIR
+from .db_manager import DBManager
+
+
+__all__ = [
+    'PlanManager',
+]
+
+
+db = DBManager(Path(ROOT_DIR) / 'plans')
+DB_KEY = 'plans'
+
+
+class PlanManager:
+    """
+    A singleton class to store the current List[SPlans].
+    1. The list represents the nights.
+    2. The SPlans for each list entry is indexed by site to store the plan for the night.
+    3. The SPlan is the plan for the site for the night, containing SVisits.
+    """
+
+    @staticmethod
+    def get_plans() -> List[SPlans]:
+        """
+        Make a copy of the plans here and return them.
+        This is to ensure that the plans are not corrupted after the
+        lock is released.
+        """
+        try:
+            plans = deepcopy(db.read())
+            return plans
+        except KeyError:
+            raise KeyError('Error on read.')
+
+    @staticmethod
+    def get_plans_by_input(start_date: str, end_date: str, site: FrozenSet[Site]) -> Optional[List[SPlans]]:
+        """
+        A more specific way to get plans by the `CreateNewSchedule` input.
+        """
+        try:
+            plans = deepcopy(db.read(start_date, end_date, site))
+            return plans
+        except KeyError:
+            return None
+
+    @staticmethod
+    def set_plans(plans: List[Plans], sites: FrozenSet[Site]) -> None:
+        """
+        Note that we are converting List[Plans] to List[SPlans].
+        """
+        try:
+            calculated_plans = deepcopy(plans)
+            db.write([
+                SPlans.from_computed_plans(p, sites) for p in calculated_plans
+            ])
+        except KeyError:
+            raise KeyError('Error on write.')

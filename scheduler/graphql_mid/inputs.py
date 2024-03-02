@@ -11,6 +11,12 @@ from .scalars import Sites
 from scheduler.core.builder.modes import SchedulerModes
 
 
+__all__ = [
+    'CreateNewScheduleInput',
+    'UseFilesSourceInput',
+]
+
+
 @strawberry.input
 class CreateNewScheduleInput:
     """
@@ -39,7 +45,6 @@ class UseFilesSourceInput:
     gmos_gratings: Optional[Upload] = None
     faults: Optional[Upload] = None
     eng_tasks: Optional[Upload] = None
-
 
 
 @strawberry.input

@@ -9,12 +9,12 @@ import numpy as np
 from lucupy.minimodel import NightIndex, Observation, ObservationID, Site
 from lucupy.types import Interval, ZeroTime
 
-from scheduler.core.calculations.nightevents import NightEvents
+from scheduler.core.calculations.night_events import NightEvents
 
 
 __all__ = [
     'Timeline',
-
+    'Timelines',
 ]
 
 

@@ -7,7 +7,7 @@ import pytest
 
 from lucupy.minimodel import ObservationClass, Program
 
-from scheduler.core.programprovider.ocs import ocs_program_data, OcsProgramProvider
+from scheduler.core.program_provider.ocs import ocs_program_data, OcsProgramProvider
 from scheduler.core.sources.sources import Sources
 
 

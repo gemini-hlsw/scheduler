@@ -7,15 +7,15 @@ from astropy.time import Time
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 from lucupy.minimodel import SemesterHalf
-from lucupy.minimodel.site import ALL_SITES, Site
-from lucupy.minimodel import NightIndex, TimeslotIndex
+from lucupy.minimodel.site import ALL_SITES
+from lucupy.minimodel import NightIndex
 from lucupy.minimodel.semester import Semester
 from lucupy.minimodel import ProgramID
 
 from scheduler.core.builder.blueprint import CollectorBlueprint
-from scheduler.core.builder.validationbuilder import ValidationBuilder
+from scheduler.core.builder.validation_builder import ValidationBuilder
 from scheduler.core.components.collector import *
-from scheduler.core.eventsqueue import EventQueue
+from scheduler.core.events_queue import EventQueue
 from scheduler.core.output import print_collector_info
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory

@@ -7,7 +7,17 @@ import strawberry  # noqa
 from lucupy.minimodel import GroupID, ObservationID, ProgramID, Site, UniqueGroupID, ALL_SITES
 
 from scheduler.config import ConfigurationError
-from scheduler.core.sources.sources import Origin, Origins
+from scheduler.core.sources import Origin, Origins
+
+
+__all__ = [
+    'Sites',
+    'SObservationID',
+    'SUniqueGroupID',
+    'SGroupID',
+    'SProgramID',
+    'SOrigin',
+]
 
 
 def parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:

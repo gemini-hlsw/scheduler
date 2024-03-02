@@ -7,8 +7,8 @@ from typing import FrozenSet
 
 from lucupy.minimodel import Resource
 
-from scheduler.core.eventsqueue.events import (EngineeringTaskEvent, EngineeringTaskResolutionEvent,
-                                               FaultEvent, FaultResolutionEvent)
+from scheduler.core.events_queue.events import (EngineeringTaskEvent, EngineeringTaskResolutionEvent,
+                                                FaultEvent, FaultResolutionEvent)
 
 __all__ = ['EngineeringTask', 'Fault']
 

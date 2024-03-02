@@ -8,11 +8,11 @@ from typing import final, Callable, FrozenSet, Mapping, Optional
 from lucupy.helpers import flatten
 from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, UniqueGroupID
 
-from scheduler.core.components.ranker import Ranker
+from scheduler.core.components.ranker import AbstractRanker
 from scheduler.core.types import StartingTimeslots
-from scheduler.core.calculations.nightevents import NightEvents
-from scheduler.core.calculations.programinfo import ProgramCalculations, ProgramInfo
-from scheduler.core.calculations.groupinfo import GroupData
+from scheduler.core.calculations.night_events import NightEvents
+from scheduler.core.calculations.program_info import ProgramCalculations, ProgramInfo
+from scheduler.core.calculations.group_info import GroupData
 
 
 __all__ = [
@@ -37,14 +37,14 @@ class Selection:
     night_indices: NightIndices
     time_slot_length: timedelta
     starting_time_slots: StartingTimeslots
-    ranker: Ranker
+    ranker: AbstractRanker
 
     # Used to re-score programs.
     _program_scorer: Optional[Callable[[Program,
                                         FrozenSet[Site],
                                         NightIndices,
                                         StartingTimeslots,
-                                        Ranker],
+                                        AbstractRanker],
                               Optional[ProgramCalculations]]] = None
 
     def __reduce__(self):

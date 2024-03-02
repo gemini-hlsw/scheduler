@@ -102,8 +102,7 @@ build the images.
 $ docker build -t scheduler .  
 $ docker run -dp 8000:8000 scheduler
 ```
-
-2. You can access `http://localhost:8000/graphql` to interact with the GraphQL console. 
+2. You can access `http://localhost:8000/graphql` to interact with the GraphQL console.
 
 ## Troubleshooting
 

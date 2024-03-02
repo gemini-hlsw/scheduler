@@ -4,7 +4,7 @@
 from typing import List
 
 from scheduler.core.calculations.selection import Selection
-from scheduler.core.components.optimizer.base import BaseOptimizer
+from scheduler.core.components.optimizer.base_optimizer import BaseOptimizer
 from scheduler.core.plans import Plans
 
 from lucupy.minimodel import Program

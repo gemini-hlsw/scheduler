@@ -12,11 +12,33 @@ from strawberry.scalars import JSON  # noqa
 
 from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantChange
 
-from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
+from scheduler.core.events_queue.night_changes import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
-from scheduler.core.eventsqueue import WeatherChangeEvent
+from scheduler.core.events_queue import WeatherChangeEvent
 from scheduler.graphql_mid.scalars import SObservationID
 from scheduler.config import config
+
+
+__all__ = [
+    'SNightStats',
+    'SVisit',
+    'SPlan',
+    'SPlans',
+    'STimelineEntry',
+    'TimelineEntriesBySite',
+    'SNightInTimeline',
+    'SNightTimelines',
+    'NewNightPlans',
+    'NewScheduleSuccess',
+    'NewScheduleError',
+    'ChangeOriginSuccess',
+    'SourceFileHandlerResponse',
+    'NewScheduleResponse',
+    'NewWeatherChange',
+    'EventsAddedSuccess',
+    'EventsAddedError',
+    'EventsAddedResponse',
+]
 
 
 @strawberry.type

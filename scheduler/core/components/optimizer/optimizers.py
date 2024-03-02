@@ -3,9 +3,9 @@
 
 from enum import Enum
 
-from .base import BaseOptimizer
-from .dummy import DummyOptimizer
-from .greedymax import GreedyMaxOptimizer
+from .base_optimizer import BaseOptimizer
+from .dummy_optimizer import DummyOptimizer
+from .greedy_max_optimizer import GreedyMaxOptimizer
 
 from lucupy.types import Instantiable
 

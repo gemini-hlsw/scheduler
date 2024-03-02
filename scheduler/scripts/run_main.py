@@ -15,13 +15,13 @@ from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
 from scheduler.core.builder.blueprint import CollectorBlueprint, SelectorBlueprint, OptimizerBlueprint
-from scheduler.core.builder.validationbuilder import ValidationBuilder
+from scheduler.core.builder.validation_builder import ValidationBuilder
 from scheduler.core.components.ranker import RankerParameters, DefaultRanker
-from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
-from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
+from scheduler.core.components.change_monitor import ChangeMonitor, TimeCoordinateRecord
+from scheduler.core.events_queue import (EveningTwilightEvent, Event, EventQueue, MorningTwilightEvent,
+                                         NightlyTimeline, WeatherChangeEvent)
 from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.plans import Plans
-from scheduler.core.eventsqueue import EveningTwilightEvent, Event, EventQueue, MorningTwilightEvent, WeatherChangeEvent
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
 
@@ -290,7 +290,6 @@ def main(*,
                                                  current_timeslot,
                                                  update.event,
                                                  plans[site])
-
 
                     # Get a new selection and request a new plan if the night is not done.
                     if not update.done:

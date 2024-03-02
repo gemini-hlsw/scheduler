@@ -8,7 +8,7 @@ from typing import final, List, Optional, Tuple
 from lucupy.minimodel import Observation, ObservationID, Resource, Site
 from lucupy.timeutils import time2slots
 
-from .nightstats import NightStats
+from .night_stats import NightStats
 from .visit import Visit
 
 

@@ -19,17 +19,17 @@ from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex,
 from lucupy.timeutils import time2slots
 from lucupy.types import ZeroTime
 
-from scheduler.core.calculations.nightevents import NightEvents
-from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
+from scheduler.core.calculations.night_events import NightEvents
+from scheduler.core.calculations.target_info import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
-from scheduler.core.components.nighteventsmanager import NightEventsManager
+from scheduler.core.components.night_events_manager import NightEventsManager
 from scheduler.core.plans import Plans, Visit
-from scheduler.core.programprovider.abstract import ProgramProvider
+from scheduler.core.program_provider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
-from scheduler.services.resource.filters import ProgramPermissionFilter
+
 
 __all__ = [
     'Collector',

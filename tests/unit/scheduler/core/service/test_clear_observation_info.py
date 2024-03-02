@@ -5,7 +5,7 @@ from lucupy.minimodel.observation import ObservationClass, ObservationStatus
 from lucupy.types import ZeroTime
 
 from scheduler.core.builder import ValidationBuilder
-from scheduler.core.programprovider.ocs import ocs_program_data, OcsProgramProvider
+from scheduler.core.program_provider.ocs import ocs_program_data, OcsProgramProvider
 from scheduler.core.sources.sources import Sources
 
 
@@ -24,7 +24,7 @@ def test_clear_observations():
 
     for program in programs:
         ValidationBuilder._clear_observation_info(program.observations(),
-                                               ValidationBuilder._obs_statuses_to_ready)
+                                                  ValidationBuilder._obs_statuses_to_ready)
 
     # Check to make sure all data has been cleared.
     for p in programs:
