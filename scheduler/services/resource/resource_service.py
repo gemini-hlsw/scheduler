@@ -11,7 +11,7 @@ from lucupy.minimodel import Site, ALL_SITES, Resource, ResourceType
 from definitions import ROOT_DIR
 from scheduler.services import logger_factory
 from scheduler.services.abstract import ExternalService
-from .event_generators import EngineeringTask, Fault
+from .event_generators import EngineeringTask, Fault, WeatherClosure
 from .filters import *
 from .night_configuration import NightConfiguration
 from .resource_manager import ResourceManager
@@ -88,9 +88,10 @@ class ResourceService(ExternalService):
         self._earliest_date_per_site: Dict[Site, date] = {site: date.max for site in self._sites}
         self._latest_date_per_site: Dict[Site, date] = {site: date.min for site in self._sites}
 
-        # Faults and engineering tasks.
+        # Faults, engineering tasks, and weather closures.
         self._faults: Dict[Site, Dict[date, Set[Fault]]] = {site: {} for site in self._sites}
         self._eng_tasks: Dict[Site, Dict[date, Set[EngineeringTask]]] = {site: {} for site in self._sites}
+        self._weather_closures: Dict[Site, Dict[date, Set[WeatherClosure]]] = {site: {} for site in self._sites}
 
         # Determines which nights are blocked.
         self._blocked: Dict[Site, Set[date]] = {site: set() for site in self._sites}

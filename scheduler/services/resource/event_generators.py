@@ -27,6 +27,7 @@ class EngineeringTask:
     The information record for an Engineering Task.
     Note that Engineering tasks are planned and are not "surprises" to the Scheduler.
     """
+    site: Site
     start_time: datetime
     end_time: datetime
     description: str
@@ -44,8 +45,8 @@ class Interruption(ABC):
     TODO: Asked in #GPP slack on 2024-02-29,
     """
     site: Site
-    time: datetime
-    duration: timedelta
+    start_time: datetime
+    end_time: datetime
     description: str
     affected_resources: InitVar[Optional[FrozenSet[Resource]]] = None
     _affected_resources: FrozenSet[Resource] = field(init=False, default_factory=frozenset)

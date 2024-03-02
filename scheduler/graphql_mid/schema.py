@@ -45,6 +45,7 @@ class Mutation:
                 gmos_gratings = await files_input.gmos_gratings.read()
                 faults = await files_input.faults.read()
                 eng_tasks = await files_input.eng_tasks.read()
+                weather_closures = await files_input.weather_closures.read()
 
                 loaded = sources.use_file(files_input.sites,
                                           service,
@@ -52,7 +53,8 @@ class Mutation:
                                           gmos_fpu,
                                           gmos_gratings,
                                           faults,
-                                          eng_tasks)
+                                          eng_tasks,
+                                          weather_closures)
                 if loaded:
                     return SourceFileHandlerResponse(service=files_input.service,
                                                      loaded=loaded,

@@ -50,6 +50,7 @@ class OcsResourceService(FileBasedResourceService):
                             f'GMOS{suffix}_GRAT201789.txt',
                             f'G{suffix}_faults.txt',
                             f'G{suffix}_engtasks.txt',
+                            f'G{suffix}_weather_loss.txt',
                             OcsResourceService._SITE_CONFIG_FILE)
 
         # TODO: Remove this after discussion with science.

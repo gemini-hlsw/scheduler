@@ -6,7 +6,7 @@ import re
 from copy import copy
 from datetime import date, datetime, time, timedelta
 from io import BytesIO, StringIO
-from typing import Callable, Dict, Final, List, Optional, Set, Union
+from typing import Callable, Dict, Final, List, Optional, Set, Type, TypeVar, Union
 
 from astropy.time import Time
 from openpyxl.reader.excel import load_workbook
@@ -15,7 +15,7 @@ from lucupy.minimodel import ProgramID, Resource, Site, TimeAccountingCode, Reso
 from lucupy.sky import night_events
 
 from scheduler.services import logger_factory
-from .event_generators import EngineeringTask, Fault
+from .event_generators import EngineeringTask, Fault, WeatherClosure
 from .filters import (LgsFilter, NothingFilter, ProgramPermissionFilter, ProgramPriorityFilter, ResourcePriorityFilter,
                       TimeAccountingCodeFilter, TooFilter)
 from .resource_manager import ResourceManager
@@ -26,6 +26,7 @@ __all__ = [
     'FileBasedResourceService',
 ]
 
+T = TypeVar('T', EngineeringTask, Fault, WeatherClosure)
 
 logger = logger_factory.create_logger(__name__)
 
@@ -423,17 +424,24 @@ class FileBasedResourceService(ResourceService):
     def _mirror_parser(r: List[str], _: Site) -> Set[str]:
         return {'Mirror'} | {i.strip().replace('+', '') for i in r}
 
-    def _load_eng_tasks(self, site: Site, name: str) -> None:
+    def _load_time_loss(self,
+                        site: Site,
+                        name: str,
+                        site_dict: Dict[Site, Dict[date, Set[T]]],
+                        constructor: Type[T]) -> None:
         """
-        Load the faults from the specified file.
-        Times in faults are stored in local time with no timezone information.
+        Load the data from the specified file.
+        A common syntax is used for:
+        * engineering tasks
+        * weather closures
+        * faults
         """
         path = self._path / name
 
         try:
             with open(path, 'r') as input_file:
                 pattern = r'(\d{4}-\d{2}-\d{2})\s+((?:\d{2}:\d{2})|twi)\s+((?:\d{2}:\d{2})|twi)(?:\s+\[(.*?)\])?'
-                eng_tasks = self._eng_tasks[site]
+                entries = site_dict[site]
 
                 for line_num, line in enumerate(input_file):
                     line = line.strip()
@@ -485,13 +493,14 @@ class FileBasedResourceService(ResourceService):
                     if end_time < start_time:
                         end_datetime += timedelta(days=1)
 
-                    eng_tasks.setdefault(local_date, set())
-                    eng_task = EngineeringTask(start_time=start_datetime,
-                                               end_time=end_datetime,
-                                               description=description)
-                    eng_tasks[local_date].add(eng_task)
+                    entries.setdefault(local_date, set())
+                    entry = constructor(site=site,
+                                        start_time=start_datetime,
+                                        end_time=end_datetime,
+                                        description=description)
+                    entries[local_date].add(entry)
         except FileNotFoundError:
-            logger.error(f'Eng tasks file not available: {path}')
+            logger.error(f'Time loss file not available: {path}')
 
     def _load_faults(self, site: Site, name: str) -> None:
         """
@@ -535,7 +544,7 @@ class FileBasedResourceService(ResourceService):
                     # TODO: Fix duration as per email discussion.
                     faults.setdefault(night_date, set())
                     fault = Fault(site=site,
-                                  time=local_datetime,
+                                  start_time=local_datetime,
                                   duration=duration,
                                   description=f'FR-{fr_id}: {description}')
                     faults[night_date].add(fault)
@@ -549,34 +558,50 @@ class FileBasedResourceService(ResourceService):
                    gratings_data: Union[str, BytesIO],
                    faults_data: Union[str, BytesIO],
                    eng_tasks_data: Union[str, BytesIO],
+                   weather_closure_data: Union[str, BytesIO],
                    spreadsheet_file: str) -> None:
         """
         Load all files necessaries to the correct functioning of the ResourceManager.
         """
         # Load the mappings from the ITCD FPU values to the barcodes.
+        logger.info(f'Reading FPU barcode data for {site}.')
         self._load_fpu_to_barcodes(site, fpu_to_barcodes_file)
+        logger.info(f'Done reading FPU barcode data for {site}.')
 
         # Load the FPUrs.
         # This will put both the IFU and the FPU barcodes available on a given date as Resources.
         # Note that for the IFU, we need to convert to a barcode, which is a Resource.
         # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take its ID.
+        logger.info(f'Reading IFU-FPU barcode data for {site}.')
         self._load_csv(site,
                        self._itcd_fpu_to_barcode_parser,
                        fpus_data,
                        resource_type=ResourceType.FPU)
+        logger.info(f'Done reading IFU-FPU barcode data for {site}.')
 
         # Load the gratings.
         # This will put the mirror and the grating names available on a given date as Resources.
         # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
+        logger.info(f'Reading gratings data for {site}.')
         self._load_csv(site,
                        self._mirror_parser,
                        gratings_data,
                        resource_type=ResourceType.DISPERSER)
+        logger.info(f'Done reading gratings data for {site}.')
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
+        logger.info(f'Reading instrument data for {site}.')
         self._load_instrument_data(site, spreadsheet_file)
+        logger.info(f'Done reading instrument data for {site}.')
 
-        self._load_faults(site, faults_data)
-        self._load_eng_tasks(site, eng_tasks_data)
+        logger.info(f'Reading fault data for {site}.')
+        self._load_time_loss(site, faults_data, self._faults, Fault)
+        logger.info(f'Done reading fault data for {site}.')
 
-        logger.info('Successfully loaded resource data.')
+        logger.info(f'Reading engineering task data for {site}.')
+        self._load_time_loss(site, eng_tasks_data, self._eng_tasks, EngineeringTask)
+        logger.info(f'Done reading engineering task data for {site}.')
+
+        logger.info(f'Reading weather closure data for {site}.')
+        self._load_time_loss(site, weather_closure_data, self._weather_closures, WeatherClosure)
+        logger.info(f'Done reading weather closure data for {site}.')

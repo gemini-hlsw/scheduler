@@ -38,7 +38,8 @@ class Sources:
                  gmos_fpu: BytesIO,
                  gmos_gratings: BytesIO,
                  faults: BytesIO,
-                 eng_tasks: BytesIO) -> bool:
+                 eng_tasks: BytesIO,
+                 weather_closures: BytesIO) -> bool:
 
         match service:
             case Services.ENV:
@@ -47,7 +48,7 @@ class Sources:
 
             case Services.RESOURCE:
                 # Check that the amount of files is correct
-                if gmos_fpu and gmos_gratings and faults and eng_tasks:
+                if gmos_fpu and gmos_gratings and faults and eng_tasks and weather_closures:
                     file_resource_service = FileResourceService()
 
                     for site in sites:
@@ -58,6 +59,7 @@ class Sources:
                                                          gmos_gratings,
                                                          faults,
                                                          eng_tasks,
+                                                         weather_closures,
                                                          'telescope_schedules.xlsx')
 
                     self.set_origin(Origins.FILE.value())
