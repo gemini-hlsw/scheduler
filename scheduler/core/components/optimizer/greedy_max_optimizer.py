@@ -18,7 +18,7 @@ from lucupy.types import Interval, ListOrNDArray, ZeroTime
 
 from scheduler.core.calculations import GroupData, NightTimeslotScores
 from scheduler.core.calculations.selection import Selection
-from scheduler.core.components.optimizer import Timelines
+from scheduler.core.components.optimizer.timeline import Timelines
 from scheduler.core.plans import Plans
 from scheduler.services import logger_factory
 from .base_optimizer import BaseOptimizer, MaxGroup
