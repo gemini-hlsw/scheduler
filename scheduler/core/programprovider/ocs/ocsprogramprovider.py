@@ -48,8 +48,13 @@ def ocs_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
             list_file = program_list
         else:
             list_file = DEFAULT_PROGRAM_ID_PATH
-        with list_file.open('r') as file:
-            id_frozenset = frozenset(line.strip() for line in file if line.strip())
+
+        if isinstance(program_list, bytes):
+            file = program_list.decode('utf-8')
+            id_frozenset = frozenset(f.strip() for f in file.split('\n') if f.strip())
+        else:
+            with list_file.open('r') as file:
+                id_frozenset = frozenset(line.strip() for line in file if line.strip())
     except FileNotFoundError:
         # If the file does not exist, set id_frozenset to None
         id_frozenset = None
