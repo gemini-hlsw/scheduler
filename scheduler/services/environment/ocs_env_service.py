@@ -27,8 +27,8 @@ class OcsEnvService(ExternalService):
 
     # The columns used from the pandas dataframe.
     _time_stamp_col: Final[str] = 'Time_Stamp_UTC'
-    _cc_band_col: Final[str] = 'cc_band'
-    _iq_band_col: Final[str] = 'iq_band'
+    _cc_band_col: Final[str] = 'raw_cc'
+    _iq_band_col: Final[str] = 'raw_iq'
     _wind_speed_col: Final[str] = 'WindSpeed'
     _wind_dir_col: Final[str] = 'WindDir'
 
@@ -89,7 +89,6 @@ class OcsEnvService(ExternalService):
 
         # Take time slot length into account, taking only the 0 + n * time_slot_length entries for n ≥ 0.
         filtered_df = time_filtered_df.iloc[::self._time_slot_length]
-
         iq_array = np.array([ImageQuality(iq) for iq in filtered_df[OcsEnvService._iq_band_col].values],
                             dtype=ImageQuality)
         cc_array = np.array([CloudCover(cc) for cc in filtered_df[OcsEnvService._cc_band_col].values],
