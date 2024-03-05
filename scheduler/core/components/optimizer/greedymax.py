@@ -187,8 +187,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
                         sci_times_min.append(time_remain)
 
                     # NIR science time for to determine the number of tellurics
-                    if any(inst in group.required_resources() for inst in NIR_INSTRUMENTS):
+                    if any(inst in obs.required_resources() for inst in NIR_INSTRUMENTS):
                         exec_sci_nir += time_remain
+                        if verbose:
+                            print(f'Adding {time_remain} to exec_sci_nir')
                 elif obs.obs_class == ObservationClass.PARTNERCAL:
                     # Partner calibration time, no splitting of partner cals
                     nprt += 1
@@ -458,9 +460,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         Return the starting and ending timeline slots (indices) for the NIR science observations.
         """
-        # TODO: This should probably be moved to a more general location
-        nir_inst = [Resource('Flamingos2'), Resource('GNIRS'), Resource('NIRI'), Resource('NIFS'),
-                    Resource('IGRINS')]
 
         # science, split at atom
         slot_start_nir = None
@@ -483,7 +482,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
             slot_end = slot_start + visit_length - 1
             # NIR science time for to determine the number of tellurics
-            if any(inst in obs.required_resources() for inst in nir_inst):
+            if any(inst in obs.required_resources() for inst in NIR_INSTRUMENTS):
                 if slot_start_nir is None:
                     slot_start_nir = slot_start + n_slots_acq  # start of the science sequence, after acq
                 slot_end_nir = slot_end
@@ -914,6 +913,15 @@ class GreedyMaxOptimizer(BaseOptimizer):
             prog_obs = max_group_info.group_data.group.program_observations()
             part_obs = max_group_info.group_data.group.partner_observations()
 
+            # print(f'Adding {max_group_info.group_data.group.unique_id.id} MaxScore:{max_group_info.max_score:7.2f} '
+            #       f'n_std:{max_group_info.n_std} obs_mode:{max_group_info.group_data.group.obs_mode()} '
+            #       f'nir_sci:{max_group_info.exec_sci_nir}')
+            # print(f'{max_group_info.group_data.group.required_resources()}')
+            # [print(wav) for wav in max_group_info.group_data.group.wavelengths()]
+            # print('Program observations')
+            # [print(f'\t {obs.unique_id.id}') for obs in prog_obs]
+            # print('Partner observations')
+            # [print(f'\t {obs.unique_id.id}') for obs in part_obs]
             if max_group_info.n_std > 0:
                 if max_group_info.exec_sci_nir > ZeroTime:
                     standards, place_before = self.place_standards(night_idx, best_interval, prog_obs, part_obs,
