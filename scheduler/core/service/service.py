@@ -46,8 +46,6 @@ class Service:
 
     @staticmethod
     def _schedule_nights(night_indices: FrozenSet[NightIndex],
-                         start_vis: Time,
-                         end_vis: Time,
                          sites: FrozenSet[Site],
                          collector: Collector,
                          selector: Selector,
@@ -75,14 +73,13 @@ class Service:
                 morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
                 queue.add_event(night_idx, site, morn_twi)
 
-                # Add weather changes to queue
-                delta = TimeDelta(1, format='jd')
-
-                night_variants = collector.sources.origin.env.get_night_weather_changes(site, Time(eve_twi_time), Time(morn_twi_time))
+                night_variants = collector.sources.origin.env.get_night_weather_changes(site,
+                                                                                        Time(eve_twi_time),
+                                                                                        Time(morn_twi_time))
                 for dt, variant in night_variants.items():
 
                     weather_change = WeatherChangeEvent(time=dt.replace(tzinfo=site.timezone),
-                                                        description=f'New conditions:',
+                                                        description=f'New conditions: IQ: {variant.iq}, CC: {variant.cc}',
                                                         variant_change=variant)
                     queue.add_event(NightIndex(night_idx), site, weather_change)
 
@@ -150,7 +147,7 @@ class Service:
                             _logger.info(
                                 f'Received event for site {site_name} for night idx {night_idx} to be processed '
                                 f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
-
+                            print(next_event)
                             # Process the event: find out when it should occur.
                             # If there is no next update planned, then take it to be the next update.
                             # If there is a next update planned, then take it if it happens before the next update.
@@ -291,8 +288,6 @@ class Service:
         optimizer = builder.build_optimizer(Blueprints.optimizer)
 
         timelines = self._schedule_nights(night_indices,
-                                          start_vis,
-                                          end_vis,
                                           sites,
                                           collector,
                                           selector,

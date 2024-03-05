@@ -110,7 +110,8 @@ class ChangeMonitor(SchedulerComponent):
                 # Check if there is a visit running now.
                 plan = plans[site]
                 sorted_visits = sorted(plan.visits, key=lambda v: v.start_time_slot)
-                visit_idx = bisect.bisect_right([v.start_time_slot for v in sorted_visits], event_timeslot)
+                visit_idx = bisect.bisect_right([v.start_time_slot for v in sorted_visits], event_timeslot)-1
+                print(visit_idx, len(sorted_visits))
                 visit = None if visit_idx < 0 else sorted_visits[visit_idx]
 
                 # There are no visits currently in progress, so immediately calculate new plan and do TA.
@@ -197,11 +198,11 @@ class ChangeMonitor(SchedulerComponent):
                 if variant_change.wind_dir is None:
                     wind_dir = actual_conditions.wind_dir
                 else:
-                    wind_dir = np.array([variant_change.wind_dir] * remaining_time_slots)
+                    wind_dir = np.array([variant_change.wind_dir.degree] * remaining_time_slots)
                 if variant_change.wind_spd is None:
                     wind_spd = actual_conditions.wind_spd
                 else:
-                    wind_spd = np.array([variant_change.wind_spd] * remaining_time_slots)
+                    wind_spd = np.array([variant_change.wind_spd.value] * remaining_time_slots)
                 actual_conditions = Variant(cc=np.array([variant_change.cc] * remaining_time_slots),
                                             iq=np.array([variant_change.iq] * remaining_time_slots),
                                             wind_spd=wind_spd,
