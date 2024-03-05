@@ -998,4 +998,4 @@ class GreedyMaxOptimizer(BaseOptimizer):
                                              obs_in_plan.visit_score,
                                              obs_in_plan.peak_score)
                     plans[timeline.site].update_time_slots(timeline.slots_unscheduled())
-            print('')
+            # print('')

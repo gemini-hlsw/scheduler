@@ -508,19 +508,26 @@ class OcsProgramProvider(ProgramProvider):
     def _parse_instrument(data: dict) -> str:
         """Get the instrument name"""
         fpu = None
+        instrument = None
 
-        inst_key = OcsProgramProvider._AtomKeys.INSTRUMENT
-        # Visitor instrument names are in OcsProgramProvider._AtomKeys.INST_NAME
-        if OcsProgramProvider._AtomKeys.INST_NAME in data:
-            inst_key = OcsProgramProvider._AtomKeys.INST_NAME
-        instrument = data[inst_key].split(' ')[0]
+        for step in data:
+            # Ignore acquisitions
+            if step[OcsProgramProvider._AtomKeys.OBS_CLASS].upper() not in [ObservationClass.ACQ.name,
+                                                                            ObservationClass.ACQCAL.name]:
+                inst_key = OcsProgramProvider._AtomKeys.INSTRUMENT
+                # Visitor instrument names are in OcsProgramProvider._AtomKeys.INST_NAME
+                if OcsProgramProvider._AtomKeys.INST_NAME in step:
+                    inst_key = OcsProgramProvider._AtomKeys.INST_NAME
+                instrument = step[inst_key].split(' ')[0]
 
-        if instrument in OcsProgramProvider.FPU_FOR_INSTRUMENT:
-            if OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
-                fpu = data[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
+                if instrument in OcsProgramProvider.FPU_FOR_INSTRUMENT:
+                    if OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in step:
+                        fpu = step[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
 
-        if instrument == 'GMOS-N' and fpu == 'IFU Left Slit (blue)':
-            instrument = 'GRACES'
+                if instrument == 'GMOS-N' and fpu == 'IFU Left Slit (blue)':
+                    instrument = 'GRACES'
+
+                break
 
         return instrument
 
@@ -542,10 +549,10 @@ class OcsProgramProvider(ProgramProvider):
             elif OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in data:
                 fpu = data[OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
 
-        if OcsProgramProvider._AtomKeys.DISPERSER in data:
-            disperser = data[OcsProgramProvider._AtomKeys.DISPERSER]
-        elif instrument in ['IGRINS', 'MAROON-X']:
+        if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
             disperser = instrument
+        elif OcsProgramProvider._AtomKeys.DISPERSER in data:
+            disperser = data[OcsProgramProvider._AtomKeys.DISPERSER]
         else:
             disperser = None
 
@@ -580,11 +587,11 @@ class OcsProgramProvider(ProgramProvider):
             wavelength = None
 
         # Identify GRACES
-        # if instrument == 'GRACES':
-        #     if 'DS920' in filt:
-        #         fpu = '1-fiber'
-        #     elif 'HeIIC' in filt:
-        #         fpu = '2-fiber'
+        if instrument == 'GRACES':
+            if filt in ['DS920_G0312', 'r_G0303']:
+                fpu = '1-fiber'
+            elif filt in ['HeIIC_G0321', 'g_G0301']:
+                fpu = '2-fiber'
 
         return fpu, disperser, filt, wavelength
 
@@ -681,37 +688,40 @@ class OcsProgramProvider(ProgramProvider):
         # print(f'\t\t\t do_not_split: {do_not_split}')
 
         # all atoms must have the same instrument
-        instrument = self._parse_instrument(sequence[0])
+        instrument = self._parse_instrument(sequence)
         # print(f'instrument {instrument}')
 
         for step in sequence:
-            # Instrument configuration aka Resource.
-            fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
+            # Don't consider acq steps
+            if step[OcsProgramProvider._AtomKeys.OBS_CLASS].upper() not in [ObservationClass.ACQ.name,
+                                                                            ObservationClass.ACQCAL.name]:
+                # Instrument configuration aka Resource.
+                fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
 
-            # If FPU is None, 'None', or FPU_NONE, which are effectively the same thing, we ignore.
-            if fpu is not None and fpu != 'None' and fpu != 'FPU_NONE':
-                fpus.append(fpu)
-            dispersers.append(disperser)
-            if filt and filt != 'None':
-                filters.append(filt)
-            wavelengths.append(wavelength)
+                # If FPU is None, 'None', or FPU_NONE, which are effectively the same thing, we ignore.
+                if fpu is not None and fpu != 'None' and fpu != 'FPU_NONE':
+                    fpus.append(fpu)
+                dispersers.append(disperser)
+                if filt and filt != 'None':
+                    filters.append(filt)
+                wavelengths.append(wavelength)
 
-            p = 0.0
-            q = 0.0
+                p = 0.0
+                q = 0.0
 
-            # Exposures on sky for dither pattern analysis
-            if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
-                p = (float(step[OcsProgramProvider._AtomKeys.OFFSET_P]) if OcsProgramProvider._AtomKeys.OFFSET_P in step
-                     else 0.0)
-                q = (float(step[OcsProgramProvider._AtomKeys.OFFSET_Q]) if OcsProgramProvider._AtomKeys.OFFSET_Q in step
-                     else 0.0)
-                sky_p_offsets.append(p)
-                sky_q_offsets.append(q)
-            coadds.append(int(step[OcsProgramProvider._AtomKeys.COADDS])
-                          if OcsProgramProvider._AtomKeys.COADDS in step else 1)
-            exposure_times.append(step[OcsProgramProvider._AtomKeys.EXPOSURE_TIME])
-            p_offsets.append(p)
-            q_offsets.append(q)
+                # Exposures on sky for dither pattern analysis
+                if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
+                    p = (float(step[OcsProgramProvider._AtomKeys.OFFSET_P]) if OcsProgramProvider._AtomKeys.OFFSET_P in step
+                         else 0.0)
+                    q = (float(step[OcsProgramProvider._AtomKeys.OFFSET_Q]) if OcsProgramProvider._AtomKeys.OFFSET_Q in step
+                         else 0.0)
+                    sky_p_offsets.append(p)
+                    sky_q_offsets.append(q)
+                coadds.append(int(step[OcsProgramProvider._AtomKeys.COADDS])
+                              if OcsProgramProvider._AtomKeys.COADDS in step else 1)
+                exposure_times.append(step[OcsProgramProvider._AtomKeys.EXPOSURE_TIME])
+                p_offsets.append(p)
+                q_offsets.append(q)
 
         # Transform Resources.
         # TODO: For now, we focus on instruments, and GMOS FPUs and dispersers exclusively.
@@ -763,109 +773,111 @@ class OcsProgramProvider(ProgramProvider):
         n_offsets = 0
         n_pattern = offset_lag
         prev = -1
+        step_use = -1
         for step_id, step in enumerate(sequence):
             next_atom = False
-
             observe_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
-            step_time = step[OcsProgramProvider._AtomKeys.TOTAL_TIME] / 1000
+            if observe_class.upper() not in [ObservationClass.ACQ.name, ObservationClass.ACQCAL.name]:
+                step_use += 1
+                step_time = step[OcsProgramProvider._AtomKeys.TOTAL_TIME] / 1000
 
-            # Any wavelength/filter change is a new atom
-            if step_id == 0 or (step_id > 0 and wavelengths[step_id] != wavelengths[step_id - 1]):
-                next_atom = True
-                # logger.info('Atom for wavelength change')
-                # print(f'\t\t\t Atom for wavelength change')
-
-            # A change in exposure time or coadds is a new atom for science exposures
-            # print(f'\t\t\t {step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper()}')
-            if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
-                if (prev >= 0 and observe_class.upper() == ObservationClass.SCIENCE.name and step_id > 0 and
-                        (exposure_times[step_id] != exposure_times[prev] or coadds[step_id] != coadds[prev])):
+                # Any wavelength/filter change is a new atom
+                if step_use == 0 or (step_use > 0 and wavelengths[step_use] != wavelengths[step_use - 1]):
                     next_atom = True
-                    # logger.info('Atom for exposure time change')
-                    # print(f'\t\t\t Atom for exposure time change')
+                    # logger.info('Atom for wavelength change')
+                    # print(f'\t\t\t Atom for wavelength change')
 
-                # Offsets - a new offset pattern is a new atom
-                if offset_lag != 0 or not exp_time_groups:
-                    # For NIR imaging, need to have at least two offset positions if no repeating pattern
-                    # New atom after every 2nd offset (noffsets is odd)
-                    if (mode is ObservationMode.IMAGING and offset_lag == 0 and
-                            all(w > 1.0 for w in wavelengths if w is not None)):
-                        if step_id == 0:
-                            n_offsets += 1
-                        else:
-                            if p_offsets[step_id] != p_offsets[prev] or q_offsets[step_id] != q_offsets[prev]:
+                # A change in exposure time or coadds is a new atom for science exposures
+                # print(f'\t\t\t {step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper()}')
+                if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
+                    if (prev >= 0 and observe_class.upper() == ObservationClass.SCIENCE.name and step_use > 0 and
+                            (exposure_times[step_use] != exposure_times[prev] or coadds[step_use] != coadds[prev])):
+                        next_atom = True
+                        # logger.info('Atom for exposure time change')
+                        # print(f'\t\t\t Atom for exposure time change')
+
+                    # Offsets - a new offset pattern is a new atom
+                    if offset_lag != 0 or not exp_time_groups:
+                        # For NIR imaging, need to have at least two offset positions if no repeating pattern
+                        # New atom after every 2nd offset (noffsets is odd)
+                        if (mode is ObservationMode.IMAGING and offset_lag == 0 and
+                                all(w > 1.0 for w in wavelengths if w is not None)):
+                            if step_use == 0:
                                 n_offsets += 1
-                        if n_offsets % 2 == 1:
-                            next_atom = True
-                            # logger.info('Atom for offset pattern')
-                            # print('Atom for offset pattern')
-                    else:
-                        n_pattern -= 1
-                        if n_pattern < 0:
-                            next_atom = True
-                            # logger.info('Atom for exposure time change')
-                            # print('Atom for offset pattern')
-                            n_pattern = offset_lag - 1
-                prev = step_id
+                            else:
+                                if p_offsets[step_use] != p_offsets[prev] or q_offsets[step_use] != q_offsets[prev]:
+                                    n_offsets += 1
+                            if n_offsets % 2 == 1:
+                                next_atom = True
+                                # logger.info('Atom for offset pattern')
+                                # print('Atom for offset pattern')
+                        else:
+                            n_pattern -= 1
+                            if n_pattern < 0:
+                                next_atom = True
+                                # logger.info('Atom for exposure time change')
+                                # print('Atom for offset pattern')
+                                n_pattern = offset_lag - 1
+                    prev = step_use
 
-            # New atom entry
-            if next_atom:
-                # Get class, qastate, guiding for previous atom
-                if n_atom > 0:
-                    previous_atom = atoms[-1]
-                    previous_atom.qa_state = min(qa_states, default=QAState.NONE)
-                    if previous_atom.qa_state is not QAState.NONE:
-                        previous_atom.observed = True
-                    previous_atom.resources = resources
-                    previous_atom.guide_state = any(guiding)
-                    previous_atom.wavelengths = frozenset(wavelengths)
+                # New atom entry
+                if next_atom:
+                    # Get class, qastate, guiding for previous atom
+                    if n_atom > 0:
+                        previous_atom = atoms[-1]
+                        previous_atom.qa_state = min(qa_states, default=QAState.NONE)
+                        if previous_atom.qa_state is not QAState.NONE:
+                            previous_atom.observed = True
+                        previous_atom.resources = resources
+                        previous_atom.guide_state = any(guiding)
+                        previous_atom.wavelengths = frozenset(wavelengths)
 
-                n_atom += 1
-                # print(f'\t\t\t n_atom = {n_atom}')
+                    n_atom += 1
+                    # print(f'\t\t\t n_atom = {n_atom}')
 
-                # Convert all the different components into Resources.
-                classes = []
-                guiding = []
-                atoms.append(Atom(id=atom_id,
-                                  exec_time=ZeroTime,
-                                  prog_time=ZeroTime,
-                                  part_time=ZeroTime,
-                                  program_used=ZeroTime,
-                                  partner_used=ZeroTime,
-                                  not_charged=ZeroTime,
-                                  observed=False,
-                                  qa_state=QAState.NONE,
-                                  guide_state=False,
-                                  resources=resources,
-                                  wavelengths=frozenset(wavelengths),
-                                  obs_mode=mode))
+                    # Convert all the different components into Resources.
+                    classes = []
+                    guiding = []
+                    atoms.append(Atom(id=atom_id,
+                                      exec_time=ZeroTime,
+                                      prog_time=ZeroTime,
+                                      part_time=ZeroTime,
+                                      program_used=ZeroTime,
+                                      partner_used=ZeroTime,
+                                      not_charged=ZeroTime,
+                                      observed=False,
+                                      qa_state=QAState.NONE,
+                                      guide_state=False,
+                                      resources=resources,
+                                      wavelengths=frozenset(wavelengths),
+                                      obs_mode=mode))
 
-                if (step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES and
-                        n_pattern == 0):
-                    n_pattern = offset_lag
-                n_offsets = 1
+                    if (step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES and
+                            n_pattern == 0):
+                        n_pattern = offset_lag
+                    n_offsets = 1
 
-            # Update atom
-            classes.append(observe_class)
-            guiding.append(guide_state(step))
+                # Update atom
+                classes.append(observe_class)
+                guiding.append(guide_state(step))
 
-            atoms[-1].exec_time += timedelta(seconds=step_time)
-            atom_id = n_atom
+                atoms[-1].exec_time += timedelta(seconds=step_time)
+                atom_id = n_atom
 
-            # TODO: Add Observe Class enum  
-            if 'partnerCal' in observe_class:
-                atoms[-1].part_time += timedelta(seconds=step_time)
-            else:
-                atoms[-1].prog_time += timedelta(seconds=step_time)
+                # TODO: Add Observe Class enum
+                if 'partnerCal' in observe_class:
+                    atoms[-1].part_time += timedelta(seconds=step_time)
+                else:
+                    atoms[-1].prog_time += timedelta(seconds=step_time)
 
-        if n_atom > 0:
-            previous_atom = atoms[-1]
-            previous_atom.qa_state = min(qa_states, default=QAState.NONE)
-            if previous_atom.qa_state is not QAState.NONE:
-                previous_atom.observed = True
-            previous_atom.resources = resources
-            previous_atom.guide_state = any(guiding)
-            previous_atom.wavelengths = frozenset(wavelengths)
+            if n_atom > 0:
+                previous_atom = atoms[-1]
+                previous_atom.qa_state = min(qa_states, default=QAState.NONE)
+                if previous_atom.qa_state is not QAState.NONE:
+                    previous_atom.observed = True
+                previous_atom.resources = resources
+                previous_atom.guide_state = any(guiding)
+                previous_atom.wavelengths = frozenset(wavelengths)
 
         return atoms
 
@@ -945,10 +957,11 @@ class OcsProgramProvider(ProgramProvider):
                          for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
                 split = self.parse_notes_split(notes)
 
+            # print(f'\t {obs_id}')
             atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states, split=split)
             # exec_time = sum([atom.exec_time for atom in atoms], ZeroTime) + acq_overhead
             # for atom in atoms:
-            #     print(f'\t\t\t {atom.id} {atom.exec_time} {atom.obs_mode}')
+            #     print(f'\t\t\t {atom.id} {atom.exec_time} {atom.obs_mode} {atom.resources}')
 
             # TODO: Should this be a list of all targets for the observation?
             targets = []
