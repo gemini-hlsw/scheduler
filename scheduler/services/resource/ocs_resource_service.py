@@ -12,7 +12,10 @@ from .night_configuration import NightConfiguration
 from .file_based_resource_service import FileBasedResourceService
 
 
-__all__ = ['OcsResourceService']
+__all__ = [
+    'OcsResourceService',
+]
+
 
 logger = logger_factory.create_logger(__name__)
 
@@ -47,6 +50,7 @@ class OcsResourceService(FileBasedResourceService):
                             f'GMOS{suffix}_GRAT201789.txt',
                             f'G{suffix}_faults.txt',
                             f'G{suffix}_engtasks.txt',
+                            f'G{suffix}_weather_loss.txt',
                             OcsResourceService._SITE_CONFIG_FILE)
 
         # TODO: Remove this after discussion with science.

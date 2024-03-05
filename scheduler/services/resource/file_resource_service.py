@@ -7,7 +7,10 @@ from lucupy.minimodel import ALL_SITES, Site
 
 from .file_based_resource_service import FileBasedResourceService
 
-__all__ = ['FileResourceService']
+
+__all__ = [
+    'FileResourceService',
+]
 
 
 @final

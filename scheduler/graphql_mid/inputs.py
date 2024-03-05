@@ -39,7 +39,7 @@ class UseFilesSourceInput:
     gmos_gratings: Optional[Upload] = None
     faults: Optional[Upload] = None
     eng_tasks: Optional[Upload] = None
-
+    weather_closures: Optional[Upload] = None
 
 
 @strawberry.input

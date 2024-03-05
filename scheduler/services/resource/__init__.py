@@ -2,8 +2,10 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from .event_generators import *
+from .file_based_resource_service import *
 from .file_resource_service import *
 from .filters import *
 from .night_configuration import *
 from .ocs_resource_service import *
+from .resource_manager import *
 from .resource_service import *

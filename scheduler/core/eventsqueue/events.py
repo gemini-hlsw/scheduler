@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, FrozenSet
 
-from lucupy.minimodel import Resource, TimeslotIndex, VariantChange
+from lucupy.minimodel import Resource, Site, TimeslotIndex, VariantChange
 from lucupy.timeutils import time2slots
 
 
@@ -22,12 +22,12 @@ __all__ = [
     'InterruptionEvent',
     'WeatherChangeEvent',
     'FaultEvent',
-    'EngineeringTaskEvent',
     'InterruptionResolutionEvent',
     'FaultResolutionEvent',
-    'EngineeringTaskResolutionEvent',
 ]
 
+
+# TODO: These can PROBABLY all be made frozen.
 
 @dataclass
 class UUIDIdentified(ABC):
@@ -59,9 +59,11 @@ class UUIDReferenced(ABC):
 class Event(UUIDIdentified, ABC):
     """
     Superclass for all events. They contain:
-    1. The time (as a datetime object) at which an event occurred.
-    2. A human-readable description of the event.
+    1. The site at which the event occurred.
+    2. The time (as a datetime object) at which an event occurred.
+    3. A human-readable description of the event.
     """
+    site: Site
     time: datetime
     description: str
 
@@ -137,18 +139,23 @@ class WeatherChangeEvent(InterruptionEvent):
 class FaultEvent(InterruptionEvent):
     """
     Interruption that occurs when there is a fault in a resource.
-    TODO: Should we have one per Resource (probably), or one for multiple resources?
+    In OCS, this will likely be the site itself where the fault occurred.
     """
     affects: FrozenSet[Resource]
 
 
 @final
 @dataclass
-class EngineeringTaskEvent(InterruptionEvent):
+class WeatherClosureEvent(InterruptionEvent):
     """
-    A class representing software engineering tasks.
+    A weather closure for a given site.
+    This will be treated like a FaultEvent, but the "affects" Resource will be the entire site.
     """
     ...
+
+    @property
+    def affects(self) -> FrozenSet[Resource]:
+        return frozenset([self.site.resource])
 
 
 @dataclass
@@ -187,11 +194,11 @@ class FaultResolutionEvent(InterruptionEvent, UUIDReferenced):
             raise ValueError('FaultResolutionEvent is not paired with a FaultEvent.')
 
 
-@dataclass
-class EngineeringTaskResolutionEvent(InterruptionEvent, UUIDReferenced):
+@final
+class WeatherClosureResolutionEvent(InterruptionEvent, UUIDReferenced):
     """
-    Interruption that occurs when an EngineeringTask is completed.
+    Interruption that occurs when a WeatherClosure is resolved.
     """
     def __post_init__(self):
-        if not isinstance(self.uuid_identified, EngineeringTaskEvent):
-            raise ValueError('EngineeringTaskResolutionEvent is not paired with an EngineeringTaskEvent.')
+        if not isinstance(self.uuid_identified, WeatherClosureEvent):
+            raise ValueError('WeatherClosureResolutionEvent is not paired with a WeatherClosureEvent.')
