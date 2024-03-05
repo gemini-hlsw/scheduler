@@ -128,5 +128,4 @@ class OcsEnvService(ExternalService):
                                                                                         cc=cc_v,
                                                                                         wind_dir=variant.wind_dir[cc_i],
                                                                                         wind_spd=variant.wind_spd[cc_i])
-        print(variants)
         return variants

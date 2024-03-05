@@ -111,7 +111,7 @@ class ChangeMonitor(SchedulerComponent):
                 plan = plans[site]
                 sorted_visits = sorted(plan.visits, key=lambda v: v.start_time_slot)
                 visit_idx = bisect.bisect_right([v.start_time_slot for v in sorted_visits], event_timeslot)-1
-                print(visit_idx, len(sorted_visits))
+
                 visit = None if visit_idx < 0 else sorted_visits[visit_idx]
 
                 # There are no visits currently in progress, so immediately calculate new plan and do TA.
@@ -120,8 +120,8 @@ class ChangeMonitor(SchedulerComponent):
                                                 timeslot_idx=event_timeslot)
 
                 # Otherwise, we are in the middle of a visit.
-                end_time_slot = visit.start_time_slot + visit.time_slots
-                remaining_time_slots = end_time_slot - event_timeslot + 1
+                end_time_slot = visit.start_time_slot + visit.time_slots - 1
+                remaining_time_slots = end_time_slot - event_timeslot
 
                 # TODO: This should be more complicated to allow for splitting and to meet requirements.
                 # TODO: Talk to Bryan about how to go about this.
