@@ -78,7 +78,8 @@ class Service:
                                                                                         Time(morn_twi_time))
                 for dt, variant in night_variants.items():
 
-                    weather_change = WeatherChangeEvent(time=dt.replace(tzinfo=site.timezone),
+                    weather_change = WeatherChangeEvent(site=site,
+                                                        time=dt.replace(tzinfo=site.timezone),
                                                         description=f'New conditions: IQ: {variant.iq}, CC: {variant.cc}',
                                                         variant_change=variant)
                     queue.add_event(NightIndex(night_idx), site, weather_change)

@@ -123,6 +123,16 @@ def main(*,
             morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twi)
 
+            night_variants = collector.sources.origin.env.get_night_weather_changes(site,
+                                                                                    Time(eve_twi_time),
+                                                                                    Time(morn_twi_time))
+            for dt, variant in night_variants.items():
+                weather_change = WeatherChangeEvent(site=site,
+                                                    time=dt.replace(tzinfo=site.timezone),
+                                                    description=f'New conditions: IQ: {variant.iq}, CC: {variant.cc}',
+                                                    variant_change=variant)
+                queue.add_event(NightIndex(night_idx), site, weather_change)
+
     if test_events:
         # Create a weather event at GS that starts two hours after twilight on the first night of 2018-09-30,
         # which is why we look up the night events for night index 0 in calculating the time.
@@ -285,7 +295,6 @@ def main(*,
                         collector.time_accounting(plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
-
                         if update.done:
                             # In the case of the morning twilight, which is the only thing that will
                             # be represented here by update.done, we add no plans (None) since the plans
@@ -295,7 +304,8 @@ def main(*,
                                                  site,
                                                  current_timeslot,
                                                  update.event,
-                                                 None)
+                                                 plans[site])
+
 
                     # Get a new selection and request a new plan if the night is not done.
                     if not update.done:
