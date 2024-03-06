@@ -4,7 +4,7 @@
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import final, ClassVar, Dict, List
+from typing import final, ClassVar, Dict, List, Optional
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 
@@ -33,7 +33,7 @@ class NightChanges:
 class TimelineEntry:
     start_time_slot: TimeslotIndex
     event: Event
-    plan_generated: Plan
+    plan_generated: Optional[Plan]
 
 
 @final
@@ -50,7 +50,7 @@ class NightlyTimeline:
             site: Site,
             time_slot: TimeslotIndex,
             event: Event,
-            plan_generated: Plan) -> None:
+            plan_generated: Optional[Plan]) -> None:
         entry = TimelineEntry(time_slot,
                               event,
                               plan_generated)
@@ -66,9 +66,10 @@ class NightlyTimeline:
         all_generated = []
         t = 0
 
-        for entry in reversed(entries):
+        # Skip the None entries.
+        relevant_entries = [e for e in reversed(entries) if e.plan_generated is not None]
+        for entry in relevant_entries:
             pg = entry.plan_generated
-
             if t > 0:
                 # Get the partial plan, i.e. all visits up to and including time slot t.
                 partial_plan = pg.get_slice(stop=t)
@@ -93,11 +94,11 @@ class NightlyTimeline:
             if t < entry.start_time_slot:
                 t = entry.start_time_slot
 
-        p = Plan(start=entries[0].plan_generated.start,
-                 end=entries[-1].plan_generated.end,
-                 time_slot_length=entries[0].plan_generated.time_slot_length,
+        p = Plan(start=relevant_entries[0].plan_generated.start,
+                 end=relevant_entries[-1].plan_generated.end,
+                 time_slot_length=relevant_entries[0].plan_generated.time_slot_length,
                  site=site,
-                 _time_slots_left=entries[-1].plan_generated.time_left())
+                 _time_slots_left=relevant_entries[-1].plan_generated.time_left())
         p.visits = [v for v in reversed(all_generated)]
         return p
 
@@ -113,10 +114,10 @@ class NightlyTimeline:
                     time = rnd_min(entry.event.time).strftime(self._datetime_formatter)
                     print(f'\t+++++ Triggered by event: {entry.event.description} at {time} '
                           f'(time slot {entry.start_time_slot}) at site {site.name}')
-                    # print(f'Plan for site: {plan.site.name}')
-                    for visit in entry.plan_generated.visits:
-                        visit_time = rnd_min(visit.start_time).strftime(self._datetime_formatter)
-                        print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
-                              f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}')
+                    if entry.plan_generated is not None:
+                        for visit in entry.plan_generated.visits:
+                            visit_time = rnd_min(visit.start_time).strftime(self._datetime_formatter)
+                            print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
+                                  f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}')
                     print('\t+++++ END EVENT +++++')
         sys.stdout.flush()
