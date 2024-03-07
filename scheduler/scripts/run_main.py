@@ -119,10 +119,6 @@ def main(*,
             eve_twi = EveningTwilightEvent(site=site, time=eve_twi_time, description='Evening 12° Twilight')
             queue.add_event(night_idx, site, eve_twi)
 
-            # TODO: Add one time slot to the morning twilight to make sure time accounting is done for entire night?
-            # morn_twilight_time = night_events.twilight_morning_12[night_idx].to_datetime(site.timezone)
-            # morn_twilight = MorningTwilightEvent(time=morn_twilight_time, description='Morning 12° Twilight')
-            # queue.add_event(night_idx, site, morn_twilight)
             morn_twi_time = night_events.twilight_morning_12[night_idx].to_datetime(site.timezone) - time_slot_length
             morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twi)
@@ -289,6 +285,7 @@ def main(*,
                         collector.time_accounting(plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
+
                         if update.done:
                             # In the case of the morning twilight, which is the only thing that will
                             # be represented here by update.done, we add no plans (None) since the plans
@@ -298,7 +295,7 @@ def main(*,
                                                  site,
                                                  current_timeslot,
                                                  update.event,
-                                                 plans[site])
+                                                 None)
 
                     # Get a new selection and request a new plan if the night is not done.
                     if not update.done:
