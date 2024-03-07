@@ -115,7 +115,7 @@ class SPlans:
     def for_site(self, site: Site) -> 'SPlans':
         return SPlans(
             night_idx=self.night_idx,
-            plans_per_site=[plans for plans in self.plans_per_site if plans.site == site])
+            plans_per_site=[plans for plans in self.plans_per_site if plans is not None and plans.site == site])
 
 
 @strawberry.type
@@ -153,7 +153,8 @@ class SNightTimelines:
                 eve_twi = timeline.timeline[n_idx][site][0].event.time
                 morn_twi = timeline.timeline[n_idx][site][-1].event.time
                 for entry in timeline.timeline[n_idx][site]:
-
+                    if entry.plan_generated is None:
+                        continue
                     e = STimelineEntry(start_time_slots=int(entry.start_time_slot),
                                        event=entry.event.description,
                                        plan=SPlan.from_computed_plan(entry.plan_generated))

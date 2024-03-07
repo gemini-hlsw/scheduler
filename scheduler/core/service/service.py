@@ -162,8 +162,9 @@ class Service:
 
                         if current_timeslot > update.timeslot_idx:
                             _logger.error(
-                                f'Plan update was supposed to happen at site {site.name} for night {night_idx} '
-                                f'at timeslot {update.timeslot_idx}, but now timeslot is {current_timeslot}.')
+                                f'Plan update at {site.name} for night {night_idx} for {update.event.__class__}'
+                                f'scheduled at timeslot {update.timeslot_idx}, but now timeslot '
+                                f'is {current_timeslot}.')
 
                         # We will update the plan up until the time that the update happens.
                         # If this update corresponds to the night being done, then use None.
