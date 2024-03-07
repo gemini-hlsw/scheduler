@@ -37,7 +37,7 @@ def main(*,
          sites: FrozenSet[Site] = ALL_SITES,
          ranker_parameters: RankerParameters = RankerParameters(),
          semester_visibility: bool = True,
-         num_nights_to_schedule: Optional[int] = 3,
+         num_nights_to_schedule: Optional[int] = None,
          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
          iq_per_site: Optional[Dict[Site, ImageQuality]] = None,
          programs_ids: Optional[str] = None) -> None:
