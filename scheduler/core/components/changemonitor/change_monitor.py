@@ -114,7 +114,7 @@ class ChangeMonitor(SchedulerComponent):
                 visit = None if visit_idx < 0 else sorted_visits[visit_idx]
 
                 # There are no visits currently in progress, so immediately calculate new plan and do TA.
-                if visit_idx is None or visit.start_time_slot + visit.time_slots < event_timeslot:
+                if visit is None or visit.start_time_slot + visit.time_slots < event_timeslot:
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 

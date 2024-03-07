@@ -31,10 +31,10 @@ class Plan:
     site: Site
     _time_slots_left: int
 
-    visits: List[Visit] = field(init=False, default_factory=lambda: [])
+    visits: List[Visit] = field(init=False, default_factory=list)
     is_full: bool = field(init=False, default=False)
     night_stats: Optional[NightStats] = field(init=False, default=None)
-    alt_degs: List[List[float]] = field(init=False, default_factory=lambda: [])
+    alt_degs: List[List[float]] = field(init=False, default_factory=list)
 
     def nir_slots(self,
                   science_obs: List[Observation],

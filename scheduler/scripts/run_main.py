@@ -226,10 +226,11 @@ def main(*,
                         # If we don't know the next event timeslot, set it.
                         if next_event_timeslot is None:
                             next_event_timeslot = top_event_timeslot
+                            next_event = top_event
 
                         if current_timeslot > next_event_timeslot:
-                            _logger.warning(f'Received event for site {site_name} for night idx {night_idx} at '
-                                            f'timeslot {next_event_timeslot} < current time slot {current_timeslot}.')
+                            _logger.warning(f'Received event for {site_name} for night idx {night_idx} at timeslot'
+                                            f'{next_event_timeslot} < current time slot {current_timeslot}.')
 
                         # The next event happens in the future, so record that time.
                         if top_event_timeslot > current_timeslot:
@@ -239,8 +240,9 @@ def main(*,
                         # We have an event that occurs at this time slot and is in top_event, so pop it from the
                         # queue and process it.
                         events_by_night.pop_next_event()
-                        _logger.info(f'Received event for site {site_name} for night idx {night_idx} to be processed '
-                                     f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
+                        _logger.info(
+                            f'Received event for site {site_name} for night idx {night_idx} to be processed '
+                            f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
 
                         # Process the event: find out when it should occur.
                         # If there is no next update planned, then take it to be the next update.
@@ -254,10 +256,10 @@ def main(*,
                             # then set to this update.
                             if next_update[site] is None or time_record.timeslot_idx < next_update[site].timeslot_idx:
                                 next_update[site] = time_record
-                                _logger.info(f'Next update for site {site_name} scheduled at '
-                                             f'timeslot {next_update[site].timeslot_idx}')
+                                _logger.debug(f'Next update for site {site_name} scheduled at '
+                                              f'timeslot {next_update[site].timeslot_idx}')
 
-                # If there is a next update and we have reached its time, then perform it.
+                # If there is a next update, and we have reached its time, then perform it.
                 # This is where we perform time accounting (if necessary), get a selection, and create a plan.
                 if next_update[site] is not None and current_timeslot >= next_update[site].timeslot_idx:
                     # Remove the update and perform it.
@@ -265,8 +267,10 @@ def main(*,
                     next_update[site] = None
 
                     if current_timeslot > update.timeslot_idx:
-                        _logger.error(f'Plan update was supposed to happen at site {site.name} for night {night_idx} '
-                                      f'at timeslot {update.timeslot_idx}, but now timeslot is {current_timeslot}.')
+                        _logger.error(
+                            f'Plan update at {site.name} for night {night_idx} for {update.event.__class__}'
+                            f'scheduled at timeslot {update.timeslot_idx}, but now timeslot '
+                            f'is {current_timeslot}.')
 
                     # We will update the plan up until the time that the update happens.
                     # If this update corresponds to the night being done, then use None.
@@ -281,12 +285,15 @@ def main(*,
                             ta_description = 'for rest of night.'
                         else:
                             ta_description = f'up to timeslot {update.timeslot_idx}.'
-                        _logger.info(f'Performing time accounting at site {site_name} for night {night_idx} '
-                                     + ta_description)
+                        _logger.info(f'Time accounting: site {site_name} for night {night_idx} {ta_description}')
                         collector.time_accounting(plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
                         if update.done:
+                            # In the case of the morning twilight, which is the only thing that will
+                            # be represented here by update.done, we add no plans (None) since the plans
+                            # generated up until the terminal time slot will have been added by the event
+                            # that caused them.
                             nightly_timeline.add(NightIndex(night_idx),
                                                  site,
                                                  current_timeslot,
@@ -295,7 +302,7 @@ def main(*,
 
                     # Get a new selection and request a new plan if the night is not done.
                     if not update.done:
-                        _logger.info(f'Retrieving selection for {site_name} for night {night_idx} '
+                        _logger.info(f'Calculating selection for {site_name} for night {night_idx} '
                                      f'starting at time slot {current_timeslot}.')
                         selection = selector.select(night_indices=night_indices,
                                                     sites=frozenset([site]),
@@ -324,7 +331,6 @@ def main(*,
 
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
-        _logger.info(f'Assembling plans for night index {night_idx}.')
         night_events = {site: collector.get_night_events(site) for site in collector.sites}
         final_plans = Plans(night_events, NightIndex(night_idx))
         for site in collector.sites:

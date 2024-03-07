@@ -43,6 +43,10 @@ class StatCalculator:
         for night_idx in nights:
             for site in sites:
                 for entry in timeline.timeline[night_idx][site]:
+                    # Morning twilight generates no plan.
+                    if entry.plan_generated is None:
+                        continue
+
                     plan = entry.plan_generated  # Update last plan
                     n_toos = 0
                     plan_score = 0

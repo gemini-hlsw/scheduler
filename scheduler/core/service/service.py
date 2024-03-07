@@ -120,6 +120,11 @@ class Service:
                             # If we don't know the next event timeslot, set it.
                             if next_event_timeslot is None:
                                 next_event_timeslot = top_event_timeslot
+                                next_event = top_event
+
+                            if current_timeslot > next_event_timeslot:
+                                _logger.warning(f'Received event for {site_name} for night idx {night_idx} at timeslot'
+                                                f'{next_event_timeslot} < current time slot {current_timeslot}.')
 
                             # The next event happens in the future, so record that time.
                             if top_event_timeslot > current_timeslot:
@@ -145,6 +150,8 @@ class Service:
                                 # then set to this update.
                                 if next_update[site] is None or time_record.timeslot_idx < next_update[site].timeslot_idx:
                                     next_update[site] = time_record
+                                    _logger.debug(f'Next update for site {site_name} scheduled at '
+                                                  f'timeslot {next_update[site].timeslot_idx}')
 
                     # If there is a next update, and we have reached its time, then perform it.
                     # This is where we perform time accounting (if necessary), get a selection, and create a plan.
@@ -155,8 +162,9 @@ class Service:
 
                         if current_timeslot > update.timeslot_idx:
                             _logger.error(
-                                f'Plan update was supposed to happen at site {site.name} for night {night_idx} '
-                                f'at timeslot {update.timeslot_idx}, but now timeslot is {current_timeslot}.')
+                                f'Plan update at {site.name} for night {night_idx} for {update.event.__class__}'
+                                f'scheduled at timeslot {update.timeslot_idx}, but now timeslot '
+                                f'is {current_timeslot}.')
 
                         # We will update the plan up until the time that the update happens.
                         # If this update corresponds to the night being done, then use None.
@@ -171,18 +179,20 @@ class Service:
                                 ta_description = 'for rest of night.'
                             else:
                                 ta_description = f'up to timeslot {update.timeslot_idx}.'
-                            _logger.info(f'Performing time accounting at site {site_name} for night {night_idx} '
-                                         + ta_description)
-
+                            _logger.info(f'Time accounting: site {site_name} for night {night_idx} {ta_description}')
                             collector.time_accounting(plans,
                                                       sites=frozenset({site}),
                                                       end_timeslot_bounds=end_timeslot_bounds)
                             if update.done:
+                                # In the case of the morning twilight, which is the only thing that will
+                                # be represented here by update.done, we add no plans (None) since the plans
+                                # generated up until the terminal time slot will have been added by the event
+                                # that caused them.
                                 nightly_timeline.add(NightIndex(night_idx),
                                                      site,
                                                      current_timeslot,
                                                      update.event,
-                                                     plans[site])
+                                                     None)
 
                         # Get a new selection and request a new plan if the night is not done.
                         if not update.done:
@@ -193,6 +203,10 @@ class Service:
                                                         starting_time_slots={site: {night_idx: current_timeslot
                                                                                     for night_idx in night_indices}},
                                                         ranker=ranker)
+
+                            # Right now the optimizer generates List[Plans], a list of plans indexed by
+                            # every night in the selection. We only want the first one, which corresponds
+                            # to the current night index we are looping over.
                             _logger.info(f'Running optimizer for {site_name} for night {night_idx} '
                                          f'starting at time slot {current_timeslot}.')
                             plans = optimizer.schedule(selection)[0]
