@@ -3,10 +3,10 @@
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import final, Callable, FrozenSet, Mapping, Optional
+from typing import final, Callable, FrozenSet, Mapping, Optional, Dict
 
 from lucupy.helpers import flatten
-from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, UniqueGroupID
+from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, UniqueGroupID, Variant
 
 from scheduler.core.components.ranker import Ranker
 from scheduler.core.types import StartingTimeslots
@@ -38,6 +38,7 @@ class Selection:
     time_slot_length: timedelta
     starting_time_slots: StartingTimeslots
     ranker: Ranker
+    current_conditions: Dict[Site, Variant]
 
     # Used to re-score programs.
     _program_scorer: Optional[Callable[[Program,

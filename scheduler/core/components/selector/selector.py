@@ -40,7 +40,6 @@ NightConfigurationData: TypeAlias = Dict[Site, NightConfigurations]
 
 logger = logger_factory.create_logger(__name__)
 
-
 @final
 @dataclass
 class Selector(SchedulerComponent):
@@ -55,6 +54,7 @@ class Selector(SchedulerComponent):
     collector: Collector
     num_nights_to_schedule: int
     time_buffer: TimeBuffer
+    variant_per_site: Dict[Site, Variant] = field(default_factory=lambda: {})
     cc_per_site: Dict[Site, CloudCover] = field(default_factory=lambda: {})
     iq_per_site: Dict[Site, ImageQuality] = field(default_factory=lambda: {})
 
@@ -67,12 +67,20 @@ class Selector(SchedulerComponent):
         # We need to copy or changing these values will modify the external dictionaries passed in.
         self.cc_per_site = copy(self.cc_per_site)
         self.iq_per_site = copy(self.iq_per_site)
+        self.variant_per_site = copy(self.variant_per_site)
 
         if (self.num_nights_to_schedule < 0 or
                 self.num_nights_to_schedule > self.collector.num_nights_calculated):
             raise ValueError(f'Scheduling requested for {self.num_nights_to_schedule} nights, but visibility '
                              f'calculations only performed for {self.collector.num_nights_calculated}. '
                              'Cannot proceed.')
+
+        for site in self.collector.sites - self.variant_per_site.keys():
+            logger.warning(f'Selector has no Weather Variant data for {site.name}: setting to {Selector._default_cc.name}')
+            self.variant_per_site[site] = Variant(cc=Selector._default_cc,
+                                                  iq=Selector._default_iq,
+                                                  wind_spd=Selector._wind_spd_bound,
+                                                  wind_dir=Selector._wind_sep)
 
         for site in self.collector.sites - self.cc_per_site.keys():
             logger.warning(f'Selector has no CC data for {site.name}: setting to {Selector._default_cc.name}')
@@ -265,6 +273,10 @@ class Selector(SchedulerComponent):
             starting_time_slots=starting_time_slots,
             time_slot_length=self.collector.time_slot_length.to_datetime(),
             ranker=ranker,
+            current_conditions=(cc=self.cc_per_site[site],
+                                              iq=self.iq_per_site[site],
+                                              wind_spd=None,
+                                              wind_dir=None) for site in sites},
             _program_scorer=self.score_program
         )
         # at least one GroupInfo has schedulable slots.
