@@ -326,11 +326,9 @@ def main(*,
                 # We have processed all events for this timeslot and performed an update if necessary.
                 # Advance the current time.
                 current_timeslot += 1
-                # print(f'Advanced to timeslot {current_timeslot}.')
 
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
-        print(f'Assembling plans for night index {night_idx}.')
         night_events = {site: collector.get_night_events(site) for site in collector.sites}
         final_plans = Plans(night_events, NightIndex(night_idx))
         for site in collector.sites:
