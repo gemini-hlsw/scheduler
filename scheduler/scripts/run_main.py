@@ -36,8 +36,8 @@ def main(*,
          end: Optional[Time] = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
          sites: FrozenSet[Site] = ALL_SITES,
          ranker_parameters: RankerParameters = RankerParameters(),
-         semester_visibility: bool = False,
-         num_nights_to_schedule: Optional[int] = 1,
+         semester_visibility: bool = True,
+         num_nights_to_schedule: Optional[int] = 3,
          cc_per_site: Optional[Dict[Site, CloudCover]] = None,
          iq_per_site: Optional[Dict[Site, ImageQuality]] = None,
          programs_ids: Optional[str] = None) -> None:
@@ -148,7 +148,7 @@ def main(*,
                                                                                cc=CloudCover.CCANY,
                                                                                wind_dir=None,
                                                                                wind_spd=None))
-        # queue.add_event(NightIndex(0), Site.GS, weather_change_south)
+        queue.add_event(NightIndex(0), Site.GS, weather_change_south)
 
     # Prepare the optimizer.
     optimizer_blueprint = OptimizerBlueprint("GreedyMax")
@@ -159,14 +159,12 @@ def main(*,
     nightly_timeline = NightlyTimeline()
 
     for night_idx in sorted(night_indices):
-        print(f'PROCESSING NIGHT {night_idx}')
         night_indices = np.array([night_idx])
         ranker = DefaultRanker(collector, night_indices, sites, params=ranker_parameters)
 
         # TODO: This needs reworking. We should be treating time linearly instead of iterating over sites and
         # TODO: processing them one after the other.
         for site in sorted(sites, key=lambda site: site.name):
-            print(f'PROCESSING SITE {site}')
             # Site name so we can change this if we see fit.
             site_name = site.name
 
@@ -197,9 +195,7 @@ def main(*,
             next_event_timeslot: Optional[TimeslotIndex] = None
             night_done = False
 
-            print(f'Beginning loop...')
             while not night_done:
-                print(f'Night is not done. Current timeslot is {current_timeslot}.')
                 # If our next update isn't done, and we are out of events, we're missing the morning twilight.
                 if next_event is None and events_by_night.is_empty():
                     raise RuntimeError(f'No morning twilight found for site {site_name} for night {night_idx}.')
@@ -233,8 +229,8 @@ def main(*,
                             next_event = top_event
 
                         if current_timeslot > next_event_timeslot:
-                            print(f'Received event for site {site_name} for night idx {night_idx} at '
-                                  f'timeslot {next_event_timeslot} < current time slot {current_timeslot}.')
+                            _logger.warning(f'Received event for {site_name} for night idx {night_idx} at timeslot'
+                                            f'{next_event_timeslot} < current time slot {current_timeslot}.')
 
                         # The next event happens in the future, so record that time.
                         if top_event_timeslot > current_timeslot:
@@ -244,8 +240,9 @@ def main(*,
                         # We have an event that occurs at this time slot and is in top_event, so pop it from the
                         # queue and process it.
                         events_by_night.pop_next_event()
-                        print(f'Received event for site {site_name} for night idx {night_idx} to be processed '
-                              f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
+                        _logger.info(
+                            f'Received event for site {site_name} for night idx {night_idx} to be processed '
+                            f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
 
                         # Process the event: find out when it should occur.
                         # If there is no next update planned, then take it to be the next update.
@@ -259,10 +256,10 @@ def main(*,
                             # then set to this update.
                             if next_update[site] is None or time_record.timeslot_idx < next_update[site].timeslot_idx:
                                 next_update[site] = time_record
-                                print(f'Next update for site {site_name} scheduled at '
-                                      f'timeslot {next_update[site].timeslot_idx}')
+                                _logger.debug(f'Next update for site {site_name} scheduled at '
+                                              f'timeslot {next_update[site].timeslot_idx}')
 
-                # If there is a next update and we have reached its time, then perform it.
+                # If there is a next update, and we have reached its time, then perform it.
                 # This is where we perform time accounting (if necessary), get a selection, and create a plan.
                 if next_update[site] is not None and current_timeslot >= next_update[site].timeslot_idx:
                     # Remove the update and perform it.
@@ -270,8 +267,8 @@ def main(*,
                     next_update[site] = None
 
                     if current_timeslot > update.timeslot_idx:
-                        print(f'Plan update was supposed to happen at site {site.name} for night {night_idx} '
-                              f'at timeslot {update.timeslot_idx}, but now timeslot is {current_timeslot}.')
+                        _logger.error(f'Plan update was supposed to happen at site {site.name} for night {night_idx} '
+                                      f'at timeslot {update.timeslot_idx}, but now timeslot is {current_timeslot}.')
 
                     # We will update the plan up until the time that the update happens.
                     # If this update corresponds to the night being done, then use None.
@@ -286,11 +283,15 @@ def main(*,
                             ta_description = 'for rest of night.'
                         else:
                             ta_description = f'up to timeslot {update.timeslot_idx}.'
-                        print(f'Performing time accounting at site {site_name} for night {night_idx} {ta_description}')
+                        _logger.info(f'Time accounting: site {site_name} for night {night_idx} {ta_description}')
                         collector.time_accounting(plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
                         if update.done:
+                            # In the case of the morning twilight, which is the only thing that will
+                            # be represented here by update.done, we add no plans (None) since the plans
+                            # generated up until the terminal time slot will have been added by the event
+                            # that caused them.
                             nightly_timeline.add(NightIndex(night_idx),
                                                  site,
                                                  current_timeslot,
@@ -299,8 +300,8 @@ def main(*,
 
                     # Get a new selection and request a new plan if the night is not done.
                     if not update.done:
-                        print(f'Calculating selection for {site_name} for night {night_idx} '
-                              f'starting at time slot {current_timeslot}.')
+                        _logger.info(f'Calculating selection for {site_name} for night {night_idx} '
+                                     f'starting at time slot {current_timeslot}.')
                         selection = selector.select(night_indices=night_indices,
                                                     sites=frozenset([site]),
                                                     starting_time_slots={site: {night_idx: current_timeslot
@@ -310,8 +311,8 @@ def main(*,
                         # Right now the optimizer generates List[Plans], a list of plans indexed by
                         # every night in the selection. We only want the first one, which corresponds
                         # to the current night index we are looping over.
-                        print(f'Running optimizer for {site_name} for night {night_idx} '
-                              f'starting at time slot {current_timeslot}.')
+                        _logger.info(f'Running optimizer for {site_name} for night {night_idx} '
+                                     f'starting at time slot {current_timeslot}.')
                         plans = optimizer.schedule(selection)[0]
                         nightly_timeline.add(NightIndex(night_idx),
                                              site,

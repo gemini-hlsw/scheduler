@@ -79,10 +79,11 @@ class OcsEnvService(ExternalService):
         # Now try using earliest and latest timestamp.
         # Convert AstroPy times to pandas UTC TimeStamps, taking the floor and ceil of the minutes since these
         # are converted from float jd values and thus are not quite accurate.
-        # TODO: If these ever crash due to 1-off errors in length, try using .round('T') instead of floor / ceil, or
-        # TODO: use seconds ('S') instead of minutes ('T'). Minutes are used since time slots are defined in minutes.
-        start_time_timestamp = pd.to_datetime(start_time.datetime, utc=True).floor('T')
-        end_time_timestamp = pd.to_datetime(end_time.datetime, utc=True).ceil('T')
+        # TODO: If these ever crash due to 1-off errors in length, try using .round('min') instead of floor / ceil, or
+        # TODO: use seconds ('sec') instead of minutes ('min').
+        # TODO: Minutes are used since time slots are defined in minutes.
+        start_time_timestamp = pd.to_datetime(start_time.datetime, utc=True).floor('min')
+        end_time_timestamp = pd.to_datetime(end_time.datetime, utc=True).ceil('min')
 
         # Get all the entries between start and end.
         time_filtered_df = df[df[OcsEnvService._time_stamp_col].between(start_time_timestamp, end_time_timestamp)]

@@ -19,7 +19,7 @@ class LoggingLevels(IntEnum):
 
 
 # Default is full logging.
-DEFAULT_LOGGING_LEVEL = LoggingLevels.OFF
+DEFAULT_LOGGING_LEVEL = LoggingLevels.INFO
 if len(sys.argv) == 2:
     try:
         DEFAULT_LOGGING_LEVEL = LoggingLevels[sys.argv[1].upper()]

@@ -90,7 +90,7 @@ class NightlyTimeline:
             else:
                 partial_plan = pg
 
-            all_generated += [v for v in reversed(partial_plan.visits)]
+            all_generated += [v for v in reversed(partial_plan.visits) if v.time_slots]
             if t < entry.start_time_slot:
                 t = entry.start_time_slot
 
