@@ -324,6 +324,11 @@ class FileBasedResourceService(ResourceService):
                     instrument_status = ''
                 if instrument_status == FileBasedResourceService._SCIENCE:
                     resources.add(self.lookup_resource(filename, resource_type=ResourceType.INSTRUMENT))
+                    # Check for GRACES if GMOS-N is available
+                    if filename == 'GMOS-N':
+                        graces_status = none_to_str(row[instrument_column_mapping['GRACES']].value).strip().upper()
+                        if graces_status == FileBasedResourceService._SCIENCE:
+                            resources.add(self.lookup_resource('GRACES', resource_type=ResourceType.INSTRUMENT))
                 elif not instrument_status:
                     logger.warning(f'{msg} contains no instrument status for {filename}. '
                                    'Using default of Not Available.')
