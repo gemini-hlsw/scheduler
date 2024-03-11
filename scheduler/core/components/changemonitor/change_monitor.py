@@ -120,8 +120,8 @@ class ChangeMonitor(SchedulerComponent):
                                                 timeslot_idx=event_timeslot)
 
                 # Otherwise, we are in the middle of a visit.
-                end_time_slot = visit.start_time_slot + visit.time_slots - 1
-                remaining_time_slots = end_time_slot - event_timeslot
+                end_time_slot = visit.start_time_slot + visit.time_slots
+                remaining_time_slots = end_time_slot - event_timeslot + 1
 
                 # TODO: This should be more complicated to allow for splitting and to meet requirements.
                 # TODO: Talk to Bryan about how to go about this.
@@ -173,7 +173,6 @@ class ChangeMonitor(SchedulerComponent):
                 actual_conditions = self.collector.sources.origin.env.get_actual_conditions_variant(obs.site,
                                                                                                     start_time,
                                                                                                     end_time)
-
                 # TODO: Hack to make test cases pass.
                 if remaining_time_slots != len(actual_conditions.cc):
                     _logger.error(f'Expected {remaining_time_slots} entries in CC, got {len(actual_conditions.cc)}.')
@@ -185,6 +184,7 @@ class ChangeMonitor(SchedulerComponent):
                 if remaining_time_slots != len(actual_conditions.wind_spd):
                     _logger.error(f'Expected {remaining_time_slots} entries in wind speed, got '
                                   f'{len(actual_conditions.wind_spd)}.')
+                input()
                 remaining_time_slots = max(remaining_time_slots, len(actual_conditions.cc))
 
                 # Since a Variant is a frozen dataclass, swap the new values in.

@@ -295,6 +295,7 @@ def main(*,
                         collector.time_accounting(plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
+
                         if update.done:
                             # In the case of the morning twilight, which is the only thing that will
                             # be represented here by update.done, we add no plans (None) since the plans
@@ -304,8 +305,7 @@ def main(*,
                                                  site,
                                                  current_timeslot,
                                                  update.event,
-                                                 plans[site])
-
+                                                 None)
 
                     # Get a new selection and request a new plan if the night is not done.
                     if not update.done:

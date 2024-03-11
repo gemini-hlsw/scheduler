@@ -123,9 +123,18 @@ class OcsEnvService(ExternalService):
         change_cc_idx, change_cc_val = _get_changes(variant.cc)
         change_iq_idx, change_iq_val = _get_changes(variant.iq)
 
-        for cc_i, cc_v, iq_i, iq_v in zip(change_cc_idx, change_cc_val, change_iq_idx, change_iq_val):
-            variants[start_time.to_datetime()+timedelta(minutes=int(cc_i)+1)] = Variant(iq=iq_v,
-                                                                                        cc=cc_v,
-                                                                                        wind_dir=variant.wind_dir[cc_i],
-                                                                                        wind_spd=variant.wind_spd[cc_i])
+        for cc_i, cc_v in zip(change_cc_idx, change_cc_val):
+            variants[start_time.to_datetime() + timedelta(minutes=int(cc_i) + 1)] = Variant(iq=variant.iq[cc_i],
+                                                                                            cc=cc_v,
+                                                                                            wind_dir=variant.wind_dir[
+                                                                                                cc_i],
+                                                                                            wind_spd=variant.wind_spd[
+                                                                                                cc_i])
+        # eliminate duplicates
+        no_duplicates = list(set(change_iq_idx) - set(change_cc_idx))
+        for iq_i in no_duplicates:
+            variants[start_time.to_datetime()+timedelta(minutes=int(iq_i)+1)] = Variant(iq=variant.iq[iq_i],
+                                                                                        cc=variant.cc[iq_i],
+                                                                                        wind_dir=variant.wind_dir[iq_i],
+                                                                                        wind_spd=variant.wind_spd[iq_i])
         return variants
