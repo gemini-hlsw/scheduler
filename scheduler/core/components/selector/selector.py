@@ -55,8 +55,8 @@ class Selector(SchedulerComponent):
     collector: Collector
     num_nights_to_schedule: int
     time_buffer: TimeBuffer
-    cc_per_site: Dict[Site, CloudCover] = field(default_factory=lambda: {})
-    iq_per_site: Dict[Site, ImageQuality] = field(default_factory=lambda: {})
+    cc_per_site: Dict[Site, CloudCover] = field(default_factory=dict)
+    iq_per_site: Dict[Site, ImageQuality] = field(default_factory=dict)
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
     _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
