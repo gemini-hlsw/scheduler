@@ -6,7 +6,7 @@ from typing import FrozenSet, Optional, Dict
 
 import numpy as np
 from astropy.time import Time
-from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex, CloudCover, ImageQuality
+from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex, CloudCover, ImageQuality, Variant
 
 from scheduler.core.builder import Blueprints
 from scheduler.core.builder.modes import dispatch_with, SchedulerModes
@@ -59,6 +59,7 @@ class Service:
 
         time_slot_length = collector.time_slot_length.to_datetime()
         nightly_timeline = NightlyTimeline()
+
 
         # Add the twilight events for every night at each site.
         # The morning twilight will force time accounting to be done on the last generated plan for the night.
@@ -239,6 +240,13 @@ class Service:
         semesters = frozenset([Semester.find_semester_from_date(start_vis.datetime),
                                Semester.find_semester_from_date(end_vis.datetime)])
 
+        variant_per_site = None
+        if cc_per_site and iq_per_site:
+            variant_per_site = {site: Variant(cc=cc_per_site[site],
+                                              iq=iq_per_site[site],
+                                              wind_dir=None,
+                                              wind_spd=None) for site in sites}
+
         if semester_visibility:
             end_date = max(s.end_date() for s in semesters)
             end = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
@@ -265,8 +273,7 @@ class Service:
         selector = builder.build_selector(collector,
                                           num_nights_to_schedule,
                                           Blueprints.selector,
-                                          cc_per_site,
-                                          iq_per_site)
+                                          variant_per_site)
 
         # Create the ChangeMonitor and keep track of when we should recalculate the plan for each site.
         change_monitor = ChangeMonitor(collector=collector, selector=selector)

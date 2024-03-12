@@ -55,8 +55,6 @@ class Selector(SchedulerComponent):
     num_nights_to_schedule: int
     time_buffer: TimeBuffer
     variant_per_site: Dict[Site, Variant] = field(default_factory=lambda: {})
-    cc_per_site: Dict[Site, CloudCover] = field(default_factory=lambda: {})
-    iq_per_site: Dict[Site, ImageQuality] = field(default_factory=lambda: {})
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
     _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
@@ -65,8 +63,6 @@ class Selector(SchedulerComponent):
 
     def __post_init__(self):
         # We need to copy or changing these values will modify the external dictionaries passed in.
-        self.cc_per_site = copy(self.cc_per_site)
-        self.iq_per_site = copy(self.iq_per_site)
         self.variant_per_site = copy(self.variant_per_site)
 
         if (self.num_nights_to_schedule < 0 or
@@ -82,23 +78,19 @@ class Selector(SchedulerComponent):
                                                   wind_spd=Selector._wind_spd_bound,
                                                   wind_dir=Selector._wind_sep)
 
-        for site in self.collector.sites - self.cc_per_site.keys():
+        for site in self.collector.sites - self.variant_per_site.keys():
             logger.warning(f'Selector has no CC data for {site.name}: setting to {Selector._default_cc.name}')
-            self.cc_per_site[site] = Selector._default_cc
-        for site in self.collector.sites - self.iq_per_site.keys():
             logger.warning(f'Selector has no IQ data for {site.name}: setting to {Selector._default_iq.name}')
-            self.iq_per_site[site] = Selector._default_iq
+            self.variant_per_site[site].cc = Selector._default_cc
+            self.variant_per_site[site].iq = Selector._default_iq
 
         def site_difference_str(sites: Set[Site] | KeysView[Site]) -> str:
             return '{' + ', '.join({s.name for s in sites}) + '}' if sites else ''
 
         # Make sure weather is only defined on selected sites: if not, issue a warning.
-        if self.cc_per_site.keys() != self.collector.sites:
-            logger.warning('Selector has cloud cover defined on sites that are not in use: ' +
-                           site_difference_str(self.cc_per_site.keys()) + '.')
-        if self.iq_per_site.keys() != self.collector.sites:
-            logger.warning('Selector has image quality defined on sites that are not in use: ' +
-                           site_difference_str(self.cc_per_site.keys()) + '.')
+        if self.variant_per_site.keys() != self.collector.sites:
+            logger.warning('Selector has a weather variant defined on sites that are not in use: ' +
+                           site_difference_str(self.variant_per_site.keys()) + '.')
 
         # Calculate the blocked indices.
         self._blocked_timeslots = self._calculate_blocked_timeslots()
@@ -373,8 +365,11 @@ class Selector(SchedulerComponent):
         """
         if site not in self.collector.sites:
             raise ValueError(f'Selector update_cc_and_iq called with invalid site: {site.name}')
-        self.cc_per_site[site] = new_cc or Selector._default_cc
-        self.iq_per_site[site] = new_iq or Selector._default_iq
+
+        self.variant_per_site[site] = Variant(cc=new_cc or Selector._default_cc,
+                                              iq=new_iq or Selector._default_iq,
+                                              wind_spd=None,
+                                              wind_dir=None)
 
     def _calculate_group(self,
                          program: Program,
@@ -500,8 +495,8 @@ class Selector(SchedulerComponent):
                                                                                                 end_time)
 
             variant_length = len(actual_conditions.cc)
-            actual_conditions = Variant(iq=np.array([self.iq_per_site[obs.site]] * variant_length),
-                                        cc=np.array([self.cc_per_site[obs.site]] * variant_length),
+            actual_conditions = Variant(iq=np.array([self.variant_per_site[obs.site].iq] * variant_length),
+                                        cc=np.array([self.variant_per_site[obs.site].cc] * variant_length),
                                         wind_dir=actual_conditions.wind_dir,
                                         wind_spd=actual_conditions.wind_spd)
 

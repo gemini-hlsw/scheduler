@@ -8,7 +8,7 @@ from typing import Dict, FrozenSet, Optional
 import numpy as np
 from astropy.time import Time
 from lucupy.minimodel import NightIndex, TimeslotIndex
-from lucupy.minimodel.constraints import CloudCover, ImageQuality, VariantChange
+from lucupy.minimodel.constraints import CloudCover, ImageQuality, VariantChange, Variant
 from lucupy.minimodel.semester import Semester
 from lucupy.minimodel.site import ALL_SITES, Site
 from lucupy.observatory.abstract import ObservatoryProperties
@@ -42,6 +42,13 @@ def main(*,
          iq_per_site: Optional[Dict[Site, ImageQuality]] = None,
          programs_ids: Optional[str] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
+
+    variant_per_site = None
+    if cc_per_site and iq_per_site:
+        variant_per_site = {site: Variant(cc=cc_per_site[site],
+                                          iq=iq_per_site[site],
+                                          wind_dir=None,
+                                          wind_spd=None) for site in sites}
 
     # Create the Collector and load the programs.
     collector_blueprint = CollectorBlueprint(
@@ -101,8 +108,8 @@ def main(*,
     selector = builder.build_selector(collector,
                                       num_nights_to_schedule=num_nights_to_schedule,
                                       blueprint=selector_blueprint,
-                                      cc_per_site=cc_per_site,
-                                      iq_per_site=iq_per_site)
+                                      variant_per_site=variant_per_site
+                                      )
 
     # Create the ChangeMonitor and keep track of when we should recalculate the plan for each site.
     change_monitor = ChangeMonitor(collector=collector, selector=selector)
@@ -163,13 +170,6 @@ def main(*,
         for site in sorted(sites, key=lambda site: site.name):
             # Site name so we can change this if we see fit.
             site_name = site.name
-
-            # TODO: When weather service is working again, we will not do this.
-            # Reset the Selector to the default weather for the night and reset the time record. The evening twilight
-            # should trigger the initial plan generation.
-            cc_value = cc_per_site and cc_per_site.get(site)
-            iq_value = iq_per_site and iq_per_site.get(site)
-            selector.update_cc_and_iq(site, cc_value, iq_value)
 
             # Plan and event queue management.
             plans: Optional[Plans] = None
