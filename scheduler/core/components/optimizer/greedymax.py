@@ -415,24 +415,32 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         # Shift to window boundary if within minimum block time of edge.
         # If near both boundaries, choose boundary with higher score.
-        score_start = scores[start]  # score at start
-        score_end = scores[end-1]  # score at end
+        score_start = scores[max_group_info.interval[0]]  # score at start of interval
+        score_end = scores[max_group_info.interval[-1]]  # score at end of interval
         delta_start = start - max_group_info.interval[0]  # difference between start of window and block
         delta_end = max_group_info.interval[-1] - end  # difference between end of window and block
+        # print(max_group_info.group_data.group.unique_id.id, score_start, score_end, delta_start, delta_end)
 
+        # shift = None
         if delta_start < max_group_info.n_min and delta_end < max_group_info.n_min:
             if score_start > score_end and score_start > 0.0:
                 start = max_group_info.interval[0]
                 end = start + max_group_info.n_slots_remaining - 1
+                # shift = 'left'
             elif score_end > 0.0:
                 start = max_group_info.interval[-1] - max_group_info.n_slots_remaining + 1
                 end = max_group_info.interval[-1]
+                # shift = 'right'
         elif delta_start < max_group_info.n_min and score_start > 0.0:
             start = max_group_info.interval[0]
             end = start + max_group_info.n_slots_remaining - 1
+            # shift = 'left'
         elif delta_end < max_group_info.n_min and score_end > 0:
             start = max_group_info.interval[-1] - max_group_info.n_slots_remaining + 1
             end = max_group_info.interval[-1]
+            # shift = 'right'
+        # if shift is not None:
+        #     print(f'{max_group_info.group_data.group.unique_id.id} shifted {shift}, n_min = {max_group_info.n_min}')
 
         # Make final list of indices for the highest scoring shifted sub-interval
         best_interval = np.arange(start=start, stop=end+1)
@@ -526,7 +534,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         std_after = None
         # If only one standard needed, try before or after, use best airmass match
         # TODO: Any preference to taking the standard before or after?
-        # TODO: Check scores to confirm that the observations are scheduleable (?)
+        # TODO: Check scores to confirm that the observations are schedulable (?)
         for partcal_obs in partner_obs:
             # Need the length of the calibration sequence only
             n_slots_cal = time2slots(self.time_slot_length, partcal_obs.exec_time())
@@ -542,12 +550,13 @@ class GreedyMaxOptimizer(BaseOptimizer):
             if verbose:
                 print(f'Standard {partcal_obs.id.id}')
                 print(f'\t n_slots_acq = {n_slots_acq}, n_slots_cal = {n_slots_cal}')
-                print(f'\n\t slot_start = {slot_start} slot_end = {slot_end}')
+                print(f'\t slot_start = {slot_start} slot_end = {slot_end}')
+                print(f'\t interval[slot_start] = {interval[slot_start]} interval[slot_end] = {interval[slot_end]}')
                 print('\t Try std before')
-                print(f'\t {len(interval[slot_start:slot_end + 1])} xmean_cal_before = {xmean_cal}')
+                print(f'\t length = {len(interval[slot_start:slot_end + 1])} xmean_cal_before = {xmean_cal}')
 
             if self.show_plots:
-                self.plot_airmass(partcal_obs.id, interval=interval[slot_start:slot_end + 1])
+                self.plot_airmass(partcal_obs.id, interval=interval[slot_start:slot_end + 1], night_idx=night_idx)
 
             # Mean NIR science airmass
             idx_start_nir, idx_end_nir, obs_id_nir = self.nir_slots(science_obs, n_slots_cal, len(interval))
@@ -561,11 +570,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 print(f'NIR science (after std) {obs_id_nir.id}')
                 print(f'\t idx_start_nir = {idx_start_nir} idx_end_nir = {idx_end_nir}')
                 print(f'\t slot_start_nir = {slot_start_nir} slot_end_nir = {slot_end_nir}')
-                print(f'\t {len(interval[slot_start_nir:slot_end_nir + 1])} xmean_nir = {xmean_nir}')
+                print(f'\t interval[slot_start_nir] = {interval[slot_start_nir]} interval[slot_end_nir] = {interval[slot_end_nir]}')
+                print(f'\t first index interval: {interval[0]} last index interval: {interval[-1]}')
+                print(f'\t {interval[slot_start_nir:slot_end_nir + 1]}')
+                print(f'\t length = {len(interval[slot_start_nir:slot_end_nir + 1])} xmean_nir = {xmean_nir}')
                 print(f'\t xdiff_before = {xdiff_before}')
 
             if self.show_plots:
-                self.plot_airmass(obs_id_nir, interval=interval[slot_start_nir:slot_end_nir + 1])
+                self.plot_airmass(obs_id_nir, interval=interval[slot_start_nir:slot_end_nir + 1], night_idx=night_idx)
 
             # Try std last
             # Mean std airmass
@@ -581,7 +593,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 print(f'\t {len(interval[slot_start:slot_end + 1])} xmean_cal_after = {xmean_cal}')
 
             if self.show_plots:
-                self.plot_airmass(partcal_obs.id, interval=interval[slot_start:slot_end + 1])
+                self.plot_airmass(partcal_obs.id, interval=interval[slot_start:slot_end + 1], night_idx=night_idx)
 
             # Mean NIR science airmass
             slot_start_nir = idx_start_nir
@@ -597,7 +609,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 print(f'\t xdiff_after = {xdiff_after}')
 
             if self.show_plots:
-                self.plot_airmass(obs_id_nir, interval=interval[slot_start_nir:slot_end_nir + 1])
+                self.plot_airmass(obs_id_nir, interval=interval[slot_start_nir:slot_end_nir + 1], night_idx=night_idx)
 
             if n_std == 1:
                 if xdiff_before <= xdiff_after:
@@ -925,7 +937,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             if max_group_info.n_std > 0:
                 if max_group_info.exec_sci_nir > ZeroTime:
                     standards, place_before = self.place_standards(night_idx, best_interval, prog_obs, part_obs,
-                                                                   max_group_info.n_std)
+                                                                   max_group_info.n_std, verbose=False)
                     for ii, std in enumerate(standards):
                         n_slots_cal += time2slots(self.time_slot_length, std.exec_time())
                         # print(f"{std.id.id} {place_before[ii]} {n_slots_cal}")
