@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, List, Mapping, Optional, Tuple
 
-from lucupy.minimodel import Band, Observation, ObservationID, Resource, Site, ObservationClass, ProgramID
+from lucupy.minimodel import Band, Observation, ObservationID, Resource, Site, ObservationClass, ProgramID, Variant
 from lucupy.timeutils import time2slots
 
 
@@ -28,3 +28,4 @@ class Visit:
     peak_score: float
     instrument: Optional[Resource]
     completion: str
+    conditions: Variant

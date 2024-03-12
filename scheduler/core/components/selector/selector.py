@@ -273,10 +273,7 @@ class Selector(SchedulerComponent):
             starting_time_slots=starting_time_slots,
             time_slot_length=self.collector.time_slot_length.to_datetime(),
             ranker=ranker,
-            current_conditions=(cc=self.cc_per_site[site],
-                                              iq=self.iq_per_site[site],
-                                              wind_spd=None,
-                                              wind_dir=None) for site in sites},
+            current_conditions=self.variant_per_site,
             _program_scorer=self.score_program
         )
         # at least one GroupInfo has schedulable slots.

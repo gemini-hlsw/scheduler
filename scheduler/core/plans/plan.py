@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, List, Optional, Tuple
 
-from lucupy.minimodel import Observation, ObservationID, Resource, Site
+from lucupy.minimodel import Observation, ObservationID, Resource, Site, Variant
 from lucupy.timeutils import time2slots
 
 from .nightstats import NightStats
@@ -91,7 +91,8 @@ class Plan:
             start_time_slot: int,
             time_slots: int,
             score: float,
-            peak_score: float) -> None:
+            peak_score: float,
+            current_conditions: Variant) -> None:
         visit = Visit(start,
                       obs.id,
                       obs.obs_class,
@@ -102,7 +103,8 @@ class Plan:
                       score,
                       peak_score,
                       obs.instrument(),
-                      f'{atom_end+1}/{len(obs.sequence)}')
+                      f'{atom_end+1}/{len(obs.sequence)}',
+                      current_conditions)
         self.visits.append(visit)
         self._time_slots_left -= time_slots
 
