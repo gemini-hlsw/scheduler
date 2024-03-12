@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import Dict, FrozenSet, Optional
 
 import numpy as np
+import astropy.units as u
+from astropy.coordinates import Angle
 from astropy.time import Time
+from astropy.units import Quantity
 from lucupy.minimodel import NightIndex, TimeslotIndex
 from lucupy.minimodel.constraints import CloudCover, ImageQuality, VariantChange, Variant
 from lucupy.minimodel.semester import Semester
@@ -47,8 +50,8 @@ def main(*,
     if cc_per_site and iq_per_site:
         variant_per_site = {site: Variant(cc=cc_per_site[site],
                                           iq=iq_per_site[site],
-                                          wind_dir=None,
-                                          wind_spd=None) for site in sites}
+                                          wind_dir=Angle(0),
+                                          wind_spd=Quantity(0*u.m/u.s)) for site in sites}
 
     # Create the Collector and load the programs.
     collector_blueprint = CollectorBlueprint(

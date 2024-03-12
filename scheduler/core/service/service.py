@@ -5,7 +5,10 @@ from datetime import datetime
 from typing import FrozenSet, Optional, Dict
 
 import numpy as np
+import astropy.units as u
+from astropy.coordinates import Angle
 from astropy.time import Time
+from astropy.units import Quantity
 from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex, CloudCover, ImageQuality, Variant
 
 from scheduler.core.builder import Blueprints
@@ -244,8 +247,8 @@ class Service:
         if cc_per_site and iq_per_site:
             variant_per_site = {site: Variant(cc=cc_per_site[site],
                                               iq=iq_per_site[site],
-                                              wind_dir=None,
-                                              wind_spd=None) for site in sites}
+                                              wind_dir=Angle(0),
+                                              wind_spd=Quantity(0 * u.m / u.s)) for site in sites}
 
         if semester_visibility:
             end_date = max(s.end_date() for s in semesters)
