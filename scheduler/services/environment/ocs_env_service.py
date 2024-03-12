@@ -2,14 +2,14 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import bz2
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
-from typing import Dict, Final, FrozenSet, List
+from typing import Dict, Final, FrozenSet
 
 import astropy.units as u
 import pandas as pd
 from astropy.coordinates import Angle
-from lucupy.minimodel import ALL_SITES, Site, Variant, CloudCover, ImageQuality
+from lucupy.minimodel import ALL_SITES, CloudCover, ImageQuality, Site, VariantChange
 
 from definitions import ROOT_DIR
 from scheduler.services import logger_factory
@@ -54,23 +54,25 @@ class OcsEnvService(ExternalService):
                 logger.info(f'Weather data for {site.name} read in: {len(self._site_data[site])} rows.')
 
     @staticmethod
-    def _convert_to_variant(row) -> Variant:
+    def _convert_to_variant(row) -> (datetime, VariantChange):
         """
         Given a pandas row from the weather data, turn it into a Variant object.
         """
+        timestamp = row[OcsEnvService._local_time_stamp_col].to_pydatetime()
         iq = ImageQuality(row[OcsEnvService._iq_col])
         cc = CloudCover(row[OcsEnvService._cc_col])
         wind_dir = Angle(row[OcsEnvService._wind_dir_col], unit=u.deg)
         wind_spd = row[OcsEnvService._wind_speed_col] * (u.m / u.s)
 
-        return Variant(iq=iq,
-                       cc=cc,
-                       wind_dir=wind_dir,
-                       wind_spd=wind_spd)
+        variant_change = VariantChange(iq=iq,
+                                       cc=cc,
+                                       wind_dir=wind_dir,
+                                       wind_spd=wind_spd)
+        return timestamp, variant_change
 
-    def get_environmental_changes_for_night(self,
-                                            site: Site,
-                                            night_date: date) -> List[Variant]:
+    def get_variant_changes_for_night(self,
+                                      site: Site,
+                                      night_date: date) -> Dict[datetime, VariantChange]:
         """
         Return the weather variant.
         This should be site-based and time-based.
@@ -79,5 +81,6 @@ class OcsEnvService(ExternalService):
         df = self._site_data[site]
 
         # Get all the entries for the given night date.
-        filtered_df = df[df[OcsEnvService._night_time_stamp_col].dt == night_date]
-        return filtered_df.apply(OcsEnvService._convert_to_variant).tolist()
+        filtered_df = df[df[OcsEnvService._night_time_stamp_col].dt.date == night_date]
+        variant_list = filtered_df.apply(OcsEnvService._convert_to_variant, axis=1).tolist()
+        return {dt: v for dt, v in variant_list}

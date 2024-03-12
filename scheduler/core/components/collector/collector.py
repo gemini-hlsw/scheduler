@@ -3,7 +3,6 @@
 
 import time
 from dataclasses import dataclass
-from datetime import timedelta
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 
@@ -17,7 +16,7 @@ from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex,
                               SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus,
                               Group)
 from lucupy.timeutils import time2slots
-from lucupy.types import ZeroTime
+from lucupy.types import Day, ZeroTime
 
 from scheduler.core.calculations.nightevents import NightEvents
 from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
@@ -29,7 +28,6 @@ from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
-from scheduler.services.resource.filters import ProgramPermissionFilter
 
 __all__ = [
     'Collector',
@@ -110,9 +108,6 @@ class Collector(SchedulerComponent):
     # We want the ObservationID in here so that any target sharing in GPP is deliberately split here, since
     # the target info is observation-specific due to the constraints and site.
     _target_info: ClassVar[TargetInfoMap] = {}
-
-    # Definition of a day to be used to get local dates for resources.
-    _DAY: ClassVar[timedelta] = timedelta(days=1)
 
     # The default timeslot length currently used.
     DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min
@@ -383,7 +378,7 @@ class Collector(SchedulerComponent):
                 elev_max = Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
 
             # Are all the required resources available?
-            # This works for validation mode. In RT mode this may need to be statistical if resources are not known
+            # This works for validation mode. In RT mode, this may need to be statistical if resources are not known
             # and they could change with time, so the visfrac calc may need to be extracted from this method
             has_resources = all([resource in nc[night_idx].resources for resource in obs.required_resources()])
             avail_resources = np.full([len(night_events.times[night_idx])], int(has_resources), dtype=int)
@@ -556,7 +551,7 @@ class Collector(SchedulerComponent):
         """
         return {night_idx: Collector._resource_service.get_night_configuration(
             site,
-            self.get_night_events(site).time_grid[night_idx].datetime.date() - Collector._DAY
+            self.get_night_events(site).time_grid[night_idx].datetime.date() - Day
         ) for night_idx in night_indices}
 
     def _get_group(self, obs: Observation) -> Group:
@@ -606,9 +601,6 @@ class Collector(SchedulerComponent):
             # Determine the end timeslot for the site if one is specified.
             # We set to None is the whole night is to be done.
             end_timeslot_bound = end_timeslot_bounds.get(plan.site) if end_timeslot_bounds is not None else None
-
-            # print(f'\ntime_accounting')
-            # print(f'{plan.site} {end_timeslot_bound}')
 
             grpvisits = []
             # Restore this if we actually need ii, but seems it was just being used to check that grpvisits nonempty.

@@ -6,7 +6,7 @@ from typing import FrozenSet, Optional, Dict
 
 import numpy as np
 from astropy.time import Time
-from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex, CloudCover, ImageQuality
+from lucupy.minimodel import Site, Semester, NightIndex, TimeslotIndex
 
 from scheduler.core.builder import Blueprints
 from scheduler.core.builder.modes import dispatch_with, SchedulerModes
@@ -53,9 +53,7 @@ class Service:
                          change_monitor: ChangeMonitor,
                          next_update: Dict[Site, Optional[TimeCoordinateRecord]],
                          queue: EventQueue,
-                         ranker_parameters: RankerParameters,
-                         cc_per_site: Optional[Dict[Site, CloudCover]] = None,
-                         iq_per_site: Optional[Dict[Site, ImageQuality]] = None):
+                         ranker_parameters: RankerParameters):
 
         time_slot_length = collector.time_slot_length.to_datetime()
         nightly_timeline = NightlyTimeline()
@@ -83,9 +81,7 @@ class Service:
 
                 # Reset the Selector to the default weather for the night and reset the time record.
                 # The evening twilight should trigger the initial plan generation.
-                cc_value = cc_per_site and cc_per_site.get(site)
-                iq_value = iq_per_site and iq_per_site.get(site)
-                selector.update_cc_and_iq(site, cc_value, iq_value)
+                selector.reset_site_conditions(site)
 
                 # Plan and event queue management.
                 plans: Optional[Plans] = None
@@ -141,7 +137,11 @@ class Service:
                             # If there is no next update planned, then take it to be the next update.
                             # If there is a next update planned, then take it if it happens before the next update.
                             # Process the event to find out if we should recalculate the plan based on it and when.
-                            time_record = change_monitor.process_event(site, top_event, plans)
+                            time_record = change_monitor.process_event(site,
+                                                                       top_event,
+                                                                       plans,
+                                                                       night_idx,
+                                                                       current_timeslot)
                             if time_record is not None:
                                 # In the case that:
                                 # * there is no next update scheduled; or
@@ -232,8 +232,6 @@ class Service:
             ranker_parameters: RankerParameters = RankerParameters(),
             semester_visibility: bool = True,
             num_nights_to_schedule: Optional[int] = None,
-            cc_per_site: Optional[Dict[Site, CloudCover]] = None,
-            iq_per_site: Optional[Dict[Site, ImageQuality]] = None,
             program_file: Optional[bytes] = None):
 
         semesters = frozenset([Semester.find_semester_from_date(start_vis.datetime),
@@ -264,9 +262,7 @@ class Service:
 
         selector = builder.build_selector(collector,
                                           num_nights_to_schedule,
-                                          Blueprints.selector,
-                                          cc_per_site,
-                                          iq_per_site)
+                                          Blueprints.selector)
 
         # Create the ChangeMonitor and keep track of when we should recalculate the plan for each site.
         change_monitor = ChangeMonitor(collector=collector, selector=selector)
@@ -284,9 +280,7 @@ class Service:
                                           change_monitor,
                                           next_update,
                                           builder.events,
-                                          ranker_parameters,
-                                          cc_per_site,
-                                          iq_per_site)
+                                          ranker_parameters)
 
         # Calculate plans stats
         plan_summary = StatCalculator.calculate_timeline_stats(timelines, night_indices, sites, collector)
