@@ -18,16 +18,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # $CONDA is an environment variable pointing to the root of the miniconda directory
-          $CONDA/bin/conda env update --file environment.yml --name base
+            python -m pip install --upgrade pip
+            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Add $PYTHONPATH
         run: echo "PYTHONPATH=/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
       
       - name: Generate Report
         run: |
-          $CONDA/bin/coverage run -m pytest --import-mode=importlib
-          $CONDA/bin/coverage xml
+          coverage run -m pytest 
+          coverage xml
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v2
