@@ -50,7 +50,7 @@ def main(*,
     if cc_per_site and iq_per_site:
         variant_per_site = {site: Variant(cc=cc_per_site[site],
                                           iq=iq_per_site[site],
-                                          wind_dir=Angle(0),
+                                          wind_dir=Angle(0*u.degree),
                                           wind_spd=Quantity(0*u.m/u.s)) for site in sites}
 
     # Create the Collector and load the programs.
@@ -152,8 +152,8 @@ def main(*,
                                                   description='IQ -> IQANY, CC -> CCANY',
                                                   variant_change=VariantChange(iq=ImageQuality.IQANY,
                                                                                cc=CloudCover.CCANY,
-                                                                               wind_dir=None,
-                                                                               wind_spd=None))
+                                                                               wind_dir=Angle(0*u.degree),
+                                                                               wind_spd=Quantity(0*u.m / u.s)))
         queue.add_event(NightIndex(0), Site.GS, weather_change_south)
 
     # Prepare the optimizer.

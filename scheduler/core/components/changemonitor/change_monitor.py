@@ -197,11 +197,11 @@ class ChangeMonitor(SchedulerComponent):
                 if variant_change.wind_dir is None:
                     wind_dir = actual_conditions.wind_dir
                 else:
-                    wind_dir = np.array([variant_change.wind_dir] * remaining_time_slots)
+                    wind_dir = np.array([variant_change.wind_dir.value] * remaining_time_slots)
                 if variant_change.wind_spd is None:
                     wind_spd = actual_conditions.wind_spd
                 else:
-                    wind_spd = np.array([variant_change.wind_spd] * remaining_time_slots)
+                    wind_spd = np.array([variant_change.wind_spd.value] * remaining_time_slots)
                 actual_conditions = Variant(cc=np.array([variant_change.cc] * remaining_time_slots),
                                             iq=np.array([variant_change.iq] * remaining_time_slots),
                                             wind_spd=wind_spd,
