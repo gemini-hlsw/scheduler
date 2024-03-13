@@ -195,19 +195,6 @@ class Selector(SchedulerComponent):
             raise ValueError(f'Selector trying to update conditions for invalid site: {site.name}')
         if variant_change is None:
             variant_change = Selector._default_variant_change
-        if site not in self._iq_per_site:
-            print(f'Updating conditions for site {site}: '
-                  f'None -> {variant_change.iq.name} '
-                  f'None -> {variant_change.cc.name}, Wind: '
-                  f'None -> {variant_change.wind_dir} '
-                  f'None -> {variant_change.wind_spd}')
-        else:
-            print(f'Updating conditions for site {site}: '
-                  f'{self._iq_per_site[site].name} -> {variant_change.iq.name} '
-                  f'{self._cc_per_site[site].name} -> {variant_change.cc.name}, Wind: '
-                  f'{self._wind_dir_per_site[site]} -> {variant_change.wind_dir} '
-                  f'{self._wind_spd_per_site[site]} -> {variant_change.wind_spd}')
-
         self._iq_per_site[site] = variant_change.iq
         self._cc_per_site[site] = variant_change.cc
         self._wind_dir_per_site[site] = variant_change.wind_dir

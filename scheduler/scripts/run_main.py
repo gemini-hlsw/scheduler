@@ -35,8 +35,8 @@ def main(*,
          end: Optional[Time] = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
          sites: FrozenSet[Site] = ALL_SITES,
          ranker_parameters: RankerParameters = RankerParameters(),
-         semester_visibility: bool = False,
-         num_nights_to_schedule: Optional[int] = 3,
+         semester_visibility: bool = True,
+         num_nights_to_schedule: Optional[int] = None,
          programs_ids: Optional[str] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -135,7 +135,8 @@ def main(*,
                     continue
 
                 if variant_timeslot >= morn_twi_slot:
-                    print(f'--- WeatherChange for site {site.name}, night {night_idx}, ts {variant_timeslot} > {morn_twi_slot}, ignoring...')
+                    _logger.debug(f'WeatherChange for site {site.name}, night {night_idx}, occurs after '
+                                  f'{morn_twi_slot}: ignoring.')
                     continue
 
                 variant_datetime_str = variant_datetime.strftime('%Y-%m-%d %H:%M')
@@ -190,12 +191,10 @@ def main(*,
             next_event_timeslot: Optional[TimeslotIndex] = None
             night_done = False
 
-            print(f'*** NIGHT: {night_idx}, SITE: {site.name}, NUMSLOTS: {night_events.num_timeslots_per_night[night_idx]} ***')
-
             # Set the initial variant for the site for the night. This may have been set above by weather information
             # obtained before or at the start of the night, and if not, then the lookup will give None, which will
             # reset to the default values as defined in the Selector.
-            print('Resetting weather to initial values for night...')
+            _logger.debug(f'Resetting {site_name} weather to initial values for night...')
             selector.update_site_variant(site, initial_variants[site][night_idx])
 
             while not night_done:
@@ -234,8 +233,6 @@ def main(*,
                         if current_timeslot > next_event_timeslot:
                             _logger.warning(f'Received event for {site_name} for night idx {night_idx} at timeslot '
                                             f'{next_event_timeslot} < current time slot {current_timeslot}.')
-                            print(f'Received event for {site_name} for night idx {night_idx} at timeslot'
-                                  f'{next_event_timeslot} < current time slot {current_timeslot}.')
 
                         # The next event happens in the future, so record that time.
                         if top_event_timeslot > current_timeslot:
@@ -245,39 +242,24 @@ def main(*,
                         # We have an event that occurs at this time slot and is in top_event, so pop it from the
                         # queue and process it.
                         events_by_night.pop_next_event()
-                        _logger.info(
-                            f'Received event for site {site_name} for night idx {night_idx} to be processed '
-                            f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
+                        _logger.debug(f'Received event for site {site_name} for night idx {night_idx} to be processed '
+                                      f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
 
                         # Process the event: find out when it should occur.
                         # If there is no next update planned, then take it to be the next update.
                         # If there is a next update planned, then take it if it happens before the next update.
                         # Process the event to find out if we should recalculate the plan based on it and when.
                         time_record = change_monitor.process_event(site, top_event, plans, night_idx)
-                        if time_record is None:
-                            print(f'Time record is None.')
 
                         if time_record is not None:
-                            print(f'Time record now: idx={time_record.timeslot_idx}, '
-                                  f'ta={time_record.perform_time_accounting}, done={time_record.done}')
-
                             # In the case that:
                             # * there is no next update scheduled; or
                             # * this update happens before the next update
                             # then set to this update.
-                            if next_update[site] is None:
-                                print('next_update is None')
-                            elif time_record.timeslot_idx < next_update[site].timeslot_idx:
-                                print(f'time record before next_update timeslot: {next_update[site].timeslot_idx}, replacing next_update')
-                            else:
-                                print(f'next_update is at {next_update[site].timeslot_idx}: not yet')
-
                             if next_update[site] is None or time_record.timeslot_idx < next_update[site].timeslot_idx:
                                 next_update[site] = time_record
                                 _logger.debug(f'Next update for site {site_name} scheduled at '
                                               f'timeslot {next_update[site].timeslot_idx}')
-                                print(f'Next update for site {site_name} scheduled at '
-                                      f'timeslot {next_update[site].timeslot_idx}')
 
                 # If there is a next update, and we have reached its time, then perform it.
                 # This is where we perform time accounting (if necessary), get a selection, and create a plan.
@@ -287,14 +269,9 @@ def main(*,
                     next_update[site] = None
 
                     if current_timeslot > update.timeslot_idx:
-                        _logger.error(
-                            f'Plan update at {site.name} for night {night_idx} for {update.event.__class__}'
-                            f'scheduled at timeslot {update.timeslot_idx}, but now timeslot '
-                            f'is {current_timeslot}.')
-                        print(
-                            f'ERROR: Plan update at {site.name} for night {night_idx} for {update.event.__class__.__name__} '
-                            f'scheduled at timeslot {update.timeslot_idx}, but now timeslot '
-                            f'is {current_timeslot}.')
+                        _logger.error(f'Plan update at {site.name} for night {night_idx} for '
+                                      f'{update.event.__class__.__name__} scheduled at timeslot {update.timeslot_idx}, '
+                                      f'but now timeslot is {current_timeslot}.')
 
                     # We will update the plan up until the time that the update happens.
                     # If this update corresponds to the night being done, then use None.
@@ -309,8 +286,7 @@ def main(*,
                             ta_description = 'for rest of night.'
                         else:
                             ta_description = f'up to timeslot {update.timeslot_idx}.'
-                        _logger.info(f'Time accounting: site {site_name} for night {night_idx} {ta_description}')
-                        print(f'Time accounting: site {site_name} for night {night_idx} {ta_description}')
+                        _logger.debug(f'Time accounting: site {site_name} for night {night_idx} {ta_description}')
                         collector.time_accounting(plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
@@ -328,10 +304,8 @@ def main(*,
 
                     # Get a new selection and request a new plan if the night is not done.
                     if not update.done:
-                        _logger.info(f'Calculating selection for {site_name} for night {night_idx} '
-                                     f'starting at time slot {current_timeslot}.')
-                        print(f'Calculating selection for {site_name} for night {night_idx} '
-                              f'starting at time slot {current_timeslot}.')
+                        _logger.debug(f'Calculating selection for {site_name} for night {night_idx} '
+                                      f'starting at time slot {current_timeslot}.')
                         selection = selector.select(night_indices=night_indices,
                                                     sites=frozenset([site]),
                                                     starting_time_slots={site: {night_idx: current_timeslot
@@ -341,10 +315,8 @@ def main(*,
                         # Right now the optimizer generates List[Plans], a list of plans indexed by
                         # every night in the selection. We only want the first one, which corresponds
                         # to the current night index we are looping over.
-                        _logger.info(f'Running optimizer for {site_name} for night {night_idx} '
-                                     f'starting at time slot {current_timeslot}.')
-                        print(f'Running optimizer for {site_name} for night {night_idx} '
-                              f'starting at time slot {current_timeslot}.')
+                        _logger.debug(f'Running optimizer for {site_name} for night {night_idx} '
+                                      f'starting at time slot {current_timeslot}.')
                         plans = optimizer.schedule(selection)[0]
                         nightly_timeline.add(NightIndex(night_idx),
                                              site,
@@ -358,7 +330,6 @@ def main(*,
                 # We have processed all events for this timeslot and performed an update if necessary.
                 # Advance the current time.
                 current_timeslot += 1
-                print(f'Current timeslot now: {current_timeslot}')
 
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
