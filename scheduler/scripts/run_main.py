@@ -7,7 +7,7 @@ from typing import Dict, FrozenSet, Optional
 
 import numpy as np
 from astropy.time import Time
-from lucupy.minimodel import NightIndex, TimeslotIndex
+from lucupy.minimodel import NightIndex, TimeslotIndex, VariantChange
 from lucupy.minimodel.semester import Semester
 from lucupy.minimodel.site import ALL_SITES, Site
 from lucupy.observatory.abstract import ObservatoryProperties
@@ -105,6 +105,11 @@ def main(*,
     # Don't use this now, but we will use it when scheduling sites at the same time.
     next_update: Dict[Site, Optional[TimeCoordinateRecord]] = {site: None for site in sites}
 
+    # Initial weather conditions for a night.
+    # These can occur if a weather reading is taken from timeslot 0 or earlier on a night.
+    initial_variants: Dict[Site, Dict[NightIndex, Optional[VariantChange]]] = \
+        {site: {night_idx: None for night_idx in night_indices} for site in sites}
+
     # Add events for every site for each night.
     # The morning twilight will force time accounting to be done on the last generated plan for the night.
     for site in sites:
@@ -121,6 +126,14 @@ def main(*,
             variant_changes_dict = collector.sources.origin.env.get_variant_changes_for_night(site, night_date)
             for variant_datetime, variant_change in variant_changes_dict.items():
                 variant_timeslot = time2slots(time_slot_length, variant_datetime - eve_twi_time)
+
+                # If the variant happens before or at the first time slot, we set the initial variant for the night.
+                # The closer to the first time slot, the more accurate, and the ordering on them will overwrite
+                # the previous values.
+                if variant_timeslot <= 0:
+                    initial_variants[site][night_idx] = variant_change
+                    continue
+
                 if variant_timeslot >= morn_twi_slot:
                     print(f'--- WeatherChange for site {site.name}, night {night_idx}, ts {variant_timeslot} > {morn_twi_slot}, ignoring...')
                     continue
@@ -157,10 +170,6 @@ def main(*,
             # Site name so we can change this if we see fit.
             site_name = site.name
 
-            # Reset the Selector to the default weather for the night and reset the time record. The evening twilight
-            # should trigger the initial plan generation.
-            selector.reset_site_conditions(site)
-
             # Plan and event queue management.
             plans: Optional[Plans] = None
             events_by_night = queue.get_night_events(night_idx, site)
@@ -173,8 +182,6 @@ def main(*,
             night_start = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
             next_update[site] = None
 
-            print(f'*** NIGHT: {night_idx}, SITE: {site.name}, NUMSLOTS: {night_events.num_timeslots_per_night[night_idx]} ***')
-
             # TODO: Do we want the timeslot counter in its own class? If we are going to make this work for GPP,
             # TODO: we will need one for real time and one for validation mode simulated time.
             # timeslot counter for the night for the site, and when to process the next event.
@@ -182,6 +189,14 @@ def main(*,
             next_event: Optional[Event] = None
             next_event_timeslot: Optional[TimeslotIndex] = None
             night_done = False
+
+            print(f'*** NIGHT: {night_idx}, SITE: {site.name}, NUMSLOTS: {night_events.num_timeslots_per_night[night_idx]} ***')
+
+            # Set the initial variant for the site for the night. This may have been set above by weather information
+            # obtained before or at the start of the night, and if not, then the lookup will give None, which will
+            # reset to the default values as defined in the Selector.
+            print('Resetting weather to initial values for night...')
+            selector.update_site_variant(site, initial_variants[site][night_idx])
 
             while not night_done:
                 # If our next update isn't done, and we are out of events, we're missing the morning twilight.
@@ -217,7 +232,7 @@ def main(*,
                             next_event = top_event
 
                         if current_timeslot > next_event_timeslot:
-                            _logger.warning(f'Received event for {site_name} for night idx {night_idx} at timeslot'
+                            _logger.warning(f'Received event for {site_name} for night idx {night_idx} at timeslot '
                                             f'{next_event_timeslot} < current time slot {current_timeslot}.')
                             print(f'Received event for {site_name} for night idx {night_idx} at timeslot'
                                   f'{next_event_timeslot} < current time slot {current_timeslot}.')

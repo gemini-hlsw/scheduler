@@ -619,7 +619,7 @@ class Collector(SchedulerComponent):
                 # print(grpvisit.group.unique_id.id, grpvisit.start_time_slot(), grpvisit.end_time_slot())
                 # Determine if group should be charged
                 if grpvisit.group.is_scheduling_group():
-                    # For now, only change a scheduling group if it can be done fully
+                    # For now, only change aa scheduling group if it can be done fully
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.end_time_slot()
                 else:
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.start_time_slot()

@@ -59,6 +59,7 @@ class Selector(SchedulerComponent):
     # Store the current CC and IQ for each site to be used in selection calculations.
     # TODO: We will use wind dir and speed later, and perhaps also WV, at which point, change this to a Variant per
     # TODO: Site, and modify Variant to not have arrays.
+    # These start off empty, but will reset at the beginning of each night by the event loop.
     _cc_per_site: Dict[Site, CloudCover] = field(init=False, default_factory=dict)
     _iq_per_site: Dict[Site, ImageQuality] = field(init=False, default_factory=dict)
     _wind_dir_per_site: Dict[Site, Angle] = field(init=False, default_factory = dict)
@@ -79,10 +80,6 @@ class Selector(SchedulerComponent):
                                                                      wind_spd=_default_wind_spd)
 
     def __post_init__(self):
-        # Set the site conditions to the base values.
-        for site in self.collector.sites:
-            self.reset_site_conditions(site)
-
         # Make sure the number of nights to schedule is not larger than the number of nights used in visibility
         # calculations.
         if (self.num_nights_to_schedule < 0 or
@@ -187,15 +184,6 @@ class Selector(SchedulerComponent):
                 blocked_indices_by_night[night_idx] = blocked_timeslot_indices
             blocked_indices_by_site[site] = blocked_indices_by_night
         return blocked_indices_by_site
-
-    def reset_site_conditions(self, site: Site) -> None:
-        """
-        Used when the Selector is first created or when a new night starts.
-        We conservatively assume that the site conditions are the worst possible until we encounter data otherwise by
-        using the default conditions, which are IQANY, CCANY, and no wind.
-        """
-        print(f'Resetting conditions for site {site.name}.')
-        self.update_site_variant(site)
 
     def update_site_variant(self,
                             site: Site,
@@ -493,14 +481,16 @@ class Selector(SchedulerComponent):
         night_events = self.collector.get_night_events(obs.site)
 
         for night_idx in night_indices:
-            # Get the conditions for the night.
+            # Get the conditions for the night. We need values for every timeslot, but at the end, we will
+            # zero out the timeslots that have already passed.
             total_timeslots_in_night = len(night_events.times[night_idx])
             starting_timeslot_in_night = starting_time_slots[obs.site][night_idx]
 
+            # The initial zeros up to the starting timeslot in night will all pass, but we will zero them out later.
             iq_array = np.zeros(total_timeslots_in_night)
-            iq_array[-starting_timeslot_in_night:] = self._iq_per_site[obs.site]
+            iq_array[starting_timeslot_in_night:] = self._iq_per_site[obs.site]
             cc_array = np.zeros(total_timeslots_in_night)
-            cc_array[-starting_timeslot_in_night:] = self._cc_per_site[obs.site]
+            cc_array[starting_timeslot_in_night:] = self._cc_per_site[obs.site]
 
             # Since these are AstroPy wrapped types, we have to manage the changes directly through the numpy arrays
             # by accessing the value property.
@@ -518,7 +508,10 @@ class Selector(SchedulerComponent):
                               wind_spd=wind_spd_array)
 
             # Determine how closely the matched the required conditions are to the actual conditions.
+            # Zero out the part of the night that was already done.
             conditions_score[night_idx] = Selector.match_conditions(mrc, variant, neg_ha[night_idx], too_type)
+            conditions_score[night_idx][:starting_timeslot_in_night] = 0
+
             wind_score[night_idx] = Selector._wind_conditions(variant, target_info[night_idx].az)
 
         # Calculate the schedulable slot indices.

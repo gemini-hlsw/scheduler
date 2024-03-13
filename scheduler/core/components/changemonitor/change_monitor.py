@@ -123,12 +123,15 @@ class ChangeMonitor(SchedulerComponent):
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
+                print('VISIT LIST:')
                 sorted_visits = sorted(plan.visits, key=lambda v: v.start_time_slot)
                 for idx, v in enumerate(sorted_visits):
                     obs = self.collector.get_observation(v.obs_id)
-                    v_end = v.start_time_slot + v.time_slots
+                    # If we start at 0 and take 5 slots, they are 0, 1, 2, 3, 4.
+                    v_end = v.start_time_slot + v.time_slots - 1
                     conditions = obs.constraints.conditions
-                    print(f'{idx}: Visit for {obs.id.id} from ts {v.start_time_slot} to {v_end} ({v.time_slots}',
+                    print(f'{idx}: Visit for {obs.id.id} from ts {v.start_time_slot} to {v_end} ({v.time_slots}), ',
+                          f'atoms {v.atom_start_idx} to {v.atom_end_idx}, '
                           f'Conditions: {conditions.iq.name}, {conditions.cc.name}')
 
                 visit_idx = bisect.bisect_right([v.start_time_slot for v in sorted_visits], event_timeslot) - 1
@@ -144,7 +147,9 @@ class ChangeMonitor(SchedulerComponent):
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
-                visit_end_time_slot = visit.start_time_slot + visit.time_slots
+                # visit done at visit.start_time_slit + visit.time_slots
+                # visit's last time slot is visit done - 1
+                visit_end_time_slot = visit.start_time_slot + visit.time_slots - 1  # TODO: Added -1 here
                 if visit_end_time_slot < event_timeslot:
                     print(f'Visit {visit.obs_id.id} finishes at time slot {visit_end_time_slot}. Updating.')
                     return TimeCoordinateRecord(event=event,
@@ -236,9 +241,9 @@ class ChangeMonitor(SchedulerComponent):
 
                 # Otherwise, we can finish the observation. Start the weather change at the end time slot.
                 # TODO: end time slot + 1?
-                print(f'Visit can complete. Scheduling recalculation at time slot {visit_end_time_slot}.')
+                print(f'Visit can complete. Scheduling recalculation at time slot {visit_end_time_slot + 1}.')
                 return TimeCoordinateRecord(event=event,
-                                            timeslot_idx=TimeslotIndex(visit_end_time_slot))
+                                            timeslot_idx=TimeslotIndex(visit_end_time_slot + 1))
 
             # For now, for all other events, just recalculate immediately.
             case _:
