@@ -85,7 +85,6 @@ def main(*,
         blueprint=collector_blueprint,
         program_list=f_programs
     )
-    time_slot_length = collector.time_slot_length.to_datetime()
 
     if verbose:
         print_collector_info(collector)
@@ -95,7 +94,7 @@ def main(*,
         'FLAT_MINUTES',
         30
     )
-    selector = builder.build_selector(collector,
+    selector = builder.build_selector(collector=collector,
                                       num_nights_to_schedule=num_nights_to_schedule,
                                       blueprint=selector_blueprint)
 
@@ -104,6 +103,16 @@ def main(*,
 
     # Don't use this now, but we will use it when scheduling sites at the same time.
     next_update: Dict[Site, Optional[TimeCoordinateRecord]] = {site: None for site in sites}
+
+    # Prepare the optimizer.
+    optimizer_blueprint = OptimizerBlueprint("GreedyMax")
+    optimizer = builder.build_optimizer(blueprint=optimizer_blueprint)
+
+    # Create the overall plan by night. We will convert these into a List[Plans] at the end.
+    overall_plans: Dict[NightIndex, Plans] = {}
+
+    time_slot_length = collector.time_slot_length.to_datetime()
+    nightly_timeline = NightlyTimeline()
 
     # Initial weather conditions for a night.
     # These can occur if a weather reading is taken from timeslot 0 or earlier on a night.
@@ -149,17 +158,8 @@ def main(*,
                                                           variant_change=variant_change)
                 queue.add_event(night_idx, site, weather_change_event)
 
-            morn_twi_time = night_events.twilight_morning_12[night_idx].to_datetime(site.timezone) - time_slot_length
             morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twi)
-
-    # Prepare the optimizer.
-    optimizer_blueprint = OptimizerBlueprint("GreedyMax")
-    optimizer = builder.build_optimizer(blueprint=optimizer_blueprint)
-
-    # Create the overall plan by night. We will convert these into a List[Plans] at the end.
-    overall_plans: Dict[NightIndex, Plans] = {}
-    nightly_timeline = NightlyTimeline()
 
     for night_idx in sorted(night_indices):
         night_indices = np.array([night_idx])
@@ -183,17 +183,14 @@ def main(*,
             night_start = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
             next_update[site] = None
 
-            # TODO: Do we want the timeslot counter in its own class? If we are going to make this work for GPP,
-            # TODO: we will need one for real time and one for validation mode simulated time.
-            # timeslot counter for the night for the site, and when to process the next event.
             current_timeslot: TimeslotIndex = TimeslotIndex(0)
             next_event: Optional[Event] = None
             next_event_timeslot: Optional[TimeslotIndex] = None
             night_done = False
 
-            # Set the initial variant for the site for the night. This may have been set above by weather information
-            # obtained before or at the start of the night, and if not, then the lookup will give None, which will
-            # reset to the default values as defined in the Selector.
+            # Set the initial variant for the site for the night. This may have been set above by weather
+            # information obtained before or at the start of the night, and if not, then the lookup will give None,
+            # which will reset to the default values as defined in the Selector.
             _logger.debug(f'Resetting {site_name} weather to initial values for night...')
             selector.update_site_variant(site, initial_variants[site][night_idx])
 
@@ -242,8 +239,9 @@ def main(*,
                         # We have an event that occurs at this time slot and is in top_event, so pop it from the
                         # queue and process it.
                         events_by_night.pop_next_event()
-                        _logger.debug(f'Received event for site {site_name} for night idx {night_idx} to be processed '
-                                      f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
+                        _logger.debug(
+                            f'Received event for site {site_name} for night idx {night_idx} to be processed '
+                            f'at timeslot {next_event_timeslot}: {next_event.__class__.__name__}')
 
                         # Process the event: find out when it should occur.
                         # If there is no next update planned, then take it to be the next update.
@@ -269,9 +267,9 @@ def main(*,
                     next_update[site] = None
 
                     if current_timeslot > update.timeslot_idx:
-                        _logger.error(f'Plan update at {site.name} for night {night_idx} for '
-                                      f'{update.event.__class__.__name__} scheduled at timeslot {update.timeslot_idx}, '
-                                      f'but now timeslot is {current_timeslot}.')
+                        _logger.error(
+                            f'Plan update at {site.name} for night {night_idx} for {update.event.__class__.__name__}'
+                            f' scheduled at timeslot {update.timeslot_idx}, but now timeslot is {current_timeslot}.')
 
                     # We will update the plan up until the time that the update happens.
                     # If this update corresponds to the night being done, then use None.
@@ -287,7 +285,7 @@ def main(*,
                         else:
                             ta_description = f'up to timeslot {update.timeslot_idx}.'
                         _logger.debug(f'Time accounting: site {site_name} for night {night_idx} {ta_description}')
-                        collector.time_accounting(plans,
+                        collector.time_accounting(plans=plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
 
