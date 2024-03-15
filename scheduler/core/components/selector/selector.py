@@ -1,9 +1,9 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from copy import copy, deepcopy
+from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import final, ClassVar, Dict, FrozenSet, KeysView, Optional, Set, TypeAlias
+from typing import final, ClassVar, Dict, FrozenSet, Optional, TypeAlias
 
 import astropy.units as u
 import numpy as np
@@ -55,50 +55,50 @@ class Selector(SchedulerComponent):
     collector: Collector
     num_nights_to_schedule: int
     time_buffer: TimeBuffer
-    cc_per_site: Dict[Site, CloudCover] = field(default_factory=lambda: {})
-    iq_per_site: Dict[Site, ImageQuality] = field(default_factory=lambda: {})
+
+    # Store the current CC and IQ for each site to be used in selection calculations.
+    # TODO: We will use wind dir and speed later, and perhaps also WV, at which point, change this to a Variant per
+    # TODO: Site, and modify Variant to not have arrays.
+    # These start off empty, but will reset at the beginning of each night by the event loop.
+    _cc_per_site: Dict[Site, CloudCover] = field(init=False, default_factory=dict)
+    _iq_per_site: Dict[Site, ImageQuality] = field(init=False, default_factory=dict)
+    _wind_dir_per_site: Dict[Site, Angle] = field(init=False, default_factory = dict)
+    _wind_spd_per_site: Dict[Site, Quantity] = field(init=False, default_factory=dict)
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
     _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
-    _default_cc: ClassVar[CloudCover] = CloudCover.CC50
-    _default_iq: ClassVar[ImageQuality] = ImageQuality.IQ70
+
+    # Default values for resetting variants.
+    _default_iq: ClassVar[ImageQuality] = ImageQuality.IQANY
+    _default_cc: ClassVar[CloudCover] = CloudCover.CCANY
+    _default_wind_dir: ClassVar[Angle] = Angle(0., unit=u.deg)
+    _default_wind_spd: ClassVar[Quantity] = 0.0 * (u.m / u.s)
+
+    _default_variant_change: ClassVar[VariantChange] = VariantChange(iq=_default_iq,
+                                                                     cc=_default_cc,
+                                                                     wind_dir=_default_wind_dir,
+                                                                     wind_spd=_default_wind_spd)
 
     def __post_init__(self):
-        # We need to copy or changing these values will modify the external dictionaries passed in.
-        self.cc_per_site = copy(self.cc_per_site)
-        self.iq_per_site = copy(self.iq_per_site)
-
+        # Make sure the number of nights to schedule is not larger than the number of nights used in visibility
+        # calculations.
         if (self.num_nights_to_schedule < 0 or
                 self.num_nights_to_schedule > self.collector.num_nights_calculated):
             raise ValueError(f'Scheduling requested for {self.num_nights_to_schedule} nights, but visibility '
                              f'calculations only performed for {self.collector.num_nights_calculated}. '
                              'Cannot proceed.')
 
-        for site in self.collector.sites - self.cc_per_site.keys():
-            logger.warning(f'Selector has no CC data for {site.name}: setting to {Selector._default_cc.name}')
-            self.cc_per_site[site] = Selector._default_cc
-        for site in self.collector.sites - self.iq_per_site.keys():
-            logger.warning(f'Selector has no IQ data for {site.name}: setting to {Selector._default_iq.name}')
-            self.iq_per_site[site] = Selector._default_iq
-
-        def site_difference_str(sites: Set[Site] | KeysView[Site]) -> str:
-            return '{' + ', '.join({s.name for s in sites}) + '}' if sites else ''
-
-        # Make sure weather is only defined on selected sites: if not, issue a warning.
-        if self.cc_per_site.keys() != self.collector.sites:
-            logger.warning('Selector has cloud cover defined on sites that are not in use: ' +
-                           site_difference_str(self.cc_per_site.keys()) + '.')
-        if self.iq_per_site.keys() != self.collector.sites:
-            logger.warning('Selector has image quality defined on sites that are not in use: ' +
-                           site_difference_str(self.cc_per_site.keys()) + '.')
-
-        # Calculate the blocked indices.
+        # Calculate the blocked indices per night that the Scheduler knows in advance, e.g. engineering tasks.
         self._blocked_timeslots = self._calculate_blocked_timeslots()
 
     @staticmethod
     def _process_starting_time_slots(sites: FrozenSet[Site],
                                      night_indices: NightIndices,
                                      starting_time_slots: Optional[StartingTimeslots]) -> StartingTimeslots:
+        """
+        Determine the starting timeslots for each night. These should typically be 0 unless we are only calculating
+        a fraction of a night, e.g. if a new selection is being done for part of the night.
+        """
         if starting_time_slots is None:
             starting_time_slots = {}
 
@@ -126,8 +126,8 @@ class Selector(SchedulerComponent):
         """
         sites = self.collector.sites
 
-        # TODO: This seems like an overcalculation: we only need to calculate for the number of nights we are
-        # TODO: scheduling and not the visibility period. Posssible room for improvement.
+        # TODO: This seems like an over-calculation: we only need to calculate for the number of nights we are
+        # TODO: scheduling and not the visibility period. Possible room for improvement.
         night_indices = np.arange(len(self.collector.time_grid))
         time_slot_length = self.collector.time_slot_length.to_datetime()
 
@@ -184,6 +184,21 @@ class Selector(SchedulerComponent):
                 blocked_indices_by_night[night_idx] = blocked_timeslot_indices
             blocked_indices_by_site[site] = blocked_indices_by_night
         return blocked_indices_by_site
+
+    def update_site_variant(self,
+                            site: Site,
+                            variant_change: Optional[VariantChange] = None) -> None:
+        """
+        Extract the CC and IQ values from the new conditions and update them for the given site.
+        """
+        if site not in self.collector.sites:
+            raise ValueError(f'Selector trying to update conditions for invalid site: {site.name}')
+        if variant_change is None:
+            variant_change = Selector._default_variant_change
+        self._iq_per_site[site] = variant_change.iq
+        self._cc_per_site[site] = variant_change.cc
+        self._wind_dir_per_site[site] = variant_change.wind_dir
+        self._wind_spd_per_site[site] = variant_change.wind_spd
 
     def select(self,
                sites: Optional[FrozenSet[Site]] = None,
@@ -343,30 +358,6 @@ class Selector(SchedulerComponent):
             unfiltered_group_data_map=unfiltered_group_data_map
         )
 
-    def update_variant(self,
-                       site: Site,
-                       variant_change: Optional[VariantChange] = None) -> None:
-        """
-        Extract the CC and IQ values from the new conditions and update them for the given site.
-        """
-        self.update_cc_and_iq(site,
-                              variant_change and variant_change.cc,
-                              variant_change and variant_change.iq)
-
-    def update_cc_and_iq(self,
-                         site: Site,
-                         new_cc: Optional[CloudCover] = None,
-                         new_iq: Optional[ImageQuality] = None) -> None:
-        """
-        Update the conditions at the specified site, provided the site is being used.
-        Right now, we only use CloudCover and ImageQuality in calculations, so only accept those parameters.
-        If no value is given, they are updated to the default values.
-        """
-        if site not in self.collector.sites:
-            raise ValueError(f'Selector update_cc_and_iq called with invalid site: {site.name}')
-        self.cc_per_site[site] = new_cc or Selector._default_cc
-        self.iq_per_site[site] = new_iq or Selector._default_iq
-
     def _calculate_group(self,
                          program: Program,
                          group: Group,
@@ -424,7 +415,7 @@ class Selector(SchedulerComponent):
 
         obs = group.children
         if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.INACTIVE}:
-            logger.warning(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
+            logger.info(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
             return group_data_map
 
         if obs.status not in {ObservationStatus.READY, ObservationStatus.ONGOING}:
@@ -432,7 +423,7 @@ class Selector(SchedulerComponent):
 
         # This should never happen.
         if obs.site not in sites:
-            logger.warning(f'Selector ignoring request to score {obs.id}: not at a currently selected site.')
+            logger.info(f'Selector ignoring request to score {obs.id}: not at a currently selected site.')
             return group_data_map
 
         # We ignore the Observation if:
@@ -448,12 +439,6 @@ class Selector(SchedulerComponent):
 
         mrc = obs.constraints.conditions
         is_splittable = len(obs.sequence) > 1
-
-        # TODO: Do we need standards?
-        # TODO: By the old Visit code, we had them and handled as per comment.
-        # TODO: How do we handle them now?
-        # standards = ObservatoryProperties.determine_standard_time(required_res, obs.wavelengths(), obs)
-        standards = 0.
 
         # Calculate a numpy array of bool indexed by night to determine when the group can be added to the plan
         # based on the night configuration filtering.
@@ -483,39 +468,38 @@ class Selector(SchedulerComponent):
         night_events = self.collector.get_night_events(obs.site)
 
         for night_idx in night_indices:
-            # Get the conditions for the night.
-            start_time = night_events.times[night_idx][0]
-            end_time = night_events.times[night_idx][-1]
-            actual_conditions = self.collector.sources.origin.env.get_actual_conditions_variant(obs.site,
-                                                                                                start_time,
-                                                                                                end_time)
+            # Get the conditions for the night. We need values for every timeslot, but at the end, we will
+            # zero out the timeslots that have already passed.
+            total_timeslots_in_night = len(night_events.times[night_idx])
+            starting_timeslot_in_night = starting_time_slots[obs.site][night_idx]
 
-            variant_length = len(actual_conditions.cc)
-            actual_conditions = Variant(iq=np.array([self.iq_per_site[obs.site]] * variant_length),
-                                        cc=np.array([self.cc_per_site[obs.site]] * variant_length),
-                                        wind_dir=actual_conditions.wind_dir,
-                                        wind_spd=actual_conditions.wind_spd)
+            # The initial zeros up to the starting timeslot in night will all pass, but we will zero them out later.
+            iq_array = np.zeros(total_timeslots_in_night)
+            iq_array[starting_timeslot_in_night:] = self._iq_per_site[obs.site]
+            cc_array = np.zeros(total_timeslots_in_night)
+            cc_array[starting_timeslot_in_night:] = self._cc_per_site[obs.site]
 
-            # Make sure that we have conditions for every time slot.
-            num_time_slots = len(night_events.times[night_idx])
-            if variant_length != num_time_slots:
-                error_str = (f'Night {night_idx} has {num_time_slots} entries, '
-                             f'but only {variant_length} conditions points.')
-                logger.error(error_str)
-                raise ValueError(error_str)
+            # Since these are AstroPy wrapped types, we have to manage the changes directly through the numpy arrays
+            # by accessing the value property.
+            wind_dir_array = Angle(np.zeros(total_timeslots_in_night), unit=u.deg)
+            wind_dir_array.value[-starting_timeslot_in_night:] = self._wind_dir_per_site[obs.site].value
 
-            # If we can obtain the conditions variant, calculate the conditions and wind mapping.
-            # Otherwise, use arrays of all zeros to indicate that we cannot calculate this information.
-            if actual_conditions is not None:
-                conditions_score[night_idx] = Selector.match_conditions(mrc,
-                                                                        actual_conditions,
-                                                                        neg_ha[night_idx],
-                                                                        too_type)
-                wind_score[night_idx] = Selector._wind_conditions(actual_conditions, target_info[night_idx].az)
-            else:
-                zero = np.zeros(len(night_events.times[night_idx]))
-                conditions_score[night_idx] = zero.copy()
-                wind_score[night_idx] = zero.copy()
+            # This does not apply to AstroPy Quantity objects.
+            wind_spd_array = np.zeros(total_timeslots_in_night) * (u.m / u.s)
+            wind_spd_array[-starting_timeslot_in_night:] = self._wind_spd_per_site[obs.site]
+
+            # Make a variant based on the conditions at the site of the observation for use in scoring calculations.
+            variant = Variant(iq=iq_array,
+                              cc=cc_array,
+                              wind_dir=wind_dir_array,
+                              wind_spd=wind_spd_array)
+
+            # Determine how closely the matched the required conditions are to the actual conditions.
+            # Zero out the part of the night that was already done.
+            conditions_score[night_idx] = Selector.match_conditions(mrc, variant, neg_ha[night_idx], too_type)
+            conditions_score[night_idx][:starting_timeslot_in_night] = 0
+
+            wind_score[night_idx] = Selector._wind_conditions(variant, target_info[night_idx].az)
 
         # Calculate the schedulable slot indices.
         # These are the indices where the observation has:
@@ -554,7 +538,6 @@ class Selector(SchedulerComponent):
         group_info = GroupInfo(
             minimum_conditions=mrc,
             is_splittable=is_splittable,
-            standards=standards,
             night_filtering=night_filtering,
             conditions_score=conditions_score,
             wind_score=wind_score,
@@ -612,11 +595,6 @@ class Selector(SchedulerComponent):
         # This group will always be splittable unless we have some bizarre nesting.
         is_splittable = len(group.observations()) > 1 or len(group.observations()[0].sequence) > 1
 
-        # TODO: Do we need standards?
-        # TODO: This is not how we handle standards. Fix this.
-        # standards = np.sum([group_info_map[sg.unique_id].standards for sg in group.children])
-        standards = 0.
-
         # The group is filtered in for a night_idx if all its subgroups are filtered in for that night_idx.
         night_filtering = {night_idx: all(
                                   group_data_map[sg.unique_id].group_info.night_filtering[night_idx]
@@ -663,7 +641,6 @@ class Selector(SchedulerComponent):
         group_info = GroupInfo(
             minimum_conditions=mrc,
             is_splittable=is_splittable,
-            standards=standards,
             night_filtering=night_filtering,
             conditions_score=conditions_score,
             wind_score=wind_score,

@@ -2,10 +2,10 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import abstractmethod, ABC
-from typing import Dict, FrozenSet, Optional
+from typing import FrozenSet, Optional
 
 from astropy.time import Time
-from lucupy.minimodel import CloudCover, ImageQuality, Semester, Site
+from lucupy.minimodel import Semester, Site
 
 from .blueprint import CollectorBlueprint, SelectorBlueprint, OptimizerBlueprint
 from scheduler.core.components.collector import Collector
@@ -47,14 +47,10 @@ class SchedulerBuilder(ABC):
     @staticmethod
     def build_selector(collector: Collector,
                        num_nights_to_schedule: int,
-                       blueprint: SelectorBlueprint,
-                       cc_per_site: Optional[Dict[Site, CloudCover]] = None,
-                       iq_per_site: Optional[Dict[Site, ImageQuality]] = None) -> Selector:
+                       blueprint: SelectorBlueprint) -> Selector:
         return Selector(collector=collector,
                         num_nights_to_schedule=num_nights_to_schedule,
-                        time_buffer=create_time_buffer(*blueprint),
-                        cc_per_site=cc_per_site or {},
-                        iq_per_site=iq_per_site or {})
+                        time_buffer=create_time_buffer(*blueprint))
 
     @staticmethod
     def build_optimizer(blueprint: OptimizerBlueprint) -> Optimizer:

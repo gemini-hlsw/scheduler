@@ -1,5 +1,9 @@
 # Scheduler scripts
 
+### `run_greedymax.py`
+Run the Scheduler event loop, using GreedyMax to schedule visits during a configurable number of nights
+with the desired visibility calculations.
+
 ### `download_programs.py`
 Downloads program needed for the Scheduler to work. 
 DEFAULT_PROGRAMS variable specifies the list of programs the script is going to download

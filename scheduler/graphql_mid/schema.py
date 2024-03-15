@@ -112,8 +112,8 @@ class Query:
                 program_file = new_schedule_input.program_file
 
             timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
-                                                     start_vis=start,
-                                                     end_vis=end,
+                                                     start=start,
+                                                     end=end,
                                                      sites=new_schedule_input.sites,
                                                      ranker_parameters=ranker_params,
                                                      semester_visibility=new_schedule_input.semester_visibility,
