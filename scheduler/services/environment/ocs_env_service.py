@@ -9,7 +9,7 @@ from typing import Dict, Final, FrozenSet
 import astropy.units as u
 import pandas as pd
 from astropy.coordinates import Angle
-from lucupy.minimodel import ALL_SITES, CloudCover, ImageQuality, Site, VariantChange
+from lucupy.minimodel import ALL_SITES, CloudCover, ImageQuality, Site, VariantSnapshot
 
 from definitions import ROOT_DIR
 from scheduler.services import logger_factory
@@ -54,7 +54,7 @@ class OcsEnvService(ExternalService):
                 logger.info(f'Weather data for {site.name} read in: {len(self._site_data[site])} rows.')
 
     @staticmethod
-    def _convert_to_variant(row) -> (datetime, VariantChange):
+    def _convert_to_variant(row) -> (datetime, VariantSnapshot):
         """
         Given a pandas row from the weather data, turn it into a Variant object.
         """
@@ -64,15 +64,15 @@ class OcsEnvService(ExternalService):
         wind_dir = Angle(row[OcsEnvService._wind_dir_col], unit=u.deg)
         wind_spd = row[OcsEnvService._wind_speed_col] * (u.m / u.s)
 
-        variant_change = VariantChange(iq=iq,
-                                       cc=cc,
-                                       wind_dir=wind_dir,
-                                       wind_spd=wind_spd)
+        variant_change = VariantSnapshot(iq=iq,
+                                         cc=cc,
+                                         wind_dir=wind_dir,
+                                         wind_spd=wind_spd)
         return timestamp, variant_change
 
     def get_variant_changes_for_night(self,
                                       site: Site,
-                                      night_date: date) -> Dict[datetime, VariantChange]:
+                                      night_date: date) -> Dict[datetime, VariantSnapshot]:
         """
         Return the weather variant.
         This should be site-based and time-based.
