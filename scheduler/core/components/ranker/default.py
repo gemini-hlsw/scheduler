@@ -8,7 +8,7 @@ from typing import Callable, FrozenSet, Mapping, Tuple, final
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndices, Observation, Program, Site, OrGroup
+from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndices, Observation, Program, Site, OrGroup, Priority
 from lucupy.types import ListOrNDArray
 
 from scheduler.core.calculations import Scores, GroupDataMap
@@ -42,6 +42,7 @@ class RankerParameters:
     vis_power: float = 1.0
     wha_power: float = 1.0
     program_priority: float = 10.0
+    user_priority_factors: dict = {Priority.LOW: 1.0, Priority.MEDIUM: 1.25, Priority.HIGH: 1.5}.setdefault()
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
