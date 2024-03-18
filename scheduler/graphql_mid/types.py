@@ -8,9 +8,10 @@ from zoneinfo import ZoneInfo
 
 import strawberry  # noqa
 import astropy.units as u
+from astropy.coordinates import Angle
 from strawberry.scalars import JSON  # noqa
 
-from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantChange
+from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantSnapshot
 
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
@@ -219,6 +220,7 @@ IQ = strawberry.enum(ImageQuality)
 
 @strawberry.type
 class NewWeatherChange:
+    site: Site
     time: datetime
     description: str
     new_CC: Optional[CC]
@@ -235,11 +237,12 @@ class NewWeatherChange:
             wind_spd = None
         else:
             wind_spd = self.new_wind_speed * (u.m / u.s)
-        variant_change = VariantChange(cc=CloudCover[self.new_CC.name] if self.new_CC else None,
-                                       iq=ImageQuality[self.new_IQ.name] if self.new_IQ else None,
-                                       wind_dir=wind_dir,
-                                       wind_spd=wind_spd)
-        return WeatherChangeEvent(time=self.time,
+        variant_change = VariantSnapshot(cc=CloudCover[self.new_CC.name] if self.new_CC else None,
+                                         iq=ImageQuality[self.new_IQ.name] if self.new_IQ else None,
+                                         wind_dir=Angle(wind_dir, unit=u.deg),
+                                         wind_spd=wind_spd * (u.m / u.s))
+        return WeatherChangeEvent(site=self.site,
+                                  time=self.time,
                                   description=self.description,
                                   variant_change=variant_change)
 

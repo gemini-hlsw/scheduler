@@ -5,9 +5,8 @@ import bisect
 from dataclasses import dataclass
 from typing import final, Optional
 
-from astropy.coordinates import Angle
 import numpy as np
-from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex, Variant
+from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex
 
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
@@ -63,17 +62,6 @@ class ChangeMonitor(SchedulerComponent):
         night_events = self.collector.get_night_events(site)
         twi_eve = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
         event_timeslot = event.to_timeslot_idx(twi_eve, self.collector.time_slot_length.to_datetime())
-
-        # Check that the event is valid.
-        # if event_night > curr_night:
-        #     raise ValueError(f'Site {site_name} is running night index {curr_night}, but received event {event} '
-        #                      f'for night index {event_night}.')
-        # if (event_night < curr_night or
-        #         (event_night == curr_night and event_timeslot < curr_timeslot)):
-        #     raise ValueError(f'Site {site_name} is running night index {curr_night} and time slot index '
-        #                      f'{curr_timeslot}, received event {event} for earlier time: '
-        #                      f'night index {event_night} and time slot index {event_timeslot}.')
-
         num_timeslots_for_night = night_events.num_timeslots_per_night[night_idx]
         last_timeslot_for_night = TimeslotIndex(num_timeslots_for_night - 1)
 
@@ -146,47 +134,12 @@ class ChangeMonitor(SchedulerComponent):
                     neg_ha = False
                 too_type = obs.too_type
 
-                # Get the actual conditions for the time slots remaining for the observation.
-                # We compare from the current time slot to the end time slot.
-
-                # TODO: We are getting 1-off errors sometimes by doing the weather lookups this way in the size of
-                # TODO: remaining_time_slots.
-                # start_time = night_events.times[event_night][event_timeslot]
-                # end_time = night_events.times[event_night][end_time_slot]
-                #
-                # # Get the actual variant from the Weather forecast service.
-                # actual_conditions = self.collector.sources.origin.env.get_actual_conditions_variant(obs.site,
-                #                                                                                     start_time,
-                #                                                                                     end_time)
-                #
-                # # TODO: Hack to make test cases pass.
-                # if remaining_time_slots != len(actual_conditions.cc):
-                #     _logger.error(f'Expected {remaining_time_slots} entries in CC, got {len(actual_conditions.cc)}.')
-                # if remaining_time_slots != len(actual_conditions.iq):
-                #     _logger.error(f'Expected {remaining_time_slots} entries in IQ, got {len(actual_conditions.iq)}.')
-                # if remaining_time_slots != len(actual_conditions.wind_dir):
-                #     _logger.error(f'Expected {remaining_time_slots} entries in wind direction, got '
-                #                   f'{len(actual_conditions.wind_dir)}.')
-                # if remaining_time_slots != len(actual_conditions.wind_spd):
-                #     _logger.error(f'Expected {remaining_time_slots} entries in wind speed, got '
-                #                   f'{len(actual_conditions.wind_spd)}.')
-                # remaining_time_slots = max(remaining_time_slots, len(actual_conditions.cc))
-
-                # Create a variant representing the weather values.
-                cc = np.array([variant_change.cc] * remaining_time_slots)
-                iq = np.array([variant_change.iq] * remaining_time_slots)
-                wind_dir = Angle(np.full(remaining_time_slots, variant_change.wind_dir.value),
-                                 unit=variant_change.wind_dir.unit)
-                wind_spd = np.full(remaining_time_slots, variant_change.wind_spd.value) * variant_change.wind_spd.unit
-                actual_conditions = Variant(cc=cc,
-                                            iq=iq,
-                                            wind_dir=wind_dir,
-                                            wind_spd=wind_spd)
-
-                # Compare the conditions with those required by the observation.
-                # They will all be 0 or 1 since the Variant has consistent values, but check regardless if there
-                # is a timeslot where we cannot execute the visit. If so, recalculate now.
-                slot_values = Selector.match_conditions(mrc, actual_conditions, neg_ha, too_type)
+                # Create a variant representing the weather values and match conditions on it to see if we can
+                # complete the executing visit.
+                # The values here will all be 0 or 1 since the Variant has consistent values, but check regardless if
+                # there is a timeslot where we cannot execute the visit. If so, recalculate the plan now.
+                variant = variant_change.make_variant(remaining_time_slots)
+                slot_values = Selector.match_conditions(mrc, variant, neg_ha, too_type)
                 if not np.all(slot_values > 0):
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)

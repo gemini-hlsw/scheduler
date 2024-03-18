@@ -13,7 +13,7 @@ from astropy.units import Quantity
 from lucupy.helpers import is_contiguous
 from lucupy.minimodel import (AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
                               ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, TimeslotIndex,
-                              UniqueGroupID, Variant, VariantChange)
+                              UniqueGroupID, Variant, VariantSnapshot)
 from lucupy.minimodel import CloudCover, ImageQuality
 from lucupy.timeutils import time2slots
 
@@ -56,14 +56,11 @@ class Selector(SchedulerComponent):
     num_nights_to_schedule: int
     time_buffer: TimeBuffer
 
-    # Store the current CC and IQ for each site to be used in selection calculations.
+    # Store the current VariantSnapshot at each site.
     # TODO: We will use wind dir and speed later, and perhaps also WV, at which point, change this to a Variant per
     # TODO: Site, and modify Variant to not have arrays.
     # These start off empty, but will reset at the beginning of each night by the event loop.
-    _cc_per_site: Dict[Site, CloudCover] = field(init=False, default_factory=dict)
-    _iq_per_site: Dict[Site, ImageQuality] = field(init=False, default_factory=dict)
-    _wind_dir_per_site: Dict[Site, Angle] = field(init=False, default_factory = dict)
-    _wind_spd_per_site: Dict[Site, Quantity] = field(init=False, default_factory=dict)
+    _variant_snapshot_per_site: Dict[Site, VariantSnapshot] = field(init=False, default_factory=dict)
 
     _wind_sep: ClassVar[Angle] = 20. * u.deg
     _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
@@ -74,10 +71,10 @@ class Selector(SchedulerComponent):
     _default_wind_dir: ClassVar[Angle] = Angle(0., unit=u.deg)
     _default_wind_spd: ClassVar[Quantity] = 0.0 * (u.m / u.s)
 
-    _default_variant_change: ClassVar[VariantChange] = VariantChange(iq=_default_iq,
-                                                                     cc=_default_cc,
-                                                                     wind_dir=_default_wind_dir,
-                                                                     wind_spd=_default_wind_spd)
+    _default_variant_snapshot: ClassVar[VariantSnapshot] = VariantSnapshot(iq=_default_iq,
+                                                                           cc=_default_cc,
+                                                                           wind_dir=_default_wind_dir,
+                                                                           wind_spd=_default_wind_spd)
 
     def __post_init__(self):
         # Make sure the number of nights to schedule is not larger than the number of nights used in visibility
@@ -187,18 +184,15 @@ class Selector(SchedulerComponent):
 
     def update_site_variant(self,
                             site: Site,
-                            variant_change: Optional[VariantChange] = None) -> None:
+                            variant_snapshot: Optional[VariantSnapshot] = None) -> None:
         """
         Extract the CC and IQ values from the new conditions and update them for the given site.
         """
         if site not in self.collector.sites:
             raise ValueError(f'Selector trying to update conditions for invalid site: {site.name}')
-        if variant_change is None:
-            variant_change = Selector._default_variant_change
-        self._iq_per_site[site] = variant_change.iq
-        self._cc_per_site[site] = variant_change.cc
-        self._wind_dir_per_site[site] = variant_change.wind_dir
-        self._wind_spd_per_site[site] = variant_change.wind_spd
+        if variant_snapshot is None:
+            variant_snapshot = Selector._default_variant_snapshot
+        self._variant_snapshot_per_site[site] = variant_snapshot
 
     def select(self,
                sites: Optional[FrozenSet[Site]] = None,
@@ -473,32 +467,13 @@ class Selector(SchedulerComponent):
             total_timeslots_in_night = len(night_events.times[night_idx])
             starting_timeslot_in_night = starting_time_slots[obs.site][night_idx]
 
-            # The initial zeros up to the starting timeslot in night will all pass, but we will zero them out later.
-            iq_array = np.zeros(total_timeslots_in_night)
-            iq_array[starting_timeslot_in_night:] = self._iq_per_site[obs.site]
-            cc_array = np.zeros(total_timeslots_in_night)
-            cc_array[starting_timeslot_in_night:] = self._cc_per_site[obs.site]
-
-            # Since these are AstroPy wrapped types, we have to manage the changes directly through the numpy arrays
-            # by accessing the value property.
-            wind_dir_array = Angle(np.zeros(total_timeslots_in_night), unit=u.deg)
-            wind_dir_array.value[-starting_timeslot_in_night:] = self._wind_dir_per_site[obs.site].value
-
-            # This does not apply to AstroPy Quantity objects.
-            wind_spd_array = np.zeros(total_timeslots_in_night) * (u.m / u.s)
-            wind_spd_array[-starting_timeslot_in_night:] = self._wind_spd_per_site[obs.site]
-
-            # Make a variant based on the conditions at the site of the observation for use in scoring calculations.
-            variant = Variant(iq=iq_array,
-                              cc=cc_array,
-                              wind_dir=wind_dir_array,
-                              wind_spd=wind_spd_array)
-
             # Determine how closely the matched the required conditions are to the actual conditions.
+            # This creates a Variant spanning the whole night when part of the night up to starting_timeslot_in_night
+            # has already been covered and should be ineligible for scheduling.
             # Zero out the part of the night that was already done.
+            variant = self._variant_snapshot_per_site[obs.site].make_variant(total_timeslots_in_night)
             conditions_score[night_idx] = Selector.match_conditions(mrc, variant, neg_ha[night_idx], too_type)
             conditions_score[night_idx][:starting_timeslot_in_night] = 0
-
             wind_score[night_idx] = Selector._wind_conditions(variant, target_info[night_idx].az)
 
         # Calculate the schedulable slot indices.

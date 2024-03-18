@@ -6,7 +6,7 @@ from typing import FrozenSet, Optional, Dict
 
 import numpy as np
 from astropy.time import Time
-from lucupy.minimodel import NightIndex, Site, Semester, TimeslotIndex, VariantChange
+from lucupy.minimodel import NightIndex, Site, Semester, TimeslotIndex, VariantSnapshot
 from lucupy.timeutils import time2slots
 
 from scheduler.core.builder import Blueprints
@@ -62,7 +62,7 @@ class Service:
 
         # Initial weather conditions for a night.
         # These can occur if a weather reading is taken from timeslot 0 or earlier on a night.
-        initial_variants: Dict[Site, Dict[NightIndex, Optional[VariantChange]]] = \
+        initial_variants: Dict[Site, Dict[NightIndex, Optional[VariantSnapshot]]] = \
             {site: {night_idx: None for night_idx in night_indices} for site in sites}
 
         # Add the twilight events for every night at each site.
@@ -78,15 +78,17 @@ class Service:
                 night_date = eve_twi_time.date()
                 morn_twi_time = night_events.twilight_morning_12[night_idx].to_datetime(site.timezone) - time_slot_length
                 morn_twi_slot = time2slots(time_slot_length, morn_twi_time - eve_twi_time)
+
+                # Get the VariantSnapshots for the times of the night where the variant changes.
                 variant_changes_dict = collector.sources.origin.env.get_variant_changes_for_night(site, night_date)
-                for variant_datetime, variant_change in variant_changes_dict.items():
+                for variant_datetime, variant_snapshot in variant_changes_dict.items():
                     variant_timeslot = time2slots(time_slot_length, variant_datetime - eve_twi_time)
 
                     # If the variant happens before or at the first time slot, we set the initial variant for the night.
                     # The closer to the first time slot, the more accurate, and the ordering on them will overwrite
                     # the previous values.
                     if variant_timeslot <= 0:
-                        initial_variants[site][night_idx] = variant_change
+                        initial_variants[site][night_idx] = variant_snapshot
                         continue
 
                     if variant_timeslot >= morn_twi_slot:
@@ -96,12 +98,12 @@ class Service:
 
                     variant_datetime_str = variant_datetime.strftime('%Y-%m-%d %H:%M')
                     weather_change_description = (f'Weather change at {site.name}, {variant_datetime_str}: '
-                                                  f'IQ -> {variant_change.iq.name}, '
-                                                  f'CC -> {variant_change.cc.name}.')
+                                                  f'IQ -> {variant_snapshot.iq.name}, '
+                                                  f'CC -> {variant_snapshot.cc.name}.')
                     weather_change_event = WeatherChangeEvent(site=site,
                                                               time=variant_datetime,
                                                               description=weather_change_description,
-                                                              variant_change=variant_change)
+                                                              variant_change=variant_snapshot)
                     queue.add_event(night_idx, site, weather_change_event)
 
                 morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
@@ -195,9 +197,9 @@ class Service:
                         next_update[site] = None
 
                         if current_timeslot > update.timeslot_idx:
-                            _logger.error(
+                            _logger.warning(
                                 f'Plan update at {site.name} for night {night_idx} for {update.event.__class__.__name__}'
-                                f' scheduled at timeslot {update.timeslot_idx}, but now timeslot is {current_timeslot}.')
+                                f' scheduled for timeslot {update.timeslot_idx}, but now timeslot is {current_timeslot}.')
 
                         # We will update the plan up until the time that the update happens.
                         # If this update corresponds to the night being done, then use None.
