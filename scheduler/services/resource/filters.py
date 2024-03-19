@@ -84,7 +84,12 @@ class ResourcesAvailableFilter(AbstractFilter):
 
     @property
     def group_filter(self) -> Optional[GroupFilter]:
-        return lambda g: self.resources.issuperset(g.required_resources())
+
+        def check_resources(g):
+            res = [r.id for r in self.resources]
+            return all(r for r in g.required_resources() if r.id in res)
+
+        return lambda g: check_resources(g)
 
 
 @final
@@ -250,8 +255,12 @@ class CompositeFilter(AbstractFilter):
 
     @property
     def group_filter(self) -> Optional[GroupFilter]:
-        return (lambda g: all(pf.group_filter(g) for pf in self.positive_filters if pf.group_filter is not None) and
+        def bla(g):
+            print('all',all(pf.group_filter(g) for pf in self.positive_filters if pf.group_filter is not None))
+            print('any',any(nf.group_filter(g) for nf in self.negative_filters if nf.group_filter is not None))
+            return (all(pf.group_filter(g) for pf in self.positive_filters if pf.group_filter is not None) and
                 not any(nf.group_filter(g) for nf in self.negative_filters if nf.group_filter is not None))
+        return (lambda g: bla(g))
 
     @property
     def group_priority_filter(self) -> Optional[GroupFilter]:

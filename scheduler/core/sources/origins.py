@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import pickle
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import final, NoReturn, Optional
@@ -41,9 +42,25 @@ class Origin(ABC):
 
 @final
 class OcsOrigin(Origin):
+
+    @staticmethod
+    def _load_from_pickle():
+        import os
+        files_in_current_directory = os.listdir('./scheduler/services/resource/')
+        pickle_files = [file for file in files_in_current_directory if file.endswith('.pickle')]
+        are_pickle_files_present = len(pickle_files) > 0
+
+        if are_pickle_files_present:
+            with open('./scheduler/services/resource/resource.pickle', 'rb') as f:
+                resource = pickle.load(f)
+                return resource
+        else:
+            return None
+
     def load(self) -> OcsOrigin:
         if not self.is_loaded:
-            self.resource = OcsResourceService()
+            self.resource = self._load_from_pickle() or OcsResourceService()
+            self.resource.setup()
             self.env = OcsEnvService()
             self.is_loaded = True
             return self

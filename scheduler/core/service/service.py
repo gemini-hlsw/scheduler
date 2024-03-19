@@ -239,6 +239,7 @@ class Service:
                                                         starting_time_slots={site: {night_idx: current_timeslot
                                                                                     for night_idx in night_indices}},
                                                         ranker=ranker)
+                            # print(selection.schedulable_groups)
 
                             # Right now the optimizer generates List[Plans], a list of plans indexed by
                             # every night in the selection. We only want the first one, which corresponds

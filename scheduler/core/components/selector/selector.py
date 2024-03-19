@@ -254,6 +254,7 @@ class Selector(SchedulerComponent):
             # while leaving the information in the Collector intact.
             program = deepcopy(original_program)
             program_calculations = self.score_program(program, sites, night_indices, starting_time_slots, ranker)
+            print(program_calculations.top_level_groups)
             if program_calculations is None:
                 # Warning is already issued in scorer.
                 continue
@@ -325,6 +326,8 @@ class Selector(SchedulerComponent):
                                                           starting_time_slots,
                                                           night_configurations,
                                                           ranker)
+
+        print(unfiltered_group_data_map.keys())
 
         # We want to check if there are any time slots where a group can be scheduled: otherwise, we omit it.
         group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
@@ -443,6 +446,9 @@ class Selector(SchedulerComponent):
             night_filter = night_configurations[obs.site][night_idx].filter
             # NOTE: to only do group filtering, comment out the first line and use the second line.
             night_filtering[night_idx] = night_filter.program_filter(program) and night_filter.group_filter(group)
+            print('program', night_filter.program_filter(program))
+            print('group', night_filter.group_filter(group))
+            print('nfiltering', night_filtering)
             # night_filtering[night_idx] = night_filter.group_filter(group)
 
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
@@ -476,6 +482,7 @@ class Selector(SchedulerComponent):
             conditions_score[night_idx][:starting_timeslot_in_night] = 0
             wind_score[night_idx] = Selector._wind_conditions(variant, target_info[night_idx].az)
 
+        print('conditions_score',conditions_score)
         # Calculate the schedulable slot indices.
         # These are the indices where the observation has:
         # 1. Visibility
@@ -483,12 +490,16 @@ class Selector(SchedulerComponent):
         # 3. Conditions that are met
         schedulable_slot_indices = {}
         for night_idx in night_indices:
+            print(target_info[night_idx])
             vis_idx = target_info[night_idx].visibility_slot_idx
             if night_filtering[night_idx]:
+                print('vis', vis_idx)
+                print('where',conditions_score[night_idx][vis_idx])
                 schedulable_slot_indices[night_idx] = np.where(conditions_score[night_idx][vis_idx] > 0)[0]
+                print('schedulable: ', schedulable_slot_indices[night_idx])
             else:
                 schedulable_slot_indices[night_idx] = np.array([])
-
+        input()
         obs_scores = ranker.score_observation(program, obs)
 
         # Calculate the scores for the observation across all night indices across all timeslots.

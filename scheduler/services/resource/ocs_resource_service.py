@@ -1,6 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
+import pickle
 from datetime import date
 from typing import final, FrozenSet
 
@@ -63,6 +63,11 @@ class OcsResourceService(FileBasedResourceService):
             # Only one of these checks should be necessary.
             if self._earliest_date_per_site[site] == date.max or self._latest_date_per_site[site] == date.min:
                 raise ValueError(f'No site resource data for {site.name}.')
+
+        with open('./scheduler/services/resource/resource.pickle', 'wb') as f:
+            pickle.dump(self, f)
+
+    def setup(self):
 
         # Finalize the filters and create the night configurations.
         for site in self._sites:
