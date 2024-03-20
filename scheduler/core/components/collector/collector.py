@@ -380,7 +380,7 @@ class Collector(SchedulerComponent):
             # Are all the required resources available?
             # This works for validation mode. In RT mode, this may need to be statistical if resources are not known
             # and they could change with time, so the visfrac calc may need to be extracted from this method
-            has_resources = all([resource in nc[night_idx].resources for resource in obs.required_resources()])
+            has_resources = all([resource.id in [r.id for r in nc[night_idx].resources] for resource in obs.required_resources()])
             avail_resources = np.full([len(night_events.times[night_idx])], int(has_resources), dtype=int)
 
             # Is the program excluded on a given night due to block scheduling

@@ -255,12 +255,8 @@ class CompositeFilter(AbstractFilter):
 
     @property
     def group_filter(self) -> Optional[GroupFilter]:
-        def bla(g):
-            print('all',all(pf.group_filter(g) for pf in self.positive_filters if pf.group_filter is not None))
-            print('any',any(nf.group_filter(g) for nf in self.negative_filters if nf.group_filter is not None))
-            return (all(pf.group_filter(g) for pf in self.positive_filters if pf.group_filter is not None) and
-                not any(nf.group_filter(g) for nf in self.negative_filters if nf.group_filter is not None))
-        return (lambda g: bla(g))
+        return(lambda g: all(pf.group_filter(g) for pf in self.positive_filters if pf.group_filter is not None) and
+               not any(nf.group_filter(g) for nf in self.negative_filters if nf.group_filter is not None))
 
     @property
     def group_priority_filter(self) -> Optional[GroupFilter]:
