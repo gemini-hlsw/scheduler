@@ -40,9 +40,9 @@ class Service:
     @staticmethod
     def _setup(night_indices: FrozenSet[NightIndex],
                sites: FrozenSet[Site],
-               mode: SchedulerModes):
+               mode: SchedulerModes,
+               sources: Sources):
         queue = EventQueue(night_indices, sites)
-        sources = Sources()
         builder = dispatch_with(mode, sources, queue)
         return builder
 
@@ -264,6 +264,7 @@ class Service:
 
     def run(self,
             mode: SchedulerModes,
+            sources: Sources,
             start: Time,
             end: Time,
             sites: FrozenSet[Site],
@@ -288,7 +289,7 @@ class Service:
             if not num_nights_to_schedule:
                 raise ValueError("num_nights_to_schedule can't be None when visibility is given by end date")
 
-        builder = self._setup(night_indices, sites, mode)
+        builder = self._setup(night_indices, sites, mode, sources)
 
         # Build
         collector = builder.build_collector(start=start,

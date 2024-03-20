@@ -112,6 +112,7 @@ class Query:
                 program_file = new_schedule_input.program_file
 
             timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
+                                                     sources=sources,
                                                      start=start,
                                                      end=end,
                                                      sites=new_schedule_input.sites,
