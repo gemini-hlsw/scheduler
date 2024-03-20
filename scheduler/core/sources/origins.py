@@ -5,13 +5,18 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
+from pathlib import Path
 from typing import final, NoReturn, Optional
+import pickle
 
+from definitions import ROOT_DIR
 from scheduler.services.abstract import ExternalService
 from scheduler.services.environment import OcsEnvService
 from scheduler.services.resource import OcsResourceService
 
 from lucupy.types import Instantiable
+
+import time
 
 
 __all__ = [
@@ -41,11 +46,42 @@ class Origin(ABC):
 
 @final
 class OcsOrigin(Origin):
+    num_calls = 0
+
     def load(self) -> OcsOrigin:
+        OcsOrigin.num_calls += 1
+        print(f'Calls to OcsOrigin.load: {OcsOrigin.num_calls}.')
+        pickle_resource_path = Path(ROOT_DIR) / 'resource.pickle'
+        pickle_env_path = Path(ROOT_DIR) / 'env.pickle'
+        print(f'OcsOrigin loading... is_loaded={self.is_loaded}')
         if not self.is_loaded:
-            self.resource = OcsResourceService()
-            self.env = OcsEnvService()
+            print('Starting OcsOrigin timer...')
+            start_timer = time.perf_counter()
+            if pickle_resource_path.exists():
+                print(f'\tFound pickled resource service...')
+                with open(pickle_resource_path, 'rb') as res_pickle:
+                    self.resource = pickle.load(res_pickle)
+            else:
+                print(f'\tCreating resource service...')
+                self.resource = OcsResourceService()
+                print(f'\tPickling resource service...')
+                with open(pickle_resource_path, 'wb') as res_pickle:
+                    pickle.dump(self.resource, res_pickle)
+
+            if pickle_env_path.exists():
+                print(f'\tFound pickled env service...')
+                with open(pickle_env_path, 'rb') as env_pickle:
+                    self.env = pickle.load(env_pickle)
+            else:
+                print(f'\tCreating env service...')
+                self.env = OcsEnvService()
+                print(f'\tPickling env service...')
+                with open(pickle_env_path, 'wb') as env_pickle:
+                    pickle.dump(self.env, env_pickle)
+
             self.is_loaded = True
+            end_timer = time.perf_counter()
+            print(f'OcsOrigin setup: {(end_timer - start_timer):.2f} seconds')
             return self
         return self
 

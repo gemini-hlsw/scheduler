@@ -87,6 +87,8 @@ class ChangeMonitor(SchedulerComponent):
                                             done=True)
 
             case WeatherChangeEvent(variant_change=variant_change):
+                print(f'Received weather event: {event.description} at timeslot {event.site}, timeslot {event_timeslot}')
+
                 # Regardless, we want to change the weather values for CC and IQ.
                 self.selector.update_site_variant(site, variant_change)
 
@@ -96,6 +98,7 @@ class ChangeMonitor(SchedulerComponent):
                 # Check if there is a visit running now.
                 plan = plans[site]
                 if plan is None:
+                    print(f'No plan: recalculating now')
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
@@ -106,12 +109,14 @@ class ChangeMonitor(SchedulerComponent):
 
                 # If there are no visits in progress, then recalculate now.
                 if visit is None:
+                    print(f'No visit interrupted: recalculating now')
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
                 # Check if event occurs after the calculated visit is already over. If so, recalculate now.
                 visit_end_time_slot = visit.start_time_slot + visit.time_slots - 1
                 if visit_end_time_slot < event_timeslot:
+                    print(f'Interrupted visit is done by timeslot {visit_end_time_slot}, recalculating now')
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
@@ -141,10 +146,12 @@ class ChangeMonitor(SchedulerComponent):
                 variant = variant_change.make_variant(remaining_time_slots)
                 slot_values = Selector.match_conditions(mrc, variant, neg_ha, too_type)
                 if not np.all(slot_values > 0):
+                    print('Current visit could not be completed: recalculating now')
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
                 # Otherwise, we can finish the observation. Start the weather change at time slot after the visit ends.
+                print(f'Can finish current visit: recalculating at {visit_end_time_slot + 1}')
                 return TimeCoordinateRecord(event=event,
                                             timeslot_idx=TimeslotIndex(visit_end_time_slot + 1))
 

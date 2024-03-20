@@ -464,6 +464,9 @@ class Collector(SchedulerComponent):
         however, since this may not always be the case and will not in GPP, we still process all programs
         and simply omit observations that are not at a site listed in the desired sites.
         """
+        start_timer = time.perf_counter()
+        print('Starting Collector load_programs timer...')
+
         if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
             raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
         program_provider = program_provider_class(self.obs_classes, self.sources)
@@ -542,6 +545,8 @@ class Collector(SchedulerComponent):
 
         if bad_program_count:
             logger.error(f'Could not parse {bad_program_count} programs.')
+        end_timer = time.perf_counter()
+        print(f'Collector.load_programs: {(end_timer - start_timer):.2f} seconds')
 
     def night_configurations(self,
                              site: Site,

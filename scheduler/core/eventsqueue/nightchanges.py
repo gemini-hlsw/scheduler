@@ -118,6 +118,8 @@ class NightlyTimeline:
                         for visit in entry.plan_generated.visits:
                             visit_time = rnd_min(visit.start_time).strftime(self._datetime_formatter)
                             print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
-                                  f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}')
+                                  f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d} '
+                                  f'{visit.start_time_slot + visit.time_slots}')
                     print('\t+++++ END EVENT +++++')
+                print()
         sys.stdout.flush()
