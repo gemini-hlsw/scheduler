@@ -234,23 +234,36 @@ class Service:
                         if not update.done:
                             _logger.debug(f'Retrieving selection for {site_name} for night {night_idx} '
                                           f'starting at time slot {current_timeslot}.')
-                            selection = selector.select(night_indices=night_indices,
-                                                        sites=frozenset([site]),
-                                                        starting_time_slots={site: {night_idx: current_timeslot
-                                                                                    for night_idx in night_indices}},
-                                                        ranker=ranker)
 
-                            # Right now the optimizer generates List[Plans], a list of plans indexed by
-                            # every night in the selection. We only want the first one, which corresponds
-                            # to the current night index we are looping over.
-                            _logger.debug(f'Running optimizer for {site_name} for night {night_idx} '
-                                          f'starting at time slot {current_timeslot}.')
-                            plans = optimizer.schedule(selection)[0]
-                            nightly_timeline.add(NightIndex(night_idx),
-                                                 site,
-                                                 current_timeslot,
-                                                 update.event,
-                                                 plans[site])
+                            # If the site is blocked, we do not perform a selection or optimizer run for the site.
+                            if change_monitor.is_site_unblocked(site):
+                                selection = selector.select(night_indices=night_indices,
+                                                            sites=frozenset([site]),
+                                                            starting_time_slots={site: {night_idx: current_timeslot
+                                                                                        for night_idx in night_indices}},
+                                                            ranker=ranker)
+
+                                # Right now the optimizer generates List[Plans], a list of plans indexed by
+                                # every night in the selection. We only want the first one, which corresponds
+                                # to the current night index we are looping over.
+                                _logger.debug(f'Running optimizer for {site_name} for night {night_idx} '
+                                              f'starting at time slot {current_timeslot}.')
+                                plans = optimizer.schedule(selection)[0]
+                                nightly_timeline.add(NightIndex(night_idx),
+                                                     site,
+                                                     current_timeslot,
+                                                     update.event,
+                                                     plans[site])
+
+                            else:
+                                # The site is blocked.
+                                _logger.debug(
+                                    f'Site {site_name} for {night_idx} blocked at timeslot {current_timeslot}.')
+                                nightly_timeline.add(NightIndex(night_idx),
+                                                     site,
+                                                     current_timeslot,
+                                                     update.event,
+                                                     None)
 
                         # Update night_done based on time update record.
                         night_done = update.done
