@@ -163,6 +163,8 @@ def main(*,
             morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twi)
 
+            # TODO: If any blocking events occur before twilight, block the site.
+
     for night_idx in sorted(night_indices):
         night_indices = np.array([night_idx])
         ranker = DefaultRanker(collector, night_indices, sites, params=ranker_parameters)
@@ -342,6 +344,16 @@ def main(*,
                 # We have processed all events for this timeslot and performed an update if necessary.
                 # Advance the current time.
                 current_timeslot += 1
+
+            # Process any events still remaining, with the intent of unblocking faults and weather closures.
+            while events_by_night.has_more_events():
+                event = events_by_night.pop_next_event()
+                _logger.warning(f'Site {site_name} on night {night_idx} has event after morning twilight: {event}')
+                change_monitor.process_event(site, event, None, night_idx)
+
+            # The site should no longer be blocked.
+            if not change_monitor.is_site_unblocked(site):
+                _logger.warning(f'Site {site_name} is still blocked after all events on night {night_idx} processed.')
 
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
