@@ -22,7 +22,7 @@ class Plans:
     """
     night_events: InitVar[Mapping[Site, NightEvents]]
     night_idx: NightIndex
-    plans: Dict[Site, Plan] = field(init=False, default_factory=lambda: {})
+    plans: Dict[Site, Plan] = field(init=False, default_factory=dict)
 
     def __post_init__(self, night_events: Mapping[Site, NightEvents]):
         self.plans: Dict[Site, Plan] = {}

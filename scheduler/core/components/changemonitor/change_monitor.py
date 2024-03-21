@@ -2,8 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import bisect
-from dataclasses import dataclass
-from typing import final, Optional
+from dataclasses import dataclass, field
+from typing import final, Dict, Optional, Set
 
 import numpy as np
 from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex
@@ -11,7 +11,8 @@ from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.selector import Selector
-from scheduler.core.eventsqueue import Event, EveningTwilightEvent, MorningTwilightEvent, WeatherChangeEvent
+from scheduler.core.eventsqueue import (Event, EveningTwilightEvent, InterruptionEvent, InterruptionResolutionEvent,
+                                        MorningTwilightEvent, WeatherChangeEvent)
 from scheduler.core.plans import Plans
 from scheduler.services.logger_factory import create_logger
 from .time_coordinate_record import TimeCoordinateRecord
@@ -29,6 +30,49 @@ _logger = create_logger(__name__)
 class ChangeMonitor(SchedulerComponent):
     collector: Collector
     selector: Selector
+
+    # A set of InterruptionEvents that prevent a site from being active.
+    # They must be resolved by InterruptionResolutionEvents to reactivate the site.
+    _blocking_event_sets: Dict[Site, Set[InterruptionEvent]] = field(init=False, default_factory=dict)
+
+    def __post_init__(self):
+        """
+        Create the blocking event set for each site.
+        """
+        self._blocking_event_sets = {site: set() for site in self.collector.sites}
+
+    def _process_blocking_event(self, event: InterruptionEvent) -> None:
+        """
+        Event handling routine where a blocking event is received and recorded for a site.
+        """
+        blocking_event_set = self._blocking_event_sets[event.site]
+        if any(event.id == evt.id for evt in blocking_event_set):
+            raise RuntimeError(f'Blocking event {event} for site {event.site} is already in the blocking list.')
+        blocking_event_set.add(event)
+
+    def _process_blocking_resolution_event(self, event: InterruptionResolutionEvent) -> None:
+        """
+        Event handling routine where a resolution event is processed to try to resolve a blocking event at a site.
+        """
+        blocking_event_set = self._blocking_event_sets[event.site]
+        resolved_event: Optional[InterruptionEvent] = None
+        for evt in blocking_event_set:
+            if event.uuid_referenced.id == evt.id:
+                resolved_event = evt
+                break
+
+        if resolved_event is None:
+            raise RuntimeError(f'Resolution event {event} for site {event.site} does not resolve anything in the '
+                               'blocking list.')
+
+        blocking_event_set.remove(resolved_event)
+
+    def is_site_unblocked(self, site: Site) -> bool:
+        """
+        Return True if the given site is NOT blocked by one or more events that need to be resolved before the site
+        can have a plan, and False if the site is blocked.
+        """
+        return len(self._blocking_event_sets[site]) == 0
 
     def process_event(self,
                       site: Site,
