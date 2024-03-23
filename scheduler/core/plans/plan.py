@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, List, Optional, Tuple
 
+from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.minimodel import Observation, ObservationID, Resource, Site
 from lucupy.timeutils import time2slots
 
@@ -43,10 +44,6 @@ class Plan:
         """
         Return the starting and ending timeline slots (indices) for the NIR science observations
         """
-        # TODO: This should probably be moved to a more general location
-        nir_inst = [Resource('Flamingos2'), Resource('GNIRS'), Resource('NIRI'), Resource('NIFS'),
-                    Resource('IGRINS')]
-
         # science, split at atom
         slot_start_nir = None
         slot_end_nir = None
@@ -71,7 +68,7 @@ class Plan:
 
             slot_end = slot_start + visit_length - 1
             # NIR science time for to determine the number of tellurics
-            if any(inst in obs.required_resources() for inst in nir_inst):
+            if any(inst in obs.required_resources() for inst in ObservatoryProperties.nir_instruments()):
                 if slot_start_nir is None:
                     slot_start_nir = slot_start + n_slots_acq  # start of the science sequence, after acq
                 slot_end_nir = slot_end

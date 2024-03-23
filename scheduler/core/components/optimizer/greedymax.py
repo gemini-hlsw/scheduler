@@ -10,9 +10,10 @@ from typing import final, Dict, FrozenSet, List, Optional, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import (NIR_INSTRUMENTS, Group, NightIndex, Observation, ObservationClass, ObservationID,
-                              ObservationStatus, Program, QAState, Site, UniqueGroupID, Wavelengths, ObservationMode)
-from lucupy.minimodel.resource import Resource
+from lucupy.minimodel import (Group, NightIndex, Observation, ObservationClass, ObservationID, ObservationStatus,
+                              Program, QAState, Site, UniqueGroupID, Wavelengths, ObservationMode)
+
+from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.timeutils import time2slots
 from lucupy.types import Interval, ListOrNDArray, ZeroTime
 
@@ -187,7 +188,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                         sci_times_min.append(time_remain)
 
                     # NIR science time for to determine the number of tellurics
-                    if any(inst in obs.required_resources() for inst in NIR_INSTRUMENTS):
+                    if any(inst in obs.required_resources() for inst in ObservatoryProperties.nir_instruments()):
                         exec_sci_nir += time_remain
                         if verbose:
                             print(f'Adding {time_remain} to exec_sci_nir')
@@ -490,7 +491,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
             slot_end = slot_start + visit_length - 1
             # NIR science time for to determine the number of tellurics
-            if any(inst in obs.required_resources() for inst in NIR_INSTRUMENTS):
+            if any(inst in obs.required_resources() for inst in ObservatoryProperties.nir_instruments()):
                 if slot_start_nir is None:
                     slot_start_nir = slot_start + n_slots_acq  # start of the science sequence, after acq
                 slot_end_nir = slot_end
