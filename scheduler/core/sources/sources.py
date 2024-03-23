@@ -26,7 +26,6 @@ class Sources:
 
     def __init__(self, origin: Origin = Origins.OCS.value()):
         self.origin = None
-        self.set_origin(origin)
 
     def set_origin(self, origin: Origin):
         self.origin = origin.load()
