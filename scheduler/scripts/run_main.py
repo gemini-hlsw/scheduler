@@ -4,6 +4,7 @@
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, FrozenSet, Optional
+import time
 
 import numpy as np
 from astropy.time import Time
@@ -38,6 +39,8 @@ def main(*,
          semester_visibility: bool = True,
          num_nights_to_schedule: Optional[int] = None,
          programs_ids: Optional[str] = None) -> None:
+    start_timer = time.perf_counter()
+    print('Starting setup timer...')
     ObservatoryProperties.set_properties(GeminiProperties)
 
     # Create the Collector and load the programs.
@@ -75,6 +78,9 @@ def main(*,
             f_programs = programs_path
         else:
             raise ValueError(f'Path {programs_path} does not exist.')
+
+    end_timer = time.perf_counter()
+    print(f'Setup: {(end_timer - start_timer):.2f} s')
 
     # Create the Collector, load the programs, and zero out the time used by the observations.
     collector = builder.build_collector(
@@ -153,7 +159,7 @@ def main(*,
                 variant_datetime_str = variant_datetime.strftime('%Y-%m-%d %H:%M')
                 weather_change_description = (f'Weather change at {site.name}, {variant_datetime_str}: '
                                               f'IQ -> {variant_snapshot.iq.name}, '
-                                              f'CC -> {variant_snapshot.cc.name}.')
+                                              f'CC -> {variant_snapshot.cc.name}')
                 weather_change_event = WeatherChangeEvent(site=site,
                                                           time=variant_datetime,
                                                           description=weather_change_description,

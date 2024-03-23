@@ -84,7 +84,16 @@ class ResourcesAvailableFilter(AbstractFilter):
 
     @property
     def group_filter(self) -> Optional[GroupFilter]:
-        return lambda g: self.resources.issuperset(g.required_resources())
+        def group_filter(g: Group):
+            print(f'Checking resources for group {g.id.id}')
+            for res in g.required_resources():
+                flag = res in self.resources
+                print(f'Flag: {flag} for res {res} in {self.resources}...')
+            flag = self.resources.issuperset(g.required_resources())
+            print(f'Overall check: {flag}')
+            return flag
+
+        return group_filter
 
 
 @final

@@ -10,6 +10,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class LoggingLevels(IntEnum):
+    DEBUG = logging.DEBUG
     INFO = logging.INFO
     WARNING = logging.WARNING
     ERROR = logging.ERROR
@@ -19,7 +20,7 @@ class LoggingLevels(IntEnum):
 
 
 # Default is full logging.
-DEFAULT_LOGGING_LEVEL = LoggingLevels.INFO
+DEFAULT_LOGGING_LEVEL = LoggingLevels.OFF
 if len(sys.argv) == 2:
     try:
         DEFAULT_LOGGING_LEVEL = LoggingLevels[sys.argv[1].upper()]

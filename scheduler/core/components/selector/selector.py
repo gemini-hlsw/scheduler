@@ -38,7 +38,7 @@ __all__ = [
 NightConfigurations: TypeAlias = Dict[NightIndex, NightConfiguration]
 NightConfigurationData: TypeAlias = Dict[Site, NightConfigurations]
 
-logger = logger_factory.create_logger(__name__)
+pass # logger = pass # logger_factory.create_pass # logger(__name__)
 
 
 @final
@@ -107,7 +107,7 @@ class Selector(SchedulerComponent):
 
             # Check for extra keys.
             if extra_keys := night_dict.keys() - night_indices:
-                logger.warning(f'Extra night indices for site {site.name} for starting_time_slots: {extra_keys}')
+                pass # logger.warning(f'Extra night indices for site {site.name} for starting_time_slots: {extra_keys}')
 
         return starting_time_slots
 
@@ -152,7 +152,7 @@ class Selector(SchedulerComponent):
                     # This doesn't work, but not removing yet as we should know this is unreliable.
                     # start_indices = night_events.local_dt_to_time_coords(start_time)
                     # if start_indices is None:
-                    #     logger.error(f'Engineering task {eng_task} does not have a valid start time: '
+                    #     pass # logger.error(f'Engineering task {eng_task} does not have a valid start time: '
                     #                  f'determined: {start_time}, latest possible: {earliest_time}')
                     #     continue
                     # start_night_idx, start_timeslot_idx = start_indices
@@ -164,7 +164,7 @@ class Selector(SchedulerComponent):
                     # This doesn't work, but not removing yet as we should know this is unreliable.
                     # end_indices = night_events.local_dt_to_time_coords(end_time)
                     # if end_indices is None:
-                    #     logger.error(f'Engineering task {eng_task} does not have a valid end time: '
+                    #     pass # logger.error(f'Engineering task {eng_task} does not have a valid end time: '
                     #                  f'determined: {end_time}, latest possible: {latest_time}')
                     #     continue
                     # end_night_idx, end_timeslot_idx = end_indices
@@ -246,7 +246,7 @@ class Selector(SchedulerComponent):
         for program_id in Collector.get_program_ids():
             original_program = Collector.get_program(program_id)
             if original_program is None:
-                logger.error(f'Program {program_id} was not found in the Collector.')
+                pass # logger.error(f'Program {program_id} was not found in the Collector.')
                 continue
 
             # We make a deep copy of the Program to work with to not change the Program in the Collector.
@@ -298,7 +298,7 @@ class Selector(SchedulerComponent):
         """
         # Check if there is any time left for the program, allowing for the time buffer. If not, skip it.
         if program.program_awarded() + self.time_buffer(program) <= program.program_used():
-            logger.info(f'Program {program.id.id} out of time: skipping.')
+            pass # logger.info(f'Program {program.id.id} out of time: skipping.')
             return None
 
         # The night_indices in the Selector must be a subset of the Ranker.
@@ -409,7 +409,7 @@ class Selector(SchedulerComponent):
 
         obs = group.children
         if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.INACTIVE}:
-            logger.info(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
+            pass # logger.info(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
             return group_data_map
 
         if obs.status not in {ObservationStatus.READY, ObservationStatus.ONGOING}:
@@ -417,18 +417,18 @@ class Selector(SchedulerComponent):
 
         # This should never happen.
         if obs.site not in sites:
-            logger.info(f'Selector ignoring request to score {obs.id}: not at a currently selected site.')
+            pass # logger.info(f'Selector ignoring request to score {obs.id}: not at a currently selected site.')
             return group_data_map
 
         # We ignore the Observation if:
         # 1. There is no target info associated with it.
         target_info = Collector.get_target_info(obs.id)
         if target_info is None:
-            logger.warning(f'Selector skipping observation {obs.id}: no target info.')
+            pass # logger.warning(f'Selector skipping observation {obs.id}: no target info.')
             return group_data_map
         # 2. There are no constraints associated with it.
         if obs.constraints is None:
-            logger.warning(f'Selector skipping observation {obs.id}: no conditions.')
+            pass # logger.warning(f'Selector skipping observation {obs.id}: no conditions.')
             return group_data_map
 
         mrc = obs.constraints.conditions
@@ -550,7 +550,7 @@ class Selector(SchedulerComponent):
         # We can only schedule this group if its sites are all being scheduled; however, we still want to
         # score this group's children if their sites are covered: hence the check after the child scoring.
         if not group.sites().issubset(sites):
-            logger.warning(f'Cannot score group {group.id}: contains observations in sites not being scheduled.')
+            pass # logger.warning(f'Cannot score group {group.id}: contains observations in sites not being scheduled.')
             return group_data_map
 
         # Make sure that there is an entry for each subgroup. If not, we skip.
@@ -559,8 +559,8 @@ class Selector(SchedulerComponent):
             if group.id != ROOT_GROUP_ID:
                 missing_subgroups = [sg.unique_id.id for sg in group.children if sg.unique_id not in group_data_map]
                 missing_str = ', '.join(missing_subgroups)
-                logger.warning(f'Selector skipping group {group.unique_id}: scores missing for children: '
-                               f'{missing_str}.')
+                pass # logger.warning(f'Selector skipping group {group.unique_id}: scores missing for children: '
+                #               f'{missing_str}.')
             return group_data_map
 
         # Calculate the most restrictive conditions.
