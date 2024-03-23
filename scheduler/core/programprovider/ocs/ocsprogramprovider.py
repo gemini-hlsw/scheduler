@@ -14,11 +14,12 @@ from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
                               ObservationClass, ObservationID, ObservationMode, ObservationStatus, OrGroup, Priority,
-                              Program, ProgramID, ProgramMode, ProgramTypes, QAState, Resource, ROOT_GROUP_ID, Semester,
-                              SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground, Target, TargetName,
-                              TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType, WaterVapor,
-                              Wavelength)
+                              Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
+                              ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
+                              Target, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType,
+                              WaterVapor, Wavelength)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
+from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
 from scipy.signal import find_peaks
@@ -1016,8 +1017,7 @@ class OcsProgramProvider(ProgramProvider):
                     if guide_group is not None:
                         for guide_data in guide_group[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE]:
                             guider = guide_data[OcsProgramProvider._TargetEnvKeys.GUIDE_PROBE_KEY]
-                            # TODO: We don't have guiders as resources in ResourceMock.
-                            resource = Resource(id=guider)
+                            resource = ResourceManager().lookup_resource(rid=guider, rtype=ResourceType.WFS)
                             target = self.parse_target(guide_data[OcsProgramProvider._TargetEnvKeys.TARGET])
                             guiding[resource] = target
                             targets.append(target)
@@ -1108,7 +1108,6 @@ class OcsProgramProvider(ProgramProvider):
             group_name = data[OcsProgramProvider._GroupKeys.GROUP_NAME]
         else:
             group_name = ROOT_GROUP_ID.id
-        # print(f'Group: {group_name}')
 
         # Parse notes for "do not split" information if not found previously
         if split:
@@ -1212,7 +1211,6 @@ class OcsProgramProvider(ProgramProvider):
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
         program_id = ProgramID(data[OcsProgramProvider._ProgramKeys.ID])
-        # print(f'Parsing program: {program_id.id}')
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
 
         # # Get all the note information as they may contain FT scheduling data comments.

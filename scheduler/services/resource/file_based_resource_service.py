@@ -12,13 +12,13 @@ from astropy.time import Time
 from openpyxl.reader.excel import load_workbook
 from lucupy.helpers import str_to_bool
 from lucupy.minimodel import ProgramID, Resource, Site, TimeAccountingCode, ResourceType
+from lucupy.resource_manager import ResourceManager
 from lucupy.sky import night_events
 
 from scheduler.services import logger_factory
 from .event_generators import EngineeringTask, Fault, WeatherClosure
 from .filters import (LgsFilter, NothingFilter, ProgramPermissionFilter, ProgramPriorityFilter, ResourcePriorityFilter,
                       TimeAccountingCodeFilter, TooFilter)
-from .resource_manager import ResourceManager
 from .resource_service import ResourceService
 
 

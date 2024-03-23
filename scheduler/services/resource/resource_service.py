@@ -7,6 +7,7 @@ from typing import Dict, FrozenSet, List, Optional, Set, Tuple, TypeAlias, TypeV
 
 import gelidum
 from lucupy.minimodel import Site, ALL_SITES, Resource, ResourceType
+from lucupy.resource_manager import ResourceManager
 
 from definitions import ROOT_DIR
 from scheduler.services import logger_factory
@@ -14,7 +15,6 @@ from scheduler.services.abstract import ExternalService
 from .event_generators import EngineeringTask, Fault, WeatherClosure
 from .filters import *
 from .night_configuration import NightConfiguration
-from .resource_manager import ResourceManager
 
 
 __all__ = [
