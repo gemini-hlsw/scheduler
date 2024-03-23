@@ -38,7 +38,6 @@ class ValidationBuilder(SchedulerBuilder):
     def __init__(self, sources: Sources, events: EventQueue):
         super().__init__(sources, events)
         self.stats = StatCalculator
-        self.sources.set_origin(Origins.OCS.value())
 
     @staticmethod
     def _clear_observation_info(obs: Iterable[Observation],

@@ -50,8 +50,12 @@ class OcsOrigin(Origin):
     _env_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'ocsenv.pickle'
     _resource_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'ocsresource.pickle'
 
+    def __init__(self):
+        super().__init__()
+        self._is_loaded = False
+
     def load(self) -> OcsOrigin:
-        if not self.is_loaded:
+        if not self._is_loaded:
             try:
                 with open(OcsOrigin._resource_path, 'rb') as res_pickle:
                     self.resource = pickle.load(res_pickle)
@@ -74,7 +78,8 @@ class OcsOrigin(Origin):
                 with open(OcsOrigin._env_path, 'wb') as env_pickle:
                     pickle.dump(self.env, env_pickle)
 
-        self.is_loaded = True
+            self._is_loaded = True
+
         return self
 
 
