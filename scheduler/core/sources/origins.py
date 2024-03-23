@@ -47,31 +47,31 @@ class Origin(ABC):
 
 @final
 class OcsOrigin(Origin):
-    env_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'ocsenv.pickle'
-    resource_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'ocsresource.pickle'
+    _env_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'ocsenv.pickle'
+    _resource_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'ocsresource.pickle'
 
     def load(self) -> OcsOrigin:
         if not self.is_loaded:
             try:
-                with open(OcsOrigin.resource_path, 'rb') as res_pickle:
+                with open(OcsOrigin._resource_path, 'rb') as res_pickle:
                     self.resource = pickle.load(res_pickle)
                     logger.info('Read OCS Resource service from pickle.')
             except Exception:
                 logger.info('Creating and pickling OCS Resource service.')
                 self.resource = OcsResourceService()
-                OcsOrigin.resource_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(OcsOrigin.resource_path, 'wb') as res_pickle:
+                OcsOrigin._resource_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(OcsOrigin._resource_path, 'wb') as res_pickle:
                     pickle.dump(self.resource, res_pickle)
 
             try:
-                with open(OcsOrigin.env_path, 'rb') as res_env:
+                with open(OcsOrigin._env_path, 'rb') as res_env:
                     self.env = pickle.load(res_env)
                     logger.info('Read OCS Env service from pickle.')
             except Exception:
                 logger.info('Creating and pickling OCS Env service.')
                 self.env = OcsEnvService()
-                OcsOrigin.env_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(OcsOrigin.env_path, 'wb') as env_pickle:
+                OcsOrigin._env_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(OcsOrigin._env_path, 'wb') as env_pickle:
                     pickle.dump(self.env, env_pickle)
 
         self.is_loaded = True
