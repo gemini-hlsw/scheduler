@@ -5,8 +5,8 @@ import os
 
 import uvicorn
 from fastapi.responses import JSONResponse
+from lucupy.observatory.gemini.geminiproperties import GeminiProperties
 from lucupy.observatory.abstract import ObservatoryProperties
-from lucupy.observatory.gemini import GeminiProperties
 
 from scheduler.app import app
 from scheduler.config import config
