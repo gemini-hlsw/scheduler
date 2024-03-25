@@ -42,7 +42,7 @@ class RankerParameters:
     vis_power: float = 1.0
     wha_power: float = 1.0
     program_priority: float = 10.0
-    user_priority_factors: dict = {Priority.LOW: 1.0, Priority.MEDIUM: 1.25, Priority.HIGH: 1.5}.setdefault()
+    user_priority_factors: dict = {Priority.LOW: 1.0, Priority.MEDIUM: 1.25, Priority.HIGH: 1.5}.setdefault(Priority.LOW)
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
