@@ -133,6 +133,3 @@ plans.lock
 # telescope schedules for the OcsResourceService
 # Edit: include this file now as access to it online requires authorization.
 #scheduler/services/resource/data/telescope_schedules.xlsx
-
-# Pickled services
-/pickles
