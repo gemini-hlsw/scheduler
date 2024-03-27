@@ -120,8 +120,8 @@ maglimits_test.py
 .vscode
 .fleet
 
-# pickle
-*.pickle
+# pickle: We want Heroku to keep the pickles of OCS Env and Resource.
+#*.pickle
 
 # scala worksheet for some OCS comparison
 .metals
