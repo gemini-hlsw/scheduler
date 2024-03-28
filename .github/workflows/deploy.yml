@@ -9,9 +9,10 @@ jobs:
     steps:
       # Check-out your repository.
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
       - name: Build, Push and Release a Docker container to Heroku.
-        uses: akhileshns/heroku-deploy@v3.12.14
+        uses: akhileshns/heroku-deploy@v3.13.15
         with:
           # Below you must provide variables for your Heroku app.
 
@@ -28,11 +29,3 @@ jobs:
           heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
 
           usedocker: true
-      - name: Automatic Releases
-        uses: marvinpinto/action-automatic-releases@v1.2.1
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          automatic_release_tag: "latest"
-          prerelease: true
-          title: "Development Build"
-
