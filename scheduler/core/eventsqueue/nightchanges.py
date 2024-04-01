@@ -56,7 +56,7 @@ class NightlyTimeline:
                               plan_generated)
         self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
 
-    def get_final_plan(self, night_idx: NightIndex, site: Site) -> Plan:
+    def get_final_plan(self, night_idx: NightIndex, site: Site) -> Optional[Plan]:
         if night_idx not in self.timeline:
             raise RuntimeError(f'Cannot get final plan: {night_idx} for site {site.name} not in timeline.')
         if site not in self.timeline[night_idx]:
@@ -68,6 +68,9 @@ class NightlyTimeline:
 
         # Skip the None entries.
         relevant_entries = [e for e in reversed(entries) if e.plan_generated is not None]
+        if len(relevant_entries) == 0:
+            return None
+
         for entry in relevant_entries:
             pg = entry.plan_generated
             if t > 0:

@@ -77,11 +77,11 @@ class Fault(Interruption):
     ...
 
     def to_events(self) -> (FaultEvent, FaultResolutionEvent):
-        fault_event = FaultEvent(time=self.time,
+        fault_event = FaultEvent(time=self.start_time,
                                  description=self.description,
                                  affects=self.affects,
                                  site=self.site)
-        fault_resolution_event = FaultResolutionEvent(time=self.time + self.duration,
+        fault_resolution_event = FaultResolutionEvent(time=self.end_time,
                                                       description=f'Resolved: {self.description}',
                                                       uuid_identified=fault_event,
                                                       site=self.site)
@@ -93,10 +93,10 @@ class WeatherClosure(Interruption):
     ...
 
     def to_events(self) -> (WeatherClosureEvent, WeatherClosureResolutionEvent):
-        weather_closure = WeatherClosureEvent(time=self.time,
+        weather_closure = WeatherClosureEvent(time=self.start_time,
                                               description=self.description,
                                               site=self.site)
-        weather_closure_resolution_event = WeatherClosureResolutionEvent(time=self.time + self.duration,
+        weather_closure_resolution_event = WeatherClosureResolutionEvent(time=self.end_time,
                                                                          description=f'Resolved: {self.description}',
                                                                          uuid_identified=weather_closure,
                                                                          site=self.site)

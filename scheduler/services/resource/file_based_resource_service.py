@@ -72,7 +72,7 @@ class FileBasedResourceService(ResourceService):
                   c: Callable[[List[str], Site], Set[str]],
                   data_source: Union[str, BytesIO],
                   desc: Optional[str] = None,
-                  resource_type: Optional[int] = ResourceType.NONE) -> None:
+                  resource_type: Optional[ResourceType] = ResourceType.NONE) -> None:
         """
         Process a CSV file as a table, where:
 
@@ -549,7 +549,7 @@ class FileBasedResourceService(ResourceService):
                     faults.setdefault(night_date, set())
                     fault = Fault(site=site,
                                   start_time=local_datetime,
-                                  duration=duration,
+                                  end_time=local_datetime + duration,
                                   description=f'FR-{fr_id}: {description}')
                     faults[night_date].add(fault)
         except FileNotFoundError:

@@ -24,12 +24,14 @@ __all__ = [
     'FaultEvent',
     'InterruptionResolutionEvent',
     'FaultResolutionEvent',
+    'WeatherClosureEvent',
+    'WeatherClosureResolutionEvent',
 ]
 
 
 # TODO: These can PROBABLY all be made frozen.
 
-@dataclass
+@dataclass(frozen=True)
 class UUIDIdentified(ABC):
     """
     A class with an automatic UUID attached to it.
@@ -42,8 +44,11 @@ class UUIDIdentified(ABC):
             return self.id == other.id
         return False
 
+    def __hash__(self):
+        return hash(self.id)
 
-@dataclass
+
+@dataclass(frozen=True)
 class UUIDReferenced(ABC):
     """
     A class for an object that maintains a reference to a UUIDIdentified object.
@@ -55,7 +60,7 @@ class UUIDReferenced(ABC):
         return self.uuid_identified.id
 
 
-@dataclass
+@dataclass(frozen=True)
 class Event(UUIDIdentified, ABC):
     """
     Superclass for all events. They contain:
@@ -77,7 +82,7 @@ class Event(UUIDIdentified, ABC):
         return TimeslotIndex(time_slots_from_twilight)
 
 
-@dataclass
+@dataclass(frozen=True)
 class RoutineEvent(Event, ABC):
     """
     A routine event that is predictable and processed by the Scheduler.
@@ -86,7 +91,7 @@ class RoutineEvent(Event, ABC):
     ...
 
 
-@dataclass
+@dataclass(frozen=True)
 class TwilightEvent(RoutineEvent, ABC):
     """
     An event indicating that the 12 degree starting twilight for a night has been reached.
@@ -95,7 +100,7 @@ class TwilightEvent(RoutineEvent, ABC):
 
 
 @final
-@dataclass
+@dataclass(frozen=True)
 class EveningTwilightEvent(TwilightEvent):
     """
     An event indicating that the 12 degree starting twilight for a night has been reached.
@@ -104,7 +109,7 @@ class EveningTwilightEvent(TwilightEvent):
 
 
 @final
-@dataclass
+@dataclass(frozen=True)
 class MorningTwilightEvent(TwilightEvent):
     """
     An event indicating that the 12 degree morning twilight for a night has been reached.
@@ -113,7 +118,7 @@ class MorningTwilightEvent(TwilightEvent):
     ...
 
 
-@dataclass
+@dataclass(frozen=True)
 class InterruptionEvent(Event, ABC):
     """
     Parent class for any interruption that might cause a new schedule to be created.
@@ -126,7 +131,7 @@ class InterruptionEvent(Event, ABC):
 
 
 @final
-@dataclass
+@dataclass(frozen=True)
 class WeatherChangeEvent(InterruptionEvent):
     """
     Interruption that occurs when new a new weather variant comes in.
@@ -135,7 +140,7 @@ class WeatherChangeEvent(InterruptionEvent):
 
 
 @final
-@dataclass
+@dataclass(frozen=True)
 class FaultEvent(InterruptionEvent):
     """
     Interruption that occurs when there is a fault in a resource.
@@ -145,7 +150,7 @@ class FaultEvent(InterruptionEvent):
 
 
 @final
-@dataclass
+@dataclass(frozen=True)
 class WeatherClosureEvent(InterruptionEvent):
     """
     A weather closure for a given site.
@@ -158,7 +163,7 @@ class WeatherClosureEvent(InterruptionEvent):
         return frozenset([self.site.resource])
 
 
-@dataclass
+@dataclass(frozen=True)
 class InterruptionResolutionEvent(InterruptionEvent, UUIDReferenced, ABC):
     """
     A class representing the resolution of an interruption that can be resolved (e.g. a resolved fault
@@ -185,6 +190,7 @@ class InterruptionResolutionEvent(InterruptionEvent, UUIDReferenced, ABC):
 
 
 @final
+@dataclass(frozen=True)
 class FaultResolutionEvent(InterruptionEvent, UUIDReferenced):
     """
     Interruption that occurs when a Fault is resolved.
@@ -195,6 +201,7 @@ class FaultResolutionEvent(InterruptionEvent, UUIDReferenced):
 
 
 @final
+@dataclass(frozen=True)
 class WeatherClosureResolutionEvent(InterruptionEvent, UUIDReferenced):
     """
     Interruption that occurs when a WeatherClosure is resolved.

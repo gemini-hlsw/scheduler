@@ -3,7 +3,7 @@
 
 import bisect
 from dataclasses import dataclass, field
-from typing import final, Dict, Optional, Set
+from typing import cast, final, Dict, Optional, Set
 
 import numpy as np
 from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex
@@ -12,7 +12,8 @@ from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.selector import Selector
 from scheduler.core.eventsqueue import (Event, EveningTwilightEvent, InterruptionEvent, InterruptionResolutionEvent,
-                                        MorningTwilightEvent, WeatherChangeEvent)
+                                        MorningTwilightEvent, WeatherChangeEvent, WeatherClosureEvent,
+                                        WeatherClosureResolutionEvent)
 from scheduler.core.plans import Plans
 from scheduler.services.logger_factory import create_logger
 from .time_coordinate_record import TimeCoordinateRecord
@@ -74,6 +75,9 @@ class ChangeMonitor(SchedulerComponent):
         """
         return len(self._blocking_event_sets[site]) == 0
 
+    def is_site_blocked(self, site: Site) -> bool:
+        return len(self._blocking_event_sets[site]) > 0
+
     def process_event(self,
                       site: Site,
                       event: Event,
@@ -134,7 +138,11 @@ class ChangeMonitor(SchedulerComponent):
                 # Regardless, we want to change the weather values for CC and IQ.
                 self.selector.update_site_variant(site, variant_change)
 
+                # If the site is blocked, we have no reason to recalculate a plan until all blocking evens
+                # are unblocked.
                 if plans is None:
+                    if self.is_site_blocked(site):
+                        return None
                     raise ValueError(f'No plans have been created for night {night_idx}.')
 
                 # Check if there is a visit running now.
@@ -191,6 +199,18 @@ class ChangeMonitor(SchedulerComponent):
                 # Otherwise, we can finish the observation. Start the weather change at time slot after the visit ends.
                 return TimeCoordinateRecord(event=event,
                                             timeslot_idx=TimeslotIndex(visit_end_time_slot + 1))
+
+            case InterruptionEvent():
+                self._process_blocking_event(cast(InterruptionEvent, event))
+                return TimeCoordinateRecord(event=event,
+                                            timeslot_idx=event_timeslot)
+
+            case InterruptionResolutionEvent():
+                # There is no plan if there is a block, so we do not perform time accounting in this case.
+                self._process_blocking_resolution_event(cast(InterruptionResolutionEvent, event))
+                return TimeCoordinateRecord(event=event,
+                                            timeslot_idx=event_timeslot,
+                                            perform_time_accounting=False)
 
             # For now, for all other events, just recalculate immediately.
             case _:
