@@ -200,6 +200,9 @@ class ResourceService(ExternalService):
     def get_unexpected_closures(self, site: Site, night_date: date) -> FrozenSet[WeatherClosure]:
         return self._get_entries(site, night_date, "weather losses", self._weather_closures)
 
+    def get_faults(self, site: Site, night_date: date) -> FrozenSet[Fault]:
+        return self._get_entries(site, night_date, "faults", self._faults)
+
     def fpu_to_barcode(self, site: Site, fpu_name: str, instrument: str) -> Optional[Resource]:
         """
         Convert a long FPU name into the barcode, if it exists.

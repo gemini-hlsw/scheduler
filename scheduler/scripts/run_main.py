@@ -171,6 +171,13 @@ def main(*,
                 queue.add_event(night_idx, site, closure_start)
                 queue.add_event(night_idx, site, closure_end)
 
+            # Process the fault reports for the night at the site.
+            faults_set = collector.sources.origin.resource.get_faults(site, night_date)
+            for fault in faults_set:
+                fault_start, fault_end = fault.to_events()
+                queue.add_event(night_idx, site, fault_start)
+                queue.add_event(night_idx, site, fault_end)
+
             morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twi)
 
