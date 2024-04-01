@@ -367,7 +367,9 @@ def main(*,
         night_events = {site: collector.get_night_events(site) for site in collector.sites}
         final_plans = Plans(night_events, NightIndex(night_idx))
         for site in collector.sites:
-            final_plans[site] = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
+            calculated_plan = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
+            if calculated_plan is not None:
+                final_plans[site] = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
         overall_plans[night_idx] = final_plans
 
     # Make sure we have a list of the final plans sorted by night index.

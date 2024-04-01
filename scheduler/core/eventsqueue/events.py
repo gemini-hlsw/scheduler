@@ -164,7 +164,7 @@ class WeatherClosureEvent(InterruptionEvent):
 
 
 @dataclass(frozen=True)
-class InterruptionResolutionEvent(InterruptionEvent, UUIDReferenced, ABC):
+class InterruptionResolutionEvent(Event, UUIDReferenced, ABC):
     """
     A class representing the resolution of an interruption that can be resolved (e.g. a resolved fault
     or the end of an engineering task.)
@@ -191,7 +191,7 @@ class InterruptionResolutionEvent(InterruptionEvent, UUIDReferenced, ABC):
 
 @final
 @dataclass(frozen=True)
-class FaultResolutionEvent(InterruptionEvent, UUIDReferenced):
+class FaultResolutionEvent(InterruptionResolutionEvent, UUIDReferenced):
     """
     Interruption that occurs when a Fault is resolved.
     """
@@ -202,7 +202,7 @@ class FaultResolutionEvent(InterruptionEvent, UUIDReferenced):
 
 @final
 @dataclass(frozen=True)
-class WeatherClosureResolutionEvent(InterruptionEvent, UUIDReferenced):
+class WeatherClosureResolutionEvent(InterruptionResolutionEvent, UUIDReferenced):
     """
     Interruption that occurs when a WeatherClosure is resolved.
     """

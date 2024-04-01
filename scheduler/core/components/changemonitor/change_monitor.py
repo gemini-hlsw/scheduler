@@ -58,7 +58,7 @@ class ChangeMonitor(SchedulerComponent):
         blocking_event_set = self._blocking_event_sets[event.site]
         resolved_event: Optional[InterruptionEvent] = None
         for evt in blocking_event_set:
-            if event.uuid_referenced.id == evt.id:
+            if event.uuid_referenced == evt.id:
                 resolved_event = evt
                 break
 
