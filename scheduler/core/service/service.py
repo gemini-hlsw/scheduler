@@ -99,7 +99,7 @@ class Service:
                     variant_datetime_str = variant_datetime.strftime('%Y-%m-%d %H:%M')
                     weather_change_description = (f'Weather change at {site.name}, {variant_datetime_str}: '
                                                   f'IQ -> {variant_snapshot.iq.name}, '
-                                                  f'CC -> {variant_snapshot.cc.name}.')
+                                                  f'CC -> {variant_snapshot.cc.name}')
                     weather_change_event = WeatherChangeEvent(site=site,
                                                               time=variant_datetime,
                                                               description=weather_change_description,

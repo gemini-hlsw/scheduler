@@ -35,8 +35,10 @@ def main(*,
          end: Optional[Time] = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
          sites: FrozenSet[Site] = ALL_SITES,
          ranker_parameters: RankerParameters = RankerParameters(),
-         semester_visibility: bool = True,
-         num_nights_to_schedule: Optional[int] = None,
+         semester_visibility: bool = False,
+         # semester_visibility: bool = True,
+         num_nights_to_schedule: Optional[int] = 3,
+         # num_nights_to_schedule: Optional[int] = None,
          programs_ids: Optional[str] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -155,7 +157,7 @@ def main(*,
                 variant_datetime_str = variant_datetime.strftime('%Y-%m-%d %H:%M')
                 weather_change_description = (f'Weather change at {site.name}, {variant_datetime_str}: '
                                               f'IQ -> {variant_snapshot.iq.name}, '
-                                              f'CC -> {variant_snapshot.cc.name}.')
+                                              f'CC -> {variant_snapshot.cc.name}')
                 weather_change_event = WeatherChangeEvent(site=site,
                                                           time=variant_datetime,
                                                           description=weather_change_description,
@@ -353,10 +355,15 @@ def main(*,
                 current_timeslot += 1
 
             # Process any events still remaining, with the intent of unblocking faults and weather closures.
+            eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
             while events_by_night.has_more_events():
                 event = events_by_night.pop_next_event()
+                event.to_timeslot_idx(eve_twi_time, time_slot_length)
                 _logger.warning(f'Site {site_name} on night {night_idx} has event after morning twilight: {event}')
                 change_monitor.process_event(site, event, None, night_idx)
+
+                # Timeslot will be after final timeslot because this event is scheduled later.
+                nightly_timeline.add(NightIndex(night_idx), site, current_timeslot, event, None)
 
             # The site should no longer be blocked.
             if not change_monitor.is_site_unblocked(site):

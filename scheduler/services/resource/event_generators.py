@@ -3,7 +3,7 @@
 
 from abc import abstractmethod, ABC
 from dataclasses import dataclass, field, InitVar
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import FrozenSet, Optional
 
 from lucupy.minimodel import Resource, Site
@@ -77,12 +77,18 @@ class Fault(Interruption):
     ...
 
     def to_events(self) -> (FaultEvent, FaultResolutionEvent):
+        if self.description is not None:
+            fault_description = f'Fault: {self.description}'
+            resolution_description = f'Fault resolved: {self.description}'
+        else:
+            fault_description = 'Fault'
+            resolution_description = f'Fault resolved'
         fault_event = FaultEvent(time=self.start_time,
-                                 description=self.description,
+                                 description=fault_description,
                                  affects=self.affects,
                                  site=self.site)
         fault_resolution_event = FaultResolutionEvent(time=self.end_time,
-                                                      description=f'Resolved: {self.description}',
+                                                      description=resolution_description,
                                                       uuid_identified=fault_event,
                                                       site=self.site)
         return fault_event, fault_resolution_event
@@ -93,11 +99,17 @@ class WeatherClosure(Interruption):
     ...
 
     def to_events(self) -> (WeatherClosureEvent, WeatherClosureResolutionEvent):
-        weather_closure = WeatherClosureEvent(time=self.start_time,
-                                              description=self.description,
-                                              site=self.site)
-        weather_closure_resolution_event = WeatherClosureResolutionEvent(time=self.end_time,
-                                                                         description=f'Resolved: {self.description}',
-                                                                         uuid_identified=weather_closure,
-                                                                         site=self.site)
-        return weather_closure, weather_closure_resolution_event
+        if self.description is not None:
+            closure_description = f'Closure: {self.description}'
+            resolution_description = f'Closure resolved: {self.description}'
+        else:
+            closure_description = 'Closure'
+            resolution_description = f'Closure resolved'
+        closure_event = WeatherClosureEvent(time=self.start_time,
+                                            description=closure_description,
+                                            site=self.site)
+        closure_resolution_event = WeatherClosureResolutionEvent(time=self.end_time,
+                                                                 description=resolution_description,
+                                                                 uuid_identified=closure_event,
+                                                                 site=self.site)
+        return closure_event, closure_resolution_event

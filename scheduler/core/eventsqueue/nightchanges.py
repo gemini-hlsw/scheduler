@@ -111,8 +111,8 @@ class NightlyTimeline:
 
         sys.stderr.flush()
         for night_idx, entries_by_site in self.timeline.items():
-            print(f'\n\n+++++ NIGHT {night_idx + 1} +++++')
             for site, entries in sorted(entries_by_site.items(), key=lambda x: x[0].name):
+                print(f'\n\n+++++ NIGHT {night_idx + 1}, SITE: {site.name} +++++')
                 for entry in entries:
                     time = rnd_min(entry.event.time).strftime(self._datetime_formatter)
                     print(f'\t+++++ Triggered by event: {entry.event.description} at {time} '
@@ -123,4 +123,5 @@ class NightlyTimeline:
                             print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
                                   f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}')
                     print('\t+++++ END EVENT +++++')
+            print()
         sys.stdout.flush()
