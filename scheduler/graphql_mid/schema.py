@@ -1,9 +1,13 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import os
+from datetime import datetime
+from typing import List, Any
 
-from typing import List
 import strawberry # noqa
 from astropy.time import Time
+from fastapi import Depends
+from redis import asyncio as aioredis
 from lucupy.minimodel import Site, ALL_SITES, NightIndex
 
 from scheduler.core.service import Service
@@ -22,6 +26,8 @@ from ..core.components.ranker import RankerParameters
 # TODO: This variables need a Redis cache to work with different mutations correctly.
 sources = Sources()
 event_queue = EventQueue(frozenset([NightIndex(i) for i in range(3)]), ALL_SITES)
+REDIS_URL = os.environ.get("REDISCLOUD_URL")
+redis = aioredis.from_url(REDIS_URL) if REDIS_URL else None
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 
@@ -96,7 +102,17 @@ class Query:
         return [plans.for_site(site) for plans in PlanManager.get_plans()]
 
     @strawberry.field
-    async def schedule(self, new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
+    async def test_redis(self) -> str:
+        if redis:
+            await redis.set("time_stamp", str(datetime.now().timestamp()))
+            value = await redis.get("time_stamp")
+            return value.decode()
+        else:
+            ValueError("REDISCLOUD_URL env var is not set up correctly.")
+
+    @strawberry.field
+    async def schedule(self,
+                       new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
         try:
             start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
                          Time(new_schedule_input.end_time, format='iso', scale='utc')
