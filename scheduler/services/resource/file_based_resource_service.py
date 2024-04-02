@@ -37,6 +37,8 @@ class FileBasedResourceService(ResourceService):
     """
     # Definition of a day to not have to redeclare constantly.
     _day: Final[timedelta] = timedelta(days=1)
+    _noon: Final[time] = time(hour=12, minute=0)
+
     # Statuses of instruments and WFS.
     _SCIENCE: Final[str] = 'SCIENCE'
     _ENGINEERING: Final[str] = 'ENGINEERING'
@@ -72,7 +74,7 @@ class FileBasedResourceService(ResourceService):
                   c: Callable[[List[str], Site], Set[str]],
                   data_source: Union[str, BytesIO],
                   desc: Optional[str] = None,
-                  resource_type: Optional[int] = ResourceType.NONE) -> None:
+                  resource_type: Optional[ResourceType] = ResourceType.NONE) -> None:
         """
         Process a CSV file as a table, where:
 
@@ -461,7 +463,7 @@ class FileBasedResourceService(ResourceService):
                         continue
 
                     local_date_str, start_time_str, end_time_str, description = match.groups()
-                    local_date = datetime.strptime(local_date_str, '%Y-%m-%d').date()
+                    local_night_date = datetime.strptime(local_date_str, '%Y-%m-%d').date()
 
                     # Determine the start and end times.
                     start_time = None
@@ -475,12 +477,12 @@ class FileBasedResourceService(ResourceService):
                     if start_time is None or end_time is None:
                         # We need the twilights in this case.
                         if start_time is not None:
-                            astropy_time = Time(datetime.combine(local_date, start_time).astimezone(site.timezone))
+                            astropy_time = Time(datetime.combine(local_night_date, start_time).astimezone(site.timezone))
                         elif end_time is not None:
-                            astropy_time = Time(datetime.combine(local_date, end_time).astimezone(site.timezone))
+                            astropy_time = Time(datetime.combine(local_night_date, end_time).astimezone(site.timezone))
                         else:
                             noon = time(12, 0)
-                            astropy_time = Time(datetime.combine(local_date, noon).astimezone(site.timezone))
+                            astropy_time = Time(datetime.combine(local_night_date, noon).astimezone(site.timezone))
 
                         # Get the twilights and localize them.
                         eve_twi, morn_twi = night_events(astropy_time, site.location, site.timezone)[3:5]
@@ -493,16 +495,28 @@ class FileBasedResourceService(ResourceService):
                             end_time = morn_twi.replace(second=0, microsecond=0).time()
 
                     # Localize the datetimes. If the end time is before the start time, it happens on the next day.
-                    start_datetime = datetime.combine(local_date, start_time).replace(tzinfo=site.timezone)
-                    end_datetime = datetime.combine(local_date, end_time).replace(tzinfo=site.timezone)
-                    if end_time < start_time:
-                        end_datetime += timedelta(days=1)
-                    entries.setdefault(local_date, set())
+                    start_datetime = datetime.combine(local_night_date, start_time).replace(tzinfo=site.timezone)
+                    end_datetime = datetime.combine(local_night_date, end_time).replace(tzinfo=site.timezone)
+                    # if end_time < start_time:
+                    #     end_datetime += timedelta(days=1)
+                    entries.setdefault(local_night_date, set())
+
+                    # Add a day to the start_time and end_time if either time is less than noon to indicate that
+                    # the event actually ends on the morning of the local_night_date.
+                    # It should still be inserted for the local_night_date but to be sorted correctly,
+                    # it needs to have a start time on the next day.
+                    if start_datetime.time() < FileBasedResourceService._noon:
+                        start_datetime += FileBasedResourceService._day
+                    if end_datetime.time() < FileBasedResourceService._noon:
+                        end_datetime += FileBasedResourceService._day
+                    if end_datetime < start_datetime:
+                        raise RuntimeError(f'Problem parsing date information for {path.name}: L{line_num}, {line} ')
+
                     entry = constructor(site=site,
                                         start_time=start_datetime,
                                         end_time=end_datetime,
                                         description=description)
-                    entries[local_date].add(entry)
+                    entries[local_night_date].add(entry)
         except FileNotFoundError:
             logger.error(f'Time loss file not available: {path}')
 
@@ -549,7 +563,7 @@ class FileBasedResourceService(ResourceService):
                     faults.setdefault(night_date, set())
                     fault = Fault(site=site,
                                   start_time=local_datetime,
-                                  duration=duration,
+                                  end_time=local_datetime + duration,
                                   description=f'FR-{fr_id}: {description}')
                     faults[night_date].add(fault)
         except FileNotFoundError:

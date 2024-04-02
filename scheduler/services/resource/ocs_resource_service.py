@@ -89,4 +89,4 @@ class OcsResourceService(FileBasedResourceService):
                     eng_tasks=frozenset(self._eng_tasks.get(site, {}).get(d, {}))
                 )
 
-                d += OcsResourceService._day
+                d += FileBasedResourceService._day

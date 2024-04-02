@@ -8,7 +8,7 @@ from typing import FrozenSet, Iterable, Optional
 from lucupy.minimodel import NightIndex, Site
 
 from scheduler.services import logger_factory
-from .events import Event, InterruptionEvent, RoutineEvent
+from .events import Event, InterruptionEvent, InterruptionResolutionEvent, RoutineEvent
 
 logger = logger_factory.create_logger(__name__)
 
@@ -47,7 +47,7 @@ class EventQueue:
 
     def add_event(self, night_idx: NightIndex, site: Site, event: Event) -> None:
         match event:
-            case RoutineEvent() | InterruptionEvent():
+            case RoutineEvent() | InterruptionEvent() | InterruptionResolutionEvent():
                 site_events = self.get_night_events(night_idx, site)
                 if site_events is not None:
                     site_events.add_event(event)

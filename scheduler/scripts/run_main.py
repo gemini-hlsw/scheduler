@@ -35,7 +35,9 @@ def main(*,
          end: Optional[Time] = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
          sites: FrozenSet[Site] = ALL_SITES,
          ranker_parameters: RankerParameters = RankerParameters(),
+         # semester_visibility: bool = False,
          semester_visibility: bool = True,
+         # num_nights_to_schedule: Optional[int] = 3,
          num_nights_to_schedule: Optional[int] = None,
          programs_ids: Optional[str] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
@@ -128,11 +130,13 @@ def main(*,
             eve_twi = EveningTwilightEvent(site=site, time=eve_twi_time, description='Evening 12° Twilight')
             queue.add_event(night_idx, site, eve_twi)
 
-            # Get the weather events for the site for the given night date.
+            # Get the closure events for the site for the given night data.
             night_date = eve_twi_time.date()
             morn_twi_time = night_events.twilight_morning_12[night_idx].to_datetime(site.timezone) - time_slot_length
-            morn_twi_slot = time2slots(time_slot_length, morn_twi_time - eve_twi_time)
+            # morn_twi_slot = time2slots(time_slot_length, morn_twi_time - eve_twi_time)
+            morn_twi_slot = night_events.num_timeslots_per_night[night_idx]
 
+            # Get the weather events for the site for the given night date.
             # Get the VariantSnapshots for the times of the night where the variant changes.
             variant_changes_dict = collector.sources.origin.env.get_variant_changes_for_night(site, night_date)
             for variant_datetime, variant_snapshot in variant_changes_dict.items():
@@ -153,17 +157,29 @@ def main(*,
                 variant_datetime_str = variant_datetime.strftime('%Y-%m-%d %H:%M')
                 weather_change_description = (f'Weather change at {site.name}, {variant_datetime_str}: '
                                               f'IQ -> {variant_snapshot.iq.name}, '
-                                              f'CC -> {variant_snapshot.cc.name}.')
+                                              f'CC -> {variant_snapshot.cc.name}')
                 weather_change_event = WeatherChangeEvent(site=site,
                                                           time=variant_datetime,
                                                           description=weather_change_description,
                                                           variant_change=variant_snapshot)
                 queue.add_event(night_idx, site, weather_change_event)
 
+            # Process the unexpected closures for the night at the site.
+            closure_set = collector.sources.origin.resource.get_unexpected_closures(site, night_date)
+            for closure in closure_set:
+                closure_start, closure_end = closure.to_events()
+                queue.add_event(night_idx, site, closure_start)
+                queue.add_event(night_idx, site, closure_end)
+
+            # Process the fault reports for the night at the site.
+            faults_set = collector.sources.origin.resource.get_faults(site, night_date)
+            for fault in faults_set:
+                fault_start, fault_end = fault.to_events()
+                queue.add_event(night_idx, site, fault_start)
+                queue.add_event(night_idx, site, fault_end)
+
             morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
             queue.add_event(night_idx, site, morn_twi)
-
-            # TODO: If any blocking events occur before twilight, block the site.
 
     for night_idx in sorted(night_indices):
         night_indices = np.array([night_idx])
@@ -346,10 +362,15 @@ def main(*,
                 current_timeslot += 1
 
             # Process any events still remaining, with the intent of unblocking faults and weather closures.
+            eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
             while events_by_night.has_more_events():
                 event = events_by_night.pop_next_event()
+                event.to_timeslot_idx(eve_twi_time, time_slot_length)
                 _logger.warning(f'Site {site_name} on night {night_idx} has event after morning twilight: {event}')
                 change_monitor.process_event(site, event, None, night_idx)
+
+                # Timeslot will be after final timeslot because this event is scheduled later.
+                nightly_timeline.add(NightIndex(night_idx), site, current_timeslot, event, None)
 
             # The site should no longer be blocked.
             if not change_monitor.is_site_unblocked(site):
@@ -360,7 +381,9 @@ def main(*,
         night_events = {site: collector.get_night_events(site) for site in collector.sites}
         final_plans = Plans(night_events, NightIndex(night_idx))
         for site in collector.sites:
-            final_plans[site] = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
+            calculated_plan = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
+            if calculated_plan is not None:
+                final_plans[site] = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
         overall_plans[night_idx] = final_plans
 
     # Make sure we have a list of the final plans sorted by night index.
