@@ -8,7 +8,7 @@ from typing import Callable, FrozenSet, Mapping, Tuple, final
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndices, Observation, Program, Site, OrGroup
+from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndices, Observation, Program, Site, OrGroup, Priority
 from lucupy.types import ListOrNDArray
 
 from scheduler.core.calculations import Scores, GroupDataMap
@@ -42,6 +42,7 @@ class RankerParameters:
     vis_power: float = 1.0
     wha_power: float = 1.0
     program_priority: float = 10.0
+    user_priority_factors: dict = {Priority.LOW: 1.0, Priority.MEDIUM: 1.25, Priority.HIGH: 1.5}.setdefault(Priority.LOW)
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
@@ -231,6 +232,10 @@ class DefaultRanker(Ranker):
             wha[night_idx][kk[night_idx]] = 0.
         # print(f'   max wha: {np.max(wha[0]):.2f}  visfrac: {target_info[0].rem_visibility_frac:.5f}')
 
+        # Effective user priority
+        # Normalized to 1, use factor in denominator to scale (make parameter?)
+        user_priority = 1. + (obs.priority.value - program.mean_priority())/8.
+
         # Program priority (from calendar)
         nc = self.collector.night_configurations(obs.site, np.arange(self.collector.num_nights_calculated))
         program = self.collector.get_program(obs.id.program_id())
@@ -239,7 +244,7 @@ class DefaultRanker(Ranker):
         # print(obs.unique_id, night_idx, prog_priority)
 
         # p = {night_idx: (metric[0] ** self.params.met_power) *
-        p = {night_idx: (prog_priority[night_idx]) * (metric[0] ** self.params.met_power) *
+        p = {night_idx: (user_priority * prog_priority[night_idx]) * (metric[0] ** self.params.met_power) *
                         (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
                         (wha[night_idx] ** self.params.wha_power)
              for night_idx in self.night_indices}
