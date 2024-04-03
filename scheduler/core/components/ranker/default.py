@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Callable, FrozenSet, Mapping, Tuple, final
+from typing import Callable, Dict, FrozenSet, Mapping, Tuple, final
 
 import astropy.units as u
 import numpy as np
@@ -30,6 +30,9 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
     return np.array([np.max(x)]) if 0 not in x else np.array([0.])
 
 
+_default_user_priority_factors: Dict[Priority, float] = {Priority.LOW: 1.0, Priority.MEDIUM: 1.25, Priority.HIGH: 1.5}
+
+
 @final
 @dataclass
 class RankerParameters:
@@ -42,14 +45,17 @@ class RankerParameters:
     vis_power: float = 1.0
     wha_power: float = 1.0
     program_priority: float = 10.0
-    user_priority_factors: dict = {Priority.LOW: 1.0, Priority.MEDIUM: 1.25, Priority.HIGH: 1.5}.setdefault(Priority.LOW)
+    user_priority_factors: Dict[Priority, float] = field(default_factory=lambda: _default_user_priority_factors)
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
     # Weighted to 0 HA if Xmin > 1.3.
     dec_diff: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0.1, -0.06]))
 
-    score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = _default_score_combiner
+    score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = field(init=False)
+
+    def __post_init__(self):
+        self.score_combiner = _default_score_combiner
 
 
 @final
