@@ -1,0 +1,36 @@
+2018 jul01-jul02 3:30 3:39	0.15 39604 CRCS white screen    
+2018 jul06-jul07 21:37 21:42	0.08 39616 P2: needed hard reboot   
+2018 jul06-jul07 0:42 0:46	0.07 39617 F2: time out during science exosure 
+2018 jul06-jul07 3:40 3:49	0.15 39618 F2 agents needed restarting   
+2018 jul07-jul08 19:00 19:09	0.15 39620 GPI: tilt stage errors not converging 
+2018 jul08-jul09 18:52 18:56	0.07 39632 F2: timing out    
+2018 jul08-jul09 23:01 23:34	0.56 39633 GPI: artificial source mirror stuck  
+2018 jul09-jul10 0:15 0:30	0.25 39636 P2 VME is frozen   
+2018 jul10-jul11 1:22 1:42	0.33 39639 F2 Agents need to be restarted 
+2018 jul11-jul12 3:25 3:55	0.50 39639 F2 agents need to be restart 
+2018 jul12-jul13 18:01 19:09	1.13 39645 GMOS grating lifter stuck   
+2018 jul12-jul13 20:15 20:33	0.30 39646 Observations timed out due to recurrent F2
+2018 jul12-jul13 1:22 1:30	0.12 39648 GMOS OI Pickoff lost its index 
+2018 jul13-jul14 22:13 22:16	0.05 39653 GMOS OIWFS Pickoff lost index  
+2018 jul14-jul15 0:52 1:10	0.30 39646 Observations timed out due to recurrent F2
+2018 jul16-jul17 18:49 18:57	0.12 39662 Telescope not offsetting correctly   
+2018 jul20-jul21 3:01 3:16	0.25 39687 GPI: track assembly crash   
+2018 jul22-jul23 23:55 24:21	0.44 39691 F2 time outs    
+2018 jul23-jul24 18:45 19:09	0.40 39698 F2 not reporting mechanism positions in header
+2018 jul23-jul24 6:19 6:24	0.08 39702 P2 WSOD     
+2018 jul24-jul25 22:34 23:30	0.92 39705 SCS crashed     
+2018 jul30-jul31 18:40 18:45	0.08 39729 Elevation axis needed rebooted   
+2018 jun14-jun15 1:30 1:37	0.13 39539 GMOS OIWFS pickoff lost index  
+2018 jun17-jun18 2:57 3:06	0.15 39539 GMOS OIWFS pickoff lost index.  
+2018 jun18-jun19 18:19 18:33	0.23 395531 MCS causing bad pointing performance  
+2018 jun18-jun19 21:52 22:27	0.58 395533 gacq is not showing the IFU fibers
+2018 jun19-jun20 4:45 5:01	0.27 39558 MCS oscillations     
+2018 jun21-jun22 4:13 4:24	0.17 39564 GMOS: OI tip/tilt not applied properly 
+2018 jun22-jun23 21:27 21:33	0.10 39568 P2 required a reboot   
+2018 jun22-jun23 0:30 0:40	0.17 39569 SCS required a reboot   
+2018 jun22-jun23 0:30 0:48	0.30 39570 IGRINS: summit machine required remote restart 
+2018 jun23-jun24 1:42 1:54	0.20 39575 GMOS OI: lost index   
+2018 jun24-jun25 18:31 23:31	5.00 39583 ECS: lost commincation with dome  
+2018 jun25-jun26 6:25 6:31	0.10 39587 GMOS OIWFS pickoff lost index  
+2018 jun26-jun27 4:00 4:22	0.38 39590 P2 is not reading to QLT 
+2018 jun27-jun28 3:45 3:45	F2 0.50 OI not reaching demanded position  

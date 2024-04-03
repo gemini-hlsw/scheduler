@@ -56,7 +56,7 @@ class NightlyTimeline:
                               plan_generated)
         self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
 
-    def get_final_plan(self, night_idx: NightIndex, site: Site) -> Plan:
+    def get_final_plan(self, night_idx: NightIndex, site: Site) -> Optional[Plan]:
         if night_idx not in self.timeline:
             raise RuntimeError(f'Cannot get final plan: {night_idx} for site {site.name} not in timeline.')
         if site not in self.timeline[night_idx]:
@@ -68,6 +68,9 @@ class NightlyTimeline:
 
         # Skip the None entries.
         relevant_entries = [e for e in reversed(entries) if e.plan_generated is not None]
+        if len(relevant_entries) == 0:
+            return None
+
         for entry in relevant_entries:
             pg = entry.plan_generated
             if t > 0:
@@ -108,8 +111,8 @@ class NightlyTimeline:
 
         sys.stderr.flush()
         for night_idx, entries_by_site in self.timeline.items():
-            print(f'\n\n+++++ NIGHT {night_idx + 1} +++++')
             for site, entries in sorted(entries_by_site.items(), key=lambda x: x[0].name):
+                print(f'\n\n+++++ NIGHT {night_idx + 1}, SITE: {site.name} +++++')
                 for entry in entries:
                     time = rnd_min(entry.event.time).strftime(self._datetime_formatter)
                     print(f'\t+++++ Triggered by event: {entry.event.description} at {time} '
@@ -120,4 +123,5 @@ class NightlyTimeline:
                             print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
                                   f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}')
                     print('\t+++++ END EVENT +++++')
+            print()
         sys.stdout.flush()

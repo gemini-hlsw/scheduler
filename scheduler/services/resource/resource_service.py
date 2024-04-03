@@ -185,6 +185,10 @@ class ResourceService(ExternalService):
         if night_date < self._earliest_date_per_site[site] or night_date > self._latest_date_per_site[site]:
             return frozenset()
 
+        # If there are no entries for the date, return the empty set.
+        if night_date not in entries[site]:
+            return frozenset()
+
         return frozenset(entries[site][night_date])
 
     def get_resources(self, site: Site, night_date: date) -> FrozenSet[Resource]:
@@ -192,6 +196,12 @@ class ResourceService(ExternalService):
 
     def get_eng_tasks(self, site: Site, night_date: date) -> FrozenSet[EngineeringTask]:
         return self._get_entries(site, night_date, "engineering tasks", self._eng_tasks)
+
+    def get_unexpected_closures(self, site: Site, night_date: date) -> FrozenSet[WeatherClosure]:
+        return self._get_entries(site, night_date, "weather losses", self._weather_closures)
+
+    def get_faults(self, site: Site, night_date: date) -> FrozenSet[Fault]:
+        return self._get_entries(site, night_date, "faults", self._faults)
 
     def fpu_to_barcode(self, site: Site, fpu_name: str, instrument: str) -> Optional[Resource]:
         """
