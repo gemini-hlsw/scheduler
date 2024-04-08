@@ -534,7 +534,7 @@ class Collector(SchedulerComponent):
             # The observation must be scheduled in an included site and have a base defined for calculating:
             # 1. timing windows
             # 2. visibility calculations.
-            base: Optional[Target] = obs.base_target() if obs.site in self.sites else None
+            base: Optional[Target] = obs.base_target()
 
             # TODO: May have to change this to a logger warning. I'm not sure that ToOs have a base defined at parsing.
             if base is None:
@@ -546,10 +546,6 @@ class Collector(SchedulerComponent):
 
             # Record the observation and target for this observation ID.
             Collector._observations[obs.id] = obs, base
-
-            # This should never happen since we set an empty target for observations without a base.
-            if base is None:
-                raise RuntimeError(f'No base target found for observation {obs.id}.')
 
             # Compute the timing window expansion for the observation and then calculate the target
             # information, which performs the visibility calculations.

@@ -114,8 +114,8 @@ class Query:
     async def schedule(self,
                        new_schedule_input: CreateNewScheduleInput) -> NewNightPlans:
         try:
-            start, end = Time(new_schedule_input.start_time, format='iso', scale='utc'), \
-                         Time(new_schedule_input.end_time, format='iso', scale='utc')
+            start = Time(new_schedule_input.start_time, format='iso', scale='utc')
+            end = Time(new_schedule_input.end_time, format='iso', scale='utc')
 
             ranker_params = RankerParameters(new_schedule_input.thesis_factor,
                                              new_schedule_input.power,
