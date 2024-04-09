@@ -13,7 +13,7 @@ from definitions import ROOT_DIR
 from scheduler.services import logger_factory
 from scheduler.services.abstract import ExternalService
 from .event_generators import EngineeringTask, Fault, WeatherClosure
-from .filters import *
+from .filters import AbstractFilter
 from .night_configuration import NightConfiguration
 
 
@@ -113,8 +113,8 @@ class ResourceService(ExternalService):
         # The final output from this class: the configuration per night.
         self._night_configurations: Dict[Site, Dict[date, NightConfiguration]] = {site: {} for site in self._sites}
 
-    def lookup_resource(self,
-                        resource_id: str,
+    @staticmethod
+    def lookup_resource(resource_id: str,
                         description: Optional[str] = None,
                         resource_type: Optional[ResourceType] = ResourceType.NONE) -> Optional[Resource]:
         """
