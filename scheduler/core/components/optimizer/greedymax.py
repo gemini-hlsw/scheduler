@@ -228,7 +228,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         if verbose:
             print(f"\t nsci = {nsci} {exec_sci} {exec_prt} nprt = {nprt} time_per_std = {time_per_standard}"
-                  f" n_std = {n_std} n_slots_remaining = {n_slots_remaining}" )
+                  f" n_std = {n_std} n_slots_remaining = {n_slots_remaining}")
         #     print(f"\t n_std = {n_std} exec_remain = {exec_remain} exec_remain_min = {exec_remain_min}")
 
         return exec_remain, exec_remain_min, exec_sci_nir, n_std, n_slots_remaining
@@ -245,8 +245,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # Calculate the remaining clock time necessary for the group to be complete.
         # time_remaining = group.exec_time() - group.total_used()
         # the following does this
-        time_remaining, time_remaining_min, exec_sci_nir, n_std, n_slots_remaining = self._exec_time_remaining(group,\
-                                                                                                        verbose=False)
+        time_remaining, time_remaining_min, exec_sci_nir, n_std, n_slots_remaining = self._exec_time_remaining(group)
 
         # Calculate the number of time slots needed to complete the group.
         # This use of time2slots works but is probably not kosher, need to make this more general.

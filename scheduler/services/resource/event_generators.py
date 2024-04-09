@@ -82,7 +82,7 @@ class Fault(Interruption):
             resolution_description = f'Fault resolved: {self.description}'
         else:
             fault_description = 'Fault'
-            resolution_description = f'Fault resolved'
+            resolution_description = 'Fault resolved'
         fault_event = FaultEvent(time=self.start_time,
                                  description=fault_description,
                                  affects=self.affects,
@@ -104,7 +104,7 @@ class WeatherClosure(Interruption):
             resolution_description = f'Closure resolved: {self.description}'
         else:
             closure_description = 'Closure'
-            resolution_description = f'Closure resolved'
+            resolution_description = 'Closure resolved'
         closure_event = WeatherClosureEvent(time=self.start_time,
                                             description=closure_description,
                                             site=self.site)

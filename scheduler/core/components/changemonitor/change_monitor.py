@@ -12,8 +12,7 @@ from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.selector import Selector
 from scheduler.core.eventsqueue import (Event, EveningTwilightEvent, InterruptionEvent, InterruptionResolutionEvent,
-                                        MorningTwilightEvent, WeatherChangeEvent, WeatherClosureEvent,
-                                        WeatherClosureResolutionEvent)
+                                        MorningTwilightEvent, WeatherChangeEvent)
 from scheduler.core.plans import Plans
 from scheduler.services.logger_factory import create_logger
 from .time_coordinate_record import TimeCoordinateRecord

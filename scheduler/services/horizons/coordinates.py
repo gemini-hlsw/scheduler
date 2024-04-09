@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass
 
-from numpy import arctan2, cos, sin, sqrt 
+from numpy import arctan2, cos, sin, sqrt
 
 __all__ = [
     'Coordinates'

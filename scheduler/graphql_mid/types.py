@@ -61,7 +61,7 @@ class SVisit:
     @staticmethod
     def from_computed_visit(visit: Visit, alt_degs: List[float]) -> 'SVisit':
         utc = ZoneInfo('UTC')
-        end_time = visit.start_time + timedelta(minutes=visit.time_slots*config.collector.time_slot_length)
+        end_time = visit.start_time + timedelta(minutes=visit.time_slots * config.collector.time_slot_length)
         return SVisit(start_time=visit.start_time.astimezone(utc),
                       end_time=end_time.astimezone(utc),
                       obs_id=visit.obs_id,

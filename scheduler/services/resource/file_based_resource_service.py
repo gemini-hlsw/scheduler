@@ -12,7 +12,6 @@ from astropy.time import Time
 from openpyxl.reader.excel import load_workbook
 from lucupy.helpers import str_to_bool
 from lucupy.minimodel import ProgramID, Resource, Site, TimeAccountingCode, ResourceType
-from lucupy.resource_manager import ResourceManager
 from lucupy.sky import night_events
 
 from scheduler.services import logger_factory
@@ -147,8 +146,6 @@ class FileBasedResourceService(ResourceService):
         The Excel spreadsheets have information available for every date, so we do not have to concern ourselves
         as in the _load_csv file above.
         """
-        rm = ResourceManager()
-
         def none_to_str(value) -> str:
             return '' if value is None else value
 
@@ -495,11 +492,9 @@ class FileBasedResourceService(ResourceService):
                             end_time = morn_twi.replace(second=0, microsecond=0).time()
 
                     # Localize the datetimes. If the end time is before the start time, it happens on the next day.
+                    night_entries_set = entries.setdefault(local_night_date, set())
                     start_datetime = datetime.combine(local_night_date, start_time).replace(tzinfo=site.timezone)
                     end_datetime = datetime.combine(local_night_date, end_time).replace(tzinfo=site.timezone)
-                    # if end_time < start_time:
-                    #     end_datetime += timedelta(days=1)
-                    entries.setdefault(local_night_date, set())
 
                     # Add a day to the start_time and end_time if either time is less than noon to indicate that
                     # the event actually ends on the morning of the local_night_date.
@@ -516,7 +511,8 @@ class FileBasedResourceService(ResourceService):
                                         start_time=start_datetime,
                                         end_time=end_datetime,
                                         description=description)
-                    entries[local_night_date].add(entry)
+                    night_entries_set.add(entry)
+
         except FileNotFoundError:
             logger.error(f'Time loss file not available: {path}')
 

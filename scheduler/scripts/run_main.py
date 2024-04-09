@@ -35,10 +35,10 @@ def main(*,
          end: Optional[Time] = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
          sites: FrozenSet[Site] = ALL_SITES,
          ranker_parameters: RankerParameters = RankerParameters(),
-         # semester_visibility: bool = False,
-         semester_visibility: bool = True,
-         # num_nights_to_schedule: Optional[int] = 3,
-         num_nights_to_schedule: Optional[int] = None,
+         semester_visibility: bool = False,
+         # semester_visibility: bool = True,
+         num_nights_to_schedule: Optional[int] = 3,
+         # num_nights_to_schedule: Optional[int] = None,
          programs_ids: Optional[str] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
 

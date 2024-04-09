@@ -105,4 +105,3 @@ class StatCalculator:
         total_used = program.total_used()
         prog_total = StatCalculator.program_real_total_used(program)
         return f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'
-

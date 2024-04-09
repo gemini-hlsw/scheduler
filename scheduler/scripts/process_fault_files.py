@@ -24,7 +24,7 @@ def process_fault_file(input_file_path: Path, output_file_path: Path) -> None:
     # Define a regular expression pattern to match lines starting with "FR" and capture the relevant data.
     _pattern = r'FR (\d+)\s+(\d{4}) (\d{2}) (\d{2}) (\d{2}:\d{2}:\d{2}) (?:\d{2}:\d{2})\s+(\d+\.\d+)\s+(.+)'
 
-    _logger.info(f'+++ Beginning fault file processing +++')
+    _logger.info('+++ Beginning fault file processing +++')
     _logger.info(f'Input file: {input_file_path.relative_to(ROOT_DIR)}')
     try:
         with open(input_file_path, 'r') as input_file, open(output_file_path, 'w') as output_file:
@@ -60,7 +60,7 @@ def process_eng_task_file(input_file_path: Path, output_file_path: Path) -> None
     # Define a regular expression pattern to match lines starting with "FR" and capture the relevant data.
     _pattern = r'(\d{4}-\d{2}-\d{2})\s+(\d+:\d{2}|twi)\s+(\d+:\d{2}|twi)\s+(\[.*\])'
 
-    _logger.info(f'+++ Beginning engineering task file processing +++')
+    _logger.info('+++ Beginning engineering task file processing +++')
     _logger.info(f'Input file: {input_file_path.relative_to(ROOT_DIR)}')
 
     try:
@@ -73,8 +73,10 @@ def process_eng_task_file(input_file_path: Path, output_file_path: Path) -> None
                 if match:
                     entry_lines += 1
                     date, start_time, end_time, description = match.groups()
-                    if len(start_time) == 4: start_time = '0' + start_time
-                    if len(end_time) == 4: end_time = '0' + end_time
+                    if len(start_time) == 4:
+                        start_time = f'0{start_time}'
+                    if len(end_time) == 4:
+                        end_time = f'0{end_time}'
                     description = description.replace('\t', ' ')
                     formatted_line = f'{date}\t{start_time}\t{end_time}\t{description}\n'
                     output_file.write(formatted_line)
