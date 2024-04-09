@@ -79,6 +79,18 @@ def read_ocs_zipfile(zip_file: str | PathLike[str], program_ids: Optional[Frozen
                 logger.info(f'Skipping program {program_id} as it is not in the list.')
 
 
+def parse_preimaging(sequence: List[dict]) -> bool:
+
+    preimaging = False
+    try:
+        if sequence[0][OcsProgramProvider._AtomKeys.PREIMAGING].upper() == 'YES':
+            preimaging = True
+    except:
+        pass
+
+    return preimaging
+
+
 class OcsProgramProvider(ProgramProvider):
     """
     A ProgramProvider that parses programs from JSON extracted from the OCS
@@ -194,6 +206,7 @@ class OcsProgramProvider(ProgramProvider):
         FILTER = 'instrument:filter'
         DISPERSER = 'instrument:disperser'
         OBSERVE_TYPE = 'observe:observeType'
+        PREIMAGING = 'instrument:mosPreimaging'
 
     class _TimingWindowKeys:
         TIMING_WINDOWS = 'timingWindows'
@@ -964,6 +977,9 @@ class OcsProgramProvider(ProgramProvider):
             # for atom in atoms:
             #     print(f'\t\t\t {atom.id} {atom.exec_time} {atom.obs_mode} {atom.resources}')
 
+            # Check sequence for the pre-imaging flag
+            preimaging = parse_preimaging(data[OcsProgramProvider._ObsKeys.SEQUENCE])
+
             # TODO: Should this be a list of all targets for the observation?
             targets = []
 
@@ -1054,7 +1070,8 @@ class OcsProgramProvider(ProgramProvider):
                 sequence=atoms,
                 constraints=constraints,
                 belongs_to=program_id,
-                too_type=too_type
+                too_type=too_type,
+                preimaging=preimaging
             )
 
         except KeyError as ex:
