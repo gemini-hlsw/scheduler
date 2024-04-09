@@ -471,9 +471,6 @@ class Collector(SchedulerComponent):
         # Purge the old programs and observations.
         Collector._programs = {}
 
-        # Keep a list of the observations for future parallel processing.
-        parsed_observations: List[Tuple[ProgramID, Observation]] = []
-
         # Read in the programs.
         # Count the number of parse failures.
         bad_program_count = 0
@@ -499,13 +496,12 @@ class Collector(SchedulerComponent):
                 # TODO: as we know that the program is not from a semester in which we are interested.
                 # If program semester is not in the list of specified semesters, skip.
                 if program.semester is None or program.semester not in self.semesters:
-                    logger.warning(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                    logger.info(f'Program {program.id} has semester {program.semester} (not included, skipping).')
                     continue
 
-                # TODO: Check on this.
                 # If a program has no time awarded, then we will get a divide by zero in scoring, so skip it.
                 if program.program_awarded() == ZeroTime:
-                    logger.error(f'Program {program.id} has awarded time of zero (skipping).')
+                    logger.info(f'Program {program.id} has awarded time of zero (skipping).')
                     continue
 
                 # If a program ID is repeated, warn and overwrite.
@@ -518,8 +514,26 @@ class Collector(SchedulerComponent):
                 # Collector._observations_per_program[program.id] = frozenset(obs.id for obs in good_obs)
                 Collector._observations_per_program[program.id] = frozenset(obs.id for obs in program.observations())
 
-                # Store observations for future processing. This also requires their program.
-                parsed_observations.extend((program.id, obs) for obs in program.observations())
+                for obs in program.observations():
+                    if obs.site in self.sites:
+                        # Retrieve tne base target, if any. If not, we cannot process.
+                        base = obs.base_target()
+
+                        # Record the observation and target for this observation ID.
+                        Collector._observations[obs.id] = obs, base
+
+                        # This should never happen since we set an empty target for observations without a base.
+                        if base is None:
+                            raise RuntimeError(f'No base target found for observation {obs.id}.')
+
+                        # Compute the timing window expansion for the observation and then calculate the target
+                        # information, which performs the visibility calculations.
+                        tw = self._process_timing_windows(program, obs)
+                        ti = self._calculate_target_info(obs, base, tw)
+                        logger.info(f'Processed observation {obs.id}.')
+
+                        # Compute the TargetInfo.
+                        Collector._target_info[(base.name, obs.id)] = ti
 
             except Exception as e:
                 bad_program_count += 1
@@ -527,38 +541,6 @@ class Collector(SchedulerComponent):
 
         if bad_program_count:
             logger.error(f'Could not parse {bad_program_count} programs.')
-
-        # TODO STEP 1: This is the code that needs to be parallelized.
-        # TODO STEP 2: Write the values to the redis cache, and if they are cached, read them and skip the calculations.
-        for program_id, obs in parsed_observations:
-            # The observation must be scheduled in an included site and have a base defined for calculating:
-            # 1. timing windows
-            # 2. visibility calculations.
-            base: Optional[Target] = obs.base_target()
-
-            # TODO: May have to change this to a logger warning. I'm not sure that ToOs have a base defined at parsing.
-            if base is None:
-                raise RuntimeError(f'No base target found for observation {obs.id.id}.')
-
-            program = self.get_program(program_id)
-            if program is None:
-                raise RuntimeError(f'No program found for observation {obs.id.id} with program {program_id.id}.')
-
-            # Record the observation and target for this observation ID.
-            Collector._observations[obs.id] = obs, base
-
-            # Compute the timing window expansion for the observation and then calculate the target
-            # information, which performs the visibility calculations.
-            tw = self._process_timing_windows(program, obs)
-            ti = self._calculate_target_info(obs, base, tw)
-            logger.info(f'Processed observation {obs.id}.')
-
-            # Save the visibility calc computation.
-            # TODO: Must be careful to do this after parallelization, and should be stored in redis cache.
-            # TODO: To do this, we have to make sure we are calculating the full semester info and picking the
-            # TODO: correct date range based on the start date, or continuing the calculation backward if the
-            # TODO: start date on this run is before the start date on a previous run.
-            Collector._target_info[(base.name, obs.id)] = ti
 
     def night_configurations(self,
                              site: Site,
