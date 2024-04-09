@@ -494,7 +494,6 @@ class OcsProgramProvider(ProgramProvider):
         name, magnitudes, target_type = self._parse_target_header(data)
         des = data.get(OcsProgramProvider._TargetKeys.DES, name)
         tag = data[OcsProgramProvider._TargetKeys.TAG]
-        print(f'*** CREATING SIDEREAL TARGET FOR: {name}, {des}, {tag} ***')
 
         # TODO: ra and dec are last two parameters. Fill here or elsewhere?
         return NonsiderealTarget(
