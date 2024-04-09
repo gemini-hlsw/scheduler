@@ -523,7 +523,7 @@ class Collector(SchedulerComponent):
                 # TODO: 1. The branches that are OrGroups and are nonempty (i.e. have obs).
                 # TODO: 2. The branches that are AndGroups and are nonempty (i.e. all obs are from the same site).
                 # TODO: Applying this logic recursively should ensure only Groups that can be completed are included.
-                site_supported_obs = [obs for obs in program.observations() if obs.site in Collector.sites]
+                site_supported_obs = [obs for obs in program.observations() if obs.site in self.sites]
                 if site_supported_obs:
                     Collector._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
                     parsed_observations.extend((program.id, obs) for obs in site_supported_obs)
