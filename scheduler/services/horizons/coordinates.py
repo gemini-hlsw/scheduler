@@ -22,7 +22,8 @@ class Coordinates:
         delta_ra = other.ra - self.ra
         delta_dec = other.dec - self.dec
         a = sin(delta_dec / 2) ** 2 + cos(self.dec) * cos(other.dec) * sin(delta_ra / 2) ** 2
-        return 2 * arctan2(sqrt(a), sqrt(1 - a))
+        dist = 2 * arctan2(sqrt(a), sqrt(1 - a))
+        return dist
 
     def interpolate(self, other: 'Coordinates', ratio: float) -> 'Coordinates':
         """

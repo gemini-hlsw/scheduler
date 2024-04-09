@@ -2,10 +2,11 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from datetime import datetime
-from typing import Final
+from typing import Final, Tuple
 
 import numpy as np
 import pytest
+import hypothesis
 from hypothesis import given, note
 from hypothesis import strategies as st
 from hypothesis.strategies import composite
@@ -46,13 +47,14 @@ def coordinates(draw) -> Coordinates:
     # RA is in [0, 2pi) radians.
     ra = draw(st.floats(min_value=0, max_value=2 * np.pi, exclude_max=True))
 
-    # Dec is in [-pi / 2, pi / 2] radians.
-    dec = draw(st.floats(min_value=-np.pi/2, max_value=np.pi/2))
+    # Dec is in (-pi / 2, pi / 2) radians.
+    dec = draw(st.floats(min_value=-np.pi/2, exclude_min=True,
+                         max_value=np.pi/2, exclude_max=True))
     return Coordinates(ra, dec)
 
 
 @pytest.fixture
-def target():
+def target() -> NonsiderealTarget:
     return NonsiderealTarget(
         name=TargetName('Jupiter'),
         magnitudes=frozenset(),
@@ -64,7 +66,7 @@ def target():
 
 
 @pytest.fixture
-def session_parameters():
+def session_parameters() -> Tuple[Site, datetime, datetime, int]:
     return Site.GS, datetime(2019, 2, 1), datetime(2019, 2, 1, 23, 59, 59), 300
 
 
@@ -115,29 +117,44 @@ def test_interpolation_by_angular_distance_for_factor_one(c1, c2):
     assert abs(_to_signed_microarcseconds(delta)) <= 15
 
 
-# TODO: This test fails in a very small number of cases. The original test case in Scala
-# TODO: is marked as being flaky.
-# TODO: This seems to happen if the RAs or Decs are very close to pi radians in difference.
-# Example of failing value:
-# c1=Coordinates(ra=0.0, dec=1.5707963263853362)
-# c2=Coordinates(ra=0.0, dec=-1.5707963263853362)
-# max_delta=3.1415926535897922
+# This test fails in a very small number of cases. The original test case in Scala is marked as being flaky.
+# This seems to happen in the boundary case, i.e. the points are antipodal, which makes the distance is close to pi.
+# In this case, it is possible for Coordinates.angular_separation to take the "longer way" around.
+# Example of failing value in the past:
+# c1 = Coordinates(ra=0.0, dec=1.5707963263853362)
+# c2 = Coordinates(ra=0.0, dec=-1.5707963263853362)
+# which leads to:
+# max_delta = 3.1415926535897922
 @given(c1=coordinates(), c2=coordinates())
-@pytest.mark.skip(reason='Very small number of failures in limited cases as described above.')
+# @pytest.mark.skip('Can fail for points that are nearly antipodal and take the "long way" around the sphere.')
 def test_interpolation_by_fractional_angular_separation(c1, c2):
     """
     Interpolate should be consistent with fractional angular separation.
     """
+    hypothesis.settings(verbosity=hypothesis.Verbosity.verbose)
     threshold = 1e-3
 
     sep = c1.angular_distance(c2)
     deltas = []
 
-    for f in np.arange(-1.0, 2.0, 0.1):
-        step_sep = c1.interpolate(c2, f).angular_distance(c1)
-        frac_sep = sep * abs(f)
+    # Step above the end to get the full range of points from 0.0 to 1.0 by density.
+    density = 0.01
+
+    # slerp is spherical linear interpolation.
+    slerp_lower = 0.0  # Use -1.0 for extended slerp.
+    slerp_upper = 1.0  # Use  2.0 for extended slerp.
+    for ratio in np.arange(slerp_lower, slerp_upper + density, density):
+        # Calculate the expected angular separation based on the ratio.
+        # The abs is unnecessary if ratio never negative.
+        frac_sep = sep * abs(ratio)
+
+        # Interpolate and take the angular distance.
+        step_sep = c1.interpolate(c2, ratio).angular_distance(c1)
+
+        # Adjust for boundary cases as best as possible.
         frac_sep2 = frac_sep if frac_sep <= np.pi else 2 * np.pi - frac_sep
         deltas.append(abs(step_sep - frac_sep2))
+
     max_delta = max(deltas)
     note(f'Interpolate - angular separation fail: {c1}, {c2}.')
     assert max_delta < threshold
