@@ -296,10 +296,7 @@ class Collector(SchedulerComponent):
         """
         # Get the night events.
         if obs.site not in self.night_events:
-            keys = ', '.join(k.name for k in self.night_events.keys())
-            logger.error(f'Looking for key {obs.site} in {keys}')
-            logger.error('WTF?!?!')
-            print('HERE!!!')
+            raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
         night_events = self.night_events[obs.site]
 
         # Get the night configurations (for resources)
