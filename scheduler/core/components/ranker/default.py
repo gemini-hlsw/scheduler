@@ -29,8 +29,8 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
     # Note we need to use 0. or applying this function results in an array of int instead of float.
     return np.array([np.max(x)]) if 0 not in x else np.array([0.])
 
-
-_default_user_priority_factors: Dict[Priority, float] = {Priority.LOW: 1.0, Priority.MEDIUM: 1.25, Priority.HIGH: 1.5}
+# These are not used in the current implementation
+# _default_user_priority_factors: Dict[Priority, float] = {Priority.LOW: 1.0, Priority.MEDIUM: 1.25, Priority.HIGH: 1.5}
 
 
 @final
@@ -45,7 +45,10 @@ class RankerParameters:
     vis_power: float = 1.0
     wha_power: float = 1.0
     program_priority: float = 10.0
-    user_priority_factors: Dict[Priority, float] = field(default_factory=lambda: _default_user_priority_factors)
+    priority_factor: float = 8.0
+    preimaging_factor: float = 1.25
+    # user_priority_factors: Dict[Priority, float] = field(default_factory=lambda: _default_user_priority_factors)
+
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
@@ -238,9 +241,15 @@ class DefaultRanker(Ranker):
             wha[night_idx][kk[night_idx]] = 0.
         # print(f'   max wha: {np.max(wha[0]):.2f}  visfrac: {target_info[0].rem_visibility_frac:.5f}')
 
+        # MOS pre-imaging boost?
+        if obs.preimaging:
+            preimaging = self.params.preimaging_factor
+        else:
+            preimaging = 1.0
+
         # Effective user priority
-        # Normalized to 1, use factor in denominator to scale (make parameter?)
-        user_priority = 1. + (obs.priority.value - program.mean_priority())/8.
+        # Normalized to 1, use priority_factor to scale
+        user_priority = 1. + (obs.priority.value - program.mean_priority())/self.params.priority_factor
 
         # Program priority (from calendar)
         nc = self.collector.night_configurations(obs.site, np.arange(self.collector.num_nights_calculated))
@@ -250,7 +259,7 @@ class DefaultRanker(Ranker):
         # print(obs.unique_id, night_idx, prog_priority)
 
         # p = {night_idx: (metric[0] ** self.params.met_power) *
-        p = {night_idx: (user_priority * prog_priority[night_idx]) * (metric[0] ** self.params.met_power) *
+        p = {night_idx: (preimaging * user_priority * prog_priority[night_idx]) * (metric[0] ** self.params.met_power) *
                         (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
                         (wha[night_idx] ** self.params.wha_power)
              for night_idx in self.night_indices}
