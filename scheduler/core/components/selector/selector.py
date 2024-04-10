@@ -57,8 +57,7 @@ class Selector(SchedulerComponent):
     time_buffer: TimeBuffer
 
     # Store the current VariantSnapshot at each site.
-    # TODO: We will use wind dir and speed later, and perhaps also WV, at which point, change this to a Variant per
-    # TODO: Site, and modify Variant to not have arrays.
+    # TODO: We will use wind dir and speed later, and perhaps also WV.
     # These start off empty, but will reset at the beginning of each night by the event loop.
     _variant_snapshot_per_site: Dict[Site, VariantSnapshot] = field(init=False, default_factory=dict)
 
@@ -276,7 +275,6 @@ class Selector(SchedulerComponent):
             ranker=ranker,
             _program_scorer=self.score_program
         )
-        # at least one GroupInfo has schedulable slots.
 
     def score_program(self,
                       program: Program,

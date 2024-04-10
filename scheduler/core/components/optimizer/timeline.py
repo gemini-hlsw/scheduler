@@ -14,7 +14,7 @@ from scheduler.core.calculations.nightevents import NightEvents
 
 __all__ = [
     'Timeline',
-
+    'Timelines',
 ]
 
 

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import final, List, Optional, Tuple
 
 from lucupy.observatory.abstract import ObservatoryProperties
-from lucupy.minimodel import Observation, ObservationID, Resource, Site
+from lucupy.minimodel import Observation, ObservationID, Site
 from lucupy.timeutils import time2slots
 
 from .nightstats import NightStats

@@ -7,20 +7,20 @@ from astropy.time import Time
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 from lucupy.minimodel import SemesterHalf
-from lucupy.minimodel.site import ALL_SITES, Site
-from lucupy.minimodel import NightIndex, TimeslotIndex
+from lucupy.minimodel.site import ALL_SITES
+from lucupy.minimodel import NightIndex
 from lucupy.minimodel.semester import Semester
 from lucupy.minimodel import ProgramID
 
 from scheduler.core.builder.blueprint import CollectorBlueprint
 from scheduler.core.builder.validationbuilder import ValidationBuilder
-from scheduler.core.components.collector import *
+from scheduler.core.components.collector import Collector
 from scheduler.core.eventsqueue import EventQueue
 from scheduler.core.output import print_collector_info
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.resource import (CompositeFilter, OcsResourceService, ProgramPriorityFilter,
-                                         ProgramPermissionFilter, ResourcesAvailableFilter)
+                                         ProgramPermissionFilter, ResourcesAvailableFilter, ResourceService)
 
 # This is a demo or QA testing ground for the filter functionality.
 if __name__ == '__main__':
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     print_collector_info(collector)
 
     # Store the programs from the collector.
-    program_data = collector._programs # noqa
+    program_data = collector._programs  # noqa
 
     # Get the resource manager.
     resource_service = OcsResourceService()
@@ -91,13 +91,13 @@ if __name__ == '__main__':
             print(f'--- Program {pid} is rejected.')
 
     resources = frozenset({
-            resource_service.lookup_resource('Gemini South'),
-            resource_service.lookup_resource('GMOS-S'),
-            resource_service.lookup_resource('Mirror'),
-            resource_service.lookup_resource('B600'),
-            resource_service.lookup_resource('10005374'),
-            resource_service.lookup_resource('10000009')
-        })
+        ResourceService.lookup_resource('Gemini South'),
+        ResourceService.lookup_resource('GMOS-S'),
+        ResourceService.lookup_resource('Mirror'),
+        ResourceService.lookup_resource('B600'),
+        ResourceService.lookup_resource('10005374'),
+        ResourceService.lookup_resource('10000009')
+    })
     f_resources_available = ResourcesAvailableFilter(
         resources=resources
     )
@@ -124,7 +124,7 @@ if __name__ == '__main__':
 
     # Apply the filter.
     print(f'\n\nFILTERING ON PRIORITY FOR {priority_program_ids}:')
-    for pid, program in Collector._programs.items(): # noqa
+    for pid, program in Collector._programs.items():  # noqa
         if f_program_priority.program_priority_filter(program):
             print(f'+++ Program {pid} is high priority.')
         else:

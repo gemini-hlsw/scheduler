@@ -112,7 +112,7 @@ class DefaultRanker(Ranker):
     """
 
     def __init__(self,
-                 collector: 'Collector',
+                 collector,  # Creates a circular input if we typehint this.
                  night_indices: NightIndices,
                  sites: FrozenSet[Site] = ALL_SITES,
                  params: RankerParameters = RankerParameters(),
