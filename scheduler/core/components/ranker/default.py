@@ -47,6 +47,8 @@ class RankerParameters:
     program_priority: float = 10.0
     priority_factor: float = 8.0
     preimaging_factor: float = 1.25
+    altitude_limits: Dict = {Site.GS: {'min': 18.0*u.deg, 'max': 88.0*u.deg},
+                             Site.GN: {'min': 18.0*u.deg, 'max': 88.0*u.deg}}
     # user_priority_factors: Dict[Priority, float] = field(default_factory=lambda: _default_user_priority_factors)
 
 
