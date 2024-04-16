@@ -26,6 +26,7 @@ from scheduler.core.plans import Plans, Visit
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
+from scheduler.services.proper_motion import ProperMotionCalculator
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
 
@@ -118,12 +119,6 @@ class Collector(SchedulerComponent):
     # NOTE: This logs an ErfaWarning about dubious year. This is due to using a future date and not knowing
     # how many leap seconds have happened: https://github.com/astropy/astropy/issues/5809
     _MAX_NIGHT_EVENT_TIME: ClassVar[Time] = Time('2100-01-01 00:00:00', format='iso', scale='utc')
-
-    # The number of milliarcsecs in a degree, for proper motion calculation.
-    _MILLIARCSECS_PER_DEGREE: ClassVar[int] = 60 * 60 * 1000
-
-    # Used in calculating proper motion.
-    _EPOCH2TIME: ClassVar[Dict[float, Time]] = {}
 
     def __post_init__(self):
         """
@@ -265,19 +260,6 @@ class Collector(SchedulerComponent):
 
         return windows
 
-    @staticmethod
-    def _calculate_proper_motion(target: SiderealTarget, target_time: Time) -> SkyCoord:
-        """
-        Calculate the proper motion of a target.
-        """
-        pm_ra = target.pm_ra / Collector._MILLIARCSECS_PER_DEGREE
-        pm_dec = target.pm_dec / Collector._MILLIARCSECS_PER_DEGREE
-        epoch_time = Collector._EPOCH2TIME.setdefault(target.epoch, Time(target.epoch, format='jyear'))
-        time_offsets = target_time - epoch_time
-        new_ra = (target.ra + pm_ra * time_offsets.to(u.yr).value) * u.deg
-        new_dec = (target.dec + pm_dec * time_offsets.to(u.yr).value) * u.deg
-        return SkyCoord(new_ra, new_dec, frame='icrs', unit='deg')
-
     def _calculate_target_info(self,
                                obs: Observation,
                                target: Target,
@@ -327,7 +309,11 @@ class Collector(SchedulerComponent):
                 # NOTE: GPP should provide this info if possible
                 # TODO: It seems that the pm correction should be done earlier, equivalent to when
                 #  the nonsidereal coordinates are determined (Bryan)
-                coord = Collector._calculate_proper_motion(target, self.time_grid[night_idx])
+                num_time_slots = self.night_events[obs.site].num_timeslots_per_night[night_idx]
+                coord = ProperMotionCalculator().calculate_positions(target,
+                                                                     self.time_grid[night_idx],
+                                                                     num_time_slots,
+                                                                     self.time_slot_length)
             elif isinstance(target, NonsiderealTarget):
                 coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
 
