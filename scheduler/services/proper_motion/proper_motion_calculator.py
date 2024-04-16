@@ -30,7 +30,7 @@ class ProperMotionCalculator(metaclass=Singleton):
                             target: SiderealTarget,
                             start_time: Time,
                             num_time_slots: int,
-                            time_slot_length: Optional[TimeDelta] = None) -> [SkyCoord]:
+                            time_slot_length: Optional[TimeDelta] = None) -> SkyCoord:
         if time_slot_length is None:
             time_slot_length = ProperMotionCalculator._DEFAULT_TIMESLOT_LENGTH
 
@@ -38,16 +38,15 @@ class ProperMotionCalculator(metaclass=Singleton):
         pm_dec = target.pm_dec / ProperMotionCalculator._MAS_PER_DEGREE
         epoch_time = ProperMotionCalculator._EPOCH2TIME.setdefault(target.epoch, Time(target.epoch, format='jyear'))
 
-        ras = np.zeros(num_time_slots) * u.deg
-        decs = np.zeros(num_time_slots) * u.deg
+        # Create an array of times at once
+        times = start_time + time_slot_length * np.arange(num_time_slots)
 
-        for slot in range(num_time_slots):
-            # Calculate each time incrementally
-            current_time = start_time + time_slot_length * slot
-            time_offsets = current_time - epoch_time
-            # Calculate new RA and Dec
-            ras[slot] = (target.ra + pm_ra * time_offsets.to(u.yr).value) * u.deg
-            decs[slot] = (target.dec + pm_dec * time_offsets.to(u.yr).value) * u.deg
+        # Calculate the time offsets for all times at once
+        time_offsets_years = (times - epoch_time).to(u.yr).value
 
-            # Return a single SkyCoord object with all positions
-        return SkyCoord(ra=ras, dec=decs, frame='icrs')
+        # Calculate new RA and Dec using NumPy broadcasting
+        ras = target.ra + pm_ra * time_offsets_years
+        decs = target.dec + pm_dec * time_offsets_years
+
+        # Return a single SkyCoord object with all positions
+        return SkyCoord(ra=ras * u.deg, dec=decs * u.deg, frame='icrs')
