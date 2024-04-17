@@ -771,7 +771,7 @@ class OcsProgramProvider(ProgramProvider):
             # Special cases
             if p_lag == 0 and q_lag == 0 and len(sky_q_offsets) == 4:
                 # single ABBA pattern, which the auto-correlation won't find
-                if sky_q_offsets[0] == sky_q_offsets[3] and sky_q_offsets == sky_q_offsets[2]:
+                if sky_q_offsets[0] == sky_q_offsets[3] and sky_q_offsets[1] == sky_q_offsets[2]:
                     q_lag = 4
             elif len(sky_q_offsets) == 2:
                 # If only two steps, put them together, might be AB, also silly to split only two steps
