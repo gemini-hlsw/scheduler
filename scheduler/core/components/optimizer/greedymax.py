@@ -718,7 +718,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             plt.title(label)
         plt.show()
 
-    def plot_timelines(self, night_idx: NightIndex = 0, alt=False) -> None:
+    def plot_timelines(self, night_idx: NightIndex = 0, alt: bool = False) -> None:
         """Airmass and Score vs time/slot plot of the timelines for a night"""
 
         for site in self.sites:
