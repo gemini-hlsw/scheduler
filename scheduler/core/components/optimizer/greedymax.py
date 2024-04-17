@@ -718,7 +718,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             plt.title(label)
         plt.show()
 
-    def plot_timelines(self, night_idx: NightIndex = 0) -> None:
+    def plot_timelines(self, night_idx: NightIndex = 0, alt: bool = False) -> None:
         """Airmass and Score vs time/slot plot of the timelines for a night"""
 
         for site in self.sites:
@@ -732,24 +732,31 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     program_id = obs_id.program_id()
                     scores = self.selection.program_info[program_id].group_data_map[unique_group_id]. \
                         group_info.scores[night_idx]
-
-                    airmass = self.selection.program_info[program_id].target_info[obs_id][night_idx].airmass
-                    x = np.array([i for i in range(len(airmass))], dtype=int)
-                    p = ax1.plot(x, airmass)
+                    if alt:
+                        y = self.selection.program_info[program_id].target_info[obs_id][night_idx].alt.degree
+                    else:
+                        y = self.selection.program_info[program_id].target_info[obs_id][night_idx].airmass
+                    x = np.array([i for i in range(len(y))], dtype=int)
+                    p = ax1.plot(x, y)
                     ax2.plot(x, np.log10(scores))
 
                     colour = p[-1].get_color()
-                    ax1.plot(x[istart:iend + 1], airmass[istart:iend + 1], linewidth=4, color=colour,
+                    ax1.plot(x[istart:iend + 1], y[istart:iend + 1], linewidth=4, color=colour,
                              label=obs_id.id)
                     ax2.plot(x[istart:iend + 1], np.log10(scores[istart:iend + 1]), linewidth=4, color=colour,
                              label=obs_id.id)
 
             # ax1.plot(self.timelines[night][site].time_slots)
             # ax1.axhline(0.0, xmax=1.0, color='black')
-            ax1.axhline(2.0, xmax=1.0, color='black')
-            ax1.set_ylim(2.5, 0.95)
+            if alt:
+                ax1.axhline(30.0, xmax=1.0, color='black')
+                ax1.set_ylim(15, 95)
+                ax1.set_ylabel('Altitude [deg]')
+            else:
+                ax1.axhline(2.0, xmax=1.0, color='black')
+                ax1.set_ylim(2.5, 0.95)
+                ax1.set_ylabel('Airmass')
             ax1.set_xlabel('Time Slot')
-            ax1.set_ylabel('Airmass')
             ax1.set_title(f"Night {night_idx + 1}: {site.name}")
             ax1.legend()
 

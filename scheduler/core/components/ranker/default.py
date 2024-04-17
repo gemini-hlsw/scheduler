@@ -6,10 +6,11 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, FrozenSet, Mapping, Tuple, final
 
 import astropy.units as u
+from astropy.coordinates import Angle
 import numpy as np
 import numpy.typing as npt
 from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndices, Observation, Program, Site, OrGroup, Priority
-from lucupy.types import ListOrNDArray
+from lucupy.types import ListOrNDArray, MinMax
 
 from scheduler.core.calculations import Scores, GroupDataMap
 from .base import Ranker
@@ -29,6 +30,14 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
     # Note we need to use 0. or applying this function results in an array of int instead of float.
     return np.array([np.max(x)]) if 0 not in x else np.array([0.])
 
+
+# Default telescope altitude limits
+# _def_alt_limits_site: Dict[Site, Dict[MinMax, Angle]] = {
+#     Site.GS: {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)},
+#     Site.GN: {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)}
+# }
+_def_alt_limits: Dict[MinMax, Angle] = {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)}
+
 # These are not used in the current implementation
 # _default_user_priority_factors: Dict[Priority, float] = {Priority.LOW: 1.0, Priority.MEDIUM: 1.25, Priority.HIGH: 1.5}
 
@@ -47,8 +56,12 @@ class RankerParameters:
     program_priority: float = 10.0
     priority_factor: float = 8.0
     preimaging_factor: float = 1.25
-    # user_priority_factors: Dict[Priority, float] = field(default_factory=lambda: _default_user_priority_factors)
+    # altitude_limits: Dict[Site, Dict[MinMax, Angle]] = field(default_factory=lambda: _def_alt_limits_site)
+    gs_altitude_limits: Dict[MinMax, Angle] = field(default_factory=lambda: _def_alt_limits)
+    gn_altitude_limits: Dict[MinMax, Angle] = field(default_factory=lambda: _def_alt_limits)
+    altitude_limits: Dict[Site, Dict[MinMax, Angle]] = field(init={})
 
+    # user_priority_factors: Dict[Priority, float] = field(default_factory=lambda: _default_user_priority_factors)
 
     # Weighted to slightly positive HA.
     dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
@@ -60,6 +73,13 @@ class RankerParameters:
     def __post_init__(self):
         self.score_combiner = _default_score_combiner
 
+        self.altitude_limits = {Site.GS: self.gs_altitude_limits, Site.GN: self.gn_altitude_limits}
+
+        for site in ALL_SITES:
+            if self.altitude_limits[site][MinMax.MIN] < Angle(18.0*u.deg):
+                raise ValueError(f'The minimum altitude limit for {site.name} must be at least 18 degrees.')
+            if self.altitude_limits[site][MinMax.MAX] > Angle(90.0*u.deg):
+                raise ValueError(f'The maximum altitude limit for {site.name} must be 90 degrees or less.')
 
 @final
 @dataclass(frozen=True)
@@ -241,6 +261,15 @@ class DefaultRanker(Ranker):
             wha[night_idx][kk[night_idx]] = 0.
         # print(f'   max wha: {np.max(wha[0]):.2f}  visfrac: {target_info[0].rem_visibility_frac:.5f}')
 
+        # Telescope altitude restrictions - set score to 0 if the altitude is outside the limits
+        targ_alt = {night_idx: target_info[night_idx].alt for night_idx in self.night_indices}
+        alt_include = {night_idx: np.ones(len(targ_alt[night_idx])) for night_idx in self.night_indices}
+        jj = {night_idx: np.where(np.logical_or(targ_alt[night_idx] < self.params.altitude_limits[obs.site][MinMax.MIN],
+                                                 targ_alt[night_idx] > self.params.altitude_limits[obs.site][MinMax.MAX]))[0]
+              for night_idx in self.night_indices}
+        for night_idx in self.night_indices:
+            alt_include[night_idx][jj[night_idx]] = 0.0
+
         # MOS pre-imaging boost?
         if obs.preimaging:
             preimaging = self.params.preimaging_factor
@@ -261,7 +290,7 @@ class DefaultRanker(Ranker):
         # p = {night_idx: (metric[0] ** self.params.met_power) *
         p = {night_idx: (preimaging * user_priority * prog_priority[night_idx]) * (metric[0] ** self.params.met_power) *
                         (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
-                        (wha[night_idx] ** self.params.wha_power)
+                        (wha[night_idx] ** self.params.wha_power) * alt_include[night_idx]
              for night_idx in self.night_indices}
 
         # Assign scores in p to all indices where visibility constraints are met.
