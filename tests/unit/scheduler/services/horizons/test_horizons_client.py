@@ -60,9 +60,7 @@ def target() -> NonsiderealTarget:
         magnitudes=frozenset(),
         type=TargetType.BASE,
         tag=TargetTag.MAJOR_BODY,
-        des='jupiter',
-        ra=np.array([]),
-        dec=np.array([]))
+        des='jupiter')
 
 
 @pytest.fixture
