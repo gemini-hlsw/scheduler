@@ -48,7 +48,8 @@ class HorizonsClient:
     end: datetime
     airmass: float
 
-    date_format: str = field(default='%Y%m%d_%H%M')
+    # We look up across the whole night, so the labels are simply night labels.
+    date_format: str = field(default='%Y%m%d')
     path: Path = field(default=Path(ROOT_DIR) / 'scheduler' / 'services' / 'horizons' / 'data')
     url: str = field(default='https://ssd.jpl.nasa.gov/horizons_batch.cgi')
 
@@ -123,9 +124,8 @@ class HorizonsClient:
             case _: raise ValueError(f'Unknown tag {target.tag.name}')
 
         horizons_name = horizons_name.replace(' ', '_')
-        start_str = self.start.strftime(self.date_format)
-        end_str = self.end.strftime(self.date_format)
-        ephemeris_path = self.path / f'{self.site.name}_{horizons_name}_{start_str}-{end_str}.eph'
+        night_str = self.start.strftime(self.date_format)
+        ephemeris_path = self.path / f'{self.site.name}_{horizons_name}_{night_str}.eph'
 
         if not overwrite and ephemeris_path.exists() and ephemeris_path.is_file():
             logger.info(f'Reading ephemerides file for {target.des}')

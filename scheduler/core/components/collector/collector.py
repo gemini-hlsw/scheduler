@@ -336,8 +336,6 @@ class Collector(SchedulerComponent):
 
             # Determine time slot indices where the sky brightness and elevation constraints are met.
             # By default, in the case where an observation has no constraints, we use SB ANY.
-            # TODO: moon_dist here is a List[float], when calculate_sky_brightness expects a Distance.
-            # TODO: code still works, bt we should be very careful here.
             if obs.constraints and obs.constraints.conditions.sb < SkyBackground.SBANY:
                 targ_sb = obs.constraints.conditions.sb
                 targ_moon_ang = coord.separation(night_events.moon_pos[night_idx])

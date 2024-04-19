@@ -38,10 +38,15 @@ class NightEvents:
     time_slot_length: TimeDelta
     site: Site
     midnight: Time
+
+    # TODO: sunset and sunrise are not currently being populated.
     sunset: Time
     sunrise: Time
+
     twilight_evening_12: Time
     twilight_morning_12: Time
+
+    # TODO: moonrise and moonset are not currently being populated.
     moonrise: Time
     moonset: Time
 
