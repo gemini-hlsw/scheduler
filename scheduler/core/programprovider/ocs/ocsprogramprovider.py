@@ -508,15 +508,13 @@ class OcsProgramProvider(ProgramProvider):
         des = data.get(OcsProgramProvider._TargetKeys.DES, name)
         tag = data[OcsProgramProvider._TargetKeys.TAG]
 
-        # TODO: ra and dec are last two parameters. Fill here or elsewhere?
+        # RA and dec will be looked up when determining target info in Collector.
         return NonsiderealTarget(
             name=name,
             magnitudes=frozenset(magnitudes),
             type=target_type,
             des=des,
-            tag=tag,
-            ra=np.empty([]),
-            dec=np.empty([]))
+            tag=tag)
 
     @staticmethod
     def _parse_instrument(data: dict) -> str:
