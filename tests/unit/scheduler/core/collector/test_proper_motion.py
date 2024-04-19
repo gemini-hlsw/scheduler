@@ -5,7 +5,7 @@ import pytest
 from astropy.time import Time
 from lucupy.minimodel import SiderealTarget, TargetName, TargetType
 
-from scheduler.core.components.collector import Collector
+from scheduler.services.proper_motion import ProperMotionCalculator
 
 
 @pytest.fixture
@@ -29,6 +29,6 @@ def test_proper_motion(target, time):
     """
     Test that the sun location is at the equator at J2000.
     """
-    coord = Collector._calculate_proper_motion(target, time)
-    assert abs(coord.ra.deg - 78.85740081) < 1e-5
-    assert abs(coord.dec.deg - 15.63008372) < 1e-5
+    coord = ProperMotionCalculator().calculate_positions(target, time, 10)
+    assert abs(coord.ra.deg[0] - 78.85740081) < 1e-5
+    assert abs(coord.dec.deg[0] - 15.63008372) < 1e-5
