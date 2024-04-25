@@ -31,8 +31,8 @@ _logger = logger_factory.create_logger(__name__)
 
 def main(*,
          verbose: bool = False,
-         start: Optional[Time] = Time("2018-10-01 08:00:00", format='iso', scale='utc'),
-         end: Optional[Time] = Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+         start: Optional[Time] = Time("2018-08-01 08:00:00", format='iso', scale='utc'),
+         end: Optional[Time] = Time("2018-08-03 08:00:00", format='iso', scale='utc'),
          sites: FrozenSet[Site] = ALL_SITES,
          ranker_parameters: RankerParameters = RankerParameters(),
          # semester_visibility: bool = False,
