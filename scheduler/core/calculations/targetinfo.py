@@ -17,7 +17,32 @@ __all__ = [
     'TargetInfo',
     'TargetInfoMap',
     'TargetInfoNightIndexMap',
+    'VisibilitySnapshot',
 ]
+
+
+@final
+@immutable
+@dataclass(frozen=True)
+class VisibilitySnapshot:
+    visibility_slot_idx: npt.NDArray[int]
+    visibility_time: TimeDelta
+
+    @staticmethod
+    def from_dict(ti_dict: Dict) -> 'VisibilitySnapshot':
+        return VisibilitySnapshot(visibility_slot_idx=np.array(ti_dict['visibility_slot_idx']),
+                                  visibility_time=TimeDelta(ti_dict['visibility_time']['value'],
+                                                            format=ti_dict['visibility_time']['format']),
+                                 )
+
+    def to_dict(self) -> Dict:
+        return {
+            'visibility_slot_idx': self.visibility_slot_idx.tolist(),
+            'visibility_time': {
+                'value': self.visibility_time.sec,
+                'format': self.visibility_time.format
+            }
+        }
 
 
 @final
@@ -49,79 +74,9 @@ class TargetInfo:
     rem_visibility_time is the remaining visibility time for the target for the observation across
     the rest of the time period.
     """
-    coord: SkyCoord
-    alt: Angle
-    az: Angle
-    par_ang: Angle
-    hourangle: Angle
-    airmass: npt.NDArray[float]
-    sky_brightness: npt.NDArray[SkyBackground]
     visibility_slot_idx: npt.NDArray[int]
-    visibility_slot_filter: npt.NDArray[int]
-    visibility_time: TimeDelta
     rem_visibility_time: TimeDelta
     rem_visibility_frac: float
-
-    def mean_airmass(self, interval: npt.NDArray[int]):
-        return np.mean(self.airmass[interval])
-
-    @staticmethod
-    def from_dict(ti_dict: Dict) -> 'TargetInfo':
-        return TargetInfo(coord=SkyCoord(ra=np.array(ti_dict['coord']['ra']) * u.deg,
-                                         dec=np.array(ti_dict['coord']['dec']) * u.deg,
-                                         frame=ti_dict['coord']['frame']),
-                          alt=Angle(np.array(ti_dict['alt']['value']), unit=ti_dict['alt']['unit']),
-                          az=Angle(np.array(ti_dict['az']['value']), unit=ti_dict['az']['unit']),
-                          par_ang=Angle(np.array(ti_dict['par_ang']['value']), unit=ti_dict['par_ang']['unit']),
-                          hourangle=Angle(np.array(ti_dict['hourangle']['value']), unit=ti_dict['hourangle']['unit']),
-                          airmass=np.array(ti_dict['airmass']),
-                          sky_brightness=np.array(ti_dict['sky_brightness']),
-                          visibility_slot_idx=np.array(ti_dict['visibility_slot_idx']),
-                          visibility_slot_filter=np.array(ti_dict['visibility_slot_filter']),
-                          visibility_time=TimeDelta(ti_dict['visibility_time']['value'],
-                                                    format=ti_dict['visibility_time']['format']),
-                          rem_visibility_time=TimeDelta(ti_dict['rem_visibility_time']['value'],
-                                                        format=ti_dict['rem_visibility_time']['format']),
-                          rem_visibility_frac=ti_dict['rem_visibility_frac']
-                          )
-
-    def to_dict(self) -> Dict:
-        return {
-            'coord': {
-                'ra': self.coord.ra.deg.tolist(),
-                'dec': self.coord.dec.deg.tolist(),
-                'frame': self.coord.frame.name
-            },
-            'alt': {
-                'value': self.alt.value.tolist(),
-                'unit': str(self.alt.unit)
-            },
-            'az': {
-                'value': self.az.value.tolist(),
-                'unit': str(self.az.unit)
-            },
-            'par_ang': {
-                'value': self.par_ang.value.tolist(),
-                'unit': str(self.par_ang.unit)
-            },
-            'hourangle': {
-                'value': self.hourangle.value.tolist(),
-                'unit': str(self.hourangle.unit)
-            },
-            'airmass': self.airmass.tolist(),
-            'sky_brightness': self.sky_brightness.tolist(),
-            'visibility_slot_idx': self.visibility_slot_idx.tolist(),
-            'visibility_slot_filter': self.visibility_slot_filter.tolist(),
-            'visibility_time': {
-                'value': self.visibility_time.sec,
-                'format': self.visibility_time.format
-            },
-            'rem_visibility_time': {
-                'value': self.rem_visibility_time.sec,
-                'format': self.rem_visibility_time.format
-            },
-            'rem_visibility_frac': self.rem_visibility_frac,
-        }
 
 
 # Type aliases for TargetInfo information.

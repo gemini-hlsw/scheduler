@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-import logging
+from pympler import asizeof
+import sys
 import time
 import json
 from dataclasses import dataclass
@@ -20,7 +21,7 @@ from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
 
 from scheduler.core.calculations.nightevents import NightEvents
-from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
+from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap, VisibilitySnapshot
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.plans import Plans, Visit
@@ -298,7 +299,6 @@ class Collector(SchedulerComponent):
         rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
 
         target_info: TargetInfoNightIndexMap = {}
-
         for ridx, jday in enumerate(reversed(self.time_grid)):
             # Convert to the actual time grid index.
             night_idx = NightIndex(len(self.time_grid) - ridx - 1)
@@ -309,8 +309,8 @@ class Collector(SchedulerComponent):
             exists = redis_client.exists(key)
             if exists:
                 logger.info(f'Retrieving from Redis key {key}')
-                serialized_ti = json.loads(redis_client.get(key))
-                ti = TargetInfo.from_dict(serialized_ti)
+                serialized_vis = json.loads(redis_client.get(key))
+                visibility_snapshot = VisibilitySnapshot.from_dict(serialized_vis)
             else:
                 # Calculate the ra and dec for each target.
                 # In case we decide to go with numpy arrays instead of SkyCoord,
@@ -342,9 +342,6 @@ class Collector(SchedulerComponent):
                 alt, az, par_ang = sky.Altitude.above(coord.dec, hourangle, obs.site.location.lat)
                 airmass = sky.true_airmass(alt)
 
-                # Calculate the time slots for the night in which there is visibility.
-                visibility_slot_idx = np.array([], dtype=int)
-
                 # Determine time slot indices where the sky brightness and elevation constraints are met.
                 # By default, in the case where an observation has no constraints, we use SB ANY.
                 # TODO: moon_dist here is a List[float], when calculate_sky_brightness expects a Distance.
@@ -375,6 +372,9 @@ class Collector(SchedulerComponent):
                     targ_prop = airmass
                     elev_min = Constraints.DEFAULT_AIRMASS_ELEVATION_MIN
                     elev_max = Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
+
+                # Calculate the time slots for the night in which there is visibility.
+                visibility_slot_idx = np.array([], dtype=int)
 
                 # Are all the required resources available?
                 # This works for validation mode. In RT mode, this may need to be statistical if resources are not known
@@ -422,31 +422,24 @@ class Collector(SchedulerComponent):
                 # the remaining visibility fraction.
                 # If the denominator for the visibility fraction is 0, use a value of 0.
                 visibility_time = len(visibility_slot_idx) * self.time_slot_length
-                rem_visibility_time += visibility_time
-                if rem_visibility_time.value:
-                    # This is a fraction, so convert to seconds to cancel the units out.
-                    rem_visibility_frac = (rem_visibility_frac_numerator.total_seconds() /
-                                           rem_visibility_time.to_value(u.s))
-                else:
-                    rem_visibility_frac = 0.0
 
-                ti = TargetInfo(coord=coord,
-                                alt=alt,
-                                az=az,
-                                par_ang=par_ang,
-                                hourangle=hourangle,
-                                airmass=airmass,
-                                sky_brightness=sb,
-                                visibility_slot_idx=visibility_slot_idx,
-                                visibility_slot_filter=visibility_slot_filter,
-                                visibility_time=visibility_time,
-                                rem_visibility_time=rem_visibility_time,
-                                rem_visibility_frac=rem_visibility_frac
-                                )
-                # Save TargetInfo to cache
+                visibility_snapshot = VisibilitySnapshot(visibility_slot_idx=visibility_slot_idx,
+                                                         visibility_time=visibility_time)
+                serialized_vis = json.dumps(visibility_snapshot.to_dict())
                 logger.info(f'Saving new vis calc to Redis')
-                serialized_ti = json.dumps(ti.to_dict())
-                redis_client.set(key, serialized_ti)
+                redis_client.set(key, serialized_vis)
+
+            rem_visibility_time += visibility_snapshot.visibility_time
+            if rem_visibility_time.value:
+                # This is a fraction, so convert to seconds to cancel the units out.
+                rem_visibility_frac = (rem_visibility_frac_numerator.total_seconds() /
+                                       rem_visibility_time.to_value(u.s))
+            else:
+                rem_visibility_frac = 0.0
+
+            ti = TargetInfo(visibility_slot_idx=visibility_snapshot.visibility_slot_idx,
+                            rem_visibility_time=rem_visibility_time,
+                            rem_visibility_frac=rem_visibility_frac)
 
             target_info[NightIndex(night_idx)] = ti
 
@@ -539,6 +532,7 @@ class Collector(SchedulerComponent):
 
         # TODO STEP 1: This is the code that needs parallelization.
         # TODO STEP 2: Try to read the values from the redis cache. If they do not exist, calculate and write.
+        print(f'Num of observations: {len(parsed_observations)}')
         for program_id, obs in parsed_observations:
             # Check for a base target in the observation: if there is none, we cannot process.
             # For ToOs, this may be the case.
