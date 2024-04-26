@@ -46,7 +46,6 @@ class HorizonsClient:
     site: Site
     start: datetime
     end: datetime
-    airmass: float
 
     # We look up across the whole night, so the labels are simply night labels.
     date_format: str = field(default='%Y%m%d')
@@ -100,7 +99,7 @@ class HorizonsClient:
             'ELEV_CUT': '-90',
             'SKIP_DAYLT': skip_day,
             'SOLAR_ELONG': "'0,180'",
-            'AIRMASS': self.airmass,
+            'AIRMASS': 100,
             'LHA_CUTOFF': None,
             'EXTRA_PREC': 'YES',
             'CSV_FORMAT': csv_format,
@@ -117,11 +116,14 @@ class HorizonsClient:
     def get_ephemerides(self,
                         target: NonsiderealTarget,
                         overwrite: bool = False) -> EphemerisCoordinates:
+        # TODO: Right now, the target.tag has values "sidereal" or "nonsidereal" and thus fails.
+        # TODO: ODB extractor must be mofidief.
         match target.tag:
             case TargetTag.COMET: horizons_name = f'DES={target.des};CAP'
             case TargetTag.ASTEROID: horizons_name = f'DES={target.des};'
             case TargetTag.MAJOR_BODY: horizons_name = self.generate_horizons_id(target.des)
-            case _: raise ValueError(f'Unknown tag {target.tag.name}')
+            # case _: raise ValueError(f'Unknown tag {target.tag}')
+            case _: horizons_name = f'DES={target.des};'
 
         horizons_name = horizons_name.replace(' ', '_')
         night_str = self.start.strftime(self.date_format)
@@ -167,8 +169,8 @@ class HorizonsClient:
 
 
 @contextlib.contextmanager
-def horizons_session(site: Site, start: datetime, end: datetime, airmass: float) -> ContextManager[HorizonsClient]:
-    client = HorizonsClient(site=site, start=start, end=end, airmass=airmass)
+def horizons_session(site: Site, start: datetime, end: datetime) -> ContextManager[HorizonsClient]:
+    client = HorizonsClient(site=site, start=start, end=end)
     try:
         yield client
     finally:

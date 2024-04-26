@@ -26,6 +26,7 @@ from scheduler.core.plans import Plans, Visit
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
+from scheduler.services.ephemeris import EphemerisCalculator
 from scheduler.services.proper_motion import ProperMotionCalculator
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
@@ -302,28 +303,48 @@ class Collector(SchedulerComponent):
             night_idx = NightIndex(len(self.time_grid) - ridx - 1)
 
             # Calculate the ra and dec for each target.
-            # In case we decide to go with numpy arrays instead of SkyCoord,
-            # this information is already stored in decimal degrees at this point.
-            if isinstance(target, SiderealTarget):
-                # Take proper motion into account over the time slots.
-                # NOTE: GPP should provide this info if possible
-                # TODO: It seems that the pm correction should be done earlier, equivalent to when
-                #  the nonsidereal coordinates are determined (Bryan)
-                num_time_slots = self.night_events[obs.site].num_timeslots_per_night[night_idx]
-                coord = ProperMotionCalculator().calculate_positions(target,
-                                                                     self.time_grid[night_idx],
-                                                                     num_time_slots,
-                                                                     self.time_slot_length)
-            elif isinstance(target, NonsiderealTarget):
-                coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
+            # NOTE: If we get rid of AstroPy at some point, we must take care to handle coordinates.
+            # NOTE: ProperMotionCalculator works in degrees.
+            # NOTE: EphemerisCalculator works in radians.
+            # NOTE: GPP should provide this info if possible
+            num_time_slots = self.night_events[obs.site].num_timeslots_per_night[night_idx]
 
-            else:
-                msg = f'Invalid target: {target}'
-                raise ValueError(msg)
+            match target:
+                case SiderealTarget() as sidereal_target:
+                    coord = ProperMotionCalculator().calculate_coordinates(sidereal_target,
+                                                                           self.time_grid[night_idx],
+                                                                           num_time_slots,
+                                                                           self.time_slot_length)
+
+                case NonsiderealTarget() as nonsidereal_target:
+                    # We want to query from sunset to sunrise and then get the subset of time slots
+                    # that is relevant to the night.
+                    sunset = night_events.sunset[night_idx]
+                    sunrise = night_events.sunrise[night_idx]
+                    eph_coord = EphemerisCalculator().calculate_coordinates(obs.site,
+                                                                            nonsidereal_target,
+                                                                            sunset,
+                                                                            sunrise)
+
+                    # Now trim the coords to the desired subset.
+                    time_slot_length = int(self.time_slot_length.total_seconds() / 60)
+                    sunset_to_twi = night_events.twilight_evening_12[night_idx] - sunset
+                    start_time_slot = time2slots(self.time_slot_length.to_datetime(), sunset_to_twi.to_datetime())
+                    end_time_slot = start_time_slot + num_time_slots
+
+                    # We must take every x minutes where x is the time slot length in minutes.
+                    coord = eph_coord[start_time_slot:end_time_slot:time_slot_length]
+                    print(coord)
+
+                case _:
+                    raise ValueError(f'Invalid target: {target}')
+
+            if len(coord) != num_time_slots:
+                logger.error(f'Observation {obs.id.id} target {target.name} does not have required number of '
+                             f'coordinates: expected {num_time_slots} but got {len(coord)}')
 
             # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
             lst = night_events.local_sidereal_times[night_idx]
-            # TODO: Remove debugging
             # print(f'Night idx: {night_idx}, num time slots: {lst.size}')
 
             hourangle = lst - coord.ra

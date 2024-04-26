@@ -29,6 +29,6 @@ def test_proper_motion(target, time):
     """
     Test that the sun location is at the equator at J2000.
     """
-    coord = ProperMotionCalculator().calculate_positions(target, time, 10)
+    coord = ProperMotionCalculator().calculate_coordinates(target, time, 10)
     assert abs(coord.ra.deg[0] - 78.85740081) < 1e-5
     assert abs(coord.dec.deg[0] - 15.63008372) < 1e-5

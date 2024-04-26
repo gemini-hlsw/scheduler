@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from typing import final
-from zoneinfo import ZoneInfo
 
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
@@ -31,12 +30,11 @@ class EphemerisCalculator(metaclass=Singleton):
     """
     _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(60.0 * u.second)
 
-    def calculate_positions(self,
-                            site: Site,
-                            target: NonsiderealTarget,
-                            airmass: float,
-                            start_lookup_time: Time,
-                            end_lookup_time: Time) -> SkyCoord:
+    def calculate_coordinates(self,
+                              site: Site,
+                              target: NonsiderealTarget,
+                              start_lookup_time: Time,
+                              end_lookup_time: Time) -> SkyCoord:
         """
         Perform a lookup for the ephemeris data for a given nonsidereal target at a given site with a specific airmass.
         The lookup is done from the start_lookup_time to the end_lookup_time inclusive at one minute intervals.
@@ -46,25 +44,23 @@ class EphemerisCalculator(metaclass=Singleton):
         # TODO: We need them to be UTC for the Horizons client to work.
         # TODO: Then we want to make them local for actual computation?
         if start_lookup_time.isscalar:
-            start_lookup_time = start_lookup_time.value
+            start_lookup_time_py = start_lookup_time.to_datetime()
         elif start_lookup_time.value.size == 1:
-            start_lookup_time = start_lookup_time.value[0]
+            start_lookup_time_py = start_lookup_time[0].to_datetime()
         else:
             raise ValueError('start_lookup_time must be a scalar or single value.')
-        start_lookup_time_py = start_lookup_time.to_pydatetime()
 
         if end_lookup_time.isscalar:
-            end_lookup_time = end_lookup_time.value
+            end_lookup_time_py = end_lookup_time.to_datetime()
         elif end_lookup_time.value.size == 1:
-            end_lookup_time = end_lookup_time.value[0]
+            end_lookup_time_py = end_lookup_time[0].to_datetime()
         else:
             raise ValueError('end_lookup_time must be a scalar or single value.')
-        end_lookup_time_py = end_lookup_time.to_pydatetime()
 
         if start_lookup_time_py > end_lookup_time_py:
             raise ValueError(f'Cannot calculate ephemeris for end date that occurs before start date.')
 
-        with horizons_session(site, start_lookup_time.to_datetime(), end_lookup_time.to_datetime(), airmass) as hs:
+        with horizons_session(site, start_lookup_time.to_datetime(), end_lookup_time.to_datetime()) as hs:
             # We don't care about the time. It should match up with the above times.
             coords = hs.get_ephemerides(target).coordinates
 
