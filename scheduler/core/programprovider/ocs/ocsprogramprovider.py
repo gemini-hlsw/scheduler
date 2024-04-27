@@ -786,6 +786,7 @@ class OcsProgramProvider(ProgramProvider):
         n_pattern = offset_lag
         prev = -1
         step_use = -1
+        print(f'\nparse_atoms for {sequence[0]["ocs:observationId"]}')
         for step_id, step in enumerate(sequence):
             next_atom = False
             observe_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
@@ -797,7 +798,7 @@ class OcsProgramProvider(ProgramProvider):
                 if step_use == 0 or (step_use > 0 and wavelengths[step_use] != wavelengths[step_use - 1]):
                     next_atom = True
                     # logger.info('Atom for wavelength change')
-                    # print(f'\t\t\t Atom for wavelength change')
+                    print(f'\t Atom for wavelength change')
 
                 # A change in exposure time or coadds is a new atom for science exposures
                 # print(f'\t\t\t {step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper()}')
@@ -806,7 +807,7 @@ class OcsProgramProvider(ProgramProvider):
                             (exposure_times[step_use] != exposure_times[prev] or coadds[step_use] != coadds[prev])):
                         next_atom = True
                         # logger.info('Atom for exposure time change')
-                        # print(f'\t\t\t Atom for exposure time change')
+                        print(f'\t Atom for exposure time change')
 
                     # Offsets - a new offset pattern is a new atom
                     if offset_lag != 0 or not exp_time_groups:
@@ -822,13 +823,13 @@ class OcsProgramProvider(ProgramProvider):
                             if n_offsets % 2 == 1:
                                 next_atom = True
                                 # logger.info('Atom for offset pattern')
-                                # print('Atom for offset pattern')
+                                print(f'\t Atom for offset pattern')
                         else:
                             n_pattern -= 1
                             if n_pattern < 0:
                                 next_atom = True
                                 # logger.info('Atom for exposure time change')
-                                # print('Atom for offset pattern')
+                                print(f'\t Atom for offset pattern')
                                 n_pattern = offset_lag - 1
                     prev = step_use
 
