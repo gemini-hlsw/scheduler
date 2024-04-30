@@ -17,33 +17,7 @@ __all__ = [
     'TargetInfo',
     'TargetInfoMap',
     'TargetInfoNightIndexMap',
-    'VisibilitySnapshot',
 ]
-
-
-@final
-@immutable
-@dataclass(frozen=True)
-class VisibilitySnapshot:
-    visibility_slot_idx: npt.NDArray[int]
-    visibility_time: TimeDelta
-
-    @staticmethod
-    def from_dict(ti_dict: Dict) -> 'VisibilitySnapshot':
-        return VisibilitySnapshot(visibility_slot_idx=np.array(ti_dict['visibility_slot_idx']),
-                                  visibility_time=TimeDelta(ti_dict['visibility_time']['value'],
-                                                            format=ti_dict['visibility_time']['format']),
-                                 )
-
-    def to_dict(self) -> Dict:
-        return {
-            'visibility_slot_idx': self.visibility_slot_idx.tolist(),
-            'visibility_time': {
-                'value': self.visibility_time.sec,
-                'format': self.visibility_time.format
-            }
-        }
-
 
 @final
 @immutable
@@ -74,7 +48,15 @@ class TargetInfo:
     rem_visibility_time is the remaining visibility time for the target for the observation across
     the rest of the time period.
     """
+    coord: SkyCoord
+    alt: Angle
+    az: Angle
+    par_ang: Angle
+    hourangle: Angle
+    airmass: npt.NDArray[float]
+    sky_brightness: npt.NDArray[SkyBackground]
     visibility_slot_idx: npt.NDArray[int]
+    visibility_time: TimeDelta
     rem_visibility_time: TimeDelta
     rem_visibility_frac: float
 

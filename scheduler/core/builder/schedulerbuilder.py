@@ -35,13 +35,14 @@ class SchedulerBuilder(ABC):
     def build_collector(self,
                         start: Time,
                         end: Time,
+                        num_of_nights: int,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
                         program_list: Optional[bytes] = None) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
-        collector = Collector(start, end, sites, semesters, self.sources, *blueprint)
+        collector = Collector(start, end, num_of_nights, sites, semesters, self.sources, *blueprint)
         return collector
 
     @staticmethod

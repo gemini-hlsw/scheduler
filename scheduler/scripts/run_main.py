@@ -82,6 +82,7 @@ def main(*,
     collector = builder.build_collector(
         start=start,
         end=end_vis,
+        num_of_nights=num_nights_to_schedule,
         sites=sites,
         semesters=semesters,
         blueprint=collector_blueprint,

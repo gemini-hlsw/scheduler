@@ -482,6 +482,7 @@ class Selector(SchedulerComponent):
         schedulable_slot_indices = {}
         for night_idx in night_indices:
             vis_idx = target_info[night_idx].visibility_slot_idx
+            print(vis_idx)
             if night_filtering[night_idx]:
                 schedulable_slot_indices[night_idx] = np.where(conditions_score[night_idx][vis_idx] > 0)[0]
             else:
