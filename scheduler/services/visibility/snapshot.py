@@ -19,7 +19,7 @@ class VisibilitySnapshot:
 
     @staticmethod
     def from_dict(ti_dict: Dict) -> 'VisibilitySnapshot':
-        return VisibilitySnapshot(visibility_slot_idx=np.array(ti_dict['visibility_slot_idx']),
+        return VisibilitySnapshot(visibility_slot_idx=np.array(ti_dict['visibility_slot_idx'], dtype=int),
                                   visibility_time=TimeDelta(ti_dict['visibility_time']['value'],
                                                             format=ti_dict['visibility_time']['format']),
                                  )

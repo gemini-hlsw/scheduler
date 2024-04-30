@@ -290,7 +290,6 @@ class Collector(SchedulerComponent):
         nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
 
         program = self.get_program(obs.id.program_id())
-        t1 = time.perf_counter()
         target_vis = calculate_target_visibility(obs,
                                                  target,
                                                  program,
@@ -299,9 +298,6 @@ class Collector(SchedulerComponent):
                                                  self.time_grid,
                                                  timing_windows,
                                                  self.time_slot_length)
-        t2 = time.perf_counter()
-        print("Elapsed for visibility time:", t2-t1)
-
         target_info: TargetInfoNightIndexMap = {}
 
         for i in range(self.num_of_nights):

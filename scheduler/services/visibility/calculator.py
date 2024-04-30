@@ -205,8 +205,6 @@ def calculate_target_visibility(obs,
         night_idx = NightIndex(len(time_grid) - ridx - 1)
 
         visibility_snapshot = VisibilitySnapshot.from_dict(visibility_snapshots[str(night_idx)])
-        if len(visibility_snapshot.visibility_slot_idx) == 0:
-            print(obs.id)
 
         rem_visibility_time += visibility_snapshot.visibility_time
         if rem_visibility_time.value:
