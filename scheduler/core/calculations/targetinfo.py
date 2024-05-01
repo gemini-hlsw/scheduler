@@ -4,9 +4,7 @@
 from dataclasses import dataclass
 from typing import final, Dict, TypeAlias, Tuple
 
-import numpy as np
 import numpy.typing as npt
-import astropy.units as u
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import TimeDelta
 from lucupy.decorators import immutable

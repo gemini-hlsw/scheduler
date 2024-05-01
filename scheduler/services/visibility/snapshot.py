@@ -14,6 +14,10 @@ from lucupy.minimodel import SkyBackground
 @immutable
 @dataclass(frozen=True)
 class VisibilitySnapshot:
+    """
+    Visibility information needed to calculate the remaining visibility for
+    each target.
+    """
     visibility_slot_idx: npt.NDArray[int]
     visibility_time: TimeDelta
 
@@ -38,6 +42,10 @@ class VisibilitySnapshot:
 @immutable
 @dataclass(frozen=True)
 class TargetSnapshot:
+    """
+    Contains information of a target for a night.
+    All values except target_sb are numpy arrays (shape == time_slots).
+    """
     coord: SkyCoord
     alt: Angle
     az: Angle

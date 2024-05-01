@@ -1,21 +1,19 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-from pympler import asizeof
-import sys
+
 import time
-import json
 from dataclasses import dataclass
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 
 import astropy.units as u
 import numpy as np
-from astropy.coordinates import SkyCoord
+
 from astropy.time import Time, TimeDelta
-from lucupy import sky
-from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex, NightIndices, NonsiderealTarget,
+
+from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
-                              SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus,
+                              Site, Target, TimeslotIndex, QAState, ObservationStatus,
                               Group)
 from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
@@ -28,10 +26,8 @@ from scheduler.core.plans import Plans, Visit
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
-from scheduler.services.proper_motion import ProperMotionCalculator
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
-from scheduler.services.redis import redis_client
 from scheduler.services.visibility.calculator import calculate_target_visibility, calculate_target_snapshot
 
 __all__ = [
