@@ -26,6 +26,8 @@ jobs:
         run: echo "PYTHONPATH=/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
       
       - name: Generate Report
+        env:
+          REDISCLOUD_URL : ${{ secrets.REDISCLOUD_URL }}
         run: |
           coverage run -m pytest 
           coverage xml
