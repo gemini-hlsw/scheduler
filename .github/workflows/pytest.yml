@@ -4,6 +4,7 @@ on: push
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    environment: schedule-staging
     timeout-minutes: 10
 
     steps:

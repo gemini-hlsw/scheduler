@@ -3,6 +3,7 @@
   jobs:
     run:
       runs-on: ubuntu-latest
+      environment: schedule-staging
       timeout-minutes: 30
 
       steps:
