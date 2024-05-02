@@ -1,22 +1,25 @@
 import json
 import time
 from dataclasses import dataclass
-from typing import final, Dict
+from typing import final, Dict, List, Any
 
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import SkyCoord
-from astropy.time import TimeDelta
+from astropy.time import TimeDelta, Time
 from lucupy import sky
 from lucupy.decorators import immutable
-from lucupy.minimodel import SiderealTarget, NonsiderealTarget, SkyBackground, ElevationType, Constraints, NightIndex
+from lucupy.minimodel import SiderealTarget, NonsiderealTarget, SkyBackground, ElevationType, Constraints, NightIndex, \
+    Observation, Target, Program
+from numpy import dtype, ndarray
 
 from scheduler.services.proper_motion import ProperMotionCalculator
 from scheduler.services.redis import redis_client
 
 from .snapshot import VisibilitySnapshot, TargetSnapshot
-
+from ..resource import NightConfiguration
+from ...core.calculations import NightEvents
 
 
 @final
@@ -29,12 +32,15 @@ class TargetVisibility:
     rem_visibility_frac: float
 
 
-def calculate_target_snapshot(night_idx,
-                              obs,
-                              target,
-                              night_events,
-                              time_grid_night,
-                              time_slot_length):
+def calculate_target_snapshot(night_idx: NightIndex,
+                              obs: Observation,
+                              target: Target,
+                              night_events: NightEvents,
+                              time_grid_night: Time,
+                              time_slot_length: TimeDelta):
+    """
+    Calculate the target information for a period of time.
+    """
 
     # Calculate the ra and dec for each target.
     # In case we decide to go with numpy arrays instead of SkyCoord,
@@ -96,23 +102,25 @@ def calculate_target_snapshot(night_idx,
                           sky_brightness=sb)
 
 
-def calculate_target_visibility(obs,
-                                target,
-                                prog,
-                                night_events,
-                                nc,
-                                time_grid,
-                                timing_windows,
-                                time_slot_length) -> Dict[NightIndex,TargetVisibility]:
+def calculate_target_visibility(obs: Observation,
+                                target: Target,
+                                prog: Program,
+                                night_events: NightEvents,
+                                nc: dict[ndarray[Any, dtype[NightIndex]], NightConfiguration],
+                                time_grid: Time,
+                                timing_windows: List[Time],
+                                time_slot_length: TimeDelta) -> Dict[NightIndex,TargetVisibility]:
+    """
+    Iterate over the time grid, checking to see if there is already a TargetInfo
+    for the target for the given day at the given site.
+    If so, we skip.
+    If not, we execute the calculations and store.
+    In order to properly calculate the:
+    * rem_visibility_time: total time a target is visible from the current night to the end of the period
+    * rem_visibility_frac: fraction of remaining observation length to rem_visibility_time
+    we want to process the nights BACKWARDS so that we can sum up the visibility time.
+    """
 
-    # Iterate over the time grid, checking to see if there is already a TargetInfo
-    # for the target for the given day at the given site.
-    # If so, we skip.
-    # If not, we execute the calculations and store.
-    # In order to properly calculate the:
-    # * rem_visibility_time: total time a target is visible from the current night to the end of the period
-    # * rem_visibility_frac: fraction of remaining observation length to rem_visibility_time
-    # we want to process the nights BACKWARDS so that we can sum up the visibility time.
     rem_visibility_time = 0.0 * u.h
     rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
 
