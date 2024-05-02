@@ -3,6 +3,7 @@
   jobs:
     run:
       runs-on: ubuntu-latest
+      environment: schedule-staging
       timeout-minutes: 30
 
       steps:
@@ -24,4 +25,6 @@
           run: echo "PYTHONPATH=/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
 
         - name: Run Greedymax
+          env:
+            REDISCLOUD_URL: ${{ secrets.REDISCLOUD_URL }}
           run: python scheduler/scripts/run_greedymax.py
