@@ -197,14 +197,14 @@ def calculate_target_visibility(obs,
 
             visibility_snapshot = VisibilitySnapshot(visibility_slot_idx=visibility_slot_idx,
                                                      visibility_time=visibility_time)
-            visibility_snapshots[str(night_idx)] = visibility_snapshot.to_dict()
+            visibility_snapshots[str(jday)] = visibility_snapshot.to_dict()
         redis_client.set(key, json.dumps(visibility_snapshots))
 
     for ridx, jday in enumerate(reversed(time_grid)):
         # Convert to the actual time grid index.
         night_idx = NightIndex(len(time_grid) - ridx - 1)
 
-        visibility_snapshot = VisibilitySnapshot.from_dict(visibility_snapshots[str(night_idx)])
+        visibility_snapshot = VisibilitySnapshot.from_dict(visibility_snapshots[str(jday)])
 
         rem_visibility_time += visibility_snapshot.visibility_time
         if rem_visibility_time.value:
