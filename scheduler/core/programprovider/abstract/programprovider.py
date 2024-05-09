@@ -71,7 +71,8 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID, split: bool) -> Optional[AndGroup]:
+    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
+                        split: bool, split_by_iterator: bool) -> Optional[AndGroup]:
         """
         Given an associative array that contains the data needed for an AND group,
         retrieve the data and populate the AndGroup.
@@ -92,7 +93,8 @@ class ProgramProvider(ABC):
                           data: dict,
                           num: Tuple[Optional[int], int],
                           program_id: ProgramID,
-                          split: bool) -> Optional[Observation]:
+                          split: bool,
+                          split_by_iterator: bool) -> Optional[Observation]:
         """
         Given an associative array that contains observation data, retrieve the data
         and populate an Observation object, provided the obs_class for the observation is in
@@ -200,7 +202,8 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState], split: bool) -> List[Atom]:
+    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState],
+                    split: bool, split_by_iterator: bool) -> List[Atom]:
         """
         Given a list of associative arrays from an observation that contain atom data,
         parse / process the atom data and populate a list of Atom objects.
