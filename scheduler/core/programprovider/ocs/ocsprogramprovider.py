@@ -7,7 +7,7 @@ import zipfile
 from datetime import datetime, timedelta
 from os import PathLike
 from pathlib import Path
-from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
+from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
 import numpy as np
 from lucupy.helpers import dmsstr2deg
@@ -99,7 +99,7 @@ class OcsProgramProvider(ProgramProvider):
 
     _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
-    _OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
+    _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
     # Note that we want to include OBSERVED observations here since this is legacy data, so most if not all observations
     # should be marked OBSERVED and we will reset this later to READY.
@@ -125,7 +125,12 @@ class OcsProgramProvider(ProgramProvider):
 
     # Strings in notes that indicate that an observation should not be splittable.
     _NO_SPLIT_STRINGS = frozenset({"do not split",
-                                   "do not interrupt"})
+                                   "do not interrupt",
+                                   "entire sequence",
+                                   "full sequence"})
+    # Strings in notes that indicate that the sequence should be split by the top-most changing iterator.
+    _SPLIT_BY_ITER_STRINGS = frozenset({"split by iterator",
+                                        "split by sequence iterator"})
 
     class _TAKeys:
         CATEGORIES = 'timeAccountAllocationCategories'
@@ -263,22 +268,24 @@ class OcsProgramProvider(ProgramProvider):
         super().__init__(obs_classes, sources)
 
     @staticmethod
-    def parse_notes_split(notes: Iterable[Tuple[str, str]]) -> bool:
-        """Search note title and content strings for instructions on not splitting observations
-           Returns a boolean indicating whether the observation can be split.
-           notes: list of note tuples,  [(title, text), (title, text),...]"""
+    def parse_notes(notes: Iterable[Tuple[str, str]], search_strings: frozenset) -> bool:
+        """Search note title and content strings
+           Returns a boolean indicating whether the strings were found
+           notes: list of note tuples,  [(title, text), (title, text),...]
+           search_strings: forzenset of strings to search for"""
+
         # Search for any indications in the note that an observation cannot be split.
         for note in notes:
             title, content = note
             if title is not None:
                 title_lower = title.lower()
-                if any(s in title_lower for s in OcsProgramProvider._NO_SPLIT_STRINGS):
-                    return False
+                if any(s in title_lower for s in search_strings):
+                    return True
             if content is not None:
                 content_lower = content.lower()
-                if any(s in content_lower for s in OcsProgramProvider._NO_SPLIT_STRINGS):
-                    return False
-        return True
+                if any(s in content_lower for s in search_strings):
+                    return True
+        return False
 
     def parse_magnitude(self, data: dict) -> Magnitude:
         band = MagnitudeBands[data[OcsProgramProvider._MagnitudeKeys.NAME]]
@@ -607,7 +614,8 @@ class OcsProgramProvider(ProgramProvider):
 
         return fpu, disperser, filt, wavelength
 
-    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState], split: bool) -> List[Atom]:
+    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState],
+                    split: bool, split_by_iterator: bool) -> List[Atom]:
         """
         Atom handling logic.
         """
@@ -639,9 +647,9 @@ class OcsProgramProvider(ProgramProvider):
                     obs_mode = ObservationMode.MOS
             elif inst in ["GSAOI", "'Alopeke", "Zorro"]:
                 obs_mode = ObservationMode.IMAGING
-            elif inst in ['IGRINS', 'MAROON-X']:
+            elif inst in ['IGRINS', 'Phoenix']:
                 obs_mode = ObservationMode.LONGSLIT
-            elif inst in ['GHOST', 'MAROON-X', 'GRACES', 'Phoenix']:
+            elif inst in ['GHOST', 'MAROON-X', 'GRACES']:
                 obs_mode = ObservationMode.XD
             elif inst == 'Flamingos2':
                 if search_list('LONGSLIT', fpus):
@@ -656,8 +664,8 @@ class OcsProgramProvider(ProgramProvider):
             elif inst == 'GNIRS':
                 if search_list('mirror', dispersers):
                     obs_mode = ObservationMode.IMAGING
-                elif search_list('XD', dispersers):
-                    obs_mode = ObservationMode.XD
+                # elif search_list('XD', dispersers):
+                #     obs_mode = ObservationMode.XD
                 else:
                     obs_mode = ObservationMode.LONGSLIT
             elif inst == 'GPI':
@@ -696,17 +704,18 @@ class OcsProgramProvider(ProgramProvider):
 
         exposure_times = []
         coadds = []
-        do_not_split = not split
-        # print(f'\t\t\t do_not_split: {do_not_split}')
+        spdbkeys: Dict[int, List] = {}
 
         # all atoms must have the same instrument
         instrument = self._parse_instrument(sequence)
-        # print(f'instrument {instrument}')
 
+        n_steps = 0
         for step in sequence:
             # Don't consider acq steps
             if step[OcsProgramProvider._AtomKeys.OBS_CLASS].upper() not in [ObservationClass.ACQ.name,
                                                                             ObservationClass.ACQCAL.name]:
+                n_steps += 1
+
                 # Instrument configuration aka Resource.
                 fpu, disperser, filt, wavelength = OcsProgramProvider._parse_instrument_configuration(step, instrument)
 
@@ -718,11 +727,20 @@ class OcsProgramProvider(ProgramProvider):
                     filters.append(filt)
                 wavelengths.append(wavelength)
 
+                # SPDB keys gives clues to the original sequence iterator structure
+                # A deeper analysis could reverse engineer the iterators by determininig what changes (e.g. config vs offsets)
+                spkeys = step['metadata:spnodekey'].split(',')
+                # if verbose:
+                #     print(spkeys)
+                for i_key, spkey in enumerate(spkeys):
+                    if i_key not in spdbkeys:
+                        spdbkeys[i_key] = []
+                    spdbkeys[i_key].append(spkey)
+
                 p = 0.0
                 q = 0.0
-
                 # Exposures on sky for dither pattern analysis
-                if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
+                if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._CAL_OBSERVE_TYPES:
                     p = (float(step[OcsProgramProvider._AtomKeys.OFFSET_P]) if OcsProgramProvider._AtomKeys.OFFSET_P in step
                          else 0.0)
                     q = (float(step[OcsProgramProvider._AtomKeys.OFFSET_Q]) if OcsProgramProvider._AtomKeys.OFFSET_Q in step
@@ -752,85 +770,134 @@ class OcsProgramProvider(ProgramProvider):
         # Remove the None values.
         resources = frozenset([res for res in resources if res is not None])
         mode = determine_mode(instrument)
-        # For now we do not split NIR spectroscopy
+        # print(f'\t Instrument: {instrument}, Mode: {mode}')
+        # For now, we do not split NIR spectroscopy because we can't create any extra tellurics
         if (mode != ObservationMode.IMAGING and
                 instrument in ['GPI', 'GNIRS', 'NIFS', 'IGRINS', 'Flamingos2', 'Phoenix']):
-            do_not_split = True
+            split = False
+            if split_by_iterator:
+                split_by_iterator = False
+        # print(f'\t Splitting: {split}')
+        # print(f'\t Split by iterator: {split_by_iterator}')
+
+        # Find the first spdb key that changes, for splitting by iterator
+        spdbkey = spdbkeys[0]
+        for i_key in spdbkeys:
+            if len(set(spdbkeys[i_key])) != 1:
+                spdbkey = spdbkeys[i_key]
+                break
+        # print(i_key, spdbkey)
 
         # Analyze sky offset patterns using auto-correlation
         # The lag is the length of any pattern, 0 means no repeating pattern
         p_lag = 0
         q_lag = 0
-        if do_not_split:
-            offset_lag = len(sequence)
+        if not split:
+            offset_lag = n_steps
         else:
             if len(sky_p_offsets) > 1:
                 p_lag = autocorr_lag(np.array(sky_p_offsets))
             if len(sky_q_offsets) > 1:
                 q_lag = autocorr_lag(np.array(sky_q_offsets))
             # Special cases
-            if p_lag == 0 and q_lag == 0 and len(sky_q_offsets) == 4:
+            if p_lag == 0 and q_lag == 0 and len(sky_q_offsets) == 4 and mode == ObservationMode.LONGSLIT:
                 # single ABBA pattern, which the auto-correlation won't find
-                if sky_q_offsets[0] == sky_q_offsets[3] and sky_q_offsets == sky_q_offsets[2]:
+                if (sky_q_offsets[0] == sky_q_offsets[3] and sky_q_offsets[1] == sky_q_offsets[2] and
+                        sky_q_offsets[0] != sky_q_offsets[1]):
                     q_lag = 4
             elif len(sky_q_offsets) == 2:
                 # If only two steps, put them together, might be AB, also silly to split only two steps
                 q_lag = 2
 
             offset_lag = q_lag
-            if p_lag > 0 and p_lag != q_lag:
+            if mode == ObservationMode.IMAGING and p_lag > 0 and p_lag != q_lag:
                 offset_lag = 0
+        # print(f'\t Offset_lag: {p_lag} {q_lag} {offset_lag}')
         # Group by changes in exptimes / coadds?
         exp_time_groups = False
         n_offsets = 0
         n_pattern = offset_lag
         prev = -1
+        obstype_prev = ''
         step_use = -1
+        # has_cal is used to try to identify when a GMOS spec exposure has an associated flat
+        has_cal = False if (any(instr in instrument for instr in ['GMOS']) and
+                            mode != ObservationMode.IMAGING) else True
+        # print(f'\tparse_atoms:')
         for step_id, step in enumerate(sequence):
             next_atom = False
             observe_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
+            atomstr = 'New atom for: '
             if observe_class.upper() not in [ObservationClass.ACQ.name, ObservationClass.ACQCAL.name]:
                 step_use += 1
                 step_time = step[OcsProgramProvider._AtomKeys.TOTAL_TIME] / 1000
 
                 # Any wavelength/filter change is a new atom
-                if step_use == 0 or (step_use > 0 and wavelengths[step_use] != wavelengths[step_use - 1]):
+                if step_use == 0:
                     next_atom = True
-                    # logger.info('Atom for wavelength change')
-                    # print(f'\t\t\t Atom for wavelength change')
+                    atomstr += 'first step, '
+                    if offset_lag > 0:
+                        n_pattern -= 1
+                        n_offsets += 1
+                    if (any(instr in instrument for instr in ['GMOS']) and
+                            step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() in ['FLAT']):
+                        has_cal = True
+                elif split:
+                    if split_by_iterator:
+                        if spdbkey[step_use] != spdbkey[prev]:
+                            next_atom = True
+                            atomstr += 'iterator change, '
+                    else:
+                        if wavelengths[step_use] != wavelengths[prev]:
+                            next_atom = True
+                            atomstr += 'wavelength change, '
 
-                # A change in exposure time or coadds is a new atom for science exposures
-                # print(f'\t\t\t {step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper()}')
-                if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES:
-                    if (prev >= 0 and observe_class.upper() == ObservationClass.SCIENCE.name and step_use > 0 and
-                            (exposure_times[step_use] != exposure_times[prev] or coadds[step_use] != coadds[prev])):
-                        next_atom = True
-                        # logger.info('Atom for exposure time change')
-                        # print(f'\t\t\t Atom for exposure time change')
+                        # A change in exposure time or coadds is a new atom for science exposures
+                        # print(f'\t\t\t {step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper()}')
+                        if step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._CAL_OBSERVE_TYPES \
+                                and obstype_prev not in OcsProgramProvider._CAL_OBSERVE_TYPES:
+                            if (prev >= 0 and observe_class.upper() == ObservationClass.SCIENCE.name and
+                                    (exposure_times[step_use] != exposure_times[prev] or coadds[step_use] != coadds[prev])):
+                                next_atom = True
+                                atomstr += 'exposure time change, '
 
-                    # Offsets - a new offset pattern is a new atom
-                    if offset_lag != 0 or not exp_time_groups:
-                        # For NIR imaging, need to have at least two offset positions if no repeating pattern
-                        # New atom after every 2nd offset (noffsets is odd)
-                        if (mode is ObservationMode.IMAGING and offset_lag == 0 and
-                                all(w > 1.0 for w in wavelengths if w is not None)):
-                            if step_use == 0:
-                                n_offsets += 1
+                            # Offsets - if no pattern each step is a new atom, check if GMOS spec have flats (cal)
+                            if offset_lag == 0:
+                                # If no pattern found, look for a change in q_offsets if longslit mode
+                                # if mode is ObservationMode.LONGSLIT and q_offsets[step_use] != q_offsets[prev]:
+                                #     next_atom = True
+                                #     print(f'\t Atom for longslit offset pattern')
+                                # For NIR imaging, need to have at least two offset positions if no repeating pattern
+                                # New atom after every 2nd offset (noffsets is odd)
+                                # elif (mode is ObservationMode.IMAGING and
+                                #         all(w > 1.0 for w in wavelengths if w is not None)):
+                                #     if step_use == 0:
+                                #         n_offsets += 1
+                                #     else:
+                                #         if p_offsets[step_use] != p_offsets[prev] or q_offsets[step_use] != q_offsets[prev]:
+                                #             n_offsets += 1
+                                #     if n_offsets % 2 == 1:
+                                #         next_atom = True
+                                #         # logger.info('Atom for offset pattern')
+                                #         print(f'\t Atom for NIR imaging offset pattern')
+                                # print(f'{has_cal} {step_use} {n_steps} {mode}')
+                                if has_cal and (step_use != n_steps - 1 or
+                                                mode in [ObservationMode.IMAGING, ObservationMode.XD]):
+                                    next_atom = True
+                                    atomstr += 'one step, no offset pattern and has calibration, '
+                            # Offsets - a new offset pattern is a new atom
                             else:
-                                if p_offsets[step_use] != p_offsets[prev] or q_offsets[step_use] != q_offsets[prev]:
-                                    n_offsets += 1
-                            if n_offsets % 2 == 1:
-                                next_atom = True
-                                # logger.info('Atom for offset pattern')
-                                # print('Atom for offset pattern')
-                        else:
-                            n_pattern -= 1
-                            if n_pattern < 0:
-                                next_atom = True
-                                # logger.info('Atom for exposure time change')
-                                # print('Atom for offset pattern')
-                                n_pattern = offset_lag - 1
-                    prev = step_use
+                                n_pattern -= 1
+                                if n_pattern < 0 and has_cal:
+                                    next_atom = True
+                                    # print(f'\t Atom for offset pattern')
+                                    atomstr += 'offset pattern, '
+                                    n_pattern = offset_lag - 1
+                        elif (any(instr in instrument for instr in ['GMOS']) and
+                              step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() in ['FLAT']):
+                            has_cal = True
+                prev = step_use
+                obstype_prev = step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper()
 
                 # New atom entry
                 if next_atom:
@@ -844,8 +911,10 @@ class OcsProgramProvider(ProgramProvider):
                         previous_atom.guide_state = any(guiding)
                         previous_atom.wavelengths = frozenset(wavelengths)
 
+                    # New atom entry
                     n_atom += 1
-                    # print(f'\t\t\t n_atom = {n_atom}')
+                    # print(f'\t Atom {n_atom}: {atomstr.rstrip(",")}')
+                    logger.warning(f'Atom {n_atom}: {atomstr.rstrip(",")}')
 
                     # Convert all the different components into Resources.
                     classes = []
@@ -864,10 +933,15 @@ class OcsProgramProvider(ProgramProvider):
                                       wavelengths=frozenset(wavelengths),
                                       obs_mode=mode))
 
-                    if (step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._OBSERVE_TYPES and
+                    if (step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._CAL_OBSERVE_TYPES and
                             n_pattern == 0):
                         n_pattern = offset_lag
                     n_offsets = 1
+                    has_cal = False if (any(instr in instrument for instr in ['GMOS']) and
+                            mode != ObservationMode.IMAGING) else True
+                    if (any(instr in instrument for instr in ['GMOS']) and
+                            step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() in ['FLAT']):
+                        has_cal = True
 
                 # Update atom
                 classes.append(observe_class)
@@ -881,6 +955,12 @@ class OcsProgramProvider(ProgramProvider):
                     atoms[-1].part_time += timedelta(seconds=step_time)
                 else:
                     atoms[-1].prog_time += timedelta(seconds=step_time)
+
+                # print('\t {:} {:10} {:8} {:6} {:8.2f} {:8.2f} {:7.1f} {:9} {:}'.format(
+                #     step[OcsProgramProvider._AtomKeys.DATA_LABEL],
+                #           step[OcsProgramProvider._AtomKeys.OBS_CLASS], step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE],
+                #           step[OcsProgramProvider._AtomKeys.WAVELENGTH],
+                #           p_offsets[step_use], q_offsets[step_use], step_time, spdbkey[step_use][0:8], has_cal))
 
             if n_atom > 0:
                 previous_atom = atoms[-1]
@@ -911,7 +991,8 @@ class OcsProgramProvider(ProgramProvider):
                           data: dict,
                           num: Tuple[Optional[int], int],
                           program_id: ProgramID,
-                          split: bool) -> Optional[Observation]:
+                          split: bool,
+                          split_by_iterator: bool) -> Optional[Observation]:
         """
         Right now, obs_num contains an optional organizational folder number and
         a mandatory observation number, which may overlap with others in organizational folders.
@@ -964,13 +1045,21 @@ class OcsProgramProvider(ProgramProvider):
                          data[OcsProgramProvider._ObsKeys.LOG]]
 
             # Parse notes for "do not split" information if not found previously
+            notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
+                     for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
             if split:
-                notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
-                         for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
-                split = self.parse_notes_split(notes)
+                split = not self.parse_notes(notes, OcsProgramProvider._NO_SPLIT_STRINGS)
+            # Parse notes for "split by interator" information if not found previously
+            if not split_by_iterator:
+                split_by_iterator = self.parse_notes(notes, OcsProgramProvider._SPLIT_BY_ITER_STRINGS)
+            # If splitting not allowed, then can't split by iterator, not splitting takes precedence
+            if not split:
+                split_by_iterator = False
 
-            # print(f'\t {obs_id}')
-            atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states, split=split)
+            # print(f'\nparse_observation: {obs_id}')
+
+            atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states,
+                                     split=split, split_by_iterator=split_by_iterator)
             # exec_time = sum([atom.exec_time for atom in atoms], ZeroTime) + acq_overhead
             # for atom in atoms:
             #     print(f'\t\t\t {atom.id} {atom.exec_time} {atom.obs_mode} {atom.resources}')
@@ -1104,7 +1193,8 @@ class OcsProgramProvider(ProgramProvider):
         """
         raise NotImplementedError('OCS does not support OR groups.')
 
-    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID, split: bool) -> Optional[AndGroup]:
+    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
+                        split: bool, split_by_iterator: bool) -> Optional[AndGroup]:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -1125,10 +1215,13 @@ class OcsProgramProvider(ProgramProvider):
             group_name = ROOT_GROUP_ID.id
 
         # Parse notes for "do not split" information if not found previously
+        notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
+                 for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
         if split:
-            notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
-                     for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
-            split = self.parse_notes_split(notes)
+            split = not self.parse_notes(notes, OcsProgramProvider._NO_SPLIT_STRINGS)
+        # Parse notes for "split by interator" information if not found previously
+        if not split_by_iterator:
+            split_by_iterator = self.parse_notes(notes, OcsProgramProvider._SPLIT_BY_ITER_STRINGS)
 
         # Collect all the children of this group.
         children = []
@@ -1138,7 +1231,8 @@ class OcsProgramProvider(ProgramProvider):
                                        if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
         for key in scheduling_group_keys:
             subgroup_id = GroupID(key.split('-')[-1])
-            subgroup = self.parse_and_group(data[key], program_id, subgroup_id, split=split)
+            subgroup = self.parse_and_group(data[key], program_id, subgroup_id, split=split,
+                                            split_by_iterator=split_by_iterator)
             if subgroup is not None:
                 children.append(subgroup)
 
@@ -1180,7 +1274,8 @@ class OcsProgramProvider(ProgramProvider):
         observations = []
         for *keys, obs_data in obs_data_blocks:
             obs_id = parse_unique_obs_id(*keys)
-            obs = self.parse_observation(obs_data, obs_id, program_id, split=split)
+            obs = self.parse_observation(obs_data, obs_id, program_id,
+                                         split=split, split_by_iterator=split_by_iterator)
             if obs is not None:
                 observations.append(obs)
 
@@ -1231,9 +1326,18 @@ class OcsProgramProvider(ProgramProvider):
         # # Get all the note information as they may contain FT scheduling data comments.
         note_titles = [data[key][OcsProgramProvider._NoteKeys.TITLE] for key in data.keys()
                        if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
+        notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
+                 for key in data.keys() if key.startswith(OcsProgramProvider._ProgramKeys.NOTE)]
 
         # Initialize split variable, split observations by default
         split = True
+        split_by_iterator = False
+        # Parse notes for "do not split" information if not found previously
+        if split:
+            split = not self.parse_notes(notes, OcsProgramProvider._NO_SPLIT_STRINGS)
+        # Parse notes for "split by interator" information if not found previously
+        if not split_by_iterator:
+            split_by_iterator = self.parse_notes(notes, OcsProgramProvider._SPLIT_BY_ITER_STRINGS)
 
         # Now we parse the groups. For this, we need:
         # 1. A list of Observations at the root level.
@@ -1241,7 +1345,8 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
-        root_group = self.parse_and_group(data, program_id, ROOT_GROUP_ID, split)
+        root_group = self.parse_and_group(data, program_id, ROOT_GROUP_ID,
+                                          split=split, split_by_iterator=split_by_iterator)
         if root_group is None:
             logger.warning(f'Program {program_id} has empty root group. Skipping.')
             return None
