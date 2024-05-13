@@ -59,7 +59,7 @@ def target() -> NonsiderealTarget:
         name=TargetName('Jupiter'),
         magnitudes=frozenset(),
         type=TargetType.BASE,
-        tag=TargetTag.MAJOR_BODY,
+        tag=TargetTag.MAJORBODY,
         des='jupiter')
 
 

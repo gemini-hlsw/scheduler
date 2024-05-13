@@ -27,7 +27,7 @@ __all__ = [
 logger = logger_factory.create_logger(__name__)
 
 
-_MAJOR_BODY_DICT: Final[Dict[str, str]] = {
+_MAJORBODY_DICT: Final[Dict[str, str]] = {
     'mercury': '199',
     'venus': '299',
     'mars': '499',
@@ -55,7 +55,7 @@ class HorizonsClient:
     @staticmethod
     def generate_horizons_id(designation: str) -> str:
         des = designation.lower()
-        return _MAJOR_BODY_DICT.get(des, des)
+        return _MAJORBODY_DICT.get(des, des)
 
     def _query(self,
                target: str,
@@ -121,7 +121,7 @@ class HorizonsClient:
         match target.tag:
             case TargetTag.COMET: horizons_name = f'DES={target.des};CAP'
             case TargetTag.ASTEROID: horizons_name = f'DES={target.des};'
-            case TargetTag.MAJOR_BODY: horizons_name = self.generate_horizons_id(target.des)
+            case TargetTag.MAJORBODY: horizons_name = self.generate_horizons_id(target.des)
             # case _: raise ValueError(f'Unknown tag {target.tag}')
             case _: horizons_name = f'DES={target.des};'
 

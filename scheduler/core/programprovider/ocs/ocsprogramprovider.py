@@ -16,8 +16,8 @@ from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Condi
                               ObservationClass, ObservationID, ObservationMode, ObservationStatus, OrGroup, Priority,
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
-                              Target, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimingWindow, TooType,
-                              WaterVapor, Wavelength)
+                              Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation,
+                              TimingWindow, TooType, WaterVapor, Wavelength)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
@@ -167,6 +167,7 @@ class OcsProgramProvider(ProgramProvider):
         EPOCH = 'epoch'
         DES = 'des'
         TAG = 'tag'
+        NONSIDEREAL_OBJECT_TYPE = 'nonsiderealObjectType'
         MAGNITUDES = 'magnitudes'
         NAME = 'name'
 
@@ -507,8 +508,12 @@ class OcsProgramProvider(ProgramProvider):
         name, magnitudes, target_type = self._parse_target_header(data)
         des = data.get(OcsProgramProvider._TargetKeys.DES, name)
 
-        # TODO: ERROR IN PARSING LOGIC. TAG IS "nonsidereal".
-        tag = data[OcsProgramProvider._TargetKeys.TAG]
+        # This is redundant: it is always 'nonsidereal'
+        # tag = data[OcsProgramProvider._TargetKeys.TAG]
+
+        # This is the tag information that we want: either MAJORBODY, COMET, or ASTEROID
+        tag_str = data[OcsProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]
+        tag = TargetTag[tag_str]
 
         # RA and dec will be looked up when determining target info in Collector.
         return NonsiderealTarget(
