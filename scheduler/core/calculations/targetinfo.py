@@ -4,7 +4,6 @@
 from dataclasses import dataclass
 from typing import final, Dict, TypeAlias, Tuple
 
-import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle, SkyCoord
 from astropy.time import TimeDelta
@@ -17,7 +16,6 @@ __all__ = [
     'TargetInfoMap',
     'TargetInfoNightIndexMap',
 ]
-
 
 @final
 @immutable
@@ -56,13 +54,9 @@ class TargetInfo:
     airmass: npt.NDArray[float]
     sky_brightness: npt.NDArray[SkyBackground]
     visibility_slot_idx: npt.NDArray[int]
-    visibility_slot_filter: npt.NDArray[int]
     visibility_time: TimeDelta
     rem_visibility_time: TimeDelta
     rem_visibility_frac: float
-
-    def mean_airmass(self, interval: npt.NDArray[int]):
-        return np.mean(self.airmass[interval])
 
 
 # Type aliases for TargetInfo information.

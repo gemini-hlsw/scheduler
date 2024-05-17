@@ -82,12 +82,13 @@ class ValidationBuilder(SchedulerBuilder):
     def build_collector(self,
                         start: Time,
                         end: Time,
+                        num_of_nights: int,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
                         program_list: Optional[bytes] = None) -> Collector:
 
-        collector = super().build_collector(start, end, sites, semesters, blueprint)
+        collector = super().build_collector(start, end, num_of_nights, sites, semesters, blueprint)
         collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data(program_list))
         ValidationBuilder.reset_collector_observations(collector)
         return collector

@@ -8,12 +8,12 @@ from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, T
 
 import astropy.units as u
 import numpy as np
-from astropy.coordinates import SkyCoord
+
 from astropy.time import Time, TimeDelta
-from lucupy import sky
-from lucupy.minimodel import (ALL_SITES, Constraints, ElevationType, NightIndex, NightIndices, NonsiderealTarget,
+
+from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
-                              SiderealTarget, Site, SkyBackground, Target, TimeslotIndex, QAState, ObservationStatus,
+                              Site, Target, TimeslotIndex, QAState, ObservationStatus,
                               Group)
 from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
@@ -30,6 +30,7 @@ from scheduler.services.ephemeris import EphemerisCalculator
 from scheduler.services.proper_motion import ProperMotionCalculator
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
+from scheduler.services.visibility.calculator import calculate_target_visibility, calculate_target_snapshot
 
 __all__ = [
     'Collector',
@@ -76,6 +77,7 @@ class Collector(SchedulerComponent):
     """
     start_vis_time: Time
     end_vis_time: Time
+    num_of_nights: int
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
     sources: Sources
@@ -285,17 +287,15 @@ class Collector(SchedulerComponent):
         # Get the night configurations (for resources)
         nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
 
-        # Iterate over the time grid, checking to see if there is already a TargetInfo
-        # for the target for the given day at the given site.
-        # If so, we skip.
-        # If not, we execute the calculations and store.
-        # In order to properly calculate the:
-        # * rem_visibility_time: total time a target is visible from the current night to the end of the period
-        # * rem_visibility_frac: fraction of remaining observation length to rem_visibility_time
-        # we want to process the nights BACKWARDS so that we can sum up the visibility time.
-        rem_visibility_time = 0.0 * u.h
-        rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
-
+        program = self.get_program(obs.id.program_id())
+        target_vis = calculate_target_visibility(obs,
+                                                 target,
+                                                 program,
+                                                 night_events,
+                                                 nc,
+                                                 self.time_grid,
+                                                 timing_windows,
+                                                 self.time_slot_length)
         target_info: TargetInfoNightIndexMap = {}
 
         for ridx, jday in enumerate(reversed(self.time_grid)):
@@ -452,6 +452,30 @@ class Collector(SchedulerComponent):
                 rem_visibility_time=rem_visibility_time,
                 rem_visibility_frac=rem_visibility_frac
             )
+        for i in range(self.num_of_nights):
+            night_idx = NightIndex(i)
+            target_snapshot = calculate_target_snapshot(night_idx,
+                                                        obs,
+                                                        target,
+                                                        night_events,
+                                                        self.time_grid[night_idx],
+                                                        self.time_slot_length)
+            ts = target_vis[night_idx]
+
+            ti = TargetInfo(coord=target_snapshot.coord,
+                            alt=target_snapshot.alt,
+                            az=target_snapshot.az,
+                            par_ang=target_snapshot.par_ang,
+                            hourangle=target_snapshot.hourangle,
+                            airmass=target_snapshot.airmass,
+                            sky_brightness=target_snapshot.sky_brightness,
+                            visibility_slot_idx=ts.visibility_slot_idx,
+                            visibility_time=ts.visibility_time,
+                            rem_visibility_time=ts.rem_visibility_time,
+                            rem_visibility_frac=ts.rem_visibility_frac)
+
+            target_info[NightIndex(night_idx)] = ti
+
 
         # Return all the target info for the base target in the Observation across the nights of interest.
         return target_info
@@ -628,8 +652,6 @@ class Collector(SchedulerComponent):
             for visit in sorted(plan.visits, key=lambda v: v.start_time_slot):
                 obs = self.get_observation(visit.obs_id)
                 group = self._get_group(obs)
-                # print(f'{ii} {visit.obs_id.id} {group.unique_id.id} {visit.start_time_slot} '
-                #       f'{visit.start_time_slot + visit.time_slots - 1}')
                 if grpvisits and group.is_scheduling_group() and group == grpvisits[-1].group:
                     grpvisits[-1].visits.append(visit)
                 else:
@@ -732,11 +754,6 @@ class Collector(SchedulerComponent):
                                 not_charged_time = (end_timeslot_charge -
                                                     slot_atom_start + 1) * self.time_slot_length.to_datetime()
                                 obs_seq[atom_idx].not_charged += not_charged_time
-                                # print(f'\t\t Charging {not_charged_time} to not_charged')
-
-                        # print(f'\t\t\t{observation.sequence[atom_idx].id:3} {slot_atom_start:3} {observation.sequence[atom_idx].exec_time} '
-                        #     f'{cumul_seq[atom_idx]} {slot_atom_length:3} {slot_atom_end:3} observed:{obs_seq[atom_idx].observed} '
-                        #     f'not_charged:{not_charged}')
 
                 # If charging the groups, set remaining partner cals to INACTIVE
                 if charge_group:
