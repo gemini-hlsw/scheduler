@@ -1,6 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
+import json
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -13,19 +13,9 @@ from scheduler.core.plans import Plans, Plan
 
 
 __all__ = [
-    'NightChanges',
     'TimelineEntry',
     'NightlyTimeline'
 ]
-
-
-@final
-@dataclass
-class NightChanges:
-    lookup: Dict[Event, Plans] = field(init=False, default_factory=dict)
-
-    def get_final_plans(self):
-        return list(self.lookup.values())[-1]
 
 
 @final
@@ -125,3 +115,19 @@ class NightlyTimeline:
                     print('\t+++++ END EVENT +++++')
             print()
         sys.stdout.flush()
+
+    def to_json(self) -> str:
+        return json.dumps({
+            n_idx: {site.name: [{'startTimeSlot': te.start_time_slot,
+                                 'event': {'site': te.event.site.name,
+                                           'time': te.event.time.strftime(self._datetime_formatter),
+                                           'description': te.event.description,
+                                           },
+                                  'plan': {'start': te.plan_generated.start.strftime(self._datetime_formatter),
+                                           'end': te.plan_generated.end.strftime(self._datetime_formatter),
+                                           'site': te.plan_generated.site.name,
+                                          } if te.plan_generated else {}
+                                 } for te in time_entries]
+             for site, time_entries in by_site.items()
+                    } for n_idx, by_site in self.timeline.items()
+        })
