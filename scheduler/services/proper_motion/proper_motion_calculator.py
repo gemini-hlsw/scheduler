@@ -26,11 +26,11 @@ class ProperMotionCalculator(metaclass=Singleton):
 
     _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(60.0 * u.second)
 
-    def calculate_positions(self,
-                            target: SiderealTarget,
-                            start_time: Time,
-                            num_time_slots: int,
-                            time_slot_length: Optional[TimeDelta] = None) -> SkyCoord:
+    def calculate_coordinates(self,
+                              target: SiderealTarget,
+                              start_time: Time,
+                              num_time_slots: int,
+                              time_slot_length: Optional[TimeDelta] = None) -> SkyCoord:
         if time_slot_length is None:
             time_slot_length = ProperMotionCalculator._DEFAULT_TIMESLOT_LENGTH
 

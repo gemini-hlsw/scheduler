@@ -59,13 +59,13 @@ def target() -> NonsiderealTarget:
         name=TargetName('Jupiter'),
         magnitudes=frozenset(),
         type=TargetType.BASE,
-        tag=TargetTag.MAJOR_BODY,
+        tag=TargetTag.MAJORBODY,
         des='jupiter')
 
 
 @pytest.fixture
-def session_parameters() -> Tuple[Site, datetime, datetime, int]:
-    return Site.GS, datetime(2019, 2, 1), datetime(2019, 2, 1, 23, 59, 59), 300
+def session_parameters() -> Tuple[Site, datetime, datetime]:
+    return Site.GS, datetime(2019, 2, 1), datetime(2019, 2, 1, 23, 59, 59)
 
 
 @given(c1=coordinates(), c2=coordinates())
@@ -165,5 +165,7 @@ def test_horizons_client_query(target: NonsiderealTarget,
     """
     with horizons_session(*session_parameters) as client:
         eph = client.get_ephemerides(target)
+
+        # Note: these are in radians.
         assert eph.coordinates[0].ra == 4.476586331426079
         assert eph.coordinates[0].dec == -0.3880237049946405
