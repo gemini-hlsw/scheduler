@@ -51,7 +51,7 @@ def calculate_target_snapshot(night_idx: NightIndex,
         # TODO: It seems that the pm correction should be done earlier, equivalent to when
         #  the nonsidereal coordinates are determined (Bryan)
         num_time_slots = night_events.num_timeslots_per_night[night_idx]
-        coord = ProperMotionCalculator().calculate_positions(target,
+        coord = ProperMotionCalculator().calculate_coordinates(target,
                                                              time_grid_night,
                                                              num_time_slots,
                                                              time_slot_length)

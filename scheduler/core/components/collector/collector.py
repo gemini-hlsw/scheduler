@@ -13,10 +13,11 @@ from astropy.time import Time, TimeDelta
 
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
-                              Site, Target, TimeslotIndex, QAState, ObservationStatus,
-                              Group)
+                              Site, Target, TimeslotIndex, QAState, ObservationStatus, SiderealTarget, NonsiderealTarget,
+                              Group, SkyBackground, ElevationType, Constraints)
 from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
+from lucupy import sky
 
 from scheduler.core.calculations.nightevents import NightEvents
 from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
