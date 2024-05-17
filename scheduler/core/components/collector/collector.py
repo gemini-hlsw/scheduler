@@ -299,6 +299,8 @@ class Collector(SchedulerComponent):
                                                  self.time_slot_length)
         target_info: TargetInfoNightIndexMap = {}
 
+        rem_visibility_time = 0.0 * u.h
+        rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
         for ridx, jday in enumerate(reversed(self.time_grid)):
             # Convert to the actual time grid index.
             night_idx = NightIndex(len(self.time_grid) - ridx - 1)
@@ -471,6 +473,7 @@ class Collector(SchedulerComponent):
                             airmass=target_snapshot.airmass,
                             sky_brightness=target_snapshot.sky_brightness,
                             visibility_slot_idx=ts.visibility_slot_idx,
+                            visibility_slot_filter=visibility_slot_filter,
                             visibility_time=ts.visibility_time,
                             rem_visibility_time=ts.rem_visibility_time,
                             rem_visibility_frac=ts.rem_visibility_frac)
