@@ -116,7 +116,6 @@ class HorizonsClient:
     def get_ephemerides(self,
                         target: NonsiderealTarget,
                         overwrite: bool = False) -> EphemerisCoordinates:
-        # TODO: Right now, the target.tag has values "sidereal" or "nonsidereal" and thus fails.
         # TODO: ODB extractor must be mofidief.
         match target.tag:
             case TargetTag.COMET: horizons_name = f'NAME={target.des};CAP'
