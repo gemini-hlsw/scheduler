@@ -119,15 +119,16 @@ class HorizonsClient:
         # TODO: Right now, the target.tag has values "sidereal" or "nonsidereal" and thus fails.
         # TODO: ODB extractor must be mofidief.
         match target.tag:
-            case TargetTag.COMET: horizons_name = f'DES={target.des};CAP'
-            case TargetTag.ASTEROID: horizons_name = f'DES={target.des};'
+            case TargetTag.COMET: horizons_name = f'NAME={target.des};CAP'
+            case TargetTag.ASTEROID: horizons_name = f'ASTNAM={target.des};'
             case TargetTag.MAJORBODY: horizons_name = self.generate_horizons_id(target.des)
             # case _: raise ValueError(f'Unknown tag {target.tag}')
             case _: horizons_name = f'DES={target.des};'
 
-        horizons_name = horizons_name.replace(' ', '_')
-        night_str = self.start.strftime(self.date_format)
-        ephemeris_path = self.path / f'{self.site.name}_{horizons_name}_{night_str}.eph'
+        targ_name = target.des.replace(' ', '_').replace('/','')
+        # end is the UT date, the same for both Gemini sites
+        night_str = self.end.strftime(self.date_format)
+        ephemeris_path = self.path / f'{self.site.name}_{targ_name}_{night_str}UT.eph'
 
         if not overwrite and ephemeris_path.exists() and ephemeris_path.is_file():
             logger.info(f'Reading ephemerides file for {target.des}')
@@ -147,7 +148,7 @@ class HorizonsClient:
             firstline = lines.index('$$SOE') + 1
             lastline = lines.index('$$EOE') - 1
 
-            for line in lines[firstline:lastline]:
+            for line in lines[firstline:lastline + 1]:
                 if line and line[7:15] != 'Daylight' and line[7:14] != 'Airmass':
                     values = line.split(' ')
                     rah = int(values[-6])

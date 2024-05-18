@@ -10,11 +10,13 @@ from astropy.coordinates import SkyCoord
 from astropy.time import TimeDelta, Time
 from lucupy import sky
 from lucupy.decorators import immutable
+from lucupy.timeutils import time2slots
 from lucupy.minimodel import SiderealTarget, NonsiderealTarget, SkyBackground, ElevationType, Constraints, NightIndex, \
     Observation, Target, Program
 from numpy import dtype, ndarray
 
 from scheduler.services.proper_motion import ProperMotionCalculator
+from scheduler.services.ephemeris import EphemerisCalculator
 from scheduler.services.redis import redis_client
 
 from .snapshot import VisibilitySnapshot, TargetSnapshot
@@ -45,22 +47,38 @@ def calculate_target_snapshot(night_idx: NightIndex,
     # Calculate the ra and dec for each target.
     # In case we decide to go with numpy arrays instead of SkyCoord,
     # this information is already stored in decimal degrees at this point.
-    if isinstance(target, SiderealTarget):
+    num_time_slots = night_events.num_timeslots_per_night[night_idx]
+    match target:
+        case SiderealTarget() as sidereal_target:
+        # if isinstance(target, SiderealTarget):
         # Take proper motion into account over the time slots.
         # NOTE: GPP should provide this info if possible
         # TODO: It seems that the pm correction should be done earlier, equivalent to when
         #  the nonsidereal coordinates are determined (Bryan)
-        num_time_slots = night_events.num_timeslots_per_night[night_idx]
-        coord = ProperMotionCalculator().calculate_coordinates(target,
+            coord = ProperMotionCalculator().calculate_coordinates(target,
                                                              time_grid_night,
                                                              num_time_slots,
                                                              time_slot_length)
-    elif isinstance(target, NonsiderealTarget):
-        coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
+        case NonsiderealTarget() as nonsidereal_target:
+        # coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
+            sunset = night_events.sunset[night_idx]
+            sunrise = night_events.sunrise[night_idx]
+            eph_coord = EphemerisCalculator().calculate_coordinates(obs.site,
+                                                                    nonsidereal_target,
+                                                                    sunset,
+                                                                    sunrise)
 
-    else:
-        msg = f'Invalid target: {target}'
-        raise ValueError(msg)
+            # Now trim the coords to the desired subset.
+            int_time_slot_length = int(time_slot_length.to_datetime().total_seconds() / 60)
+            sunset_to_twi = night_events.twilight_evening_12[night_idx] - sunset
+            start_time_slot = time2slots(time_slot_length.to_datetime(), sunset_to_twi.to_datetime())
+            end_time_slot = start_time_slot + num_time_slots
+
+            # We must take every x minutes where x is the time slot length in minutes.
+            coord = eph_coord[start_time_slot:end_time_slot:int_time_slot_length]
+        case _:
+            msg = f'Invalid target: {target}'
+            raise ValueError(msg)
 
     # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
     lst = night_events.local_sidereal_times[night_idx]

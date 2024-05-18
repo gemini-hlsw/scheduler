@@ -330,14 +330,14 @@ class Collector(SchedulerComponent):
                                                                             sunrise)
 
                     # Now trim the coords to the desired subset.
-                    time_slot_length = int(self.time_slot_length.total_seconds() / 60)
+                    time_slot_length = int(self.time_slot_length.to_datetime().total_seconds() / 60)
                     sunset_to_twi = night_events.twilight_evening_12[night_idx] - sunset
                     start_time_slot = time2slots(self.time_slot_length.to_datetime(), sunset_to_twi.to_datetime())
                     end_time_slot = start_time_slot + num_time_slots
 
                     # We must take every x minutes where x is the time slot length in minutes.
                     coord = eph_coord[start_time_slot:end_time_slot:time_slot_length]
-                    print(coord)
+                    # print(coord)
 
                 case _:
                     raise ValueError(f'Invalid target: {target}')
