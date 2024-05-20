@@ -13,10 +13,11 @@ from astropy.time import Time, TimeDelta
 
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
-                              Site, Target, TimeslotIndex, QAState, ObservationStatus,
-                              Group)
+                              Site, Target, TimeslotIndex, QAState, ObservationStatus, SiderealTarget, NonsiderealTarget,
+                              Group, SkyBackground, ElevationType, Constraints)
 from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
+from lucupy import sky
 
 from scheduler.core.calculations.nightevents import NightEvents
 from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
@@ -298,6 +299,8 @@ class Collector(SchedulerComponent):
                                                  self.time_slot_length)
         target_info: TargetInfoNightIndexMap = {}
 
+        rem_visibility_time = 0.0 * u.h
+        rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
         for ridx, jday in enumerate(reversed(self.time_grid)):
             # Convert to the actual time grid index.
             night_idx = NightIndex(len(self.time_grid) - ridx - 1)
@@ -327,14 +330,14 @@ class Collector(SchedulerComponent):
                                                                             sunrise)
 
                     # Now trim the coords to the desired subset.
-                    time_slot_length = int(self.time_slot_length.total_seconds() / 60)
+                    time_slot_length = int(self.time_slot_length.to_datetime().total_seconds() / 60)
                     sunset_to_twi = night_events.twilight_evening_12[night_idx] - sunset
                     start_time_slot = time2slots(self.time_slot_length.to_datetime(), sunset_to_twi.to_datetime())
                     end_time_slot = start_time_slot + num_time_slots
 
                     # We must take every x minutes where x is the time slot length in minutes.
                     coord = eph_coord[start_time_slot:end_time_slot:time_slot_length]
-                    print(coord)
+                    # print(coord)
 
                 case _:
                     raise ValueError(f'Invalid target: {target}')
@@ -470,6 +473,7 @@ class Collector(SchedulerComponent):
                             airmass=target_snapshot.airmass,
                             sky_brightness=target_snapshot.sky_brightness,
                             visibility_slot_idx=ts.visibility_slot_idx,
+                            visibility_slot_filter=visibility_slot_filter,
                             visibility_time=ts.visibility_time,
                             rem_visibility_time=ts.rem_visibility_time,
                             rem_visibility_frac=ts.rem_visibility_frac)

@@ -54,6 +54,7 @@ class TargetInfo:
     airmass: npt.NDArray[float]
     sky_brightness: npt.NDArray[SkyBackground]
     visibility_slot_idx: npt.NDArray[int]
+    visibility_slot_filter: npt.NDArray[float]
     visibility_time: TimeDelta
     rem_visibility_time: TimeDelta
     rem_visibility_frac: float
