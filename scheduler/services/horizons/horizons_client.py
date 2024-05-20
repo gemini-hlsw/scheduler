@@ -27,7 +27,7 @@ __all__ = [
 logger = logger_factory.create_logger(__name__)
 
 
-_MAJOR_BODY_DICT: Final[Dict[str, str]] = {
+_MAJORBODY_DICT: Final[Dict[str, str]] = {
     'mercury': '199',
     'venus': '299',
     'mars': '499',
@@ -46,16 +46,16 @@ class HorizonsClient:
     site: Site
     start: datetime
     end: datetime
-    airmass: float
 
-    date_format: str = field(default='%Y%m%d_%H%M')
+    # We look up across the whole night, so the labels are simply night labels.
+    date_format: str = field(default='%Y%m%d')
     path: Path = field(default=Path(ROOT_DIR) / 'scheduler' / 'services' / 'horizons' / 'data')
     url: str = field(default='https://ssd.jpl.nasa.gov/horizons_batch.cgi')
 
     @staticmethod
     def generate_horizons_id(designation: str) -> str:
         des = designation.lower()
-        return _MAJOR_BODY_DICT.get(des, des)
+        return _MAJORBODY_DICT.get(des, des)
 
     def _query(self,
                target: str,
@@ -99,7 +99,7 @@ class HorizonsClient:
             'ELEV_CUT': '-90',
             'SKIP_DAYLT': skip_day,
             'SOLAR_ELONG': "'0,180'",
-            'AIRMASS': self.airmass,
+            'AIRMASS': 100,
             'LHA_CUTOFF': None,
             'EXTRA_PREC': 'YES',
             'CSV_FORMAT': csv_format,
@@ -116,16 +116,18 @@ class HorizonsClient:
     def get_ephemerides(self,
                         target: NonsiderealTarget,
                         overwrite: bool = False) -> EphemerisCoordinates:
+        # TODO: Right now, the target.tag has values "sidereal" or "nonsidereal" and thus fails.
+        # TODO: ODB extractor must be mofidief.
         match target.tag:
             case TargetTag.COMET: horizons_name = f'DES={target.des};CAP'
             case TargetTag.ASTEROID: horizons_name = f'DES={target.des};'
-            case TargetTag.MAJOR_BODY: horizons_name = self.generate_horizons_id(target.des)
-            case _: raise ValueError(f'Unknown tag {target.tag.name}')
+            case TargetTag.MAJORBODY: horizons_name = self.generate_horizons_id(target.des)
+            # case _: raise ValueError(f'Unknown tag {target.tag}')
+            case _: horizons_name = f'DES={target.des};'
 
         horizons_name = horizons_name.replace(' ', '_')
-        start_str = self.start.strftime(self.date_format)
-        end_str = self.end.strftime(self.date_format)
-        ephemeris_path = self.path / f'{self.site.name}_{horizons_name}_{start_str}-{end_str}.eph'
+        night_str = self.start.strftime(self.date_format)
+        ephemeris_path = self.path / f'{self.site.name}_{horizons_name}_{night_str}.eph'
 
         if not overwrite and ephemeris_path.exists() and ephemeris_path.is_file():
             logger.info(f'Reading ephemerides file for {target.des}')
@@ -167,8 +169,8 @@ class HorizonsClient:
 
 
 @contextlib.contextmanager
-def horizons_session(site: Site, start: datetime, end: datetime, airmass: float) -> ContextManager[HorizonsClient]:
-    client = HorizonsClient(site=site, start=start, end=end, airmass=airmass)
+def horizons_session(site: Site, start: datetime, end: datetime) -> ContextManager[HorizonsClient]:
+    client = HorizonsClient(site=site, start=start, end=end)
     try:
         yield client
     finally:
