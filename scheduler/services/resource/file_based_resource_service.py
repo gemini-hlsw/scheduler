@@ -183,7 +183,8 @@ class FileBasedResourceService(ResourceService):
         score_boost: Dict[ProgramID, Set[date]] = {}
 
         # Partner blocks are when the mode indicates that the night is restricted to a partner.
-        partner_blocks: Dict[date, TimeAccountingCode] = {}
+        # partner_blocks: Dict[date, TimeAccountingCode] = {}
+        partner_blocks: Dict[TimeAccountingCode, Set[date]] = {}
 
         # Instrument runs, where observations associated with certain instruments get a boost.
         instrument_run: Dict[Resource, Set[date]] = {}
@@ -222,6 +223,7 @@ class FileBasedResourceService(ResourceService):
 
             # Read the date and create an entry for the site and date.
             row_date = row[0].value.date()
+            print(f'{row_date}')
 
             # Check the telescope status. If it is closed, we ignore the rest of the row.
             status = row[1].value.upper().strip()
@@ -267,7 +269,9 @@ class FileBasedResourceService(ResourceService):
                         partner = TimeAccountingCode[mode_entry[8:].strip()]
                     except KeyError as ex:
                         raise KeyError(f'{msg} has illegal time account {ex} in mode: {mode_entry}.')
-                    partner_blocks[row_date] = partner
+                    # partner_blocks[row_date] = partner
+                    print(f'\t {row_date} {partner}')
+                    FileBasedResourceService._add_dates_to_dict(partner_blocks, partner, row_date)
 
                 elif mode_entry.startswith('PV:'):
                     FileBasedResourceService._add_dates_to_dict(pv_programs, mode_entry[3:], row_date)
@@ -397,11 +401,19 @@ class FileBasedResourceService(ResourceService):
                 s = self._positive_filters[site].setdefault(d, set())
                 s.add(ProgramPriorityFilter(frozenset({priority_program_id})))
 
-        # Partner rules:
-        for d, partner_code in partner_blocks.items():
-            # On a partner night, we only allow programs that include the partner.
-            s = self._positive_filters[site].setdefault(d, set())
-            s.add(TimeAccountingCodeFilter(frozenset({partner_code})))
+        # Partner rules: programs can only be done on the nights specified
+        # for d, partner_code in partner_blocks.items():
+        #     # On a partner night, we only allow programs that include the partner.
+        #     s = self._positive_filters[site].setdefault(d, set())
+        #     s.add(TimeAccountingCodeFilter(frozenset({partner_code})))
+        for partner_code, partner_dates in partner_blocks.items():
+            for d in dates:
+                if d in partner_dates:
+                    s = self._positive_filters[site].setdefault(d, set())
+                    s.add(TimeAccountingCodeFilter(frozenset({partner_code})))
+                else:
+                    s = self._negative_filters[site].setdefault(d, set())
+                    s.add(TimeAccountingCodeFilter(frozenset({partner_code})))
 
         # Visitor instrument rules:
         for resource, resource_dates in instrument_run.items():

@@ -393,8 +393,12 @@ class OcsProgramProvider(ProgramProvider):
 
         else:
             # Not a FT program, so handle normally.
-            start_date = datetime(year, 8, 1)
-            end_date = datetime(next_year, 1, 31)
+            if semester is SemesterHalf.A:
+                start_date = datetime(year, 2, 1)
+                end_date = datetime(year, 7, 31)
+            else:
+                start_date = datetime(year, 8, 1)
+                end_date = datetime(next_year, 1, 31)
 
         # Account for the flexible boundary on programs.
         return start_date - Program.FUZZY_BOUNDARY, end_date + Program.FUZZY_BOUNDARY
