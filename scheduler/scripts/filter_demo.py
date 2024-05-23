@@ -41,6 +41,7 @@ if __name__ == '__main__':
     collector = builder.build_collector(
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+        num_of_nights=3,
         semesters=frozenset({Semester(2018, SemesterHalf.B)}),
         sites=ALL_SITES,
         blueprint=collector_blueprint
