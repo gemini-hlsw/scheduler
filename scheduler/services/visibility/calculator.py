@@ -50,17 +50,12 @@ def calculate_target_snapshot(night_idx: NightIndex,
     num_time_slots = night_events.num_timeslots_per_night[night_idx]
     match target:
         case SiderealTarget() as sidereal_target:
-        # if isinstance(target, SiderealTarget):
-        # Take proper motion into account over the time slots.
-        # NOTE: GPP should provide this info if possible
-        # TODO: It seems that the pm correction should be done earlier, equivalent to when
-        #  the nonsidereal coordinates are determined (Bryan)
-            coord = ProperMotionCalculator().calculate_coordinates(target,
-                                                             time_grid_night,
-                                                             num_time_slots,
-                                                             time_slot_length)
+            coord = ProperMotionCalculator().calculate_coordinates(sidereal_target,
+                                                                   time_grid_night,
+                                                                   num_time_slots,
+                                                                   time_slot_length)
         case NonsiderealTarget() as nonsidereal_target:
-        # coord = SkyCoord(target.ra * u.deg, target.dec * u.deg)
+
             sunset = night_events.sunset[night_idx]
             sunrise = night_events.sunrise[night_idx]
             eph_coord = EphemerisCalculator().calculate_coordinates(obs.site,
@@ -142,7 +137,7 @@ def calculate_target_visibility(obs: Observation,
     rem_visibility_time = 0.0 * u.h
     rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
 
-    target_visibilities: Dict[NightIndex,TargetVisibility] = {}
+    target_visibilities: Dict[NightIndex, TargetVisibility] = {}
 
     visibility_snapshots: Dict[str, Dict] = {}
 
