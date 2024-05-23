@@ -299,162 +299,6 @@ class Collector(SchedulerComponent):
                                                  self.time_slot_length)
         target_info: TargetInfoNightIndexMap = {}
 
-        rem_visibility_time = 0.0 * u.h
-        rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
-        for ridx, jday in enumerate(reversed(self.time_grid)):
-            # Convert to the actual time grid index.
-            night_idx = NightIndex(len(self.time_grid) - ridx - 1)
-
-            # Calculate the ra and dec for each target.
-            # NOTE: If we get rid of AstroPy at some point, we must take care to handle coordinates.
-            # NOTE: ProperMotionCalculator works in degrees.
-            # NOTE: EphemerisCalculator works in radians.
-            # NOTE: GPP should provide this info if possible
-            num_time_slots = self.night_events[obs.site].num_timeslots_per_night[night_idx]
-
-            match target:
-                case SiderealTarget() as sidereal_target:
-                    coord = ProperMotionCalculator().calculate_coordinates(sidereal_target,
-                                                                           self.time_grid[night_idx],
-                                                                           num_time_slots,
-                                                                           self.time_slot_length)
-
-                case NonsiderealTarget() as nonsidereal_target:
-                    # We want to query from sunset to sunrise and then get the subset of time slots
-                    # that is relevant to the night.
-                    sunset = night_events.sunset[night_idx]
-                    sunrise = night_events.sunrise[night_idx]
-                    eph_coord = EphemerisCalculator().calculate_coordinates(obs.site,
-                                                                            nonsidereal_target,
-                                                                            sunset,
-                                                                            sunrise)
-
-                    # Now trim the coords to the desired subset.
-                    time_slot_length = int(self.time_slot_length.to_datetime().total_seconds() / 60)
-                    sunset_to_twi = night_events.twilight_evening_12[night_idx] - sunset
-                    start_time_slot = time2slots(self.time_slot_length.to_datetime(), sunset_to_twi.to_datetime())
-                    end_time_slot = start_time_slot + num_time_slots
-
-                    # We must take every x minutes where x is the time slot length in minutes.
-                    coord = eph_coord[start_time_slot:end_time_slot:time_slot_length]
-                    # print(coord)
-
-                case _:
-                    raise ValueError(f'Invalid target: {target}')
-
-            if len(coord) != num_time_slots:
-                logger.error(f'Observation {obs.id.id} target {target.name} does not have required number of '
-                             f'coordinates: expected {num_time_slots} but got {len(coord)}')
-
-            # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
-            lst = night_events.local_sidereal_times[night_idx]
-            # print(f'Night idx: {night_idx}, num time slots: {lst.size}')
-
-            hourangle = lst - coord.ra
-            hourangle.wrap_at(12.0 * u.hour, inplace=True)
-            alt, az, par_ang = sky.Altitude.above(coord.dec, hourangle, obs.site.location.lat)
-            airmass = sky.true_airmass(alt)
-
-            # Calculate the time slots for the night in which there is visibility.
-            visibility_slot_idx = np.array([], dtype=int)
-
-            # Determine time slot indices where the sky brightness and elevation constraints are met.
-            # By default, in the case where an observation has no constraints, we use SB ANY.
-            if obs.constraints and obs.constraints.conditions.sb < SkyBackground.SBANY:
-                targ_sb = obs.constraints.conditions.sb
-                targ_moon_ang = coord.separation(night_events.moon_pos[night_idx])
-                brightness = sky.brightness.calculate_sky_brightness(
-                    180.0 * u.deg - night_events.sun_moon_ang[night_idx],
-                    targ_moon_ang,
-                    night_events.moon_dist[night_idx],
-                    90.0 * u.deg - night_events.moon_alt[night_idx],
-                    90.0 * u.deg - alt,
-                    90.0 * u.deg - night_events.sun_alt[night_idx]
-                )
-                sb = sky.brightness.convert_to_sky_background(brightness)
-            else:
-                targ_sb = SkyBackground.SBANY
-                sb = np.full([len(night_events.times[night_idx])], SkyBackground.SBANY)
-
-            # In the case where an observation has no constraint information or an elevation constraint
-            # type of None, we use airmass default values.
-            if obs.constraints and obs.constraints.elevation_type != ElevationType.NONE:
-                targ_prop = hourangle if obs.constraints.elevation_type is ElevationType.HOUR_ANGLE else airmass
-                elev_min = obs.constraints.elevation_min
-                elev_max = obs.constraints.elevation_max
-            else:
-                targ_prop = airmass
-                elev_min = Constraints.DEFAULT_AIRMASS_ELEVATION_MIN
-                elev_max = Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
-
-            # Are all the required resources available?
-            # This works for validation mode. In RT mode, this may need to be statistical if resources are not known
-            # and they could change with time, so the visfrac calc may need to be extracted from this method
-            has_resources = all([resource in nc[night_idx].resources for resource in obs.required_resources()])
-            avail_resources = np.full([len(night_events.times[night_idx])], int(has_resources), dtype=int)
-
-            # Is the program excluded on a given night due to block scheduling
-            prog = self.get_program(obs.id.program_id())
-            can_schedule = nc[night_idx].filter.program_filter(prog)
-            is_schedulable = np.full([len(night_events.times[night_idx])], int(can_schedule), dtype=int)
-            # print(f"{obs.unique_id} {has_resources} {can_schedule}")
-
-            # Calculate the time slot indices for the night where:
-            # 1. The sun altitude requirement is met (precalculated in night_events)
-            # 2. The sky background constraint is met
-            # 3. The elevation constraints are met
-            sa_idx = night_events.sun_alt_indices[night_idx]
-
-            c_idx = np.where(
-                np.logical_and(sb[sa_idx] <= targ_sb,
-                               np.logical_and(avail_resources[sa_idx] == 1,
-                                              np.logical_and(is_schedulable[sa_idx] == 1,
-                                                             np.logical_and(targ_prop[sa_idx] >= elev_min,
-                                                                            targ_prop[sa_idx] <= elev_max))))
-            )[0]
-
-            # Apply timing window constraints.
-            # We always have at least one timing window. If one was not given, the program length will be used.
-            for tw in timing_windows:
-                tw_idx = np.where(
-                    np.logical_and(night_events.times[night_idx][sa_idx[c_idx]] >= tw[0],
-                                   night_events.times[night_idx][sa_idx[c_idx]] <= tw[1])
-                )[0]
-                visibility_slot_idx = np.append(visibility_slot_idx, sa_idx[c_idx[tw_idx]])
-
-            # Create a visibility filter that has an entry for every time slot over the night,
-            # with 0 if the target is not visible and 1 if it is visible.
-            visibility_slot_filter = np.zeros(len(night_events.times[night_idx]))
-            visibility_slot_filter.put(visibility_slot_idx, 1.0)
-
-            # TODO: Guide star availability for moving targets and parallactic angle modes.
-
-            # Calculate the visibility time, the ongoing summed remaining visibility time, and
-            # the remaining visibility fraction.
-            # If the denominator for the visibility fraction is 0, use a value of 0.
-            visibility_time = len(visibility_slot_idx) * self.time_slot_length
-            rem_visibility_time += visibility_time
-            if rem_visibility_time.value:
-                # This is a fraction, so convert to seconds to cancel the units out.
-                rem_visibility_frac = (rem_visibility_frac_numerator.total_seconds() /
-                                       rem_visibility_time.to_value(u.s))
-            else:
-                rem_visibility_frac = 0.0
-
-            target_info[NightIndex(night_idx)] = TargetInfo(
-                coord=coord,
-                alt=alt,
-                az=az,
-                par_ang=par_ang,
-                hourangle=hourangle,
-                airmass=airmass,
-                sky_brightness=sb,
-                visibility_slot_idx=visibility_slot_idx,
-                visibility_slot_filter=visibility_slot_filter,
-                visibility_time=visibility_time,
-                rem_visibility_time=rem_visibility_time,
-                rem_visibility_frac=rem_visibility_frac
-            )
         for i in range(self.num_of_nights):
             night_idx = NightIndex(i)
             target_snapshot = calculate_target_snapshot(night_idx,
@@ -473,13 +317,11 @@ class Collector(SchedulerComponent):
                             airmass=target_snapshot.airmass,
                             sky_brightness=target_snapshot.sky_brightness,
                             visibility_slot_idx=ts.visibility_slot_idx,
-                            visibility_slot_filter=visibility_slot_filter,
                             visibility_time=ts.visibility_time,
                             rem_visibility_time=ts.rem_visibility_time,
                             rem_visibility_frac=ts.rem_visibility_frac)
 
             target_info[NightIndex(night_idx)] = ti
-
 
         # Return all the target info for the base target in the Observation across the nights of interest.
         return target_info
