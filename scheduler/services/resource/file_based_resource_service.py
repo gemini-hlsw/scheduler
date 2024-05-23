@@ -223,7 +223,7 @@ class FileBasedResourceService(ResourceService):
 
             # Read the date and create an entry for the site and date.
             row_date = row[0].value.date()
-            print(f'{row_date}')
+            # print(f'{row_date}')
 
             # Check the telescope status. If it is closed, we ignore the rest of the row.
             status = row[1].value.upper().strip()
@@ -270,7 +270,7 @@ class FileBasedResourceService(ResourceService):
                     except KeyError as ex:
                         raise KeyError(f'{msg} has illegal time account {ex} in mode: {mode_entry}.')
                     # partner_blocks[row_date] = partner
-                    print(f'\t {row_date} {partner}')
+                    # print(f'\t {row_date} {partner}')
                     FileBasedResourceService._add_dates_to_dict(partner_blocks, partner, row_date)
 
                 elif mode_entry.startswith('PV:'):
@@ -472,6 +472,7 @@ class FileBasedResourceService(ResourceService):
                         continue
 
                     local_date_str, start_time_str, end_time_str, description = match.groups()
+                    # print(f'{local_date_str} {start_time_str} {end_time_str}')
                     local_night_date = datetime.strptime(local_date_str, '%Y-%m-%d').date()
 
                     # Determine the start and end times.
@@ -485,18 +486,15 @@ class FileBasedResourceService(ResourceService):
 
                     if start_time is None or end_time is None:
                         # We need the twilights in this case.
-                        if start_time is not None:
-                            astropy_time = Time(datetime.combine(local_night_date, start_time).astimezone(site.timezone))
-                        elif end_time is not None:
-                            astropy_time = Time(datetime.combine(local_night_date, end_time).astimezone(site.timezone))
-                        else:
-                            noon = time(12, 0)
-                            astropy_time = Time(datetime.combine(local_night_date, noon).astimezone(site.timezone))
+                        # Local time when we change the UT designation for a night, just to get the closest midnight
+                        new_ut_time = time(14,0)
+                        astropy_time = Time(datetime.combine(local_night_date, new_ut_time).astimezone(site.timezone))
 
                         # Get the twilights and localize them.
                         eve_twi, morn_twi = night_events(astropy_time, site.location, site.timezone)[3:5]
                         eve_twi = eve_twi.to_datetime(site.timezone)
                         morn_twi = morn_twi.to_datetime(site.timezone)
+                        # print(f'{local_date_str} {astropy_time} {eve_twi} {morn_twi} {site.timezone}')
 
                         if start_time is None:
                             start_time = eve_twi.replace(second=0, microsecond=0).time()
