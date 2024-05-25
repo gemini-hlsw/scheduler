@@ -11,6 +11,7 @@ from lucupy.minimodel.site import ALL_SITES
 from lucupy.minimodel import NightIndex
 from lucupy.minimodel.semester import Semester
 from lucupy.minimodel import ProgramID
+from lucupy.minimodel import TimeAccountingCode
 
 from scheduler.core.builder.blueprint import CollectorBlueprint
 from scheduler.core.builder.validationbuilder import ValidationBuilder
@@ -19,7 +20,7 @@ from scheduler.core.eventsqueue import EventQueue
 from scheduler.core.output import print_collector_info
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
-from scheduler.services.resource import (CompositeFilter, OcsResourceService, ProgramPriorityFilter,
+from scheduler.services.resource import (CompositeFilter, OcsResourceService, ProgramPriorityFilter, TimeAccountingCodeFilter,
                                          ProgramPermissionFilter, ResourcesAvailableFilter, ResourceService)
 
 # This is a demo or QA testing ground for the filter functionality.
@@ -41,7 +42,7 @@ if __name__ == '__main__':
     collector = builder.build_collector(
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
-        num_of_nights=3,
+        num_of_nights=num_nights_to_schedule,
         semesters=frozenset({Semester(2018, SemesterHalf.B)}),
         sites=ALL_SITES,
         blueprint=collector_blueprint
@@ -134,6 +135,33 @@ if __name__ == '__main__':
     f_final = CompositeFilter(
         positive_filters=frozenset({f_program_priority, f_resources_available, f_program_filtering})
     )
+
+    # Partner filter
+    partner_codes = frozenset({
+        TimeAccountingCode.KR
+    })
+    f_partner_code = TimeAccountingCodeFilter(
+        codes=partner_codes
+    )
+    # Apply the filter.
+    print(f'\n\nFILTERING ON PARTNER FOR {partner_codes}:')
+    for pid, program in Collector._programs.items():  # noqa
+        if f_partner_code.program_filter(program):
+            print(f'+++ Program {pid} includes parner.')
+        else:
+            print(f'--- Program {pid} does not include partner.')
+
+    # Negative partner filter
+    f_neg_partner_filter = CompositeFilter(
+        negative_filters=frozenset({f_partner_code})
+    )
+    # Apply the filter.
+    print(f'\n\nNEGATIVE FILTERING ON PARTNER FOR {partner_codes}:')
+    for pid, program in Collector._programs.items():  # noqa
+        if f_neg_partner_filter.program_filter(program):
+            print(f"+++ Program {pid} doesn't include parner.")
+        else:
+            print(f"--- Program {pid} does include partner.")
 
     print('\n\nCOMBINATION FILTER: programs, program_priority, resources available:')
     for pid, program in program_data.items():

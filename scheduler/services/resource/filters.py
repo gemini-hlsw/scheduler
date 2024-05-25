@@ -96,7 +96,8 @@ class TimeAccountingCodeFilter(AbstractFilter):
     Cases:
     * Positive (primary): Filter in programs who contain the one of the time accounting codes.
                           Represents, for example, South Korea (ROK) blocks.
-    * Negative: No current use cases.
+    * Negative: Programs that contain one of the time accounting codes cannot be scheduled outside the
+                          parnter plots
     """
     codes: FrozenSet[TimeAccountingCode]
 
