@@ -75,7 +75,7 @@ async def websocket_client(request: Request):
             <label for="thesisFactor">thesis_actor:</label>
             <input type="number" id="thesisFactor" value="1.1" autocomplete="off"/><br/>
             <label for="power">power:</label>
-            <input type="number" id="power" value="2.0" autocomplete="off"/><br/>
+            <input type="number" id="power" value="2" autocomplete="off"/><br/>
             <label for="metPower">met_power:</label>
             <input type="number" id="metPower" value="1.0" autocomplete="off"/><br/>
             <label for="visPower">vis_power:</label>

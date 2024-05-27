@@ -647,7 +647,6 @@ class Service:
                  ):
         semesters = frozenset([Semester.find_semester_from_date(start.datetime),
                                Semester.find_semester_from_date(end.datetime)])
-
         if semester_visibility:
             end_date = max(s.end_date() for s in semesters)
             end_vis = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
@@ -683,6 +682,7 @@ class Service:
         next_update: Dict[Site, Optional[TimeCoordinateRecord]] = {site: None for site in sites}
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
+        night_index = 0
 
         for night_timeline in self._schedule_night_by_night(night_indices,
                                                             sites,
@@ -693,4 +693,10 @@ class Service:
                                                             next_update,
                                                             builder.events,
                                                             ranker_parameters):
+            plan_summary = StatCalculator.calculate_timeline_stats(night_timeline,
+                                                                   frozenset([NightIndex(night_index)]),
+                                                                   sites,
+                                                                   collector)
+
             yield night_timeline.to_json()
+            night_index += 1
