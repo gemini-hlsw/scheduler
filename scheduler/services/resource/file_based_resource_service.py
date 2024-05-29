@@ -137,6 +137,15 @@ class FileBasedResourceService(ResourceService):
             date_set = prog_dict.setdefault(prog_id, set())
             date_set.add(add_date)
 
+    @staticmethod
+    def _add_dates_to_partdict(part_dict: Dict[TimeAccountingCode, Set[date]],
+                               code: TimeAccountingCode, add_date: date) -> None:
+        """
+        Add the specified date to each set associated with the partner code.
+        """
+        date_set = part_dict.setdefault(code, set())
+        date_set.add(add_date)
+
     def _load_instrument_data(self,
                               site: Site,
                               filename: str) -> None:
@@ -183,7 +192,7 @@ class FileBasedResourceService(ResourceService):
         score_boost: Dict[ProgramID, Set[date]] = {}
 
         # Partner blocks are when the mode indicates that the night is restricted to a partner.
-        partner_blocks: Dict[date, TimeAccountingCode] = {}
+        partner_blocks: Dict[TimeAccountingCode, Set[date]] = {}
 
         # Instrument runs, where observations associated with certain instruments get a boost.
         instrument_run: Dict[Resource, Set[date]] = {}
@@ -222,6 +231,7 @@ class FileBasedResourceService(ResourceService):
 
             # Read the date and create an entry for the site and date.
             row_date = row[0].value.date()
+            # print(f'{row_date}')
 
             # Check the telescope status. If it is closed, we ignore the rest of the row.
             status = row[1].value.upper().strip()
@@ -267,7 +277,8 @@ class FileBasedResourceService(ResourceService):
                         partner = TimeAccountingCode[mode_entry[8:].strip()]
                     except KeyError as ex:
                         raise KeyError(f'{msg} has illegal time account {ex} in mode: {mode_entry}.')
-                    partner_blocks[row_date] = partner
+                    # print(f'\t {row_date} {partner}')
+                    FileBasedResourceService._add_dates_to_partdict(partner_blocks, partner, row_date)
 
                 elif mode_entry.startswith('PV:'):
                     FileBasedResourceService._add_dates_to_dict(pv_programs, mode_entry[3:], row_date)
@@ -397,11 +408,15 @@ class FileBasedResourceService(ResourceService):
                 s = self._positive_filters[site].setdefault(d, set())
                 s.add(ProgramPriorityFilter(frozenset({priority_program_id})))
 
-        # Partner rules:
-        for d, partner_code in partner_blocks.items():
-            # On a partner night, we only allow programs that include the partner.
-            s = self._positive_filters[site].setdefault(d, set())
-            s.add(TimeAccountingCodeFilter(frozenset({partner_code})))
+        # Partner rules: programs can only be done on the nights specified
+        for partner_code, partner_dates in partner_blocks.items():
+            for d in dates:
+                if d in partner_dates:
+                    s = self._positive_filters[site].setdefault(d, set())
+                    s.add(TimeAccountingCodeFilter(codes=frozenset({partner_code})))
+                else:
+                    s = self._negative_filters[site].setdefault(d, set())
+                    s.add(TimeAccountingCodeFilter(codes=frozenset({partner_code})))
 
         # Visitor instrument rules:
         for resource, resource_dates in instrument_run.items():
@@ -460,6 +475,7 @@ class FileBasedResourceService(ResourceService):
                         continue
 
                     local_date_str, start_time_str, end_time_str, description = match.groups()
+                    # print(f'{local_date_str} {start_time_str} {end_time_str}')
                     local_night_date = datetime.strptime(local_date_str, '%Y-%m-%d').date()
 
                     # Determine the start and end times.
@@ -473,18 +489,15 @@ class FileBasedResourceService(ResourceService):
 
                     if start_time is None or end_time is None:
                         # We need the twilights in this case.
-                        if start_time is not None:
-                            astropy_time = Time(datetime.combine(local_night_date, start_time).astimezone(site.timezone))
-                        elif end_time is not None:
-                            astropy_time = Time(datetime.combine(local_night_date, end_time).astimezone(site.timezone))
-                        else:
-                            noon = time(12, 0)
-                            astropy_time = Time(datetime.combine(local_night_date, noon).astimezone(site.timezone))
+                        # Local time when we change the UT designation for a night, just to get the closest midnight
+                        new_ut_time = time(14,0)
+                        astropy_time = Time(datetime.combine(local_night_date, new_ut_time).astimezone(site.timezone))
 
                         # Get the twilights and localize them.
                         eve_twi, morn_twi = night_events(astropy_time, site.location, site.timezone)[3:5]
                         eve_twi = eve_twi.to_datetime(site.timezone)
                         morn_twi = morn_twi.to_datetime(site.timezone)
+                        # print(f'{local_date_str} {astropy_time} {eve_twi} {morn_twi} {site.timezone}')
 
                         if start_time is None:
                             start_time = eve_twi.replace(second=0, microsecond=0).time()
