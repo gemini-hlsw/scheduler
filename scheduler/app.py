@@ -12,7 +12,10 @@ origins = [
     "https://schedule.gemini.edu/",
     "https://schedule-subscriber-staging.herokuapp.com",
     "https://gpp-schedule-ui-staging.herokuapp.com",
-    "http://scheduler.lucuma.xyz:5173",  # dev
+    "http://scheduler.lucuma.xyz:5173",
+    "http://localhost",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
 
 app.add_middleware(
@@ -25,3 +28,6 @@ app.add_middleware(
 
 app.add_route('/graphql', graphql_server)
 app.add_websocket_route('/graphql', graphql_server)
+
+# Import the routes after creating the FastAPI instance
+import routes

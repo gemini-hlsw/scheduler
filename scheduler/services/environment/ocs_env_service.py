@@ -82,5 +82,5 @@ class OcsEnvService(ExternalService):
 
         # Get all the entries for the given night date.
         filtered_df = df[df[OcsEnvService._night_time_stamp_col].dt.date == night_date]
-        variant_list = filtered_df.apply(OcsEnvService._convert_to_variant, axis=1).tolist()
+        variant_list = filtered_df.apply(OcsEnvService._convert_to_variant, axis=1).values.tolist()
         return {dt: v for dt, v in variant_list}

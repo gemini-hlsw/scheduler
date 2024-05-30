@@ -1,10 +1,11 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
+import json
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, ClassVar, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 
@@ -13,19 +14,9 @@ from scheduler.core.plans import Plans, Plan
 
 
 __all__ = [
-    'NightChanges',
     'TimelineEntry',
     'NightlyTimeline'
 ]
-
-
-@final
-@dataclass
-class NightChanges:
-    lookup: Dict[Event, Plans] = field(init=False, default_factory=dict)
-
-    def get_final_plans(self):
-        return list(self.lookup.values())[-1]
 
 
 @final
@@ -125,3 +116,39 @@ class NightlyTimeline:
                     print('\t+++++ END EVENT +++++')
             print()
         sys.stdout.flush()
+
+    def to_json(self) -> str:
+        utc = ZoneInfo('UTC')
+        return json.dumps({
+            n_idx: {site.name: [{'startTimeSlot': te.start_time_slot,
+                                 'event': {'site': te.event.site.name,
+                                           'time': te.event.time.strftime(self._datetime_formatter),
+                                           'description': te.event.description,
+                                           },
+                                 'plan': {'start': te.plan_generated.start.astimezone(utc).strftime(self._datetime_formatter),
+                                           'end': te.plan_generated.end.astimezone(utc).strftime(self._datetime_formatter),
+                                           'site': te.plan_generated.site.name,
+                                           'visits': [{"starTime": v.start_time.astimezone(utc).strftime(self._datetime_formatter),
+                                                       "endTime": (v.start_time+
+                                                                   v.time_slots*te.plan_generated.time_slot_length).strftime(self._datetime_formatter),
+                                                       "obsId": v.obs_id.id,
+                                                       "atomStartIdx": v.atom_start_idx,
+                                                       "atomEndIdx": v.atom_end_idx,
+                                                       "altitude": alt,
+                                                       "instrument": v.instrument.id if v.instrument else '',
+                                                       "obs_class": v.obs_class.name,
+                                                       "score": v.score,
+                                                       "peakScore": v.peak_score,
+                                                       "completion": v.completion}
+                                                      for v, alt in zip(te.plan_generated.visits, te.plan_generated.alt_degs)],
+                                           'nightStats': {
+                                               'timeLoss': te.plan_generated.night_stats.time_loss,
+                                               'planScore': te.plan_generated.night_stats.plan_score,
+                                               'completionFraction': te.plan_generated.night_stats.completion_fraction,
+                                               'programCompletion': te.plan_generated.night_stats.program_completion
+                                           }
+                                          } if te.plan_generated else {}
+                                 } for te in time_entries]
+             for site, time_entries in by_site.items()
+                    } for n_idx, by_site in self.timeline.items()
+        })
