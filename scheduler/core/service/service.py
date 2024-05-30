@@ -309,14 +309,14 @@ class Service:
 
     @staticmethod
     def _schedule_night_by_night(night_indices: FrozenSet[NightIndex],
-                         sites: FrozenSet[Site],
-                         collector: Collector,
-                         selector: Selector,
-                         optimizer: Optimizer,
-                         change_monitor: ChangeMonitor,
-                         next_update: Dict[Site, Optional[TimeCoordinateRecord]],
-                         queue: EventQueue,
-                         ranker_parameters: RankerParameters):
+                                 sites: FrozenSet[Site],
+                                 collector: Collector,
+                                 selector: Selector,
+                                 optimizer: Optimizer,
+                                 change_monitor: ChangeMonitor,
+                                 next_update: Dict[Site, Optional[TimeCoordinateRecord]],
+                                 queue: EventQueue,
+                                 ranker_parameters: RankerParameters):
 
         time_slot_length = collector.time_slot_length.to_datetime()
         nightly_timeline = NightlyTimeline()

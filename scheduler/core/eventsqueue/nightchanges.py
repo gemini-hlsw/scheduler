@@ -136,7 +136,7 @@ class NightlyTimeline:
                                                        "atomEndIdx": v.atom_end_idx,
                                                        "altitude": alt,
                                                        "instrument": v.instrument.id if v.instrument else '',
-                                                       "obs_class": v.obs_class,
+                                                       "obs_class": v.obs_class.name,
                                                        "score": v.score,
                                                        "peakScore": v.peak_score,
                                                        "completion": v.completion}

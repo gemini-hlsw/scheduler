@@ -23,6 +23,8 @@ from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
 from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
 from ..core.components.ranker import RankerParameters
+from ..engine import Engine
+from ..engine.params import SchedulerParameters
 
 # TODO: This variables need a Redis cache to work with different mutations correctly.
 # TODO: This should NOT be 3, but the actual number of nights.
@@ -124,21 +126,32 @@ class Query:
                                              new_schedule_input.met_power,
                                              new_schedule_input.vis_power,
                                              new_schedule_input.wha_power)
-            if new_schedule_input.program_file:
-                program_file = (await new_schedule_input.program_file.read())
-            else:
-                program_file = new_schedule_input.program_file
+            #if new_schedule_input.program_file:
+            #    program_file = (await new_schedule_input.program_file.read())
+            #else:
+            #    program_file = new_schedule_input.program_file
 
-            timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
-                                                     start=start,
-                                                     end=end,
-                                                     sites=new_schedule_input.sites,
-                                                     ranker_parameters=ranker_params,
-                                                     semester_visibility=new_schedule_input.semester_visibility,
-                                                     num_nights_to_schedule=new_schedule_input.num_nights_to_schedule,
-                                                     program_file=program_file)
+            #timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
+            #                                         start=start,
+            #                                         end=end,
+            #                                         sites=new_schedule_input.sites,
+            #                                         ranker_parameters=ranker_params,
+            #                                         semester_visibility=new_schedule_input.semester_visibility,
+            #                                         num_nights_to_schedule=new_schedule_input.num_nights_to_schedule,
+            #                                         program_file=program_file)
+            # s_timelines = SNightTimelines.from_computed_timelines(timelines)
+
+            params = SchedulerParameters(start, end,
+                                         new_schedule_input.sites,
+                                         new_schedule_input.mode,
+                                         ranker_params,
+                                         new_schedule_input.semester_visibility,
+                                         new_schedule_input.num_nights_to_schedule)
+            engine = Engine(params)
+            plan_summary, timelines = engine.run()
+
             s_timelines = SNightTimelines.from_computed_timelines(timelines)
 
         except RuntimeError as e:
             raise RuntimeError(f'Schedule query error: {e}')
-        return NewNightPlans(night_plans=s_timelines, plans_summary=plans_summary)
+        return NewNightPlans(night_plans=s_timelines, plans_summary=plan_summary)

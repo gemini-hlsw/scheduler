@@ -28,3 +28,6 @@ app.add_middleware(
 
 app.add_route('/graphql', graphql_server)
 app.add_websocket_route('/graphql', graphql_server)
+
+# Import the routes after creating the FastAPI instance
+import routes
