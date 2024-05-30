@@ -10,11 +10,12 @@ from astropy.time import Time
 from redis import asyncio as aioredis
 from lucupy.minimodel.site import Site, ALL_SITES
 
-from scheduler.core.service import Service
 from scheduler.core.sources.services import Services
 from scheduler.core.sources.sources import Sources
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.eventsqueue import EventQueue
+from scheduler.core.components.ranker import RankerParameters
+from scheduler.engine import Engine, SchedulerParameters
 from scheduler.db.planmanager import PlanManager
 
 
@@ -22,9 +23,7 @@ from .types import (SPlans, NewNightPlans, ChangeOriginSuccess,
                     SourceFileHandlerResponse, SNightTimelines)
 from .inputs import CreateNewScheduleInput, UseFilesSourceInput
 from .scalars import SOrigin
-from ..core.components.ranker import RankerParameters
-from ..engine import Engine
-from ..engine.params import SchedulerParameters
+
 
 # TODO: This variables need a Redis cache to work with different mutations correctly.
 # TODO: This should NOT be 3, but the actual number of nights.
@@ -130,16 +129,6 @@ class Query:
             #    program_file = (await new_schedule_input.program_file.read())
             #else:
             #    program_file = new_schedule_input.program_file
-
-            #timelines, plans_summary = Service().run(mode=new_schedule_input.mode,
-            #                                         start=start,
-            #                                         end=end,
-            #                                         sites=new_schedule_input.sites,
-            #                                         ranker_parameters=ranker_params,
-            #                                         semester_visibility=new_schedule_input.semester_visibility,
-            #                                         num_nights_to_schedule=new_schedule_input.num_nights_to_schedule,
-            #                                         program_file=program_file)
-            # s_timelines = SNightTimelines.from_computed_timelines(timelines)
 
             params = SchedulerParameters(start, end,
                                          new_schedule_input.sites,
