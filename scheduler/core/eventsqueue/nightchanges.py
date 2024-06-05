@@ -55,16 +55,16 @@ class NightlyTimeline:
         entries = self.timeline[night_idx][site]
 
         all_generated = []
-        t = 0
 
         # Skip the None entries.
         relevant_entries = [e for e in reversed(entries) if e.plan_generated is not None]
         if len(relevant_entries) == 0:
             return None
 
-        for entry in relevant_entries:
+        t = relevant_entries[0].start_time_slot
+        for i, entry in enumerate(relevant_entries):
             pg = entry.plan_generated
-            if t > 0:
+            if i > 0:
                 # Get the partial plan, i.e. all visits up to and including time slot t.
                 partial_plan = pg.get_slice(stop=t)
                 # If there was a last_visit (i.e. partial_plan.visits[-1]), then it:
@@ -81,12 +81,11 @@ class NightlyTimeline:
                     last_end_time_slot = last_start_time_slot + last_visit.time_slots
                     if last_start_time_slot <= t < last_end_time_slot:
                         last_visit.time_slots = t - last_start_time_slot
+                t = entry.start_time_slot
             else:
                 partial_plan = pg
 
             all_generated += [v for v in reversed(partial_plan.visits) if v.time_slots]
-            if t < entry.start_time_slot:
-                t = entry.start_time_slot
 
         p = Plan(start=relevant_entries[0].plan_generated.start,
                  end=relevant_entries[-1].plan_generated.end,
@@ -112,7 +111,8 @@ class NightlyTimeline:
                         for visit in entry.plan_generated.visits:
                             visit_time = rnd_min(visit.start_time).strftime(self._datetime_formatter)
                             print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
-                                  f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}')
+                                  f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}'
+                                  f' {visit.start_time_slot+visit.time_slots:4d}')
                     print('\t+++++ END EVENT +++++')
             print()
         sys.stdout.flush()
