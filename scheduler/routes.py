@@ -1,5 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import asyncio
 
 from fastapi.responses import JSONResponse
 from fastapi import WebSocket, WebSocketDisconnect
@@ -22,6 +23,13 @@ def root() -> JSONResponse:
                             "message": "Welcome to Server"})
 
 
+async def worker(data):
+    params = SchedulerParameters.from_json(data)
+    engine = Engine(params)
+    plan_summary, timelines = engine.run()
+    return timelines.to_json()
+
+
 @app.websocket("/ws/{client_id}")
 async def schedule_websocket(websocket: WebSocket, client_id: int):
     await manager.connect(websocket)
@@ -29,15 +37,12 @@ async def schedule_websocket(websocket: WebSocket, client_id: int):
         while True:
             data = await websocket.receive_json()
             if data:
-                params = SchedulerParameters.from_json(data)
-                engine = Engine(params)
-                scp = engine.build()
-                initial_variations = engine.setup(scp)
-                for n in engine.generate(scp, initial_variations, {site: None for site in engine.params.sites}):
-                    await manager.send(n.to_json(), websocket)
-
-                # for n in Service().generate(**SchedulerParameters.from_json(data).__dict__):
-                #    await manager.send(n, websocket)
+                task = asyncio.create_task(worker(data))
+                # Send a response to acknowledge receipt
+                await manager.send("Processing plans...", websocket)
+                # Wait for the long-running task to complete
+                result = await task
+                await manager.send(result, websocket)
             else:
                 raise ValueError('Missing parameters to create schedule')
     except WebSocketDisconnect:

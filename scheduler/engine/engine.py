@@ -355,10 +355,10 @@ class Engine:
 
         return plan_summary, nightly_timeline
 
-    def generate(self,
-                 scp: SCP,
-                 initial_variants: Dict[Site, Dict[NightIndex, Optional[VariantSnapshot]]],
-                 next_update: Dict[Site, Optional[TimeCoordinateRecord]]) -> Generator[NightlyTimeline, None, None]:
+    async def generate(self,
+                       scp: SCP,
+                       initial_variants: Dict[Site, Dict[NightIndex, Optional[VariantSnapshot]]],
+                       next_update: Dict[Site, Optional[TimeCoordinateRecord]]) -> Generator[NightlyTimeline, None, None]:
         nightly_timeline = NightlyTimeline()
 
         for night_idx in sorted(self.params.night_indices):
