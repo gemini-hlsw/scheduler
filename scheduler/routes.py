@@ -4,6 +4,7 @@ import asyncio
 
 from fastapi.responses import JSONResponse
 from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.websockets import WebSocketState
 from fastapi.responses import HTMLResponse
 from starlette.requests import Request
 
@@ -11,9 +12,11 @@ from scheduler.app import app
 from scheduler.connection_manager import ConnectionManager
 from scheduler.engine import Engine
 from scheduler.engine.params import SchedulerParameters
+from scheduler.services import logger_factory
 
+
+_logger = logger_factory.create_logger(__name__)
 manager = ConnectionManager()
-
 
 # Root API
 @app.get("/", include_in_schema=False)
@@ -23,30 +26,57 @@ def root() -> JSONResponse:
                             "message": "Welcome to Server"})
 
 
-async def worker(data):
+def worker(data: dict) -> str:
     params = SchedulerParameters.from_json(data)
     engine = Engine(params)
     plan_summary, timelines = engine.run()
     return timelines.to_json()
 
 
+async def keep_alive(websocket: WebSocket) -> None:
+    """Sends a ping to the websocket to avoid idle timeouts."""
+    while True:
+        try:
+            if websocket.application_state == WebSocketState.CONNECTED:
+                await manager.send("ping", websocket)
+            await asyncio.sleep(30)  # Ping every 30 seconds
+        except Exception as e:
+            print(f"Keep-alive error: {e}")
+            break
+
+
+async def websocket_handler(websocket: WebSocket) -> None:
+    """Handles the task that allows to run the Scheduler engine"""
+    while True:
+        data = await websocket.receive_json()
+        if data:
+            task = asyncio.to_thread(worker, data)
+            await manager.send("Processing plans...", websocket)
+            result = await task
+            await manager.send(result, websocket)
+        else:
+            raise ValueError('Missing parameters to create schedule')
+
+
 @app.websocket("/ws/{client_id}")
 async def schedule_websocket(websocket: WebSocket, client_id: int):
+
     await manager.connect(websocket)
+
+    keep_alive_task = asyncio.create_task(keep_alive(websocket))
+    handler_task = asyncio.create_task(websocket_handler(websocket))
+
     try:
-        while True:
-            data = await websocket.receive_json()
-            if data:
-                task = asyncio.create_task(worker(data))
-                # Send a response to acknowledge receipt
-                await manager.send("Processing plans...", websocket)
-                # Wait for the long-running task to complete
-                result = await task
-                await manager.send(result, websocket)
-            else:
-                raise ValueError('Missing parameters to create schedule')
+        await asyncio.gather(keep_alive_task, handler_task)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+    except Exception as e:
+        _logger.warning(f"An error occurred in websocket {client_id}: {e}")
+    finally:
+        keep_alive_task.cancel()
+        handler_task.cancel()
+        await keep_alive_task
+        await handler_task
 
 
 @app.get("/websocket-client")
