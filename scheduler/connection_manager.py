@@ -16,5 +16,5 @@ class ConnectionManager:
         self.active_connections.remove(websocket)
 
     @staticmethod
-    async def send(message: str, websocket: WebSocket):
+    async def send(message: str | dict, websocket: WebSocket):
         await websocket.send_json(message)
