@@ -117,9 +117,9 @@ class NightlyTimeline:
             print()
         sys.stdout.flush()
 
-    def to_json(self) -> str:
+    def to_json(self) -> dict:
         utc = ZoneInfo('UTC')
-        return json.dumps({
+        return {
             n_idx: {site.name: [{'startTimeSlot': te.start_time_slot,
                                  'event': {'site': te.event.site.name,
                                            'time': te.event.time.strftime(self._datetime_formatter),
@@ -151,4 +151,4 @@ class NightlyTimeline:
                                  } for te in time_entries]
              for site, time_entries in by_site.items()
                     } for n_idx, by_site in self.timeline.items()
-        })
+        }

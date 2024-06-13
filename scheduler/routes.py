@@ -26,7 +26,7 @@ def root() -> JSONResponse:
                             "message": "Welcome to Server"})
 
 
-def worker(data: dict) -> str:
+def worker(data: dict) -> dict:
     params = SchedulerParameters.from_json(data)
     engine = Engine(params)
     plan_summary, timelines = engine.run()
@@ -38,10 +38,10 @@ async def keep_alive(websocket: WebSocket) -> None:
     while True:
         try:
             if websocket.application_state == WebSocketState.CONNECTED:
-                await manager.send("ping", websocket)
+                await manager.send({"type": "ping", "payload": {}}, websocket)
             await asyncio.sleep(30)  # Ping every 30 seconds
         except Exception as e:
-            print(f"Keep-alive error: {e}")
+            _logger.warning(f"Keep-alive error: {e}")
             break
 
 
@@ -51,9 +51,9 @@ async def websocket_handler(websocket: WebSocket) -> None:
         data = await websocket.receive_json()
         if data:
             task = asyncio.to_thread(worker, data)
-            await manager.send("Processing plans...", websocket)
+            await manager.send({"type": "update", "payload": {"message": "Processing plans..."}}, websocket)
             result = await task
-            await manager.send(result, websocket)
+            await manager.send({"type": "plans", "payload": result}, websocket)
         else:
             raise ValueError('Missing parameters to create schedule')
 
