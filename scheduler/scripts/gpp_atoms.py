@@ -6,11 +6,17 @@ import os, sys
 
 # Requires https://github.com/andrewwstephens/pyexplore
 # sys.path.append(os.path.join(os.environ['PYEXPLORE']))
+# Uncomment the next three lines to run from the pycharm terminal, better to redefine PYTHONPATH in the terminal
+# sys.path.append(os.path.join(os.environ['HOME'], 'python', 'pyexplore'))
+# sys.path.append(os.path.join(os.environ['HOME'], 'python', 'scheduler'))
+# sys.path.append(os.path.join(os.environ['HOME'], 'python', 'lucupy'))
 from pyexplore import explore
 
+from scheduler.core.programprovider.gpp.gppprogramprovider import GppProgramProvider
+from scheduler.core.sources.sources import Sources
+from lucupy.minimodel.observation import ObservationClass
 
 if __name__ == '__main__':
-
     # List programs
     programs = explore.programs()
     progid = None
@@ -27,6 +33,9 @@ if __name__ == '__main__':
     print("")
 
     # Query obserations appropriate for the scheduler (READY/ONGOING)
+    sources = Sources()
+    provider = GppProgramProvider(frozenset([ObservationClass.SCIENCE]), sources)
+
     obs_for_sched = explore.observations_for_scheduler(include_deleted=False)
     for o in obs_for_sched:
         print(f'{o.id}: {o.title} {o.active_status} {o.status}')
@@ -44,6 +53,11 @@ if __name__ == '__main__':
 
         print(f"Atom information")
         explore.sequence_atoms(obs.id, include_acquisition=True)
+
+        print(f"Atom parsing")
+        for atom in provider.parse_atoms(obs.instrument, sequence):
+            print('Output Atoms')
+            print(atom.id, atom.obs_mode.name, atom.exec_time, atom.resources, atom.wavelengths)
 
         print("")
 
