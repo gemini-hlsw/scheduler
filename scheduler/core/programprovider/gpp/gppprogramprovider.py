@@ -5,12 +5,14 @@ import calendar
 import json
 import zipfile
 from datetime import datetime, timedelta
+from dateutil.parser import parse as parsedt
 from os import PathLike
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
-import numpy as np
-from lucupy.helpers import dmsstr2deg
+from pyexplore import explore
+# import numpy as np
+# from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
                               ObservationClass, ObservationID, ObservationMode, ObservationStatus, OrGroup, Priority,
@@ -22,7 +24,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
-from scipy.signal import find_peaks
+# from scipy.signal import find_peaks
 
 from definitions import ROOT_DIR
 from scheduler.core.programprovider.abstract import ProgramProvider
@@ -102,6 +104,9 @@ class GppProgramProvider(ProgramProvider):
 
     _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS}
 
+    # Allowed instrument statuses
+    _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
+
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
     _fpu_to_barcode = {'GMOS_NORTH': {
@@ -145,10 +150,6 @@ class GppProgramProvider(ProgramProvider):
         'PinholeC':        '10005381',
     }
                       }
-    # Note that we want to include OBSERVED observations here since this is legacy data, so most if not all observations
-    # should be marked OBSERVED and we will reset this later to READY.
-    _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING, ObservationStatus.OBSERVED})
-
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
     class _ProgramKeys:
@@ -190,56 +191,84 @@ class GppProgramProvider(ProgramProvider):
         GROUP_NAME = 'name'
 
     class _ObsKeys:
-        KEY = 'OBSERVATION_BASIC'
-        ID = 'observationId'
+        # KEY = 'OBSERVATION_BASIC'
+        ID = 'id'
         INTERNAL_ID = 'key'
-        QASTATE = 'qaState'
-        LOG = 'obsLog'
-        STATUS = 'obsStatus'
-        PRIORITY = 'priority'
+        # QASTATE = 'qaState'
+        # LOG = 'obsLog'
+        STATUS = 'status'
+        # PRIORITY = 'priority'
         TITLE = 'title'
-        SEQUENCE = 'sequence'
-        SETUPTIME_TYPE = 'setupTimeType'
-        SETUPTIME = 'setupTime'
-        OBS_CLASS = 'obsClass'
-        PHASE2 = 'phase2Status'
-        TOO_OVERRIDE_RAPID = 'tooOverrideRapid'
+        INSTRUMENT = 'instrument'
+        # SEQUENCE = 'sequence'
+        # SETUPTIME_TYPE = 'setupTimeType'
+        # SETUPTIME = '' # obs_may5_grp.execution.digest.acquisition.time_estimate.total.hours
+        # OBS_CLASS = 'obsClass'
+        # PHASE2 = 'phase2Status'
+        ACTIVE = 'active_status'
+        # TOO_OVERRIDE_RAPID = 'tooOverrideRapid'
 
     class _TargetKeys:
-        KEY = 'TELESCOPE_TARGETENV'
-        BASE = 'base'
+        KEY = 'target_environment'
+        ASTERISM = 'asterism'
+        BASE = 'explicit_base'
         TYPE = 'type'
         RA = 'ra'
         DEC = 'dec'
-        DELTA_RA = 'deltara'
-        DELTA_DEC = 'deltadec'
+        PM = 'proper_motion'
         EPOCH = 'epoch'
         DES = 'des'
-        TAG = 'tag'
-        NONSIDEREAL_OBJECT_TYPE = 'nonsiderealObjectType'
+        SIDEREAL_OBJECT_TYPE = 'sidereal'
+        NONSIDEREAL_OBJECT_TYPE = 'nonsidereal'
         MAGNITUDES = 'magnitudes'
         NAME = 'name'
 
     class _TargetEnvKeys:
-        GUIDE_GROUPS = 'guideGroups'
-        GUIDE_GROUP_NAME = 'name'
-        GUIDE_GROUP_PRIMARY = 'primaryGroup'
-        GUIDE_PROBE = 'guideProbe'
-        GUIDE_PROBE_KEY = 'guideProbeKey'
-        AUTO_GROUP = 'auto'
-        TARGET = 'target'
-        USER_TARGETS = 'userTargets'
+        GUIDE_GROUPS = 'guide_environments'
+        # GUIDE_GROUP_NAME = 'name'
+        # GUIDE_GROUP_PRIMARY = 'primaryGroup'
+        # GUIDE_PROBE = 'probe'
+        GUIDE_PROBE_KEY = 'probe'
+        # AUTO_GROUP = 'auto'
+        TARGET = 'guide_targets'
+        # USER_TARGETS = 'userTargets'
+
+    _constraint_to_value = {
+            'POINT_ONE': 0.1,
+            'POINT_TWO': 0.2,
+            'POINT_THREE': 0.3,
+            'POINT_FOUR': 0.4,
+            'POINT_FIVE': 0.5,
+            'POINT_SIX': 0.6,
+            'POINT_EIGHT': 0.8,
+            'ONE_POINT_ZERO': 1.0,
+            'ONE_POINT_FIVE': 1.5,
+            'TWO_POINT_ZERO': 2.0,
+            'THREE_POINT_ZERO': 3.0,
+            'DARKEST': 0.2,
+            'DARK': 0.5,
+            'GRAY': 0.8,
+            'BRIGHT': 1.0,
+            'VERY_DRY': 0.2,
+            'DRY': 0.5,
+            'MEDIAN': 0.8,
+            'WET': 1.0,
+    }
 
     class _ConstraintKeys:
-        KEY = 'SCHEDULING_CONDITIONS'
-        CC = 'cc'
-        IQ = 'iq'
-        SB = 'sb'
-        WV = 'wv'
-        ELEVATION_TYPE = 'elevationConstraintType'
-        ELEVATION_MIN = 'elevationConstraintMin'
-        ELEVATION_MAX = 'elevationConstraintMax'
-        TIMING_WINDOWS = 'timingWindows'
+        KEY = 'constraint_set'
+        CC = 'cloud_extinction'
+        IQ = 'image_quality'
+        SB = 'sky_background'
+        WV = 'water_vapor'
+        ELEVATION = 'elevation_range'
+        AIRMASS_TYPE = 'air_mass'
+        AIRMASS_MIN = 'min'
+        AIRMASS_MAX = 'max'
+        HA_TYPE = 'hour_angle'
+        HA_MIN = 'min_hours'
+        HA_MAX = 'max_hours'
+        TIMING_WINDOWS = 'timing_windows'
 
     class _AtomKeys:
         OBS_CLASS = 'class'
@@ -259,10 +288,14 @@ class GppProgramProvider(ProgramProvider):
         # PREIMAGING = ''
 
     class _TimingWindowKeys:
-        TIMING_WINDOWS = 'timingWindows'
-        START = 'start'
-        DURATION = 'duration'
+        # TIMING_WINDOWS = 'timingWindows'
+        INCLUSION = 'inclusion'
+        START = 'start_utc'
+        DURATION = 'end'
+        ATUTC = 'at_utc'
+        AFTER = 'after'
         REPEAT = 'repeat'
+        TIMES = 'times'
         PERIOD = 'period'
 
     class _MagnitudeKeys:
@@ -448,26 +481,56 @@ class GppProgramProvider(ProgramProvider):
 
         # Account for the flexible boundary on programs.
         return start_date - Program.FUZZY_BOUNDARY, end_date + Program.FUZZY_BOUNDARY
-
+    
     def parse_timing_window(self, data: dict) -> TimingWindow:
-        start = datetime.utcfromtimestamp(data[GppProgramProvider._TimingWindowKeys.START] / 1000.0)
+        """Parse GPP timing windows"""
+        # Examples
+        # [TimingWindow(inclusion='INCLUDE', start_utc='2024-02-29 17:47:01.657', end=TimingWindowEndAt(__typename__='TimingWindowEndAt', at_utc='2024-04-29 19:47:00')), 
+        # TimingWindow(inclusion='INCLUDE', start_utc='2024-06-22 18:46:31.08', end=None), 
+        # TimingWindow(inclusion='INCLUDE', start_utc='2024-06-24 14:08:53.707', end=TimingWindowEndAfter(__typename__='TimingWindowEndAfter', after=TimeSpan(seconds=172800.0), repeat=TimingWindowRepeat(period=TimeSpan(seconds=216000.0), times=None))), 
+        # TimingWindow(inclusion='INCLUDE', start_utc='2024-06-24 14:09:37.32', end=TimingWindowEndAfter(__typename__='TimingWindowEndAfter', after=TimeSpan(seconds=172800.0), repeat=TimingWindowRepeat(period=TimeSpan(seconds=216000.0), times=6)))]
 
-        duration_info = data[GppProgramProvider._TimingWindowKeys.DURATION]
-        if duration_info == TimingWindow.INFINITE_DURATION_FLAG:
-            duration = TimingWindow.INFINITE_DURATION
-        else:
-            duration = timedelta(milliseconds=duration_info)
+        repeat_info = 0
+        period_info = None
 
-        repeat_info = data[GppProgramProvider._TimingWindowKeys.REPEAT]
-        if repeat_info == TimingWindow.FOREVER_REPEATING:
-            repeat = TimingWindow.OCS_INFINITE_REPEATS
-        else:
-            repeat = repeat_info
+        if data[GppProgramProvider._TimingWindowKeys.INCLUSION] == 'INCLUDE':
+            # Start
+            start = parsedt(data[GppProgramProvider._TimingWindowKeys.START] + '+00:00')
 
-        if repeat == TimingWindow.NON_REPEATING:
-            period = None
-        else:
-            period = timedelta(milliseconds=data[GppProgramProvider._TimingWindowKeys.PERIOD])
+            # End
+            duration_info = data[GppProgramProvider._TimingWindowKeys.DURATION]
+            if duration_info is None:
+                duration = TimingWindow.INFINITE_DURATION
+            else:
+                try:
+                    at_utc = parsedt(duration_info[GppProgramProvider._TimingWindowKeys.ATUTC] + '+00:00')
+                    duration = at_utc - start
+                except KeyError:
+                    try:
+                        duration = timedelta(
+                            seconds=duration_info[GppProgramProvider._TimingWindowKeys.AFTER]['seconds'])
+                        period_info = duration_info[GppProgramProvider._TimingWindowKeys.REPEAT] \
+                            [GppProgramProvider._TimingWindowKeys.PERIOD]['seconds']
+                        repeat_info = duration_info[GppProgramProvider._TimingWindowKeys.REPEAT] \
+                            [GppProgramProvider._TimingWindowKeys.TIMES]
+                    except KeyError:
+                        duration = None
+                        period_info = None
+                        repeat_info = 0
+
+            if repeat_info == 'None':
+                repeat = TimingWindow.OCS_INFINITE_REPEATS
+            else:
+                repeat = repeat_info
+
+            if repeat == TimingWindow.NON_REPEATING:
+                period = None
+            else:
+                period = timedelta(seconds=period_info)
+
+        # else:
+        #     continue
+        # ToDo: determine how to handle exclusion windows
 
         return TimingWindow(
             start=start,
@@ -475,39 +538,100 @@ class GppProgramProvider(ProgramProvider):
             repeat=repeat,
             period=period)
 
-    def parse_conditions(self, data: dict) -> Conditions:
+    def parse_elevation(self, data: dict) -> Tuple[Optional[float], Optional[float], Optional[ElevationType]]:
+        """Parse GPP elevation constraints"""
+
+        try:
+            elevation_min = data[GppProgramProvider._ConstraintKeys.AIRMASS_TYPE][
+                GppProgramProvider._ConstraintKeys.AIRMASS_MIN]
+            elevation_max = data[GppProgramProvider._ConstraintKeys.AIRMASS_TYPE][
+                GppProgramProvider._ConstraintKeys.AIRMASS_MAX]
+            elevation_type = ElevationType['AIRMASS']
+        except KeyError:
+            try:
+                elevation_min = data[GppProgramProvider._ConstraintKeys.HA_TYPE][
+                    GppProgramProvider._ConstraintKeys.HA_MIN]
+                elevation_max = data[GppProgramProvider._ConstraintKeys.HA_TYPE][
+                    GppProgramProvider._ConstraintKeys.HA_MAX]
+                elevation_type = ElevationType['HOUR_ANGLE']
+            except KeyError:
+                elevation_min = 1.0
+                elevation_max = 2.0
+                elevation_type = ElevationType['AIRMASS']
+
+        return elevation_min, elevation_max, elevation_type
+
+    def parse_conditions(self, data: dict, x_max: float) -> Conditions:
         def to_value(cond: str) -> float:
             """
-            Parse the conditions value as a float out of the string passed by the OCS program extractor.
+            Parse the conditions value as a float out of the string passed by the GPP program extractor.
             """
-            value = cond.split('/')[0].split('%')[0]
+            value = GppProgramProvider._constraint_to_value[cond]
             try:
-                return 1.0 if value == 'Any' else float(value) / 100
+                return float(value)
             except (ValueError, TypeError) as e:
                 # Either of these will just be a ValueError.
                 msg = f'Illegal value for constraint: {value}'
                 raise ValueError(e, msg)
 
+        def to_percent_bin(cond, const, x_max) -> float:
+            """Convert to legacy OCS percentile bins"""
+
+            cc_bins = [0.1, 0.3, 1.0, 3.0]
+            cc_bin_values = [0.5, 0.7, 0.8, 1.0]
+
+            iq_bins = [0.45, 0.75, 1.05, 1.5]  # for r, should be wavelength dependent
+            iq_bin_values = [0.5, 0.7, 0.85, 1.0]
+
+            # Numerical value equivalent
+            value = to_value(const)
+
+            if cond == GppProgramProvider._ConstraintKeys.CC:
+                bin_value = cc_bin_values[-1]
+                for i_bin, bin_lim in enumerate(cc_bins):
+                    if value <= bin_lim:
+                        bin_value = cc_bin_values[i_bin]
+                        break
+            elif cond == GppProgramProvider._ConstraintKeys.IQ:
+                bin_value = iq_bin_values[-1]
+                iqzen = value * x_max ** -0.6
+                # print(value, iqzen)
+                for i_bin, bin_lim in enumerate(iq_bins):
+                    if iqzen <= bin_lim:
+                        bin_value = iq_bin_values[i_bin]
+                        break
+            else:
+                bin_value = value
+
+            return bin_value
+
+        # print(getattr(data, GppProgramProvider._ConstraintKeys.CC))
+        # print(data[GppProgramProvider._ConstraintKeys.CC], to_value(data[GppProgramProvider._ConstraintKeys.CC]))
+
         return Conditions(
-            *[lookup(to_value(data[key])) for lookup, key in
+            *[lookup(to_percent_bin(key, data[key], x_max)) for lookup, key in
               [(CloudCover, GppProgramProvider._ConstraintKeys.CC),
                (ImageQuality, GppProgramProvider._ConstraintKeys.IQ),
                (SkyBackground, GppProgramProvider._ConstraintKeys.SB),
                (WaterVapor, GppProgramProvider._ConstraintKeys.WV)]])
 
     def parse_constraints(self, data: dict) -> Constraints:
-        # Get the conditions
-        conditions = self.parse_conditions(data)
 
         # Parse the timing windows.
         timing_windows = [self.parse_timing_window(tw_data)
                           for tw_data in data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]]
 
-        # Get the elevation data.
-        elevation_type_data = data[GppProgramProvider._ConstraintKeys.ELEVATION_TYPE].replace(' ', '_').upper()
-        elevation_type = ElevationType[elevation_type_data]
-        elevation_min = data[GppProgramProvider._ConstraintKeys.ELEVATION_MIN]
-        elevation_max = data[GppProgramProvider._ConstraintKeys.ELEVATION_MAX]
+        # Get the elevation data 
+        elevation_min, elevation_max, elevation_type = self.parse_elevation(
+            data[GppProgramProvider._ConstraintKeys.KEY][GppProgramProvider._ConstraintKeys.ELEVATION])
+
+        # Get the conditions
+        # ToDo: support GPP on-target conditions constraints rather than converting to percentile bins
+        if elevation_type == ElevationType['AIRMASS']:
+            airmass_max = elevation_max
+        else:
+            airmass_max = 2.0  # should be converted from the max |HA|, but this is better than otherwise
+        conditions = self.parse_conditions(data[GppProgramProvider._ConstraintKeys.KEY], airmass_max)
 
         return Constraints(
             conditions=conditions,
@@ -517,40 +641,79 @@ class GppProgramProvider(ProgramProvider):
             timing_windows=timing_windows,
             strehl=None)
 
-    def _parse_target_header(self, data: dict) -> Tuple[TargetName, set[Magnitude], TargetType]:
+    def _parse_target_header(self, data: dict) -> Tuple[TargetName, set[Magnitude]]:
         """
         Parse the common target header information out of a target.
         """
         name = TargetName(data[GppProgramProvider._TargetKeys.NAME])
-        magnitude_data = data.setdefault(GppProgramProvider._TargetKeys.MAGNITUDES, [])
-        magnitudes = {self.parse_magnitude(m) for m in magnitude_data}
+        # magnitude_data = data.setdefault(GppProgramProvider._TargetKeys.MAGNITUDES, [])
+        # magnitudes = {self.parse_magnitude(m) for m in magnitude_data}
+        magnitudes = {}
 
-        target_type_data = data[GppProgramProvider._TargetKeys.TYPE].replace('-', '_').replace(' ', '_').upper()
-        try:
-            target_type = TargetType[target_type_data]
-        except KeyError as e:
-            msg = f'Target {name} has illegal type {target_type_data}.'
-            raise KeyError(e, msg)
+        # GPP doesn't have the target TYPE tag, set from the context further up
+        # target_type = TargetType.OTHER
+        # target_type_data = data[GppProgramProvider._TargetKeys.TYPE].replace('-', '_').replace(' ', '_').upper()
+        # try:
+        #     target_type = TargetType[target_type_data]
+        # except KeyError as e:
+        #     msg = f'Target {name} has illegal type {target_type_data}.'
+        #     raise KeyError(e, msg)
 
-        return name, magnitudes, target_type
+        return name, magnitudes
 
-    def parse_sidereal_target(self, data: dict) -> SiderealTarget:
-        name, magnitudes, target_type = self._parse_target_header(data)
-        ra_hhmmss = data[GppProgramProvider._TargetKeys.RA]
-        dec_ddmmss = data[GppProgramProvider._TargetKeys.DEC]
+    # def parse_sidereal_target(self, data: dict) -> SiderealTarget:
+    #     name, magnitudes, target_type = self._parse_target_header(data)
+    #     ra_hhmmss = data[GppProgramProvider._TargetKeys.RA]
+    #     dec_ddmmss = data[GppProgramProvider._TargetKeys.DEC]
+    # 
+    #     # TODO: Is this the proper way to handle conversions from hms and dms?
+    #     ra = sex2dec(ra_hhmmss, to_degree=True)
+    #     dec = dmsstr2deg(dec_ddmmss)
+    # 
+    #     pm_ra = data.setdefault(GppProgramProvider._TargetKeys.DELTA_RA, 0.0)
+    #     pm_dec = data.setdefault(GppProgramProvider._TargetKeys.DELTA_DEC, 0.0)
+    #     epoch = data.setdefault(GppProgramProvider._TargetKeys.EPOCH, 2000)
+    # 
+    #     return SiderealTarget(
+    #         name=name,
+    #         magnitudes=frozenset(magnitudes),
+    #         type=target_type,
+    #         ra=ra,
+    #         dec=dec,
+    #         pm_ra=pm_ra,
+    #         pm_dec=pm_dec,
+    #         epoch=epoch)
+    def parse_sidereal_target(self, data: dict, targ_type: str) -> SiderealTarget:
+        """Parse GPP sidereal target information"""
+        # print(target[ 'id'], target['name'], target['sidereal']['ra']['hms'], target['sidereal']['dec']['dms'],  target['sidereal']['epoch'], 
+        #   target['sidereal']['proper_motion']['ra']['milliarcseconds_per_year'], target['sidereal']['proper_motion']['dec']['milliarcseconds_per_year'])
 
-        # TODO: Is this the proper way to handle conversions from hms and dms?
+        name, magnitudes = self._parse_target_header(data)
+        ra_hhmmss = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.RA][
+            'hms']
+        dec_ddmmss = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.DEC][
+            'dms']
+
+        # Convert RA/Dec to decimal degrees
         ra = sex2dec(ra_hhmmss, to_degree=True)
-        dec = dmsstr2deg(dec_ddmmss)
+        dec = sex2dec(dec_ddmmss, to_degree=False)
 
-        pm_ra = data.setdefault(GppProgramProvider._TargetKeys.DELTA_RA, 0.0)
-        pm_dec = data.setdefault(GppProgramProvider._TargetKeys.DELTA_DEC, 0.0)
-        epoch = data.setdefault(GppProgramProvider._TargetKeys.EPOCH, 2000)
+        # Proper motion
+        try:
+            pm_ra = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.PM] \
+                [GppProgramProvider._TargetKeys.RA]['milliarcseconds_per_year']
+            pm_dec = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.PM] \
+                [GppProgramProvider._TargetKeys.DEC]['milliarcseconds_per_year']
+            epoch = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.EPOCH]
+        except KeyError as e:
+            pm_ra = 0.0
+            pm_dec = 0.0
+            epoch = 2000
 
         return SiderealTarget(
             name=name,
             magnitudes=frozenset(magnitudes),
-            type=target_type,
+            type=TargetType[targ_type],
             ra=ra,
             dec=dec,
             pm_ra=pm_ra,
@@ -664,9 +827,12 @@ class GppProgramProvider(ProgramProvider):
 
         return fpu, disperser, filt, wavelength
 
-    def parse_atoms(self, instrument, sequence: List[dict]) -> List[Atom]:
+    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState] = frozenset([]),
+                    split: bool = True, split_by_iterator: bool = False) -> List[Atom]:
         """
-        Parse the sequence by atoms
+        Parse the sequence by GPP atoms
+        qa_states: Determine if needed for GPP
+        split/split_by_iterator: not used for GPP
         """
 
         def guide_state(guide_step: dict) -> bool:
@@ -703,7 +869,8 @@ class GppProgramProvider(ProgramProvider):
 
             return obs_mode
 
-        site = GppProgramProvider._site_for_inst[instrument]
+        # site = GppProgramProvider._site_for_inst[instrument]
+        instrument = sequence.meta['instrument'].upper()
 
         fpus = []
         dispersers = []
@@ -727,12 +894,12 @@ class GppProgramProvider(ProgramProvider):
                 observe_class = step[GppProgramProvider._AtomKeys.OBS_CLASS]
                 step_time = step[GppProgramProvider._AtomKeys.TOTAL_TIME]
 
-                print(step['atom'], step['class'], step['type'], step['exposure'], step['duration'], step_time, \
-                      step['fpu'], step['grating'], step['filter'], step['wavelength'])
+                # print(step['atom'], step['class'], step['type'], step['exposure'], step['duration'], step_time, \
+                #       step['fpu'], step['grating'], step['filter'], step['wavelength'])
 
                 # Instrument configuration aka Resource.
                 fpu, disperser, filt, wavelength = GppProgramProvider._parse_instrument_configuration(step, instrument)
-                print(f"\t{fpu} {disperser} {filt} {wavelength}")
+                # print(f"\t{fpu} {disperser} {filt} {wavelength}")
 
                 if atom_id != prev_atom_id:
                     # Convert all the different components into Resources.
@@ -836,106 +1003,286 @@ class GppProgramProvider(ProgramProvider):
 
         return atoms
 
-    def parse_target(self, data: dict) -> Target:
+    def parse_target(self, data: dict, targ_type: str) -> Target:
         """
         Parse a general target - either sidereal or nonsidereal - from the supplied data.
         If we are a ToO, we don't have a target, and thus we don't have a tag. Thus, this raises a KeyError.
         """
-        tag = data[GppProgramProvider._TargetKeys.TAG]
-        if tag == 'sidereal':
-            return self.parse_sidereal_target(data)
-        elif tag == 'nonsidereal':
-            return self.parse_nonsidereal_target(data)
+        if data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE]:
+            return self.parse_sidereal_target(data, targ_type)
+        elif data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]:
+            return self.parse_nonsidereal_target(data, targ_type)
         else:
-            msg = f'Illegal target tag type: {tag}.'
+            msg = f'Illegal target type.'
             raise ValueError(msg)
-
+        
+    # def parse_observation(self,
+    #                       data: dict,
+    #                       num: Tuple[Optional[int], int],
+    #                       program_id: ProgramID,
+    #                       split: bool,
+    #                       split_by_iterator: bool) -> Optional[Observation]:
+    #     """
+    #     Right now, obs_num contains an optional organizational folder number and
+    #     a mandatory observation number, which may overlap with others in organizational folders.
+    #
+    #     In the current list of observations, we are parsing the data for:
+    #     OBSERVATION_BASIC-{num[1]}
+    #     in (if defined) GROUP_GROUP_FOLDER-{num[0]}.
+    #     """
+    #     # folder_num is not currently used.
+    #     folder_num, obs_num = num
+    #
+    #     # Check the obs_class. If it is illegal, return None.
+    #     # At the same time, ignore inactive observations.
+    #     obs_id = data[GppProgramProvider._ObsKeys.ID]
+    #
+    #     try:
+    #         active = data[GppProgramProvider._ObsKeys.PHASE2] != 'Inactive'
+    #         if not active:
+    #             logger.warning(f"Observation {obs_id} is inactive (skipping).")
+    #             return None
+    #
+    #         obs_class = ObservationClass[data[GppProgramProvider._ObsKeys.OBS_CLASS].upper()]
+    #         if obs_class not in self._obs_classes or not active:
+    #             logger.warning(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
+    #             return None
+    #
+    #         # By default, assume ToOType of None unless otherwise indicated.
+    #         too_type: Optional[TooType] = None
+    #
+    #         internal_id = data[GppProgramProvider._ObsKeys.INTERNAL_ID]
+    #         title = data[GppProgramProvider._ObsKeys.TITLE]
+    #         site = Site[data[GppProgramProvider._ObsKeys.ID].split('-')[0]]
+    #         status = ObservationStatus[data[GppProgramProvider._ObsKeys.STATUS].upper()]
+    #         priority = Priority[data[GppProgramProvider._ObsKeys.PRIORITY].upper()]
+    #
+    #         # If the status is not legal, terminate parsing.
+    #         if status not in GppProgramProvider._OBSERVATION_STATUSES:
+    #             return None
+    #
+    #         setuptime_type = SetupTimeType[data[GppProgramProvider._ObsKeys.SETUPTIME_TYPE]]
+    #         acq_overhead = timedelta(milliseconds=data[GppProgramProvider._ObsKeys.SETUPTIME])
+    #
+    #         find_constraints = [data[key] for key in data.keys()
+    #                             if key.startswith(GppProgramProvider._ConstraintKeys.KEY)]
+    #         constraints = self.parse_constraints(find_constraints[0]) if find_constraints else None
+    #
+    #         # TODO: Do we need this? It is being passed to the parse_atoms method.
+    #         # TODO: We have a qaState on the Observation as well.
+    #         qa_states = [QAState[log_entry[GppProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
+    #                      data[GppProgramProvider._ObsKeys.LOG]]
+    #
+    #         # Parse notes for "do not split" information if not found previously
+    #         notes = [(data[key][GppProgramProvider._NoteKeys.TITLE], data[key][GppProgramProvider._NoteKeys.TEXT])
+    #                  for key in data.keys() if key.startswith(GppProgramProvider._ProgramKeys.NOTE)]
+    #         if split:
+    #             split = not self.parse_notes(notes, GppProgramProvider._NO_SPLIT_STRINGS)
+    #         # Parse notes for "split by interator" information if not found previously
+    #         if not split_by_iterator:
+    #             split_by_iterator = self.parse_notes(notes, GppProgramProvider._SPLIT_BY_ITER_STRINGS)
+    #         # If splitting not allowed, then can't split by iterator, not splitting takes precedence
+    #         if not split:
+    #             split_by_iterator = False
+    #
+    #         # print(f'\nparse_observation: {obs_id}')
+    #
+    #         atoms = self.parse_atoms(site, data[GppProgramProvider._ObsKeys.SEQUENCE], qa_states,
+    #                                  split=split, split_by_iterator=split_by_iterator)
+    #         # exec_time = sum([atom.exec_time for atom in atoms], ZeroTime) + acq_overhead
+    #         # for atom in atoms:
+    #         #     print(f'\t\t\t {atom.id} {atom.exec_time} {atom.obs_mode} {atom.resources}')
+    #
+    #         # Check sequence for the pre-imaging flag
+    #         preimaging = parse_preimaging(data[GppProgramProvider._ObsKeys.SEQUENCE])
+    #
+    #         # TODO: Should this be a list of all targets for the observation?
+    #         targets = []
+    #
+    #         # Get the target environment. Each observation should have exactly one, but the name will
+    #         # not necessarily be predictable as we number them.
+    #         guiding = {}
+    #         target_env_keys = [key for key in data.keys() if key.startswith(GppProgramProvider._TargetKeys.KEY)]
+    #         if len(target_env_keys) > 1:
+    #             raise ValueError(f'Observation {obs_id} has multiple target environments. Cannot process.')
+    #
+    #         if not target_env_keys:
+    #             # No target environment. Use the empty target.
+    #             logger.warning(f'No target environment found for observation {obs_id}. Using empty base target.')
+    #             targets.append(GppProgramProvider._EMPTY_BASE_TARGET)
+    #
+    #         else:
+    #             # Process the target environment.
+    #             target_env = data[target_env_keys[0]]
+    #
+    #             # Get the base.
+    #             try:
+    #                 base = self.parse_target(target_env[GppProgramProvider._TargetKeys.BASE])
+    #                 targets.append(base)
+    #             except KeyError:
+    #                 logger.warning(f"No base target found for observation {obs_id}. Using empty base target.")
+    #                 targets.append(GppProgramProvider._EMPTY_BASE_TARGET)
+    #
+    #             # Parse the guide stars if guide star data is supplied.
+    #             # We are only interested in the auto guide group, or the primary guide group if there
+    #             # is not the auto guide group.
+    #             try:
+    #                 guide_groups = target_env[GppProgramProvider._TargetEnvKeys.GUIDE_GROUPS]
+    #                 auto_guide_group = [group for group in guide_groups
+    #                                     if group[GppProgramProvider._TargetEnvKeys.GUIDE_GROUP_NAME] ==
+    #                                     GppProgramProvider._TargetEnvKeys.AUTO_GROUP]
+    #                 primary_guide_group = [group for group in guide_groups
+    #                                        if group[GppProgramProvider._TargetEnvKeys.GUIDE_GROUP_PRIMARY]]
+    #
+    #                 guide_group = None
+    #                 if auto_guide_group:
+    #                     if len(auto_guide_group) > 1:
+    #                         raise ValueError(f'Multiple auto guide groups found for {obs_id}.')
+    #                     guide_group = auto_guide_group[0]
+    #                 elif primary_guide_group:
+    #                     if len(primary_guide_group) > 1:
+    #                         raise ValueError(f'Multiple primary guide groups found for {obs_id}.')
+    #                     guide_group = primary_guide_group[0]
+    #
+    #                 # Now we parse out the guideProbe list, which contains the information about the
+    #                 # guide probe keys and the targets.
+    #                 if guide_group is not None:
+    #                     for guide_data in guide_group[GppProgramProvider._TargetEnvKeys.GUIDE_PROBE]:
+    #                         guider = guide_data[GppProgramProvider._TargetEnvKeys.GUIDE_PROBE_KEY]
+    #                         resource = ResourceManager().lookup_resource(rid=guider, rtype=ResourceType.WFS)
+    #                         target = self.parse_target(guide_data[GppProgramProvider._TargetEnvKeys.TARGET])
+    #                         guiding[resource] = target
+    #                         targets.append(target)
+    #
+    #             except KeyError:
+    #                 logger.warning(f'No guide group data found for observation {obs_id}')
+    #
+    #             # Process the user targets.
+    #             user_targets_data = target_env.setdefault(GppProgramProvider._TargetEnvKeys.USER_TARGETS, [])
+    #             for user_target_data in user_targets_data:
+    #                 user_target = self.parse_target(user_target_data)
+    #                 targets.append(user_target)
+    #
+    #             # If the ToO override rapid setting is in place, set to RAPID.
+    #             # Otherwise, set as None, and we will propagate down from the groups.
+    #             if (GppProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and
+    #                     data[GppProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]):
+    #                 too_type = TooType.RAPID
+    #
+    #         return GeminiObservation(
+    #             id=ObservationID(obs_id),
+    #             internal_id=internal_id,
+    #             order=obs_num,
+    #             title=title,
+    #             site=site,
+    #             status=status,
+    #             active=active,
+    #             priority=priority,
+    #             setuptime_type=setuptime_type,
+    #             acq_overhead=acq_overhead,
+    #             obs_class=obs_class,
+    #             targets=targets,
+    #             guiding=guiding,
+    #             sequence=atoms,
+    #             constraints=constraints,
+    #             belongs_to=program_id,
+    #             too_type=too_type,
+    #             preimaging=preimaging
+    #         )
+    #
+    #     except KeyError as ex:
+    #         logger.error(f'KeyError while reading {obs_id}: {ex} (skipping).')
+    #
+    #     except ValueError as ex:
+    #         logger.error(f'ValueError while reading {obs_id}: {ex} (skipping).')
+    #
+    #     except Exception as ex:
+    #         logger.error(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
+    #
+    #     return None
     def parse_observation(self,
-                          data: dict,
-                          num: Tuple[Optional[int], int],
-                          program_id: ProgramID,
-                          split: bool,
-                          split_by_iterator: bool) -> Optional[Observation]:
+            data: dict,
+            num: Tuple[Optional[int], int],
+            program_id: ProgramID,
+            split: bool = True,
+            split_by_iterator: bool = False) -> Optional[Observation]:
         """
-        Right now, obs_num contains an optional organizational folder number and
-        a mandatory observation number, which may overlap with others in organizational folders.
-
-        In the current list of observations, we are parsing the data for:
-        OBSERVATION_BASIC-{num[1]}
-        in (if defined) GROUP_GROUP_FOLDER-{num[0]}.
+        Parse GPP observation query dictionary into the minimodel observation
         """
         # folder_num is not currently used.
         folder_num, obs_num = num
 
         # Check the obs_class. If it is illegal, return None.
         # At the same time, ignore inactive observations.
+        # ToDo: Eventually the obs_id should be the reference label, the id is the internal_id
         obs_id = data[GppProgramProvider._ObsKeys.ID]
+        internal_id = data[GppProgramProvider._ObsKeys.ID]
+
+        order = None
+        obs_class = None
+        belongs_to = program_id
 
         try:
-            active = data[GppProgramProvider._ObsKeys.PHASE2] != 'Inactive'
+            active = data[GppProgramProvider._ObsKeys.ACTIVE].upper() != 'INACTIVE'
             if not active:
                 logger.warning(f"Observation {obs_id} is inactive (skipping).")
+                print(f"Observation {obs_id} is inactive (skipping).")
                 return None
 
-            obs_class = ObservationClass[data[GppProgramProvider._ObsKeys.OBS_CLASS].upper()]
-            if obs_class not in self._obs_classes or not active:
-                logger.warning(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
-                return None
+            # ToDo: there is no longer an observation-leveel obs_class, maybe check later from atom classes
+            # obs_class = ObservationClass[data[GppProgramProvider._ObsKeys.OBS_CLASS].upper()]
+            # if obs_class not in self._obs_classes or not active:
+            #     logger.warning(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
+            #     return None
 
             # By default, assume ToOType of None unless otherwise indicated.
             too_type: Optional[TooType] = None
 
-            internal_id = data[GppProgramProvider._ObsKeys.INTERNAL_ID]
             title = data[GppProgramProvider._ObsKeys.TITLE]
-            site = Site[data[GppProgramProvider._ObsKeys.ID].split('-')[0]]
-            status = ObservationStatus[data[GppProgramProvider._ObsKeys.STATUS].upper()]
-            priority = Priority[data[GppProgramProvider._ObsKeys.PRIORITY].upper()]
+            # site = Site[data[GppProgramProvider._ObsKeys.ID].split('-')[0]]
+            site = self._site_for_inst[data[GppProgramProvider._ObsKeys.INSTRUMENT]]
+            # priority = Priority[data[GppProgramProvider._ObsKeys.PRIORITY].upper()]
+            priority = Priority.MEDIUM
 
             # If the status is not legal, terminate parsing.
+            status = ObservationStatus[data[GppProgramProvider._ObsKeys.STATUS].upper()]
             if status not in GppProgramProvider._OBSERVATION_STATUSES:
+                logger.warning(f"Observation {obs_id} has invalid status {status}.")
+                print(f"Observation {obs_id} has invalid status {status}.")
                 return None
 
-            setuptime_type = SetupTimeType[data[GppProgramProvider._ObsKeys.SETUPTIME_TYPE]]
-            acq_overhead = timedelta(milliseconds=data[GppProgramProvider._ObsKeys.SETUPTIME])
+            # ToDo: where to get the setup type?
+            # setuptime_type = SetupTimeType[data[GppProgramProvider._ObsKeys.SETUPTIME_TYPE]]
+            setuptime_type = SetupTimeType.FULL
+            acq_overhead = timedelta(seconds=data['execution']['digest']['setup']['full']['seconds'])
 
-            find_constraints = [data[key] for key in data.keys()
-                                if key.startswith(GppProgramProvider._ConstraintKeys.KEY)]
-            constraints = self.parse_constraints(find_constraints[0]) if find_constraints else None
+            # Constraints
+            find_constraints = {
+                GppProgramProvider._ConstraintKeys.KEY: data[GppProgramProvider._ConstraintKeys.KEY],
+                GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[
+                    GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]}
+            # print(find_constraints)
+            constraints = self.parse_constraints(find_constraints) if find_constraints else None
 
-            # TODO: Do we need this? It is being passed to the parse_atoms method.
-            # TODO: We have a qaState on the Observation as well.
-            qa_states = [QAState[log_entry[GppProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
-                         data[GppProgramProvider._ObsKeys.LOG]]
+            # QA states, needed?
+            # qa_states = [QAState[log_entry[GppProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
+            #              data[GppProgramProvider._ObsKeys.LOG]]
 
-            # Parse notes for "do not split" information if not found previously
-            notes = [(data[key][GppProgramProvider._NoteKeys.TITLE], data[key][GppProgramProvider._NoteKeys.TEXT])
-                     for key in data.keys() if key.startswith(GppProgramProvider._ProgramKeys.NOTE)]
-            if split:
-                split = not self.parse_notes(notes, GppProgramProvider._NO_SPLIT_STRINGS)
-            # Parse notes for "split by interator" information if not found previously
-            if not split_by_iterator:
-                split_by_iterator = self.parse_notes(notes, GppProgramProvider._SPLIT_BY_ITER_STRINGS)
-            # If splitting not allowed, then can't split by iterator, not splitting takes precedence
-            if not split:
-                split_by_iterator = False
+            # Atoms
+            # ToDo: Perhaps add the sequence quary to the original observation query
+            sequence = explore.sequence(internal_id, include_acquisition=True)
+            atoms = self.parse_atoms(site, sequence)
 
-            # print(f'\nparse_observation: {obs_id}')
+            # Pre-imaging
+            preimaging = False
 
-            atoms = self.parse_atoms(site, data[GppProgramProvider._ObsKeys.SEQUENCE], qa_states,
-                                     split=split, split_by_iterator=split_by_iterator)
-            # exec_time = sum([atom.exec_time for atom in atoms], ZeroTime) + acq_overhead
-            # for atom in atoms:
-            #     print(f'\t\t\t {atom.id} {atom.exec_time} {atom.obs_mode} {atom.resources}')
-
-            # Check sequence for the pre-imaging flag
-            preimaging = parse_preimaging(data[GppProgramProvider._ObsKeys.SEQUENCE])
-
-            # TODO: Should this be a list of all targets for the observation?
+            # Targets
             targets = []
 
             # Get the target environment. Each observation should have exactly one, but the name will
             # not necessarily be predictable as we number them.
             guiding = {}
+            guide_group = None
             target_env_keys = [key for key in data.keys() if key.startswith(GppProgramProvider._TargetKeys.KEY)]
             if len(target_env_keys) > 1:
                 raise ValueError(f'Observation {obs_id} has multiple target environments. Cannot process.')
@@ -948,60 +1295,59 @@ class GppProgramProvider(ProgramProvider):
             else:
                 # Process the target environment.
                 target_env = data[target_env_keys[0]]
-
-                # Get the base.
+                # Use the explicit base if available, otherwise the first target in the asterism
                 try:
-                    base = self.parse_target(target_env[GppProgramProvider._TargetKeys.BASE])
+                    target_info = target_env[GppProgramProvider._TargetKeys.BASE]
+                except KeyError:
+                    target_info = target_env[GppProgramProvider._TargetKeys.ASTERISM][0]
+
+                # Get the target
+                try:
+                    base = self.parse_target(target_info, targ_type='BASE')
                     targets.append(base)
                 except KeyError:
                     logger.warning(f"No base target found for observation {obs_id}. Using empty base target.")
                     targets.append(GppProgramProvider._EMPTY_BASE_TARGET)
 
                 # Parse the guide stars if guide star data is supplied.
-                # We are only interested in the auto guide group, or the primary guide group if there
-                # is not the auto guide group.
                 try:
                     guide_groups = target_env[GppProgramProvider._TargetEnvKeys.GUIDE_GROUPS]
-                    auto_guide_group = [group for group in guide_groups
-                                        if group[GppProgramProvider._TargetEnvKeys.GUIDE_GROUP_NAME] ==
-                                        GppProgramProvider._TargetEnvKeys.AUTO_GROUP]
-                    primary_guide_group = [group for group in guide_groups
-                                           if group[GppProgramProvider._TargetEnvKeys.GUIDE_GROUP_PRIMARY]]
+                    guide_group = guide_groups[0]
+                    #     auto_guide_group = [group for group in guide_groups
+                    #                         if group[GppProgramProvider._TargetEnvKeys.GUIDE_GROUP_NAME] ==
+                    #                         GppProgramProvider._TargetEnvKeys.AUTO_GROUP]
+                    #     primary_guide_group = [group for group in guide_groups
+                    #                            if group[GppProgramProvider._TargetEnvKeys.GUIDE_GROUP_PRIMARY]]
 
-                    guide_group = None
-                    if auto_guide_group:
-                        if len(auto_guide_group) > 1:
-                            raise ValueError(f'Multiple auto guide groups found for {obs_id}.')
-                        guide_group = auto_guide_group[0]
-                    elif primary_guide_group:
-                        if len(primary_guide_group) > 1:
-                            raise ValueError(f'Multiple primary guide groups found for {obs_id}.')
-                        guide_group = primary_guide_group[0]
+                    #     guide_group = None
+                    #     if auto_guide_group:
+                    #         if len(auto_guide_group) > 1:
+                    #             raise ValueError(f'Multiple auto guide groups found for {obs_id}.')
+                    #         guide_group = auto_guide_group[0]
+                    #     elif primary_guide_group:
+                    #         if len(primary_guide_group) > 1:
+                    #             raise ValueError(f'Multiple primary guide groups found for {obs_id}.')
+                    #         guide_group = primary_guide_group[0]
 
-                    # Now we parse out the guideProbe list, which contains the information about the
-                    # guide probe keys and the targets.
+                    #     # Now we parse out the guideProbe list, which contains the information about the
+                    #     # guide probe keys and the targets.
                     if guide_group is not None:
-                        for guide_data in guide_group[GppProgramProvider._TargetEnvKeys.GUIDE_PROBE]:
-                            guider = guide_data[GppProgramProvider._TargetEnvKeys.GUIDE_PROBE_KEY]
+                        for guide_targ in guide_group[GppProgramProvider._TargetEnvKeys.TARGET]:
+                            guider = guide_targ[GppProgramProvider._TargetEnvKeys.GUIDE_PROBE_KEY]
                             resource = ResourceManager().lookup_resource(rid=guider, rtype=ResourceType.WFS)
-                            target = self.parse_target(guide_data[GppProgramProvider._TargetEnvKeys.TARGET])
+                            target = self.parse_target(guide_targ, targ_type='GUIDESTAR')
                             guiding[resource] = target
                             targets.append(target)
 
                 except KeyError:
                     logger.warning(f'No guide group data found for observation {obs_id}')
 
-                # Process the user targets.
-                user_targets_data = target_env.setdefault(GppProgramProvider._TargetEnvKeys.USER_TARGETS, [])
-                for user_target_data in user_targets_data:
-                    user_target = self.parse_target(user_target_data)
-                    targets.append(user_target)
-
                 # If the ToO override rapid setting is in place, set to RAPID.
                 # Otherwise, set as None, and we will propagate down from the groups.
-                if (GppProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and
-                        data[GppProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]):
-                    too_type = TooType.RAPID
+                # if (GppProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and
+                #         data[GppProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]):
+                #     too_type = TooType.RAPID
+                too_type = None
 
             return GeminiObservation(
                 id=ObservationID(obs_id),
@@ -1026,12 +1372,15 @@ class GppProgramProvider(ProgramProvider):
 
         except KeyError as ex:
             logger.error(f'KeyError while reading {obs_id}: {ex} (skipping).')
+            print(f'KeyError while reading {obs_id}: {ex} (skipping).')
 
         except ValueError as ex:
             logger.error(f'ValueError while reading {obs_id}: {ex} (skipping).')
+            print(f'ValueError while reading {obs_id}: {ex} (skipping).')
 
         except Exception as ex:
             logger.error(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
+            print(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
 
         return None
 
