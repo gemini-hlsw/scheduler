@@ -40,25 +40,12 @@ if __name__ == '__main__':
     for o in obs_for_sched:
         print(f'{o.id}: {o.title} {o.active_status} {o.status}')
         obs = explore.observation(o.id)
-        # print(obs.id, obs.title, obs.status)
-        print(f"Program: {obs.program.id}")
-        print(f"Group id: {obs.group_id}   Group index: {obs.group_index}")
 
-        # Sequence
-        sequence = explore.sequence(obs.id, include_acquisition=True)
-        print(f"Sequence for {obs.id}")
-        # for step in sequence:
-        #     print(step['atom'], step['class'], step['type'], step['exposure'])
-        print(sequence)
-
-        print(f"Atom information")
-        explore.sequence_atoms(obs.id, include_acquisition=True)
-
-        print(f"Atom parsing")
-        site = provider._site_for_inst[obs.instrument]
-        for atom in provider.parse_atoms(site, sequence):
-            print('Output Atoms')
+        obs_mini = provider.parse_observation(data=obs.__dict__, num=(0,0), program_id=obs.program.id)
+        print(obs_mini.targets)
+        print(obs_mini.guiding)
+        print('Output Atoms')
+        for atom in obs_mini.sequence:
             print(atom.id, atom.obs_mode.name, atom.exec_time, atom.resources, atom.wavelengths)
 
-        print("")
-
+        print()
