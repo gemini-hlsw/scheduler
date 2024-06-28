@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
+import json
 
 from fastapi.responses import JSONResponse
 from fastapi import WebSocket, WebSocketDisconnect
@@ -13,6 +14,8 @@ from scheduler.connection_manager import ConnectionManager
 from scheduler.engine import Engine
 from scheduler.engine.params import SchedulerParameters
 from scheduler.services import logger_factory
+from graphql_mid.types import SNightTimelines
+
 
 
 _logger = logger_factory.create_logger(__name__)
@@ -30,7 +33,8 @@ def worker(data: dict) -> dict:
     params = SchedulerParameters.from_json(data)
     engine = Engine(params)
     plan_summary, timelines = engine.run()
-    return timelines.to_json()
+    s_timelines = SNightTimelines.from_computed_timelines(timelines)
+    return (s_timelines, plan_summary)
 
 
 async def keep_alive(websocket: WebSocket) -> None:
@@ -53,7 +57,7 @@ async def websocket_handler(websocket: WebSocket) -> None:
             task = asyncio.to_thread(worker, data)
             await manager.send({"type": "update", "payload": {"message": "Processing plans..."}}, websocket)
             result = await task
-            await manager.send({"type": "plans", "payload": result}, websocket)
+            await manager.send({"type": "plans", "payload": json.dumps(result)}, websocket)
         else:
             raise ValueError('Missing parameters to create schedule')
 
