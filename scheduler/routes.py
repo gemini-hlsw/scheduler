@@ -28,13 +28,11 @@ def root() -> JSONResponse:
                         content={
                             "message": "Welcome to Server"})
 
-
 def worker(data: dict) -> dict:
     params = SchedulerParameters.from_json(data)
     engine = Engine(params)
     plan_summary, timelines = engine.run()
-    s_timelines = SNightTimelines.from_computed_timelines(timelines)
-    return (s_timelines, plan_summary)
+    return {"plan_summary": plan_summary, "timelines": timelines.to_json()}
 
 
 async def keep_alive(websocket: WebSocket) -> None:
@@ -54,10 +52,10 @@ async def websocket_handler(websocket: WebSocket) -> None:
     while True:
         data = await websocket.receive_json()
         if data:
-            task = asyncio.to_thread(worker, data)
             await manager.send({"type": "update", "payload": {"message": "Processing plans..."}}, websocket)
-            result = await task
-            await manager.send({"type": "plans", "payload": json.dumps(result)}, websocket)
+            # task = asyncio.to_thread(worker, data)
+            result = worker(data)
+            await manager.send({"type": "plans", "payload": result}, websocket)
         else:
             raise ValueError('Missing parameters to create schedule')
 
