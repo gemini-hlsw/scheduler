@@ -17,9 +17,9 @@ from scheduler.services import logger_factory
 from graphql_mid.types import SNightTimelines
 
 
-
 _logger = logger_factory.create_logger(__name__)
 manager = ConnectionManager()
+
 
 # Root API
 @app.get("/", include_in_schema=False)
@@ -27,6 +27,7 @@ def root() -> JSONResponse:
     return JSONResponse(status_code=200,
                         content={
                             "message": "Welcome to Server"})
+
 
 def worker(data: dict) -> dict:
     params = SchedulerParameters.from_json(data)
