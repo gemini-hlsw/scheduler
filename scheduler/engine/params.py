@@ -51,7 +51,7 @@ class SchedulerParameters:
     def from_json(received_params: dict) -> 'SchedulerParameters':
         return SchedulerParameters(Time(received_params['startTime'], format='iso', scale='utc'),
                                    Time(received_params['endTime'], format='iso', scale='utc'),
-                                   frozenset([Site[received_params['sites'][0]]]) if len(received_params) < 2 else ALL_SITES,
+                                   frozenset([Site[received_params['sites'][0]]]) if len(received_params['sites']) < 2 else ALL_SITES,
                                    SchedulerModes[received_params['schedulerMode']],
                                    RankerParameters(thesis_factor=float(received_params['rankerParameters']['thesisFactor']),
                                                     power=int(received_params['rankerParameters']['power']),
