@@ -4,7 +4,7 @@
 import strawberry # noqa
 from strawberry.asgi import GraphQL # noqa
 
-from .schema import Query, Mutation
+from .schema import Query, Subscription
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+schema = strawberry.Schema(query=Query, subscription=Subscription)
 graphql_server = GraphQL(schema)
