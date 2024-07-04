@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 from lucupy.minimodel import ALL_SITES, AndGroup, OrGroup, Group, NightIndex, NightIndices, Observation, Program, Site
 
-from scheduler.core.calculations import Scores, GroupDataMap
+# from scheduler.core.calculations import Scores, GroupDataMap
 
 
 __all__ = [
@@ -46,7 +46,7 @@ class Ranker(ABC):
             self._empty_group_scores[site] = {night_idx: np.zeros((0, len(night_events.times[night_idx])), dtype=float)
                                               for night_idx in self.night_indices}
 
-    def score_group(self, group: Group, group_data_map: GroupDataMap) -> Scores:
+    def score_group(self, group: Group, group_data_map):
         """
         Calculate the score of a Group.
 
@@ -63,7 +63,7 @@ class Ranker(ABC):
             raise ValueError('Ranker group scoring can only score groups.')
 
     @abstractmethod
-    def score_observation(self, program: Program, obs: Observation) -> Scores:
+    def score_observation(self, program: Program, obs: Observation):
         """
         Calculate the scores for an observation for each night for each time slot index.
         These are returned as a list indexed by night index as per the night_indices supplied,
@@ -71,13 +71,13 @@ class Ranker(ABC):
         """
 
     @abstractmethod
-    def _score_and_group(self, group: AndGroup, group_data_map: GroupDataMap) -> Scores:
+    def _score_and_group(self, group: AndGroup, group_data_map):
         """
         Calculate the scores for each night and time slot of an AND Group.
         """
 
     @abstractmethod
-    def _score_or_group(self, group: OrGroup, group_data_map: GroupDataMap) -> Scores:
+    def _score_or_group(self, group: OrGroup, group_data_map):
         """
         Calculate the scores for each night and time slot of an OR Group.
         TODO: This is TBD and requires more design work.

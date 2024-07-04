@@ -12,14 +12,13 @@ import numpy.typing as npt
 from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndices, Observation, Program, Site, OrGroup, Priority
 from lucupy.types import ListOrNDArray, MinMax
 
-from scheduler.core.calculations import Scores, GroupDataMap
+# from scheduler.core.calculations import Scores, GroupDataMap
 from .base import Ranker
-
 
 __all__ = [
     'DefaultRanker',
-    'RankerBandParameters',
     'RankerParameters',
+    'RankerBandParameters'
 ]
 
 
@@ -36,6 +35,7 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
 #     Site.GS: {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)},
 #     Site.GN: {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)}
 # }
+
 _def_alt_limits: Dict[MinMax, Angle] = {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)}
 
 # These are not used in the current implementation
@@ -210,7 +210,7 @@ class DefaultRanker(Ranker):
 
         return metric, metric_slope
 
-    def score_observation(self, program: Program, obs: Observation) -> Scores:
+    def score_observation(self, program: Program, obs: Observation):
         """
         Calculate the scores for an observation for each night for each time slot index.
         These are returned as a list indexed by night index as per the night_indices supplied,
@@ -304,7 +304,7 @@ class DefaultRanker(Ranker):
 
     # TODO: Should we be considering the scores of the subgroups or the scores of the
     # TODO: observations when calculating the score of this group?
-    def _score_and_group(self, group: AndGroup, group_data_map: GroupDataMap) -> Scores:
+    def _score_and_group(self, group: AndGroup, group_data_map):
         """
         Calculate the scores for each night and time slot of an AND Group.
         """
@@ -334,5 +334,5 @@ class DefaultRanker(Ranker):
         return {night_idx: np.apply_along_axis(self.params.score_combiner, 0, scores[night_idx])[0]
                 for night_idx in self.night_indices}
 
-    def _score_or_group(self, group: OrGroup, group_data_map: GroupDataMap) -> Scores:
+    def _score_or_group(self, group: OrGroup, group_data_map):
         raise NotImplementedError
