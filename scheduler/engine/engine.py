@@ -162,14 +162,14 @@ class Engine:
 
                     if update.done:
                         # In the case of the morning twilight, which is the only thing that will
-                        # be represented here by update.done, we add no plans (None) since the plans
-                        # generated up until the terminal time slot will have been added by the event
-                        # that caused them.
+                        # be represented here by update.done, we add the final plan that shows all the
+                        # observations that were actually visited in that night.
+                        final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
                         nightly_timeline.add(NightIndex(night_idx),
                                              site,
                                              current_timeslot,
                                              update.event,
-                                             None)
+                                             final_plan)
 
                 # Get a new selection and request a new plan if the night is not done.
                 if not update.done:
