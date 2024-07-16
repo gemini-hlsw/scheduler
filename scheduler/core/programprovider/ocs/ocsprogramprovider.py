@@ -1183,7 +1183,7 @@ class OcsProgramProvider(ProgramProvider):
 
         return None
 
-    def parse_time_allocation(self, data: dict) -> TimeAllocation:
+    def parse_time_allocation(self, data: dict, band: Band = None) -> TimeAllocation:
         category = TimeAccountingCode(data[OcsProgramProvider._TAKeys.CATEGORY])
         program_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PROG_TIME])
         partner_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PART_TIME])
@@ -1195,7 +1195,8 @@ class OcsProgramProvider(ProgramProvider):
             program_awarded=program_awarded,
             partner_awarded=partner_awarded,
             program_used=program_used,
-            partner_used=partner_used)
+            partner_used=partner_used,
+            band=band)
 
     # def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> Group:
     #     """
@@ -1401,7 +1402,7 @@ class OcsProgramProvider(ProgramProvider):
 
         # Parse the time accounting allocation data.
         time_act_alloc_data = data[OcsProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
-        time_act_alloc = frozenset(self.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
+        time_act_alloc = frozenset(self.parse_time_allocation(ta_data, band=band) for ta_data in time_act_alloc_data)
 
         too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None

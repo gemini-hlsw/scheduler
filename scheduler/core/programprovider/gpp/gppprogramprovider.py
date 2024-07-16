@@ -19,7 +19,7 @@ from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Con
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
                               Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
-                              TimingWindow, TooType, WaterVapor, Wavelength, GppProgram, GppTimeAllocation)
+                              TimingWindow, TooType, WaterVapor, Wavelength, GppProgram)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
@@ -1157,7 +1157,7 @@ class GppProgramProvider(ProgramProvider):
             children=list(reversed(children)),  # to get the order correct
             group_option=group_option)
 
-    def parse_time_allocation(self, data: dict, band: Band = None) -> GppTimeAllocation:
+    def parse_time_allocation(self, data: dict, band: Band = None) -> TimeAllocation:
         """Time allocations by category and band"""
         category = TimeAccountingCode[data[GppProgramProvider._TAKeys.CATEGORY]]
         program_awarded = timedelta(hours=data[GppProgramProvider._TAKeys.AWARDED_PROG_TIME]['hours'])
@@ -1168,7 +1168,7 @@ class GppProgramProvider(ProgramProvider):
         else:
             sciband = band
 
-        return GppTimeAllocation(
+        return TimeAllocation(
             category=category,
             program_awarded=program_awarded,
             partner_awarded=partner_awarded,
