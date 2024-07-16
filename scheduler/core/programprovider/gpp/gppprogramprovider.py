@@ -2,8 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import calendar
-import json
-import zipfile
+# import json
+# import zipfile
 from datetime import datetime, timedelta
 from dateutil.parser import parse as parsedt
 from os import PathLike
@@ -19,7 +19,7 @@ from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Con
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
                               Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
-                              TimingWindow, TooType, WaterVapor, Wavelength, GppProgram)
+                              TimingWindow, TooType, WaterVapor, Wavelength)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
@@ -1264,7 +1264,7 @@ class GppProgramProvider(ProgramProvider):
         time_act_alloc = frozenset(self.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
 
         # Previous time used - eventually loop over bands
-        time_used = self.parse_time_used(data[GppProgramProvider._ProgramKeys.TIME_CHARGE])
+        time_used = frozenset([self.parse_time_used(data[GppProgramProvider._ProgramKeys.TIME_CHARGE])])
 
         # ToOs
         too_type = None
@@ -1274,7 +1274,7 @@ class GppProgramProvider(ProgramProvider):
         # Propagate the ToO type down through the root group to get to the observation.
         # GppProgramProvider._check_too_type(program_id, too_type, root_group)
 
-        return GppProgram(
+        return Program(
             id=program_id,
             internal_id=internal_id,
             semester=semester,

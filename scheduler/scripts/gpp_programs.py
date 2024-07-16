@@ -37,6 +37,8 @@ if __name__ == '__main__':
     # Parse into minimodel
     prog_mini = provider.parse_program(prog.__dict__)
 
+    prog_mini.show()
+    print("")
     print(prog_mini.root_group.number_to_observe, prog_mini.root_group.group_option)
     print(prog_mini.semester, prog_mini.type, prog_mini.mode)
     print(prog_mini.start, prog_mini.end)
@@ -45,9 +47,6 @@ if __name__ == '__main__':
     print(prog_mini.used_time)
     print(prog_mini.bands())
     for alloc in prog_mini.allocated_time:
-        print(alloc.category, alloc.program_awarded, alloc.band)
-
-    prog_mini.show()
-    print("")
+        print(alloc.category.name, alloc.program_awarded, alloc.band.name)
 
 

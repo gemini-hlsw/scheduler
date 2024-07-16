@@ -16,7 +16,7 @@ from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Con
                               ObservationClass, ObservationID, ObservationMode, ObservationStatus, Priority,
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
-                              Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation,
+                              Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
                               TimingWindow, TooType, WaterVapor, Wavelength)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
@@ -1187,16 +1187,34 @@ class OcsProgramProvider(ProgramProvider):
         category = TimeAccountingCode(data[OcsProgramProvider._TAKeys.CATEGORY])
         program_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PROG_TIME])
         partner_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PART_TIME])
-        program_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PROG_TIME])
-        partner_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PART_TIME])
+        # program_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PROG_TIME])
+        # partner_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PART_TIME])
 
         return TimeAllocation(
             category=category,
             program_awarded=program_awarded,
             partner_awarded=partner_awarded,
+            # program_used=program_used,
+            # partner_used=partner_used,
+            band=band)
+
+    @staticmethod
+    def parse_time_used(data: dict) -> TimeUsed:
+        """Previously used/charged time"""
+        # There is a problem with the used times in the json data, duplicated for each partner
+        # program_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PROG_TIME])
+        # partner_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PART_TIME])
+        # For the scheduler, set to zero
+        program_used = ZeroTime
+        partner_used = ZeroTime
+        not_charged = ZeroTime
+        # ToDo: include band
+
+        return TimeUsed(
             program_used=program_used,
             partner_used=partner_used,
-            band=band)
+            not_charged=not_charged
+        )
 
     # def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> Group:
     #     """
@@ -1403,6 +1421,7 @@ class OcsProgramProvider(ProgramProvider):
         # Parse the time accounting allocation data.
         time_act_alloc_data = data[OcsProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
         time_act_alloc = frozenset(self.parse_time_allocation(ta_data, band=band) for ta_data in time_act_alloc_data)
+        time_used = frozenset(self.parse_time_used(ta_data) for ta_data in time_act_alloc_data)
 
         too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
@@ -1421,6 +1440,7 @@ class OcsProgramProvider(ProgramProvider):
             start=start_date,
             end=end_date,
             allocated_time=time_act_alloc,
+            used_time=time_used,
             root_group=root_group,
             too_type=too_type)
 
