@@ -122,7 +122,8 @@ def calculate_target_visibility(obs: Observation,
                                 nc: dict[ndarray[Any, dtype[NightIndex]], NightConfiguration],
                                 time_grid: Time,
                                 timing_windows: List[Time],
-                                time_slot_length: TimeDelta) -> Dict[NightIndex,TargetVisibility]:
+                                time_slot_length: TimeDelta,
+                                with_redis: bool) -> Dict[NightIndex,TargetVisibility]:
     """
     Iterate over the time grid, checking to see if there is already a TargetInfo
     for the target for the given day at the given site.
@@ -142,7 +143,7 @@ def calculate_target_visibility(obs: Observation,
     visibility_snapshots: Dict[str, Dict] = {}
 
     key = f'{obs.id.id}{time_slot_length}'
-    exists = redis_client.exists(key)
+    exists = redis_client.exists(key) if with_redis else False
     if exists:
         visibility_snapshots = json.loads(redis_client.get(key))
     else:
@@ -220,7 +221,8 @@ def calculate_target_visibility(obs: Observation,
                                                      visibility_time=visibility_time)
             # Pass to int to eliminate decimals and to string to keep the keys after deserialization.
             visibility_snapshots[str(int(jday.jd))] = visibility_snapshot.to_dict()
-        redis_client.set(key, json.dumps(visibility_snapshots))
+        if with_redis:
+            redis_client.set(key, json.dumps(visibility_snapshots))
 
     for ridx, jday in enumerate(reversed(time_grid)):
         # Convert to the actual time grid index.
