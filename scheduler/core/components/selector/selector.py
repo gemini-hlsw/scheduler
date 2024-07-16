@@ -11,7 +11,7 @@ import numpy.typing as npt
 from astropy.coordinates import Angle
 from astropy.units import Quantity
 from lucupy.helpers import is_contiguous
-from lucupy.minimodel import (AndGroup, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
+from lucupy.minimodel import (Group, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
                               ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, TimeslotIndex,
                               UniqueGroupID, Variant, VariantSnapshot)
 from lucupy.minimodel import CloudCover, ImageQuality
@@ -534,7 +534,7 @@ class Selector(SchedulerComponent):
         Calculate the GroupInfo for an AND group that contains subgroups and add it to
         the group_data_map.
         """
-        if not isinstance(group, AndGroup):
+        if not isinstance(group, Group):
             raise ValueError(f'Tried to process group {group.id} as an AND group.')
         if isinstance(group.children, Observation):
             raise ValueError(f'Tried to process observation group {group.id} as an AND group.')

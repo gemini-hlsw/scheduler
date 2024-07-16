@@ -11,9 +11,9 @@ from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
 import numpy as np
 from lucupy.helpers import dmsstr2deg
-from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
+from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
-                              ObservationClass, ObservationID, ObservationMode, ObservationStatus, OrGroup, Priority,
+                              ObservationClass, ObservationID, ObservationMode, ObservationStatus, Priority,
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
                               Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation,
@@ -1197,15 +1197,15 @@ class OcsProgramProvider(ProgramProvider):
             program_used=program_used,
             partner_used=partner_used)
 
-    def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> OrGroup:
-        """
-        There are no OR groups in the OCS, so this method simply throws a
-        NotImplementedError if it is called.
-        """
-        raise NotImplementedError('OCS does not support OR groups.')
+    # def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> Group:
+    #     """
+    #     There are no OR groups in the OCS, so this method simply throws a
+    #     NotImplementedError if it is called.
+    #     """
+    #     raise NotImplementedError('OCS does not support OR groups.')
 
-    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
-                        split: bool, split_by_iterator: bool) -> Optional[AndGroup]:
+    def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
+                        split: bool, split_by_iterator: bool) -> Optional[Group]:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -1242,7 +1242,7 @@ class OcsProgramProvider(ProgramProvider):
                                        if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
         for key in scheduling_group_keys:
             subgroup_id = GroupID(key.split('-')[-1])
-            subgroup = self.parse_and_group(data[key], program_id, subgroup_id, split=split,
+            subgroup = self.parse_group(data[key], program_id, subgroup_id, split=split,
                                             split_by_iterator=split_by_iterator)
             if subgroup is not None:
                 children.append(subgroup)
@@ -1292,7 +1292,7 @@ class OcsProgramProvider(ProgramProvider):
 
         # Put all the observations in trivial AND groups and extend the children to include them.
         trivial_groups = [
-            AndGroup(
+            Group(
                 id=GroupID(obs.id.id),
                 program_id=program_id,
                 group_name=obs.title,
@@ -1311,7 +1311,7 @@ class OcsProgramProvider(ProgramProvider):
             return None
 
         # Put all the observations in the one big AND group and return it.
-        return AndGroup(
+        return Group(
             id=group_id,
             program_id=program_id,
             group_name=group_name,
@@ -1356,7 +1356,7 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
-        root_group = self.parse_and_group(data, program_id, ROOT_GROUP_ID,
+        root_group = self.parse_group(data, program_id, ROOT_GROUP_ID,
                                           split=split, split_by_iterator=split_by_iterator)
         if root_group is None:
             logger.warning(f'Program {program_id} has empty root group. Skipping.')

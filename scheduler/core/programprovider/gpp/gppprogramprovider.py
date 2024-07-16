@@ -13,13 +13,13 @@ from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 from pyexplore import explore
 # import numpy as np
 # from lucupy.helpers import dmsstr2deg
-from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
+from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
-                              ObservationClass, ObservationID, ObservationMode, ObservationStatus, OrGroup, Priority,
+                              ObservationClass, ObservationID, ObservationMode, ObservationStatus, Priority,
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
                               Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
-                              TimingWindow, TooType, WaterVapor, Wavelength, GppProgram, GppTimeAllocation, GppGroup)
+                              TimingWindow, TooType, WaterVapor, Wavelength, GppProgram, GppTimeAllocation)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
@@ -34,7 +34,6 @@ from scheduler.services import logger_factory
 
 __all__ = [
     'GppProgramProvider',
-    'ocs_program_data',
 ]
 
 logger = logger_factory.create_logger(__name__)
@@ -42,43 +41,6 @@ logger = logger_factory.create_logger(__name__)
 
 DEFAULT_OCS_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
 DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt'
-
-
-def ocs_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
-    try:
-        # Try to read the file and create a frozenset from its lines
-        if program_list:
-            list_file = program_list
-        else:
-            list_file = DEFAULT_PROGRAM_ID_PATH
-
-        if isinstance(program_list, bytes):
-            file = program_list.decode('utf-8')
-            id_frozenset = frozenset(f.strip() for f in file.split('\n') if f.strip() and f.strip()[0] != '#')
-        else:
-            with list_file.open('r') as file:
-                id_frozenset = frozenset(line.strip() for line in file if line.strip() and line.strip()[0] != '#')
-    except FileNotFoundError:
-        # If the file does not exist, set id_frozenset to None
-        id_frozenset = None
-    return read_ocs_zipfile(DEFAULT_OCS_DATA_PATH, id_frozenset)
-
-
-def read_ocs_zipfile(zip_file: str | PathLike[str], program_ids: Optional[FrozenSet[str]] = None) -> Iterable[dict]:
-    """
-    Since for OCS we will use a collection of extracted ODB data, this is a
-    convenience method to parse the data into a list of the JSON program data.
-    """
-    with zipfile.ZipFile(zip_file, 'r') as zf:
-        for filename in zf.namelist():
-            program_id = Path(filename).stem
-            if program_ids is None or program_id in program_ids:
-                with zf.open(filename) as f:
-                    contents = f.read().decode('utf-8')
-                    logger.info(f'Adding program {program_id}.')
-                    yield json.loads(contents)
-            else:
-                logger.info(f'Skipping program {program_id} as it is not in the list.')
 
 
 def parse_preimaging(sequence: List[dict]) -> bool:
@@ -177,19 +139,6 @@ class GppProgramProvider(ProgramProvider):
         # NOTE = 'INFO'
         # SCHED_NOTE = 'INFO_SCHEDNOTE'
         # PROGRAM_NOTE = 'INFO_PROGRAMNOTE'
-
-    # class _NoteKeys:
-    #     TITLE = 'title'
-    #     TEXT = 'text'
-
-    # # Strings in notes that indicate that an observation should not be splittable.
-    # _NO_SPLIT_STRINGS = frozenset({"do not split",
-    #                                "do not interrupt",
-    #                                "entire sequence",
-    #                                "full sequence"})
-    # # Strings in notes that indicate that the sequence should be split by the top-most changing iterator.
-    # _SPLIT_BY_ITER_STRINGS = frozenset({"split by iterator",
-    #                                     "split by sequence iterator"})
 
     class _TAKeys:
         # CATEGORIES = 'timeAccountAllocationCategories'
@@ -385,7 +334,7 @@ class GppProgramProvider(ProgramProvider):
         preimaging=False
     )
 
-    _EMPTY_ROOT_GROUP = GppGroup(
+    _EMPTY_ROOT_GROUP = Group(
         id=GroupID('root'),
         program_id=ProgramID('Empty'),
         group_name='root',
@@ -400,26 +349,6 @@ class GppProgramProvider(ProgramProvider):
                  sources: Sources):
         super().__init__(obs_classes, sources)
 
-    # @staticmethod
-    # def parse_notes(notes: Iterable[Tuple[str, str]], search_strings: frozenset) -> bool:
-    #     """Search note title and content strings
-    #        Returns a boolean indicating whether the strings were found
-    #        notes: list of note tuples,  [(title, text), (title, text),...]
-    #        search_strings: forzenset of strings to search for"""
-
-    #     # Search for any indications in the note that an observation cannot be split.
-    #     for note in notes:
-    #         title, content = note
-    #         if title is not None:
-    #             title_lower = title.lower()
-    #             if any(s in title_lower for s in search_strings):
-    #                 return True
-    #         if content is not None:
-    #             content_lower = content.lower()
-    #             if any(s in content_lower for s in search_strings):
-    #                 return True
-    #     return False
-
     def parse_magnitude(self, data: dict) -> Magnitude:
         band = MagnitudeBands[data[GppProgramProvider._MagnitudeKeys.NAME]]
         value = data[GppProgramProvider._MagnitudeKeys.VALUE]
@@ -427,113 +356,6 @@ class GppProgramProvider(ProgramProvider):
             band=band,
             value=value,
             error=None)
-
-    # @staticmethod
-    # def _get_program_dates(program_type: ProgramTypes,
-    #                        program_id: ProgramID,
-    #                        note_titles: List[str]) -> Tuple[datetime, datetime]:
-    #     """
-    #     Find the start and end dates of a program.
-    #     This requires special handling for FT programs, which must contain a note with the information
-    #     at the program level with key INFO_SCHEDNOTE, INFO_PROGRAMNOTE, or INFO_NOTE.
-    #     """
-    #     year_str = program_id.id[3:7]
-    #     try:
-    #         year = int(year_str)
-    #     except ValueError as e:
-    #         msg = f'Illegal year specified for program {program_id}: {year_str}.'
-    #         raise ValueError(e, msg)
-    #     except TypeError as e:
-    #         msg = f'Illegal type data specified for program {program_id}: {year_str}.'
-    #         raise TypeError(e, msg)
-    #     next_year = year + 1
-
-    #     # Make sure the actual year is in the valid range.
-    #     if year < 2000 or year > 2100:
-    #         msg = f'Illegal year specified for program {program_id}: {year_str}.'
-    #         raise ValueError(msg)
-
-    #     half_char = program_id.id[7]
-    #     try:
-    #         semester = SemesterHalf(half_char)
-    #     except ValueError as e:
-    #         msg = f'Illegal semester specified for program {program_id}: {half_char}'
-    #         raise ValueError(msg, e)
-
-    #     # Special handling for FT programs.
-    #     if program_type is ProgramTypes.FT:
-    #         months_list = [x.lower() for x in calendar.month_name[1:]]
-
-    #         def is_ft_note(curr_note_title: str) -> bool:
-    #             """
-    #             Determine if the note is a note with title information for a FT program.
-    #             """
-    #             if curr_note_title is None:
-    #                 return False
-    #             curr_note_title = curr_note_title.lower()
-    #             return 'cycle' in curr_note_title or 'active' in curr_note_title
-
-    #         def month_number(month: str, months: List[str]) -> int:
-    #             month = month.lower()
-    #             return [i for i, m in enumerate(months) if month in m].pop() + 1
-
-    #         def parse_dates(curr_note_title: str) -> Optional[Tuple[datetime, datetime]]:
-    #             """
-    #             Using the information in a note title, try to determine the start and end dates
-    #             for a FT program.
-
-    #             The month information in the note title can be of the forms:
-    #             * MON-MON-MON
-    #             * Month, Month, and Month
-    #             and have additional data / spacing following.
-
-    #             Raises an IndexError if there are any issues in getting the months.
-    #             """
-    #             # Convert month data as above to a list of months.
-    #             curr_note_months = curr_note_title.strip().replace('and ', ' ').replace('  ', ' ').replace(', ', '-'). \
-    #                 split(' ')[-1].lower()
-    #             month_list = [month for month in curr_note_months.split('-') if month in months_list]
-    #             m1 = month_number(month_list[0], months_list)
-    #             m2 = month_number(month_list[-1], months_list)
-
-    #             if semester == SemesterHalf.B and m1 < 6:
-    #                 program_start = datetime(next_year, m1, 1)
-    #                 program_end = datetime(next_year, m2, calendar.monthrange(next_year, m2)[1])
-    #             else:
-    #                 program_start = datetime(year, m1, 1)
-    #                 if m2 > m1:
-    #                     program_end = datetime(year, m2, calendar.monthrange(year, m2)[1])
-    #                 else:
-    #                     program_end = datetime(next_year, m2, calendar.monthrange(next_year, m2)[1])
-    #             return program_start, program_end
-
-    #         # Find the note (if any) that contains the information.
-    #         note_title = next(filter(is_ft_note, note_titles), None)
-    #         if note_title is None:
-    #             msg = f'Fast turnaround program {id} has no note containing start / end date information.'
-    #             raise ValueError(msg)
-
-    #         # Parse the month information.
-    #         try:
-    #             date_info = parse_dates(note_title)
-
-    #         except IndexError as e:
-    #             msg = f'Fast turnaround program {id} note title has improper form: {note_title}.'
-    #             raise ValueError(e, msg)
-
-    #         start_date, end_date = date_info
-
-    #     else:
-    #         # Not a FT program, so handle normally.
-    #         if semester is SemesterHalf.A:
-    #             start_date = datetime(year, 2, 1)
-    #             end_date = datetime(year, 7, 31)
-    #         else:
-    #             start_date = datetime(year, 8, 1)
-    #             end_date = datetime(next_year, 1, 31)
-
-    #     # Account for the flexible boundary on programs.
-    #     return start_date - Program.FUZZY_BOUNDARY, end_date + Program.FUZZY_BOUNDARY
 
     def parse_timing_window(self, data: dict) -> TimingWindow:
         """Parse GPP timing windows"""
@@ -888,16 +710,6 @@ class GppProgramProvider(ProgramProvider):
                 elif search_list('G', fpus):
                     obs_mode = ObservationMode.MOS
 
-            # if 'GMOS' in inst:
-            #     if disperser.upper == 'MIRROR':
-            #         obs_mode = ObservationMode.IMAGING
-            #     elif 'LONG_SLIT' in fpu:
-            #         obs_mode = ObservationMode.LONGSLIT
-            #     elif 'IFU' in fpu:
-            #         obs_mode = ObservationMode.IFU
-            #     elif 'G' in fpu:
-            #         obs_mode = ObservationMode.MOS
-
             return obs_mode
 
         # site = GppProgramProvider._site_for_inst[instrument]
@@ -941,8 +753,6 @@ class GppProgramProvider(ProgramProvider):
                         fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(
                             GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu)
                             for fpu in fpus])
-                        # fpu_resources = frozenset([ResourceService.lookup_resource(fpu)
-                        #                            for fpu in fpus])
                         disperser_resources = frozenset(
                             [self._sources.origin.resource.lookup_resource(disperser.split('_')[0])
                              for disperser in dispersers])
@@ -1012,10 +822,6 @@ class GppProgramProvider(ProgramProvider):
                 if 'GMOS' in instrument:
                     # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
                     # sets, but we filter below to remove them.
-                    # fpu_resources = frozenset([self._sources.origin.resource.fpu_to_barcode(site, fpu, instrument)
-                    #                            for fpu in fpus])
-                    # fpu_resources = frozenset([ResourceService.lookup_resource(fpu)
-                    #                            for fpu in fpus])
                     fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(
                         GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu)
                         for fpu in fpus])
@@ -1096,8 +902,8 @@ class GppProgramProvider(ProgramProvider):
             # If the status is not legal, terminate parsing.
             status = ObservationStatus[data[GppProgramProvider._ObsKeys.STATUS].upper()]
             if status not in GppProgramProvider._OBSERVATION_STATUSES:
-                logger.warning(f"Observation {obs_id} has invalid status {status}.")
-                print(f"Observation {obs_id} has invalid status {status}.")
+                logger.warning(f"Observation {obs_id} has invalid status {status.name}.")
+                print(f"Observation {obs_id} has invalid status {status.name}.")
                 return None
 
             # ToDo: where to get the setup type?
@@ -1121,7 +927,7 @@ class GppProgramProvider(ProgramProvider):
             #              data[GppProgramProvider._ObsKeys.LOG]]
 
             # Atoms
-            # ToDo: Perhaps add the sequence quary to the original observation query
+            # ToDo: Perhaps add the sequence query to the original observation query
             sequence = explore.sequence(internal_id, include_acquisition=True)
             atoms = self.parse_atoms(site, sequence)
 
@@ -1237,15 +1043,8 @@ class GppProgramProvider(ProgramProvider):
 
         return None
 
-    def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> OrGroup:
-        """
-        There are no OR groups in the OCS, so this method simply throws a
-        NotImplementedError if it is called.
-        """
-        raise NotImplementedError('OCS does not support OR groups.')
-
-    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
-                        split: bool, split_by_iterator: bool) -> Optional[GppGroup]:
+    def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
+                    split: bool, split_by_iterator: bool) -> Optional[Group]:
         """
         This method parses group information from GPP
         """
@@ -1275,23 +1074,20 @@ class GppProgramProvider(ProgramProvider):
             # print(f"Ordered: {ordered}")
 
             # Currently if delay_min is not None, delay_max will be at least delay_min
-            # OR group, delays are None, number_to_observe not None, set to ANYORDER
+            # OR group, delays are None, number_to_observe not None, set to NONE
             # AND cadence - delays not None, number_to_observe None, ordered should be forced to True
             # AND conseq - delays None,  number_to_observe None
             group_option = AndOption.ANYORDER
-            if delay_max is not None:
-                if number_to_observe is not None:
-                    group_option = AndOption.ANYORDER  # OR group
-                else:
-                    group_option = AndOption.CUSTOM
-                    ordered = True
-                    number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
-            else:
-                if ordered:
-                    group_option = AndOption.CONSEC_ORDERED
-                else:
-                    group_option = AndOption.CONSEC_ANYORDER
+            if delay_min is not None:
+                group_option = AndOption.CUSTOM
+                ordered = True
                 number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+            else:
+                if number_to_observe is not None:
+                    group_option = AndOption.NONE  # OR group
+                else:
+                    group_option = AndOption.CONSEC_ORDERED if ordered else AndOption.CONSEC_ANYORDER
+                    number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
 
             parent_id = GroupID(data[GppProgramProvider._GroupKeys.PARENT_ID])
             parent_index = data[GppProgramProvider._GroupKeys.PARENT_INDEX]
@@ -1311,7 +1107,6 @@ class GppProgramProvider(ProgramProvider):
                 # print(f"\t element['observation']}")
                 # print(f"\t {element['observation']['id']}")
                 obs_data = explore.observation(element['observation']['id'])
-                # obs_parent_index =   obs_data.parent_index
                 obs = self.parse_observation(obs_data.__dict__, program_id=program_id, num=(0, 0),
                                              split=split, split_by_iterator=split_by_iterator)
                 if obs is not None:
@@ -1321,15 +1116,15 @@ class GppProgramProvider(ProgramProvider):
                 # print(f"\t {element['group']['id']}")
                 grp_data, grp_tab = explore.group(element['group']['id'])
                 subgroup_id = GroupID(element['group']['id'])
-                subgroup = self.parse_and_group(grp_data.__dict__, program_id, subgroup_id, split=split,
-                                                split_by_iterator=split_by_iterator)
+                subgroup = self.parse_group(grp_data.__dict__, program_id, subgroup_id, split=split,
+                                            split_by_iterator=split_by_iterator)
                 if subgroup is not None:
                     children.append(subgroup)
 
         # Put all the observations in trivial AND groups and extend the children to include them.
         trivial_groups = [
-            GppGroup(
-                id=GroupID(obs.id.id),
+            Group(
+                id=GroupID('g-' + obs.id.id),
                 parent_id=group_id,
                 parent_index=obs_parent_indices[idx_obs],
                 program_id=program_id,
@@ -1350,7 +1145,7 @@ class GppProgramProvider(ProgramProvider):
             return None
 
         # Put all the observations in the one big AND group and return it.
-        return GppGroup(
+        return Group(
             id=group_id,
             parent_id=parent_id,
             parent_index=parent_index,
@@ -1411,8 +1206,8 @@ class GppProgramProvider(ProgramProvider):
 
         # Now we parse the groups.
         # root_group = GppProgramProvider._EMPTY_ROOT_GROUP
-        root_group = self.parse_and_group(data['group_elements'], program_id, ROOT_GROUP_ID,
-                                          split=split, split_by_iterator=split_by_iterator)
+        root_group = self.parse_group(data['group_elements'], program_id, ROOT_GROUP_ID,
+                                      split=split, split_by_iterator=split_by_iterator)
         if root_group is None:
             logger.warning(f'Program {program_id} has empty root group. Skipping.')
             return None
@@ -1458,11 +1253,10 @@ class GppProgramProvider(ProgramProvider):
 
         # Determine the start and end date of the program.
         # NOTE that this includes the fuzzy boundaries.
-        start_date = data['proposal']['call']['active']['start']  # Program.Proposal.call.active.start
-        end_date = data['proposal']['call']['active']['end']  # Program.Proposal.call.active.end
-        # start_date = parsedt(data['proposal']['call']['active']['start'] + 'T12:00:00 +00:00') # Program.Proposal.call.active.start
-        # end_date = parsedt(data['proposal']['call']['active']['end'] + 'T12:00:00 +00:00') # Program.Proposal.call.active.end
-        # start_date, end_date = GppProgramProvider._get_program_dates(program_type, program_id, note_titles)
+        start_date = data['proposal']['call']['active'][
+                         'start'] - Program.FUZZY_BOUNDARY  # Program.Proposal.call.active.start
+        end_date = data['proposal']['call']['active'][
+                       'end'] + Program.FUZZY_BOUNDARY  # Program.Proposal.call.active.end
 
         # Parse the time accounting allocation data.
         # time_act_alloc = None # Program.allocations

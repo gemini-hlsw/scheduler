@@ -26,8 +26,10 @@ if __name__ == '__main__':
     progid = None
     for p in programs:
         print(f'{p.id}: {p.name}')
-        progid = p.id if progid is None else progid
+        # progid = p.id if progid is None else progid
     print("")
+
+    progid = 'p-11d'
 
     prog = explore.program(progid)
     print(f'{progid} {prog.reference}: {prog.name} {prog.pi.orcid_family_name}')

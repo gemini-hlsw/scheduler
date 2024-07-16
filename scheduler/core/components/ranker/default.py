@@ -9,7 +9,7 @@ import astropy.units as u
 from astropy.coordinates import Angle
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import ALL_SITES, AndGroup, Band, NightIndices, Observation, Program, Site, OrGroup, Priority
+from lucupy.minimodel import ALL_SITES, Group, Band, NightIndices, Observation, Program, Site, Priority
 from lucupy.types import ListOrNDArray, MinMax
 
 # from scheduler.core.calculations import Scores, GroupDataMap
@@ -304,7 +304,7 @@ class DefaultRanker(Ranker):
 
     # TODO: Should we be considering the scores of the subgroups or the scores of the
     # TODO: observations when calculating the score of this group?
-    def _score_and_group(self, group: AndGroup, group_data_map):
+    def _score_and_group(self, group: Group, group_data_map):
         """
         Calculate the scores for each night and time slot of an AND Group.
         """
@@ -334,5 +334,5 @@ class DefaultRanker(Ranker):
         return {night_idx: np.apply_along_axis(self.params.score_combiner, 0, scores[night_idx])[0]
                 for night_idx in self.night_indices}
 
-    def _score_or_group(self, group: OrGroup, group_data_map):
+    def _score_or_group(self, group: Group, group_data_map):
         raise NotImplementedError
