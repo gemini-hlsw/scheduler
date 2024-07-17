@@ -6,7 +6,7 @@ from typing import Dict, FrozenSet
 
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import ALL_SITES, Group, Group, Group, NightIndex, NightIndices, Observation, Program, Site
+from lucupy.minimodel import ALL_SITES, Group, NightIndex, NightIndices, Observation, Program, Site
 
 # from scheduler.core.calculations import Scores, GroupDataMap
 
