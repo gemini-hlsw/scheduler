@@ -9,6 +9,13 @@ from typing import final
 from lucupy.decorators import immutable
 from lucupy.minimodel import SkyBackground
 
+import itertools
+
+def group_ranges(i):
+    for a, b in itertools.groupby(enumerate(i), lambda pair: pair[1] - pair[0]):
+        b = list(b)
+        yield b[0][1], b[-1][1]
+
 
 @final
 @immutable
@@ -23,14 +30,20 @@ class VisibilitySnapshot:
 
     @staticmethod
     def from_dict(ti_dict: Dict) -> 'VisibilitySnapshot':
-        return VisibilitySnapshot(visibility_slot_idx=np.array(ti_dict['visibility_slot_idx'], dtype=int),
+        try:
+            slot_list = [list(range(s[0], s[1] + 1)) for s in ti_dict['visibility_slot_idx']]
+        except Exception as e:
+            print(e)
+            print(ti_dict['visibility_slot_idx'])
+        return VisibilitySnapshot(visibility_slot_idx=np.array([x for xs in slot_list for x in xs], dtype=int),
                                   visibility_time=TimeDelta(ti_dict['visibility_time']['value'],
                                                             format=ti_dict['visibility_time']['format']),
                                  )
 
     def to_dict(self) -> Dict:
+        visibility_ranges = group_ranges(self.visibility_slot_idx.tolist())
         return {
-            'visibility_slot_idx': self.visibility_slot_idx.tolist(),
+            'visibility_slot_idx': [*visibility_ranges],
             'visibility_time': {
                 'value': self.visibility_time.sec,
                 'format': self.visibility_time.format

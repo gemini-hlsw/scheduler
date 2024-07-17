@@ -16,12 +16,16 @@ from lucupy import helpers, sky
 from lucupy.decorators import immutable
 from lucupy.minimodel import NightIndex, Site, TimeslotIndex
 from lucupy.sky.constants import JYEAR, J2000
+from scheduler.services.logger_factory import create_logger
 
+logger = create_logger(__name__)
 
 __all__ = [
     'NightEvents',
 ]
 
+# import pdb
+import pandas
 
 @final
 @immutable
@@ -71,6 +75,7 @@ class NightEvents:
     pm_array: List[npt.NDArray[float]] = field(init=False)
 
     def __post_init__(self):
+        logger.info("Calculating night events for site %s." % self.site.name)
         # Calculate the length of each night at this site, i.e. time between twilights.
         night_length = TimeDelta((self.twilight_morning_12 - self.twilight_evening_12).to(u.hour))
         object.__setattr__(self, 'night_length', night_length)
@@ -94,10 +99,15 @@ class NightEvents:
 
         # Pre-calculate the different times.
         # We want these as Python lists because the entries will have different lengths.
-        utc_times = [t.to_datetime(ZoneInfo('UTC')) for t in times]
+        dt_time_starts = time_starts.to_datetime()
+        dt_time_ends = time_ends.to_datetime()
+        utc_times = [pandas.date_range(start, end - self.time_slot_length.to_datetime(),
+                                          freq=self.time_slot_length.to_datetime(), tz='UTC')
+                    for start, end in zip(dt_time_starts, dt_time_ends)]
+        local_times = [dt.tz_convert(self.site.timezone) for dt in utc_times]
+        utc_times = [dt.to_pydatetime() for dt in utc_times]
+        local_times = [dt.to_pydatetime() for dt in local_times]
         object.__setattr__(self, 'utc_times', utc_times)
-
-        local_times = [t.to_datetime(self.site.timezone) for t in times]
         object.__setattr__(self, 'local_times', local_times)
 
         local_sidereal_times = [sky.local_sidereal_time(t, self.site.location) for t in times]
