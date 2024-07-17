@@ -82,6 +82,7 @@ class Collector(SchedulerComponent):
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
     sources: Sources
+    with_redis: bool
     time_slot_length: TimeDelta
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
@@ -296,7 +297,8 @@ class Collector(SchedulerComponent):
                                                  nc,
                                                  self.time_grid,
                                                  timing_windows,
-                                                 self.time_slot_length)
+                                                 self.time_slot_length,
+                                                 self.with_redis)
         target_info: TargetInfoNightIndexMap = {}
 
         for i in range(self.num_of_nights):

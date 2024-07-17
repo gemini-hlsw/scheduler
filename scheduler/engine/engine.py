@@ -233,6 +233,7 @@ class Engine:
                                             num_of_nights=self.params.num_nights_to_schedule,
                                             sites=self.params.sites,
                                             semesters=self.params.semesters,
+                                            with_redis=True,
                                             blueprint=Blueprints.collector,
                                             program_list=self.params.program_file)
 

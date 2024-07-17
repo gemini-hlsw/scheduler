@@ -85,6 +85,7 @@ def main(*,
         num_of_nights=num_nights_to_schedule,
         sites=sites,
         semesters=semesters,
+        with_redis=False,
         blueprint=collector_blueprint,
         program_list=f_programs
     )
