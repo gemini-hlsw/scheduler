@@ -11,12 +11,12 @@ from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
 import numpy as np
 from lucupy.helpers import dmsstr2deg
-from lucupy.minimodel import (AndGroup, AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
+from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
-                              ObservationClass, ObservationID, ObservationMode, ObservationStatus, OrGroup, Priority,
+                              ObservationClass, ObservationID, ObservationMode, ObservationStatus, Priority,
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
-                              Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation,
+                              Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
                               TimingWindow, TooType, WaterVapor, Wavelength)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
@@ -1183,29 +1183,48 @@ class OcsProgramProvider(ProgramProvider):
 
         return None
 
-    def parse_time_allocation(self, data: dict) -> TimeAllocation:
+    def parse_time_allocation(self, data: dict, band: Band = None) -> TimeAllocation:
         category = TimeAccountingCode(data[OcsProgramProvider._TAKeys.CATEGORY])
         program_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PROG_TIME])
         partner_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PART_TIME])
-        program_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PROG_TIME])
-        partner_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PART_TIME])
+        # program_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PROG_TIME])
+        # partner_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PART_TIME])
 
         return TimeAllocation(
             category=category,
             program_awarded=program_awarded,
             partner_awarded=partner_awarded,
+            # program_used=program_used,
+            # partner_used=partner_used,
+            band=band)
+
+    @staticmethod
+    def parse_time_used(data: dict) -> TimeUsed:
+        """Previously used/charged time"""
+        # There is a problem with the used times in the json data, duplicated for each partner
+        # program_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PROG_TIME])
+        # partner_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PART_TIME])
+        # For the scheduler, set to zero
+        program_used = ZeroTime
+        partner_used = ZeroTime
+        not_charged = ZeroTime
+        # ToDo: include band
+
+        return TimeUsed(
             program_used=program_used,
-            partner_used=partner_used)
+            partner_used=partner_used,
+            not_charged=not_charged
+        )
 
-    def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> OrGroup:
-        """
-        There are no OR groups in the OCS, so this method simply throws a
-        NotImplementedError if it is called.
-        """
-        raise NotImplementedError('OCS does not support OR groups.')
+    # def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> Group:
+    #     """
+    #     There are no OR groups in the OCS, so this method simply throws a
+    #     NotImplementedError if it is called.
+    #     """
+    #     raise NotImplementedError('OCS does not support OR groups.')
 
-    def parse_and_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
-                        split: bool, split_by_iterator: bool) -> Optional[AndGroup]:
+    def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
+                        split: bool, split_by_iterator: bool) -> Optional[Group]:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -1242,7 +1261,7 @@ class OcsProgramProvider(ProgramProvider):
                                        if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
         for key in scheduling_group_keys:
             subgroup_id = GroupID(key.split('-')[-1])
-            subgroup = self.parse_and_group(data[key], program_id, subgroup_id, split=split,
+            subgroup = self.parse_group(data[key], program_id, subgroup_id, split=split,
                                             split_by_iterator=split_by_iterator)
             if subgroup is not None:
                 children.append(subgroup)
@@ -1292,7 +1311,7 @@ class OcsProgramProvider(ProgramProvider):
 
         # Put all the observations in trivial AND groups and extend the children to include them.
         trivial_groups = [
-            AndGroup(
+            Group(
                 id=GroupID(obs.id.id),
                 program_id=program_id,
                 group_name=obs.title,
@@ -1311,7 +1330,7 @@ class OcsProgramProvider(ProgramProvider):
             return None
 
         # Put all the observations in the one big AND group and return it.
-        return AndGroup(
+        return Group(
             id=group_id,
             program_id=program_id,
             group_name=group_name,
@@ -1356,7 +1375,7 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
-        root_group = self.parse_and_group(data, program_id, ROOT_GROUP_ID,
+        root_group = self.parse_group(data, program_id, ROOT_GROUP_ID,
                                           split=split, split_by_iterator=split_by_iterator)
         if root_group is None:
             logger.warning(f'Program {program_id} has empty root group. Skipping.')
@@ -1401,7 +1420,8 @@ class OcsProgramProvider(ProgramProvider):
 
         # Parse the time accounting allocation data.
         time_act_alloc_data = data[OcsProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
-        time_act_alloc = frozenset(self.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
+        time_act_alloc = frozenset(self.parse_time_allocation(ta_data, band=band) for ta_data in time_act_alloc_data)
+        time_used = frozenset(self.parse_time_used(ta_data) for ta_data in time_act_alloc_data)
 
         too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
@@ -1420,6 +1440,7 @@ class OcsProgramProvider(ProgramProvider):
             start=start_date,
             end=end_date,
             allocated_time=time_act_alloc,
+            used_time=time_used,
             root_group=root_group,
             too_type=too_type)
 

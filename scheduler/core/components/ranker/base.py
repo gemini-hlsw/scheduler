@@ -6,7 +6,7 @@ from typing import Dict, FrozenSet
 
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import ALL_SITES, AndGroup, OrGroup, Group, NightIndex, NightIndices, Observation, Program, Site
+from lucupy.minimodel import ALL_SITES, Group, NightIndex, NightIndices, Observation, Program, Site
 
 # from scheduler.core.calculations import Scores, GroupDataMap
 
@@ -55,9 +55,9 @@ class Ranker(ABC):
         that contain the scoring for each time slot across the night.
         """
         # Check isinstance instead of is_and_group or is_or_group because otherwise, we get warnings.
-        if isinstance(group, AndGroup):
+        if group.is_and_group():
             return self._score_and_group(group, group_data_map)
-        elif isinstance(group, OrGroup):
+        elif group.is_or_group():
             return self._score_or_group(group, group_data_map)
         else:
             raise ValueError('Ranker group scoring can only score groups.')
@@ -71,13 +71,13 @@ class Ranker(ABC):
         """
 
     @abstractmethod
-    def _score_and_group(self, group: AndGroup, group_data_map):
+    def _score_and_group(self, group: Group, group_data_map):
         """
         Calculate the scores for each night and time slot of an AND Group.
         """
 
     @abstractmethod
-    def _score_or_group(self, group: OrGroup, group_data_map):
+    def _score_or_group(self, group: Group, group_data_map):
         """
         Calculate the scores for each night and time slot of an OR Group.
         TODO: This is TBD and requires more design work.
