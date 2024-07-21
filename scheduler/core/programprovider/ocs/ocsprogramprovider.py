@@ -22,6 +22,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
+from lucupy.minimodel.ids import obs_to_program_id
 from scipy.signal import find_peaks
 
 from definitions import ROOT_DIR
@@ -1152,7 +1153,7 @@ class OcsProgramProvider(ProgramProvider):
                     too_type = TooType.RAPID
 
             return GeminiObservation(
-                id=ObservationID(obs_id),
+                id=ObservationID(obs_id, program_id=obs_to_program_id(obs_id)),
                 internal_id=internal_id,
                 order=obs_num,
                 title=title,

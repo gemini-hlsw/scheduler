@@ -506,7 +506,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         Calculate the mean airmass of an observation over the given interval
         """
-        programid = obs_id.program_id()
+        programid = obs_id.program_id
         #     print(obsid.id, programid.id)
         airmass = self.selection.program_info[programid].target_info[obs_id][night_idx].airmass[interval]
 
@@ -678,7 +678,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         Plot airmass vs time slot.
         """
-        programid = obs_id.program_id()
+        programid = obs_id.program_id
 
         airmass = self.selection.program_info[programid].target_info[obs_id][night_idx].airmass
 
@@ -729,7 +729,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 if idx != -1:
                     unique_group_id = self.obs_group_ids[idx]
                     obs_id = ObservationID(unique_group_id.id)
-                    program_id = obs_id.program_id()
+                    program_id = obs_id.program_id
                     scores = self.selection.program_info[program_id].group_data_map[unique_group_id]. \
                         group_info.scores[night_idx]
                     if alt:
