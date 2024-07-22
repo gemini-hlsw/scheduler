@@ -72,9 +72,11 @@ class ResourceService(ExternalService):
     _semd = {'A': '0', 'B': '1'}
     _progd = {'Q': '0', 'C': '1', 'L': '2', 'F': '3', 'S': '8', 'D': '9'}
 
-    def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
+    def __init__(self, sites: FrozenSet[Site] = ALL_SITES, subdir: str = ''):
         self._sites = sites
         self._path = Path(ROOT_DIR) / 'scheduler' / 'services' / 'resource' / 'data'
+        self._common = self._path / 'common'
+        self._subdir = self._path / subdir
 
         # The map from site and date to the set of resources.
         self._resources: Dict[Site, Dict[date, Set[Resource]]] = {site: {} for site in self._sites}

@@ -24,6 +24,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
+from lucupy.helpers import unique_list
 # from scipy.signal import find_peaks
 
 from definitions import ROOT_DIR
@@ -42,15 +43,6 @@ logger = logger_factory.create_logger(__name__)
 
 # DEFAULT_GPP_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
 DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'gpp_program_ids.txt'
-
-
-def uniquelist(seq):
-    # Make a list of unique values
-    # http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-python-whilst-preserving-order
-    seen = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
-
 
 def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
     """Query GPP for program data"""
@@ -74,7 +66,7 @@ def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
         for o in obs_for_sched:
             print(f'{o.id}: {o.program.id} {o.title} {o.active_status} {o.status} {o.science_band}')
             obs_progs.append(o.program.id)
-        id_frozenset = frozenset(uniquelist(obs_progs))
+        id_frozenset = frozenset(unique_list(obs_progs))
     else:
         try:
             # Try to read the file and create a frozenset from its lines

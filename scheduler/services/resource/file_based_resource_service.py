@@ -45,12 +45,6 @@ class FileBasedResourceService(ResourceService):
     _NOT_AVAILABLE: Final[str] = 'NOT AVAILABLE'
     _CALIBRATION: Final[str] = 'CALIBRATION'
 
-    # The Google ID of the telescope configuration file.
-    _SITE_CONFIG_GOOGLE_ID: Final[str] = '1QRalQNEaX-bcyrPG6mfKnv01JVMaGHwy'
-
-    # Name of the spreadsheet file containing telescope configurations.
-    _SITE_CONFIG_FILE: Final[str] = 'telescope_schedules.xlsx'
-
     def _load_fpu_to_barcodes(self, site: Site,
                               filename: str) -> None:
         """
@@ -58,7 +52,7 @@ class FileBasedResourceService(ResourceService):
             * gmos[ns]_fpu_barcode.txt
         These are site-dependent values.
         """
-        with open(self._path / filename) as f:
+        with open(self._common / filename) as f:
             for row in f:
                 fpu, barcode = row.split()
 
@@ -112,7 +106,7 @@ class FileBasedResourceService(ResourceService):
                 prev_row_date = row_date
 
         if isinstance(data_source, str):
-            with open(self._path / data_source) as f:
+            with open(self._subdir / data_source) as f:
                 _process_file(f)
         else:
             data_str = data_source.getvalue().decode()
@@ -161,7 +155,7 @@ class FileBasedResourceService(ResourceService):
         if not filename:
             raise ValueError('file_source cannot be empty')
 
-        file_path = self._path / filename
+        file_path = self._subdir / filename
         if not file_path.exists():
             raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: '
                                     f'{file_path}')
@@ -455,7 +449,7 @@ class FileBasedResourceService(ResourceService):
         * weather closures
         * faults
         """
-        path = self._path / name
+        path = self._subdir / name
 
         try:
             with open(path, 'r') as input_file:
@@ -533,7 +527,7 @@ class FileBasedResourceService(ResourceService):
         """
         Load the faults from the specified file.
         """
-        path = self._path / name
+        path = self._subdir / name
 
         try:
             with open(path, 'r') as input_file:

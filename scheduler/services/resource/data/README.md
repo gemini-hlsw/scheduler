@@ -1,6 +1,7 @@
 # Resource Data
 
-This directory contains static OCS resource data files.
+This directory contains static resource data files for OCS validation and GPP simulation modes. Common files are in the 
+'common' directory.
 
 Eventually, these should be removed from the Scheduler repository and made available elsewhere.
 

@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from datetime import date
-from typing import final, FrozenSet
+from typing import final, FrozenSet, Final
 
 from lucupy.minimodel import ALL_SITES, Site
 
@@ -10,7 +10,6 @@ from scheduler.services import logger_factory
 from .filters import CompositeFilter, ResourcesAvailableFilter
 from .night_configuration import NightConfiguration
 from .file_based_resource_service import FileBasedResourceService
-
 
 __all__ = [
     'OcsResourceService',
@@ -35,11 +34,17 @@ class OcsResourceService(FileBasedResourceService):
     Note that this is a Singleton class, so new instances do not need to be created.
     """
 
-    def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
+    # The Google ID of the telescope configuration file.
+    _SITE_CONFIG_GOOGLE_ID: Final[str] = '1QRalQNEaX-bcyrPG6mfKnv01JVMaGHwy'
+
+    # Name of the spreadsheet file containing telescope configurations.
+    _TEL_CALENDAR_FILE: Final[str] = 'telescope_schedules.xlsx'
+
+    def __init__(self, sites: FrozenSet[Site] = ALL_SITES, subdir: str = 'validation'):
         """
         Create and initialize the OCS Resource object with the specified sites.
         """
-        super().__init__(sites)
+        super().__init__(sites, subdir)
 
         for site in self._sites:
             suffix = ('s' if site == Site.GS else 'n').upper()
@@ -51,7 +56,7 @@ class OcsResourceService(FileBasedResourceService):
                             f'G{suffix}_faults.txt',
                             f'G{suffix}_engtasks.txt',
                             f'G{suffix}_weather_loss.txt',
-                            OcsResourceService._SITE_CONFIG_FILE)
+                            OcsResourceService._TEL_CALENDAR_FILE)
 
         # TODO: Remove this after discussion with science.
         # TODO: There are entries here outside of the Telescope Schedules Spreadsheet.
