@@ -59,7 +59,7 @@ def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
 
 
 def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
-    print(program_list)
+    """Query GPP for the programs in program_list. If not given then query GPP for all appropriate observations"""
     if program_list is None:
         # GPP query
         obs_for_sched = explore.observations_for_scheduler(include_deleted=False)
@@ -770,7 +770,7 @@ class GppProgramProvider(ProgramProvider):
         # site = GppProgramProvider._site_for_inst[instrument]
         # instrument = sequence.meta['instrument'].upper()
         instrument = GppProgramProvider._gpp_inst_to_ocs[sequence.meta['instrument'].upper()]
-        print(instrument)
+        # print(instrument)
 
         fpus = []
         dispersers = []
