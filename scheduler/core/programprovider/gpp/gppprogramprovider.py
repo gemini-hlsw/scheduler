@@ -44,6 +44,7 @@ logger = logger_factory.create_logger(__name__)
 # DEFAULT_GPP_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
 DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'gpp_program_ids.txt'
 
+
 def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
     """Query GPP for program data"""
     for program_id in program_ids:
@@ -176,7 +177,7 @@ class GppProgramProvider(ProgramProvider):
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
     class _ProgramKeys:
-        ID = 'id'  # eventually reference.label
+        ID = 'reference'
         INTERNAL_ID = 'id'
         BAND = 'queueBand'
         THESIS = 'isThesis'
@@ -210,8 +211,8 @@ class GppProgramProvider(ProgramProvider):
 
     class _ObsKeys:
         # KEY = 'OBSERVATION_BASIC'
-        ID = 'id'
-        INTERNAL_ID = 'key'
+        ID = 'reference'
+        INTERNAL_ID = 'id'
         # QASTATE = 'qaState'
         # LOG = 'obsLog'
         STATUS = 'status'
@@ -926,8 +927,9 @@ class GppProgramProvider(ProgramProvider):
         # Check the obs_class. If it is illegal, return None.
         # At the same time, ignore inactive observations.
         # ToDo: Eventually the obs_id should be the reference label, the id is the internal_id
-        obs_id = data[GppProgramProvider._ObsKeys.ID]
-        internal_id = data[GppProgramProvider._ObsKeys.ID]
+        internal_id = data[GppProgramProvider._ObsKeys.INTERNAL_ID]
+        obs_id = data[GppProgramProvider._ObsKeys.ID]['label'] if GppProgramProvider._ObsKeys.ID in data.keys() \
+            else internal_id
 
         order = None
         obs_class = None
@@ -1253,8 +1255,11 @@ class GppProgramProvider(ProgramProvider):
         3. The organizational folders are ignored and their observations are considered top-level.
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
-        program_id = ProgramID(data[GppProgramProvider._ProgramKeys.ID])
         internal_id = data[GppProgramProvider._ProgramKeys.INTERNAL_ID]
+        program_id = ProgramID(internal_id)
+        # Uncomment below once we have the observation labels
+        # program_id = ProgramID(data[GppProgramProvider._ProgramKeys.ID]['label']) \
+        #     if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
 
         # Initialize split variables - not used by GPP
         split = True

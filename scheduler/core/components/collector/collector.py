@@ -331,16 +331,16 @@ class Collector(SchedulerComponent):
 
     def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         """
-        Load the programs provided as JSON into the Collector.
+        Load the programs provided as JSON or GPP disctionaries into the Collector.
 
         The program_provider should be a concrete implementation of the API to read in
-        programs from JSON files.
+        programs.
 
         The json_data comprises the program inputs as an iterable object per site. We use iterable
         since the amount of data here might be enormous, and we do not want to store it all
         in memory at once.
 
-        As this is OCS-specific, in a Program, all observations are guaranteed to be at the same site;
+        In an OCS Program, all observations are guaranteed to be at the same site;
         however, since this may not always be the case and will not in GPP, we still process all programs
         and simply omit observations that are not at a site listed in the desired sites.
         """

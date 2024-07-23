@@ -328,8 +328,8 @@ class FileBasedResourceService(ResourceService):
                     instrument_status = ''
                 if instrument_status == FileBasedResourceService._SCIENCE:
                     resources.add(self.lookup_resource(filename, resource_type=ResourceType.INSTRUMENT))
-                    # Check for GRACES if GMOS-N is available
-                    if filename == 'GMOS-N':
+                    # Check for GRACES if GMOS-N is available (validation mode only)
+                    if filename == 'GMOS-N' and 'GRACES' in instrument_column_mapping:
                         graces_status = none_to_str(row[instrument_column_mapping['GRACES']].value).strip().upper()
                         if graces_status == FileBasedResourceService._SCIENCE:
                             resources.add(self.lookup_resource('GRACES', resource_type=ResourceType.INSTRUMENT))
