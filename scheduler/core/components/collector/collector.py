@@ -11,6 +11,7 @@ import numpy as np
 
 from astropy.time import Time, TimeDelta
 
+from pyexplore import explore
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               Site, Target, TimeslotIndex, QAState, ObservationStatus, SiderealTarget, NonsiderealTarget,
@@ -289,7 +290,7 @@ class Collector(SchedulerComponent):
         # Get the night configurations (for resources)
         nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
 
-        program = self.get_program(obs.id.program_id())
+        program = self.get_program(obs.id.program_id)
         target_vis = calculate_target_visibility(obs,
                                                  target,
                                                  program,
@@ -330,16 +331,16 @@ class Collector(SchedulerComponent):
 
     def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         """
-        Load the programs provided as JSON into the Collector.
+        Load the programs provided as JSON or GPP disctionaries into the Collector.
 
         The program_provider should be a concrete implementation of the API to read in
-        programs from JSON files.
+        programs.
 
         The json_data comprises the program inputs as an iterable object per site. We use iterable
         since the amount of data here might be enormous, and we do not want to store it all
         in memory at once.
 
-        As this is OCS-specific, in a Program, all observations are guaranteed to be at the same site;
+        In an OCS Program, all observations are guaranteed to be at the same site;
         however, since this may not always be the case and will not in GPP, we still process all programs
         and simply omit observations that are not at a site listed in the desired sites.
         """
@@ -357,15 +358,15 @@ class Collector(SchedulerComponent):
         # Count the number of parse failures.
         bad_program_count = 0
 
-        for json_program in data:
+        for next_program in data:
             try:
-                if len(json_program.keys()) != 1:
-                    msg = f'JSON programs should only have one top-level key: {" ".join(json_program.keys())}'
-                    raise ValueError(msg)
-
-                # Extract the data from the JSON program. We do not need the top label.
-                data = next(iter(json_program.values()))
-                program = program_provider.parse_program(data)
+                if len(next_program.keys()) == 1:
+                    # Extract the data from the OCS JSON program. We do not need the top label.
+                    next_data = next(iter(next_program.values()))
+                else:
+                    # This is a dictionary from GPP
+                    next_data = next_program
+                program = program_provider.parse_program(next_data)
 
                 # If program could not be parsed, skip. This happens in one of three cases:
                 # 1. Program semester cannot be determined from ID.

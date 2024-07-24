@@ -2,3 +2,4 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from .ocs_env_service import *
+from .sim_env_service import *

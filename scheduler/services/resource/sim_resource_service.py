@@ -12,7 +12,7 @@ from .night_configuration import NightConfiguration
 from .file_based_resource_service import FileBasedResourceService
 
 __all__ = [
-    'OcsResourceService',
+    'SimResourceService',
 ]
 
 
@@ -20,9 +20,9 @@ logger = logger_factory.create_logger(__name__)
 
 
 @final
-class OcsResourceService(FileBasedResourceService):
+class SimResourceService(FileBasedResourceService):
     """
-    This is a mock for the future Resource service, used for OCS.
+    This is a mock for the future Resource service, used for the GPP simulation mode
     It reads data regarding availability of instruments, IFUs, FPUs, MOS masks, etc. at each Site for given dates.
 
     It can then be queried to receive a set of Resource (usually with barcode IDs, except for instruments) for a
@@ -34,15 +34,12 @@ class OcsResourceService(FileBasedResourceService):
     Note that this is a Singleton class, so new instances do not need to be created.
     """
 
-    # The Google ID of the telescope configuration file.
-    _SITE_CONFIG_GOOGLE_ID: Final[str] = '1QRalQNEaX-bcyrPG6mfKnv01JVMaGHwy'
-
     # Name of the spreadsheet file containing telescope configurations.
     _TEL_CALENDAR_FILE: Final[str] = 'telescope_schedules.xlsx'
 
-    def __init__(self, sites: FrozenSet[Site] = ALL_SITES, subdir: str = 'validation'):
+    def __init__(self, sites: FrozenSet[Site] = ALL_SITES, subdir: str = 'simulation'):
         """
-        Create and initialize the OCS Resource object with the specified sites.
+        Create and initialize the Sim Resource object with the specified sites.
         """
         super().__init__(sites, subdir)
 
@@ -51,12 +48,12 @@ class OcsResourceService(FileBasedResourceService):
 
             self.load_files(site,
                             f'GMOS{suffix}_fpu_barcode.txt',
-                            f'GMOS{suffix}_FPUr201789.txt',
-                            f'GMOS{suffix}_GRAT201789.txt',
+                            f'GMOS{suffix}_FPUr202407.txt',
+                            f'GMOS{suffix}_GRAT202407.txt',
                             f'G{suffix}_faults.txt',
                             f'G{suffix}_engtasks.txt',
                             f'G{suffix}_weather_loss.txt',
-                            OcsResourceService._TEL_CALENDAR_FILE)
+                            SimResourceService._TEL_CALENDAR_FILE)
 
         # TODO: Remove this after discussion with science.
         # TODO: There are entries here outside of the Telescope Schedules Spreadsheet.

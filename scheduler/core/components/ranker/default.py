@@ -282,7 +282,7 @@ class DefaultRanker(Ranker):
 
         # Program priority (from calendar)
         nc = self.collector.night_configurations(obs.site, np.arange(self.collector.num_nights_calculated))
-        program = self.collector.get_program(obs.id.program_id())
+        program = self.collector.get_program(obs.id.program_id)
         prog_priority = {night_idx: self.params.program_priority if nc[night_idx].filter.program_priority_filter_any(program)
                          else 1.0 for night_idx in self.night_indices}
         # print(obs.unique_id, night_idx, prog_priority)

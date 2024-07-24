@@ -24,6 +24,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
+from lucupy.helpers import unique_list
 # from scipy.signal import find_peaks
 
 from definitions import ROOT_DIR
@@ -34,13 +35,58 @@ from scheduler.services import logger_factory
 
 __all__ = [
     'GppProgramProvider',
+    'gpp_program_data'
 ]
 
 logger = logger_factory.create_logger(__name__)
 
 
-DEFAULT_OCS_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
-DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt'
+# DEFAULT_GPP_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
+DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'gpp_program_ids.txt'
+
+
+def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
+    """Query GPP for program data"""
+    for program_id in program_ids:
+        try:
+            # Query the program data from GPP.
+            data = explore.program(program_id)
+            print(f"Adding program: {program_id}")
+            # Pass the class information as a dictionary to mimic the OCS json format
+            yield data.__dict__
+        except:
+            logger.info(f'Problem querying {program_id}.')
+
+
+def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
+    """Query GPP for the programs in program_list. If not given then query GPP for all appropriate observations"""
+    if program_list is None:
+        # GPP query
+        obs_for_sched = explore.observations_for_scheduler(include_deleted=False)
+        obs_progs = []
+        for o in obs_for_sched:
+            print(f'{o.id}: {o.program.id} {o.title} {o.active_status} {o.status} {o.science_band}')
+            obs_progs.append(o.program.id)
+        id_frozenset = frozenset(unique_list(obs_progs))
+    else:
+        try:
+            # Try to read the file and create a frozenset from its lines
+            if program_list.lower() == 'default':
+                list_file = DEFAULT_PROGRAM_ID_PATH
+            else:
+                list_file = program_list
+
+            if isinstance(program_list, bytes):
+                file = program_list.decode('utf-8')
+                id_frozenset = frozenset(f.strip() for f in file.split('\n') if f.strip() and f.strip()[0] != '#')
+            else:
+                with list_file.open('r') as file:
+                    id_frozenset = frozenset(line.strip() for line in file if line.strip() and line.strip()[0] != '#')
+        except FileNotFoundError:
+            # If the file does not exist, set id_frozenset to None
+            id_frozenset = None
+    # return id_frozenset
+    return get_gpp_data(id_frozenset)
 
 
 def parse_preimaging(sequence: List[dict]) -> bool:
@@ -69,9 +115,12 @@ class GppProgramProvider(ProgramProvider):
     # Allowed instrument statuses
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
 
+    # Translate instrument names to use the OCS Resources
+    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S'}
+
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
-    _fpu_to_barcode = {'GMOS_NORTH': {
+    _fpu_to_barcode = {'GMOS-N': {
         'IFU-R': '10000009',
         'IFU-2': '10000007',
         'IFU-B': '10000008',
@@ -89,7 +138,7 @@ class GppProgramProvider(ProgramProvider):
         'NS1.5arcsec': '10005358',
         'NS2.0arcsec': '10005359',
     },
-        'GMOS_SOUTH': {
+        'GMOS-S': {
             'IFU-R': '10000009',
             'IFU-2': '10000007',
             'IFU-B': '10000008',
@@ -128,7 +177,7 @@ class GppProgramProvider(ProgramProvider):
     # We contain private classes with static members for the keys in the associative
     # arrays in order to have this information defined at the top-level once.
     class _ProgramKeys:
-        ID = 'id'  # eventually reference.label
+        ID = 'reference'
         INTERNAL_ID = 'id'
         BAND = 'queueBand'
         THESIS = 'isThesis'
@@ -162,8 +211,8 @@ class GppProgramProvider(ProgramProvider):
 
     class _ObsKeys:
         # KEY = 'OBSERVATION_BASIC'
-        ID = 'id'
-        INTERNAL_ID = 'key'
+        ID = 'reference'
+        INTERNAL_ID = 'id'
         # QASTATE = 'qaState'
         # LOG = 'obsLog'
         STATUS = 'status'
@@ -296,8 +345,8 @@ class GppProgramProvider(ProgramProvider):
         # 'Flamingos2': _FPUKeys.F2,
         # 'NIFS': _FPUKeys.NIFS,
         # 'GNIRS': _FPUKeys.GNIRS,
-        'GMOS_NORTH': _FPUKeys.GMOSN,
-        'GMOS_SOUTH': _FPUKeys.GMOSS,
+        'GMOS-N': _FPUKeys.GMOSN,
+        'GMOS-S': _FPUKeys.GMOSS,
         # 'NIRI': _FPUKeys.NIRI
     }
 
@@ -314,8 +363,8 @@ class GppProgramProvider(ProgramProvider):
     )
 
     _EMPTY_OBSERVATION = GeminiObservation(
-        id=ObservationID('Empty'),
-        internal_id='Empty',
+        id=ObservationID('None', program_id=ProgramID('None')),
+        internal_id='None',
         order=0,
         title='Title',
         site=Site.GN,
@@ -365,8 +414,8 @@ class GppProgramProvider(ProgramProvider):
         # TimingWindow(inclusion='INCLUDE', start_utc='2024-06-24 14:08:53.707', end=TimingWindowEndAfter(__typename__='TimingWindowEndAfter', after=TimeSpan(seconds=172800.0), repeat=TimingWindowRepeat(period=TimeSpan(seconds=216000.0), times=None))),
         # TimingWindow(inclusion='INCLUDE', start_utc='2024-06-24 14:09:37.32', end=TimingWindowEndAfter(__typename__='TimingWindowEndAfter', after=TimeSpan(seconds=172800.0), repeat=TimingWindowRepeat(period=TimeSpan(seconds=216000.0), times=6)))]
 
-        repeat_info = 0
-        period_info = None
+        repeat_info = TimingWindow.NON_REPEATING
+        period_info = TimingWindow.NO_PERIOD
 
         if data[GppProgramProvider._TimingWindowKeys.INCLUSION] == 'INCLUDE':
             # Start
@@ -390,16 +439,16 @@ class GppProgramProvider(ProgramProvider):
                             [GppProgramProvider._TimingWindowKeys.TIMES]
                     except KeyError:
                         duration = None
-                        period_info = None
-                        repeat_info = 0
+                        period_info = TimingWindow.NO_PERIOD
+                        repeat_info = TimingWindow.NON_REPEATING
 
-            if repeat_info == 'None':
+            if repeat_info is None:
                 repeat = TimingWindow.OCS_INFINITE_REPEATS
             else:
                 repeat = repeat_info
 
             if repeat == TimingWindow.NON_REPEATING:
-                period = None
+                period = TimingWindow.NO_PERIOD
             else:
                 period = timedelta(seconds=period_info)
 
@@ -557,11 +606,13 @@ class GppProgramProvider(ProgramProvider):
                 [GppProgramProvider._TargetKeys.RA]['milliarcseconds_per_year']
             pm_dec = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.PM] \
                 [GppProgramProvider._TargetKeys.DEC]['milliarcseconds_per_year']
-            epoch = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.EPOCH]
+            epoch_str = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.EPOCH]
+            # Strip off any leading letter, make float
+            epoch = float(epoch_str[1:]) if epoch_str[0] in ['B', 'J'] else float(epoch_str)
         except KeyError as e:
             pm_ra = 0.0
             pm_dec = 0.0
-            epoch = 2000
+            epoch = 2000.0
 
         return SiderealTarget(
             name=name,
@@ -611,12 +662,16 @@ class GppProgramProvider(ProgramProvider):
                 if GppProgramProvider._AtomKeys.INST_NAME in step:
                     inst_key = GppProgramProvider._AtomKeys.INST_NAME
                 instrument = step[inst_key].split(' ')[0]
+                # For using OCS Resource
+                # print(step[inst_key][0])
+                # instrument = GppProgramProvider._gpp_inst_to_ocs[step[inst_key].split(' ')[0]]
+                # print(instrument)
 
                 if instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
                     if GppProgramProvider.FPU_FOR_INSTRUMENT[instrument] in step:
                         fpu = step[GppProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
 
-                if instrument == 'GMOS-N' and fpu == 'IFU Left Slit (blue)':
+                if instrument in ['GMOS-N', 'GMOS_NORTH'] and fpu == 'IFU Left Slit (blue)':
                     instrument = 'GRACES'
 
                 break
@@ -713,7 +768,9 @@ class GppProgramProvider(ProgramProvider):
             return obs_mode
 
         # site = GppProgramProvider._site_for_inst[instrument]
-        instrument = sequence.meta['instrument'].upper()
+        # instrument = sequence.meta['instrument'].upper()
+        instrument = GppProgramProvider._gpp_inst_to_ocs[sequence.meta['instrument'].upper()]
+        # print(instrument)
 
         fpus = []
         dispersers = []
@@ -870,8 +927,9 @@ class GppProgramProvider(ProgramProvider):
         # Check the obs_class. If it is illegal, return None.
         # At the same time, ignore inactive observations.
         # ToDo: Eventually the obs_id should be the reference label, the id is the internal_id
-        obs_id = data[GppProgramProvider._ObsKeys.ID]
-        internal_id = data[GppProgramProvider._ObsKeys.ID]
+        internal_id = data[GppProgramProvider._ObsKeys.INTERNAL_ID]
+        obs_id = data[GppProgramProvider._ObsKeys.ID]['label'] if GppProgramProvider._ObsKeys.ID in data.keys() \
+            else internal_id
 
         order = None
         obs_class = None
@@ -1008,7 +1066,7 @@ class GppProgramProvider(ProgramProvider):
                 #     too_type = TooType.RAPID
 
             return GeminiObservation(
-                id=ObservationID(obs_id),
+                id=ObservationID(obs_id, program_id=program_id),
                 internal_id=internal_id,
                 order=obs_num,
                 title=title,
@@ -1197,8 +1255,11 @@ class GppProgramProvider(ProgramProvider):
         3. The organizational folders are ignored and their observations are considered top-level.
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
-        program_id = ProgramID(data[GppProgramProvider._ProgramKeys.ID])
         internal_id = data[GppProgramProvider._ProgramKeys.INTERNAL_ID]
+        program_id = ProgramID(internal_id)
+        # Uncomment below once we have the observation labels
+        # program_id = ProgramID(data[GppProgramProvider._ProgramKeys.ID]['label']) \
+        #     if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
 
         # Initialize split variables - not used by GPP
         split = True
@@ -1213,7 +1274,8 @@ class GppProgramProvider(ProgramProvider):
             return None
 
         # Extract the semester and program type
-        semester = data['proposal']['call']['semester']  # Program.Proposal.call.semester
+        sem = data['proposal']['call']['semester']  # Program.Proposal.call.semester
+        semester = Semester(year=int(sem[0:4]), half=SemesterHalf(sem[-1]))
         program_type = None
         gpp_prog_type = data['type']
         if gpp_prog_type in ['CALIBRATION', 'ENGINEERING']:
@@ -1253,10 +1315,10 @@ class GppProgramProvider(ProgramProvider):
 
         # Determine the start and end date of the program.
         # NOTE that this includes the fuzzy boundaries.
-        start_date = data['proposal']['call']['active'][
-                         'start'] - Program.FUZZY_BOUNDARY  # Program.Proposal.call.active.start
-        end_date = data['proposal']['call']['active'][
-                       'end'] + Program.FUZZY_BOUNDARY  # Program.Proposal.call.active.end
+        start_date = (datetime.fromisoformat(data['proposal']['call']['active']['start'].isoformat() + 'T00:00:00')
+                      - Program.FUZZY_BOUNDARY)
+        end_date = (datetime.fromisoformat(data['proposal']['call']['active']['end'].isoformat() + 'T00:00:00')
+                    + Program.FUZZY_BOUNDARY)
 
         # Parse the time accounting allocation data.
         # time_act_alloc = None # Program.allocations

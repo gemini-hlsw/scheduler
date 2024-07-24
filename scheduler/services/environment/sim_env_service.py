@@ -18,9 +18,9 @@ from scheduler.services.abstract import ExternalService
 logger = logger_factory.create_logger(__name__)
 
 
-class OcsEnvService(ExternalService):
+class SimEnvService(ExternalService):
     """
-    This is a historical Resource service used for OCS for Validation purposes.
+    This is a mock Resource service used for GPP simulation purposes.
     """
 
     # The columns used from the pandas dataframe.
@@ -33,36 +33,33 @@ class OcsEnvService(ExternalService):
 
     def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
         """
-        Read in the pickled pandas data from the data files.
-        Note that we assume that the data has been processed by the ocs-env-processor project at:
-        https://github.com/gemini-hlsw/ocs-env-processor
+        Read in the pandas data from the data files.
         """
         self._sites = sites
 
         # The data per site. The pandas data structure is too complicated to fully represent.
         self._site_data: Dict[Site, pd.DataFrame] = {}
 
-        path = Path(ROOT_DIR) / 'scheduler' / 'services' / 'environment' / 'data' / 'validation'
+        path = Path(ROOT_DIR) / 'scheduler' / 'services' / 'environment' / 'data' / 'simulation'
         for site in self._sites:
             site_lc = site.name.lower()
-            input_file_path = path / f'{site_lc}_weather_data.pickle.bz2'
+            input_file_path = path / f'{site_lc}_weather_data.csv'
 
             logger.info(f'Processing weather data for {site.name}...')
-            with bz2.BZ2File(input_file_path, 'rb') as input_file:
-                df = pd.read_pickle(input_file)
-                self._site_data[site] = df
-                logger.info(f'Weather data for {site.name} read in: {len(self._site_data[site])} rows.')
+            df = pd.read_csv(input_file_path)
+            self._site_data[site] = df
+            logger.info(f'Weather data for {site.name} read in: {len(self._site_data[site])} rows.')
 
     @staticmethod
     def _convert_to_variant(row) -> (datetime, VariantSnapshot):
         """
         Given a pandas row from the weather data, turn it into a Variant object.
         """
-        timestamp = row[OcsEnvService._local_time_stamp_col].to_pydatetime()
-        iq = ImageQuality(row[OcsEnvService._iq_col])
-        cc = CloudCover(row[OcsEnvService._cc_col])
-        wind_dir = Angle(row[OcsEnvService._wind_dir_col], unit=u.deg)
-        wind_spd = row[OcsEnvService._wind_speed_col] * (u.m / u.s)
+        timestamp = row[SimEnvService._local_time_stamp_col].to_pydatetime()
+        iq = ImageQuality(row[SimEnvService._iq_col])
+        cc = CloudCover(row[SimEnvService._cc_col])
+        wind_dir = Angle(row[SimEnvService._wind_dir_col], unit=u.deg)
+        wind_spd = row[SimEnvService._wind_speed_col] * (u.m / u.s)
 
         variant_change = VariantSnapshot(iq=iq,
                                          cc=cc,
@@ -81,6 +78,6 @@ class OcsEnvService(ExternalService):
         df = self._site_data[site]
 
         # Get all the entries for the given night date.
-        filtered_df = df[df[OcsEnvService._night_time_stamp_col].dt.date == night_date]
-        variant_list = filtered_df.apply(OcsEnvService._convert_to_variant, axis=1).values.tolist()
+        filtered_df = df[df[SimEnvService._night_time_stamp_col].dt.date == night_date]
+        variant_list = filtered_df.apply(SimEnvService._convert_to_variant, axis=1).values.tolist()
         return {dt: v for dt, v in variant_list}

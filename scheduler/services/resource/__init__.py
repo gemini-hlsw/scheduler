@@ -7,4 +7,5 @@ from .file_resource_service import *
 from .filters import *
 from .night_configuration import *
 from .ocs_resource_service import *
+from .sim_resource_service import *
 from .resource_service import *
