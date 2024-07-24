@@ -414,7 +414,7 @@ class Collector(SchedulerComponent):
             logger.error(f'Could not parse {bad_program_count} programs.')
 
         # TODO STEP 1: This is the code that needs parallelization.
-        # TODO STEP 2: Try to read the values from the redis cache. If they do not exist, calculate and write.
+        # TODO STEP 2: Try to read the values from the redis_client cache. If they do not exist, calculate and write.
         for program_id, obs in parsed_observations:
             # Check for a base target in the observation: if there is none, we cannot process.
             # For ToOs, this may be the case.
