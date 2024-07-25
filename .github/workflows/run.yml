@@ -28,7 +28,7 @@
           env:
             GH_PAT: ${{ secrets.GH_PAT }}
           run: |
-              git clone https://${GH_PAT}@github.com/stroncod/pyexplore.git /home/runner/work/scheduler/scheduler/
+              git clone https://${GH_PAT}@github.com/stroncod/pyexplore.git
 
         - name: Install requirements for pyexplore
           run: |
