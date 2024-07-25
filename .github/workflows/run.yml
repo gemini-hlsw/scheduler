@@ -24,12 +24,11 @@
         - name: Add $PYTHONPATH
           run: echo "PYTHONPATH=/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
 
-        - name: Checkout private repo for pyexplore
-          uses: actions/checkout@v3
-          with:
-              repository: stroncod/pyexplore
-              token: ${{ secrets.GH_PAT }}
-              path: /home/runner/work/scheduler/scheduler
+        - name: Clone pyexplore
+          env:
+            GH_PAT: ${{ secrets.GH_PAT }}
+          run: |
+              git clone https://${GH_PAT}@github.com/stroncod/pyexplore.git .
 
         - name: Install requirements for pyexplore
           run: |
