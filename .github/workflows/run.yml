@@ -24,6 +24,20 @@
         - name: Add $PYTHONPATH
           run: echo "PYTHONPATH=/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
 
+        - name: Checkout private repo for pyexplore
+          uses: actions/checkout@v3
+          with:
+              repository: stroncod/pyexplore
+              token: ${{ secrets.GH_PAT }}
+              path: /home/runner/work/scheduler/scheduler
+
+        - name: Install requirements for pyexplore
+          run: |
+            pip install -r pyexplore/requirements.txt
+        - name: Install pyexplore as package
+          run: |
+            pip install -e pyexplore/pyexplore  
+
         - name: Run Greedymax
           env:
             REDISCLOUD_URL: ${{ secrets.REDISCLOUD_URL }}
