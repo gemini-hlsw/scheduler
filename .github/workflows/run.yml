@@ -22,7 +22,7 @@
             if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
         - name: Add $PYTHONPATH
-          run: echo "PYTHONPATH=$PYTHONPATH:/home/runner/work/scheduler/scheduler://home/runner/work/scheduler/scheduler/pyexplore/pyexplore" >> $GITHUB_ENV
+          run: echo "PYTHONPATH=$PYTHONPATH:/home/runner/work/scheduler/scheduler:/home/runner/work/scheduler/scheduler/pyexplore/pyexplore" >> $GITHUB_ENV
 
         - name: Clone pyexplore
           env:
