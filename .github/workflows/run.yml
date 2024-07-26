@@ -34,8 +34,7 @@
           run: |
             pip install -r pyexplore/requirements.txt
         - name: Install pyexplore as package
-          run: |
-            pip install -e pyexplore/pyexplore  
+          run: cd pyexplore/pyexplore && pip install -e .
 
         - name: Run Greedymax
           env:
