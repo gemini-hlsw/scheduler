@@ -47,6 +47,8 @@ class SimEnvService(ExternalService):
 
             logger.info(f'Processing weather data for {site.name}...')
             df = pd.read_csv(input_file_path)
+            df[SimEnvService._night_time_stamp_col] = pd.to_datetime(df[SimEnvService._night_time_stamp_col])
+            df[SimEnvService._local_time_stamp_col] = pd.to_datetime(df[SimEnvService._local_time_stamp_col])
             self._site_data[site] = df
             logger.info(f'Weather data for {site.name} read in: {len(self._site_data[site])} rows.')
 
@@ -76,7 +78,6 @@ class SimEnvService(ExternalService):
         times should be a contiguous set of times, but we do not force this.
         """
         df = self._site_data[site]
-
         # Get all the entries for the given night date.
         filtered_df = df[df[SimEnvService._night_time_stamp_col].dt.date == night_date]
         variant_list = filtered_df.apply(SimEnvService._convert_to_variant, axis=1).values.tolist()
