@@ -290,7 +290,7 @@ class Collector(SchedulerComponent):
         # Get the night configurations (for resources)
         nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
 
-        program = self.get_program(obs.id.program_id)
+        program = self.get_program(obs.id.program_id())
         target_vis = calculate_target_visibility(obs,
                                                  target,
                                                  program,

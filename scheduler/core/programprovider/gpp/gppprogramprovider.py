@@ -51,7 +51,7 @@ def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
         try:
             # Query the program data from GPP.
             data = explore.program(program_id)
-            print(f"Adding program: {program_id}")
+            print(f"Adding program: {program_id} {data.reference.label}")
             # Pass the class information as a dictionary to mimic the OCS json format
             yield data.__dict__
         except:
@@ -363,7 +363,7 @@ class GppProgramProvider(ProgramProvider):
     )
 
     _EMPTY_OBSERVATION = GeminiObservation(
-        id=ObservationID('None', program_id=ProgramID('None')),
+        id=ObservationID('Empty-0001'),
         internal_id='None',
         order=0,
         title='Title',
@@ -928,8 +928,9 @@ class GppProgramProvider(ProgramProvider):
         # At the same time, ignore inactive observations.
         # ToDo: Eventually the obs_id should be the reference label, the id is the internal_id
         internal_id = data[GppProgramProvider._ObsKeys.INTERNAL_ID]
+        # obs_id = f"{program_id.id}-{internal_id.replace('-', '')}"
         obs_id = data[GppProgramProvider._ObsKeys.ID]['label'] if GppProgramProvider._ObsKeys.ID in data.keys() \
-            else internal_id
+            else f"{program_id.id}-{internal_id.replace('-', '')}"
 
         order = None
         obs_class = None
@@ -1066,7 +1067,7 @@ class GppProgramProvider(ProgramProvider):
                 #     too_type = TooType.RAPID
 
             return GeminiObservation(
-                id=ObservationID(obs_id, program_id=program_id),
+                id=ObservationID(obs_id),
                 internal_id=internal_id,
                 order=obs_num,
                 title=title,
@@ -1182,7 +1183,7 @@ class GppProgramProvider(ProgramProvider):
         # Put all the observations in trivial AND groups and extend the children to include them.
         trivial_groups = [
             Group(
-                id=GroupID('g-' + obs.id.id),
+                id=GroupID(obs.id.id),
                 parent_id=group_id,
                 parent_index=obs_parent_indices[idx_obs],
                 program_id=program_id,
@@ -1256,10 +1257,10 @@ class GppProgramProvider(ProgramProvider):
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
         internal_id = data[GppProgramProvider._ProgramKeys.INTERNAL_ID]
-        program_id = ProgramID(internal_id)
+        # program_id = ProgramID(internal_id)
         # Uncomment below once we have the observation labels
-        # program_id = ProgramID(data[GppProgramProvider._ProgramKeys.ID]['label']) \
-        #     if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
+        program_id = ProgramID(data[GppProgramProvider._ProgramKeys.ID]['label']) \
+            if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
 
         # Initialize split variables - not used by GPP
         split = True
