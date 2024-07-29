@@ -5,7 +5,7 @@ WORKDIR /home
 # Manage dependencies
 COPY ./requirements.txt /home/requirements.txt
 
-RUN echo "PAT=${GH_PAT}"
+RUN echo "PAT=${GH_PAT}, TEST_VAL=${TEST_VAL}"
 
 RUN pip install --no-cache-dir --upgrade -r /home/requirements.txt
 
