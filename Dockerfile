@@ -5,6 +5,8 @@ WORKDIR /home
 # Manage dependencies
 COPY ./requirements.txt /home/requirements.txt
 
+ENV GH_PAT=$GH_PAT
+
 RUN pip install --no-cache-dir --upgrade -r /home/requirements.txt
 
 COPY ./scheduler /home/scheduler
