@@ -30,4 +30,6 @@ jobs:
 
           usedocker: true
           docker_build_args: |
-            GH_PAT=${{ secrets.GH_PAT }}
+            GH_PAT
+        env:
+          GH_PAT: ${{ secrets.HEROKU_APP_NAME }}
