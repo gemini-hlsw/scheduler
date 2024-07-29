@@ -28,6 +28,8 @@ jobs:
       - name: Generate Report
         env:
           REDISCLOUD_URL : ${{ secrets.REDISCLOUD_URL }}
+          GPP_URL: ${{ secrets.GPP_URL }}
+          GPP_KEY: ${{ secrets.GPP_KEY }}
         run: |
           coverage run -m pytest 
           coverage xml

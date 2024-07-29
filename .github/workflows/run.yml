@@ -29,14 +29,6 @@
             GH_PAT: ${{ secrets.GH_PAT }}
           run: |
               pip install git+https://${GH_PAT}@github.com/stroncod/pyexplore.git
-        - name: List secrets
-          run: |
-                  echo "$ALLMYSECRETS"
-                  echo "$ALLMYVARS"
-          shell: bash
-          env:
-              ALLMYSECRETS: ${{ toJSON(secrets) }}
-              ALLMYVARS: ${{ toJSON(vars) }}
 
         - name: Run Greedymax
           env:
