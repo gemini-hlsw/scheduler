@@ -291,6 +291,7 @@ class GppProgramProvider(ProgramProvider):
         TIMING_WINDOWS = 'timing_windows'
 
     class _AtomKeys:
+        ATOM = 'atom'
         OBS_CLASS = 'class'
         # INSTRUMENT = ''
         # INST_NAME = ''
@@ -782,15 +783,16 @@ class GppProgramProvider(ProgramProvider):
 
         atoms = []
         classes = []
+        all_classes = []
         guiding = []
         qa_states = []
         prev_atom_id = -1
         n_atom = 0
         instrument_resources = frozenset([self._sources.origin.resource.lookup_resource(instrument)])
         for step in sequence:
-            if step['class'] != 'ACQUISITION':
+            if step[GppProgramProvider._AtomKeys.OBS_CLASS] != 'ACQUISITION':
                 next_atom = False
-                atom_id = step['atom']
+                atom_id = step[GppProgramProvider._AtomKeys.ATOM]
                 observe_class = step[GppProgramProvider._AtomKeys.OBS_CLASS]
                 step_time = step[GppProgramProvider._AtomKeys.TOTAL_TIME]
 
@@ -863,6 +865,7 @@ class GppProgramProvider(ProgramProvider):
 
                 # Update atom
                 classes.append(observe_class)
+                all_classes.append(observe_class)
                 guiding.append(guide_state(step))
 
                 atoms[-1].exec_time += timedelta(seconds=step_time)
@@ -897,7 +900,17 @@ class GppProgramProvider(ProgramProvider):
                 previous_atom.wavelengths = frozenset(wavelengths)
                 previous_atom.obs_mode = mode
 
-        return atoms
+        obs_class = ObservationClass.NONE
+        if 'SCIENCE' in all_classes:
+            obs_class = ObservationClass.SCIENCE
+        elif 'PROGRAM_CAL' in all_classes:
+            obs_class = ObservationClass.PROGCAL
+        elif 'PARTNER_CAL' in all_classes:
+            obs_class = ObservationClass.PARTNERCAL
+        elif 'DAY_CAL' in all_classes:
+            obs_class = ObservationClass.DAYCAL
+
+        return atoms, obs_class
 
     def parse_target(self, data: dict, targ_type: str) -> Target:
         """
@@ -933,7 +946,7 @@ class GppProgramProvider(ProgramProvider):
             else f"{program_id.id}-{internal_id.replace('-', '')}"
 
         order = None
-        obs_class = None
+        obs_class = ObservationClass.NONE
         belongs_to = program_id
 
         try:
@@ -943,7 +956,7 @@ class GppProgramProvider(ProgramProvider):
                 print(f"Observation {obs_id} is inactive (skipping).")
                 return None
 
-            # ToDo: there is no longer an observation-leveel obs_class, maybe check later from atom classes
+            # ToDo: there is no longer an observation-level obs_class, maybe check later from atom classes
             # obs_class = ObservationClass[data[GppProgramProvider._ObsKeys.OBS_CLASS].upper()]
             # if obs_class not in self._obs_classes or not active:
             #     logger.warning(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
@@ -956,7 +969,7 @@ class GppProgramProvider(ProgramProvider):
             # site = Site[data[GppProgramProvider._ObsKeys.ID].split('-')[0]]
             site = self._site_for_inst[data[GppProgramProvider._ObsKeys.INSTRUMENT]]
             # priority = Priority[data[GppProgramProvider._ObsKeys.PRIORITY].upper()]
-            priority = Priority.LOW
+            priority = Priority.MEDIUM
 
             # If the status is not legal, terminate parsing.
             status = ObservationStatus[data[GppProgramProvider._ObsKeys.STATUS].upper()]
@@ -971,7 +984,7 @@ class GppProgramProvider(ProgramProvider):
             acq_overhead = timedelta(seconds=data['execution']['digest']['setup']['full']['seconds'])
 
             # Science band
-            band = data[GppProgramProvider._ObsKeys.BAND]
+            band = Band[data[GppProgramProvider._ObsKeys.BAND]]
 
             # Constraints
             find_constraints = {
@@ -988,7 +1001,7 @@ class GppProgramProvider(ProgramProvider):
             # Atoms
             # ToDo: Perhaps add the sequence query to the original observation query
             sequence = explore.sequence(internal_id, include_acquisition=True)
-            atoms = self.parse_atoms(site, sequence)
+            atoms, obs_class = self.parse_atoms(site, sequence)
 
             # Pre-imaging
             preimaging = False
@@ -1137,7 +1150,7 @@ class GppProgramProvider(ProgramProvider):
             # AND cadence - delays not None, number_to_observe None, ordered should be forced to True
             # AND conseq - delays None,  number_to_observe None
             group_option = AndOption.ANYORDER
-            if delay_min is not None:
+            if delay_max is not None:
                 group_option = AndOption.CUSTOM
                 ordered = True
                 number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])

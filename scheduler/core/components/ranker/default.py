@@ -231,7 +231,7 @@ class DefaultRanker(Ranker):
         cplt = (program.total_used() + remaining) / program.total_awarded()
 
         metric, metric_s = self._metric_slope(np.array([cplt]),
-                                              np.array([program.band.value]),
+                                              np.array([obs.band.value]),
                                               np.array([0.8]),
                                               program.thesis)
 
