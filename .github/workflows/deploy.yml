@@ -29,5 +29,5 @@ jobs:
           heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
 
           usedocker: true
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          docker_build_args: |
+            GH_PAT: ${{ secrets.GH_PAT }}
