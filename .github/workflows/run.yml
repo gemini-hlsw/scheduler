@@ -28,7 +28,7 @@
           env:
             GH_PAT: ${{ secrets.GH_PAT }}
           run: |
-              pip install https://${GH_PAT}@github.com/stroncod/pyexplore.git
+              pip install git+https://${GH_PAT}@github.com/stroncod/pyexplore.git
 
         - name: Run Greedymax
           env:
