@@ -24,17 +24,11 @@
         - name: Add $PYTHONPATH
           run: echo "PYTHONPATH=$PYTHONPATH:/home/runner/work/scheduler/scheduler:/home/runner/work/scheduler/scheduler/pyexplore/pyexplore" >> $GITHUB_ENV
 
-        - name: Clone pyexplore
+        - name: Install pyexplore
           env:
             GH_PAT: ${{ secrets.GH_PAT }}
           run: |
-              git clone https://${GH_PAT}@github.com/stroncod/pyexplore.git
-
-        - name: Install requirements for pyexplore
-          run: |
-            pip install -r pyexplore/requirements.txt
-        - name: Install pyexplore as package
-          run: cd pyexplore/pyexplore && pip install -e .
+              pip install https://${GH_PAT}@github.com/stroncod/pyexplore.git
 
         - name: Run Greedymax
           env:
