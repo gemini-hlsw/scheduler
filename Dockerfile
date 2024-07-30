@@ -1,11 +1,13 @@
 FROM python:3.10-buster
 
+ARG GH_PAT
+# Set environment variables
+ENV GH_PAT=$GH_PAT
+
 WORKDIR /home
 
 # Manage dependencies
 COPY ./requirements.txt /home/requirements.txt
-
-RUN echo "PAT=${GH_PAT}, TEST_VAL=${TEST_VAL}"
 
 RUN pip install --no-cache-dir --upgrade -r /home/requirements.txt
 
