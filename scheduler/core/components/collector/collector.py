@@ -287,11 +287,7 @@ class Collector(SchedulerComponent):
             raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
         night_events = self.night_events[obs.site]
 
-        # Get the night configurations (for resources)
-        nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
-
-        program = self.get_program(obs.id.program_id())
-        target_vis = visibility_calculator.get_target_visibility(obs, self.time_grid)
+        target_vis = visibility_calculator.get_target_visibility(obs, self.time_grid, self.semesters)
 
         target_info: TargetInfoNightIndexMap = {}
 

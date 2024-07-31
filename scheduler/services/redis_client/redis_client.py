@@ -2,6 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import json
+from typing import Optional
+
 import redis
 import os
 
@@ -18,7 +20,7 @@ class RedisClient(metaclass=Singleton):
             raise ValueError("REDISCLOUD_URL env var is not set up correctly.")
 
     @staticmethod
-    def flatten_dict(d, parent_key='', sep=':'):
+    def flatten_dict(d: dict, parent_key='', sep=':') -> dict:
         items = []
         for k, v in d.items():
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
@@ -29,7 +31,7 @@ class RedisClient(metaclass=Singleton):
         return dict(items)
 
     @staticmethod
-    def unflatten_dict(d, sep=':'):
+    def unflatten_dict(d: dict, sep=':') -> dict:
         result = {}
         for key, value in d.items():
             parts = key.split(sep)
@@ -41,15 +43,15 @@ class RedisClient(metaclass=Singleton):
             d[parts[-1]] = json.loads(value)
         return result
 
-    def get_nested_value(self, main_key, key):
+    def get_nested_value(self, main_key: str, key: str):
         value = self._redis_client.hget(main_key, key)
         return json.loads(value) if value else None
 
     # Function to set a nested value
-    def set_nested_value(self, main_key, key, value):
+    def set_nested_value(self, main_key: str, key: str, value) -> None:
         self._redis_client.hset(main_key, key, json.dumps(value))
 
-    def get_whole_dict(self, main_key):
+    def get_whole_dict(self, main_key: str) -> Optional[dict]:
         exists = self._redis_client.exists(main_key)
         if exists:
             flat_dict = self._redis_client.hgetall(main_key)
@@ -57,9 +59,9 @@ class RedisClient(metaclass=Singleton):
             flat_dict = {k.decode('utf-8'): v.decode('utf-8') for k, v in flat_dict.items()}
             return RedisClient.unflatten_dict(flat_dict)
         else:
-            raise ValueError(f'Main key {main_key} is wrong. Not found in Redis.')
+            return None
 
-    def set_whole_dict(self, main_key, nested_dict, batch_size=100):
+    def set_whole_dict(self, main_key: str, nested_dict: dict, batch_size: int = 100) -> None:
         # Flatten and store the dictionary
         flat_dict = RedisClient.flatten_dict(nested_dict)
         pipeline = self._redis_client.pipeline(transaction=False)
