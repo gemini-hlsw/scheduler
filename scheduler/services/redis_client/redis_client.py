@@ -6,11 +6,12 @@ import redis
 import os
 
 from redis import RedisError
+from scheduler.core.meta import Singleton
 
 REDIS_URL = os.environ.get("REDISCLOUD_URL")
 
 
-class RedisClient:
+class RedisClient(metaclass=Singleton):
     def __init__(self):
         self._redis_client = redis.from_url(REDIS_URL, socket_timeout=600, socket_connect_timeout=30) if REDIS_URL else None
         if not self._redis_client:
@@ -49,10 +50,14 @@ class RedisClient:
         self._redis_client.hset(main_key, key, json.dumps(value))
 
     def get_whole_dict(self, main_key):
-        flat_dict = self._redis_client.hgetall(main_key)
-        # Convert bytes to str for both keys and values
-        flat_dict = {k.decode('utf-8'): v.decode('utf-8') for k, v in flat_dict.items()}
-        return RedisClient.unflatten_dict(flat_dict)
+        exists = self._redis_client.exists(main_key)
+        if exists:
+            flat_dict = self._redis_client.hgetall(main_key)
+            # Convert bytes to str for both keys and values
+            flat_dict = {k.decode('utf-8'): v.decode('utf-8') for k, v in flat_dict.items()}
+            return RedisClient.unflatten_dict(flat_dict)
+        else:
+            raise ValueError(f'Main key {main_key} is wrong. Not found in Redis.')
 
     def set_whole_dict(self, main_key, nested_dict, batch_size=100):
         # Flatten and store the dictionary
