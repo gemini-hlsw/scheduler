@@ -286,7 +286,7 @@ class VisibilityCalculator:
                     we want to process the nights BACKWARDS so that we can sum up the visibility time.
         """
 
-        visibility_snapshots: Dict[str, Dict] = {}
+        visibility_snapshots: Dict[str, VisibilitySnapshot] = {}
 
         for ridx, jday in enumerate(reversed(time_grid)):
             # Convert to the actual time grid index.
@@ -361,7 +361,7 @@ class VisibilityCalculator:
             visibility_snapshot = VisibilitySnapshot(visibility_slot_idx=visibility_slot_idx,
                                                      visibility_time=visibility_time)
             # Pass to int to eliminate decimals and to string to keep the keys after deserialization.
-            visibility_snapshots[str(int(jday.jd))] = visibility_snapshot.to_dict()
+            visibility_snapshots[str(int(jday.jd))] = visibility_snapshot
 
         return visibility_snapshots
 

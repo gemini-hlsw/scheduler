@@ -5,12 +5,14 @@ import json
 import redis
 import os
 
+from redis import RedisError
+
 REDIS_URL = os.environ.get("REDISCLOUD_URL")
 
 
 class RedisClient:
     def __init__(self):
-        self._redis_client = redis.from_url(REDIS_URL) if REDIS_URL else None
+        self._redis_client = redis.from_url(REDIS_URL, socket_timeout=600, socket_connect_timeout=30) if REDIS_URL else None
         if not self._redis_client:
             raise ValueError("REDISCLOUD_URL env var is not set up correctly.")
 
@@ -52,11 +54,25 @@ class RedisClient:
         flat_dict = {k.decode('utf-8'): v.decode('utf-8') for k, v in flat_dict.items()}
         return RedisClient.unflatten_dict(flat_dict)
 
-    def set_whole_dict(self, main_key, nested_dict):
+    def set_whole_dict(self, main_key, nested_dict, batch_size=100):
         # Flatten and store the dictionary
         flat_dict = RedisClient.flatten_dict(nested_dict)
-        for k, v in flat_dict.items():
-            self._redis_client.hset(main_key, k, json.dumps(v))
+        pipeline = self._redis_client.pipeline(transaction=False)
+
+        total_items = len(flat_dict)
+
+        for i, (k, v) in enumerate(flat_dict.items(), 1):
+
+            pipeline.hset(main_key, k, json.dumps(v.to_dict()))
+
+            if i % batch_size == 0 or i == total_items:
+                try:
+                    pipeline.execute()
+                    print(f"Processed {i}/{total_items} items")
+                except RedisError as e:
+                    print(f"Error occurred at item {i}: {str(e)}")
+                    # Implement retry logic here if needed
+                pipeline = self._redis_client.pipeline(transaction=False)  # Reset pipeline
 
 
 redis_client = RedisClient()

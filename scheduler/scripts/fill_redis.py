@@ -20,10 +20,13 @@ from scheduler.core.programprovider.ocs import ocs_program_data, OcsProgramProvi
 from scheduler.core.components.collector import Collector
 
 from scheduler.core.sources.sources import Sources
+from scheduler.services.redis_client import redis_client
 from scheduler.services.visibility.calculator import VisibilityCalculator
 
-start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
-end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
+from pympler import asizeof
+
+start = Time("2018-08-01 08:00:00", format='iso', scale='utc')
+end = Time("2019-01-31 08:00:00", format='iso', scale='utc')
 
 ObservatoryProperties.set_properties(GeminiProperties)
 
@@ -36,6 +39,8 @@ collector_blueprint = CollectorBlueprint(
 
 semesters = frozenset([Semester.find_semester_from_date(start.datetime),
                        Semester.find_semester_from_date(end.datetime)])
+
+sem, = semesters
 
 night_indices = frozenset(NightIndex(idx) for idx in range(1))
 sites = ALL_SITES
@@ -118,8 +123,10 @@ for json_program in data:
     except Exception as e:
         bad_program_count += 1
 
-# TODO STEP 1: This is the code that needs parallelization.
-# TODO STEP 2: Try to read the values from the redis_client cache. If they do not exist, calculate and write.
+
+vis_calc = VisibilityCalculator()
+
+
 for program_id, obs in parsed_observations:
     # Check for a base target in the observation: if there is none, we cannot process.
     # For ToOs, this may be the case.
@@ -143,10 +150,8 @@ for program_id, obs in parsed_observations:
     # Get the night configurations (for resources)
     nc = collector.night_configurations(obs.site, np.arange(collector.num_nights_calculated))
 
-    print(obs.id)
-    program = collector.get_program(obs.id.program_id)
-
-    vis_calc = VisibilityCalculator()
+    print('Calculating visibility for obs: ', obs.id)
+    program = collector.get_program(obs.id.program_id())
 
     vis_calc.vis_table[obs.id.id] = vis_calc.calculate_visibility(obs,
                                                                   base,
@@ -156,8 +161,21 @@ for program_id, obs in parsed_observations:
                                                                   collector.time_grid,
                                                                   tw,
                                                                   collector.time_slot_length)
-    print(vis_calc.vis_table)
-    # redis_client.set_whole_dict(vis_calc.vis_table)
+
+
+main_key = f"{sem}-{collector.time_slot_length.to_value('min')}min"
+print('Setting key: ', main_key)
+print('Size of payload: ', asizeof.asizeof(vis_calc.vis_table))
+redis_client.set_whole_dict(main_key, vis_calc.vis_table)
+
+import time
+s = time.perf_counter()
+vis_table = redis_client.get_whole_dict(main_key)
+e = time.perf_counter()
+print('Time to retrieve all visibilities: ', e-s, 's')
+
+assert len(vis_table['GN-2018B-LP-15-4'].keys()) == 184  # match number of days in the semester
+assert len(vis_table.keys()) == len(parsed_observations)  # match number of observations parsed
 
 
 
