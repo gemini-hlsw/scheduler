@@ -315,6 +315,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
                             max_score = np.max(group_data.group_info.scores[plans.night_idx]
                                                [interval[group_interval[0]:group_interval[1]]])
 
+                            # Add a penalty if the length of the group is slightly more than the interval
+                            # (within n_slots_min_visit), to discourage leaving small pieces behind
+                            n_slots_min_visit = time2slots(self.time_slot_length, self.min_visit_len)
+                            if 0 < num_time_slots_remaining - grp_interval_length < n_slots_min_visit:
+                                max_score *= 0.5
+
                             # Find the max_score in the group intervals with non-zero scores
                             # The length of the non-zero interval must be at least as large as
                             # the minimum length
