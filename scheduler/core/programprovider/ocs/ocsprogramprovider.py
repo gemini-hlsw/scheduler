@@ -1004,7 +1004,8 @@ class OcsProgramProvider(ProgramProvider):
                           num: Tuple[Optional[int], int],
                           program_id: ProgramID,
                           split: bool,
-                          split_by_iterator: bool) -> Optional[Observation]:
+                          split_by_iterator: bool,
+                          band: Band) -> Optional[Observation]:
         """
         Right now, obs_num contains an optional organizational folder number and
         a mandatory observation number, which may overlap with others in organizational folders.
@@ -1170,7 +1171,8 @@ class OcsProgramProvider(ProgramProvider):
                 constraints=constraints,
                 belongs_to=program_id,
                 too_type=too_type,
-                preimaging=preimaging
+                preimaging=preimaging,
+                band=band
             )
 
         except KeyError as ex:
@@ -1225,7 +1227,7 @@ class OcsProgramProvider(ProgramProvider):
     #     raise NotImplementedError('OCS does not support OR groups.')
 
     def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
-                        split: bool, split_by_iterator: bool) -> Optional[Group]:
+                        split: bool, split_by_iterator: bool, band: Band) -> Optional[Group]:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -1263,7 +1265,7 @@ class OcsProgramProvider(ProgramProvider):
         for key in scheduling_group_keys:
             subgroup_id = GroupID(key.split('-')[-1])
             subgroup = self.parse_group(data[key], program_id, subgroup_id, split=split,
-                                            split_by_iterator=split_by_iterator)
+                                            split_by_iterator=split_by_iterator, band=band)
             if subgroup is not None:
                 children.append(subgroup)
 
@@ -1305,7 +1307,7 @@ class OcsProgramProvider(ProgramProvider):
         observations = []
         for *keys, obs_data in obs_data_blocks:
             obs_id = parse_unique_obs_id(*keys)
-            obs = self.parse_observation(obs_data, obs_id, program_id,
+            obs = self.parse_observation(obs_data, obs_id, program_id, band=band,
                                          split=split, split_by_iterator=split_by_iterator)
             if obs is not None:
                 observations.append(obs)
@@ -1370,13 +1372,23 @@ class OcsProgramProvider(ProgramProvider):
         if not split_by_iterator:
             split_by_iterator = self.parse_notes(notes, OcsProgramProvider._SPLIT_BY_ITER_STRINGS)
 
+        program_mode = ProgramMode[data[OcsProgramProvider._ProgramKeys.MODE].upper()]
+        try:
+            band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
+        except ValueError:
+            # Treat classical as Band 1, other types as Band 2
+            if program_mode == ProgramMode.CLASSICAL:
+                band = Band(1)
+            else:
+                band = Band(2)
+
         # Now we parse the groups. For this, we need:
         # 1. A list of Observations at the root level.
         # 2. A list of Observations for each Scheduling Group.
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
-        root_group = self.parse_group(data, program_id, ROOT_GROUP_ID,
+        root_group = self.parse_group(data, program_id, ROOT_GROUP_ID, band=band,
                                           split=split, split_by_iterator=split_by_iterator)
         if root_group is None:
             logger.warning(f'Program {program_id} has empty root group. Skipping.')
@@ -1403,15 +1415,6 @@ class OcsProgramProvider(ProgramProvider):
             logger.warning(f'Could not determine program type for program {program_id}. Skipping.')
             return None
 
-        program_mode = ProgramMode[data[OcsProgramProvider._ProgramKeys.MODE].upper()]
-        try:
-            band = Band(int(data[OcsProgramProvider._ProgramKeys.BAND]))
-        except ValueError:
-            # Treat classical as Band 1, other types as Band 2
-            if program_mode == ProgramMode.CLASSICAL:
-                band = Band(1)
-            else:
-                band = Band(2)
         thesis = data[OcsProgramProvider._ProgramKeys.THESIS]
         # print(f'\t program_mode = {program_mode}, band = {band}')
 

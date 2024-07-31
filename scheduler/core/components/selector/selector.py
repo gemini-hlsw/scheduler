@@ -444,11 +444,11 @@ class Selector(SchedulerComponent):
             # night_filtering[night_idx] = night_filter.group_filter(group)
 
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
-            # If we are science or progcal, then the neg HA value for a night is if the first HA for the night
-            # is negative.
-            neg_ha = {night_idx: target_info[night_idx].hourangle[0].value < 0 for night_idx in night_indices}
+            # If we are science or progcal, then the check if the first HA for the night is negative,
+            # indicating that the target is rising
+            rising = {night_idx: target_info[night_idx].hourangle[0].value < 0 for night_idx in night_indices}
         else:
-            neg_ha = {night_idx: False for night_idx in night_indices}
+            rising = {night_idx: True for night_idx in night_indices}
         too_type = obs.too_type
 
         # Calculate when the conditions are met and an adjustment array if the conditions are better than needed.
@@ -470,9 +470,14 @@ class Selector(SchedulerComponent):
             # has already been covered and should be ineligible for scheduling.
             # Zero out the part of the night that was already done.
             variant = self._variant_snapshot_per_site[obs.site].make_variant(total_timeslots_in_night)
-            conditions_score[night_idx] = Selector.match_conditions(mrc, variant, neg_ha[night_idx], too_type)
+            # print(f'Selector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}')
+            # print(f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}')
+            # print(f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}')
+            # print(f'rising: {rising[night_idx]}, Too: {too_type}')
+            conditions_score[night_idx] = Selector.match_conditions(mrc, variant, rising[night_idx], too_type)
             conditions_score[night_idx][:starting_timeslot_in_night] = 0
             wind_score[night_idx] = Selector._wind_conditions(variant, target_info[night_idx].az)
+            # print(f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}')
 
         # Calculate the schedulable slot indices.
         # These are the indices where the observation has:
@@ -482,12 +487,15 @@ class Selector(SchedulerComponent):
         schedulable_slot_indices = {}
         for night_idx in night_indices:
             vis_idx = target_info[night_idx].visibility_slot_idx
+            # print(f'len(vis_idx) = {len(vis_idx)}')
             if night_filtering[night_idx]:
                 schedulable_slot_indices[night_idx] = np.where(conditions_score[night_idx][vis_idx] > 0)[0]
             else:
                 schedulable_slot_indices[night_idx] = np.array([])
+        # print(f'number schedulable slots night: {len(schedulable_slot_indices[night_idx])}')
 
         obs_scores = ranker.score_observation(program, obs)
+        # print(f'obs_scores: {max(obs_scores[night_idx])}')
 
         # Calculate the scores for the observation across all night indices across all timeslots.
         scores = {night_idx: np.multiply(
@@ -505,6 +513,7 @@ class Selector(SchedulerComponent):
         for night_idx, time_slot_idx in starting_time_slots_for_site.items():
             if night_idx in night_indices:
                 scores[night_idx][:time_slot_idx] = 0.0
+        # print(f'scores: {max(scores[night_idx])}\n')
 
         # These scores might differ from the observation score in the ranker since they have been adjusted for
         # conditions and wind.
@@ -659,13 +668,13 @@ class Selector(SchedulerComponent):
     @staticmethod
     def match_conditions(required_conditions: Conditions,
                          actual_conditions: Variant,
-                         neg_ha: bool,
+                         rising: bool,
                          too_status: Optional[TooType]) -> npt.NDArray[float]:
         """
         Determine if the required conditions are satisfied by the actual conditions variant.
         * required_conditions: the conditions required by an observation
         * actual_conditions: the actual conditions variant, which can hold scalars or numpy arrays
-        * neg_ha: a numpy array indexed by night that indicates if the first angle hour is negative
+        * rising: a numpy array indexed by night that indicates if the first angle hour is negative => rising
         * too_status: the TOO status of the observation, if any
 
         We return a numpy array with entries in [0,1] indicating how well the actual conditions match
@@ -715,9 +724,10 @@ class Selector(SchedulerComponent):
         # does not set soon and is not a rapid ToO.
         # This should work as we are adjusting structures that are passed by reference.
         def adjuster(array, value):
-            better_idx = np.where(array < value)[0] if neg_ha else np.array([])
+            better_idx = np.where(array < value)[0] if rising else np.array([])
             if len(better_idx) > 0 and (too_status is None or too_status not in {TooType.RAPID, TooType.INTERRUPT}):
-                cond_match[better_idx] = cond_match[better_idx] * array[better_idx] / value
+                # cond_match[better_idx] = cond_match[better_idx] * array[better_idx] / value
+                cond_match[better_idx] = cond_match[better_idx] * (1.0 - (value - array[better_idx]))
 
         adjuster(actual_iq, required_conditions.iq)
         adjuster(actual_cc, required_conditions.cc)
