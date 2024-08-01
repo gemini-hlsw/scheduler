@@ -61,9 +61,9 @@ class OcsOrigin(Origin):
             try:
                 with open(OcsOrigin._resource_path, 'rb') as res_pickle:
                     self.resource = pickle.load(res_pickle)
-                    logger.info('Read OCS Resource service from pickle.')
+                    logger.debug('Read OCS Resource service from pickle.')
             except Exception:
-                logger.info('Creating and pickling OCS Resource service.')
+                logger.debug('Creating and pickling OCS Resource service.')
                 self.resource = OcsResourceService()
                 OcsOrigin._resource_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(OcsOrigin._resource_path, 'wb') as res_pickle:
@@ -72,9 +72,9 @@ class OcsOrigin(Origin):
             try:
                 with open(OcsOrigin._env_path, 'rb') as res_env:
                     self.env = pickle.load(res_env)
-                    logger.info('Read OCS Env service from pickle.')
+                    logger.debug('Read OCS Env service from pickle.')
             except Exception:
-                logger.info('Creating and pickling OCS Env service.')
+                logger.debug('Creating and pickling OCS Env service.')
                 self.env = OcsEnvService()
                 OcsOrigin._env_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(OcsOrigin._env_path, 'wb') as env_pickle:
@@ -100,9 +100,9 @@ class SimOrigin(Origin):
             try:
                 with open(SimOrigin._resource_path, 'rb') as res_pickle:
                     self.resource = pickle.load(res_pickle)
-                    logger.info('Read Sim Resource service from pickle.')
+                    logger.debug('Read Sim Resource service from pickle.')
             except Exception:
-                logger.info('Creating and pickling Sim Resource service.')
+                logger.debug('Creating and pickling Sim Resource service.')
                 self.resource = SimResourceService()
                 SimOrigin._resource_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(SimOrigin._resource_path, 'wb') as res_pickle:
@@ -111,9 +111,9 @@ class SimOrigin(Origin):
             try:
                 with open(SimOrigin._env_path, 'rb') as res_env:
                     self.env = pickle.load(res_env)
-                    logger.info('Read Sim Env service from pickle.')
+                    logger.debug('Read Sim Env service from pickle.')
             except Exception:
-                logger.info('Creating and pickling Sim Env service.')
+                logger.debug('Creating and pickling Sim Env service.')
                 self.env = SimEnvService()
                 SimOrigin._env_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(SimOrigin._env_path, 'wb') as env_pickle:

@@ -11,6 +11,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class LoggingLevels(IntEnum):
     INFO = logging.INFO
+    DEBUG = logging.DEBUG
     WARNING = logging.WARNING
     ERROR = logging.ERROR
     CRITICAL = logging.CRITICAL

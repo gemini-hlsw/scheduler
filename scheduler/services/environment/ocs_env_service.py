@@ -47,11 +47,11 @@ class OcsEnvService(ExternalService):
             site_lc = site.name.lower()
             input_file_path = path / f'{site_lc}_weather_data.pickle.bz2'
 
-            logger.info(f'Processing weather data for {site.name}...')
+            logger.debug(f'Processing weather data for {site.name}...')
             with bz2.BZ2File(input_file_path, 'rb') as input_file:
                 df = pd.read_pickle(input_file)
                 self._site_data[site] = df
-                logger.info(f'Weather data for {site.name} read in: {len(self._site_data[site])} rows.')
+                logger.debug(f'Weather data for {site.name} read in: {len(self._site_data[site])} rows.')
 
     @staticmethod
     def _convert_to_variant(row) -> (datetime, VariantSnapshot):

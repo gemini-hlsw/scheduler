@@ -55,7 +55,7 @@ def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
             # Pass the class information as a dictionary to mimic the OCS json format
             yield data.__dict__
         except:
-            logger.info(f'Problem querying {program_id}.')
+            logger.error(f'Problem querying {program_id}.')
 
 
 def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:

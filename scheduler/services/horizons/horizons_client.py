@@ -130,11 +130,11 @@ class HorizonsClient:
         ephemeris_path = self.path / f'{self.site.name}_{targ_name}_{night_str}UT.eph'
 
         if not overwrite and ephemeris_path.exists() and ephemeris_path.is_file():
-            logger.info(f'Reading ephemerides file for {target.des}')
+            logger.debug(f'Reading ephemerides file for {target.des}')
             with ephemeris_path.open('r') as f:
                 lines = [x.strip() for x in f.readlines()]
         else:
-            logger.info(f'Querying JPL/Horizons for {horizons_name}')
+            logger.debug(f'Querying JPL/Horizons for {horizons_name}')
             res = self._query(horizons_name)
             lines = res.text.splitlines()
             with ephemeris_path.open('w') as f:

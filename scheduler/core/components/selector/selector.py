@@ -296,7 +296,7 @@ class Selector(SchedulerComponent):
         """
         # Check if there is any time left for the program, allowing for the time buffer. If not, skip it.
         if program.program_awarded() + self.time_buffer(program) <= program.program_used():
-            logger.info(f'Program {program.id.id} out of time: skipping.')
+            logger.debug(f'Program {program.id.id} out of time: skipping.')
             return None
 
         # The night_indices in the Selector must be a subset of the Ranker.
@@ -407,7 +407,7 @@ class Selector(SchedulerComponent):
 
         obs = group.children
         if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.INACTIVE}:
-            logger.info(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
+            logger.debug(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
             return group_data_map
 
         if obs.status not in {ObservationStatus.READY, ObservationStatus.ONGOING}:
@@ -415,7 +415,7 @@ class Selector(SchedulerComponent):
 
         # This should never happen.
         if obs.site not in sites:
-            logger.info(f'Selector ignoring request to score {obs.id}: not at a currently selected site.')
+            logger.debug(f'Selector ignoring request to score {obs.id}: not at a currently selected site.')
             return group_data_map
 
         # We ignore the Observation if:

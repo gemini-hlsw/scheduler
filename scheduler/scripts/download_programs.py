@@ -88,20 +88,20 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
         for program_name in program_names:
             program_info = program_name.split('-')
             if len(program_info) != 4:
-                logger.info(f'Skipping {program_name}: not a recognized program')
+                logger.debug(f'Skipping {program_name}: not a recognized program')
             elif program_info[0] not in sites:
-                logger.info(f'Skipping {program_name}: {program_info[0]} is not a site of interest')
+                logger.debug(f'Skipping {program_name}: {program_info[0]} is not a site of interest')
             elif program_info[1] not in semesters[Site[program_info[0]]]:
-                logger.info(f'Skipping {program_name}: site {program_info[0]}, semester {program_info[1]} '
+                logger.debug(f'Skipping {program_name}: site {program_info[0]}, semester {program_info[1]} '
                             'is not a semester of interest')
             elif program_info[2] not in program_codes:
-                logger.info(f'Skipping {program_name}: {program_info[2]} is not a selected program type')
+                logger.debug(f'Skipping {program_name}: {program_info[2]} is not a selected program type')
             else:
                 filtered_programs.append(program_name)
 
         # Sort for increased readability.
         filtered_programs.sort()
-        logger.info(f'Found: {len(filtered_programs)} programs.')
+        logger.debug(f'Found: {len(filtered_programs)} programs.')
 
         # Download all the programs we have filtered.
         cwd = os.getcwd()
@@ -113,7 +113,7 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
         downloaded_programs = []
 
         for program_name in list(filtered_programs):
-            logger.info(f'Extracting {program_name}')
+            logger.debug(f'Extracting {program_name}')
             output_file = f'{program_name}.json'
             params = {'id': program_name}
             r = requests.get(f'http://{server.name}:{server.read_port}/programexport', params) # noqa
