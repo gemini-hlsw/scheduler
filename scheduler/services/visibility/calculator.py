@@ -1,28 +1,30 @@
 import json
-import time
 from dataclasses import dataclass
-from typing import final, Dict, List, Any
+from typing import final, Dict, List, Any, Optional, ClassVar, FrozenSet
 
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
-from astropy.coordinates import SkyCoord
 from astropy.time import TimeDelta, Time
 from lucupy import sky
 from lucupy.decorators import immutable
 from lucupy.timeutils import time2slots
 from lucupy.minimodel import SiderealTarget, NonsiderealTarget, SkyBackground, ElevationType, Constraints, NightIndex, \
-    Observation, Target, Program
+    Observation, Target, Program, Semester, ObservationID, SemesterHalf
 from numpy import dtype, ndarray
 
+from scheduler.config import config
+from scheduler.core.calculations import NightEvents
 from scheduler.services.proper_motion import ProperMotionCalculator
 from scheduler.services.ephemeris import EphemerisCalculator
-from scheduler.services.redis import redis_client
+from scheduler.services.redis_client import redis_client
+from scheduler.services.logger_factory import create_logger
+from scheduler.services.resource import NightConfiguration
 
 from .snapshot import VisibilitySnapshot, TargetSnapshot
-from ..resource import NightConfiguration
-from ...core.calculations import NightEvents
 
+
+_logger = create_logger(__name__)
 
 @final
 @immutable
@@ -115,38 +117,106 @@ def calculate_target_snapshot(night_idx: NightIndex,
                           sky_brightness=sb)
 
 
-def calculate_target_visibility(obs: Observation,
-                                target: Target,
-                                prog: Program,
-                                night_events: NightEvents,
-                                nc: dict[ndarray[Any, dtype[NightIndex]], NightConfiguration],
-                                time_grid: Time,
-                                timing_windows: List[Time],
-                                time_slot_length: TimeDelta,
-                                with_redis: bool) -> Dict[NightIndex,TargetVisibility]:
-    """
-    Iterate over the time grid, checking to see if there is already a TargetInfo
-    for the target for the given day at the given site.
-    If so, we skip.
-    If not, we execute the calculations and store.
-    In order to properly calculate the:
-    * rem_visibility_time: total time a target is visible from the current night to the end of the period
-    * rem_visibility_frac: fraction of remaining observation length to rem_visibility_time
-    we want to process the nights BACKWARDS so that we can sum up the visibility time.
-    """
+@dataclass
+class TargetVisibilityTable:
+    vis_table: Dict[Semester, Dict[str, Dict[str, str]]]
 
-    rem_visibility_time = 0.0 * u.h
-    rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
+    def get(self, semester: Semester, obs_id: ObservationID, day: str) -> dict:
+        """
+        Retrieves a VisibilitySnapshot for an observation in a
+        given night (in julian date) for the specific semester
+        """
+        current = self.vis_table
+        for key in [semester, obs_id.id, day]:
+            if isinstance(current, dict):
+                current = current.get(key)
+            else:
+                if current is None:
+                    raise KeyError(f'Missing {key} in Visibility table.')
 
-    target_visibilities: Dict[NightIndex, TargetVisibility] = {}
+        return current
 
-    visibility_snapshots: Dict[str, Dict] = {}
 
-    key = f'{obs.id.id}{time_slot_length}'
-    exists = redis_client.exists(key) if with_redis else False
-    if exists:
-        visibility_snapshots = json.loads(redis_client.get(key))
-    else:
+class VisibilityCalculator:
+
+    _SEMESTERS: ClassVar[FrozenSet[Semester]] = frozenset([Semester(2018, SemesterHalf('A')),
+                                                          Semester(2018, SemesterHalf('B')),
+                                                          Semester(2019, SemesterHalf('A')),
+                                                          Semester(2019, SemesterHalf('B'))])
+
+    def __init__(self, with_redis: bool = True):
+        self.vis_table: Optional[TargetVisibilityTable] = None
+        self.with_redis = with_redis
+
+    def calculate(self) -> 'VisibilityCalculator':
+        if self.with_redis:
+            all_semesters_vis_table = {}
+            for semester in VisibilityCalculator._SEMESTERS:
+                main_key = f"{semester}-{config.collector.time_slot_length}min"
+
+                semester_vis_table = redis_client.get_whole_dict(main_key)
+                if semester_vis_table:
+                    all_semesters_vis_table[semester] = semester_vis_table
+                    _logger.info(f'Visibility calcs for {semester} from Redis retrieved.')
+
+        else:
+            # fill the table manually. see fill_redis code.
+            raise NotImplementedError('Manual population not yet available')
+
+        self.vis_table = TargetVisibilityTable(all_semesters_vis_table)
+        return self
+
+    def get_target_visibility(self, obs: Observation, time_period: Time, semesters: FrozenSet[Semester]):
+        """Given a time period it calculates the target visibility for that period"""
+
+        sem, = semesters  # This forces us to do plans to max one semester.
+
+        rem_visibility_time = 0.0 * u.h
+        rem_visibility_frac_numerator = obs.exec_time() - obs.total_used()
+
+        target_visibilities: Dict[NightIndex, TargetVisibility] = {}
+
+        for ridx, jday in enumerate(reversed(time_period)):
+            # Convert to the actual time grid index.
+            night_idx = NightIndex(len(time_period) - ridx - 1)
+            day = str(int(jday.jd))
+            visibility_snapshot = VisibilitySnapshot.from_dict(self.vis_table.get(sem, obs.id, day))
+
+            rem_visibility_time += visibility_snapshot.visibility_time
+            if rem_visibility_time.value:
+                # This is a fraction, so convert to seconds to cancel the units out.
+                rem_visibility_frac = (rem_visibility_frac_numerator.total_seconds() /
+                                       rem_visibility_time.to_value(u.s))
+            else:
+                rem_visibility_frac = 0.0
+
+            target_visibilities[night_idx] = TargetVisibility(visibility_slot_idx=visibility_snapshot.visibility_slot_idx,
+                                                              visibility_time=visibility_snapshot.visibility_time,
+                                                              rem_visibility_time=rem_visibility_time,
+                                                              rem_visibility_frac=rem_visibility_frac)
+        return target_visibilities
+
+    @staticmethod
+    def calculate_visibility(obs: Observation,
+                             target: Target,
+                             prog: Program,
+                             night_events: NightEvents,
+                             nc: dict[ndarray[Any, dtype[NightIndex]], NightConfiguration],
+                             time_grid: Time,
+                             timing_windows: List[Time],
+                             time_slot_length: TimeDelta) -> Dict[str, VisibilitySnapshot]:
+        """ Iterate over the time grid, checking to see if there is already a TargetInfo
+                    for the target for the given day at the given site.
+                    If so, we skip.
+                    If not, we execute the calculations and store.
+                    In order to properly calculate the:
+                    * rem_visibility_time: total time a target is visible from the current night to the end of the period
+                    * rem_visibility_frac: fraction of remaining observation length to rem_visibility_time
+                    we want to process the nights BACKWARDS so that we can sum up the visibility time.
+        """
+
+        visibility_snapshots: Dict[str, VisibilitySnapshot] = {}
+
         for ridx, jday in enumerate(reversed(time_grid)):
             # Convert to the actual time grid index.
             night_idx = NightIndex(len(time_grid) - ridx - 1)
@@ -220,25 +290,9 @@ def calculate_target_visibility(obs: Observation,
             visibility_snapshot = VisibilitySnapshot(visibility_slot_idx=visibility_slot_idx,
                                                      visibility_time=visibility_time)
             # Pass to int to eliminate decimals and to string to keep the keys after deserialization.
-            visibility_snapshots[str(int(jday.jd))] = visibility_snapshot.to_dict()
-        if with_redis:
-            redis_client.set(key, json.dumps(visibility_snapshots))
+            visibility_snapshots[str(int(jday.jd))] = visibility_snapshot
 
-    for ridx, jday in enumerate(reversed(time_grid)):
-        # Convert to the actual time grid index.
-        night_idx = NightIndex(len(time_grid) - ridx - 1)
-        visibility_snapshot = VisibilitySnapshot.from_dict(visibility_snapshots[str(int(jday.jd))])
+        return visibility_snapshots
 
-        rem_visibility_time += visibility_snapshot.visibility_time
-        if rem_visibility_time.value:
-            # This is a fraction, so convert to seconds to cancel the units out.
-            rem_visibility_frac = (rem_visibility_frac_numerator.total_seconds() /
-                                   rem_visibility_time.to_value(u.s))
-        else:
-            rem_visibility_frac = 0.0
 
-        target_visibilities[night_idx] = TargetVisibility(visibility_slot_idx=visibility_snapshot.visibility_slot_idx,
-                                                          visibility_time=visibility_snapshot.visibility_time,
-                                                          rem_visibility_time=rem_visibility_time,
-                                                          rem_visibility_frac=rem_visibility_frac)
-    return target_visibilities
+visibility_calculator = VisibilityCalculator().calculate()

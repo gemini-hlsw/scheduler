@@ -32,7 +32,7 @@ from scheduler.services.ephemeris import EphemerisCalculator
 from scheduler.services.proper_motion import ProperMotionCalculator
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
-from scheduler.services.visibility.calculator import calculate_target_visibility, calculate_target_snapshot
+from scheduler.services.visibility.calculator import calculate_target_snapshot, visibility_calculator
 
 __all__ = [
     'Collector',
@@ -287,19 +287,8 @@ class Collector(SchedulerComponent):
             raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
         night_events = self.night_events[obs.site]
 
-        # Get the night configurations (for resources)
-        nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
+        target_vis = visibility_calculator.get_target_visibility(obs, self.time_grid, self.semesters)
 
-        program = self.get_program(obs.id.program_id())
-        target_vis = calculate_target_visibility(obs,
-                                                 target,
-                                                 program,
-                                                 night_events,
-                                                 nc,
-                                                 self.time_grid,
-                                                 timing_windows,
-                                                 self.time_slot_length,
-                                                 self.with_redis)
         target_info: TargetInfoNightIndexMap = {}
 
         for i in range(self.num_of_nights):
@@ -414,7 +403,7 @@ class Collector(SchedulerComponent):
             logger.error(f'Could not parse {bad_program_count} programs.')
 
         # TODO STEP 1: This is the code that needs parallelization.
-        # TODO STEP 2: Try to read the values from the redis cache. If they do not exist, calculate and write.
+        # TODO STEP 2: Try to read the values from the redis_client cache. If they do not exist, calculate and write.
         for program_id, obs in parsed_observations:
             # Check for a base target in the observation: if there is none, we cannot process.
             # For ToOs, this may be the case.
