@@ -22,10 +22,9 @@ class LoggingLevels(IntEnum):
 # Default logging from LOG_LEVEL env variable otherwise INFO
 try:
     LOG_LEVEL = os.environ['LOG_LEVEL'].upper()
+    DEFAULT_LOGGING_LEVEL = LoggingLevels[LOG_LEVEL]
 except KeyError:
-    LOG_LEVEL = 'INFO'
-
-DEFAULT_LOGGING_LEVEL = LoggingLevels[LOG_LEVEL]
+    DEFAULT_LOGGING_LEVEL = LoggingLevels.INFO
 
 # If LOG_LEVEL is provided in the command line, use that
 if len(sys.argv) == 2:
