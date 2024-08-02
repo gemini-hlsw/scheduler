@@ -79,6 +79,7 @@ def main(*,
             raise ValueError(f'Path {programs_path} does not exist.')
 
     # Create the Collector, load the programs, and zero out the time used by the observations.
+    _logger.info("Creating collector")
     collector = builder.build_collector(
         start=start,
         end=end_vis,
@@ -94,6 +95,7 @@ def main(*,
         print_collector_info(collector)
 
     # Create the Selector.
+    _logger.info("Creating selector")
     selector_blueprint = SelectorBlueprint(
         'FLAT_MINUTES',
         30
@@ -109,6 +111,7 @@ def main(*,
     next_update: Dict[Site, Optional[TimeCoordinateRecord]] = {site: None for site in sites}
 
     # Prepare the optimizer.
+    _logger.info("Creating optimizer")
     optimizer_blueprint = OptimizerBlueprint("GreedyMax")
     optimizer = builder.build_optimizer(blueprint=optimizer_blueprint)
 

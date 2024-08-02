@@ -11,6 +11,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class LoggingLevels(IntEnum):
     INFO = logging.INFO
+    DEBUG = logging.DEBUG
     WARNING = logging.WARNING
     ERROR = logging.ERROR
     CRITICAL = logging.CRITICAL
@@ -18,15 +19,17 @@ class LoggingLevels(IntEnum):
     OFF = 100
 
 
-# Default is full logging.
-DEFAULT_LOGGING_LEVEL = LoggingLevels.INFO
+# Default logging from LOG_LEVEL env variable otherwise INFO
+try:
+    LOG_LEVEL = os.environ['LOG_LEVEL'].upper()
+    DEFAULT_LOGGING_LEVEL = LoggingLevels[LOG_LEVEL]
+except KeyError:
+    DEFAULT_LOGGING_LEVEL = LoggingLevels.INFO
+
+# If LOG_LEVEL is provided in the command line, use that
 if len(sys.argv) == 2:
     try:
         DEFAULT_LOGGING_LEVEL = LoggingLevels[sys.argv[1].upper()]
     except KeyError:
-        ...
-else:
-    try:
-        DEFAULT_LOGGING_LEVEL = LoggingLevels[os.environ['SCHEDULER_DEBUGGING'].upper()]
-    except KeyError:
-        ...
+        print(f"Invalid log level: {sys.argv[1]}")
+

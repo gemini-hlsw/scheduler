@@ -24,8 +24,8 @@ def process_fault_file(input_file_path: Path, output_file_path: Path) -> None:
     # Define a regular expression pattern to match lines starting with "FR" and capture the relevant data.
     _pattern = r'FR (\d+)\s+(\d{4}) (\d{2}) (\d{2}) (\d{2}:\d{2}:\d{2}) (?:\d{2}:\d{2})\s+(\d+\.\d+)\s+(.+)'
 
-    _logger.info('+++ Beginning fault file processing +++')
-    _logger.info(f'Input file: {input_file_path.relative_to(ROOT_DIR)}')
+    _logger.debug('+++ Beginning fault file processing +++')
+    _logger.debug(f'Input file: {input_file_path.relative_to(ROOT_DIR)}')
     try:
         with open(input_file_path, 'r') as input_file, open(output_file_path, 'w') as output_file:
             total_lines = 0
@@ -40,10 +40,10 @@ def process_fault_file(input_file_path: Path, output_file_path: Path) -> None:
                     formatted_dt = f'{year}-{month}-{day} {time}'
                     formatted_line = f'FR-{fr_number}\t{formatted_dt}\t{value}\t[{description}]\n'
                     output_file.write(formatted_line)
-            _logger.info(f'Output file: {output_file_path.relative_to(ROOT_DIR)}')
-            _logger.info(f'Total lines: {total_lines}, processed lines: {entry_lines}, '
+            _logger.debug(f'Output file: {output_file_path.relative_to(ROOT_DIR)}')
+            _logger.debug(f'Total lines: {total_lines}, processed lines: {entry_lines}, '
                          f'Discarded lines: {total_lines - entry_lines}')
-            _logger.info('+++ Processing successful. +++')
+            _logger.debug('+++ Processing successful. +++')
     except Exception as ex:
         _logger.error(f'Failure: {ex}')
         _logger.error('--- Processing failed. ---')
@@ -60,8 +60,8 @@ def process_eng_task_file(input_file_path: Path, output_file_path: Path) -> None
     # Define a regular expression pattern to match lines starting with "FR" and capture the relevant data.
     _pattern = r'(\d{4}-\d{2}-\d{2})\s+(\d+:\d{2}|twi)\s+(\d+:\d{2}|twi)\s+(\[.*\])'
 
-    _logger.info('+++ Beginning engineering task file processing +++')
-    _logger.info(f'Input file: {input_file_path.relative_to(ROOT_DIR)}')
+    _logger.debug('+++ Beginning engineering task file processing +++')
+    _logger.debug(f'Input file: {input_file_path.relative_to(ROOT_DIR)}')
 
     try:
         with open(input_file_path, 'r') as input_file, open(output_file_path, 'w') as output_file:
@@ -80,10 +80,10 @@ def process_eng_task_file(input_file_path: Path, output_file_path: Path) -> None
                     description = description.replace('\t', ' ')
                     formatted_line = f'{date}\t{start_time}\t{end_time}\t{description}\n'
                     output_file.write(formatted_line)
-            _logger.info(f'Output file: {output_file_path.relative_to(ROOT_DIR)}')
-            _logger.info(f'Total lines: {total_lines}, processed lines: {entry_lines}, '
+            _logger.debug(f'Output file: {output_file_path.relative_to(ROOT_DIR)}')
+            _logger.debug(f'Total lines: {total_lines}, processed lines: {entry_lines}, '
                          f'Discarded lines: {total_lines - entry_lines}')
-            _logger.info('+++ Processing successful. +++')
+            _logger.debug('+++ Processing successful. +++')
     except Exception as ex:
         _logger.error(f'Failure: {ex}')
         _logger.error('--- Processing failed. ---')

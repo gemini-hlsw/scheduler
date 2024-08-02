@@ -74,10 +74,10 @@ def read_ocs_zipfile(zip_file: str | PathLike[str], program_ids: Optional[Frozen
             if program_ids is None or program_id in program_ids:
                 with zf.open(filename) as f:
                     contents = f.read().decode('utf-8')
-                    logger.info(f'Adding program {program_id}.')
+                    logger.debug(f'Adding program {program_id}.')
                     yield json.loads(contents)
             else:
-                logger.info(f'Skipping program {program_id} as it is not in the list.')
+                logger.debug(f'Skipping program {program_id} as it is not in the list.')
 
 
 def parse_preimaging(sequence: List[dict]) -> bool:
@@ -890,7 +890,7 @@ class OcsProgramProvider(ProgramProvider):
                                 #             n_offsets += 1
                                 #     if n_offsets % 2 == 1:
                                 #         next_atom = True
-                                #         # logger.info('Atom for offset pattern')
+                                #         # logger.debug('Atom for offset pattern')
                                 #         print(f'\t Atom for NIR imaging offset pattern')
                                 # print(f'{has_cal} {step_use} {n_steps} {mode}')
                                 if has_cal and (step_use != n_steps - 1 or

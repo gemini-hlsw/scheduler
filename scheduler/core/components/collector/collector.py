@@ -368,12 +368,12 @@ class Collector(SchedulerComponent):
                 # TODO: as we know that the program is not from a semester in which we are interested.
                 # If program semester is not in the list of specified semesters, skip.
                 if program.semester is None or program.semester not in self.semesters:
-                    logger.info(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                    logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
                     continue
 
                 # If a program has no time awarded, then we will get a divide by zero in scoring, so skip it.
                 if program.program_awarded() == ZeroTime:
-                    logger.info(f'Program {program.id} has awarded time of zero (skipping).')
+                    logger.debug(f'Program {program.id} has awarded time of zero (skipping).')
                     continue
 
                 # If a program ID is repeated, warn and overwrite.
@@ -546,7 +546,7 @@ class Collector(SchedulerComponent):
 
                     # Check if the Observation has been completely observed.
                     if charge_group and visit.atom_end_idx == len(obs_seq) - 1:
-                        logger.info(f'Marking observation complete: {observation.id.id}')
+                        logger.debug(f'Marking observation complete: {observation.id.id}')
                         observation.status = ObservationStatus.OBSERVED
                         if observation in part_obs:
                             part_obs.remove(observation)
@@ -597,5 +597,5 @@ class Collector(SchedulerComponent):
                 if charge_group:
                     for obs in part_obs:
                         # print(f'\t Setting {obs.unique_id.id} to INACTIVE.')
-                        logger.info(f'\tTime_accounting setting {obs.unique_id.id} to INACTIVE.')
+                        logger.debug(f'\tTime_accounting setting {obs.unique_id.id} to INACTIVE.')
                         obs.status = ObservationStatus.INACTIVE
