@@ -81,6 +81,37 @@ class RankerParameters:
             if self.altitude_limits[site][MinMax.MAX] > Angle(90.0*u.deg):
                 raise ValueError(f'The maximum altitude limit for {site.name} must be 90 degrees or less.')
 
+    def altitude_limits_to_str(self) -> str:
+        text = ""
+        for idx, site in enumerate(self.altitude_limits):
+            if idx != len(self.altitude_limits) - 1:
+                text += "\n    ├─" + site.site_name + ": "
+                for midx, minmax in enumerate(self.altitude_limits[site]):
+                    if midx != len(self.altitude_limits[site]) - 1:
+                        text += "\n    │ ├─" + str(minmax.name) + ": " + str(self.altitude_limits[site][minmax].value) + " deg"
+                    else:
+                        text += "\n    │ └─" + str(minmax.name) + ": " + str(self.altitude_limits[site][minmax].value) + " deg"
+            else:
+                text += "\n    └─" + site.site_name + ": "
+                for midx, minmax in enumerate(self.altitude_limits[site]):
+                    if midx != len(self.altitude_limits[site]) - 1:
+                        text += "\n      ├─" + str(minmax.name) + ": " + str(self.altitude_limits[site][minmax].value) + " deg"
+                    else:
+                        text += "\n      └─" + str(minmax.name) + ": " + str(self.altitude_limits[site][minmax].value) + " deg"
+        return text
+            
+    def __str__(self) -> str:
+        return "Ranker Parameters\n" + \
+        f"  ├─thesis_factor: {self.thesis_factor}\n" + \
+        f"  ├─power: {self.power}\n" + \
+        f"  ├─met_power: {self.met_power}\n" + \
+        f"  ├─vis_power: {self.vis_power}\n" + \
+        f"  ├─wha_power: {self.wha_power}\n" + \
+        f"  ├─program_priority: {self.program_priority}\n" + \
+        f"  ├─priority_factor: {self.priority_factor}\n" + \
+        f"  ├─preimaging_factor: {self.preimaging_factor}\n" + \
+        f"  └─altitude_limits: {self.altitude_limits_to_str()}"
+
 @final
 @dataclass(frozen=True)
 class RankerBandParameters:

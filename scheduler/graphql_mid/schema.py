@@ -13,10 +13,13 @@ from lucupy.minimodel.site import Site
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
 from scheduler.db.planmanager import PlanManager
+from scheduler.services.logger_factory import create_logger
 
 from .types import (SPlans, NewNightPlans, SNightTimelines)
 from .inputs import CreateNewScheduleInput
 
+
+_logger = create_logger(__name__)
 
 REDIS_URL = os.environ.get("REDISCLOUD_URL")
 redis = aioredis.from_url(REDIS_URL) if REDIS_URL else None
@@ -113,6 +116,8 @@ class Query:
                                      ranker_params,
                                      new_schedule_input.semester_visibility,
                                      new_schedule_input.num_nights_to_schedule)
+
+        _logger.info(f"Run ID: {schedule_id}\n{params}")
 
         task = asyncio.to_thread(sync_schedule, params)
 
