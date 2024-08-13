@@ -81,7 +81,7 @@ class RankerParameters:
             if self.altitude_limits[site][MinMax.MAX] > Angle(90.0*u.deg):
                 raise ValueError(f'The maximum altitude limit for {site.name} must be 90 degrees or less.')
 
-    def altitude_limits_to_str(self) -> str:
+    def __altitude_limits_to_str(self) -> str:
         text = ""
         for idx, site in enumerate(self.altitude_limits):
             if idx != len(self.altitude_limits) - 1:
@@ -110,7 +110,7 @@ class RankerParameters:
         f"  ├─program_priority: {self.program_priority}\n" + \
         f"  ├─priority_factor: {self.priority_factor}\n" + \
         f"  ├─preimaging_factor: {self.preimaging_factor}\n" + \
-        f"  └─altitude_limits: {self.altitude_limits_to_str()}"
+        f"  └─altitude_limits: {self.__altitude_limits_to_str()}"
 
 @final
 @dataclass(frozen=True)
