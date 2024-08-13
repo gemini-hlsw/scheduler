@@ -719,8 +719,6 @@ class OcsProgramProvider(ProgramProvider):
         spdbkeys: Dict[int, List] = {}
 
         # all atoms must have the same instrument
-        import pdb
-        pdb.set_trace()
         instrument = self._parse_instrument(sequence)
 
         n_steps = 0
