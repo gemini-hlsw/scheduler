@@ -137,7 +137,7 @@ class ChangeMonitor(SchedulerComponent):
                 # Regardless, we want to change the weather values for CC and IQ.
                 self.selector.update_site_variant(site, variant_change)
 
-                # If the site is blocked, we have no reason to recalculate a plan until all blocking evens
+                # If the site is blocked, we have no reason to recalculate a plan until all blocking events
                 # are unblocked.
                 if plans is None:
                     if self.is_site_blocked(site):

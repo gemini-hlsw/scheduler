@@ -4,7 +4,7 @@
 import bz2
 from datetime import date, datetime
 from pathlib import Path
-from typing import Dict, Final, FrozenSet
+from typing import Dict, Final, FrozenSet, Optional
 
 import astropy.units as u
 import pandas as pd
@@ -31,6 +31,11 @@ class OcsEnvService(ExternalService):
     _wind_speed_col: Final[str] = 'WindSpeed'
     _wind_dir_col: Final[str] = 'WindDir'
 
+    _night_time_col_initial: Final[str] = 'UT'
+    _cc_col_initial: Final[str] = 'CC'
+    _iq_col_initial: Final[str] = 'IQ'
+    _wv_col_initial: Final[str] = 'WV'
+
     def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
         """
         Read in the pickled pandas data from the data files.
@@ -41,17 +46,26 @@ class OcsEnvService(ExternalService):
 
         # The data per site. The pandas data structure is too complicated to fully represent.
         self._site_data: Dict[Site, pd.DataFrame] = {}
+        self._initial_conditions: Dict[Site, pd.DataFrame] = {}
 
         path = Path(ROOT_DIR) / 'scheduler' / 'services' / 'environment' / 'data' / 'validation'
         for site in self._sites:
             site_lc = site.name.lower()
             input_file_path = path / f'{site_lc}_weather_data.pickle.bz2'
+            initial_conditions_path = path / f'{site_lc}_initial_conditions.csv'
 
             logger.debug(f'Processing weather data for {site.name}...')
             with bz2.BZ2File(input_file_path, 'rb') as input_file:
                 df = pd.read_pickle(input_file)
                 self._site_data[site] = df
                 logger.debug(f'Weather data for {site.name} read in: {len(self._site_data[site])} rows.')
+
+            with open(initial_conditions_path, 'r') as conditions_file:
+                df = pd.read_csv(conditions_file)
+                df[OcsEnvService._night_time_col_initial] = pd.to_datetime(df[OcsEnvService._night_time_col_initial],
+                                                                           errors='coerce', format='%Y-%m-%d')
+                self._initial_conditions[site] = df
+
 
     @staticmethod
     def _convert_to_variant(row) -> (datetime, VariantSnapshot):
@@ -84,3 +98,23 @@ class OcsEnvService(ExternalService):
         filtered_df = df[df[OcsEnvService._night_time_stamp_col].dt.date == night_date]
         variant_list = filtered_df.apply(OcsEnvService._convert_to_variant, axis=1).values.tolist()
         return {dt: v for dt, v in variant_list}
+
+    def get_initial_conditions(self,
+                               site: Site,
+                               night_date: date) -> Optional[VariantSnapshot]:
+
+        df = self._initial_conditions[site] if site in self._initial_conditions else None
+        if not df.empty:
+
+            filtered_df = df[df[OcsEnvService._night_time_col_initial].dt.date == night_date]
+
+            df_iq = filtered_df[OcsEnvService._iq_col_initial].iloc[0]
+            iq = ImageQuality.IQ70 if df_iq == 'na' else (ImageQuality(int(df_iq)/100) if df_iq != 'ANY' else ImageQuality.IQANY)
+            df_cc = filtered_df[OcsEnvService._cc_col_initial].iloc[0]
+            cc = CloudCover.CC50 if df_cc == 'na' else (CloudCover(int(df_cc)/100) if df_cc != 'ANY' else CloudCover.CCANY)
+
+            return VariantSnapshot(iq=iq,
+                                   cc=cc,
+                                   wind_dir=Angle(292, unit=u.deg),
+                                   wind_spd=3 * (u.m / u.s))
+        return None
