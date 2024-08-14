@@ -926,7 +926,7 @@ class OcsProgramProvider(ProgramProvider):
                     # New atom entry
                     n_atom += 1
                     # print(f'\t Atom {n_atom}: {atomstr.rstrip(",")}')
-                    logger.warning(f'Atom {n_atom}: {atomstr.rstrip(",")}')
+                    logger.debug(f'Atom {n_atom}: {atomstr.rstrip(",")}')
 
                     # Convert all the different components into Resources.
                     classes = []

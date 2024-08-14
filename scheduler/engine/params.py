@@ -61,3 +61,13 @@ class SchedulerParameters:
                                    received_params['semesterVisibility'],
                                    received_params['numNightsToSchedule'],
                                    None)
+
+    def __str__(self) -> str:
+        return "Scheduler Parameters:\n" + \
+            f"├─start: {self.start}\n" + \
+            f"├─end: {self.end}\n" + \
+            f"├─sites: {', '.join([site.name for site in self.sites])}\n" + \
+            f"├─mode: {self.mode}\n" + \
+            f"├─semester_visibility: {self.semester_visibility}\n" + \
+            f"├─num_nights_to_schedule: {self.num_nights_to_schedule}\n" + \
+            f"└─ranker_parameters: {self.ranker_parameters}"
