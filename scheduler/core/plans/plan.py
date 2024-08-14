@@ -94,6 +94,7 @@ class Plan:
         visit = Visit(start,
                       obs.id,
                       obs.obs_class,
+                      obs.constraints.conditions,
                       atom_start,
                       atom_end,
                       start_time_slot,
