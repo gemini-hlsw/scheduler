@@ -4,7 +4,7 @@
 from dataclasses import dataclass, field, InitVar
 from typing import final, Dict, Mapping
 
-from lucupy.minimodel import NightIndex, Site
+from lucupy.minimodel import NightIndex, Site, VariantSnapshot
 
 from .plan import Plan
 from scheduler.core.calculations.nightevents import NightEvents
@@ -21,6 +21,7 @@ class Plans:
     A collection of Plan for all sites for a specific night.
     """
     night_events: InitVar[Mapping[Site, NightEvents]]
+    night_conditions: Dict[Site, VariantSnapshot]
     night_idx: NightIndex
     plans: Dict[Site, Plan] = field(init=False, default_factory=dict)
 
@@ -32,7 +33,8 @@ class Plans:
                                         ne.local_times[self.night_idx][-1],
                                         ne.time_slot_length.to_datetime(),
                                         site,
-                                        len(ne.times[self.night_idx]))
+                                        len(ne.times[self.night_idx]),
+                                        self.night_conditions[site])
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]

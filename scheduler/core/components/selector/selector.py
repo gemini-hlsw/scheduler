@@ -270,6 +270,7 @@ class Selector(SchedulerComponent):
             schedulable_groups=schedulable_groups_map,
             night_events={site: self.collector.get_night_events(site) for site in sites},
             night_indices=night_indices,
+            night_conditions=self._variant_snapshot_per_site,
             starting_time_slots=starting_time_slots,
             time_slot_length=self.collector.time_slot_length.to_datetime(),
             ranker=ranker,

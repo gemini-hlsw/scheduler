@@ -386,7 +386,8 @@ def main(*,
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
         night_events = {site: collector.get_night_events(site) for site in collector.sites}
-        final_plans = Plans(night_events, NightIndex(night_idx))
+        night_conditions = {site: initial_variants[site][night_idx] for site in collector.sites}
+        final_plans = Plans(night_events, night_conditions, NightIndex(night_idx))
         for site in collector.sites:
             calculated_plan = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
             if calculated_plan is not None:

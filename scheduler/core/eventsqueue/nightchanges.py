@@ -91,7 +91,8 @@ class NightlyTimeline:
                  end=relevant_entries[-1].plan_generated.end,
                  time_slot_length=relevant_entries[0].plan_generated.time_slot_length,
                  site=site,
-                 _time_slots_left=relevant_entries[-1].plan_generated.time_left())
+                 _time_slots_left=relevant_entries[-1].plan_generated.time_left(),
+                 conditions=relevant_entries[-1].plan_generated.conditions)
         p.visits = [v for v in reversed(all_generated)]
         return p
 
