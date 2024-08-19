@@ -11,7 +11,7 @@ import astropy.units as u
 from astropy.coordinates import Angle
 from strawberry.scalars import JSON  # noqa
 
-from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantSnapshot
+from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantSnapshot, Conditions
 
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
@@ -47,7 +47,7 @@ class SConditions:
     cc: str
 
     @staticmethod
-    def from_computed_conditions(variant: VariantSnapshot):
+    def from_computed_conditions(variant: VariantSnapshot | Conditions):
         return SConditions(iq=variant.iq.name, cc=variant.cc.name)
 
 
@@ -63,6 +63,7 @@ class SVisit:
     atom_end_idx: int
     altitude: List[float]
     instrument: str
+    required_conditions: SConditions
     obs_class: str
     score: float
     peak_score: float
@@ -79,6 +80,7 @@ class SVisit:
                       atom_end_idx=visit.atom_end_idx,
                       altitude=alt_degs,
                       instrument=visit.instrument.id if visit.instrument is not None else 'None',
+                      required_conditions=SConditions.from_computed_conditions(visit.obs_conditions),
                       score=visit.score,
                       peak_score=visit.peak_score,
                       obs_class=visit.obs_class.name,

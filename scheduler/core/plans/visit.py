@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import final, Optional
 
-from lucupy.minimodel import ObservationID, Resource, ObservationClass
+from lucupy.minimodel import ObservationID, Resource, ObservationClass, Conditions
 
 __all__ = [
     'Visit',
@@ -18,6 +18,7 @@ class Visit:
     start_time: datetime  # Unsure if this or something else
     obs_id: ObservationID
     obs_class: ObservationClass
+    obs_conditions: Conditions
     atom_start_idx: int
     atom_end_idx: int
     start_time_slot: int
