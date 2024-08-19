@@ -3,10 +3,10 @@
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import final, Callable, FrozenSet, Mapping, Optional
+from typing import final, Callable, FrozenSet, Mapping, Optional, Dict
 
 from lucupy.helpers import flatten
-from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, UniqueGroupID
+from lucupy.minimodel import Group, NightIndices, Program, ProgramID, Site, UniqueGroupID, VariantSnapshot
 
 from scheduler.core.components.ranker import Ranker
 from scheduler.core.types import StartingTimeslots
@@ -35,6 +35,7 @@ class Selection:
     schedulable_groups: Mapping[UniqueGroupID, GroupData]
     night_events: Mapping[Site, NightEvents]
     night_indices: NightIndices
+    night_conditions: Dict[Site, VariantSnapshot]
     time_slot_length: timedelta
     starting_time_slots: StartingTimeslots
     ranker: Ranker

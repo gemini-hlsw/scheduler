@@ -42,7 +42,9 @@ class Optimizer:
         self.night_events = selection.night_events
 
         # Create set of plans for the amount of nights
-        nights = [Plans(self.night_events, night_idx) for night_idx in self.selection.night_indices]
+        nights = [Plans(self.night_events,
+                        selection.night_conditions,
+                        night_idx) for night_idx in self.selection.night_indices]
         self.algorithm.schedule(nights)
         return nights
 

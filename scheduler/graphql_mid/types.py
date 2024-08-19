@@ -42,6 +42,16 @@ class SNightStats:
 
 
 @strawberry.type
+class SConditions:
+    iq: str
+    cc: str
+
+    @staticmethod
+    def from_computed_conditions(variant: VariantSnapshot):
+        return SConditions(iq=variant.iq.name, cc=variant.cc.name)
+
+
+@strawberry.type
 class SVisit:
     """
     Represents a visit as part of a nightly Plan at a Site.
@@ -85,6 +95,7 @@ class SPlan:
     end_time: datetime
     visits: List[SVisit]
     night_stats: SNightStats
+    night_conditions: SConditions
 
     @staticmethod
     def from_computed_plan(plan: Plan) -> 'SPlan':
@@ -94,7 +105,8 @@ class SPlan:
             start_time=plan.start.astimezone(utc),
             end_time=plan.end.astimezone(utc),
             visits=[SVisit.from_computed_visit(visit, alt) for visit, alt in zip(plan.visits, plan.alt_degs)],
-            night_stats=SNightStats.from_computed_night_stats(plan.night_stats)
+            night_stats=SNightStats.from_computed_night_stats(plan.night_stats),
+            night_conditions=SConditions.from_computed_conditions(plan.conditions)
         )
 
 
@@ -168,7 +180,6 @@ class SNightTimelines:
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
             timelines.append(sn)
         return SNightTimelines(night_timeline=timelines)
-
 
 @strawberry.type
 class NewNightPlans:

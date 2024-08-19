@@ -141,6 +141,9 @@ def main(*,
             # morn_twi_slot = time2slots(time_slot_length, morn_twi_time - eve_twi_time)
             morn_twi_slot = night_events.num_timeslots_per_night[night_idx]
 
+            # Get initial conditions for the nights
+            initial_variants[site][night_idx] = collector.sources.origin.env.get_initial_conditions(site, night_date)
+
             # Get the weather events for the site for the given night date.
             # Get the VariantSnapshots for the times of the night where the variant changes.
             variant_changes_dict = collector.sources.origin.env.get_variant_changes_for_night(site, night_date)
@@ -151,7 +154,6 @@ def main(*,
                 # The closer to the first time slot, the more accurate, and the ordering on them will overwrite
                 # the previous values.
                 if variant_timeslot <= 0:
-                    initial_variants[site][night_idx] = variant_snapshot
                     continue
 
                 if variant_timeslot >= morn_twi_slot:
@@ -384,7 +386,8 @@ def main(*,
         # Piece together the plans for the night to get the overall plans.
         # This is rather convoluted because of the confusing relationship between Plan, Plans, and NightlyTimeline.
         night_events = {site: collector.get_night_events(site) for site in collector.sites}
-        final_plans = Plans(night_events, NightIndex(night_idx))
+        night_conditions = {site: initial_variants[site][night_idx] for site in collector.sites}
+        final_plans = Plans(night_events, night_conditions, NightIndex(night_idx))
         for site in collector.sites:
             calculated_plan = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
             if calculated_plan is not None:

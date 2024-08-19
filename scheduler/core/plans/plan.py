@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import final, List, Optional, Tuple
 
 from lucupy.observatory.abstract import ObservatoryProperties
-from lucupy.minimodel import Observation, ObservationID, Site
+from lucupy.minimodel import Observation, ObservationID, Site, VariantSnapshot
 from lucupy.timeutils import time2slots
 
 from .nightstats import NightStats
@@ -31,11 +31,13 @@ class Plan:
     time_slot_length: timedelta
     site: Site
     _time_slots_left: int
+    conditions: VariantSnapshot
 
     visits: List[Visit] = field(init=False, default_factory=list)
     is_full: bool = field(init=False, default=False)
     night_stats: Optional[NightStats] = field(init=False, default=None)
     alt_degs: List[List[float]] = field(init=False, default_factory=list)
+
 
     def nir_slots(self,
                   science_obs: List[Observation],
@@ -115,7 +117,7 @@ class Plan:
         else:
             visits_by_timeslot = {v.start_time_slot: v for v in self.visits}
             visits_timeslots = [v.start_time_slot for v in self.visits]
-            plan = Plan(self.start, self.end, self.time_slot_length, self.site, self._time_slots_left)
+            plan = Plan(self.start, self.end, self.time_slot_length, self.site, self._time_slots_left, self.conditions)
 
             start = start or 0
             stop = stop or visits_timeslots[-1]
