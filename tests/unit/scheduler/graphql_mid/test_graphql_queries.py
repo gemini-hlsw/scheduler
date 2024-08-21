@@ -35,7 +35,7 @@ async def test_schedule_query():
                         obsId
                       },
                       nightStats{
-                        timeloss
+                        timeLoss
                       }
                     }
                   }
