@@ -9,3 +9,4 @@ from lucupy.minimodel import NightIndex, Site, TimeslotIndex
 # The scores for all time slots prior to the night's time slot will be set to zero to allow for partial night scoring.
 # Cannot include in Selector since this introduces a circular dependency.
 StartingTimeslots: TypeAlias = Dict[Site, Dict[NightIndex, TimeslotIndex]]
+TimeLossType: TypeAlias = str

@@ -24,7 +24,7 @@ from scheduler.config import config
 class SNightStats:
     """Night stats to display in the UI
     """
-    timeloss: str
+    time_loss: JSON
     plan_score: float
     n_toos: int
     completion_fraction: JSON
@@ -34,7 +34,8 @@ class SNightStats:
     def from_computed_night_stats(ns: NightStats) -> 'SNightStats':
         cf = json.dumps(ns.completion_fraction)
         pc = json.dumps(ns.program_completion)
-        return SNightStats(timeloss=ns.time_loss,
+        tl = json.dumps(ns.time_loss)
+        return SNightStats(time_loss=tl,
                            plan_score=ns.plan_score,
                            n_toos=ns.n_toos,
                            completion_fraction=cf,

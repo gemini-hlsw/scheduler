@@ -23,6 +23,7 @@ from scheduler.core.output import print_collector_info, print_plans
 from scheduler.core.plans import Plans
 from scheduler.core.eventsqueue import EveningTwilightEvent, Event, EventQueue, MorningTwilightEvent, WeatherChangeEvent
 from scheduler.core.sources.sources import Sources
+from scheduler.core.statscalculator import StatCalculator
 from scheduler.services import logger_factory
 
 
@@ -393,6 +394,10 @@ def main(*,
             if calculated_plan is not None:
                 final_plans[site] = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
         overall_plans[night_idx] = final_plans
+
+    plan_summary = StatCalculator.calculate_timeline_stats(nightly_timeline,
+                                                           night_indices,
+                                                           sites, collector)
 
     # Make sure we have a list of the final plans sorted by night index.
     plans_list = [p for _, p in sorted(overall_plans.items())]
