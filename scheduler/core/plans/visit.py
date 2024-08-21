@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import final, Optional
+from typing import final, Optional, FrozenSet
 
 from lucupy.minimodel import ObservationID, Resource, ObservationClass, Conditions
 
@@ -26,4 +26,7 @@ class Visit:
     score: float
     peak_score: float
     instrument: Optional[Resource]
+    fpu: Optional[Resource]
+    disperser: Optional[Resource]
+    filters: Optional[FrozenSet[Resource]]
     completion: str

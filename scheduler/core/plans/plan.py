@@ -102,6 +102,9 @@ class Plan:
                       score,
                       peak_score,
                       obs.instrument(),
+                      obs.fpu(),
+                      obs.disperser(),
+                      obs.filters(),
                       f'{atom_end+1}/{len(obs.sequence)}')
         self.visits.append(visit)
         self._time_slots_left -= time_slots

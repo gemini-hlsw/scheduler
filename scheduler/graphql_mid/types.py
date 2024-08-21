@@ -63,6 +63,9 @@ class SVisit:
     atom_end_idx: int
     altitude: List[float]
     instrument: str
+    fpu: str
+    disperser: str
+    filters: List[str]
     required_conditions: SConditions
     obs_class: str
     score: float
@@ -80,6 +83,9 @@ class SVisit:
                       atom_end_idx=visit.atom_end_idx,
                       altitude=alt_degs,
                       instrument=visit.instrument.id if visit.instrument is not None else 'None',
+                      fpu=visit.fpu.id if visit.fpu is not None else 'None',
+                      disperser=visit.disperser.id if visit.disperser is not None else 'None',
+                      filters=[f.id for f in visit.filters] if visit.filters is not None else [],
                       required_conditions=SConditions.from_computed_conditions(visit.obs_conditions),
                       score=visit.score,
                       peak_score=visit.peak_score,
