@@ -773,9 +773,11 @@ class OcsProgramProvider(ProgramProvider):
             # sets, but we filter below to remove them.
             fpu_resources = frozenset([self._sources.origin.resource.fpu_to_barcode(site, fpu, instrument)
                                        for fpu in fpus])
-            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0])
+            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0], resource_type=ResourceType.DISPERSER)
                                              for disperser in dispersers])
-            resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources])
+            # Adding filters to resources
+            filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER) for filt in filters])
+            resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources | filter_resources])
         else:
             resources = instrument_resources
 
