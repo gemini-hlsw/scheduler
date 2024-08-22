@@ -33,8 +33,8 @@ if __name__ == '__main__':
     `program_ids` can be supply (as a file path) so the amount of programs stored can change. 
     """
 
-    start = Time("2018-08-01 08:00:00", format='iso', scale='utc')
-    end = Time("2019-01-31 08:00:00", format='iso', scale='utc')
+    start = Time("2018-02-01 08:00:00", format='iso', scale='utc')
+    end = Time("2018-07-31 08:00:00", format='iso', scale='utc')
 
     ObservatoryProperties.set_properties(GeminiProperties)
 
