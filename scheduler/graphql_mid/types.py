@@ -32,14 +32,11 @@ class SNightStats:
 
     @staticmethod
     def from_computed_night_stats(ns: NightStats) -> 'SNightStats':
-        cf = json.dumps(ns.completion_fraction)
-        pc = json.dumps(ns.program_completion)
-        tl = json.dumps(ns.time_loss)
-        return SNightStats(time_loss=tl,
+        return SNightStats(time_loss=ns.time_loss,
                            plan_score=ns.plan_score,
                            n_toos=ns.n_toos,
-                           completion_fraction=cf,
-                           program_completion=pc)
+                           completion_fraction=ns.completion_fraction,
+                           program_completion=ns.program_completion)
 
 
 @strawberry.type
