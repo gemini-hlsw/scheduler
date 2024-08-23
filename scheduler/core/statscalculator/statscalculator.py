@@ -64,11 +64,11 @@ class StatCalculator:
                 for e in interruptions:
                     if isinstance(e, FaultEvent):
                         time_loss = timeline.timeline[night_idx][site][-1].event.time - e.time
-                        time_losses[StatCalculator._FAULT_KEY] += time_loss
+                        time_losses[StatCalculator._FAULT_KEY] += time_loss.total_seconds() / 60
 
                     elif isinstance(e, WeatherClosureEvent):
                         time_loss = timeline.timeline[night_idx][site][-1].event.time - e.time
-                        time_losses[StatCalculator._WEATHER_KEY] += time_loss
+                        time_losses[StatCalculator._WEATHER_KEY] += time_loss.total_seconds() / 60
 
                 for entry in timeline.timeline[night_idx][site]:
                     # Morning twilight generates no plan.
