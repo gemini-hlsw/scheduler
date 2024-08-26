@@ -189,8 +189,9 @@ class SNightTimelines:
 
 @strawberry.type
 class NewNightPlans:
-    night_plans: SNightTimelines
-    plans_summary: JSON
+    night_plans: Optional[SNightTimelines]
+    plans_summary: Optional[JSON]
+    error: Optional[str]
 
 
 @strawberry.type

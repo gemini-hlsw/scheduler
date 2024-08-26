@@ -40,7 +40,7 @@ def sync_schedule(params: SchedulerParameters) -> NewNightPlans:
     plan_summary, timelines = engine.run()
 
     s_timelines = SNightTimelines.from_computed_timelines(timelines)
-    return NewNightPlans(night_plans=s_timelines, plans_summary=plan_summary)
+    return NewNightPlans(night_plans=s_timelines, plans_summary=plan_summary, error=None)
 
 
 active_subscriptions: Dict[str, asyncio.Queue] = {}
@@ -144,8 +144,11 @@ class Subscription:
         try:
             while True:
                 item = await queue.get()  # Wait for item from the queue
-                result = await item
-                yield result  # Yield item to the subscription
+                try:
+                    result = await item
+                    yield result  # Yield item to the subscription
+                except Exception as e:
+                    yield NewNightPlans(night_plans=None, plans_summary=None, error=str(e))
         finally:
             if schedule_id in active_subscriptions:
                 del active_subscriptions[schedule_id]
