@@ -186,7 +186,7 @@ class VisibilityCalculator:
             if rem_visibility_time.value:
                 # This is a fraction, so convert to seconds to cancel the units out.
                 rem_visibility_frac = (rem_visibility_frac_numerator.total_seconds() /
-                                       rem_visibility_time.to_value(u.s))
+                                       rem_visibility_time.value)
             else:
                 rem_visibility_frac = 0.0
 
