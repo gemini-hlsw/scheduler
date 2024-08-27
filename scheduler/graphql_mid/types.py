@@ -7,6 +7,7 @@ from typing import List, FrozenSet, Optional
 from zoneinfo import ZoneInfo
 
 import strawberry  # noqa
+from typing import Annotated, Union
 import astropy.units as u
 from astropy.coordinates import Angle
 from strawberry.scalars import JSON  # noqa
@@ -192,6 +193,11 @@ class NewNightPlans:
     night_plans: SNightTimelines
     plans_summary: JSON
 
+@strawberry.type
+class NightPlansError:
+    error: str
+
+NightPlansResponse = Annotated[Union[NewNightPlans, NightPlansError], strawberry.union("NightPlansResponse")]
 
 @strawberry.type
 class NewScheduleSuccess:
