@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 import os
+import sys
 from datetime import datetime
 from typing import List, AsyncGenerator, Dict
 
@@ -150,8 +151,10 @@ class Subscription:
                     result = await item
                     yield result  # Yield item to the subscription
                 except Exception as e:
-                    _logger.error(f'Queue error: {e}')
-                    yield NightPlansError(error=f'Queue error: {e}')
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
+                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                    _logger.error(f'Error in {fname} on line {exc_tb.tb_lineno}: {e}')
+                    yield NightPlansError(error=f'Error in {fname} on line {exc_tb.tb_lineno}: {e}')
         finally:
             if schedule_id in active_subscriptions:
                 del active_subscriptions[schedule_id]
