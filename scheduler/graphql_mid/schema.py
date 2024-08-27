@@ -15,7 +15,7 @@ from scheduler.engine import Engine, SchedulerParameters
 from scheduler.db.planmanager import PlanManager
 from scheduler.services.logger_factory import create_logger
 
-from .types import (SPlans, NewNightPlans, SNightTimelines)
+from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, NightPlansResponse)
 from .inputs import CreateNewScheduleInput
 
 
@@ -134,7 +134,7 @@ class Query:
 @strawberry.type
 class Subscription:
     @strawberry.subscription
-    async def queue_schedule(self, schedule_id: str) -> AsyncGenerator[NewNightPlans, None]:
+    async def queue_schedule(self, schedule_id: str) -> AsyncGenerator[NightPlansResponse, None]:
         if schedule_id not in active_subscriptions:
             queue = asyncio.Queue()
             active_subscriptions[schedule_id] = queue
@@ -143,9 +143,15 @@ class Subscription:
 
         try:
             while True:
-                item = await queue.get()  # Wait for item from the queue
-                result = await item
-                yield result  # Yield item to the subscription
+                try:
+                    print(f'Queueing {schedule_id}')
+                    item = await queue.get()  # Wait for item from the queue
+                    print(f'Run ID: {schedule_id}')
+                    result = await item
+                    yield result  # Yield item to the subscription
+                except Exception as e:
+                    _logger.error(f'Queue error: {e}')
+                    yield NightPlansError(error=f'Queue error: {e}')
         finally:
             if schedule_id in active_subscriptions:
                 del active_subscriptions[schedule_id]
