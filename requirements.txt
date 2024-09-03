@@ -23,4 +23,4 @@ mercury
 bleach>=6.0.0
 sortedcontainers
 redis
-git+https://${GH_PAT}@github.com/stroncod/pyexplore.git
+git+https://stroncod:${GH_PAT}@github.com/stroncod/pyexplore.git
