@@ -64,8 +64,6 @@ class Query:
             if len(new_schedule_input.programs) > 0:
                 programs_list = new_schedule_input.programs
 
-        file = await new_schedule_input.program_file.read()
-
         params = SchedulerParameters(start, end,
                                      new_schedule_input.sites,
                                      new_schedule_input.mode,
