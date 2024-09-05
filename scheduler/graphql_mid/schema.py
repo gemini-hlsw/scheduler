@@ -90,8 +90,9 @@ class Query:
                                          new_schedule_input.met_power,
                                          new_schedule_input.vis_power,
                                          new_schedule_input.wha_power)
-
-        file = await new_schedule_input.program_file.read()
+        file = None
+        if new_schedule_input.program_file:
+            file = await new_schedule_input.program_file.read()
 
         params = SchedulerParameters(start, end,
                                      new_schedule_input.sites,
