@@ -13,6 +13,7 @@ from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 from lucupy.types import ZeroTime
 
+from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import CollectorBlueprint
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.programprovider.ocs import ocs_program_data, OcsProgramProvider
@@ -51,8 +52,7 @@ if __name__ == '__main__':
 
     night_indices = frozenset(NightIndex(idx) for idx in range(1))
     sites = ALL_SITES
-    programs_ids = None
-    program_list = None
+    programs_ids = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.redis.txt'
 
     # check if path exist and read
     f_programs = None
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     collector = Collector(start, end, 1, sites, semesters, sources, False, *collector_blueprint)
 
     program_provider_class = OcsProgramProvider
-    data = ocs_program_data(program_list)
+    data = ocs_program_data(f_programs)
 
     if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
         raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')

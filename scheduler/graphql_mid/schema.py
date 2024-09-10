@@ -22,19 +22,8 @@ from .inputs import CreateNewScheduleInput
 
 _logger = create_logger(__name__)
 
-REDIS_URL = os.environ.get("REDISCLOUD_URL")
-redis = aioredis.from_url(REDIS_URL) if REDIS_URL else None
 
-task_queue = asyncio.Queue()
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
-
-
-def synchronous_task():
-    import time
-    print('task')
-    time.sleep(65)
-    return 'new plan'
-
 
 def sync_schedule(params: SchedulerParameters) -> NewNightPlans:
     engine = Engine(params)
@@ -58,15 +47,6 @@ class Query:
     @strawberry.field
     def site_plans(self, site: Site) -> List[SPlans]:
         return [plans.for_site(site) for plans in PlanManager.get_plans()]
-
-    @strawberry.field
-    async def test_redis(self) -> str:
-        if redis:
-            await redis.set("time_stamp", str(datetime.now().timestamp()))
-            value = await redis.get("time_stamp")
-            return value.decode()
-        else:
-            ValueError("REDISCLOUD_URL env var is not set up correctly.")
 
     @strawberry.field
     async def schedule(self,
@@ -110,13 +90,17 @@ class Query:
                                          new_schedule_input.met_power,
                                          new_schedule_input.vis_power,
                                          new_schedule_input.wha_power)
+        file = None
+        if new_schedule_input.program_file:
+            file = await new_schedule_input.program_file.read()
 
         params = SchedulerParameters(start, end,
                                      new_schedule_input.sites,
                                      new_schedule_input.mode,
                                      ranker_params,
                                      new_schedule_input.semester_visibility,
-                                     new_schedule_input.num_nights_to_schedule)
+                                     new_schedule_input.num_nights_to_schedule,
+                                     file)
 
         _logger.info(f"Run ID: {schedule_id}\n{params}")
 

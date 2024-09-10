@@ -22,9 +22,17 @@ from scheduler.services.logger_factory import create_logger
 from scheduler.services.resource import NightConfiguration
 
 from .snapshot import VisibilitySnapshot, TargetSnapshot
-
+from scheduler.core.meta import Singleton
 
 _logger = create_logger(__name__)
+
+__all__ = [
+    'calculate_target_snapshot',
+    'visibility_calculator',
+    'TargetVisibility',
+    'TargetVisibilityTable'
+]
+
 
 @final
 @immutable
@@ -117,6 +125,7 @@ def calculate_target_snapshot(night_idx: NightIndex,
                           sky_brightness=sb)
 
 
+@final
 @dataclass
 class TargetVisibilityTable:
     vis_table: Dict[Semester, Dict[str, Dict[str, str]]]
@@ -137,7 +146,7 @@ class TargetVisibilityTable:
         return current
 
 
-class VisibilityCalculator:
+class VisibilityCalculator(metaclass=Singleton):
 
     _SEMESTERS: ClassVar[FrozenSet[Semester]] = frozenset([Semester(2018, SemesterHalf('A')),
                                                           Semester(2018, SemesterHalf('B')),
@@ -148,13 +157,13 @@ class VisibilityCalculator:
         self.vis_table: Optional[TargetVisibilityTable] = None
         self.with_redis = with_redis
 
-    def calculate(self) -> 'VisibilityCalculator':
+    async def calculate(self) -> None:
         if self.with_redis:
             all_semesters_vis_table = {}
             for semester in VisibilityCalculator._SEMESTERS:
                 main_key = f"{semester}-{config.collector.time_slot_length}min"
 
-                semester_vis_table = redis_client.get_whole_dict(main_key)
+                semester_vis_table = await redis_client.get_whole_dict(main_key)
                 if semester_vis_table:
                     all_semesters_vis_table[semester] = semester_vis_table
                     _logger.info(f'Visibility calcs for {semester} from Redis retrieved.')
@@ -164,7 +173,6 @@ class VisibilityCalculator:
             raise NotImplementedError('Manual population not yet available')
 
         self.vis_table = TargetVisibilityTable(all_semesters_vis_table)
-        return self
 
     def get_target_visibility(self, obs: Observation, time_period: Time, semesters: FrozenSet[Semester]):
         """Given a time period it calculates the target visibility for that period"""
@@ -233,7 +241,7 @@ class VisibilityCalculator:
             # In the case where an observation has no constraint information or an elevation constraint
             # type of None, we use airmass default values.
             if obs.constraints and obs.constraints.elevation_type != ElevationType.NONE:
-                targ_prop = target_snapshot.hourangle if obs.constraints.elevation_type is ElevationType.HOUR_ANGLE else target_snapshot.airmass
+                targ_prop = target_snapshot.hourangle.deg if obs.constraints.elevation_type is ElevationType.HOUR_ANGLE else target_snapshot.airmass
                 elev_min = obs.constraints.elevation_min
                 elev_max = obs.constraints.elevation_max
             else:
@@ -295,4 +303,4 @@ class VisibilityCalculator:
         return visibility_snapshots
 
 
-visibility_calculator = VisibilityCalculator().calculate()
+visibility_calculator = VisibilityCalculator()
