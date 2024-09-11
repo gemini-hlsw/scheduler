@@ -769,7 +769,7 @@ class OcsProgramProvider(ProgramProvider):
 
         # Transform Resources.
         # TODO: For now, we focus on instruments, and GMOS FPUs and dispersers exclusively.
-        instrument_resources = frozenset([self._sources.origin.resource.lookup_resource(instrument)])
+        instrument_resources = frozenset([self._sources.origin.resource.lookup_resource(instrument, resource_type=ResourceType.INSTRUMENT)])
         if 'GMOS' in instrument:
             # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
             # sets, but we filter below to remove them.
