@@ -788,7 +788,7 @@ class GppProgramProvider(ProgramProvider):
         qa_states = []
         prev_atom_id = -1
         n_atom = 0
-        instrument_resources = frozenset([self._sources.origin.resource.lookup_resource(instrument)])
+        instrument_resources = frozenset([self._sources.origin.resource.lookup_resource(instrument, resource_type=ResourceType.INSTRUMENT)])
         for step in sequence:
             if step[GppProgramProvider._AtomKeys.OBS_CLASS] != 'ACQUISITION':
                 next_atom = False
@@ -813,7 +813,8 @@ class GppProgramProvider(ProgramProvider):
                             GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu)
                             for fpu in fpus])
                         disperser_resources = frozenset(
-                            [self._sources.origin.resource.lookup_resource(disperser.split('_')[0])
+                            [self._sources.origin.resource.lookup_resource(disperser.split('_')[0],
+                                                                           resource_type=ResourceType.DISPERSER)
                              for disperser in dispersers])
                     resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources])
 
