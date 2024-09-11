@@ -10,6 +10,12 @@ from lucupy.decorators import immutable
 from lucupy.minimodel import SkyBackground
 import itertools
 
+__all__ = [
+    'VisibilitySnapshot',
+    'TargetSnapshot'
+]
+
+
 def group_ranges(i):
     for _, b in itertools.groupby(enumerate(i), lambda pair: pair[1] - pair[0]):
         b = list(b)

@@ -1,6 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, FrozenSet, Optional
@@ -25,6 +25,7 @@ from scheduler.core.eventsqueue import EveningTwilightEvent, Event, EventQueue, 
 from scheduler.core.sources.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.services import logger_factory
+from scheduler.services.visibility import visibility_calculator
 
 
 _logger = logger_factory.create_logger(__name__)
@@ -42,6 +43,8 @@ def main(*,
          num_nights_to_schedule: Optional[int] = None,
          programs_ids: Optional[str] = None) -> None:
     ObservatoryProperties.set_properties(GeminiProperties)
+    asyncio.run(visibility_calculator.calculate())
+
 
     # Create the Collector and load the programs.
     collector_blueprint = CollectorBlueprint(
