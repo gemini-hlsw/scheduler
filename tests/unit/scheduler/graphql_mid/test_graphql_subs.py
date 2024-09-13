@@ -4,17 +4,16 @@ from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
 from scheduler.graphql_mid.server import schema
-from .visibility_fixture import visibility_calculator_fixture
 
 
 @pytest.mark.asyncio
-async def test_schedule_sub(visibility_calculator_fixture):
-    ObservatoryProperties.set_properties(GeminiProperties)
+async def test_schedule_sub(visibility_calculator_fixture, set_observatory_properties):
+
     query = """
             query Schedule {
                 testSubQuery(scheduleId: "1", 
                              newScheduleInput: {startTime: "2018-10-01 08:00:00",
-                                                endTime: "2018-10-03 08:00:00"
+                                                endTime: "2018-10-04 08:00:00"
                                                 sites: "GN", 
                                                 mode: VALIDATION,
                                                 semesterVisibility:false,
@@ -65,12 +64,13 @@ async def test_schedule_sub(visibility_calculator_fixture):
     """
     sub_response = await schema.subscribe(sub)
     result = await schema.execute(query)
-    print(result.data)
+
     async for result in sub_response:
         # Check return without errors
         assert not result.errors, 'Subscription returned with errors'
         # Check the correct number of nights.
         n_nights = len(result.data["queueSchedule"]["nightPlans"]["nightTimeline"])
+        print('Result night timeline: ', result.data["queueSchedule"]["nightPlans"]["nightTimeline"])
         assert n_nights == 3, f'Number of nights must be 3, but got {n_nights}'
         # Check plan summary is being calculated.
         assert result.data["queueSchedule"]["plansSummary"] is not None, 'Plan summary is not being calculated'
@@ -86,5 +86,3 @@ async def test_schedule_sub(visibility_calculator_fixture):
         assert night["plan"]["nightStats"]["planScore"] > 0, "Plan score is zero or negative value"
 
         break
-
-

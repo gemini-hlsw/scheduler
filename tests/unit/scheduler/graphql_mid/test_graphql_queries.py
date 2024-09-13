@@ -11,8 +11,8 @@ from scheduler.graphql_mid.server import schema
 
 
 @pytest.mark.asyncio
-async def test_schedule_query_required_only():
-    ObservatoryProperties.set_properties(GeminiProperties)
+async def test_schedule_query_required_only(set_observatory_properties):
+
     query = """
         query Schedule {
             testSubQuery(scheduleId: "1", 
@@ -29,8 +29,7 @@ async def test_schedule_query_required_only():
 
 
 @pytest.mark.asyncio
-async def test_schedule_query_with_all():
-    ObservatoryProperties.set_properties(GeminiProperties)
+async def test_schedule_query_with_all(set_observatory_properties):
     query = """
         query Schedule($programFile: Upload) {
             testSubQuery(scheduleId: "1", 
@@ -58,8 +57,7 @@ async def test_schedule_query_with_all():
 
 
 @pytest.mark.asyncio
-async def test_schedule_query_with_empty_file():
-    ObservatoryProperties.set_properties(GeminiProperties)
+async def test_schedule_query_with_empty_file(set_observatory_properties):
     query = """
         query Schedule($programFile: Upload) {
             testSubQuery(scheduleId: "1", 
@@ -82,8 +80,8 @@ async def test_schedule_query_with_empty_file():
 
 
 @pytest.mark.asyncio
-async def test_schedule_query_with_wrong_parameters():
-    ObservatoryProperties.set_properties(GeminiProperties)
+async def test_schedule_query_with_wrong_parameters(set_observatory_properties):
+
     query = """
         query Schedule {
             testSubQuery(scheduleId: "1", 
@@ -91,10 +89,10 @@ async def test_schedule_query_with_wrong_parameters():
                                             endTime: "2018-10-03 08:00:00"
                                             sites: "GN", 
                                             mode: VALIDATION,
-                                            semesterVisibility:false, 
+                                            semesterVisibility: false, 
                                             numNightsToSchedule:1,
                                             thesisFactor: 2.1,
-                                            power: 3,
+                                            power: 3.2,
                                             metPower: 2.334,
                                             visPower: 3.222,
                                             whaPower: 2.0})
