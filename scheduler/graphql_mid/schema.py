@@ -135,10 +135,9 @@ class Subscription:
                     result = await item
                     yield result  # Yield item to the subscription
                 except Exception as e:
-                    exc_type, exc_obj, exc_tb = sys.exc_info()
-                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                    _logger.error(f'Error in {fname} on line {exc_tb.tb_lineno}: {e}')
-                    yield NightPlansError(error=f'Error in {fname} on line {exc_tb.tb_lineno}: {e}')
+                    _logger.error(f'Error: {e}')
+                    yield NightPlansError(error=f'Error: {e}')
+                    raise
         finally:
             if schedule_id in active_subscriptions:
                 del active_subscriptions[schedule_id]
