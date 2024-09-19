@@ -293,7 +293,7 @@ class VisibilityCalculator(metaclass=Singleton):
             # Calculate the visibility time, the ongoing summed remaining visibility time, and
             # the remaining visibility fraction.
             # If the denominator for the visibility fraction is 0, use a value of 0.
-            visibility_time = len(visibility_slot_idx) * time_slot_length
+            visibility_time = TimeDelta(len(visibility_slot_idx) * time_slot_length.to_value(u.s), format='sec')
 
             visibility_snapshot = VisibilitySnapshot(visibility_slot_idx=visibility_slot_idx,
                                                      visibility_time=visibility_time)
