@@ -87,6 +87,10 @@ class Engine:
                 raise RuntimeError(f'No morning twilight found for site {site_name} for night {night_idx}.')
 
             if next_event_timeslot is None or current_timeslot >= next_event_timeslot:
+
+                if not events_by_night.has_more_events():
+                    # Check if there are no more events so it won't enter the loop behind
+                    break
                 # Stop if there are no more events.
                 while events_by_night.has_more_events():
                     top_event = events_by_night.top_event()
