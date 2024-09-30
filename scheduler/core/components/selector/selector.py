@@ -65,8 +65,8 @@ class Selector(SchedulerComponent):
     _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
 
     # Default values for resetting variants.
-    _default_iq: ClassVar[ImageQuality] = ImageQuality.IQANY
-    _default_cc: ClassVar[CloudCover] = CloudCover.CCANY
+    _default_iq: ClassVar[ImageQuality] = ImageQuality.IQ70
+    _default_cc: ClassVar[CloudCover] = CloudCover.CC70
     _default_wind_dir: ClassVar[Angle] = Angle(0., unit=u.deg)
     _default_wind_spd: ClassVar[Quantity] = 0.0 * (u.m / u.s)
 
