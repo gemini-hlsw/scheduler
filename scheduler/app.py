@@ -38,4 +38,4 @@ app.add_websocket_route('/graphql', graphql_server)
 
 
 # Import the routes after creating the FastAPI instance
-import routes
+from scheduler import routes
