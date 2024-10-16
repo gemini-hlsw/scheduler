@@ -1,13 +1,11 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from scheduler.graphql_mid.server import graphql_server
 from scheduler.services.visibility import visibility_calculator
 
-@asynccontextmanager
 async def lifespan(app: FastAPI):
   await visibility_calculator.calculate()
   yield
