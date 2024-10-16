@@ -1,13 +1,16 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-import asyncio
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from scheduler.graphql_mid.server import graphql_server
 from scheduler.services.visibility import visibility_calculator
 
-app = FastAPI()
+async def lifespan(app: FastAPI):
+  await visibility_calculator.calculate()
+  yield
+
+app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://schedule-staging.gemini.edu/",
@@ -32,10 +35,5 @@ app.add_route('/graphql', graphql_server)
 app.add_websocket_route('/graphql', graphql_server)
 
 
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(visibility_calculator.calculate())
-
-
 # Import the routes after creating the FastAPI instance
-import routes
+from scheduler import routes

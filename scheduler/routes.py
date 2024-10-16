@@ -14,7 +14,7 @@ from scheduler.connection_manager import ConnectionManager
 from scheduler.engine import Engine
 from scheduler.engine.params import SchedulerParameters
 from scheduler.services import logger_factory
-from graphql_mid.types import SNightTimelines
+from scheduler.graphql_mid.types import SNightTimelines
 
 
 _logger = logger_factory.create_logger(__name__)
