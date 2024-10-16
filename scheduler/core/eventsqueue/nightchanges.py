@@ -34,6 +34,7 @@ class NightlyTimeline:
     A collection of timeline entries per night and site.
     """
     timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
+    time_losses: Dict[NightIndex, Dict[Site, Dict[str, float]]] = field(init=False, default_factory=dict)
     _datetime_formatter: ClassVar[str] = field(init=False, default='%Y-%m-%d %H:%M')
 
     def add(self,

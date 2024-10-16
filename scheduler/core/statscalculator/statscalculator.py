@@ -49,43 +49,55 @@ class StatCalculator:
         scores_per_program: Dict[ProgramID, float] = {}
         programs = {}
         for night_idx in nights:
+            timeline.time_losses.setdefault(night_idx, {})
             for site in sites:
-                time_losses = {StatCalculator._FAULT_KEY: 0,
-                               StatCalculator._WEATHER_KEY: 0,
-                               StatCalculator._UNSCHEDULE_KEY: 0}
+
+                timeline_time_losses = {StatCalculator._FAULT_KEY: 0,
+                                        StatCalculator._WEATHER_KEY: 0}
+                timeline.time_losses[night_idx].setdefault(site, {})
                 # Gather unsolved interruptions during the night.
                 interruptions = []
                 for entry in timeline.timeline[night_idx][site]:
                     if isinstance(entry.event, InterruptionEvent):
                         interruptions.append(entry.event)
                     elif isinstance(entry.event, InterruptionResolutionEvent):
-                        interruptions.pop()
+                        interruptions.pop()  # remove reported interruption and register the time loss
+                        if isinstance(entry.event, FaultResolutionEvent):
+                            timeline_time_losses[StatCalculator._FAULT_KEY] += int(entry.event.time_loss.total_seconds()/60)
+                        elif isinstance(entry.event, WeatherClosureResolutionEvent):
+                            timeline_time_losses[StatCalculator._WEATHER_KEY] += int(entry.event.time_loss.total_seconds()/60)
 
+                # Unsolved interruptions for the night
                 for e in interruptions:
+                    print('event never finished:', e.description)
                     if isinstance(e, FaultEvent):
                         time_loss = timeline.timeline[night_idx][site][-1].event.time - e.time
-                        time_losses[StatCalculator._FAULT_KEY] += time_loss.total_seconds() / 60
+                        timeline_time_losses[StatCalculator._FAULT_KEY] += int(time_loss.total_seconds() / 60)
 
                     elif isinstance(e, WeatherClosureEvent):
                         time_loss = timeline.timeline[night_idx][site][-1].event.time - e.time
-                        time_losses[StatCalculator._WEATHER_KEY] += time_loss.total_seconds() / 60
+                        timeline_time_losses[StatCalculator._WEATHER_KEY] += int(time_loss.total_seconds() / 60)
 
+                timeline.time_losses[night_idx][site] = timeline_time_losses
                 for entry in timeline.timeline[night_idx][site]:
+                    time_losses = {StatCalculator._FAULT_KEY: 0,
+                                   StatCalculator._WEATHER_KEY: 0,
+                                   StatCalculator._UNSCHEDULE_KEY: 0}
+
                     # Morning twilight generates no plan.
                     if entry.plan_generated is None:
                         continue
 
                     plan = entry.plan_generated  # Update last plan
 
-                    if isinstance(entry.event, InterruptionResolutionEvent):
-                        if isinstance(entry.event, FaultResolutionEvent):
-                            time_losses[StatCalculator._FAULT_KEY] += int(entry.event.time_loss.total_seconds()/60)
-                        elif isinstance(entry.event, WeatherClosureResolutionEvent):
-                            time_losses[StatCalculator._WEATHER_KEY] += int(entry.event.time_loss.total_seconds()/60)
+                    if 'Morning' in entry.event.description:
+                        time_losses[StatCalculator._FAULT_KEY] = timeline_time_losses[StatCalculator._FAULT_KEY]
+                        time_losses[StatCalculator._WEATHER_KEY] = timeline_time_losses[StatCalculator._WEATHER_KEY]
 
                     time_losses[StatCalculator._UNSCHEDULE_KEY] = (plan.time_left() -
                                                                    time_losses[StatCalculator._FAULT_KEY] -
                                                                    time_losses[StatCalculator._WEATHER_KEY])
+
 
                     n_toos = 0
                     plan_score = 0
