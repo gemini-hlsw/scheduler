@@ -151,6 +151,7 @@ class TimelineEntriesBySite:
     time_entries: List[STimelineEntry]
     eve_twilight: datetime
     morn_twilight: datetime
+    time_losses: JSON
 
 
 @strawberry.type
@@ -172,6 +173,7 @@ class SNightTimelines:
                 s_entries = []
                 eve_twi = timeline.timeline[n_idx][site][0].event.time
                 morn_twi = timeline.timeline[n_idx][site][-1].event.time
+                time_losses = timeline.time_losses[n_idx][site]
                 for entry in timeline.timeline[n_idx][site]:
                     if entry.plan_generated is None:
                         continue
@@ -182,7 +184,8 @@ class SNightTimelines:
                 te = TimelineEntriesBySite(site=site,
                                            time_entries=s_entries,
                                            eve_twilight=eve_twi,
-                                           morn_twilight=morn_twi)
+                                           morn_twilight=morn_twi,
+                                           time_losses=time_losses)
                 s_timeline_entries.append(te)
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
             timelines.append(sn)
