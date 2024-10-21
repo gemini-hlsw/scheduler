@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import final, Optional, FrozenSet
+from typing import final, Optional, FrozenSet, List
 
 from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, Semester, NightIndex
@@ -27,7 +27,7 @@ class SchedulerParameters:
     ranker_parameters: RankerParameters = field(default_factory=RankerParameters)
     semester_visibility: bool = True
     num_nights_to_schedule: Optional[int] = None
-    program_file: Optional[str] = None
+    programs_list: Optional[List[str]] = None
 
     def __post_init__(self):
         self.semesters = frozenset([Semester.find_semester_from_date(self.start.datetime),

@@ -239,7 +239,7 @@ class Engine:
                                             semesters=self.params.semesters,
                                             with_redis=True,
                                             blueprint=Blueprints.collector,
-                                            program_list=self.params.program_file)
+                                            program_list=self.params.programs_list)
 
         selector = builder.build_selector(collector=collector,
                                           num_nights_to_schedule=self.params.num_nights_to_schedule,

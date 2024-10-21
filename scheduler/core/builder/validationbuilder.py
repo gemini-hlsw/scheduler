@@ -3,7 +3,7 @@
 
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site, ObservationStatus, Observation, QAState
-from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable
+from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable, List
 
 from lucupy.types import ZeroTime
 
@@ -87,7 +87,7 @@ class ValidationBuilder(SchedulerBuilder):
                         semesters: FrozenSet[Semester],
                         with_redis: bool,
                         blueprint: CollectorBlueprint,
-                        program_list: Optional[bytes] = None) -> Collector:
+                        program_list: Optional[List[str]] = None) -> Collector:
 
         collector = super().build_collector(start, end, num_of_nights, sites, semesters, with_redis, blueprint)
         collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data(program_list))

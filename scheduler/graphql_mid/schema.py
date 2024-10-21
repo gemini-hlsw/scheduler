@@ -1,14 +1,10 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
-import os
-import sys
-from datetime import datetime
 from typing import List, AsyncGenerator, Dict
 
 import strawberry # noqa
 from astropy.time import Time
-from redis import asyncio as aioredis
 from lucupy.minimodel.site import Site
 
 from scheduler.core.components.ranker import RankerParameters
@@ -58,9 +54,10 @@ class Query:
                                          new_schedule_input.met_power,
                                          new_schedule_input.vis_power,
                                          new_schedule_input.wha_power)
-        file = None
-        if new_schedule_input.program_file:
-            file = await new_schedule_input.program_file.read()
+        programs_list = None
+        if new_schedule_input.programs:
+            if len(new_schedule_input.programs) > 0:
+                programs_list = new_schedule_input.programs
 
         params = SchedulerParameters(start, end,
                                      new_schedule_input.sites,
@@ -68,7 +65,7 @@ class Query:
                                      ranker_params,
                                      new_schedule_input.semester_visibility,
                                      new_schedule_input.num_nights_to_schedule,
-                                     file)
+                                     programs_list)
 
         _logger.info(f"Run ID: {schedule_id}\n{params}")
 
@@ -82,7 +79,6 @@ class Query:
 
         await queue.put(task)
         return f'Plan is on the queue! for {schedule_id}'
-
 
 @strawberry.type
 class Subscription:
