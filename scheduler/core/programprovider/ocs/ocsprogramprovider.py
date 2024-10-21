@@ -49,8 +49,6 @@ def ocs_program_data(program_list: Optional[List[str]] = None) -> Iterable[dict]
         # Try to read the file and create a frozenset from its lines
         if program_list:
             id_frozenset = frozenset(p.strip() for p in program_list if p.strip() and p.strip()[0] != '#')
-            print("ID FROZENSET")
-            print(id_frozenset)
         else:
             with DEFAULT_PROGRAM_ID_PATH.open('r') as file:
                 id_frozenset = frozenset(line.strip() for line in file if line.strip() and line.strip()[0] != '#')
