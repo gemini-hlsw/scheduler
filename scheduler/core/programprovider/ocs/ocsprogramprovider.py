@@ -48,14 +48,17 @@ def ocs_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
     try:
         # Try to read the file and create a frozenset from its lines
         if program_list:
-            list_file = program_list
+            if isinstance(program_list, List):
+                id_frozenset = frozenset(p.strip() for p in program_list if p.strip() and p.strip()[0] != '#')
+                return read_ocs_zipfile(DEFAULT_OCS_DATA_PATH, id_frozenset)
+            else:
+                list_file = program_list
         else:
             list_file = DEFAULT_PROGRAM_ID_PATH
 
         if isinstance(program_list, bytes):
             file = program_list.decode('utf-8')
             id_frozenset = frozenset(f.strip() for f in file.split('\n') if f.strip() and f.strip()[0] != '#')
-
         else:
             with list_file.open('r') as file:
                 id_frozenset = frozenset(line.strip() for line in file if line.strip() and line.strip()[0] != '#')
