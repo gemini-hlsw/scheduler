@@ -26,6 +26,8 @@ __all__ = [
     'Engine'
 ]
 
+from ..core.output import print_plans
+
 _logger = logger_factory.create_logger(__name__)
 
 
@@ -94,8 +96,9 @@ class Engine:
                 # Stop if there are no more events.
                 while events_by_night.has_more_events():
                     top_event = events_by_night.top_event()
+                    print('top_event', top_event)
                     top_event_timeslot = top_event.to_timeslot_idx(night_start, time_slot_length)
-
+                    # input()
                     # TODO: Check this over to make sure if there is an event now, it is processed.
                     # If we don't know the next event timeslot, set it.
                     if next_event_timeslot is None:
@@ -134,6 +137,7 @@ class Engine:
                             _logger.debug(f'Next update for site {site_name} scheduled at '
                                           f'timeslot {next_update[site].timeslot_idx}')
 
+            print('next_update', next_update[site])
             # If there is a next update, and we have reached its time, then perform it.
             # This is where we perform time accounting (if necessary), get a selection, and create a plan.
             if next_update[site] is not None and current_timeslot >= next_update[site].timeslot_idx:
@@ -160,6 +164,10 @@ class Engine:
                     else:
                         ta_description = f'up to timeslot {update.timeslot_idx}.'
                     _logger.debug(f'Time accounting: site {site_name} for night {night_idx} {ta_description}')
+                    print('for event:', update.event.description)
+                    print('plans to account')
+                    print_plans([plans])
+                    input()
                     scp.collector.time_accounting(plans=plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
@@ -175,6 +183,7 @@ class Engine:
                                              update.event,
                                              final_plan)
 
+                print('update', update)
                 # Get a new selection and request a new plan if the night is not done.
                 if not update.done:
                     _logger.debug(f'Retrieving selection for {site_name} for night {night_idx} '
@@ -279,6 +288,8 @@ class Engine:
         for site in sites:
             night_events = scp.collector.get_night_events(site)
             for night_idx in night_indices:
+                # this would be probably because when the last time the resource pickle was created, it was winter time
+                # or different.
                 eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
                 eve_twi = EveningTwilightEvent(site=site, time=eve_twi_time, description='Evening 12° Twilight')
                 self.queue.add_event(night_idx, site, eve_twi)
