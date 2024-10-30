@@ -291,7 +291,7 @@ class Collector(SchedulerComponent):
 
         target_info: TargetInfoNightIndexMap = {}
 
-        for i in range(self.num_of_nights):
+        for i in range(self.num_nights_calculated):
             night_idx = NightIndex(i)
             target_snapshot = calculate_target_snapshot(night_idx,
                                                         obs,
