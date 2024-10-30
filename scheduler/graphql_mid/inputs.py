@@ -27,7 +27,7 @@ class CreateNewScheduleInput:
     met_power: Optional[float] = 1.0
     vis_power: Optional[float] = 1.0
     wha_power: Optional[float] = 1.0
-    programs: List[str]
+    programs: Optional[List[str]] = None
 
 
 @strawberry.input
