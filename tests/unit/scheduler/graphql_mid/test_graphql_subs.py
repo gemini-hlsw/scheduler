@@ -11,13 +11,13 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
 
     query = """
             query Schedule {
-                testSubQuery(scheduleId: "1", 
-                             newScheduleInput: {startTime: "2018-10-01 08:00:00",
-                                                endTime: "2018-10-04 08:00:00"
-                                                sites: "GN", 
-                                                mode: VALIDATION,
-                                                semesterVisibility:false,
-                                                numNightsToSchedule:3})
+                schedule(scheduleId: "1", 
+                         newScheduleInput: {startTime: "2018-10-01 08:00:00",
+                                            endTime: "2018-10-04 08:00:00"
+                                            sites: "GN", 
+                                            mode: VALIDATION,
+                                            semesterVisibility:false,
+                                            numNightsToSchedule:3})
             }
     """
     sub = """
