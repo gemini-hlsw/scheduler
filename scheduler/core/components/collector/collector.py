@@ -144,9 +144,6 @@ class Collector(SchedulerComponent):
         # Set up the time grid for the period under consideration in calculations: this is an astropy Time
         # object from start_time to end_time inclusive, with one entry per day.
         # Note that the format is in jdate.
-        print(self.start_vis_time.jd, self.end_vis_time.jd + 1.0)
-        print(np.arange(self.start_vis_time.jd,self.end_vis_time.jd + 1.0, (1.0 * u.day).value))
-        input()
         self.time_grid = Time(np.arange(self.start_vis_time.jd,
                                         self.end_vis_time.jd + 1.0, (1.0 * u.day).value),
                               format='jd')
@@ -296,7 +293,6 @@ class Collector(SchedulerComponent):
 
         for i in range(self.num_nights_calculated):
             night_idx = NightIndex(i)
-            print(night_idx)
             target_snapshot = calculate_target_snapshot(night_idx,
                                                         obs,
                                                         target,
@@ -318,7 +314,6 @@ class Collector(SchedulerComponent):
                             rem_visibility_frac=ts.rem_visibility_frac)
 
             target_info[NightIndex(night_idx)] = ti
-        input()
         # Return all the target info for the base target in the Observation across the nights of interest.
         return target_info
 

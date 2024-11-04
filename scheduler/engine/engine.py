@@ -83,6 +83,8 @@ class Engine:
         _logger.debug(f'Resetting {site_name} weather to initial values for night...')
         scp.selector.update_site_variant(site, initial_variants[site][night_idx])
 
+        print(f'events for night {night_idx}: {[]}')
+
         while not night_done:
             # If our next update isn't done, and we are out of events, we're missing the morning twilight.
             if next_event is None and events_by_night.is_empty():
