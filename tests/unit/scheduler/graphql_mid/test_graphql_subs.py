@@ -23,7 +23,7 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
     sub = """
          subscription TestSubscription {
               queueSchedule(scheduleId:"1") {
-                nightPlans {
+                NewNightPlans {
                   nightTimeline {
                     nightIndex
                     timeEntriesBySite {
