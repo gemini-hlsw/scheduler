@@ -289,5 +289,9 @@ class EventsAddedError:
     """
     error: str
 
+@strawberry.type
+class Version:
+    version: str
+    changelog: List[str]
 
 EventsAddedResponse = EventsAddedSuccess | EventsAddedError

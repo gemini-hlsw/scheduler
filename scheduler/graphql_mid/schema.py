@@ -11,8 +11,9 @@ from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
 from scheduler.db.planmanager import PlanManager
 from scheduler.services.logger_factory import create_logger
+from scheduler.config import config
 
-from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, NightPlansResponse)
+from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, NightPlansResponse, Version)
 from .inputs import CreateNewScheduleInput
 
 
@@ -35,6 +36,10 @@ active_subscriptions: Dict[str, asyncio.Queue] = {}
 @strawberry.type
 class Query:
     all_plans: List[SPlans] = strawberry.field(resolver=lambda: PlanManager.get_plans())
+
+    @strawberry.field
+    def version(self) -> Version:
+        return Version(version=config.app.version, changelog=config.app.changelog)
 
     @strawberry.field
     def plans(self) -> List[SPlans]:
