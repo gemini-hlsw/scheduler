@@ -5,6 +5,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from scheduler.graphql_mid.server import graphql_server
 from scheduler.services.visibility import visibility_calculator
+from scheduler.services.logger_factory import create_logger
+from scheduler.config import config
+
+_logger = create_logger(__name__)
+
+_logger.info(f"Running scheduler server version {config.app.version}")
+_logger.info(f"Changelog {config.app.changelog}")
 
 async def lifespan(app: FastAPI):
   await visibility_calculator.calculate()

@@ -9,7 +9,13 @@ optimizer:
 selector:
   buffer_type: FLAT_MINUTES
   buffer_amount: 30.0
-  
+
 server:
   port: 8000
   host: 0.0.0.0
+
+app:
+  version: 0.0.0
+  changelog:
+    - Added server versioning and changelog
+    - Added schema to send version to client
