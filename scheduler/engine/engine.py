@@ -83,7 +83,8 @@ class Engine:
         _logger.debug(f'Resetting {site_name} weather to initial values for night...')
         scp.selector.update_site_variant(site, initial_variants[site][night_idx])
 
-        print(f'events for night {night_idx}: {[]}')
+        print(f'events for night {night_idx}: {[(e.description, e.time.time()) for e in  events_by_night.events]}')
+        input()
 
         while not night_done:
             # If our next update isn't done, and we are out of events, we're missing the morning twilight.
@@ -169,7 +170,7 @@ class Engine:
                     print('for event:', update.event.description)
                     print('plans to account')
                     print_plans([plans])
-                    input()
+                    # input()
                     scp.collector.time_accounting(plans=plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)

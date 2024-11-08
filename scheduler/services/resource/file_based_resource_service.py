@@ -494,7 +494,7 @@ class FileBasedResourceService(ResourceService):
                         # print(f'{local_date_str} {astropy_time} {eve_twi} {morn_twi} {site.timezone}')
 
                         if start_time is None:
-                            start_time = eve_twi.replace(second=0, microsecond=0).time()
+                            start_time = (eve_twi - timedelta(seconds=10)).time()
                         if end_time is None:
                             end_time = morn_twi.replace(second=0, microsecond=0).time()
 
