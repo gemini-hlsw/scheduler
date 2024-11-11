@@ -17,7 +17,7 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
                                             sites: "GN", 
                                             mode: VALIDATION,
                                             semesterVisibility:false,
-                                            numNightsToSchedule:1})
+                                            numNightsToSchedule:3})
             }
     """
     sub = """
@@ -70,7 +70,7 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
         print([result.data["queueSchedule"]])
         n_nights = len(result.data["queueSchedule"]["nightPlans"]["nightTimeline"])
         print('Result night timeline: ', result.data["queueSchedule"]["nightPlans"]["nightTimeline"])
-        assert n_nights == 1, f'Number of nights must be 1, but got {n_nights}'
+        assert n_nights == 1, f'Number of nights must be 3, but got {n_nights}'
         # Check plan summary is being calculated.
         assert result.data["queueSchedule"]["plansSummary"] is not None, 'Plans summary is not being calculated'
         # Check plan summary does not bring empty values
