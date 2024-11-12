@@ -83,9 +83,6 @@ class Engine:
         _logger.debug(f'Resetting {site_name} weather to initial values for night...')
         scp.selector.update_site_variant(site, initial_variants[site][night_idx])
 
-        print(f'events for night {night_idx}: {[(e.description, e.time.time()) for e in  events_by_night.events]}')
-        input()
-
         while not night_done:
             # If our next update isn't done, and we are out of events, we're missing the morning twilight.
             if next_event is None and events_by_night.is_empty():
@@ -99,9 +96,8 @@ class Engine:
                 # Stop if there are no more events.
                 while events_by_night.has_more_events():
                     top_event = events_by_night.top_event()
-                    print('top_event', top_event)
                     top_event_timeslot = top_event.to_timeslot_idx(night_start, time_slot_length)
-                    # input()
+
                     # TODO: Check this over to make sure if there is an event now, it is processed.
                     # If we don't know the next event timeslot, set it.
                     if next_event_timeslot is None:
@@ -140,7 +136,6 @@ class Engine:
                             _logger.debug(f'Next update for site {site_name} scheduled at '
                                           f'timeslot {next_update[site].timeslot_idx}')
 
-            print('next_update', next_update[site])
             # If there is a next update, and we have reached its time, then perform it.
             # This is where we perform time accounting (if necessary), get a selection, and create a plan.
             if next_update[site] is not None and current_timeslot >= next_update[site].timeslot_idx:
@@ -167,10 +162,6 @@ class Engine:
                     else:
                         ta_description = f'up to timeslot {update.timeslot_idx}.'
                     _logger.debug(f'Time accounting: site {site_name} for night {night_idx} {ta_description}')
-                    print('for event:', update.event.description)
-                    print('plans to account')
-                    print_plans([plans])
-                    # input()
                     scp.collector.time_accounting(plans=plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
