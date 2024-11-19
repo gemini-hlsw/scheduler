@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+from os import environ
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from scheduler.graphql_mid.server import graphql_server
@@ -10,7 +11,7 @@ from scheduler.config import config
 
 _logger = create_logger(__name__)
 
-_logger.info(f"Running scheduler server version {config.app.version}")
+_logger.info(f"Running scheduler server version {environ['APP_VERSION']}")
 _logger.info(f"Changelog {config.app.changelog}")
 
 async def lifespan(app: FastAPI):
