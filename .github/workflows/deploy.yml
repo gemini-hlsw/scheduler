@@ -9,19 +9,22 @@ jobs:
   build:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
-    - name: Login to Heroku Container registry
-      env:
-        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-      run: heroku container:login
-    - name: Build and push
-      env:
-        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-      run: |
-        heroku container:push -a ${{ secrets.HEROKU_APP_NAME }} web \
-        --arg GH_PAT=${{ secrets.GH_PAT }}
-    - name: Release
-      env:
-        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-      run: |
-        heroku container:release -a ${{ secrets.HEROKU_APP_NAME }} web
+      - name: Set version tag
+        run: echo "VERSION_TAG=$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+      - uses: actions/checkout@v2
+      - name: Login to Heroku Container registry
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: heroku container:login
+      - name: Build and push
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          heroku container:push -a ${{ secrets.HEROKU_APP_NAME }} web \
+          --arg GH_PAT=${{ secrets.GH_PAT }} \
+          --arg APP_VERSION=${{ env.VERSION_TAG }}
+      - name: Release
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          heroku container:release -a ${{ secrets.HEROKU_APP_NAME }} web

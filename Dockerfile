@@ -1,8 +1,11 @@
 FROM python:3.10-buster
 
 ARG GH_PAT
+# Default app version is development
+ARG APP_VERSION="development"
 # Set environment variables
 ENV GH_PAT=$GH_PAT
+ENV APP_VERSION=$APP_VERSION
 
 WORKDIR /home
 
