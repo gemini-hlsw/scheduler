@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
+from os import environ
 from typing import List, AsyncGenerator, Dict
 
 import strawberry # noqa
@@ -39,7 +40,7 @@ class Query:
 
     @strawberry.field
     def version(self) -> Version:
-        return Version(version=config.app.version, changelog=config.app.changelog)
+        return Version(version=environ['APP_VERSION'], changelog=config.app.changelog)
 
     @strawberry.field
     def plans(self) -> List[SPlans]:
