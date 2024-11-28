@@ -6,10 +6,8 @@ from datetime import timedelta
 
 from lucupy.minimodel import Site
 
-from .collector_fixture import scheduler_collector
 
-
-def test_utc_dt_to_time_coords(scheduler_collector):
+def test_utc_dt_to_time_coords(scheduler_collector, visibility_calculator_fixture):
     site = Site.GN
     timeslot_length = scheduler_collector.time_slot_length.to_datetime()
     ne = scheduler_collector.get_night_events(site)
@@ -33,7 +31,7 @@ def test_utc_dt_to_time_coords(scheduler_collector):
             assert timeslot_idx == calculated_timeslot_idx
 
 
-def test_local_dt_to_time_coords(scheduler_collector):
+def test_local_dt_to_time_coords(scheduler_collector, visibility_calculator_fixture):
     site = Site.GN
     timeslot_length = scheduler_collector.time_slot_length.to_datetime()
     ne = scheduler_collector.get_night_events(site)

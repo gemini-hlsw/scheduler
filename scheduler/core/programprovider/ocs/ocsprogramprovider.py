@@ -59,6 +59,7 @@ def ocs_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
         if isinstance(program_list, bytes):
             file = program_list.decode('utf-8')
             id_frozenset = frozenset(f.strip() for f in file.split('\n') if f.strip() and f.strip()[0] != '#')
+
         else:
             with list_file.open('r') as file:
                 id_frozenset = frozenset(line.strip() for line in file if line.strip() and line.strip()[0] != '#')
