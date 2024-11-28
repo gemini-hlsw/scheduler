@@ -314,7 +314,6 @@ class Collector(SchedulerComponent):
                             rem_visibility_frac=ts.rem_visibility_frac)
 
             target_info[NightIndex(night_idx)] = ti
-
         # Return all the target info for the base target in the Observation across the nights of interest.
         return target_info
 

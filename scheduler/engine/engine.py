@@ -26,6 +26,8 @@ __all__ = [
     'Engine'
 ]
 
+from ..core.output import print_plans
+
 _logger = logger_factory.create_logger(__name__)
 
 
@@ -175,6 +177,7 @@ class Engine:
                                              update.event,
                                              final_plan)
 
+                print('update', update)
                 # Get a new selection and request a new plan if the night is not done.
                 if not update.done:
                     _logger.debug(f'Retrieving selection for {site_name} for night {night_idx} '
@@ -279,6 +282,8 @@ class Engine:
         for site in sites:
             night_events = scp.collector.get_night_events(site)
             for night_idx in night_indices:
+                # this would be probably because when the last time the resource pickle was created, it was winter time
+                # or different.
                 eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
                 eve_twi = EveningTwilightEvent(site=site, time=eve_twi_time, description='Evening 12° Twilight')
                 self.queue.add_event(night_idx, site, eve_twi)
