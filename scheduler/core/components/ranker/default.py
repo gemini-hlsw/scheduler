@@ -250,6 +250,7 @@ class DefaultRanker(Ranker):
         # Scores are indexed by night_idx and contain scores for each time slot.
         # We initialize to all zeros.
         scores = deepcopy(self._empty_obs_scores[obs.site])
+        metrics: Dict[Site, Dict[NightIndex, npt.NDArray[float]]] = {}
 
         # target_info is a map from night index to TargetInfo.
         # We require it to proceed for hour angle / elevation information and coordinates.
@@ -329,6 +330,7 @@ class DefaultRanker(Ranker):
         for night_idx in self.night_indices:
             slot_indices = target_info[night_idx].visibility_slot_idx
             scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
+            metrics[night_idx].put(slot_indices, metric[slot_indices])
             # print(f'   max score on night {night_idx}: {np.max(scores[night_idx])}')
 
         return scores
