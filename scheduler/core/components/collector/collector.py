@@ -11,7 +11,6 @@ import numpy as np
 
 from astropy.time import Time, TimeDelta
 
-from pyexplore import explore
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               Site, Target, TimeslotIndex, QAState, ObservationStatus, SiderealTarget, NonsiderealTarget,
