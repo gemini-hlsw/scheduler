@@ -11,7 +11,8 @@ import numpy as np
 
 from astropy.time import Time, TimeDelta
 
-from pyexplore import explore
+# from pyexplore.pyexplore import explore
+# from pyexplore import explore
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               Site, Target, TimeslotIndex, QAState, ObservationStatus, SiderealTarget, NonsiderealTarget,
@@ -251,18 +252,34 @@ class Collector(SchedulerComponent):
         TODO: Look into simplifying to datetime instead of AstroPy Time.
         TODO: We may want to store this information in an Observation for future use.
         """
+        # print(f'process_timing_windows for {obs.id.id}')
         if not obs.constraints or len(obs.constraints.timing_windows) == 0:
             # Create a timing window for the entirety of the program.
             windows = [Time([prog.start, prog.end])]
         else:
+            t_windows = []
             windows = []
             for tw in obs.constraints.timing_windows:
-                t0 = time.mktime(tw.start.utctimetuple()) * 1000 * u.ms
-                begin = Time(t0.to_value('s'), format='unix', scale='utc')
+                # t0 = time.mktime(tw.start.utctimetuple()) * 1000 * u.ms # apply UTC offset again??
+                # begin = Time(t0.to_value('s'), format='unix', scale='utc')
+                # The start time is now an astropy Time
+                begin = tw.start
                 duration = tw.duration.total_seconds() / 3600.0 * u.h
                 repeat = max(1, tw.repeat)
                 period = tw.period.total_seconds() / 3600.0 * u.h if tw.period is not None else 0.0 * u.h
-                windows.extend([Time([begin + i * period, begin + i * period + duration]) for i in range(repeat)])
+                t_windows.extend([Time([begin + i * period, begin + i * period + duration]) for i in range(repeat)])
+                # Limit timing windows by the program start/end dates
+                # Timing window starts at the beginning of the sequence, the slew can be outside the window
+                # Therefore, we probably should subtract acquisition time from start of timing window,
+                # we don't for now to match the OT.
+                for w in t_windows:
+                    if (w[0] <= prog.end) and (w[1] >= prog.start):
+                        wstart = max(Time(prog.start).jd, w[0].jd) # - obs.acq_overhead
+                        wend = min(Time(prog.end).jd, w[1].jd)
+                        # print(wstart, wend)
+                        windows.extend([Time([wstart, wend], format='jd')])
+        # for w in windows:
+        #     print(f'\t{w.iso}')
 
         return windows
 

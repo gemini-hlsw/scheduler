@@ -10,7 +10,8 @@ from os import PathLike
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
-from pyexplore import explore
+# from pyexplore import explore
+from pyexplore.pyexplore import explore
 # import numpy as np
 # from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
@@ -24,7 +25,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
-from lucupy.helpers import unique_list
+from lucupy.helpers import unique_list, search_list
 # from scipy.signal import find_peaks
 
 from definitions import ROOT_DIR
@@ -748,8 +749,6 @@ class GppProgramProvider(ProgramProvider):
             # return any('guideWith' in key and guide == 'guide' for key, guide in guide_step.items())
             return True
 
-        def search_list(val, alist):
-            return any(val in elem for elem in alist)
 
         def determine_mode(inst: str) -> ObservationMode:
             # print(f'inst: {inst} dispersers: {dispersers}')
