@@ -131,7 +131,7 @@ class Engine:
                         # * there is no next update scheduled; or
                         # * this update happens before the next update
                         # then set to this update.
-                        if next_update[site] is None or time_record.timeslot_idx < next_update[site].timeslot_idx:
+                        if next_update[site] is None or time_record.timeslot_idx <= next_update[site].timeslot_idx:
                             next_update[site] = time_record
                             _logger.debug(f'Next update for site {site_name} scheduled at '
                                           f'timeslot {next_update[site].timeslot_idx}')
