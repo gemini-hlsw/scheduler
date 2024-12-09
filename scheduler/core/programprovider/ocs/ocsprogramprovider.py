@@ -5,11 +5,13 @@ import calendar
 import json
 import zipfile
 from datetime import datetime, timedelta
+from astropy.time import Time
 from os import PathLike
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
 import numpy as np
+from celery.utils.time import utcoffset
 from fastapi import UploadFile
 from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
@@ -23,6 +25,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
+from lucupy.helpers import search_list
 # from lucupy.minimodel.ids import obs_to_program_id
 from scipy.signal import find_peaks
 
@@ -365,9 +368,20 @@ class OcsProgramProvider(ProgramProvider):
                 Raises an IndexError if there are any issues in getting the months.
                 """
                 # Convert month data as above to a list of months.
-                curr_note_months = curr_note_title.strip().replace('and ', ' ').replace('  ', ' ').replace(', ', '-'). \
-                    split(' ')[-1].lower()
-                month_list = [month for month in curr_note_months.split('-') if month in months_list]
+                curr_note_title = curr_note_title.strip().replace('and ', ' ')\
+                    .replace('  ', ' ').replace(', ', '-').replace(';', '')\
+                    .replace('(', '').replace(')', '')
+                # curr_note_months = curr_note_title.split(' ')[-1].lower()
+                # Can't assume that the months are in the last element of the split title, key on '-'
+                curr_note_months = [val.lower() for val in curr_note_title.split(' ') if '-' in val][0]
+                # print(f'{program_id.id}: curr_note_months {curr_note_months}')
+                month_list = [month for month in curr_note_months.split('-') if search_list(month, months_list)]
+                # print(f'\t{month_list}')
+                # print(f'{program_id.id}: month_list {month_list}')
+                if len(month_list) < 3:
+                    msg = (f'Error parsing active note title for FT program {id}. '
+                           f'Check month names/abreviations or extra dashes.')
+                    raise ValueError(msg)
                 m1 = month_number(month_list[0], months_list)
                 m2 = month_number(month_list[-1], months_list)
 
@@ -408,10 +422,16 @@ class OcsProgramProvider(ProgramProvider):
                 end_date = datetime(next_year, 1, 31)
 
         # Account for the flexible boundary on programs.
+        print(f'{program_id.id}: start {start_date - Program.FUZZY_BOUNDARY}, end {end_date + Program.FUZZY_BOUNDARY}')
         return start_date - Program.FUZZY_BOUNDARY, end_date + Program.FUZZY_BOUNDARY
 
     def parse_timing_window(self, data: dict) -> TimingWindow:
-        start = datetime.utcfromtimestamp(data[OcsProgramProvider._TimingWindowKeys.START] / 1000.0)
+        # utcfromtimestamp applies a timezone offset that gives an incorrect start time
+        # I think one could use fromtimestamp if the timezone offset (0 for UTC) is defined
+        # start = datetime.utcfromtimestamp(data[OcsProgramProvider._TimingWindowKeys.START] / 1000.0)
+        # The timing windows end up as Time classes, so let's start with that.
+        # This also yields the correct UT time.
+        start = Time(data[OcsProgramProvider._TimingWindowKeys.START] / 1000.0, format='unix', scale='utc')
 
         duration_info = data[OcsProgramProvider._TimingWindowKeys.DURATION]
         if duration_info == TimingWindow.INFINITE_DURATION_FLAG:
@@ -646,8 +666,6 @@ class OcsProgramProvider(ProgramProvider):
         def guide_state(guide_step: dict) -> bool:
             return any('guideWith' in key and guide == 'guide' for key, guide in guide_step.items())
 
-        def search_list(val, alist):
-            return any(val in elem for elem in alist)
 
         def determine_mode(inst: str) -> ObservationMode:
 
