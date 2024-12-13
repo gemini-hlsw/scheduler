@@ -57,16 +57,17 @@ class StatCalculator:
                 timeline.time_losses[night_idx].setdefault(site, {})
                 # Gather unsolved interruptions during the night.
                 interruptions = []
+
                 for entry in timeline.timeline[night_idx][site]:
                     if isinstance(entry.event, InterruptionEvent):
                         interruptions.append(entry.event)
                     elif isinstance(entry.event, InterruptionResolutionEvent):
-                        interruptions.pop()  # remove reported interruption and register the time loss
+                        if interruptions:
+                            interruptions.pop()  # remove reported interruption and register the time loss
                         if isinstance(entry.event, FaultResolutionEvent):
                             timeline_time_losses[StatCalculator._FAULT_KEY] += int(entry.event.time_loss.total_seconds()/60)
                         elif isinstance(entry.event, WeatherClosureResolutionEvent):
                             timeline_time_losses[StatCalculator._WEATHER_KEY] += int(entry.event.time_loss.total_seconds()/60)
-
                 # Unsolved interruptions for the night
                 for e in interruptions:
                     print('event never finished:', e.description)
