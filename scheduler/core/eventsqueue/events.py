@@ -175,6 +175,8 @@ class InterruptionResolutionEvent(Event, UUIDReferenced, ABC):
     def time_loss(self) -> timedelta:
         """
         Calculate the time loss from this InterruptionEvent to this InterruptionEventResolution as a timedelta.
+        TODO: This assumes that Interruption events are notified or processed at Twilight (or near) situation that might
+        TODO: be completely different when Resource is implemented and real input is processed.
         """
         if not isinstance(self.uuid_identified, InterruptionEvent):
             raise ValueError(f'{self.__class__.__name__} ({self.description}) does not have a corresponding '
