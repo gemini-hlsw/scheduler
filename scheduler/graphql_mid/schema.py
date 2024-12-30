@@ -26,10 +26,8 @@ _logger = create_logger(__name__)
 def sync_schedule(params: SchedulerParameters) -> NewNightPlans:
     engine = Engine(params)
     plan_summary, timelines = engine.run()
-
     s_timelines = SNightTimelines.from_computed_timelines(timelines)
     s_plan_summary = SRunSummary.from_computed_run_summary(plan_summary)
-    print("all returns")
     return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
 
 
@@ -38,7 +36,6 @@ active_subscriptions: Dict[str, asyncio.Queue] = {}
 
 @strawberry.type
 class Query:
-    all_plans: List[SPlans] = strawberry.field(resolver=lambda: PlanManager.get_plans())
 
     @strawberry.field
     def version(self) -> Version:

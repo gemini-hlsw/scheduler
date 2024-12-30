@@ -52,8 +52,10 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
                   }
                 }
               }
-              plansSummary
-            }
+              plansSummary{
+                metricsPerBand
+                summary
+              }
             ... on NightPlansError {
               error
             }
