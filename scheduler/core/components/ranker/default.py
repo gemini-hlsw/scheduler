@@ -330,10 +330,10 @@ class DefaultRanker(Ranker):
         for night_idx in self.night_indices:
             slot_indices = target_info[night_idx].visibility_slot_idx
             scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
-            # metrics[night_idx].put(slot_indices, )
+            metrics[night_idx].append(float(metric[0]))
             # print(f'   max score on night {night_idx}: {np.max(scores[night_idx])}')
 
-        return scores
+        return scores, metrics
 
     # TODO: Should we be considering the scores of the subgroups or the scores of the
     # TODO: observations when calculating the score of this group?
@@ -349,6 +349,7 @@ class DefaultRanker(Ranker):
         # Determine the length of the nights and create an empty score array for each night.
         site = list(group.sites())[0]
         scores = deepcopy(self._empty_group_scores[site])
+        metrics = deepcopy(self._empty_metrics[site])
 
         # For each night, calculate the score for the group over its subgroups.
         # This may not be the same as using the observation scoring, since for groups, the score has been adjusted in
@@ -360,12 +361,15 @@ class DefaultRanker(Ranker):
                 # To get this, we turn the scores of the children into a (1, #timeslots in night) array to append
                 # to the numpy array for the night.
                 subgroup_scores = np.array([group_data_map[unique_group_id].group_info.scores[night_idx]])
+                subgroup_metrics = np.array([group_data_map[unique_group_id].group_info.metrics[night_idx]])
                 scores[night_idx] = np.append(scores[night_idx], subgroup_scores, axis=0)
+                metrics[night_idx] += [x for sublist in subgroup_metrics for x in sublist]
 
         # Combine the scores as per the score_combiner and return.
         # apply_along_axis results in a (1, #timeslots in night) array, so we have to take index 0.
-        return {night_idx: np.apply_along_axis(self.params.score_combiner, 0, scores[night_idx])[0]
-                for night_idx in self.night_indices}
+        combine_scores = {night_idx: np.apply_along_axis(self.params.score_combiner, 0, scores[night_idx])[0]
+                          for night_idx in self.night_indices}
+        return combine_scores, metrics
 
     def _score_or_group(self, group: Group, group_data_map):
         raise NotImplementedError

@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from collections import Counter
-from typing import Dict, Tuple, FrozenSet
+from typing import Dict, Tuple, FrozenSet, TypeAlias
 
 from lucupy.minimodel import Band, ProgramID, NightIndex, Program
 from lucupy.types import ZeroTime
@@ -12,6 +12,7 @@ from scheduler.core.eventsqueue import InterruptionResolutionEvent, FaultResolut
     InterruptionEvent, FaultEvent, WeatherClosureEvent
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import NightStats
+from scheduler.core.statscalculator.run_summary import RunSummary, Summary
 from scheduler.core.types import TimeLossType
 from scheduler.graphql_mid.scalars import Sites
 from scheduler.services import logger_factory
@@ -23,7 +24,6 @@ __all__ = [
 
 
 logger = logger_factory.create_logger(__name__)
-
 
 class StatCalculator:
     """
@@ -44,20 +44,24 @@ class StatCalculator:
     def calculate_timeline_stats(timeline: NightlyTimeline,
                                  nights: FrozenSet[NightIndex],
                                  sites: Sites,
-                                 collector: Collector) -> Dict[str, Tuple[str, float]]:
+                                 collector: Collector) -> RunSummary:
 
-        scores_per_program: Dict[ProgramID, float] = {}
+        # scores_per_program: Dict[ProgramID, float] = {}
+        metrics_per_program: Dict[ProgramID, float] = {}
+        metrics_per_band: Dict[str, float] = {}
         programs = {}
-        for night_idx in nights:
-            timeline.time_losses.setdefault(night_idx, {})
-            for site in sites:
 
+        for night_idx in nights:
+            # Setup for the night entire time losses
+            timeline.time_losses.setdefault(night_idx, {})
+
+            for site in sites:
                 timeline_time_losses = {StatCalculator._FAULT_KEY: 0,
                                         StatCalculator._WEATHER_KEY: 0}
                 timeline.time_losses[night_idx].setdefault(site, {})
+
                 # Gather unsolved interruptions during the night.
                 interruptions = []
-
                 for entry in timeline.timeline[night_idx][site]:
                     if isinstance(entry.event, InterruptionEvent):
                         interruptions.append(entry.event)
@@ -68,6 +72,7 @@ class StatCalculator:
                             timeline_time_losses[StatCalculator._FAULT_KEY] += int(entry.event.time_loss.total_seconds()/60)
                         elif isinstance(entry.event, WeatherClosureResolutionEvent):
                             timeline_time_losses[StatCalculator._WEATHER_KEY] += int(entry.event.time_loss.total_seconds()/60)
+
                 # Unsolved interruptions for the night
                 for e in interruptions:
                     print('event never finished:', e.description)
@@ -79,13 +84,15 @@ class StatCalculator:
                         time_loss = timeline.timeline[night_idx][site][-1].event.time - e.time
                         timeline_time_losses[StatCalculator._WEATHER_KEY] += int(time_loss.total_seconds() / 60)
 
+                # Store the whole night time losses for the specified night and site
                 timeline.time_losses[night_idx][site] = timeline_time_losses
                 for entry in timeline.timeline[night_idx][site]:
+                    # Save the time losses for the specific plan
                     time_losses = {StatCalculator._FAULT_KEY: 0,
                                    StatCalculator._WEATHER_KEY: 0,
                                    StatCalculator._UNSCHEDULE_KEY: 0}
 
-                    # Morning twilight generates no plan.
+                    # Some plans are shown empty if the telescope is closed.
                     if entry.plan_generated is None:
                         continue
 
@@ -99,7 +106,7 @@ class StatCalculator:
                                                                    time_losses[StatCalculator._FAULT_KEY] -
                                                                    time_losses[StatCalculator._WEATHER_KEY])
 
-
+                    # Calculate night stats for the plan
                     n_toos = 0
                     plan_score = 0
                     plan_conditions = []
@@ -120,9 +127,16 @@ class StatCalculator:
                         # check completion
                         program = collector.get_program(obs.belongs_to)
 
-                        scores_per_program.setdefault(program.id, 0)
-                        scores_per_program[program.id] += visit.score
+                        # scores_per_program.setdefault(program.id, 0)
+                        metrics_per_program.setdefault(program.id, 0.0)
+
+                        metrics_per_band.setdefault(program.band.name, 0.0)
+
+                        metrics_per_program[program.id] += sum(visit.metric)
+                        metrics_per_band[program.band.name] +=  sum(visit.metric)
+                        # scores_per_program[program.id] += visit.score
                         completion_fraction[program.band] += 1
+
 
                         # Calculate altitude data
                         ti = collector.get_target_info(visit.obs_id)
@@ -139,17 +153,20 @@ class StatCalculator:
                                                   completion_fraction,
                                                   program_completion)
 
-        plans_summary = {}
-        for p_id in scores_per_program:
+        plans_summary: Summary = {}
+        for p_id in metrics_per_program:
             program = collector.get_program(p_id)
+
+            # TODO: This should be one method in Program
             total_used = program.total_used()
             prog_total = StatCalculator.program_real_total_used(program)
-
             completion = f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'
-            score = scores_per_program[p_id]
-            plans_summary[p_id.id] = (completion, score)
 
-        return plans_summary
+            metric = metrics_per_program[p_id]
+            # score = scores_per_program[p_id]
+            plans_summary[p_id.id] = (completion, metric)
+
+        return RunSummary(plans_summary, metrics_per_band)
 
     @staticmethod
     def calculate_program_completion(program: Program) -> str:

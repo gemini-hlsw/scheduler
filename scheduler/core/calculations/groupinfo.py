@@ -7,7 +7,7 @@ from typing import final, Dict, TypeAlias
 from lucupy.minimodel import Conditions, Group, NightIndex, TimeslotIndex, UniqueGroupID
 import numpy.typing as npt
 
-from .scores import Scores
+from .scores import Scores, Metrics
 
 
 __all__ = [
@@ -42,6 +42,7 @@ class GroupInfo:
     conditions_score: Dict[NightIndex, npt.NDArray[float]]
     wind_score: Dict[NightIndex, npt.NDArray[float]]
     schedulable_slot_indices: Dict[NightIndex, npt.NDArray[TimeslotIndex]]
+    metrics: Metrics
     scores: Scores
 
 

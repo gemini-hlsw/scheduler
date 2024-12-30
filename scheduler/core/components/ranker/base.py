@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import abstractmethod, ABC
-from typing import Dict, FrozenSet
+from typing import Dict, FrozenSet, List
 
 import numpy as np
 import numpy.typing as npt
@@ -34,7 +34,7 @@ class Ranker(ABC):
         # This allows us to avoid having to store a reference to the Collector in the Ranker.
         self._empty_obs_scores: Dict[Site, Dict[NightIndex, npt.NDArray[float]]] = {}
         self._empty_group_scores: Dict[Site, Dict[NightIndex, npt.NDArray[float]]] = {}
-        self._empty_metrics: Dict[Site, Dict[NightIndex, npt.NDArray[float]]] = {}
+        self._empty_metrics: Dict[Site, Dict[NightIndex, List[float]]] = {}
         for site in self.sites:
             night_events = collector.get_night_events(site)
 
@@ -47,8 +47,8 @@ class Ranker(ABC):
             self._empty_group_scores[site] = {night_idx: np.zeros((0, len(night_events.times[night_idx])), dtype=float)
                                               for night_idx in self.night_indices}
 
-            self._empty_metrics[site] = {night_idx: np.zeros((0, len(night_events.times[night_idx])), dtype=float)
-                                              for night_idx in self.night_indices}
+            self._empty_metrics[site] = {night_idx: [] for night_idx in self.night_indices}
+
     def score_group(self, group: Group, group_data_map):
         """
         Calculate the score of a Group.

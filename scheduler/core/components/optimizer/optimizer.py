@@ -59,3 +59,4 @@ class Optimizer:
             # update scores in schedulable_groups if the group is not completely observed
             if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
                 schedulable_group.group_info.scores = group_info.scores
+                schedulable_group.group_info.metrics = group_info.metrics
