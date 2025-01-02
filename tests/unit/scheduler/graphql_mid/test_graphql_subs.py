@@ -21,46 +21,47 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
             }
     """
     sub = """
-         subscription QueueSchedule {
-          queueSchedule(scheduleId: "1") {
-            __typename
-            ... on NewNightPlans {
-              nightPlans {
-                nightTimeline {
-                  nightIndex
-                  timeEntriesBySite {
-                    site
-                    timeLosses
-                    timeEntries {
-                      event
-                      plan {
-                        startTime
-                        endTime
-                        nightConditions {
-                          iq
-                          cc
-                        }
-                        visits {
-                          obsId
-                        }
-                        nightStats {
-                          planScore
-                          timeLoss
-                        }
-                      }
+    subscription QueueSchedule {
+      queueSchedule(scheduleId: "1") {
+        __typename
+        ... on NewNightPlans {
+          nightPlans {
+            nightTimeline {
+              nightIndex
+              timeEntriesBySite {
+                site
+                timeLosses
+                timeEntries {
+                  event
+                  plan {
+                    startTime
+                    endTime
+                    nightConditions {
+                      iq
+                      cc
+                    }
+                    visits {
+                      obsId
+                    }
+                    nightStats {
+                      planScore
+                      timeLoss
                     }
                   }
                 }
               }
-              plansSummary{
-                metricsPerBand
-                summary
-              }
-            ... on NightPlansError {
-              error
             }
           }
-        } 
+          plansSummary{
+            metricsPerBand
+            summary
+          }
+        }
+        ... on NightPlansError {
+          error
+        }
+      }
+    }
     """
     sub_response = await schema.subscribe(sub)
     result = await schema.execute(query)
@@ -76,7 +77,7 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
         # Check plan summary is being calculated.
         assert result.data["queueSchedule"]["plansSummary"] is not None, 'Plans summary is not being calculated'
         # Check plan summary does not bring empty values
-        assert any(v[0] != '0%' for v in result.data["queueSchedule"]["plansSummary"].values()), 'Plan summary is calculating empty programs'
+        assert any(v[0] != '0%' for v in result.data["queueSchedule"]["plansSummary"]['summary'].summary.values()), 'Plan summary is calculating empty programs'
         # Check that only one site is returned
         timeline = result.data["queueSchedule"]["nightPlans"]["nightTimeline"]
         assert any(len(night["timeEntriesBySite"]) == 1 for night in timeline), 'More than one site is returned'
