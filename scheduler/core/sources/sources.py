@@ -39,6 +39,7 @@ class Sources:
                  gmos_gratings: BytesIO,
                  faults: BytesIO,
                  eng_tasks: BytesIO,
+                 gmos_filters: BytesIO,
                  weather_closures: BytesIO) -> bool:
 
         match service:
@@ -60,6 +61,7 @@ class Sources:
                                                          faults,
                                                          eng_tasks,
                                                          weather_closures,
+                                                         gmos_filters,
                                                          'telescope_schedules.xlsx')
 
                     self.set_origin(Origins.FILE.value())
