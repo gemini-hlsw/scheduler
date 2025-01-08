@@ -152,12 +152,13 @@ class VisibilityCalculator(metaclass=Singleton):
                                                           Semester(2019, SemesterHalf('A')),
                                                           Semester(2019, SemesterHalf('B'))])
 
-    def __init__(self):
+    def __init__(self, with_redis: bool = True):
         self.vis_table: Optional[TargetVisibilityTable] = None
+        self.with_redis = with_redis
 
-    async def calculate(self, with_redis: bool = True, programs_ids: Optional[bytes] = None) -> None:
-        all_semesters_vis_table = {}
-        if with_redis:
+    async def calculate(self) -> None:
+        if self.with_redis:
+            all_semesters_vis_table = {}
             for semester in VisibilityCalculator._SEMESTERS:
                 main_key = f"{semester}-{config.collector.time_slot_length}min"
 
@@ -167,17 +168,8 @@ class VisibilityCalculator(metaclass=Singleton):
                     _logger.info(f'Visibility calcs for {semester} from Redis retrieved.')
 
         else:
-            from scheduler.scripts.fill_redis import compute_visibility, transform_to_json
-            for semester in VisibilityCalculator._SEMESTERS:
-                main_key = f"{semester}-{config.collector.time_slot_length}min"
-
-                (semester_vis_table, _) = compute_visibility(
-                    programs_ids=programs_ids,
-                    semester=semester
-                )
-                if semester_vis_table:
-                    all_semesters_vis_table[semester] = transform_to_json(semester_vis_table)
-                    _logger.info(f'Visibility calcs for {semester} from locally computed.')
+            # fill the table manually. see fill_redis code.
+            raise NotImplementedError('Manual population not yet available')
 
         self.vis_table = TargetVisibilityTable(all_semesters_vis_table)
 
