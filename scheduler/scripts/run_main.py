@@ -98,6 +98,20 @@ def main(*,
     if verbose:
         print_collector_info(collector)
 
+    for o in collector.get_all_observations():
+
+        tt = o.too_type.name if o.too_type else None
+        if o.too_type is not None:
+            print(o.id, tt)
+            print(o.status.name)
+            if len(o.targets) > 1:
+                print([t.name for t in o.targets])
+            else:
+                print(o.targets[0].name)
+                print(collector.get_target_info(o.id)[NightIndex(0)].rem_visibility_frac)
+
+    input()
+
     # Create the Selector.
     _logger.info("Creating selector")
     selector_blueprint = SelectorBlueprint(
