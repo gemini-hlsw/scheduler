@@ -48,7 +48,7 @@ class SRunSummary:
 
     @staticmethod
     def from_computed_run_summary(summary: RunSummary) -> 'SRunSummary':
-        return SRunSummary(summary=summary, metrics_per_band=summary.metrics_per_band)
+        return SRunSummary(summary=summary.summary, metrics_per_band=summary.metrics_per_band)
 
 
 @strawberry.type
