@@ -437,6 +437,10 @@ class FileBasedResourceService(ResourceService):
     def _mirror_parser(r: List[str], _: Site) -> Set[str]:
         return {'Mirror'} | {i.strip().replace('+', '') for i in r}
 
+    @staticmethod
+    def _filter_parser(r: List[str], _: Site) -> Set[str]:
+        return {i.strip() for i in r}
+
     def _load_time_loss(self,
                         site: Site,
                         name: str,
@@ -580,6 +584,7 @@ class FileBasedResourceService(ResourceService):
                    faults_data: Union[str, BytesIO],
                    eng_tasks_data: Union[str, BytesIO],
                    weather_closure_data: Union[str, BytesIO],
+                   filters_data: Union[str, BytesIO],
                    spreadsheet_file: str) -> None:
         """
         Load all files necessaries to the correct functioning of the ResourceManager.
@@ -599,6 +604,13 @@ class FileBasedResourceService(ResourceService):
                        fpus_data,
                        resource_type=ResourceType.FPU)
         logger.debug(f'Done reading IFU-FPU barcode data for {site}.')
+
+        # Load Filters
+        self._load_csv(site,
+                       self._filter_parser,
+                       filters_data,
+                       resource_type=ResourceType.FILTER)
+        logger.debug(f'Done reading filter data for {site}.')
 
         # Load the gratings.
         # This will put the mirror and the grating names available on a given date as Resources.

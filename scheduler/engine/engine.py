@@ -177,7 +177,7 @@ class Engine:
                                              update.event,
                                              final_plan)
 
-                print('update', update)
+                # print('update', update)
                 # Get a new selection and request a new plan if the night is not done.
                 if not update.done:
                     _logger.debug(f'Retrieving selection for {site_name} for night {night_idx} '
@@ -309,6 +309,8 @@ class Engine:
                     # The closer to the first time slot, the more accurate, and the ordering on them will overwrite
                     # the previous values.
                     if variant_timeslot <= 0:
+                        _logger.debug(f'WeatherChange for site {site.name}, night {night_idx}, occurs before '
+                                      '0: ignoring.')
                         continue
 
                     if variant_timeslot >= morn_twi_slot:
@@ -326,7 +328,7 @@ class Engine:
                                                               variant_change=variant_snapshot)
                     self.queue.add_event(night_idx, site, weather_change_event)
 
-                # Process the unexpected closures for the night at the site.
+                # Process the unexpected closures for the night at the site -> Weather loss events
                 closure_set = scp.collector.sources.origin.resource.get_unexpected_closures(site, night_date)
                 for closure in closure_set:
                     closure_start, closure_end = closure.to_events()

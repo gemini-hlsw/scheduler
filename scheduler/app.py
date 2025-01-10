@@ -16,8 +16,8 @@ _logger.info(f"Running scheduler server version {environ['APP_VERSION']}")
 _logger.info(f"Changelog {config.app.changelog}")
 
 async def lifespan(app: FastAPI):
-  await visibility_calculator.calculate()
-  yield
+    await visibility_calculator.calculate()
+    yield
 
 app = FastAPI(lifespan=lifespan)
 
