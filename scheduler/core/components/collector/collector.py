@@ -11,7 +11,6 @@ import numpy as np
 
 from astropy.time import Time, TimeDelta
 
-from pyexplore import explore
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               Site, Target, TimeslotIndex, QAState, ObservationStatus, SiderealTarget, NonsiderealTarget,
@@ -257,8 +256,8 @@ class Collector(SchedulerComponent):
         else:
             windows = []
             for tw in obs.constraints.timing_windows:
-                t0 = time.mktime(tw.start.utctimetuple()) * 1000 * u.ms
-                begin = Time(t0.to_value('s'), format='unix', scale='utc')
+                # The start time is now already an astropy Time
+                begin = tw.start
                 duration = tw.duration.total_seconds() / 3600.0 * u.h
                 repeat = max(1, tw.repeat)
                 period = tw.period.total_seconds() / 3600.0 * u.h if tw.period is not None else 0.0 * u.h
@@ -314,7 +313,6 @@ class Collector(SchedulerComponent):
                             rem_visibility_frac=ts.rem_visibility_frac)
 
             target_info[NightIndex(night_idx)] = ti
-
         # Return all the target info for the base target in the Observation across the nights of interest.
         return target_info
 

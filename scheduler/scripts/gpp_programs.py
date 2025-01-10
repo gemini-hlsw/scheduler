@@ -10,7 +10,7 @@ import os, sys
 # sys.path.append(os.path.join(os.environ['HOME'], 'python', 'pyexplore'))
 # sys.path.append(os.path.join(os.environ['HOME'], 'python', 'scheduler'))
 # sys.path.append(os.path.join(os.environ['HOME'], 'python', 'lucupy'))
-from pyexplore import explore
+# from pyexplore import explore
 
 from scheduler.core.programprovider.gpp.gppprogramprovider import GppProgramProvider
 from scheduler.core.sources.sources import Sources
@@ -22,7 +22,9 @@ if __name__ == '__main__':
     provider = GppProgramProvider(frozenset([ObservationClass.SCIENCE]), sources)
 
     # List programs
-    programs = explore.programs()
+    # TODO change pyexplore to other api query
+    # programs = explore.programs()
+    programs = []
     progid = None
     for p in programs:
         print(f'{p.id}: {p.name}')
@@ -31,7 +33,9 @@ if __name__ == '__main__':
 
     progid = 'p-11d'
 
-    prog = explore.program(progid)
+    # TODO change pyexplore to other api query
+    # prog = explore.program(progid)
+    prog = {}
     print(f'{progid} {prog.reference}: {prog.name} {prog.pi.orcid_family_name}')
 
     # Parse into minimodel

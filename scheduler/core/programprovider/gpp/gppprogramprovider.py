@@ -10,7 +10,7 @@ from os import PathLike
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
-from pyexplore import explore
+# from pyexplore import explore
 # import numpy as np
 # from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
@@ -50,7 +50,9 @@ def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
     for program_id in program_ids:
         try:
             # Query the program data from GPP.
-            data = explore.program(program_id)
+            # TODO change pyexplore to other api query
+            data = {}
+            # data = explore.program(program_id)
             print(f"Adding program: {program_id} {data.reference.label}")
             # Pass the class information as a dictionary to mimic the OCS json format
             yield data.__dict__
@@ -62,7 +64,9 @@ def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
     """Query GPP for the programs in program_list. If not given then query GPP for all appropriate observations"""
     if program_list is None:
         # GPP query
-        obs_for_sched = explore.observations_for_scheduler(include_deleted=False)
+        # TODO change pyexplore to other api query
+        # obs_for_sched = explore.observations_for_scheduler(include_deleted=False)
+        obs_for_sched = []
         obs_progs = []
         for o in obs_for_sched:
             print(f'{o.id}: {o.program.id} {o.title} {o.active_status} {o.status} {o.science_band}')
@@ -1001,7 +1005,9 @@ class GppProgramProvider(ProgramProvider):
 
             # Atoms
             # ToDo: Perhaps add the sequence query to the original observation query
-            sequence = explore.sequence(internal_id, include_acquisition=True)
+            # TODO change pyexplore to other api query
+            # sequence = explore.sequence(internal_id, include_acquisition=True)
+            sequence = []
             atoms, obs_class = self.parse_atoms(site, sequence)
 
             # Pre-imaging
@@ -1179,7 +1185,9 @@ class GppProgramProvider(ProgramProvider):
             if element['observation']:
                 # print(f"\t element['observation']}")
                 # print(f"\t {element['observation']['id']}")
-                obs_data = explore.observation(element['observation']['id'])
+                # TODO change pyexplore to other api query
+                # obs_data = explore.observation(element['observation']['id'])
+                obs_data = []
                 obs = self.parse_observation(obs_data.__dict__, program_id=program_id, num=(0, 0),
                                              split=split, split_by_iterator=split_by_iterator)
                 if obs is not None:
@@ -1187,7 +1195,10 @@ class GppProgramProvider(ProgramProvider):
                     obs_parent_indices.append(elem_parent_index)
             elif element['group']:
                 # print(f"\t {element['group']['id']}")
-                grp_data, grp_tab = explore.group(element['group']['id'])
+                # TODO change pyexplore to other api query
+                # grp_data, grp_tab = explore.group(element['group']['id'])
+                grp_data = {}
+                grp_tab = []
                 subgroup_id = GroupID(element['group']['id'])
                 subgroup = self.parse_group(grp_data.__dict__, program_id, subgroup_id, split=split,
                                             split_by_iterator=split_by_iterator)

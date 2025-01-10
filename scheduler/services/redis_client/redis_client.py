@@ -44,13 +44,15 @@ class RedisClient(metaclass=Singleton):
             d[parts[-1]] = json.loads(value)
         return result
 
-    def get_nested_value(self, main_key: str, key: str):
-        value = self._redis_client.hget(main_key, key)
+    async def get_nested_value(self, main_key: str, key: str) -> Optional[dict]:
+        value = await self._redis_client.hget(main_key, key)
         return json.loads(value) if value else None
 
     # Function to set a nested value
-    def set_nested_value(self, main_key: str, key: str, value) -> None:
-        self._redis_client.hset(main_key, key, json.dumps(value))
+    async def set_nested_value(self, main_key: str, key: str, value) -> None:
+        await self._redis_client.hset(main_key, key, json.dumps(value))
+        result = await self._redis_client.hexists(main_key, key)
+        print(f"Field exists: {result}")
 
     async def get_whole_dict(self, main_key: str) -> Optional[dict]:
         exists = await self._redis_client.exists(main_key)
@@ -62,25 +64,23 @@ class RedisClient(metaclass=Singleton):
         else:
             return None
 
-    def set_whole_dict(self, main_key: str, nested_dict: dict, batch_size: int = 100) -> None:
+    async def set_whole_dict(self, main_key: str, nested_dict: dict, batch_size: int = 100) -> None:
         # Flatten and store the dictionary
         flat_dict = RedisClient.flatten_dict(nested_dict)
-        pipeline = self._redis_client.pipeline(transaction=False)
-
         total_items = len(flat_dict)
 
-        for i, (k, v) in enumerate(flat_dict.items(), 1):
+        async with self._redis_client.pipeline(transaction=True) as pipe:
+            for i, (k, v) in enumerate(flat_dict.items(), 1):
+                await pipe.hset(main_key, k, json.dumps(v.to_dict()))
 
-            pipeline.hset(main_key, k, json.dumps(v.to_dict()))
+                if i % batch_size == 0 or i == total_items:
+                    try:
+                        await pipe.execute()
+                        print(f"Processed {i}/{total_items} items")
+                    except RedisError as e:
+                        print(f"Error occurred at item {i}: {str(e)}")
+                        # Implement retry logic here if needed
 
-            if i % batch_size == 0 or i == total_items:
-                try:
-                    pipeline.execute()
-                    print(f"Processed {i}/{total_items} items")
-                except RedisError as e:
-                    print(f"Error occurred at item {i}: {str(e)}")
-                    # Implement retry logic here if needed
-                pipeline = self._redis_client.pipeline(transaction=False)  # Reset pipeline
 
 
 redis_client = RedisClient()

@@ -26,6 +26,8 @@ __all__ = [
     'Engine'
 ]
 
+from ..core.output import print_plans
+
 _logger = logger_factory.create_logger(__name__)
 
 
@@ -129,7 +131,7 @@ class Engine:
                         # * there is no next update scheduled; or
                         # * this update happens before the next update
                         # then set to this update.
-                        if next_update[site] is None or time_record.timeslot_idx < next_update[site].timeslot_idx:
+                        if next_update[site] is None or time_record.timeslot_idx <= next_update[site].timeslot_idx:
                             next_update[site] = time_record
                             _logger.debug(f'Next update for site {site_name} scheduled at '
                                           f'timeslot {next_update[site].timeslot_idx}')
@@ -280,6 +282,8 @@ class Engine:
         for site in sites:
             night_events = scp.collector.get_night_events(site)
             for night_idx in night_indices:
+                # this would be probably because when the last time the resource pickle was created, it was winter time
+                # or different.
                 eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
                 eve_twi = EveningTwilightEvent(site=site, time=eve_twi_time, description='Evening 12° Twilight')
                 self.queue.add_event(night_idx, site, eve_twi)
