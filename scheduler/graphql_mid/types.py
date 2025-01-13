@@ -17,6 +17,7 @@ from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantSnapshot, Co
 from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.core.eventsqueue import WeatherChangeEvent
+from scheduler.core.statscalculator import RunSummary
 from scheduler.graphql_mid.scalars import SObservationID
 from scheduler.config import config
 
@@ -38,6 +39,16 @@ class SNightStats:
                            n_toos=ns.n_toos,
                            completion_fraction=ns.completion_fraction,
                            program_completion=ns.program_completion)
+
+
+@strawberry.type
+class SRunSummary:
+    summary: JSON
+    metrics_per_band: JSON
+
+    @staticmethod
+    def from_computed_run_summary(summary: RunSummary) -> 'SRunSummary':
+        return SRunSummary(summary=summary.summary, metrics_per_band=summary.metrics_per_band)
 
 
 @strawberry.type
@@ -194,7 +205,7 @@ class SNightTimelines:
 @strawberry.type
 class NewNightPlans:
     night_plans: SNightTimelines
-    plans_summary: JSON
+    plans_summary: SRunSummary
 
 @strawberry.type
 class NightPlansError:

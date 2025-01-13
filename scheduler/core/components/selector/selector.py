@@ -495,7 +495,7 @@ class Selector(SchedulerComponent):
                 schedulable_slot_indices[night_idx] = np.array([])
         # print(f'number schedulable slots night: {len(schedulable_slot_indices[night_idx])}')
 
-        obs_scores = ranker.score_observation(program, obs)
+        obs_scores, obs_metrics = ranker.score_observation(program, obs)
         # print(f'obs_scores: {max(obs_scores[night_idx])}')
 
         # Calculate the scores for the observation across all night indices across all timeslots.
@@ -525,6 +525,7 @@ class Selector(SchedulerComponent):
             conditions_score=conditions_score,
             wind_score=wind_score,
             schedulable_slot_indices=schedulable_slot_indices,
+            metrics=obs_metrics,
             scores=scores
         )
 
@@ -619,7 +620,7 @@ class Selector(SchedulerComponent):
         }
 
         # Calculate the scores for the group across all nights across all timeslots.
-        scores = ranker.score_group(group, group_data_map)
+        scores, obs_metrics = ranker.score_group(group, group_data_map)
 
         group_info = GroupInfo(
             minimum_conditions=mrc,
@@ -628,6 +629,7 @@ class Selector(SchedulerComponent):
             conditions_score=conditions_score,
             wind_score=wind_score,
             schedulable_slot_indices=schedulable_slot_indices,
+            metrics=obs_metrics,
             scores=scores
         )
         group_data_map[group.unique_id] = GroupData(group, group_info)

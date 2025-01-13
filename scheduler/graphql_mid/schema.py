@@ -14,7 +14,7 @@ from scheduler.db.planmanager import PlanManager
 from scheduler.services.logger_factory import create_logger
 from scheduler.config import config
 
-from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, NightPlansResponse, Version)
+from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, NightPlansResponse, Version, SRunSummary)
 from .inputs import CreateNewScheduleInput
 
 
@@ -26,9 +26,9 @@ _logger = create_logger(__name__)
 def sync_schedule(params: SchedulerParameters) -> NewNightPlans:
     engine = Engine(params)
     plan_summary, timelines = engine.run()
-
     s_timelines = SNightTimelines.from_computed_timelines(timelines)
-    return NewNightPlans(night_plans=s_timelines, plans_summary=plan_summary)
+    s_plan_summary = SRunSummary.from_computed_run_summary(plan_summary)
+    return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
 
 
 active_subscriptions: Dict[str, asyncio.Queue] = {}
@@ -36,7 +36,6 @@ active_subscriptions: Dict[str, asyncio.Queue] = {}
 
 @strawberry.type
 class Query:
-    all_plans: List[SPlans] = strawberry.field(resolver=lambda: PlanManager.get_plans())
 
     @strawberry.field
     def version(self) -> Version:

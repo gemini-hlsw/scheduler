@@ -27,6 +27,7 @@ __all__ = [
 ]
 
 from ..core.output import print_plans
+from ..core.statscalculator.run_summary import RunSummary
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -349,7 +350,7 @@ class Engine:
 
         return initial_variants
 
-    def run(self) -> Tuple[Dict[str, Tuple[str, float]], NightlyTimeline]:
+    def run(self) -> Tuple[RunSummary, NightlyTimeline]:
         """
         Run sequentially for all nights.
         """
@@ -364,23 +365,8 @@ class Engine:
             for site in sorted(self.params.sites, key=lambda site: site.name):
                 self._schedule(scp, nightly_timeline, site, night_idx, initial_variants, next_update)
         # TODO: Add plan summary to nightlyTimeline
-        plan_summary = StatCalculator.calculate_timeline_stats(nightly_timeline,
-                                                               self.params.night_indices,
-                                                               self.params.sites, scp.collector)
+        run_summary = StatCalculator.calculate_timeline_stats(nightly_timeline,
+                                                              self.params.night_indices,
+                                                              self.params.sites, scp.collector)
 
-        return plan_summary, nightly_timeline
-
-    async def generate(self,
-                       scp: SCP,
-                       initial_variants: Dict[Site, Dict[NightIndex, Optional[VariantSnapshot]]],
-                       next_update: Dict[Site, Optional[TimeCoordinateRecord]]) -> Generator[NightlyTimeline, None, None]:
-        nightly_timeline = NightlyTimeline()
-
-        for night_idx in sorted(self.params.night_indices):
-            for site in sorted(self.params.sites, key=lambda site: site.name):
-                self._schedule(scp, nightly_timeline, site, night_idx, initial_variants, next_update)
-            plan_summary = StatCalculator.calculate_timeline_stats(nightly_timeline,
-                                                                   frozenset([night_idx]),
-                                                                   self.params.sites,
-                                                                   scp.collector)
-            yield nightly_timeline
+        return run_summary, nightly_timeline
