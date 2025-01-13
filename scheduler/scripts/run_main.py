@@ -102,16 +102,23 @@ def main(*,
 
         tt = o.too_type.name if o.too_type else None
         if o.too_type is not None:
+            p = collector.get_program(o.belongs_to)
             print(o.id, tt)
             print(o.status.name)
             if len(o.targets) > 1:
-                print([t.name for t in o.targets])
+                print(collector.get_target_info(o.id)[NightIndex(0)].visibility_time)
+                for t in o.targets:
+                    print(t.name)
+                    print(t.type)
+                #input()
+                print(collector._process_timing_windows(p, o)[0].iso)
             else:
                 print(o.targets[0].name)
-                print(collector.get_target_info(o.id)[NightIndex(0)].rem_visibility_frac)
+                print(collector._process_timing_windows(p,o)[0].iso)
+                print(collector.get_target_info(o.id)[NightIndex(0)].visibility_time)
+            input()
 
     input()
-
     # Create the Selector.
     _logger.info("Creating selector")
     selector_blueprint = SelectorBlueprint(

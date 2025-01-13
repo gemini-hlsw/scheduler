@@ -1,0 +1,26 @@
+GN-2018B-Q-106
+GN-2018B-Q-117
+GN-2018B-Q-132
+GN-2018B-Q-142
+GN-2018B-Q-901
+GN-2018B-Q-108
+
+GN-2018B-Q-106-28
+GN-2018B-Q-117
+GN-2018B-Q-132
+GN-2018B-Q-142
+GN-2018B-Q-901
+GN-2018B-Q-108
+
+
+Q106   obs  33, 38, 40, 43, 46, 49  None are slew immediately,  many have 72h windows
+Q107  Nothing triggered
+Q110  Nothing triggered
+Q117 Slew immediately 53
+          Slew immediately 59
+          Slew when convenient 55
+        60, 61, 62 were triggered as sToO with longer windows
+Q121  Nothing triggered
+Q132  All observe tonight when convenient: 49, 53, 61, 65, 89
+Q142  Assume when convenient: 92, 95, 96, 97, 99, 105, 123, 139, 158
+Q901 Assume when convenient: 75, 85, 95

@@ -147,7 +147,6 @@ class ToOActivationEvent(InterruptionEvent):
     Change the status of a ToO from ON_HOLD to READY.
     """
     too_id: ObservationID
-    target: Target
 
 @final
 @dataclass(frozen=True)

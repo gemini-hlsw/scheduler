@@ -219,7 +219,7 @@ class ChangeMonitor(SchedulerComponent):
                                             timeslot_idx=event_timeslot,
                                             perform_time_accounting=False)
 
-            case ToOActivationEvent(too_id=too_id, target=target):
+            case ToOActivationEvent(too_id=too_id):
 
                 # If the site is blocked, we have no reason to recalculate a plan until all blocking events
                 # are unblocked.
@@ -267,10 +267,6 @@ class ChangeMonitor(SchedulerComponent):
 
                 # Change status of an observation
                 too.status = ObservationStatus.READY
-
-                # Calculate target info
-                # TODO: This is for the time_period, the same as the rest.
-                self.collector.load_target_info_for_too(too, target)
 
                 return TimeCoordinateRecord(event=event,
                                             timeslot_idx=TimeslotIndex(event_timeslot + 1))

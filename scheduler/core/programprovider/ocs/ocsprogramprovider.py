@@ -1523,6 +1523,8 @@ class OcsProgramProvider(ProgramProvider):
                 # If the observation's ToO type is None, we set it from the program.
                 if observation.too_type is None:
                     observation.too_type = too_type
+                    if too_type is not None:
+                        observation.status = ObservationStatus.ON_HOLD
 
                 # Check compatibility between the observation's ToO type and the program's ToO type.
                 if not compatible(too_type):

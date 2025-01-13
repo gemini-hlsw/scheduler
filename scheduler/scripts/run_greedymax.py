@@ -7,4 +7,4 @@ from scheduler.core.components.ranker import RankerParameters
 if __name__ == '__main__':
     main(ranker_parameters=RankerParameters(),
          programs_ids=None,
-         verbose=False)
+         verbose=True)
