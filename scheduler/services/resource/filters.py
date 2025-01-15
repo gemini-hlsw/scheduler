@@ -5,7 +5,7 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Callable, FrozenSet, Optional, final
 
-from lucupy.minimodel import Group, Program, ProgramID, Resource, TimeAccountingCode
+from lucupy.minimodel import Group, Program, ProgramID, Resource, TimeAccountingCode, ResourceType
 
 __all__ = [
     'AbstractFilter',
@@ -84,7 +84,18 @@ class ResourcesAvailableFilter(AbstractFilter):
 
     @property
     def group_filter(self) -> Optional[GroupFilter]:
-        return lambda g: self.resources.issuperset(g.required_resources())
+        def res_filter(g: Group) -> bool:
+            instruments = g.instruments()
+            inst = None
+            if instruments is not None and len(instruments) == 1:
+                inst, = instruments
+
+            if inst is not None and "GMOS" in inst.id:
+                return self.resources.issuperset(g.required_resources())
+            else:
+                checked_resources = frozenset([r for r in g.required_resources() if r.type != ResourceType.FILTER and r.type != ResourceType.DISPERSER and r.type != ResourceType.FPU])
+                return self.resources.issuperset(checked_resources)
+        return res_filter
 
 
 @final

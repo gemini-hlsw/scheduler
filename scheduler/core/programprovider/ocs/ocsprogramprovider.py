@@ -803,7 +803,11 @@ class OcsProgramProvider(ProgramProvider):
             filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER) for filt in filters])
             resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources | filter_resources])
         else:
-            resources = instrument_resources
+            fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU) for fpu in fpus])
+            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0], resource_type=ResourceType.DISPERSER)
+                                             for disperser in dispersers])
+            filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER) for filt in filters])
+            resources = frozenset([r for r in instrument_resources | fpu_resources | disperser_resources | filter_resources])
 
         # Remove the None values.
         resources = frozenset([res for res in resources if res is not None])
