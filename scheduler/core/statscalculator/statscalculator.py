@@ -36,11 +36,6 @@ class StatCalculator:
 
 
     @staticmethod
-    def program_real_total_used(program: Program):
-        return sum((o.part_time() + o.acq_overhead + o.prog_time() for o in program.observations()),
-                   start=ZeroTime)
-
-    @staticmethod
     def calculate_timeline_stats(timeline: NightlyTimeline,
                                  nights: FrozenSet[NightIndex],
                                  sites: Sites,
@@ -160,11 +155,7 @@ class StatCalculator:
         plans_summary: Summary = {}
         for p_id in metrics_per_program:
             program = collector.get_program(p_id)
-
-            # TODO: This should be one method in Program
-            total_used = program.total_used()
-            prog_total = StatCalculator.program_real_total_used(program)
-            completion = f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'
+            completion = StatCalculator.calculate_program_completion(program)
 
             metric = metrics_per_program[p_id]
             # score = scores_per_program[p_id]
@@ -174,6 +165,6 @@ class StatCalculator:
 
     @staticmethod
     def calculate_program_completion(program: Program) -> str:
-        total_used = program.total_used()
-        prog_total = StatCalculator.program_real_total_used(program)
+        total_used = program.program_used()
+        prog_total = program.program_awarded()
         return f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'
