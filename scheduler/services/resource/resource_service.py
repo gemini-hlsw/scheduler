@@ -12,7 +12,7 @@ from lucupy.resource_manager import ResourceManager
 from definitions import ROOT_DIR
 from scheduler.services import logger_factory
 from scheduler.services.abstract import ExternalService
-from .event_generators import EngineeringTask, Fault, WeatherClosure
+from .event_generators import EngineeringTask, Fault, WeatherClosure, ToOActivation
 from .filters import AbstractFilter
 from .night_configuration import NightConfiguration
 
@@ -94,6 +94,10 @@ class ResourceService(ExternalService):
         self._faults: Dict[Site, Dict[date, Set[Fault]]] = {site: {} for site in self._sites}
         self._eng_tasks: Dict[Site, Dict[date, Set[EngineeringTask]]] = {site: {} for site in self._sites}
         self._weather_closures: Dict[Site, Dict[date, Set[WeatherClosure]]] = {site: {} for site in self._sites}
+        # TODO: This might need his own service but we are reusing the code for these while the real service
+        # TODO: is created for RT mode
+
+        self._too_activations: Dict[Site, Dict[date, Set[ToOActivation]]] = {site: {} for site in self._sites}
 
         # Determines which nights are blocked.
         self._blocked: Dict[Site, Set[date]] = {site: set() for site in self._sites}
@@ -204,6 +208,9 @@ class ResourceService(ExternalService):
 
     def get_faults(self, site: Site, night_date: date) -> FrozenSet[Fault]:
         return self._get_entries(site, night_date, "faults", self._faults)
+
+    def get_toos(self, site: Site, night_date: date) -> FrozenSet[ToOActivation]:
+        return self._get_entries(site, night_date, "toos", self._too_activations)
 
     def fpu_to_barcode(self, site: Site, fpu_name: str, instrument: str) -> Optional[Resource]:
         """

@@ -94,7 +94,7 @@ def main(*,
         blueprint=collector_blueprint,
         program_list=f_programs
     )
-
+    input()
     if verbose:
         print_collector_info(collector)
 
@@ -111,14 +111,14 @@ def main(*,
                     print(t.name)
                     print(t.type)
                 #input()
-                print(collector._process_timing_windows(p, o)[0].iso)
+                print(o.id, collector._process_timing_windows(p, o)[0].iso)
             else:
                 print(o.targets[0].name)
-                print(collector._process_timing_windows(p,o)[0].iso)
-                print(collector.get_target_info(o.id)[NightIndex(0)].visibility_time)
-            input()
+                print(o.id, collector._process_timing_windows(p,o)[0].iso)
+                #print(collector.get_target_info(o.id)[NightIndex(0)].visibility_time)
+            #input()
 
-    input()
+    # input()
     # Create the Selector.
     _logger.info("Creating selector")
     selector_blueprint = SelectorBlueprint(

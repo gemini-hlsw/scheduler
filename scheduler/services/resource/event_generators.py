@@ -6,11 +6,12 @@ from dataclasses import dataclass, field, InitVar
 from datetime import datetime
 from typing import FrozenSet, Optional
 
-from lucupy.minimodel import Resource, Site
+from lucupy.minimodel import Resource, Site, ObservationID
+from pyexplore.schema import ObservationId
 
 from scheduler.core.eventsqueue.events import (FaultEvent, FaultResolutionEvent,
                                                InterruptionEvent, InterruptionResolutionEvent,
-                                               WeatherClosureEvent, WeatherClosureResolutionEvent)
+                                               WeatherClosureEvent, WeatherClosureResolutionEvent, ToOActivationEvent)
 
 
 __all__ = [
@@ -113,3 +114,13 @@ class WeatherClosure(Interruption):
                                                                  uuid_identified=closure_event,
                                                                  site=self.site)
         return closure_event, closure_resolution_event
+
+
+@dataclass(frozen=True)
+class ToOActivation:
+    site: Site
+    too_id: ObservationID
+    start_time: datetime
+
+    def to_event(self) -> ToOActivationEvent:
+        return ToOActivationEvent(site=self.site, time=self.start_time, too_id=self.too_id, description="")

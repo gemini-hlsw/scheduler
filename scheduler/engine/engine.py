@@ -343,6 +343,12 @@ class Engine:
                     self.queue.add_event(night_idx, site, fault_start)
                     self.queue.add_event(night_idx, site, fault_end)
 
+                # Process the ToO activation for the night at the site.
+                too_set = scp.collector.sources.origin.resource.get_toos(site, night_date)
+                for too in too_set:
+                    too_event = too.to_event()
+                    self.queue.add_event(night_idx, site, too_event)
+
                 morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
                 self.queue.add_event(night_idx, site, morn_twi)
 

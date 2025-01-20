@@ -11,11 +11,12 @@ from typing import Callable, Dict, Final, List, Optional, Set, Type, TypeVar, Un
 from astropy.time import Time
 from openpyxl.reader.excel import load_workbook
 from lucupy.helpers import str_to_bool
-from lucupy.minimodel import ProgramID, Resource, Site, TimeAccountingCode, ResourceType
+from lucupy.minimodel import ProgramID, Resource, Site, TimeAccountingCode, ResourceType, ObservationID
 from lucupy.sky import night_events
+from pyexplore.schema import ObservationId
 
 from scheduler.services import logger_factory
-from .event_generators import EngineeringTask, Fault, WeatherClosure
+from .event_generators import EngineeringTask, Fault, WeatherClosure, ToOActivation
 from .filters import (LgsFilter, NothingFilter, ProgramPermissionFilter, ProgramPriorityFilter, ResourcePriorityFilter,
                       TimeAccountingCodeFilter, TooFilter)
 from .resource_service import ResourceService
@@ -576,6 +577,32 @@ class FileBasedResourceService(ResourceService):
         except FileNotFoundError:
             logger.error(f'Faults file not available: {path}')
 
+    def _load_toos(self, site:  Site, name: str) -> None:
+
+        path = self._subdir / name
+        try:
+            with open(path, 'r') as input_file:
+                too_activations = self._too_activations[site]
+                for line in input_file:
+                    too_id, too_date, too_time = line.split()
+                    print(too_date+' '+too_time)
+                    too_datetime = datetime.strptime(too_date+' '+too_time, '%Y-%m-%d %H:%M:%S.%f')
+
+                    local_datetime = too_datetime.replace(tzinfo=site.timezone)
+
+                    # Determine the night of the fault report from the local datetime.
+                    # If it is before noon, it belongs to the previous night.
+                    if local_datetime.time() < time(hour=12):
+                        night_date = local_datetime.date() - timedelta(days=1)
+                    else:
+                        night_date = local_datetime.date()
+                    too_activations.setdefault(night_date, set())
+                    too_activation = ToOActivation(site=site, too_id=ObservationID(too_id), start_time=local_datetime)
+                    too_activations[night_date].add(too_activation)
+        except FileNotFoundError:
+            logger.error(f'Too Activation file not available: {path}')
+
+
     def load_files(self,
                    site: Site,
                    fpu_to_barcodes_file: str,
@@ -585,6 +612,7 @@ class FileBasedResourceService(ResourceService):
                    eng_tasks_data: Union[str, BytesIO],
                    weather_closure_data: Union[str, BytesIO],
                    filters_data: Union[str, BytesIO],
+                   too_data: Union[str, BytesIO],
                    spreadsheet_file: str) -> None:
         """
         Load all files necessaries to the correct functioning of the ResourceManager.
@@ -638,3 +666,7 @@ class FileBasedResourceService(ResourceService):
         logger.debug(f'Reading weather closure data for {site}.')
         self._load_time_loss(site, weather_closure_data, self._weather_closures, WeatherClosure)
         logger.debug(f'Done reading weather closure data for {site}.')
+
+        logger.debug(f'Reading ToO data for {site}.')
+        self._load_toos(site, too_data)
+        logger.debug(f'Done reading ToO data for {site}.')
