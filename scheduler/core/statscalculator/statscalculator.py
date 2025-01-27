@@ -36,11 +36,6 @@ class StatCalculator:
 
 
     @staticmethod
-    def program_real_total_used(program: Program):
-        return sum((o.part_time() + o.acq_overhead + o.prog_time() for o in program.observations()),
-                   start=ZeroTime)
-
-    @staticmethod
     def calculate_timeline_stats(timeline: NightlyTimeline,
                                  nights: FrozenSet[NightIndex],
                                  sites: Sites,
@@ -102,6 +97,18 @@ class StatCalculator:
                         time_losses[StatCalculator._FAULT_KEY] = timeline_time_losses[StatCalculator._FAULT_KEY]
                         time_losses[StatCalculator._WEATHER_KEY] = timeline_time_losses[StatCalculator._WEATHER_KEY]
 
+                        for v in plan.visits:
+                            obs = collector.get_observation(v.obs_id)
+                            program = collector.get_program(obs.belongs_to)
+
+                            # Check if program is on the table
+                            metrics_per_program.setdefault(program.id, 0.0)
+                            metrics_per_band.setdefault(program.band.name, 0.0)
+
+                            # Calculate the metric in the program
+                            metrics_per_program[program.id] += sum(v.metric)
+                            metrics_per_band[program.band.name] += sum(v.metric)
+
                     time_losses[StatCalculator._UNSCHEDULE_KEY] = (plan.time_left() -
                                                                    time_losses[StatCalculator._FAULT_KEY] -
                                                                    time_losses[StatCalculator._WEATHER_KEY])
@@ -127,16 +134,7 @@ class StatCalculator:
                         # check completion
                         program = collector.get_program(obs.belongs_to)
 
-                        # scores_per_program.setdefault(program.id, 0)
-                        metrics_per_program.setdefault(program.id, 0.0)
-
-                        metrics_per_band.setdefault(program.band.name, 0.0)
-
-                        metrics_per_program[program.id] += sum(visit.metric)
-                        metrics_per_band[program.band.name] +=  sum(visit.metric)
-                        # scores_per_program[program.id] += visit.score
                         completion_fraction[program.band] += 1
-
 
                         # Calculate altitude data
                         ti = collector.get_target_info(visit.obs_id)
@@ -153,14 +151,11 @@ class StatCalculator:
                                                   completion_fraction,
                                                   program_completion)
 
+
         plans_summary: Summary = {}
         for p_id in metrics_per_program:
             program = collector.get_program(p_id)
-
-            # TODO: This should be one method in Program
-            total_used = program.total_used()
-            prog_total = StatCalculator.program_real_total_used(program)
-            completion = f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'
+            completion = StatCalculator.calculate_program_completion(program)
 
             metric = metrics_per_program[p_id]
             # score = scores_per_program[p_id]
@@ -170,6 +165,6 @@ class StatCalculator:
 
     @staticmethod
     def calculate_program_completion(program: Program) -> str:
-        total_used = program.total_used()
-        prog_total = StatCalculator.program_real_total_used(program)
+        total_used = program.program_used()
+        prog_total = program.program_awarded()
         return f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'
