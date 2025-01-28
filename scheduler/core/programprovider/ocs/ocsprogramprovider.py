@@ -422,7 +422,7 @@ class OcsProgramProvider(ProgramProvider):
                 end_date = datetime(next_year, 1, 31)
 
         # Account for the flexible boundary on programs.
-        print(f'{program_id.id}: start {start_date - Program.FUZZY_BOUNDARY}, end {end_date + Program.FUZZY_BOUNDARY}')
+        # print(f'{program_id.id}: start {start_date - Program.FUZZY_BOUNDARY}, end {end_date + Program.FUZZY_BOUNDARY}')
         return start_date - Program.FUZZY_BOUNDARY, end_date + Program.FUZZY_BOUNDARY
 
     def parse_timing_window(self, data: dict) -> TimingWindow:
@@ -803,7 +803,11 @@ class OcsProgramProvider(ProgramProvider):
             filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER) for filt in filters])
             resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources | filter_resources])
         else:
-            resources = instrument_resources
+            fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU) for fpu in fpus if fpu is not None])
+            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0] if "_" in disperser else disperser, resource_type=ResourceType.DISPERSER)
+                                             for disperser in dispersers if disperser is not None])
+            filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER) for filt in filters if filt is not None])
+            resources = frozenset([r for r in instrument_resources | fpu_resources | disperser_resources | filter_resources])
 
         # Remove the None values.
         resources = frozenset([res for res in resources if res is not None])
