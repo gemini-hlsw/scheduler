@@ -207,19 +207,16 @@ class ChangeMonitor(SchedulerComponent):
                 return TimeCoordinateRecord(event=event,
                                             timeslot_idx=TimeslotIndex(visit_end_time_slot + 1))
 
-            case InterruptionEvent():
-                self._process_blocking_event(cast(InterruptionEvent, event))
-                return TimeCoordinateRecord(event=event,
-                                            timeslot_idx=event_timeslot)
-
-            case InterruptionResolutionEvent():
-                # There is no plan if there is a block, so we do not perform time accounting in this case.
-                self._process_blocking_resolution_event(cast(InterruptionResolutionEvent, event))
-                return TimeCoordinateRecord(event=event,
-                                            timeslot_idx=event_timeslot,
-                                            perform_time_accounting=False)
-
             case ToOActivationEvent(too_id=too_id):
+
+                # We want to switch the status of the observation regardless of what is happening next
+                too = self.collector.get_observation(too_id)
+
+                # Check that only Rapid and Standard ToOs are updated
+                if too.too_type != TooType.RAPID and too.too_type != TooType.STANDARD:
+                    raise ValueError(f'ToO {too_id} is not RAPID or STANDARD is {too.too_type.name}.')
+
+                too.status = ObservationStatus.READY
 
                 # If the site is blocked, we have no reason to recalculate a plan until all blocking events
                 # are unblocked.
@@ -228,7 +225,7 @@ class ChangeMonitor(SchedulerComponent):
                         return None
                     raise ValueError(f'No plans have been created for night {night_idx}.')
 
-                # Check if there is a visit running now. If there is not anything
+                # Check if there is a visit running now.
                 plan = plans[site]
                 if plan is None:
                     return TimeCoordinateRecord(event=event,
@@ -247,9 +244,6 @@ class ChangeMonitor(SchedulerComponent):
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
-                # Otherwise, we are in the middle of a visit and interrupt it.
-                remaining_time_slots = visit_end_time_slot - event_timeslot + 1
-
                 past_obs = self.collector.get_observation(visit.obs_id)
                 program = self.collector.get_program(past_obs.belongs_to)
 
@@ -259,17 +253,20 @@ class ChangeMonitor(SchedulerComponent):
                                                 timeslot_idx=event_timeslot)
 
                 # Otherwise put everything after the visit and do not interrupt.
-                too = self.collector.get_observation(too_id)
-
-                # Check that only Rapid ToOs are updated
-                if too.too_type is not TooType.RAPID or too.too_type is not TooType.STANDARD:
-                    raise ValueError(f'ToO {too_id} is not RAPID.')
-
-                # Change status of an observation
-                too.status = ObservationStatus.READY
-
                 return TimeCoordinateRecord(event=event,
                                             timeslot_idx=TimeslotIndex(event_timeslot + 1))
+
+            case InterruptionEvent():
+                self._process_blocking_event(cast(InterruptionEvent, event))
+                return TimeCoordinateRecord(event=event,
+                                            timeslot_idx=event_timeslot)
+
+            case InterruptionResolutionEvent():
+                # There is no plan if there is a block, so we do not perform time accounting in this case.
+                self._process_blocking_resolution_event(cast(InterruptionResolutionEvent, event))
+                return TimeCoordinateRecord(event=event,
+                                            timeslot_idx=event_timeslot,
+                                            perform_time_accounting=False)
 
             # For now, for all other events, just recalculate immediately.
             case _:

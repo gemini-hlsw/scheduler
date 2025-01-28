@@ -123,4 +123,7 @@ class ToOActivation:
     start_time: datetime
 
     def to_event(self) -> ToOActivationEvent:
-        return ToOActivationEvent(site=self.site, time=self.start_time, too_id=self.too_id, description="")
+        return ToOActivationEvent(site=self.site,
+                                  time=self.start_time,
+                                  too_id=self.too_id,
+                                  description=f'Activation for {self.too_id.id}')

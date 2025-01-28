@@ -70,7 +70,6 @@ class StatCalculator:
 
                 # Unsolved interruptions for the night
                 for e in interruptions:
-                    print('event never finished:', e.description)
                     if isinstance(e, FaultEvent):
                         time_loss = timeline.timeline[night_idx][site][-1].event.time - e.time
                         timeline_time_losses[StatCalculator._FAULT_KEY] += int(time_loss.total_seconds() / 60)

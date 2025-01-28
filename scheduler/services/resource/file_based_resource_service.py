@@ -585,20 +585,49 @@ class FileBasedResourceService(ResourceService):
                 too_activations = self._too_activations[site]
                 for line in input_file:
                     too_id, too_date, too_time = line.split()
-                    print(too_date+' '+too_time)
                     too_datetime = datetime.strptime(too_date+' '+too_time, '%Y-%m-%d %H:%M:%S.%f')
 
+                    local_night_date = too_datetime.date()
                     local_datetime = too_datetime.replace(tzinfo=site.timezone)
 
-                    # Determine the night of the fault report from the local datetime.
+                    # Twilight for events happening before or after
+                    new_ut_time = time(14, 0)
+                    astropy_time = Time(datetime.combine(local_night_date, new_ut_time).astimezone(site.timezone))
+
+                    # Get the twilights and localize them.
+                    print('astropy_time', astropy_time)
+
+                    eve_twi, morn_twi = night_events(astropy_time, site.location, site.timezone)[3:5]
+                    eve_twi = eve_twi.to_datetime(site.timezone)
+                    morn_twi = morn_twi.to_datetime(site.timezone)
+                    print("eve: ", eve_twi, "morni: ", morn_twi)
+
                     # If it is before noon, it belongs to the previous night.
                     if local_datetime.time() < time(hour=12):
                         night_date = local_datetime.date() - timedelta(days=1)
                     else:
                         night_date = local_datetime.date()
+
+                    # if is before the morning twilight it belongs to the next night
+                    if local_datetime > morn_twi:
+                        # belongs to the next day
+                        night_date = local_datetime.date() + timedelta(days=1)
+                        # and local_date time is the twi for that date
+                        new_ut_time = time(14, 0)
+                        astropy_time = Time(datetime.combine(night_date+timedelta(days=1), new_ut_time).astimezone(site.timezone))
+
+                        eve_twi, morn_twi = night_events(astropy_time, site.location, site.timezone)[3:5]
+                        local_datetime = eve_twi.to_datetime(site.timezone) + timedelta(seconds=25) # small offset
+
+                    print('night_date', night_date)
                     too_activations.setdefault(night_date, set())
+                    print("local ", local_datetime)
+
+
                     too_activation = ToOActivation(site=site, too_id=ObservationID(too_id), start_time=local_datetime)
                     too_activations[night_date].add(too_activation)
+
+                input()
         except FileNotFoundError:
             logger.error(f'Too Activation file not available: {path}')
 
