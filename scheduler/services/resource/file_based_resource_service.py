@@ -614,7 +614,6 @@ class FileBasedResourceService(ResourceService):
                     too_activation = ToOActivation(site=site, too_id=ObservationID(too_id), start_time=local_datetime)
                     too_activations[night_date].add(too_activation)
 
-                input()
         except FileNotFoundError:
             logger.error(f'Too Activation file not available: {path}')
 
