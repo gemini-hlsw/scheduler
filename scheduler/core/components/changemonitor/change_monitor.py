@@ -211,6 +211,8 @@ class ChangeMonitor(SchedulerComponent):
 
                 # We want to switch the status of the observation regardless of what is happening next
                 too = self.collector.get_observation(too_id)
+                if too is None:
+                    raise ValueError(f'Too_id {too_id} does not exist.')
 
                 # Check that only Rapid and Standard ToOs are updated
                 if too.too_type != TooType.RAPID and too.too_type != TooType.STANDARD:

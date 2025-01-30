@@ -39,8 +39,6 @@ class SCP:
                                          starting_time_slots={site: {night_idx: current_timeslot
                                                                      for night_idx in night_indices}},
                                          ranker=ranker)
-        print(night_indices, current_timeslot)
-        print([k.id for k in selection.schedulable_groups.keys()])
         # Right now the optimizer generates List[Plans], a list of plans indexed by
         # every night in the selection. We only want the first one, which corresponds
         # to the current night index we are looping over.
