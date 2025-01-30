@@ -13,7 +13,6 @@ from openpyxl.reader.excel import load_workbook
 from lucupy.helpers import str_to_bool
 from lucupy.minimodel import ProgramID, Resource, Site, TimeAccountingCode, ResourceType, ObservationID
 from lucupy.sky import night_events
-from pyexplore.schema import ObservationId
 
 from scheduler.services import logger_factory
 from .event_generators import EngineeringTask, Fault, WeatherClosure, ToOActivation
