@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import FrozenSet, Optional
 
 from lucupy.minimodel import Resource, Site, ObservationID
-from pyexplore.schema import ObservationId
 
 from scheduler.core.eventsqueue.events import (FaultEvent, FaultResolutionEvent,
                                                InterruptionEvent, InterruptionResolutionEvent,
