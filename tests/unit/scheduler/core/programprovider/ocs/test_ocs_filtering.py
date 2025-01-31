@@ -21,16 +21,18 @@ def programs(obs_classes: FrozenSet[ObservationClass]) -> List[Program]:
     sources = Sources()
     program_provider = OcsProgramProvider(obs_classes, sources)
     program_data = ocs_program_data()
-    return [program_provider.parse_program(data['PROGRAM_BASIC']) for data in program_data]
+    return [program_provider.parse_program(data['PROGRAM_BASIC']) for data in program_data if data is not None]
 
 
 def test_obsclass_filtering(programs: List[Program], obs_classes: FrozenSet[ObservationClass]):
     for program in programs:
+        print(program.id, program.root_group is not None)
         for observation in program.root_group.observations():
             assert observation.obs_class in obs_classes
 
 
 def test_inactive_filtering(programs: List[Program]):
     for program in programs:
+        # print(program)
         for observation in program.root_group.observations():
             assert observation.active

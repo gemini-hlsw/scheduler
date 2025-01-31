@@ -113,6 +113,7 @@ class OcsProgramProvider(ProgramProvider):
 
     # Note that we want to include OBSERVED observations here since this is legacy data, so most if not all observations
     # should be marked OBSERVED and we will reset this later to READY.
+    # Let's add on hold for ToOS
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING, ObservationStatus.OBSERVED})
 
     # We contain private classes with static members for the keys in the associative
@@ -1053,6 +1054,7 @@ class OcsProgramProvider(ProgramProvider):
 
         try:
             active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
+            print(data[OcsProgramProvider._ObsKeys.PHASE2])
             if not active:
                 logger.warning(f"Observation {obs_id} is inactive (skipping).")
                 return None
@@ -1073,6 +1075,7 @@ class OcsProgramProvider(ProgramProvider):
 
             # If the status is not legal, terminate parsing.
             if status not in OcsProgramProvider._OBSERVATION_STATUSES:
+                logger.warning(f'Observation {obs_id} status: {status} is not in the valid group.')
                 return None
 
             setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
@@ -1214,6 +1217,7 @@ class OcsProgramProvider(ProgramProvider):
         except Exception as ex:
             logger.error(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
 
+        print('FALLLLOOO')
         return None
 
     def parse_time_allocation(self, data: dict, band: Band = None) -> TimeAllocation:
@@ -1341,6 +1345,8 @@ class OcsProgramProvider(ProgramProvider):
                                          split=split, split_by_iterator=split_by_iterator)
             if obs is not None:
                 observations.append(obs)
+
+        print('len observations', len(observations))
 
         # Put all the observations in trivial AND groups and extend the children to include them.
         trivial_groups = [
@@ -1523,8 +1529,6 @@ class OcsProgramProvider(ProgramProvider):
                 # If the observation's ToO type is None, we set it from the program.
                 if observation.too_type is None:
                     observation.too_type = too_type
-                    if too_type is not None:
-                        observation.status = ObservationStatus.ON_HOLD
 
                 # Check compatibility between the observation's ToO type and the program's ToO type.
                 if not compatible(too_type):
