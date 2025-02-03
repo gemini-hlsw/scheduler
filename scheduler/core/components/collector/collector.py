@@ -601,11 +601,3 @@ class Collector(SchedulerComponent):
                         # print(f'\t Setting {obs.unique_id.id} to INACTIVE.')
                         logger.debug(f'\tTime_accounting setting {obs.unique_id.id} to INACTIVE.')
                         obs.status = ObservationStatus.INACTIVE
-
-    def update_toos(self, plans: Plans):
-
-        # Get a list of ToOs that are Ready
-        ready_toos = [o for o in self.get_all_observations() if o.too_type is TooType.RAPID]
-
-        []
-

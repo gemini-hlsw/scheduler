@@ -11,8 +11,6 @@ from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
 import numpy as np
-from celery.utils.time import utcoffset
-from fastapi import UploadFile
 from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
@@ -1344,8 +1342,6 @@ class OcsProgramProvider(ProgramProvider):
                                          split=split, split_by_iterator=split_by_iterator)
             if obs is not None:
                 observations.append(obs)
-
-        print('len observations', len(observations))
 
         # Put all the observations in trivial AND groups and extend the children to include them.
         trivial_groups = [

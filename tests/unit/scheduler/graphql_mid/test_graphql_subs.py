@@ -12,8 +12,8 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
     query = """
             query Schedule {
                 schedule(scheduleId: "1", 
-                         newScheduleInput: {startTime: "2018-10-01 08:00:00",
-                                            endTime: "2018-10-04 08:00:00"
+                         newScheduleInput: {startTime: "2018-10-21 08:00:00",
+                                            endTime: "2018-10-24 08:00:00"
                                             sites: "GN", 
                                             mode: VALIDATION,
                                             semesterVisibility:false,
@@ -70,9 +70,7 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
         # Check return without errors
         assert not result.errors, 'Subscription returned with errors'
         # Check the correct number of nights.
-        print([result.data["queueSchedule"]])
         n_nights = len(result.data["queueSchedule"]["nightPlans"]["nightTimeline"])
-        print('Result night timeline: ', result.data["queueSchedule"]["nightPlans"]["nightTimeline"])
         assert n_nights == 1, f'Number of nights must be 1, but got {n_nights}'
         # Check plan summary is being calculated.
         assert result.data["queueSchedule"]["plansSummary"] is not None, 'Plans summary is not being calculated'
