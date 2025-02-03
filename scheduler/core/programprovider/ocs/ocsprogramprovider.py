@@ -1054,11 +1054,10 @@ class OcsProgramProvider(ProgramProvider):
 
         try:
             active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
-            print(data[OcsProgramProvider._ObsKeys.PHASE2])
+
             if not active:
                 logger.warning(f"Observation {obs_id} is inactive (skipping).")
                 return None
-
             obs_class = ObservationClass[data[OcsProgramProvider._ObsKeys.OBS_CLASS].upper()]
             if obs_class not in self._obs_classes or not active:
                 logger.warning(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
