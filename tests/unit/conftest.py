@@ -8,6 +8,7 @@ from lucupy.minimodel import ALL_SITES, NightIndex, Semester, SemesterHalf
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
+from scheduler.graphql_mid.server import schema
 from scheduler.core.builder.blueprint import CollectorBlueprint
 from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.sources.sources import Sources
@@ -54,3 +55,8 @@ def scheduler_collector():
 @pytest.fixture(scope="session")
 def set_observatory_properties():
     ObservatoryProperties.set_properties(GeminiProperties)
+
+
+@pytest.fixture(scope="session")
+def scheduler_schema():
+    return schema

@@ -94,7 +94,6 @@ class Subscription:
             active_subscriptions[schedule_id] = queue
         else:
             queue = active_subscriptions[schedule_id]
-
         try:
             while True:
                 try:
