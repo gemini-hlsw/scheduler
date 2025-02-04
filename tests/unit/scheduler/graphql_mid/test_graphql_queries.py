@@ -7,15 +7,15 @@ import pytest
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
-from scheduler.graphql_mid.server import schema
+
 
 
 @pytest.mark.asyncio
-async def test_schedule_query_required_only(set_observatory_properties):
+async def test_schedule_query_required_only(set_observatory_properties, scheduler_schema):
 
     query = """
         query Schedule {
-            schedule(scheduleId: "1", 
+            schedule(scheduleId: "0", 
                      newScheduleInput: {startTime: "2018-10-01 08:00:00",
                                         endTime: "2018-10-03 08:00:00"
                                         sites: "GN", 
@@ -24,15 +24,15 @@ async def test_schedule_query_required_only(set_observatory_properties):
                                         numNightsToSchedule:1})
         }
     """
-    result = await schema.execute(query)
+    result = await scheduler_schema.execute(query)
     assert result.errors is None
 
 
 @pytest.mark.asyncio
-async def test_schedule_query_with_all(set_observatory_properties):
+async def test_schedule_query_with_all(set_observatory_properties, scheduler_schema):
     query = """
         query Schedule($programFile: [String!]) {
-            schedule(scheduleId: "1", 
+            schedule(scheduleId: "2", 
                      newScheduleInput: {startTime: "2018-10-01 08:00:00",
                                         endTime: "2018-10-03 08:00:00"
                                         sites: "GN", 
@@ -53,15 +53,15 @@ async def test_schedule_query_with_all(set_observatory_properties):
     program_list = []
     variables = {"file": program_list}
 
-    result = await schema.execute(query, variable_values=variables)
+    result = await scheduler_schema.execute(query, variable_values=variables)
     assert result.errors is None
 
 
 @pytest.mark.asyncio
-async def test_schedule_query_with_empty_file(set_observatory_properties):
+async def test_schedule_query_with_empty_file(set_observatory_properties, scheduler_schema):
     query = """
         query Schedule($programFile: [String!]) {
-            schedule(scheduleId: "1", 
+            schedule(scheduleId: "3", 
                      newScheduleInput: {startTime: "2018-10-01 08:00:00",
                                         endTime: "2018-10-03 08:00:00"
                                         sites: "GN", 
@@ -77,16 +77,16 @@ async def test_schedule_query_with_empty_file(set_observatory_properties):
     program_list = []
     variables = {"file": program_list}
 
-    result = await schema.execute(query, variable_values=variables)
+    result = await scheduler_schema.execute(query, variable_values=variables)
     assert result.errors is None
 
 
 @pytest.mark.asyncio
-async def test_schedule_query_with_wrong_parameters(set_observatory_properties):
+async def test_schedule_query_with_wrong_parameters(set_observatory_properties, scheduler_schema):
 
     query = """
         query Schedule {
-            schedule(scheduleId: "1", 
+            schedule(scheduleId: "4", 
                      newScheduleInput: {startTime: "2018-10-01 08:00:00",
                                         endTime: "2018-10-03 08:00:00"
                                         sites: "GN", 
@@ -101,5 +101,5 @@ async def test_schedule_query_with_wrong_parameters(set_observatory_properties):
         }
     """
 
-    result = await schema.execute(query)
+    result = await scheduler_schema.execute(query)
     assert result.data is None

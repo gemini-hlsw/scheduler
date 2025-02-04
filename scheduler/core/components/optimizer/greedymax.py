@@ -880,7 +880,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
         visit_score = sum(max_group_info.group_data.group_info.scores[night_idx][start_time_slot:end_time_slot + 1])
         peak_score = max(max_group_info.group_data.group_info.scores[night_idx][start_time_slot:end_time_slot + 1])
         program_metric = max_group_info.group_data.group_info.metrics[night_idx]
-        print('program_metric:', program_metric)
 
         self.obs_in_plan[site][start_time_slot] = ObsPlanData(
             obs=obs,

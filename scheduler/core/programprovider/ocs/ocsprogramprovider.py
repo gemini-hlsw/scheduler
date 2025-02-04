@@ -11,8 +11,6 @@ from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
 import numpy as np
-from celery.utils.time import utcoffset
-from fastapi import UploadFile
 from lucupy.helpers import dmsstr2deg
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
@@ -113,6 +111,7 @@ class OcsProgramProvider(ProgramProvider):
 
     # Note that we want to include OBSERVED observations here since this is legacy data, so most if not all observations
     # should be marked OBSERVED and we will reset this later to READY.
+    # Let's add on hold for ToOS
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING, ObservationStatus.OBSERVED})
 
     # We contain private classes with static members for the keys in the associative
@@ -1053,10 +1052,10 @@ class OcsProgramProvider(ProgramProvider):
 
         try:
             active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
+
             if not active:
                 logger.warning(f"Observation {obs_id} is inactive (skipping).")
                 return None
-
             obs_class = ObservationClass[data[OcsProgramProvider._ObsKeys.OBS_CLASS].upper()]
             if obs_class not in self._obs_classes or not active:
                 logger.warning(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
@@ -1073,6 +1072,7 @@ class OcsProgramProvider(ProgramProvider):
 
             # If the status is not legal, terminate parsing.
             if status not in OcsProgramProvider._OBSERVATION_STATUSES:
+                logger.warning(f'Observation {obs_id} status: {status} is not in the valid group.')
                 return None
 
             setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
@@ -1214,6 +1214,7 @@ class OcsProgramProvider(ProgramProvider):
         except Exception as ex:
             logger.error(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
 
+        print('FALLLLOOO')
         return None
 
     def parse_time_allocation(self, data: dict, band: Band = None) -> TimeAllocation:

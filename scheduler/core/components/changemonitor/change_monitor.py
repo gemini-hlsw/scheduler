@@ -6,14 +6,14 @@ from dataclasses import dataclass, field
 from typing import cast, final, Dict, Optional, Set
 
 import numpy as np
-from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex
+from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex, ObservationStatus, TooType, Band
 
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.selector import Selector
 from scheduler.core.eventsqueue import (Event, EveningTwilightEvent, InterruptionEvent, InterruptionResolutionEvent,
-                                        MorningTwilightEvent, WeatherChangeEvent)
-from scheduler.core.plans import Plans
+                                        MorningTwilightEvent, WeatherChangeEvent, ToOActivationEvent)
+from scheduler.core.plans import Plans, Visit, Plan
 from scheduler.services.logger_factory import create_logger
 from .time_coordinate_record import TimeCoordinateRecord
 
@@ -21,6 +21,7 @@ from .time_coordinate_record import TimeCoordinateRecord
 __all__ = [
     'ChangeMonitor',
 ]
+
 
 _logger = create_logger(__name__)
 
@@ -76,6 +77,16 @@ class ChangeMonitor(SchedulerComponent):
 
     def is_site_blocked(self, site: Site) -> bool:
         return len(self._blocking_event_sets[site]) > 0
+
+    @staticmethod
+    def is_interrupting_visit(plan: Plan, event_timeslot: TimeslotIndex) -> Optional[Visit]:
+        # Check if there is a visit in the middle of the event and return such Visit if not return None.
+        # Sort the visits by start time and find the one (if any) that happens just before this event.
+        sorted_visits = sorted(plan.visits, key=lambda v: v.start_time_slot)
+        visit_idx = bisect.bisect_right([v.start_time_slot for v in sorted_visits], event_timeslot) - 1
+        visit = None if visit_idx < 0 else sorted_visits[visit_idx]
+        return visit
+
 
     def process_event(self,
                       site: Site,
@@ -150,10 +161,7 @@ class ChangeMonitor(SchedulerComponent):
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
-                # Sort the visits by start time and find the one (if any) that happens just before this event.
-                sorted_visits = sorted(plan.visits, key=lambda v: v.start_time_slot)
-                visit_idx = bisect.bisect_right([v.start_time_slot for v in sorted_visits], event_timeslot) - 1
-                visit = None if visit_idx < 0 else sorted_visits[visit_idx]
+                visit = self.is_interrupting_visit(plan, event_timeslot)
 
                 # If there are no visits in progress, then recalculate now.
                 if visit is None:
@@ -198,6 +206,57 @@ class ChangeMonitor(SchedulerComponent):
                 # Otherwise, we can finish the observation. Start the weather change at time slot after the visit ends.
                 return TimeCoordinateRecord(event=event,
                                             timeslot_idx=TimeslotIndex(visit_end_time_slot + 1))
+
+            case ToOActivationEvent(too_id=too_id):
+
+                # We want to switch the status of the observation regardless of what is happening next
+                too = self.collector.get_observation(too_id)
+                if too is None:
+                    raise ValueError(f'Too_id {too_id} does not exist.')
+
+                # Check that only Rapid and Standard ToOs are updated
+                if too.too_type != TooType.RAPID and too.too_type != TooType.STANDARD:
+                    raise ValueError(f'ToO {too_id} is not RAPID or STANDARD is {too.too_type.name}.')
+
+                too.status = ObservationStatus.READY
+
+                # If the site is blocked, we have no reason to recalculate a plan until all blocking events
+                # are unblocked.
+                if plans is None:
+                    if self.is_site_blocked(site):
+                        return None
+                    raise ValueError(f'No plans have been created for night {night_idx}.')
+
+                # Check if there is a visit running now.
+                plan = plans[site]
+                if plan is None:
+                    return TimeCoordinateRecord(event=event,
+                                                timeslot_idx=event_timeslot)
+
+                visit = self.is_interrupting_visit(plan, event_timeslot)
+
+                # If there are no visits in progress, then recalculate now.
+                if visit is None:
+                    return TimeCoordinateRecord(event=event,
+                                                timeslot_idx=event_timeslot)
+
+                # Check if event occurs after the calculated visit is already over. If so, recalculate now.
+                visit_end_time_slot = visit.start_time_slot + visit.time_slots - 1
+                if visit_end_time_slot < event_timeslot:
+                    return TimeCoordinateRecord(event=event,
+                                                timeslot_idx=event_timeslot)
+
+                past_obs = self.collector.get_observation(visit.obs_id)
+                program = self.collector.get_program(past_obs.belongs_to)
+
+                # If the visit we are interrupting is Band4, interrupt the visit.
+                if program.band is Band.BAND4:
+                    return TimeCoordinateRecord(event=event,
+                                                timeslot_idx=event_timeslot)
+
+                # Otherwise put everything after the visit and do not interrupt.
+                return TimeCoordinateRecord(event=event,
+                                            timeslot_idx=TimeslotIndex(event_timeslot + 1))
 
             case InterruptionEvent():
                 self._process_blocking_event(cast(InterruptionEvent, event))

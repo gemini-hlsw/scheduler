@@ -407,7 +407,7 @@ class Selector(SchedulerComponent):
             raise ValueError(f'Non-observation group {group.id} cannot be treated as observation group.')
 
         obs = group.children
-        if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.INACTIVE}:
+        if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.INACTIVE, ObservationStatus.ON_HOLD}:
             logger.debug(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
             return group_data_map
 

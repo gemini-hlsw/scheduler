@@ -101,11 +101,14 @@ class Engine:
 
                     # TODO: Check this over to make sure if there is an event now, it is processed.
                     # If we don't know the next event timeslot, set it.
+
                     if next_event_timeslot is None:
                         next_event_timeslot = top_event_timeslot
                         next_event = top_event
 
                     if current_timeslot > next_event_timeslot:
+                        # Things happening after the EveTwilight fall here as the current_timeslot start at 0.
+                        # We could handle stuff
                         _logger.warning(f'Received event for {site_name} for night idx {night_idx} at timeslot '
                                         f'{next_event_timeslot} < current time slot {current_timeslot}.')
 
@@ -126,7 +129,6 @@ class Engine:
                     # If there is a next update planned, then take it if it happens before the next update.
                     # Process the event to find out if we should recalculate the plan based on it and when.
                     time_record = self.change_monitor.process_event(site, top_event, plans, night_idx)
-
                     if time_record is not None:
                         # In the case that:
                         # * there is no next update scheduled; or
@@ -178,7 +180,6 @@ class Engine:
                                              update.event,
                                              final_plan)
 
-                # print('update', update)
                 # Get a new selection and request a new plan if the night is not done.
                 if not update.done:
                     _logger.debug(f'Retrieving selection for {site_name} for night {night_idx} '
@@ -342,6 +343,13 @@ class Engine:
                     fault_start, fault_end = fault.to_events()
                     self.queue.add_event(night_idx, site, fault_start)
                     self.queue.add_event(night_idx, site, fault_end)
+
+                # Process the ToO activation for the night at the site.
+
+                too_set = scp.collector.sources.origin.resource.get_toos(site, night_date)
+                for too in too_set:
+                    too_event = too.to_event()
+                    self.queue.add_event(night_idx, site, too_event)
 
                 morn_twi = MorningTwilightEvent(site=site, time=morn_twi_time, description='Morning 12° Twilight')
                 self.queue.add_event(night_idx, site, morn_twi)

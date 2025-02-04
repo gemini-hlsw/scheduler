@@ -57,6 +57,7 @@ class OcsResourceService(FileBasedResourceService):
                             f'G{suffix}_engtasks.txt',
                             f'G{suffix}_weather_loss.txt',
                             f'GMOS{suffix}_filters.txt',
+                            f'G{suffix}_toos.txt',
                             OcsResourceService._TEL_CALENDAR_FILE)
 
         # TODO: Remove this after discussion with science.

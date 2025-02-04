@@ -68,6 +68,9 @@ class ValidationBuilder(SchedulerBuilder):
             if o.status in obs_statuses_to_ready:
                 o.status = ObservationStatus.READY
 
+            if o.too_type is not None:
+                o.status = ObservationStatus.ON_HOLD
+
     @staticmethod
     def reset_collector_observations(collector: Collector) -> None:
         """

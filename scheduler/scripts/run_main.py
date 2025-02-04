@@ -94,7 +94,6 @@ def main(*,
         blueprint=collector_blueprint,
         program_list=f_programs
     )
-
     if verbose:
         print_collector_info(collector)
 
