@@ -11,7 +11,7 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
 
     query = """
             query Schedule {
-                schedule(scheduleId: "1", 
+                schedule(scheduleId: "10", 
                          newScheduleInput: {startTime: "2018-10-21 08:00:00",
                                             endTime: "2018-10-24 08:00:00"
                                             sites: "GN", 
@@ -22,7 +22,7 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
     """
     sub = """
     subscription QueueSchedule {
-      queueSchedule(scheduleId: "1") {
+      queueSchedule(scheduleId: "10") {
         __typename
         ... on NewNightPlans {
           nightPlans {
@@ -64,7 +64,7 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
     }
     """
     sub_response = await schema.subscribe(sub)
-    result = await schema.execute(query)
+    _ = await schema.execute(query)
 
     async for result in sub_response:
         # Check return without errors
@@ -75,7 +75,10 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
         # Check plan summary is being calculated.
         assert result.data["queueSchedule"]["plansSummary"] is not None, 'Plans summary is not being calculated'
         # Check plan summary does not bring empty values
+        print(result.data["queueSchedule"]["nightPlans"]["nightTimeline"])
+        print(result.data["queueSchedule"]["plansSummary"]['summary'])
         assert any(v[0] != '0%' for v in result.data["queueSchedule"]["plansSummary"]['summary'].values()), 'Plan summary is calculating empty programs'
+
         # Check that only one site is returned
         timeline = result.data["queueSchedule"]["nightPlans"]["nightTimeline"]
         assert any(len(night["timeEntriesBySite"]) == 1 for night in timeline), 'More than one site is returned'
