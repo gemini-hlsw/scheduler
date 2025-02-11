@@ -62,7 +62,7 @@ $ conda activate scheduler
 To run the scheduler as a standalone script, execute:
 
 ```shell
-$ python scheduler/scripts/run_greedymax.py
+$ python scheduler/scripts/run.py
 ```
 
 If you have performed the installation correctly, you should see logging messages, and an output of a plan, followed
