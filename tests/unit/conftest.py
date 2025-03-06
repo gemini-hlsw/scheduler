@@ -45,7 +45,6 @@ def scheduler_collector():
         num_of_nights=num_nights_to_schedule,
         sites=sites,
         semesters=semesters,
-        with_redis=True,
         blueprint=collector_blueprint
     )
 
