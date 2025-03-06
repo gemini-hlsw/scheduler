@@ -23,6 +23,8 @@ from scheduler.services.resource import NightConfiguration
 from .snapshot import VisibilitySnapshot, TargetSnapshot
 from scheduler.core.meta import Singleton
 
+from scheduler.config import config
+
 _logger = create_logger(__name__)
 
 __all__ = [
@@ -152,12 +154,11 @@ class VisibilityCalculator(metaclass=Singleton):
                                                           Semester(2019, SemesterHalf('A')),
                                                           Semester(2019, SemesterHalf('B'))])
 
-    def __init__(self, with_redis: bool = True):
+    def __init__(self):
         self.vis_table: Optional[TargetVisibilityTable] = None
-        self.with_redis = with_redis
 
     async def calculate(self) -> None:
-        if self.with_redis:
+        if config.collector.with_redis:
             all_semesters_vis_table = {}
             for semester in VisibilityCalculator._SEMESTERS:
                 main_key = f"{semester}-{config.collector.time_slot_length}min"
@@ -167,13 +168,14 @@ class VisibilityCalculator(metaclass=Singleton):
                     all_semesters_vis_table[semester] = semester_vis_table
                     _logger.info(f'Visibility calcs for {semester} from Redis retrieved.')
 
+            self.vis_table = TargetVisibilityTable(all_semesters_vis_table)
+
         else:
             # fill the table manually. see fill_redis code.
-            raise NotImplementedError('Manual population not yet available')
+            _logger.info("Visibility information will be calculated on runtime in the collector service.")
 
-        self.vis_table = TargetVisibilityTable(all_semesters_vis_table)
 
-    def get_target_visibility(self, obs: Observation, time_period: Time, semesters: FrozenSet[Semester]):
+    def get_target_visibility(self, obs: Observation, time_period: Time, semesters: FrozenSet[Semester], tv: Dict[str, VisibilitySnapshot]):
         """Given a time period it calculates the target visibility for that period"""
 
         sem, = semesters  # This forces us to do plans to max one semester.
@@ -187,7 +189,7 @@ class VisibilityCalculator(metaclass=Singleton):
             # Convert to the actual time grid index.
             night_idx = NightIndex(len(time_period) - ridx - 1)
             day = str(int(jday.jd))
-            visibility_snapshot = VisibilitySnapshot.from_dict(self.vis_table.get(sem, obs.id, day))
+            visibility_snapshot = tv[day] if tv is not None else VisibilitySnapshot.from_dict(self.vis_table.get(sem, obs.id, day))
 
             rem_visibility_time += visibility_snapshot.visibility_time
             if rem_visibility_time.value:

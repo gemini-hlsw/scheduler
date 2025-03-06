@@ -44,6 +44,16 @@ class RedisClient(metaclass=Singleton):
             d[parts[-1]] = json.loads(value)
         return result
 
+    @staticmethod
+    def transform_to_json(vis_table):
+        # Transform to json, TargetVisibilityTable -> JSON
+        flat_dict = RedisClient.flatten_dict(vis_table)
+        pipeline = dict(flat_dict)
+
+        for i, (k, v) in enumerate(flat_dict.items(), 1):
+            pipeline[k] = json.dumps(v.to_dict())
+        return RedisClient.unflatten_dict(pipeline)
+
     async def get_nested_value(self, main_key: str, key: str) -> Optional[dict]:
         value = await self._redis_client.hget(main_key, key)
         return json.loads(value) if value else None
