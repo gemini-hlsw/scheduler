@@ -1233,7 +1233,7 @@ class OcsProgramProvider(ProgramProvider):
             band=band)
 
     @staticmethod
-    def parse_time_used(data: dict) -> TimeUsed:
+    def parse_time_used(data: dict, band: Band=None) -> TimeUsed:
         """Previously used/charged time"""
         # There is a problem with the used times in the json data, duplicated for each partner
         # program_used = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.USED_PROG_TIME])
@@ -1242,12 +1242,12 @@ class OcsProgramProvider(ProgramProvider):
         program_used = ZeroTime
         partner_used = ZeroTime
         not_charged = ZeroTime
-        # ToDo: include band
 
         return TimeUsed(
             program_used=program_used,
             partner_used=partner_used,
-            not_charged=not_charged
+            not_charged=not_charged,
+            band=band
         )
 
     # def parse_or_group(self, data: dict, program_id: ProgramID, group_id: GroupID) -> Group:
@@ -1456,7 +1456,7 @@ class OcsProgramProvider(ProgramProvider):
         # Parse the time accounting allocation data.
         time_act_alloc_data = data[OcsProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
         time_act_alloc = frozenset(self.parse_time_allocation(ta_data, band=band) for ta_data in time_act_alloc_data)
-        time_used = frozenset(self.parse_time_used(ta_data) for ta_data in time_act_alloc_data)
+        time_used = frozenset(self.parse_time_used(ta_data, band=band) for ta_data in time_act_alloc_data)
 
         too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
             data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
