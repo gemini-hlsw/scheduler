@@ -1,7 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import time
 from dataclasses import dataclass
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
@@ -13,13 +12,12 @@ from astropy.time import Time, TimeDelta
 
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
-                              Site, Target, TimeslotIndex, QAState, ObservationStatus, SiderealTarget,
-                              NonsiderealTarget,
-                              Group, SkyBackground, ElevationType, Constraints, TooType)
+                              Site, Target, TimeslotIndex, QAState, ObservationStatus,
+                              Group)
 from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
-from lucupy import sky
 
+from scheduler.config import config
 from scheduler.core.calculations.nightevents import NightEvents
 from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
@@ -28,11 +26,11 @@ from scheduler.core.plans import Plans, Visit
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
-from scheduler.services.ephemeris import EphemerisCalculator
-from scheduler.services.proper_motion import ProperMotionCalculator
+from scheduler.services.redis_client import RedisClient
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
 from scheduler.services.visibility.calculator import calculate_target_snapshot, visibility_calculator
+from scheduler.services.visibility.calculator import VisibilityCalculator, VisibilitySnapshot
 
 __all__ = [
     'Collector',
@@ -83,7 +81,6 @@ class Collector(SchedulerComponent):
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
     sources: Sources
-    with_redis: bool
     time_slot_length: TimeDelta
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
@@ -125,6 +122,9 @@ class Collector(SchedulerComponent):
     # NOTE: This logs an ErfaWarning about dubious year. This is due to using a future date and not knowing
     # how many leap seconds have happened: https://github.com/astropy/astropy/issues/5809
     _MAX_NIGHT_EVENT_TIME: ClassVar[Time] = Time('2100-01-01 00:00:00', format='iso', scale='utc')
+
+    # Decide whether to use Redis.
+    with_redis: ClassVar[bool] = config.collector.with_redis
 
     def __post_init__(self):
         """
@@ -268,7 +268,8 @@ class Collector(SchedulerComponent):
 
     def _calculate_target_info(self,
                                obs: Observation,
-                               target: Target) -> TargetInfoNightIndexMap:
+                               target: Target,
+                               tv: Dict[str, VisibilitySnapshot] = None) -> TargetInfoNightIndexMap:
         """
         For a given site, calculate the information for a target for all the nights in
         the time grid and store this in the _target_information.
@@ -286,7 +287,7 @@ class Collector(SchedulerComponent):
             raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
         night_events = self.night_events[obs.site]
 
-        target_vis = visibility_calculator.get_target_visibility(obs, self.time_grid, self.semesters)
+        target_vis = visibility_calculator.get_target_visibility(obs, self.time_grid, self.semesters, tv)
 
         target_info: TargetInfoNightIndexMap = {}
 
@@ -353,6 +354,9 @@ class Collector(SchedulerComponent):
                 else:
                     # This is a dictionary from GPP
                     next_data = next_program
+                
+                # Check if id is already in programs, otherwise add new program
+                # program_id = program_provider.get_program_id(next_data)  # TODO: get the ID from the program provider
                 program = program_provider.parse_program(next_data)
 
                 # If program could not be parsed, skip. This happens in one of three cases:
@@ -401,7 +405,9 @@ class Collector(SchedulerComponent):
             logger.error(f'Could not parse {bad_program_count} programs.')
 
         # TODO STEP 1: This is the code that needs parallelization.
-        # TODO STEP 2: Try to read the values from the redis_client cache. If they do not exist, calculate and write.
+        if not self.with_redis:
+            vis_table = {}
+
         for program_id, obs in parsed_observations:
             # Check for a base target in the observation: if there is none, we cannot process.
             # For ToOs, this may be the case.
@@ -419,9 +425,32 @@ class Collector(SchedulerComponent):
 
             # Compute the timing window expansion for the observation.
             # Then, calculate the target information, which performs the visibility calculations.
-            tw = self._process_timing_windows(program, obs)
-            ti = self._calculate_target_info(obs, base)
+            if not self.with_redis:
+                tw = self._process_timing_windows(program, obs)
+                if obs.site not in self.night_events:
+                    raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
+                night_events = self.night_events[obs.site]
+
+                # Get the night configurations (for resources)
+                nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
+
+                vis_table[obs.id.id] = VisibilityCalculator.calculate_visibility(obs,
+                                                                                base,
+                                                                                program,
+                                                                                night_events,
+                                                                                nc,
+                                                                                self.time_grid,
+                                                                                tw,
+                                                                                self.time_slot_length)
+
+                ti = self._calculate_target_info(obs, base, vis_table[obs.id.id])
+            else:
+                ti = self._calculate_target_info(obs, base)
             Collector._target_info[base.name, obs.id] = ti
+
+        if not self.with_redis:
+            sem, = self.semesters
+            visibility_calculator.vis_table = {sem: RedisClient.transform_to_json(vis_table)}
 
     def load_target_info_for_too(self, obs: Observation, target: Target) -> None:
         ti = self._calculate_target_info(obs, target)

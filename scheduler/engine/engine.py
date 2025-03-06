@@ -26,7 +26,6 @@ __all__ = [
     'Engine'
 ]
 
-from ..core.output import print_plans
 from ..core.statscalculator.run_summary import RunSummary
 
 _logger = logger_factory.create_logger(__name__)
@@ -242,7 +241,6 @@ class Engine:
                                             num_of_nights=self.params.num_nights_to_schedule,
                                             sites=self.params.sites,
                                             semesters=self.params.semesters,
-                                            with_redis=True,
                                             blueprint=Blueprints.collector,
                                             program_list=self.params.programs_list)
 
