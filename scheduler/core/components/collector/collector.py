@@ -147,6 +147,7 @@ class Collector(SchedulerComponent):
         self.time_grid = Time(np.arange(self.start_vis_time.jd,
                                         self.end_vis_time.jd + 1.0, (1.0 * u.day).value),
                               format='jd')
+        Collector.time_grid = self.time_grid
 
         # The number of nights for which we are performing calculations.
         self.num_nights_calculated = len(self.time_grid)
@@ -184,17 +185,17 @@ class Collector(SchedulerComponent):
     def get_all_observations() -> Iterable[Observation]:
         return [obs_data[0] for obs_data in Collector._observations.values()]
 
-    @staticmethod
-    def get_observation_ids(program_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
-        """
-        Return the observation IDs in the Collector.
-        If the prog_id is specified, limit these to those in the specified in the program.
-        If no such prog_id exists, return None.
-        If no prog_id is specified, return a complete list of observation IDs.
-        """
-        if program_id is None:
-            return Collector._observations.keys()
-        return Collector._observations_per_program.get(program_id, None)
+    # @staticmethod
+    # def get_observation_ids(program_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
+    #     """
+    #     Return the observation IDs in the Collector.
+    #     If the prog_id is specified, limit these to those in the specified in the program.
+    #     If no such prog_id exists, return None.
+    #     If no prog_id is specified, return a complete list of observation IDs.
+    #     """
+    #     if program_id is None:
+    #         return Collector._observations.keys()
+    #     return Collector._observations_per_program.get(program_id, None)
 
     @staticmethod
     def get_observation(obs_id: ObservationID) -> Optional[Observation]:
@@ -237,7 +238,15 @@ class Collector(SchedulerComponent):
             return None
 
         target_name = target.name
-        return Collector._target_info.get((target_name, obs_id), None)
+        target_info = Collector._target_info.get((target_name, obs_id), None)
+        if target_info is None:
+            return None
+
+        # We should return the target info only for the requested dates and sorted
+        target_info_sorted = {}
+        for night_index, jd in enumerate(Collector.time_grid.value):
+            target_info_sorted[NightIndex(night_index)] = target_info[jd]
+        return target_info_sorted
 
     @staticmethod
     def _process_timing_windows(prog: Program, obs: Observation) -> List[Time]:
@@ -289,10 +298,12 @@ class Collector(SchedulerComponent):
 
         target_vis = visibility_calculator.get_target_visibility(obs, self.time_grid, self.semesters, tv)
 
-        target_info: TargetInfoNightIndexMap = {}
-
         for i in range(self.num_nights_calculated):
             night_idx = NightIndex(i)
+            if (target.name, obs.id) in Collector._target_info and \
+                Collector._target_info[target.name, obs.id] is not None and \
+                self.time_grid[night_idx].value in Collector._target_info[target.name, obs.id]:
+                continue
             target_snapshot = calculate_target_snapshot(night_idx,
                                                         obs,
                                                         target,
@@ -313,9 +324,10 @@ class Collector(SchedulerComponent):
                             rem_visibility_time=ts.rem_visibility_time,
                             rem_visibility_frac=ts.rem_visibility_frac)
 
-            target_info[NightIndex(night_idx)] = ti
-        # Return all the target info for the base target in the Observation across the nights of interest.
-        return target_info
+            # If we are missing the key first create the dictionary
+            if (target.name, obs.id) not in Collector._target_info:
+                Collector._target_info[target.name, obs.id] = {}
+            Collector._target_info[target.name, obs.id][self.time_grid[night_idx].value] = ti
 
     def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         """
@@ -337,14 +349,17 @@ class Collector(SchedulerComponent):
         program_provider = program_provider_class(self.obs_classes, self.sources)
 
         # Purge the old programs and observations.
-        Collector._programs = {}
+        # Collector._programs = {}
 
         # Keep a list of the observations for parallel processing.
-        parsed_observations: List[Tuple[ProgramID, Observation]] = []
+        # parsed_observations: List[Tuple[ProgramID, Observation]] = []
 
         # Read in the programs.
         # Count the number of parse failures.
         bad_program_count = 0
+
+        if not self.with_redis:
+            vis_table = {}
 
         for next_program in data:
             try:
@@ -356,33 +371,37 @@ class Collector(SchedulerComponent):
                     next_data = next_program
                 
                 # Check if id is already in programs, otherwise add new program
-                # program_id = program_provider.get_program_id(next_data)  # TODO: get the ID from the program provider
-                program = program_provider.parse_program(next_data)
+                program_id = program_provider.get_program_id(next_data)  # TODO: get the ID from the program provider
+                if program_id not in Collector._programs.keys():
+                    # Parse the program
+                    program = program_provider.parse_program(next_data)
 
-                # If program could not be parsed, skip. This happens in one of three cases:
-                # 1. Program semester cannot be determined from ID.
-                # 2. Program type cannot be determined from ID.
-                # 3. Program root group is empty.
-                if program is None:
-                    continue
+                    # If program could not be parsed, skip. This happens in one of three cases:
+                    # 1. Program semester cannot be determined from ID.
+                    # 2. Program type cannot be determined from ID.
+                    # 3. Program root group is empty.
+                    if program is None:
+                        continue
 
-                # TODO: improve this. Pass the semesters into the program_provider and return None as soon
-                # TODO: as we know that the program is not from a semester in which we are interested.
-                # If program semester is not in the list of specified semesters, skip.
-                if program.semester is None or program.semester not in self.semesters:
-                    logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
-                    continue
+                    # TODO: improve this. Pass the semesters into the program_provider and return None as soon
+                    # TODO: as we know that the program is not from a semester in which we are interested.
+                    # If program semester is not in the list of specified semesters, skip.
+                    if program.semester is None or program.semester not in self.semesters:
+                        logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                        continue
 
-                # If a program has no time awarded, then we will get a divide by zero in scoring, so skip it.
-                if program.program_awarded() == ZeroTime:
-                    logger.debug(f'Program {program.id} has awarded time of zero (skipping).')
-                    continue
+                    # If a program has no time awarded, then we will get a divide by zero in scoring, so skip it.
+                    if program.program_awarded() == ZeroTime:
+                        logger.debug(f'Program {program.id} has awarded time of zero (skipping).')
+                        continue
 
-                # If a program ID is repeated, warn and overwrite.
-                if program.id in Collector._programs.keys():
-                    logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
+                    # If a program ID is repeated, warn and overwrite.
+                    if program.id in Collector._programs.keys():
+                        logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
 
-                Collector._programs[program.id] = program
+                    Collector._programs[program.id] = program
+                else:
+                    program = Collector._programs[program_id]
 
                 # Set the observation IDs for this program.
                 # We only want the observations that are located at the sites supported by the collector.
@@ -392,10 +411,60 @@ class Collector(SchedulerComponent):
                 # TODO: 1. The branches that are OrGroups and are nonempty (i.e. have obs).
                 # TODO: 2. The branches that are AndGroups and are nonempty (i.e. all obs are from the same site).
                 # TODO: Applying this logic recursively should ensure only Groups that can be completed are included.
-                site_supported_obs = [obs for obs in program.observations() if obs.site in self.sites]
-                if site_supported_obs:
-                    Collector._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
-                    parsed_observations.extend((program.id, obs) for obs in site_supported_obs)
+                site_supported_obs = []
+                for obs in program.observations():
+                    # Don't worry about observations that are not at a site supported by the collector
+                    if obs.site not in self.sites:
+                        continue
+
+                    # # Don't worry about observations that are already in the program
+                    # if program.id in Collector._observations_per_program and \
+                    #     obs.id in Collector._observations_per_program[program.id] and \
+                    #     self.with_redis:
+                    #     continue
+
+                    site_supported_obs.append(obs)
+
+                    # TODO STEP 1: This is the code that needs parallelization.
+                    # Check for a base target in the observation: if there is none, we cannot process.
+                    # For ToOs, this may be the case.
+                    base: Optional[Target] = obs.base_target()
+                    if base is None:
+                        logger.error(f'Could not find base target for {obs.id.id}.')
+                        continue
+
+                    if program is None:
+                        raise RuntimeError(f'Could not find program {program.id.id} for observation {obs.id.id}.')
+
+                    # Record the observation and target for this obs id.
+                    Collector._observations[obs.id] = obs, base
+
+                    # Compute the timing window expansion for the observation.
+                    # Then, calculate the target information, which performs the visibility calculations.
+                    if not self.with_redis:
+                        tw = self._process_timing_windows(program, obs)
+                        if obs.site not in self.night_events:
+                            raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
+                        night_events = self.night_events[obs.site]
+
+                        # Get the night configurations (for resources)
+                        nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
+
+                        vis_table[obs.id.id] = VisibilityCalculator.calculate_visibility(obs,
+                                                                                        base,
+                                                                                        program,
+                                                                                        night_events,
+                                                                                        nc,
+                                                                                        self.time_grid,
+                                                                                        tw,
+                                                                                        self.time_slot_length)
+
+                        self._calculate_target_info(obs, base, vis_table[obs.id.id])
+
+                    else:
+                        self._calculate_target_info(obs, base)
+
+                Collector._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
 
             except Exception as e:
                 bad_program_count += 1
@@ -403,50 +472,6 @@ class Collector(SchedulerComponent):
 
         if bad_program_count:
             logger.error(f'Could not parse {bad_program_count} programs.')
-
-        # TODO STEP 1: This is the code that needs parallelization.
-        if not self.with_redis:
-            vis_table = {}
-
-        for program_id, obs in parsed_observations:
-            # Check for a base target in the observation: if there is none, we cannot process.
-            # For ToOs, this may be the case.
-            base: Optional[Target] = obs.base_target()
-            if base is None:
-                logger.error(f'Could not find base target for {obs.id.id}.')
-                continue
-
-            program = Collector.get_program(program_id)
-            if program is None:
-                raise RuntimeError(f'Could not find program {program_id.id} for observation {obs.id.id}.')
-
-            # Record the observation and target for this obs id.
-            Collector._observations[obs.id] = obs, base
-
-            # Compute the timing window expansion for the observation.
-            # Then, calculate the target information, which performs the visibility calculations.
-            if not self.with_redis:
-                tw = self._process_timing_windows(program, obs)
-                if obs.site not in self.night_events:
-                    raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
-                night_events = self.night_events[obs.site]
-
-                # Get the night configurations (for resources)
-                nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
-
-                vis_table[obs.id.id] = VisibilityCalculator.calculate_visibility(obs,
-                                                                                base,
-                                                                                program,
-                                                                                night_events,
-                                                                                nc,
-                                                                                self.time_grid,
-                                                                                tw,
-                                                                                self.time_slot_length)
-
-                ti = self._calculate_target_info(obs, base, vis_table[obs.id.id])
-            else:
-                ti = self._calculate_target_info(obs, base)
-            Collector._target_info[base.name, obs.id] = ti
 
         if not self.with_redis:
             sem, = self.semesters

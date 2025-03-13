@@ -1375,6 +1375,9 @@ class OcsProgramProvider(ProgramProvider):
             # TODO: Should this be ANYORDER OR CONSEC_ORDERED?
             group_option=AndOption.CONSEC_ORDERED)
 
+    def get_program_id(self, data: dict) -> ProgramID:
+        return ProgramID(data[OcsProgramProvider._ProgramKeys.ID])
+
     def parse_program(self, data: dict) -> Optional[Program]:
         """
         Parse the program-level details from the JSON data.
@@ -1384,7 +1387,7 @@ class OcsProgramProvider(ProgramProvider):
         3. The organizational folders are ignored and their observations are considered top-level.
         4. Each observation goes in its own AND group of size 1 as per discussion.
         """
-        program_id = ProgramID(data[OcsProgramProvider._ProgramKeys.ID])
+        program_id = self.get_program_id(data)
         internal_id = data[OcsProgramProvider._ProgramKeys.INTERNAL_ID]
 
         # # Get all the note information as they may contain FT scheduling data comments.
