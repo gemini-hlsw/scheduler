@@ -10,7 +10,6 @@ from lucupy.minimodel.site import Site
 
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
-from scheduler.db.planmanager import PlanManager
 from scheduler.services.logger_factory import create_logger
 from scheduler.config import config
 
@@ -40,14 +39,6 @@ class Query:
     @strawberry.field
     def version(self) -> Version:
         return Version(version=environ['APP_VERSION'], changelog=config.app.changelog)
-
-    @strawberry.field
-    def plans(self) -> List[SPlans]:
-        return PlanManager.get_plans()
-
-    @strawberry.field
-    def site_plans(self, site: Site) -> List[SPlans]:
-        return [plans.for_site(site) for plans in PlanManager.get_plans()]
 
     @strawberry.field
     async def schedule(self, schedule_id: str, new_schedule_input: CreateNewScheduleInput) -> str:

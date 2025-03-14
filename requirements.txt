@@ -19,8 +19,6 @@ lucupy
 pytest-asyncio
 gelidum
 python-dateutil
-mercury
-bleach>=6.0.0
 sortedcontainers
 redis
 # git+https://stroncod:${GH_PAT}@github.com/stroncod/pyexplore.git
