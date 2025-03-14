@@ -2,11 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from fastapi.responses import JSONResponse
-
 from scheduler.app import app
-from scheduler.connection_manager import ConnectionManager
 
-manager = ConnectionManager()
 
 # Root API
 @app.get("/", include_in_schema=False)
