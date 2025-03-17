@@ -259,14 +259,14 @@ class VisibilityCalculator(metaclass=Singleton):
                 has_resources = all([resource in nc[night_idx].resources for resource in obs.required_resources() if resource.type != ResourceType.FILTER and resource.type != ResourceType.DISPERSER and resource.type != ResourceType.FPU])
 
             if not has_resources:
-                visibility_snapshots[str(int(jday.jd))] = VisibilitySnapshot(visibility_slot_idx=np.array([0]),
+                visibility_snapshots[str(int(jday.jd))] = VisibilitySnapshot(visibility_slot_idx=np.array([], dtype=bool),
                                                                              visibility_time=TimeDelta(0, format='sec'))
                 continue
 
             # Is the program excluded on a given night due to block scheduling
             can_schedule = nc[night_idx].filter.program_filter(prog)
             if not can_schedule:
-                visibility_snapshots[str(int(jday.jd))] = VisibilitySnapshot(visibility_slot_idx=np.array([0]),
+                visibility_snapshots[str(int(jday.jd))] = VisibilitySnapshot(visibility_slot_idx=np.array([], dtype=bool),
                                                                              visibility_time=TimeDelta(0, format='sec'))
                 continue
 
