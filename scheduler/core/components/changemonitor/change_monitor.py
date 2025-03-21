@@ -186,7 +186,7 @@ class ChangeMonitor(SchedulerComponent):
 
                 # TODO: This code is somewhat duplicated from Selector. See if we can simplify it, although in this
                 # TODO: case, it is for a single night instead of all nights.
-                target_info = Collector.get_target_info(obs.id)
+                target_info = self.collector.get_target_info(obs.id)
                 if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
                     neg_ha = target_info[night_idx].hourangle[0].value < 0
                 else:

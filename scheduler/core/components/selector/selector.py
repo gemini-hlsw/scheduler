@@ -421,7 +421,7 @@ class Selector(SchedulerComponent):
 
         # We ignore the Observation if:
         # 1. There is no target info associated with it.
-        target_info = Collector.get_target_info(obs.id)
+        target_info = self.collector.get_target_info(obs.id)
         if target_info is None:
             logger.warning(f'Selector skipping observation {obs.id}: no target info.')
             return group_data_map

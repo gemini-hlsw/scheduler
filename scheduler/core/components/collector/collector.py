@@ -147,7 +147,6 @@ class Collector(SchedulerComponent):
         self.time_grid = Time(np.arange(self.start_vis_time.jd,
                                         self.end_vis_time.jd + 1.0, (1.0 * u.day).value),
                               format='jd')
-        Collector.time_grid = self.time_grid
 
         # The number of nights for which we are performing calculations.
         self.num_nights_calculated = len(self.time_grid)
@@ -223,8 +222,7 @@ class Collector(SchedulerComponent):
         """
         return Collector._observations.get(obs_id, None)
 
-    @staticmethod
-    def get_target_info(obs_id: ObservationID) -> Optional[TargetInfoNightIndexMap]:
+    def get_target_info(self, obs_id: ObservationID) -> Optional[TargetInfoNightIndexMap]:
         """
         Given an ObservationID, if the observation exists and there is a target for the
         observation, return the target information as a map from NightIndex to TargetInfo.
@@ -244,7 +242,7 @@ class Collector(SchedulerComponent):
 
         # We should return the target info only for the requested dates and sorted
         target_info_sorted = {}
-        for night_index, jd in enumerate(Collector.time_grid.value):
+        for night_index, jd in enumerate(self.time_grid.value):
             target_info_sorted[NightIndex(night_index)] = target_info[jd]
         return target_info_sorted
 
