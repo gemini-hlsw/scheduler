@@ -9,7 +9,7 @@ from lucupy import sky
 from lucupy.decorators import immutable
 from lucupy.timeutils import time2slots
 from lucupy.minimodel import SiderealTarget, NonsiderealTarget, SkyBackground, ElevationType, Constraints, NightIndex, \
-    Observation, Target, Program, Semester, ObservationID, SemesterHalf
+    Observation, Target, Program, ResourceType, Semester, ObservationID, SemesterHalf
 from numpy import dtype, ndarray
 
 from scheduler.config import config
@@ -253,13 +253,22 @@ class VisibilityCalculator(metaclass=Singleton):
             # Are all the required resources available?
             # This works for validation mode. In RT mode, this may need to be statistical if resources are not known
             # and they could change with time, so the visfrac calc may need to be extracted from this method
-            has_resources = all([resource in nc[night_idx].resources for resource in obs.required_resources()])
-            avail_resources = np.full([len(night_events.times[night_idx])], int(has_resources), dtype=int)
+            if "GMOS" in obs.instrument().id:
+                has_resources = all([resource in nc[night_idx].resources for resource in obs.required_resources()])
+            else:
+                has_resources = all([resource in nc[night_idx].resources for resource in obs.required_resources() if resource.type != ResourceType.FILTER and resource.type != ResourceType.DISPERSER and resource.type != ResourceType.FPU])
+
+            if not has_resources:
+                visibility_snapshots[str(int(jday.jd))] = VisibilitySnapshot(visibility_slot_idx=np.array([], dtype=bool),
+                                                                             visibility_time=TimeDelta(0, format='sec'))
+                continue
 
             # Is the program excluded on a given night due to block scheduling
             can_schedule = nc[night_idx].filter.program_filter(prog)
-            is_schedulable = np.full([len(night_events.times[night_idx])], int(can_schedule), dtype=int)
-            # print(f"{obs.unique_id} {has_resources} {can_schedule}")
+            if not can_schedule:
+                visibility_snapshots[str(int(jday.jd))] = VisibilitySnapshot(visibility_slot_idx=np.array([], dtype=bool),
+                                                                             visibility_time=TimeDelta(0, format='sec'))
+                continue
 
             # Calculate the time slot indices for the night where:
             # 1. The sun altitude requirement is met (precalculated in night_events)
@@ -269,10 +278,8 @@ class VisibilityCalculator(metaclass=Singleton):
 
             c_idx = np.where(
                 np.logical_and(target_snapshot.sky_brightness[sa_idx] <= target_snapshot.target_sb,
-                               np.logical_and(avail_resources[sa_idx] == 1,
-                                              np.logical_and(is_schedulable[sa_idx] == 1,
-                                                             np.logical_and(targ_prop[sa_idx] >= elev_min,
-                                                                            targ_prop[sa_idx] <= elev_max))))
+                               np.logical_and(targ_prop[sa_idx] >= elev_min,
+                               targ_prop[sa_idx] <= elev_max))
             )[0]
 
             # Apply timing window constraints.
@@ -284,10 +291,11 @@ class VisibilityCalculator(metaclass=Singleton):
                 )[0]
                 visibility_slot_idx = np.append(visibility_slot_idx, sa_idx[c_idx[tw_idx]])
 
-            # Create a visibility filter that has an entry for every time slot over the night,
-            # with 0 if the target is not visible and 1 if it is visible.
-            visibility_slot_filter = np.zeros(len(night_events.times[night_idx]))
-            visibility_slot_filter.put(visibility_slot_idx, 1.0)
+            # It seems this is not needed.
+            # # Create a visibility filter that has an entry for every time slot over the night,
+            # # with 0 if the target is not visible and 1 if it is visible.
+            # visibility_slot_filter = np.zeros(len(night_events.times[night_idx]))
+            # visibility_slot_filter.put(visibility_slot_idx, 1.0)
 
             # TODO: Guide star availability for moving targets and parallactic angle modes.
 
