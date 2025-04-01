@@ -49,13 +49,9 @@ class TargetInfo:
     coord: SkyCoord
     alt: Angle
     az: Angle
-    par_ang: Angle
     hourangle: Angle
     airmass: npt.NDArray[float]
-    sky_brightness: npt.NDArray[SkyBackground]
     visibility_slot_idx: npt.NDArray[int]
-    visibility_time: TimeDelta
-    rem_visibility_time: TimeDelta
     rem_visibility_frac: float
 
 
