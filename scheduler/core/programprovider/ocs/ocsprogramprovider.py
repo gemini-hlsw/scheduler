@@ -1217,7 +1217,7 @@ class OcsProgramProvider(ProgramProvider):
         print('FALLLLOOO')
         return None
 
-    def parse_time_allocation(self, data: dict, band: Band = None) -> TimeAllocation:
+    def parse_time_allocation(self, data: dict, band: Band=None) -> TimeAllocation:
         category = TimeAccountingCode(data[OcsProgramProvider._TAKeys.CATEGORY])
         program_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PROG_TIME])
         partner_awarded = timedelta(milliseconds=data[OcsProgramProvider._TAKeys.AWARDED_PART_TIME])
@@ -1228,8 +1228,6 @@ class OcsProgramProvider(ProgramProvider):
             category=category,
             program_awarded=program_awarded,
             partner_awarded=partner_awarded,
-            # program_used=program_used,
-            # partner_used=partner_used,
             band=band)
 
     @staticmethod

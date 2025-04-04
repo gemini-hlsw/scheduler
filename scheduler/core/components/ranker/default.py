@@ -260,7 +260,8 @@ class DefaultRanker(Ranker):
             return scores
 
         remaining = obs.exec_time() - obs.total_used()
-        cplt = (program.total_used() + remaining) / program.total_awarded()
+        # GPP supports allocated and used times by band, this should give the same results for OCS
+        cplt = (program.total_used(obs.band) + remaining) / program.total_awarded(obs.band)
 
         metric, metric_s = self._metric_slope(np.array([cplt]),
                                               np.array([obs.band.value]),

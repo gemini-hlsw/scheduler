@@ -102,11 +102,11 @@ class StatCalculator:
 
                             # Check if program is on the table
                             metrics_per_program.setdefault(program.id, 0.0)
-                            metrics_per_band.setdefault(program.band.name, 0.0)
+                            metrics_per_band.setdefault(obs.band.name, 0.0)
 
                             # Calculate the metric in the program
                             metrics_per_program[program.id] += sum(v.metric)
-                            metrics_per_band[program.band.name] += sum(v.metric)
+                            metrics_per_band[obs.band.name] += sum(v.metric)
 
                     time_losses[StatCalculator._UNSCHEDULE_KEY] = (plan.time_left() -
                                                                    time_losses[StatCalculator._FAULT_KEY] -

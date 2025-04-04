@@ -583,35 +583,36 @@ class FileBasedResourceService(ResourceService):
             with open(path, 'r') as input_file:
                 too_activations = self._too_activations[site]
                 for line in input_file:
-                    too_id, too_date, too_time = line.split()
-                    too_datetime = datetime.strptime(too_date+' '+too_time, '%Y-%m-%d %H:%M:%S.%f')
+                    if line.strip()[0] != '#':  # ignore lines that are commented out
+                        too_id, too_date, too_time = line.split()
+                        too_datetime = datetime.strptime(too_date+' '+too_time, '%Y-%m-%d %H:%M:%S.%f')
 
-                    local_night_date = too_datetime.date()
-                    local_datetime = too_datetime.replace(tzinfo=site.timezone)
+                        local_night_date = too_datetime.date()
+                        local_datetime = too_datetime.replace(tzinfo=site.timezone)
 
-                    # If it is before noon, it belongs to the previous night.
-                    if local_datetime.time() < time(hour=12):
-                        night_date = local_datetime.date() - timedelta(days=1)
-                    else:
-                        night_date = local_datetime.date()
+                        # If it is before noon, it belongs to the previous night.
+                        if local_datetime.time() < time(hour=12):
+                            night_date = local_datetime.date() - timedelta(days=1)
+                        else:
+                            night_date = local_datetime.date()
 
-                    # Twilight for events happening before or after
-                    new_ut_time = time(14, 0)
-                    astropy_time = Time(
-                        datetime.combine(night_date + timedelta(days=1), new_ut_time).astimezone(
-                            site.timezone))
+                        # Twilight for events happening before or after
+                        new_ut_time = time(14, 0)
+                        astropy_time = Time(
+                            datetime.combine(night_date + timedelta(days=1), new_ut_time).astimezone(
+                                site.timezone))
 
-                    eve_twi, morn_twi = night_events(astropy_time, site.location, site.timezone)[3:5]
-                    eve_twi = eve_twi.to_datetime(site.timezone)
-                    morn_twi = morn_twi.to_datetime(site.timezone)
+                        eve_twi, morn_twi = night_events(astropy_time, site.location, site.timezone)[3:5]
+                        eve_twi = eve_twi.to_datetime(site.timezone)
+                        morn_twi = morn_twi.to_datetime(site.timezone)
 
-                    if local_datetime < morn_twi:
-                        local_datetime = eve_twi + timedelta(seconds=25) # small offset
+                        if local_datetime < morn_twi:
+                            local_datetime = eve_twi + timedelta(seconds=25) # small offset
 
-                    too_activations.setdefault(night_date, set())
+                        too_activations.setdefault(night_date, set())
 
-                    too_activation = ToOActivation(site=site, too_id=ObservationID(too_id), start_time=local_datetime)
-                    too_activations[night_date].add(too_activation)
+                        too_activation = ToOActivation(site=site, too_id=ObservationID(too_id), start_time=local_datetime)
+                        too_activations[night_date].add(too_activation)
 
         except FileNotFoundError:
             logger.error(f'Too Activation file not available: {path}')

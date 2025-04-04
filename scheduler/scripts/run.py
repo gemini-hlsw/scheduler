@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
+import os
 from pathlib import Path
 
 from astropy.time import Time
@@ -30,7 +31,7 @@ def main(*,
 
     # Parsed program file (this replaces the program picker from Schedule)
     with open(programs_ids, 'r') as file:
-        programs_list = [line.strip() for line in file]
+        programs_list = [line.strip() for line in file if line.strip()[0] != '#']
 
     # Create Parameters
     params = SchedulerParameters(start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
@@ -39,10 +40,13 @@ def main(*,
                                  mode=SchedulerModes.VALIDATION,
                                  ranker_parameters=RankerParameters(),
                                  semester_visibility=False,
-                                 num_nights_to_schedule=3,
+                                 num_nights_to_schedule=1,
                                  programs_list=programs_list)
     engine = Engine(params)
     plan_summary, timelines = engine.run()
+    # File output for future results comparison
+    # timelines.display(output=os.path.join(os.environ['HOME'], 'Downloads', 'plans.txt'))
+    # Display to stdout
     timelines.display()
 
 if __name__ == '__main__':
