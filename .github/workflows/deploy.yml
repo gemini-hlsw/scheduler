@@ -11,7 +11,11 @@ jobs:
     steps:
       - name: Set version tag
         run: echo "VERSION_TAG=$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          lfs: 'true'
+      - name: Checkout LFS objects
+        run: git lfs checkout
       - name: Login to Heroku Container registry
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
