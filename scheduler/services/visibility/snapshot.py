@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import SkyCoord, Angle
@@ -63,8 +63,8 @@ class TargetSnapshot:
     coord: SkyCoord
     alt: Angle
     az: Angle
-    par_ang: Angle
     hourangle: Angle
     airmass: npt.NDArray[float]
-    target_sb: SkyBackground
-    sky_brightness: npt.NDArray[SkyBackground]
+    par_ang: Optional[Angle] = None
+    target_sb: Optional[SkyBackground] = None
+    sky_brightness: Optional[npt.NDArray[SkyBackground]] = None

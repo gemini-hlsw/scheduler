@@ -298,19 +298,16 @@ class Collector(SchedulerComponent):
                                                         target,
                                                         night_events,
                                                         self.time_grid[night_idx],
-                                                        self.time_slot_length)
+                                                        self.time_slot_length,
+                                                        for_vis_calc= False)
             ts = target_vis[night_idx]
 
             ti = TargetInfo(coord=target_snapshot.coord,
                             alt=target_snapshot.alt,
                             az=target_snapshot.az,
-                            par_ang=target_snapshot.par_ang,
                             hourangle=target_snapshot.hourangle,
                             airmass=target_snapshot.airmass,
-                            sky_brightness=target_snapshot.sky_brightness,
                             visibility_slot_idx=ts.visibility_slot_idx,
-                            visibility_time=ts.visibility_time,
-                            rem_visibility_time=ts.rem_visibility_time,
                             rem_visibility_frac=ts.rem_visibility_frac)
 
             target_info[NightIndex(night_idx)] = ti

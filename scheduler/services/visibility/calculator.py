@@ -50,7 +50,8 @@ def calculate_target_snapshot(night_idx: NightIndex,
                               target: Target,
                               night_events: NightEvents,
                               time_grid_night: Time,
-                              time_slot_length: TimeDelta):
+                              time_slot_length: TimeDelta,
+                              for_vis_calc: bool = True):
     """
     Calculate the target information for a period of time.
     """
@@ -88,42 +89,48 @@ def calculate_target_snapshot(night_idx: NightIndex,
 
     # Calculate the hour angle, altitude, azimuth, parallactic angle, and airmass.
     lst = night_events.local_sidereal_times[night_idx]
-    # TODO: Remove debugging
-    # print(f'Night idx: {night_idx}, num time slots: {lst.size}')
 
     hourangle = lst - coord.ra
     hourangle.wrap_at(12.0 * u.hour, inplace=True)
     alt, az, par_ang = sky.Altitude.above(coord.dec, hourangle, obs.site.location.lat)
     airmass = sky.true_airmass(alt)
 
-    # Determine time slot indices where the sky brightness and elevation constraints are met.
-    # By default, in the case where an observation has no constraints, we use SB ANY.
-    # TODO: moon_dist here is a List[float], when calculate_sky_brightness expects a Distance.
-    # TODO: code still works, bt we should be very careful here.
-    if obs.constraints and obs.constraints.conditions.sb < SkyBackground.SBANY:
-        targ_sb = obs.constraints.conditions.sb
-        targ_moon_ang = coord.separation(night_events.moon_pos[night_idx])
-        brightness = sky.brightness.calculate_sky_brightness(
-            180.0 * u.deg - night_events.sun_moon_ang[night_idx],
-            targ_moon_ang,
-            night_events.moon_dist[night_idx],
-            90.0 * u.deg - night_events.moon_alt[night_idx],
-            90.0 * u.deg - alt,
-            90.0 * u.deg - night_events.sun_alt[night_idx]
-        )
-        sb = sky.brightness.convert_to_sky_background(brightness)
-    else:
-        targ_sb = SkyBackground.SBANY
-        sb = np.full([len(night_events.times[night_idx])], SkyBackground.SBANY)
 
-    return TargetSnapshot(coord=coord,
-                          alt=alt,
-                          az=az,
-                          par_ang=par_ang,
-                          hourangle=hourangle,
-                          airmass=airmass,
-                          target_sb=targ_sb,
-                          sky_brightness=sb)
+    if for_vis_calc:
+        # Determine time slot indices where the sky brightness and elevation constraints are met.
+        # By default, in the case where an observation has no constraints, we use SB ANY.
+        # TODO: moon_dist here is a List[float], when calculate_sky_brightness expects a Distance.
+        # TODO: code still works, bt we should be very careful here.
+        if obs.constraints and obs.constraints.conditions.sb < SkyBackground.SBANY:
+            targ_sb = obs.constraints.conditions.sb
+            targ_moon_ang = coord.separation(night_events.moon_pos[night_idx])
+            brightness = sky.brightness.calculate_sky_brightness(
+                180.0 * u.deg - night_events.sun_moon_ang[night_idx],
+                targ_moon_ang,
+                night_events.moon_dist[night_idx],
+                90.0 * u.deg - night_events.moon_alt[night_idx],
+                90.0 * u.deg - alt,
+                90.0 * u.deg - night_events.sun_alt[night_idx]
+            )
+            sb = sky.brightness.convert_to_sky_background(brightness)
+        else:
+            targ_sb = SkyBackground.SBANY
+            sb = np.full([len(night_events.times[night_idx])], SkyBackground.SBANY)
+
+        return TargetSnapshot(coord=coord,
+                              alt=alt,
+                              az=az,
+                              par_ang=par_ang,
+                              hourangle=hourangle,
+                              airmass=airmass,
+                              target_sb=targ_sb,
+                              sky_brightness=sb)
+    else:
+        return TargetSnapshot(coord=coord,
+                              alt=alt,
+                              az=az,
+                              hourangle=hourangle,
+                              airmass=airmass)
 
 
 @final
