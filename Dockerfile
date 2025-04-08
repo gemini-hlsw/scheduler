@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir --upgrade -r /home/requirements.txt
 COPY ./scheduler /home/scheduler
 COPY ./definitions.py /home/definitions.py
 
-RUN tar -xzf /home/scheduler/services/horizons/data/ephemerides.tar.gz -C /home/scheduler/services/horizons/data
+RUN tar -xjf /home/scheduler/services/horizons/data/ephemerides.tar.bz2 -C /home/scheduler/services/horizons/data
 
 ENV PYTHONPATH="${PYTHONPATH}:/scheduler"
 ENTRYPOINT [ "python", "/home/scheduler/main.py" ]
