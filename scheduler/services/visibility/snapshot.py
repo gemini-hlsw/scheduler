@@ -60,7 +60,8 @@ class TargetSnapshot:
     Contains information of a target for a night.
     All values except target_sb are numpy arrays (shape == time_slots).
     """
-    coord: SkyCoord
+    max_dec: Angle
+    min_dec: Angle
     alt: Angle
     az: Angle
     hourangle: Angle

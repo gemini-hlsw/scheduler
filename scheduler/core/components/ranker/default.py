@@ -15,6 +15,8 @@ from lucupy.types import ListOrNDArray, MinMax
 # from scheduler.core.calculations import Scores, GroupDataMap
 from .base import Ranker
 
+import pdb
+
 __all__ = [
     'DefaultRanker',
     'RankerParameters',
@@ -267,18 +269,15 @@ class DefaultRanker(Ranker):
                                               np.array([0.8]),
                                               program.thesis)
 
-        # Declination for the base target per night.
-        dec = {night_idx: target_info[night_idx].coord.dec for night_idx in self.night_indices}
-
         # Hour angle / airmass
         ha = {night_idx: target_info[night_idx].hourangle for night_idx in self.night_indices}
 
         # Get the latitude associated with the site.
         site_latitude = obs.site.location.lat
         if site_latitude < 0. * u.deg:
-            dec_diff = {night_idx: np.abs(site_latitude - np.max(dec[night_idx])) for night_idx in self.night_indices}
+            dec_diff = {night_idx: np.abs(site_latitude - target_info[night_idx].max_dec) for night_idx in self.night_indices}
         else:
-            dec_diff = {night_idx: np.abs(np.min(dec[night_idx]) - site_latitude) for night_idx in self.night_indices}
+            dec_diff = {night_idx: np.abs(target_info[night_idx].min_dec - site_latitude) for night_idx in self.night_indices}
 
         c = {night_idx: self.params.dec_diff_less_40 if angle < 40. * u.deg else self.params.dec_diff
              for night_idx, angle in dec_diff.items()}
