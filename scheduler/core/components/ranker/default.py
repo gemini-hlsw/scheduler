@@ -15,8 +15,6 @@ from lucupy.types import ListOrNDArray, MinMax
 # from scheduler.core.calculations import Scores, GroupDataMap
 from .base import Ranker
 
-import pdb
-
 __all__ = [
     'DefaultRanker',
     'RankerParameters',
