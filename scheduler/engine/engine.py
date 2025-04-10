@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from typing import Dict, Optional, Tuple, Generator
+from zoneinfo import ZoneInfo
 
 import numpy as np
 from lucupy.minimodel import Site, NightIndex, VariantSnapshot, TimeslotIndex
@@ -297,8 +298,7 @@ class Engine:
 
                 # Get initial conditions for the nights
                 initial_variants[site][night_idx] = scp.collector.sources.origin.env.get_initial_conditions(site,
-                                                                                                            night_date)
-
+                                                                                                           morn_twi_time.date())
                 # Get the weather events for the site for the given night date.
                 # Get the VariantSnapshots for the times of the night where the variant changes.
                 variant_changes_dict = scp.collector.sources.origin.env.get_variant_changes_for_night(site, night_date)
