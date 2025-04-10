@@ -302,7 +302,8 @@ class Collector(SchedulerComponent):
                                                         for_vis_calc= False)
             ts = target_vis[night_idx]
 
-            ti = TargetInfo(coord=target_snapshot.coord,
+            ti = TargetInfo(max_dec=target_snapshot.max_dec,
+                            min_dec=target_snapshot.min_dec,
                             alt=target_snapshot.alt,
                             az=target_snapshot.az,
                             hourangle=target_snapshot.hourangle,

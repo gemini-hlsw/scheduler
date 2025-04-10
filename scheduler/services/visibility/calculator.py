@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import final, Dict, List, Any, Optional, ClassVar, FrozenSet
+from typing import final, Dict, List, Any, Optional, ClassVar, FrozenSet, Generator
 
 import astropy.units as u
 import numpy as np
@@ -117,7 +117,9 @@ def calculate_target_snapshot(night_idx: NightIndex,
             targ_sb = SkyBackground.SBANY
             sb = np.full([len(night_events.times[night_idx])], SkyBackground.SBANY)
 
-        return TargetSnapshot(coord=coord,
+
+        return TargetSnapshot(max_dec=np.max(coord.dec),
+                              min_dec=np.min(coord.dec),
                               alt=alt,
                               az=az,
                               par_ang=par_ang,
@@ -126,7 +128,8 @@ def calculate_target_snapshot(night_idx: NightIndex,
                               target_sb=targ_sb,
                               sky_brightness=sb)
     else:
-        return TargetSnapshot(coord=coord,
+        return TargetSnapshot(max_dec=np.max(coord.dec),
+                              min_dec=np.min(coord.dec),
                               alt=alt,
                               az=az,
                               hourangle=hourangle,

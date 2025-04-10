@@ -46,7 +46,8 @@ class TargetInfo:
     rem_visibility_time is the remaining visibility time for the target for the observation across
     the rest of the time period.
     """
-    coord: SkyCoord
+    max_dec: Angle
+    min_dec: Angle
     alt: Angle
     az: Angle
     hourangle: Angle
