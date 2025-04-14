@@ -14,7 +14,7 @@ import astropy.units as u
 from lucupy.minimodel.site import ALL_SITES
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
-from lucupy.sky.utils import true_airmass, min_max_alt, local_sidereal_time, hour_angle_to_angle
+from lucupy.sky.utils import true_airmass, min_max_alt, local_sidereal_time, alt_to_hour_angle
 from lucupy.minimodel import Group, ObservationID, GroupID, UniqueGroupID, ProgramID, QAState, ObservationClass, ObservationStatus, Band
 # from lucupy.minimodel import Site, NightIndex, VariantSnapshot, TimeslotIndex
 # from lucupy.timeutils import time2slots
@@ -207,7 +207,7 @@ def hours_up(obsid: ObservationID, night_idx: int, airmass_max=2.05):
     ALT_LOW = alt_from_airmass(airmass_max)
 
     if minalt < ALT_LOW and maxalt > ALT_LOW:
-        ha = hour_angle_to_angle(dec, site.location.lat, ALT_LOW)
+        ha = alt_to_hour_angle(dec, site.location.lat, ALT_LOW)
         dt = TimeDelta(ha.hourangle / 24., format='jd') / 1.0027379093
         jd_1 = ttransit - dt
         jd_2 = ttransit + dt
