@@ -3,7 +3,6 @@
 
 from typing import Dict, Optional, Tuple, Generator
 
-import time
 import numpy as np
 from lucupy.minimodel import Site, NightIndex, VariantSnapshot, TimeslotIndex
 from lucupy.timeutils import time2slots
@@ -59,9 +58,7 @@ class Engine:
         site_name = site.site_name
         time_slot_length = scp.collector.time_slot_length.to_datetime()
         night_indices = np.array([night_idx])
-        # tr0 = time.time()
         ranker = DefaultRanker(scp.collector, night_indices, self.params.sites, params=self.params.ranker_parameters)
-        # print(f'\tRanker completed in {(time.time() - tr0)} sec')
 
         # Plan and event queue management.
         plans: Optional[Plans] = None
@@ -71,10 +68,7 @@ class Engine:
 
         # We need the start of the night for checking if an event has been reached.
         # Next update indicates when we will recalculate the plan.
-        # tne0 = time.time()
         night_events = scp.collector.get_night_events(site)
-        # print(f'\tNight events returned in {(time.time() - tne0)} sec')
-
         night_start = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
         next_update[site] = None
 
@@ -170,11 +164,9 @@ class Engine:
                     else:
                         ta_description = f'up to timeslot {update.timeslot_idx}.'
                     _logger.debug(f'Time accounting: site {site_name} for night {night_idx} {ta_description}')
-                    # ta0 = time.time()
                     scp.collector.time_accounting(plans=plans,
                                                   sites=frozenset({site}),
                                                   end_timeslot_bounds=end_timeslot_bounds)
-                    # print(f'\tTA completed in {(time.time() - ta0)} sec')
 
                     if update.done:
                         # In the case of the morning twilight, which is the only thing that will
@@ -194,10 +186,7 @@ class Engine:
 
                     # If the site is blocked, we do not perform a selection or optimizer run for the site.
                     if self.change_monitor.is_site_unblocked(site):
-                        tvm0 = time.time()
-                        print(f'\tscp.run start')
                         plans = scp.run(site, night_indices, current_timeslot, ranker)
-                        print(f'\t\tscp.run completed in {(time.time() - tvm0)} sec')
                         nightly_timeline.add(NightIndex(night_idx),
                                              site,
                                              current_timeslot,
@@ -247,7 +236,6 @@ class Engine:
         # Create builder based in the mode to create SCP
         builder = dispatch_with(self.params.mode, self.sources, self.queue)
 
-        t0 = time.time()
         collector = builder.build_collector(start=self.params.start,
                                             end=self.params.end_vis,
                                             num_of_nights=self.params.num_nights_to_schedule,
@@ -255,18 +243,12 @@ class Engine:
                                             semesters=self.params.semesters,
                                             blueprint=Blueprints.collector,
                                             program_list=self.params.programs_list)
-        t1 = time.time()
-        print(f'Collector built in {(t1 - t0) / 60.} min')
 
         selector = builder.build_selector(collector=collector,
                                           num_nights_to_schedule=self.params.num_nights_to_schedule,
                                           blueprint=Blueprints.selector)
-        # t2 = time.time()
-        # print(f'Selector built in {(t2 - t1)} sec')
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
-        # t3 = time.time()
-        # print(f'Optimizer built in {(t3 - t2)} sec')
         # ranker = DefaultRanker(collector,
         #                       self.params.night_indices,
         #                       self.params.sites,
@@ -274,8 +256,6 @@ class Engine:
 
         # Create the ChangeMonitor and keep track of when we should recalculate the plan for each site.
         self.change_monitor = ChangeMonitor(collector=collector, selector=selector)
-        # t4 = time.time()
-        # print(f'Change monitor created in {(t4 - t3)} sec')
 
         return SCP(collector, selector, optimizer)
 
@@ -383,21 +363,13 @@ class Engine:
 
         nightly_timeline = NightlyTimeline()
         scp = self.build()
-        # tv0 = time.time()
         initial_variants = self.setup(scp)
-        # print(f'Initial variants created in {(time.time() - tv0) / 60.} min')
 
         next_update = {site: None for site in self.params.sites}
 
-        tn0 = time.time()
         for night_idx in sorted(self.params.night_indices):
-            print(f'Night {night_idx} start')
             for site in sorted(self.params.sites, key=lambda site: site.name):
                 self._schedule(scp, nightly_timeline, site, night_idx, initial_variants, next_update)
-            tn1 = time.time()
-            print(f'Night {night_idx} scheduled in {(tn1 - tn0) / 60.} min')
-            tn0 = tn1
-
         # TODO: Add plan summary to nightlyTimeline
         run_summary = StatCalculator.calculate_timeline_stats(nightly_timeline,
                                                               self.params.night_indices,

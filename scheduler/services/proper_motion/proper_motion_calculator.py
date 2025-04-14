@@ -11,6 +11,8 @@ import numpy as np
 from lucupy.minimodel import SiderealTarget
 from lucupy.meta import Singleton
 
+from scheduler.config import config
+
 __all__ = [
     'ProperMotionCalculator',
 ]
@@ -24,7 +26,8 @@ class ProperMotionCalculator(metaclass=Singleton):
     # For a given epoch, determines the AstroPy Time at which the epoch began.
     _EPOCH2TIME: ClassVar[Dict[float, Time]] = {}
 
-    _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(60.0 * u.second)
+    # _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(60.0 * u.second)
+    _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(config.collector.time_slot_length * u.min)
 
     def calculate_coordinates(self,
                               target: SiderealTarget,
@@ -34,12 +37,14 @@ class ProperMotionCalculator(metaclass=Singleton):
         if time_slot_length is None:
             time_slot_length = ProperMotionCalculator._DEFAULT_TIMESLOT_LENGTH
 
+        # Convert to degrees/year
         pm_ra = target.pm_ra / ProperMotionCalculator._MAS_PER_DEGREE
         pm_dec = target.pm_dec / ProperMotionCalculator._MAS_PER_DEGREE
         epoch_time = ProperMotionCalculator._EPOCH2TIME.setdefault(target.epoch, Time(target.epoch, format='jyear'))
 
         # Create an array of times at once
-        times = start_time + time_slot_length * np.arange(num_time_slots)
+        # times = start_time + time_slot_length * np.arange(num_time_slots)
+        times = start_time + time_slot_length * int(num_time_slots/2)
 
         # Calculate the time offsets for all times at once
         time_offsets_years = (times - epoch_time).to(u.yr).value

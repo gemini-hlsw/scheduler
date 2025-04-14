@@ -46,6 +46,7 @@ class HorizonsClient:
     site: Site
     start: datetime
     end: datetime
+    time_slot_length: float
 
     # We look up across the whole night, so the labels are simply night labels.
     date_format: str = field(default='%Y%m%d')
@@ -135,7 +136,7 @@ class HorizonsClient:
                 lines = [x.strip() for x in f.readlines()]
         else:
             logger.debug(f'Querying JPL/Horizons for {horizons_name}')
-            res = self._query(horizons_name)
+            res = self._query(horizons_name, step=f'{int(self.time_slot_length)}m')
             lines = res.text.splitlines()
             with ephemeris_path.open('w') as f:
                 f.write(res.text)
@@ -169,8 +170,8 @@ class HorizonsClient:
 
 
 @contextlib.contextmanager
-def horizons_session(site: Site, start: datetime, end: datetime) -> ContextManager[HorizonsClient]:
-    client = HorizonsClient(site=site, start=start, end=end)
+def horizons_session(site: Site, start: datetime, end: datetime, time_slot_length: float) -> ContextManager[HorizonsClient]:
+    client = HorizonsClient(site=site, start=start, end=end, time_slot_length=time_slot_length)
     try:
         yield client
     finally:

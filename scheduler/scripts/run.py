@@ -2,8 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-# import os
-import time
+import os
 from pathlib import Path
 
 from astropy.time import Time
@@ -51,6 +50,4 @@ def main(*,
     timelines.display()
 
 if __name__ == '__main__':
-    t0 = time.time()
     main()
-    print(f'Completed in {(time.time() - t0) / 60.} min')
