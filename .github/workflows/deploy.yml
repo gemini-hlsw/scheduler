@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Set version tag
         run: echo "VERSION_TAG=$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
