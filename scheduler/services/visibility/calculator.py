@@ -11,8 +11,9 @@ from lucupy.timeutils import time2slots
 from lucupy.minimodel import SiderealTarget, NonsiderealTarget, SkyBackground, ElevationType, Constraints, NightIndex, \
     Observation, Target, Program, ResourceType, Semester, ObservationID, SemesterHalf
 from numpy import dtype, ndarray
+from datetime import timedelta
 
-from scheduler.config import config
+# from scheduler.config import config
 from scheduler.core.calculations import NightEvents
 from scheduler.services.proper_motion import ProperMotionCalculator
 from scheduler.services.ephemeris import EphemerisCalculator
@@ -78,10 +79,13 @@ def calculate_target_snapshot(night_idx: NightIndex,
             # Now trim the coords to the desired subset.
             int_time_slot_length = int(time_slot_length.to_datetime().total_seconds() / 60)
             sunset_to_twi = night_events.twilight_evening_12[night_idx] - sunset
-            start_time_slot = time2slots(time_slot_length.to_datetime(), sunset_to_twi.to_datetime())
-            end_time_slot = start_time_slot + num_time_slots
+            # Horizons queries are done using a 1min timeslot from sunset to sunrise, then resampled below
+            # Get timeslots in the Horizons list between twilights
+            horizons_timeslot = timedelta(seconds=60)
+            start_time_slot = time2slots(horizons_timeslot, sunset_to_twi.to_datetime())
+            end_time_slot = start_time_slot + num_time_slots * int_time_slot_length
 
-            # We must take every x minutes where x is the time slot length in minutes.
+            # Choose times between twilights
             coord = eph_coord[start_time_slot:end_time_slot:int_time_slot_length]
         case _:
             msg = f'Invalid target: {target}'

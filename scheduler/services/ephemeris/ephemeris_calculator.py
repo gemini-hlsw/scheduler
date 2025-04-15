@@ -12,6 +12,7 @@ from lucupy.minimodel import NonsiderealTarget, Site
 from lucupy.meta import Singleton
 from lucupy.timeutils import time2slots
 
+from scheduler.config import config
 from scheduler.services.horizons import horizons_session
 from scheduler.services.logger_factory import create_logger
 
@@ -28,7 +29,9 @@ class EphemerisCalculator(metaclass=Singleton):
     Uses either the cached files or the HorizonsClient - in that order - to fetch the ephemeris data
     for a given target from a specified start time and a given number of time slots.
     """
+    # Use a 1 min timeslot for Horizons queries, this is sampled later to the time grid used by the scheduler instance
     _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(60.0 * u.second)
+    # _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(config.collector.time_slot_length * u.min)
 
     def calculate_coordinates(self,
                               site: Site,
@@ -60,13 +63,18 @@ class EphemerisCalculator(metaclass=Singleton):
         if start_lookup_time_py > end_lookup_time_py:
             raise ValueError(f'Cannot calculate ephemeris for end date that occurs before start date.')
 
-        with horizons_session(site, start_lookup_time.to_datetime(), end_lookup_time.to_datetime()) as hs:
+        with horizons_session(site, start_lookup_time.to_datetime(), end_lookup_time.to_datetime(),
+                              time_slot_length=1) as hs:
+                                # time_slot_length = config.collector.time_slot_length) as hs:
+
             # We don't care about the time. It should match up with the above times.
             coords = hs.get_ephemerides(target).coordinates
 
             # Expected number of slots. Add 1 to make inclusive.
             expected_slots = time2slots(EphemerisCalculator._DEFAULT_TIMESLOT_LENGTH.to_datetime(),
                                         end_lookup_time_py - start_lookup_time_py) + 1
+                                # end_lookup_time_py - start_lookup_time_py) + config.collector.time_slot_length
+
             if expected_slots != len(coords):
                 logger.warning(f'Ephemeris expected {expected_slots} entries, but received {len(coords)} entries.')
 
