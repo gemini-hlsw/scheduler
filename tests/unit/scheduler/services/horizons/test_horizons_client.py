@@ -64,8 +64,8 @@ def target() -> NonsiderealTarget:
 
 
 @pytest.fixture
-def session_parameters() -> Tuple[Site, datetime, datetime]:
-    return Site.GS, datetime(2019, 2, 1), datetime(2019, 2, 1, 23, 59, 59)
+def session_parameters() -> Tuple[Site, datetime, datetime, float]:
+    return Site.GS, datetime(2019, 2, 1), datetime(2019, 2, 1, 23, 59, 59), 1.0
 
 
 @given(c1=coordinates(), c2=coordinates())
