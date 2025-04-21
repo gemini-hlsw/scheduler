@@ -16,6 +16,8 @@ jobs:
           lfs: 'true'
       - name: Checkout LFS objects
         run: git lfs checkout
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
       - name: Login to Heroku Container registry
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
