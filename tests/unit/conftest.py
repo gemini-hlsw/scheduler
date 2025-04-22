@@ -12,7 +12,7 @@ from scheduler.graphql_mid.server import schema
 from scheduler.core.builder.blueprint import CollectorBlueprint
 from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.sources.sources import Sources
-from scheduler.core.eventsqueue import EventQueue
+from scheduler.core.events.queue import EventQueue
 from scheduler.services.visibility import visibility_calculator
 
 

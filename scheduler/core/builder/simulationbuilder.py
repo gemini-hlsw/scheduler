@@ -1,23 +1,17 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from pathlib import Path
-
 from astropy.time import Time
-from lucupy.minimodel import Semester, Site, ObservationStatus, Observation, QAState
-from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable
-
-from lucupy.types import ZeroTime
-
-from definitions import ROOT_DIR
+from lucupy.minimodel import Semester, Site
+from typing import final, FrozenSet, Optional
 
 from .blueprint import CollectorBlueprint
 from .schedulerbuilder import SchedulerBuilder
 from scheduler.core.components.collector import Collector
-from scheduler.core.sources.sources import Sources, Origins
+from scheduler.core.sources.sources import Sources
 from scheduler.core.programprovider.gpp import gpp_program_data, GppProgramProvider
 from scheduler.core.statscalculator import StatCalculator
-from scheduler.core.eventsqueue import EventQueue
+from scheduler.core.events.queue import EventQueue
 
 
 __all__ = [

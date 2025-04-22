@@ -11,8 +11,8 @@ from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex, 
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.selector import Selector
-from scheduler.core.eventsqueue import (Event, EveningTwilightEvent, InterruptionEvent, InterruptionResolutionEvent,
-                                        MorningTwilightEvent, WeatherChangeEvent, ToOActivationEvent)
+from scheduler.core.events.queue import (Event, EveningTwilightEvent, InterruptionEvent, InterruptionResolutionEvent,
+                                         MorningTwilightEvent, WeatherChangeEvent, ToOActivationEvent)
 from scheduler.core.plans import Plans, Visit, Plan
 from scheduler.services.logger_factory import create_logger
 from .time_coordinate_record import TimeCoordinateRecord

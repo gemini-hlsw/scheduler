@@ -1,8 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import Dict, Optional, Tuple, Generator
-from zoneinfo import ZoneInfo
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 from lucupy.minimodel import Site, NightIndex, VariantSnapshot, TimeslotIndex
@@ -15,8 +14,8 @@ from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints
 from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
 from scheduler.core.components.ranker import DefaultRanker
-from scheduler.core.eventsqueue import EventQueue, EveningTwilightEvent, WeatherChangeEvent, MorningTwilightEvent, Event
-from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
+from scheduler.core.events.queue import EventQueue, EveningTwilightEvent, WeatherChangeEvent, MorningTwilightEvent, Event
+from scheduler.core.events.queue import NightlyTimeline
 from scheduler.core.plans import Plans
 from scheduler.core.sources import Sources
 from scheduler.core.statscalculator import StatCalculator

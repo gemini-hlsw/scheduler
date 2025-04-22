@@ -6,7 +6,7 @@ from typing import final, Optional
 
 from lucupy.minimodel import TimeslotIndex
 
-from scheduler.core.eventsqueue.events import Event
+from scheduler.core.events.queue import Event
 
 
 __all__ = [

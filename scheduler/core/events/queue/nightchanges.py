@@ -1,7 +1,5 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-import json
-import os
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -10,8 +8,8 @@ from zoneinfo import ZoneInfo
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 
-from scheduler.core.eventsqueue import Event
-from scheduler.core.plans import Plans, Plan
+from scheduler.core.events.queue import Event
+from scheduler.core.plans import Plan
 
 
 __all__ = [

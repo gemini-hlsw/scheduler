@@ -16,7 +16,7 @@ from lucupy.minimodel import TimeAccountingCode
 from scheduler.core.builder.blueprint import CollectorBlueprint
 from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.components.collector import Collector
-from scheduler.core.eventsqueue import EventQueue
+from scheduler.core.events.queue import EventQueue
 from scheduler.core.output import print_collector_info
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
