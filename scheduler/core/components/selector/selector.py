@@ -87,6 +87,11 @@ class Selector(SchedulerComponent):
         # Calculate the blocked indices per night that the Scheduler knows in advance, e.g. engineering tasks.
         self._blocked_timeslots = self._calculate_blocked_timeslots()
 
+        self.night_configurations = {}
+        for site in self.collector.sites:
+            self.night_configurations[site] = self.collector.night_configurations(
+                site, np.arange(self.collector.num_nights_calculated))
+
     @staticmethod
     def _process_starting_time_slots(sites: FrozenSet[Site],
                                      night_indices: NightIndices,
@@ -495,7 +500,7 @@ class Selector(SchedulerComponent):
                 schedulable_slot_indices[night_idx] = np.array([])
         # print(f'number schedulable slots night: {len(schedulable_slot_indices[night_idx])}')
 
-        obs_scores, obs_metrics = ranker.score_observation(program, obs)
+        obs_scores, obs_metrics = ranker.score_observation(program, obs, self.night_configurations)
         # print(f'obs_scores: {max(obs_scores[night_idx])}')
 
         # Calculate the scores for the observation across all night indices across all timeslots.
