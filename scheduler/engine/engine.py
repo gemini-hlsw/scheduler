@@ -26,6 +26,8 @@ __all__ = [
     'Engine'
 ]
 
+from ..core.events.cycle.cycle import EventCycle
+
 from ..core.statscalculator.run_summary import RunSummary
 
 _logger = logger_factory.create_logger(__name__)
@@ -354,6 +356,17 @@ class Engine:
                 # TODO: If any InterruptionEvents occur before twilight, block the site with the event.
 
         return initial_variants
+
+
+    def schedule(self) -> Tuple[RunSummary, NightlyTimeline]:
+
+        nightly_timeline = NightlyTimeline()
+        scp = self.build()
+        initial_variants = self.setup(scp)
+        event_cycle = EventCycle(params)
+        for night_idx in sorted(self.params.night_indices):
+            for site in sorted(self.params.sites, key=lambda site: site.name):
+                event_cycle.run()
 
     def run(self) -> Tuple[RunSummary, NightlyTimeline]:
         """

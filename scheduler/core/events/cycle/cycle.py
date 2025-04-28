@@ -1,11 +1,27 @@
+from typing import Optional
 
+from lucupy.minimodel import TimeslotIndex, NightIndex
+
+from scheduler.core.events.queue import Event
+from scheduler.services import logger_factory
+
+_logger = logger_factory.create_logger(__name__)
 
 class EventCycle:
 
-    def __init__(self, params):
+    def __init__(self, params, queue, change_monitor):
         self.params = params
+        self.queue = queue
+        self.change_monitor = change_monitor
 
-    def run(self, scp):
+    def run(self, scp, site, night_idx, nightly_timeline):
+
+        site_name = site.site_name
+        time_slot_length = scp.collector.time_slot_length.to_datetime()
+
+        night_done = False
+        next_event: Optional[Event] = None
+        next_event_timeslot: Optional[TimeslotIndex] = None
 
         next_update = {site: None for site in self.params.sites}
         # We need the start of the night for checking if an event has been reached.
@@ -13,6 +29,12 @@ class EventCycle:
         night_events = scp.collector.get_night_events(site)
         night_start = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
         next_update[site] = None
+
+        current_timeslot: TimeslotIndex = TimeslotIndex(0)
+
+        events_by_night = self.queue.get_night_events(night_idx, site)
+        if events_by_night.is_empty():
+            raise RuntimeError(f'No events for site {site_name} for night {night_idx}.')
 
         while not night_done:
             # If our next update isn't done, and we are out of events, we're missing the morning twilight.
