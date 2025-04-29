@@ -127,21 +127,21 @@ def print_plans(all_plans: List[Plans]) -> None:
     Print out the visit plans.
     """
     sys.stderr.flush()
-    for plans in all_plans:
-        print(f'\n\n+++++ NIGHT {plans.night_idx + 1} +++++')
-        for plan in sorted(plans, key=lambda x: x.site.name):
-            if max_score_length := max((len(f'{visit.score:8.2f}') for visit in plan.visits), default=0):
-                print(f'Plan for site: {plan.site.name}')
-                print(f'\t{"Execution time":{36}}   {"ObsID":{20}} {"Score":>{max_score_length}}'
-                      '  StartAtom    EndAtom  StartSlot    EndSlot   NumSlots')
-                for visit in plan.visits:
-                    start_time_str = visit.start_time.strftime('%Y-%m-%d %H:%M')
-                    end_time_str = (visit.start_time + timedelta(minutes=visit.time_slots)).strftime('%Y-%m-%d %H:%M')
-                    print(f'\t{start_time_str} to {end_time_str}   {visit.obs_id.id:20} {visit.score:8.2f}  '
-                          f'{visit.atom_start_idx:9d}  {visit.atom_end_idx:9d}  {visit.start_time_slot:9d}  '
-                          f' {(visit.start_time_slot + visit.time_slots - 1):9d} {visit.time_slots:9d}')
-            else:
-                print(f'Empty plan for site: {plan.site.name}')
+    print(f'\n\n+++++ NIGHT {all_plans.night_idx + 1} +++++')
+    for plan in sorted(all_plans, key=lambda x: x.site.name):
+        if max_score_length := max((len(f'{visit.score:8.2f}') for visit in plan.visits), default=0):
+            print(f'Plan for site: {plan.site.name}')
+            print(f'Conditions: IQ {plan.conditions.iq} CC {plan.conditions.cc}')
+            print(f'{"Execution time":{36}}   {"ObsID":{20}} {"Score":>{max_score_length}}'
+                  '  StartAtom    EndAtom  StartSlot    EndSlot   NumSlots')
+            for visit in plan.visits:
+                start_time_str = visit.start_time.strftime('%Y-%m-%d %H:%M')
+                end_time_str = (visit.start_time + timedelta(minutes=visit.time_slots)).strftime('%Y-%m-%d %H:%M')
+                print(f'{start_time_str} to {end_time_str}   {visit.obs_id.id:20} {visit.score:8.2f}  '
+                      f'{visit.atom_start_idx:9d}  {visit.atom_end_idx:9d}  {visit.start_time_slot:9d}  '
+                      f' {(visit.start_time_slot + visit.time_slots - 1):9d} {visit.time_slots:9d}')
+        else:
+            print(f'Empty plan for site: {plan.site.name}')
 
 
 def plans_table(all_plans: List[Plans]) -> List[Dict[Site, DataFrame]]:
@@ -179,3 +179,87 @@ def pickle_selection(selection_to_pickle: Selection,
                      night: str = '') -> None:
     with open(f'{path}/selection_night{night}.pickle', 'wb') as f:
         pickle.dump(selection_to_pickle, f)
+
+
+def print_observations(group, print_targ=False, print_atoms=False):
+    """Print details of the observations in a group"""
+    for obs in group.observations():
+        print(f'\t\t\t Obs: {obs.id.id} {obs.priority.name} IQ:{obs.constraints.conditions.iq} '
+              f'CC:{obs.constraints.conditions.cc} {obs.exec_time()} {obs.obs_class.name:12} {obs.total_used()} '\
+              f'{obs.status.name} Pre-imaging:{obs.preimaging}') # {min(program.target_info[obs.id][0].airmass):5.2f}')
+        if print_targ:
+            for target in obs.targets:
+                try:
+                    ra = target.ra
+                    dec = target.dec
+                except Exception:
+                    ra = None
+                    dec = None
+                print(f'\t\t\t\t {target.name} {target.type} {ra} {dec}')
+        if print_atoms:
+            for atom in obs.sequence:
+                print(
+                    f'\t\t\t\tAtom: {atom.id} {atom.exec_time} {atom.prog_time} {atom.part_time} {atom.observed} '
+                    f'{atom.qa_state.name} {atom.program_used} {atom.partner_used}')
+
+
+def print_selection(selection, print_obs=False, print_targ=False, print_atoms=False):
+    """Print details of a selection, currently appropriate for Validation mode (not recursive)"""
+    # print(f'Night indic   es: {selection.night_indices}')
+    night_idx = selection.night_indices[0]
+    for p in selection.program_info.values():
+        print(f'Program: {p.program.id.id}  mean user priority:{p.program.mean_priority():5.2f}')
+    #     for targ in p.target_info:
+    #         print(f'{targ.id}')
+        for g in p.group_data_map.values():
+            print(f'\t Group: {g.group.unique_id.id} {g.group.priority().name} ObsGroup:{g.group.is_observation_group()} '\
+                  f'SchedGroup:{g.group.is_scheduling_group()} AndGroup:{g.group.is_and_group()} '\
+                  f'Max score: {np.max(g.group_info.scores[night_idx]):7.2f} Exec time: {g.group.exec_time()}')
+            if g.group.is_scheduling_group():
+                for subgroup in g.group.children:
+                    # print(f'\t\t {subgroup.unique_id}')
+                    if subgroup.unique_id in p.group_data_map:
+                        sg = p.group_data_map[subgroup.unique_id]
+                        max_score = np.max(sg.group_info.scores[night_idx])
+                    else:
+                        max_score = 0.0
+                    print(f'\t\t {subgroup.unique_id.id} {subgroup.priority().name} {subgroup.exec_time()} {subgroup.is_observation_group()}\
+                    {max_score:7.2f}')
+                    if print_obs:
+                        print_observations(subgroup, print_targ=print_targ, print_atoms=print_atoms)
+            elif print_obs:
+                print_observations(g.group, print_targ=print_targ, print_atoms=print_atoms)
+
+
+def print_schedulable_groups(selection, print_obs=False, print_targ=False, print_atoms=False):
+    """Print details of the schedulable groups, currently appropriate for Validation mode (not recursive)"""
+
+    night_idx = selection.night_indices[0]
+    for group_data in selection.schedulable_groups.values():
+        p = selection.program_info[group_data.group.program_id]
+        constraints = group_data.group.constraints()
+        # print(constraints)
+        if group_data.group.unique_id in p.group_data_map:
+            sg = p.group_data_map[group_data.group.unique_id]
+            max_score = np.max(sg.group_info.scores[night_idx])
+        else:
+            max_score = 0.0
+        print(f'{group_data.group.unique_id.id} IQ:{constraints[0].conditions.iq} CC:{constraints[0].conditions.cc} '
+              f'Max score: {max_score:7.2f} Exec time: {group_data.group.exec_time()}')
+        print(f'\t{group_data.group.required_resources()}')
+        if group_data.group.is_scheduling_group():
+            for subgroup in group_data.group.children:
+                constraints = subgroup.constraints()
+                # print(len(constraints))
+                if subgroup.unique_id in p.group_data_map:
+                    sg = p.group_data_map[subgroup.unique_id]
+                    max_score = np.max(sg.group_info.scores[night_idx])
+                else:
+                    max_score = 0.0
+                print(f'\t {subgroup.id.id} IQ:{constraints[0].conditions.iq} CC:{constraints[0].conditions.cc} '
+                      f'Max score:{max_score:7.2f}  Exec time: {subgroup.exec_time()}')
+                print(f'\t\t{subgroup.required_resources()}')
+                if print_obs:
+                    print_observations(subgroup, print_targ=False, print_atoms=print_atoms)
+        elif print_obs:
+            print_observations(group_data.group, print_targ=print_targ, print_atoms=print_atoms)

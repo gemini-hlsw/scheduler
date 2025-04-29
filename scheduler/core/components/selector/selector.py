@@ -300,6 +300,12 @@ class Selector(SchedulerComponent):
             logger.debug(f'Program {program.id.id} out of time: skipping.')
             return None
 
+        verbose = False
+
+        if verbose:
+            print(f'score_program: {program.id.id}')
+            print(f'sites: {sites}, night_indices: {night_indices}, starting_time_slots: {starting_time_slots}')
+
         # The night_indices in the Selector must be a subset of the Ranker.
         night_indices_set = set(night_indices)
         if not night_indices_set.issubset(ranker.night_indices):
@@ -329,6 +335,10 @@ class Selector(SchedulerComponent):
         group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
                           if any(indices.size > 0 for indices in gp_data.group_info.schedulable_slot_indices.values())
                           and gp_data.group.id != ROOT_GROUP_ID}
+        if verbose:
+            print(f'group_data_map keys: {group_data_map.keys()}')
+            for gp_id, gp_data in unfiltered_group_data_map.items():
+                print(gp_id, gp_data.group_info.schedulable_slot_indices.values())
 
         # In an observation group, the only child is an Observation:
         # hence, references here to group.children are simply the Observation.
@@ -406,7 +416,11 @@ class Selector(SchedulerComponent):
         if not group.is_observation_group():
             raise ValueError(f'Non-observation group {group.id} cannot be treated as observation group.')
 
+        verbose = False
+
         obs = group.children
+        if verbose:
+            print(f'\t\t\t_calculate_observation_group: {obs.unique_id.id} {obs.status}')
         if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.INACTIVE, ObservationStatus.ON_HOLD}:
             logger.debug(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
             return group_data_map
@@ -550,9 +564,16 @@ class Selector(SchedulerComponent):
         if isinstance(group.children, Observation):
             raise ValueError(f'Tried to process observation group {group.id} as an AND group.')
 
+        verbose = False
+
+        if verbose:
+            print(f'\t_calculate_and_group: {group.unique_id.id}')
+
         # Process all subgroups and then process this group directly.
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
+            if verbose:
+                print(f'\t\tsubgroup: {subgroup.unique_id.id}')
             self._calculate_group(program, subgroup, sites, night_indices, starting_time_slots, night_configurations,
                                   ranker, group_data_map)
 

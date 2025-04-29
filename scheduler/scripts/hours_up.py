@@ -169,8 +169,10 @@ def hours_up(obsid: ObservationID, night_idx: int, airmass_max=2.05):
     # Get target info from observation
     obs = collector.get_observation(obsid)
     ti = collector.get_target_info(obs.id)
-    ra = ti[0].coord.ra[0]
-    dec = ti[0].coord.dec[0]
+    # ra = ti[0].coord.ra[0]
+    # dec = ti[0].coord.dec[0]
+    ra = ti[0].coord.ra
+    dec = ti[0].coord.dec
     # print(ra, dec)
 
     # Get the site info

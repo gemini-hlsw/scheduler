@@ -57,7 +57,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
     def __init__(self,
                  min_visit_len: timedelta = timedelta(minutes=30),
-                 show_plots: bool = False):
+                 show_plots: bool = False, verbose: bool = False):
         self.selection: Optional[Selection] = None
         self.group_data_list: List[GroupData] = []
         self.group_ids: List[UniqueGroupID] = []
@@ -67,6 +67,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         self.obs_in_plan: Dict = {}
         self.min_visit_len = min_visit_len
         self.show_plots = show_plots
+        self.verbose = verbose
         self.time_slot_length: Optional[timedelta] = None
 
     def setup(self, selection: Selection) -> GreedyMaxOptimizer:
@@ -243,7 +244,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         n_slots_min_visit = time2slots(self.time_slot_length, self.min_visit_len)
         # print(f"n_min_visit: {n_min_visit}")
 
-        # Calculate the remaining clock time necessary for the group to be complete.
+        # Calculate the remaining clock time necessary for the group to be completed.
         # time_remaining = group.exec_time() - group.total_used()
         # the following does this
         time_remaining, time_remaining_min, exec_sci_nir, n_std, n_slots_remaining = self._exec_time_remaining(group)
@@ -777,24 +778,34 @@ class GreedyMaxOptimizer(BaseOptimizer):
     def _update_score(self, program: Program, night_idx: NightIndex) -> None:
         """Update the scores of the incomplete groups in the scheduled program"""
 
-        # print("Running score_program")
-        program_calculations = self.selection.score_program(program)
-        if program_calculations is None:
-            return None
+        if self.verbose:
+            print(f"Starting _update_score for {program.id.id}")
 
-        # print("Re-score incomplete schedulable_groups")
-        for unique_group_id in program_calculations.top_level_groups:
-            group_data = program_calculations.group_data_map[unique_group_id]
-            group, group_info = group_data
-            schedulable_group = self.selection.schedulable_groups[unique_group_id]
-            # print(f"{unique_group_id} {schedulable_group.group.exec_time()} {schedulable_group.group.total_used()}")
-            # print(f"\tOld max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f} new max score[0]: "
-            #       f"{np.max(group_info.scores[night_idx]):7.2f}")
-            # update scores in schedulable_groups if the group is not completely observed
-            if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
-                schedulable_group.group_info.scores = group_info.scores
-                # schedulable_group.group_info.scores[:] = group_info.scores[:]
-            # print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f}")
+        program_calculations = self.selection.score_program(program)
+
+        if program_calculations is not None:
+            # print("Re-score incomplete schedulable_groups")
+            for unique_group_id in program_calculations.top_level_groups:
+                if self.verbose:
+                    print(f"\tRescoring {unique_group_id.id}")
+                group_data = program_calculations.group_data_map[unique_group_id]
+                group, group_info = group_data
+                # Trap any key errors to prevent crashes, but this prevents the rescoring needed
+                try:
+                    schedulable_group = self.selection.schedulable_groups[unique_group_id]
+                except KeyError:
+                    logger.warning(f'Schedulable_group key error for {unique_group_id.id}')
+                    print(f'Schedulable_group key error for {unique_group_id.id}')
+                    return None
+                # print(f"{unique_group_id.id} {schedulable_group.group.exec_time()} {schedulable_group.group.total_used()}")
+                # print(f"\tOld max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f} new max score[0]: "
+                #       f"{np.max(group_info.scores[night_idx]):7.2f}")
+                # update scores in schedulable_groups if the group is not completely observed
+                if schedulable_group.group.exec_time() >= schedulable_group.group.total_used():
+                    schedulable_group.group_info.scores = group_info.scores
+                    # schedulable_group.group_info.scores[:] = group_info.scores[:]
+                # print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f}")
+        return None
 
     def _run(self, plans: Plans) -> None:
 
@@ -811,8 +822,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # max_score, max_group, max_interval = max_group_info
                 added = self.add(plans.night_idx, max_group_info)
                 if added:
-                    # print(f"Group {max_group_info.group_data.group.unique_id.id} with "
-                    #      f"max score {max_group_info.max_score} added.")
+                    # if self.verbose:
+                    #     print(f"Group {max_group_info.group_data.group.unique_id.id} with "
+                    #           f"max score {max_group_info.max_score} added.")
                     # Remove group from list if completely observed
                     # if max_group_info.group_data.group.program_used() >= max_group_info.group_data.group.prog_time():
                     # remove any added group to avoid multiple visits on the same night
@@ -832,8 +844,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # Write observations from the timelines to the output plan
         self.output_plans(plans)
 
-    def _length_visit(self, n_acq, n_seq):
-        return n_acq + time2slots(self.time_slot_length, n_seq)
+    def _length_visit(self, t_acq, t_seq):
+        """Calculate the number of time slots in a visit.
+           Avoid rounding errors by summing times before determining the number of slots"""
+        return time2slots(self.time_slot_length, (t_acq + t_seq))
 
     def _add_visit(self,
                    night_idx: NightIndex,
@@ -846,6 +860,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
         Returns the number of time slots filled.
         """
 
+        verbose = False
+
         site = max_group_info.group_data.group.observations()[0].site
         timeline = self.timelines[night_idx][site]
         # program = self.selection.program_info[max_group_info.group_data.group.program_id].program
@@ -856,18 +872,22 @@ class GreedyMaxOptimizer(BaseOptimizer):
         atom_start = self._first_nonzero_time_idx(cumul_seq)
         atom_end = atom_start
 
-        n_slots_acq = time2slots(self.time_slot_length, obs.acq_overhead)
+        # n_slots_acq = time2slots(self.time_slot_length, obs.acq_overhead)
+        if verbose:
+            print(f'_add_visit for {obs.unique_id.id}: {n_slots_filled} {atom_start} {atom_end}')
+            for next_atom in range(len(cumul_seq)):
+                print(next_atom, n_slots_filled + self._length_visit(obs.acq_overhead, cumul_seq[next_atom]))
 
         # type inspector cannot infer that cumul_seq[idx] is a timedelta.
         # noinspection PyTypeChecker
-        # visit_length = n_slots_acq + time2slots(self.time_slot_length, cumul_seq[atom_end])
-        visit_length = self._length_visit(n_slots_acq, cumul_seq[atom_end])
+        visit_length = self._length_visit(obs.acq_overhead, cumul_seq[atom_end])
         next_atom = atom_end + 1
+        # TODO: review the following logic with split sequences in GPP
         while (next_atom <= len(cumul_seq) - 1 and
-               n_slots_filled + self._length_visit(n_slots_acq, cumul_seq[next_atom]) <= len(best_interval)):
+               n_slots_filled + self._length_visit(obs.acq_overhead, cumul_seq[next_atom]) <= len(best_interval)):
             atom_end += 1
             # noinspection PyTypeChecker
-            visit_length = self._length_visit(n_slots_acq, cumul_seq[atom_end])
+            visit_length = self._length_visit(obs.acq_overhead, cumul_seq[atom_end])
             next_atom = atom_end + 1
 
         n_slots_filled += visit_length
@@ -904,6 +924,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         Add a group to a Plan - find the best location within the interval (maximize the score) and select standards
         """
+
+        if self.verbose:
+            print(f"Greedymax.add group {max_group_info.group_data.group.unique_id.id}")
+
         # TODO: update base method?
         # TODO: Missing different logic for different AND/OR GROUPS
         # Add method should handle those
@@ -953,7 +977,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             if max_group_info.n_std > 0:
                 if max_group_info.exec_sci_nir > ZeroTime:
                     standards, place_before = self.place_standards(night_idx, best_interval, prog_obs, part_obs,
-                                                                   max_group_info.n_std, verbose=False)
+                                                                   max_group_info.n_std, verbose=self.verbose)
                     for ii, std in enumerate(standards):
                         n_slots_cal += time2slots(self.time_slot_length, std.exec_time())
                         # print(f"{std.id.id} {place_before[ii]} {n_slots_cal}")
@@ -985,10 +1009,11 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # print(f"Adding after_std: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
 
-            # Inactivate any standards not used
-            for obs in part_obs:
-                if obs not in standards:
-                    obs.status = ObservationStatus.INACTIVE
+            # If group is not split, inactivate any unused standards
+            if max_group_info.n_slots_remaining == n_slots_filled:
+                for obs in part_obs:
+                    if obs not in standards:
+                        obs.status = ObservationStatus.INACTIVE
 
             # TODO: Shift to remove any gaps in the plan?
 
