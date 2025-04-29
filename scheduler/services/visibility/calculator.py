@@ -26,7 +26,7 @@ from scheduler.core.meta import Singleton
 
 from scheduler.config import config
 
-_logger = create_logger(__name__)
+_logger = create_logger(__name__, with_id=False)
 
 __all__ = [
     'calculate_target_snapshot',

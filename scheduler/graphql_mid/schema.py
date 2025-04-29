@@ -7,7 +7,7 @@ from typing import List, AsyncGenerator, Dict
 import strawberry # noqa
 from astropy.time import Time
 from lucupy.minimodel.site import Site
-
+from scheduler.context import schedule_id_var
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
 from scheduler.services.logger_factory import create_logger
@@ -42,6 +42,8 @@ class Query:
 
     @strawberry.field
     async def schedule(self, schedule_id: str, new_schedule_input: CreateNewScheduleInput) -> str:
+        schedule_id_var.set(schedule_id)
+
         start = Time(new_schedule_input.start_time, format='iso', scale='utc')
         end = Time(new_schedule_input.end_time, format='iso', scale='utc')
 
@@ -62,8 +64,7 @@ class Query:
                                      new_schedule_input.semester_visibility,
                                      new_schedule_input.num_nights_to_schedule,
                                      programs_list)
-
-        _logger.info(f"Run ID: {schedule_id}\n{params}")
+        _logger.info(f"Plan is on the queue! for: {schedule_id}\n{params}")
 
         task = asyncio.to_thread(sync_schedule, params)
 
@@ -80,6 +81,7 @@ class Query:
 class Subscription:
     @strawberry.subscription
     async def queue_schedule(self, schedule_id: str) -> AsyncGenerator[NightPlansResponse, None]:
+        schedule_id_var.set(schedule_id)
         if schedule_id not in active_subscriptions:
             queue = asyncio.Queue()
             active_subscriptions[schedule_id] = queue
@@ -88,9 +90,8 @@ class Subscription:
         try:
             while True:
                 try:
-                    print(f'Queueing {schedule_id}')
                     item = await queue.get()  # Wait for item from the queue
-                    print(f'Run ID: {schedule_id}')
+                    _logger.info(f'Running ID: {schedule_id}')
                     result = await item
                     yield result  # Yield item to the subscription
                 except Exception as e:
