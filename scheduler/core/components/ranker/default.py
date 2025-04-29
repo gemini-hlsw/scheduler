@@ -241,7 +241,7 @@ class DefaultRanker(Ranker):
 
         return metric, metric_slope
 
-    def score_observation(self, program: Program, obs: Observation):
+    def score_observation(self, program: Program, obs: Observation, night_configurations: dict):
         """
         Calculate the scores for an observation for each night for each time slot index.
         These are returned as a list indexed by night index as per the night_indices supplied,
@@ -314,7 +314,7 @@ class DefaultRanker(Ranker):
         user_priority = 1. + (obs.priority.value - program.mean_priority())/self.params.priority_factor
 
         # Program priority (from calendar)
-        nc = self.collector.night_configurations(obs.site, np.arange(self.collector.num_nights_calculated))
+        nc = night_configurations[obs.site]
         program = self.collector.get_program(obs.id.program_id())
         prog_priority = {night_idx: self.params.program_priority if nc[night_idx].filter.program_priority_filter_any(program)
                          else 1.0 for night_idx in self.night_indices}
