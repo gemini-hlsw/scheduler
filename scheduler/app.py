@@ -10,7 +10,7 @@ from scheduler.services.visibility import visibility_calculator
 from scheduler.services.logger_factory import create_logger
 from scheduler.config import config
 
-_logger = create_logger(__name__)
+_logger = create_logger(__name__, with_id=False)
 
 _logger.info(f"Running scheduler server version {environ['APP_VERSION']}")
 _logger.info(f"Changelog {config.app.changelog}")

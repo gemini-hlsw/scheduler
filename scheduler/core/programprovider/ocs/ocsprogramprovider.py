@@ -1054,11 +1054,11 @@ class OcsProgramProvider(ProgramProvider):
             active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
 
             if not active:
-                logger.warning(f"Observation {obs_id} is inactive (skipping).")
+                logger.debug(f"Observation {obs_id} is inactive (skipping).")
                 return None
             obs_class = ObservationClass[data[OcsProgramProvider._ObsKeys.OBS_CLASS].upper()]
             if obs_class not in self._obs_classes or not active:
-                logger.warning(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
+                logger.debug(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
                 return None
 
             # By default, assume ToOType of None unless otherwise indicated.
@@ -1072,7 +1072,7 @@ class OcsProgramProvider(ProgramProvider):
 
             # If the status is not legal, terminate parsing.
             if status not in OcsProgramProvider._OBSERVATION_STATUSES:
-                logger.warning(f'Observation {obs_id} status: {status} is not in the valid group.')
+                logger.debug(f'Observation {obs_id} status: {status} is not in the valid group.')
                 return None
 
             setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
@@ -1169,7 +1169,7 @@ class OcsProgramProvider(ProgramProvider):
                             targets.append(target)
 
                 except KeyError:
-                    logger.warning(f'No guide group data found for observation {obs_id}')
+                    logger.error(f'No guide group data found for observation {obs_id}')
 
                 # Process the user targets.
                 user_targets_data = target_env.setdefault(OcsProgramProvider._TargetEnvKeys.USER_TARGETS, [])
@@ -1358,7 +1358,7 @@ class OcsProgramProvider(ProgramProvider):
         # If there are no children to observe, terminate with None
         number_to_observe = len(children)
         if number_to_observe == 0:
-            logger.warning(f"Program {program_id} group {group_id} has no candidate children. Skipping.")
+            logger.debug(f"Program {program_id} group {group_id} has no candidate children. Skipping.")
             return None
 
         # Put all the observations in the one big AND group and return it.
@@ -1420,7 +1420,7 @@ class OcsProgramProvider(ProgramProvider):
         root_group = self.parse_group(data, program_id, ROOT_GROUP_ID, band=band,
                                           split=split, split_by_iterator=split_by_iterator)
         if root_group is None:
-            logger.warning(f'Program {program_id} has empty root group. Skipping.')
+            logger.debug(f'Program {program_id} has empty root group. Skipping.')
             return None
 
         # Extract the semester and program type, if it can be inferred from the filename.

@@ -36,7 +36,7 @@ __all__ = [
     'Collector',
 ]
 
-logger = logger_factory.create_logger(__name__)
+_logger = logger_factory.create_logger(__name__)
 
 
 # TODO: Merge this if possible with Visit.
@@ -367,17 +367,17 @@ class Collector(SchedulerComponent):
                 # TODO: as we know that the program is not from a semester in which we are interested.
                 # If program semester is not in the list of specified semesters, skip.
                 if program.semester is None or program.semester not in self.semesters:
-                    logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                    _logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
                     continue
 
                 # If a program has no time awarded, then we will get a divide by zero in scoring, so skip it.
                 if program.program_awarded() == ZeroTime:
-                    logger.debug(f'Program {program.id} has awarded time of zero (skipping).')
+                    _logger.debug(f'Program {program.id} has awarded time of zero (skipping).')
                     continue
 
                 # If a program ID is repeated, warn and overwrite.
                 if program.id in Collector._programs.keys():
-                    logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
+                    _logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
 
                 Collector._programs[program.id] = program
 
@@ -396,10 +396,10 @@ class Collector(SchedulerComponent):
 
             except Exception as e:
                 bad_program_count += 1
-                logger.warning(f'Could not parse program: {e}')
+                _logger.warning(f'Could not parse program: {e}')
 
         if bad_program_count:
-            logger.error(f'Could not parse {bad_program_count} programs.')
+            _logger.error(f'Could not parse {bad_program_count} programs.')
 
         # TODO STEP 1: This is the code that needs parallelization.
         if not self.with_redis:
@@ -410,7 +410,7 @@ class Collector(SchedulerComponent):
             # For ToOs, this may be the case.
             base: Optional[Target] = obs.base_target()
             if base is None:
-                logger.error(f'Could not find base target for {obs.id.id}.')
+                _logger.error(f'Could not find base target for {obs.id.id}.')
                 continue
 
             program = Collector.get_program(program_id)
@@ -448,7 +448,10 @@ class Collector(SchedulerComponent):
         if not self.with_redis:
             sem, = self.semesters
             visibility_calculator.vis_table = {sem: RedisClient.transform_to_json(vis_table)}
+        
+        _logger.info(f'Collected {len(Collector._observations)} observations: {[ o.id for o in Collector._observations.keys()]}.')
 
+        
     def load_target_info_for_too(self, obs: Observation, target: Target) -> None:
         ti = self._calculate_target_info(obs, target)
         Collector._target_info[target.name, obs.id] = ti
@@ -574,7 +577,7 @@ class Collector(SchedulerComponent):
 
                     # Check if the Observation has been completely observed.
                     if charge_group and visit.atom_end_idx == len(obs_seq) - 1:
-                        logger.debug(f'Marking observation complete: {observation.id.id}')
+                        _logger.debug(f'Marking observation complete: {observation.id.id}')
                         observation.status = ObservationStatus.OBSERVED
                         if observation in part_obs:
                             part_obs.remove(observation)
@@ -625,5 +628,5 @@ class Collector(SchedulerComponent):
                 if charge_group:
                     for obs in part_obs:
                         # print(f'\t Setting {obs.unique_id.id} to INACTIVE.')
-                        logger.debug(f'\tTime_accounting setting {obs.unique_id.id} to INACTIVE.')
+                        _logger.debug(f'\tTime_accounting setting {obs.unique_id.id} to INACTIVE.')
                         obs.status = ObservationStatus.INACTIVE
