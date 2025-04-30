@@ -1,23 +1,29 @@
 from typing import Optional
 
+import numpy as np
 from lucupy.minimodel import TimeslotIndex, NightIndex
 
+from scheduler.core.components.changemonitor import ChangeMonitor
+from scheduler.core.components.ranker import DefaultRanker
 from scheduler.core.events.queue import Event
+from scheduler.core.plans import Plans
 from scheduler.services import logger_factory
 
 _logger = logger_factory.create_logger(__name__)
 
 class EventCycle:
 
-    def __init__(self, params, queue, change_monitor):
+    def __init__(self, params, queue):
         self.params = params
         self.queue = queue
-        self.change_monitor = change_monitor
 
     def run(self, scp, site, night_idx, nightly_timeline):
 
+        change_monitor = ChangeMonitor(scp.collector, scp.selector)
         site_name = site.site_name
         time_slot_length = scp.collector.time_slot_length.to_datetime()
+        night_indices = np.array([night_idx])
+        ranker = DefaultRanker(scp.collector, night_indices, self.params.sites, params=self.params.ranker_parameters)
 
         night_done = False
         next_event: Optional[Event] = None
@@ -32,7 +38,12 @@ class EventCycle:
 
         current_timeslot: TimeslotIndex = TimeslotIndex(0)
 
+        plans: Optional[Plans] = None
         events_by_night = self.queue.get_night_events(night_idx, site)
+        print(f"events_by_night {night_idx}: ")
+        for e in events_by_night.events:
+            print(f'{e.description} at {e.time:%m/%d/%Y}')
+
         if events_by_night.is_empty():
             raise RuntimeError(f'No events for site {site_name} for night {night_idx}.')
 
@@ -80,7 +91,7 @@ class EventCycle:
                     # If there is no next update planned, then take it to be the next update.
                     # If there is a next update planned, then take it if it happens before the next update.
                     # Process the event to find out if we should recalculate the plan based on it and when.
-                    time_record = self.change_monitor.process_event(site, top_event, plans, night_idx)
+                    time_record = change_monitor.process_event(site, top_event, plans, night_idx)
                     if time_record is not None:
                         # In the case that:
                         # * there is no next update scheduled; or
@@ -138,7 +149,7 @@ class EventCycle:
                                   f'starting at time slot {current_timeslot}.')
 
                     # If the site is blocked, we do not perform a selection or optimizer run for the site.
-                    if self.change_monitor.is_site_unblocked(site):
+                    if change_monitor.is_site_unblocked(site):
                         plans = scp.run(site, night_indices, current_timeslot, ranker)
                         nightly_timeline.add(NightIndex(night_idx),
                                              site,
@@ -168,11 +179,11 @@ class EventCycle:
             event = events_by_night.pop_next_event()
             event.to_timeslot_idx(eve_twi_time, time_slot_length)
             _logger.warning(f'Site {site_name} on night {night_idx} has event after morning twilight: {event}')
-            self.change_monitor.process_event(site, event, None, night_idx)
+            change_monitor.process_event(site, event, None, night_idx)
 
             # Timeslot will be after final timeslot because this event is scheduled later.
             nightly_timeline.add(NightIndex(night_idx), site, current_timeslot, event, None)
 
         # The site should no longer be blocked.
-        if not self.change_monitor.is_site_unblocked(site):
+        if not change_monitor.is_site_unblocked(site):
             _logger.warning(f'Site {site_name} is still blocked after all events on night {night_idx} processed.')
