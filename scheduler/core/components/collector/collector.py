@@ -575,12 +575,16 @@ class Collector(SchedulerComponent):
                     cumul_seq = observation.cumulative_exec_times()
                     obs_seq = observation.sequence
 
-                    # Check if the Observation has been completely observed.
-                    if charge_group and visit.atom_end_idx == len(obs_seq) - 1:
-                        _logger.debug(f'Marking observation complete: {observation.id.id}')
-                        observation.status = ObservationStatus.OBSERVED
-                        if observation in part_obs:
-                            part_obs.remove(observation)
+                    if charge_group:
+                        # Check if the Observation has been completely observed.
+                        if visit.atom_end_idx == len(obs_seq) - 1:
+                            _logger.debug(f'Marking observation complete: {observation.id.id}')
+                            observation.status = ObservationStatus.OBSERVED
+                            if observation in part_obs:
+                                part_obs.remove(observation)
+                        else:
+                            _logger.debug(f'Marking observation ongoing: {observation.id.id}')
+                            observation.status = ObservationStatus.ONGOING
                     elif not_charged:
                         observation.status = ObservationStatus.ONGOING
 
