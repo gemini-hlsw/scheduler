@@ -11,6 +11,7 @@ from scheduler.config import config
 
 
 heroku_port = os.environ.get("PORT")
+heroku_port = int(heroku_port) if isinstance(heroku_port, str) else heroku_port
 
 
 def main():
