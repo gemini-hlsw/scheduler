@@ -1,4 +1,4 @@
-name: Deploy to Heroku
+name: Staging deploy to Heroku
 
 on:
   push:
@@ -7,13 +7,14 @@ on:
 
 jobs:
   build:
+    name: Scheduler Staging Deploy
     runs-on: ubuntu-latest
     steps:
       - name: Set version tag
         run: echo "VERSION_TAG=$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
       - uses: actions/checkout@v4
         with:
-          lfs: 'true'
+          lfs: "true"
       - name: Checkout LFS objects
         run: git lfs checkout
       - name: Install Heroku CLI
@@ -28,7 +29,7 @@ jobs:
         run: |
           heroku container:push -a ${{ secrets.HEROKU_APP_NAME }} web \
           --arg GH_PAT=${{ secrets.GH_PAT }} \
-          --arg APP_VERSION=${{ env.VERSION_TAG }}
+          --arg APP_VERSION=${{ env.VERSION_TAG }}-staging
       - name: Release
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}

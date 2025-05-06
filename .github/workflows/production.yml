@@ -1,41 +1,38 @@
-name: Deploy to Heroku Production app.
+name: Staging deploy to Heroku
 
 on:
   push:
-    branches:
-      - production
+    tags:
+      - "v*"
 
 jobs:
   build:
+    name: Scheduler Staging Deploy
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Build, Push and Release a Docker container to Heroku.
-      uses: akhileshns/heroku-deploy@v3.13.15
-      with:
-        # Below you must provide variables for your Heroku app.
-
-        # The email address associated with your Heroku account.
-        # If you don't want to use repository secrets (which is recommended) you can do:
-        # email: my.email@example.com
-        heroku_email: ${{ secrets.HEROKU_EMAIL }}
-
-        # Heroku API key associated with provided user's email.
-        # Api Key is available under your Heroku account settings.
-        heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-
-        # Name of the heroku application to which the build is to be sent.
-        heroku_app_name: ${{ secrets.HEROKU_PRODUCTION_APP_NAME }}
-
-        usedocker: true
-
-    - name: Automatic Releases
-      uses: marvinpinto/action-automatic-releases@v1.2.1
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        automatic_release_tag: "latest"
-        prerelease: true
-        title: "Development Build"
+      - name: Set version tag
+        run: echo "VERSION_TAG=$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+      - uses: actions/checkout@v4
+        with:
+          lfs: "true"
+      - name: Checkout LFS objects
+        run: git lfs checkout
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+      - name: Login to Heroku Container registry
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: heroku container:login
+      - name: Build and push
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          heroku container:push -a ${{ secrets.HEROKU_PRODUCTION_APP_NAME }} web \
+          --arg GH_PAT=${{ secrets.GH_PAT }} \
+          --arg APP_VERSION=${{ env.VERSION_TAG }}-prod
+      - name: Release
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          heroku container:release -a ${{ secrets.HEROKU_PRODUCTION_APP_NAME }} web
