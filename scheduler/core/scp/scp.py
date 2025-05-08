@@ -16,29 +16,36 @@ from scheduler.services import logger_factory
 
 _logger = logger_factory.create_logger(__name__)
 
+__all__ = ["SCP"]
 
 @final
 @dataclass
 class SCP:
-    """
-    Scheduler Core Pipeline.
+    """Scheduler Core Pipeline.
     This process must remain the same across all modes and methods of consume
     the scheduler.
+
+    Attributes:
+        collector (Collector): Collector retrieves from different services all
+            the information needed to create a schedule.
+        selector (Selector): Selector filters the available Observations from the night
+        optimizer (Optimizer): Optimizer creates the plan for the night.
+        ranker (Ranker): Ranker does the scoring for all observations.
     """
     collector: Collector
     selector: Selector
     optimizer: Optimizer
+    ranker: Ranker
 
     def run(self,
             site: Site,
             night_indices: npt.NDArray[NightIndex],
-            current_timeslot: TimeslotIndex,
-            ranker: Ranker) -> Plans:
+            current_timeslot: TimeslotIndex) -> Plans:
         selection = self.selector.select(night_indices=night_indices,
                                          sites=frozenset([site]),
                                          starting_time_slots={site: {night_idx: current_timeslot
                                                                      for night_idx in night_indices}},
-                                         ranker=ranker)
+                                         ranker=self.ranker)
         # Right now the optimizer generates List[Plans], a list of plans indexed by
         # every night in the selection. We only want the first one, which corresponds
         # to the current night index we are looping over.

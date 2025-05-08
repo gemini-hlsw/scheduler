@@ -1,22 +1,17 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import Dict, Optional, Tuple
+from typing import Tuple
 
-import numpy as np
-from lucupy.minimodel import Site, NightIndex, VariantSnapshot, TimeslotIndex
 from lucupy.timeutils import time2slots
 
 from .params import SchedulerParameters
-from .scp import SCP
+from scheduler.core.scp.scp import SCP
 
 from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints
-from scheduler.core.components.changemonitor import TimeCoordinateRecord
-from scheduler.core.components.ranker import DefaultRanker
-from scheduler.core.events.queue import EventQueue, EveningTwilightEvent, WeatherChangeEvent, MorningTwilightEvent, Event
+from scheduler.core.events.queue import EventQueue, EveningTwilightEvent, WeatherChangeEvent, MorningTwilightEvent
 from scheduler.core.events.queue import NightlyTimeline
-from scheduler.core.plans import Plans
 from scheduler.core.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.services import logger_factory
@@ -25,6 +20,8 @@ from scheduler.services import logger_factory
 __all__ = [
     'Engine'
 ]
+
+from ..core.components.ranker import DefaultRanker
 
 from ..core.events.cycle.cycle import EventCycle
 
@@ -65,12 +62,12 @@ class Engine:
                                           blueprint=Blueprints.selector)
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
-        # ranker = DefaultRanker(collector,
-        #                       self.params.night_indices,
-        #                       self.params.sites,
-        #                       params=self.params.ranker_parameters)
+        ranker = DefaultRanker(collector,
+                               self.params.night_indices,
+                               self.params.sites,
+                               params=self.params.ranker_parameters)
 
-        return SCP(collector, selector, optimizer)
+        return SCP(collector, selector, optimizer, ranker)
 
     def _setup(self, scp: SCP, queue: EventQueue) -> None:
         """
@@ -159,23 +156,16 @@ class Engine:
 
                 # TODO: If any InterruptionEvents occur before twilight, block the site with the event.
 
-                # Set the initial variant for the site for the night. This may have been set above by weather
-                # information obtained before or at the start of the night, and if not, then the lookup will give None,
-                # which will reset to the default values as defined in the Selector.
-                _logger.debug(f'Resetting {site.name} weather to initial values for night...')
-                initial_variant = scp.collector.sources.origin.env.get_initial_conditions(site, morn_twi_time.date())
-                scp.selector.update_site_variant(site, initial_variant)
-
     def schedule(self) -> Tuple[RunSummary, NightlyTimeline]:
 
         nightly_timeline = NightlyTimeline()
         scp = self.build()
         queue = EventQueue(self.params.night_indices, self.params.sites)
         self._setup(scp, queue)
-        event_cycle = EventCycle(self.params, queue)
+        event_cycle = EventCycle(self.params, queue, scp)
         for night_idx in sorted(self.params.night_indices):
             for site in sorted(self.params.sites, key=lambda site: site.name):
-                event_cycle.run(scp, site, night_idx, nightly_timeline)
+                event_cycle.run(site, night_idx, nightly_timeline)
 
         # TODO: Add plan summary to nightlyTimeline
         run_summary = StatCalculator.calculate_timeline_stats(nightly_timeline,

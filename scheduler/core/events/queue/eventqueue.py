@@ -13,7 +13,7 @@ from .events import Event, InterruptionEvent, InterruptionResolutionEvent, Routi
 logger = logger_factory.create_logger(__name__)
 
 
-__all__ = ['EventQueue']
+__all__ = ['EventQueue', 'NightEventQueue']
 
 
 @dataclass
