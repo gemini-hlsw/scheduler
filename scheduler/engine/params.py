@@ -35,7 +35,7 @@ class SchedulerParameters:
         num_nights_to_schedule (int, optional): Number of nights to schedule. Can't be bigger then the amount of nights
             in the visibility period. Defaults to None.
         programs_list (List[str], optional):  A list of ProgramID that allows a specific selection of programs to run.
-        Defaults to None. If None, the default programs list in scheduler/data would be used.
+            Defaults to None. If None, the default programs list in scheduler/data would be used.
 
     Examples:
         ```python

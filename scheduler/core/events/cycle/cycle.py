@@ -18,11 +18,10 @@ NextUpdate = Dict[Site, Optional[TimeCoordinateRecord]]
 __all__ = ["EventCycle"]
 
 class EventCycle:
-    """Event cycle.
-
+    """
     Attributes:
      params (SchedulerParams): Scheduler parameters
-     queue (EventQueue): Event queue that
+     queue (EventQueue): Event queue that orders the events chronologically
      scp (SCP): The Scheduler Core Pipeline that allows creating plans.
 
     """
@@ -315,9 +314,6 @@ class EventCycle:
             site (Site): Site to process events from the night.
             night_idx (NightIndex): Night to process events from.
             nightly_timeline (NightlyTimeline): Records all the events and their corresponding plans.
-
-        Returns:
-            None
 
         Raises:
             RuntimeError: If required events are missing

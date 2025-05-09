@@ -3,6 +3,9 @@ theme:
   name: material
   logo: assets/logo.svg
   favicon: assets/logo@2x.svg
+  icon:
+    admonition:
+      todo: material/clipboard-check-outline
   palette:
     - primary: black
     - accent: amber
@@ -32,6 +35,8 @@ theme:
 nav:
   - Getting Started: getting-started.md
   - Architecture: architecture.md
+  - Core Components:
+      - Events: core-components/events.md
 
 
 markdown_extensions:
@@ -41,6 +46,7 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:mermaid2.fence_mermaid_custom
+  - admonition
 
 plugins:
   - search
@@ -48,8 +54,24 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
+          paths: [scheduler]
           inventories:
             - https://docs.python.org/3/objects.inv
             - https://docs.astropy.org/en/stable/objects.inv
             - https://numpy.org/doc/stable/objects.inv
+          options:
+            show_root_heading: true
+            show_root_toc_entry: true
+            separate_signature: false
+            show_symbol_type_heading: true
+            signature_crossrefs: true
+            merge_init_into_class: true
+            docstring_section_style: spacy
+            inherited_members: true
+            members_order: source
+            unwrap_annotated: true
+            show_labels: false
+            show_source: false
+            members_in_toc: false
+
 
