@@ -1,4 +1,4 @@
-name: Staging deploy to Heroku
+name: Deploy Staging to Heroku
 
 on:
   push:
@@ -35,3 +35,6 @@ jobs:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
         run: |
           heroku container:release -a ${{ secrets.HEROKU_APP_NAME }} web
+      - name: Deploy documentation
+        run: |
+          pip install mkdocs-material && mkdocs gh-deploy --force

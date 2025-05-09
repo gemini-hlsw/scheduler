@@ -43,7 +43,7 @@ def main(*,
                                  num_nights_to_schedule=1,
                                  programs_list=programs_list)
     engine = Engine(params)
-    plan_summary, timelines = engine.run()
+    plan_summary, timelines = engine.schedule()
     # File output for future results comparison
     # timelines.display(output=os.path.join(os.environ['HOME'], 'Downloads', 'plans.txt'))
     # Display to stdout

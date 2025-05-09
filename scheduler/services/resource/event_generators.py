@@ -8,9 +8,9 @@ from typing import FrozenSet, Optional
 
 from lucupy.minimodel import Resource, Site, ObservationID
 
-from scheduler.core.eventsqueue.events import (FaultEvent, FaultResolutionEvent,
-                                               InterruptionEvent, InterruptionResolutionEvent,
-                                               WeatherClosureEvent, WeatherClosureResolutionEvent, ToOActivationEvent)
+from scheduler.core.events.queue import (FaultEvent, FaultResolutionEvent,
+                                         InterruptionEvent, InterruptionResolutionEvent,
+                                         WeatherClosureEvent, WeatherClosureResolutionEvent, ToOActivationEvent)
 
 
 __all__ = [

@@ -2,15 +2,14 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from collections import Counter
-from typing import Dict, Tuple, FrozenSet, TypeAlias
+from typing import Dict, FrozenSet
 
 from lucupy.minimodel import Band, ProgramID, NightIndex, Program
-from lucupy.types import ZeroTime
 
 from scheduler.core.components.collector import Collector
-from scheduler.core.eventsqueue import InterruptionResolutionEvent, FaultResolutionEvent, WeatherClosureResolutionEvent, \
+from scheduler.core.events.queue import InterruptionResolutionEvent, FaultResolutionEvent, WeatherClosureResolutionEvent, \
     InterruptionEvent, FaultEvent, WeatherClosureEvent
-from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
+from scheduler.core.events.queue import NightlyTimeline
 from scheduler.core.plans import NightStats
 from scheduler.core.statscalculator.run_summary import RunSummary, Summary
 from scheduler.core.types import TimeLossType

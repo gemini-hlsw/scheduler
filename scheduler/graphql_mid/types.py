@@ -1,7 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import json
 from datetime import datetime, timedelta
 from typing import List, FrozenSet, Optional
 from zoneinfo import ZoneInfo
@@ -14,9 +13,9 @@ from strawberry.scalars import JSON  # noqa
 
 from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantSnapshot, Conditions
 
-from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
+from scheduler.core.events.queue import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
-from scheduler.core.eventsqueue import WeatherChangeEvent
+from scheduler.core.events.queue import WeatherChangeEvent
 from scheduler.core.statscalculator import RunSummary
 from scheduler.graphql_mid.scalars import SObservationID
 from scheduler.config import config
