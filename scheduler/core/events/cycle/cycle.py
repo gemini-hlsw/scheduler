@@ -80,7 +80,6 @@ class EventCycle:
             while events_by_night.has_more_events():
                 top_event = events_by_night.top_event()
                 top_event_timeslot = top_event.to_timeslot_idx(night_start, time_slot_length)
-
                 _logger.debug(f'Top event: {top_event.description} at {top_event_timeslot}')
 
                 # If we don't know the next event timeslot, set it
