@@ -26,8 +26,8 @@ class SchedulerParameters:
     schedule and the initial date for the visibility calculation.
 
     Attributes:
-        start (Time): start local date.
-        end (Time): end local date. Represents the end of the calculated visibility period.
+        start (Time): start UT date.
+        end (Time): end UT date. Represents the end of the calculated visibility period.
         mode (SchedulerModes): The mode the Scheduler can be executed in. VALIDATION, SIMULATION or OPERATION.
         ranker_parameters (RankerParameters): Parameters that can be toggled in the Ranker to modify score.
         semester_visibility (bool): Overrides the end parameters and extends the visibility period to the end
