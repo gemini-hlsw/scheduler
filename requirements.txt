@@ -22,6 +22,6 @@ python-dateutil
 sortedcontainers
 redis
 mkdocs-material
-mkdocs-mermaid2
+mkdocs-mermaid2-plugin
 mkdocstrings-python
 # git+https://stroncod:${GH_PAT}@github.com/stroncod/pyexplore.git
