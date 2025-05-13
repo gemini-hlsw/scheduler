@@ -21,4 +21,7 @@ gelidum
 python-dateutil
 sortedcontainers
 redis
+mkdocs-material
+mkdocs-mermaid2
+mkdocstrings-python
 # git+https://stroncod:${GH_PAT}@github.com/stroncod/pyexplore.git
