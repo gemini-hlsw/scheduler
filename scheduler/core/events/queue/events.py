@@ -3,7 +3,6 @@
 
 import uuid
 from abc import ABC
-from asyncio import Event
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, FrozenSet
