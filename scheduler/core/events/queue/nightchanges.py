@@ -1,7 +1,5 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-import json
-import os
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -10,8 +8,8 @@ from zoneinfo import ZoneInfo
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 
-from scheduler.core.eventsqueue import Event
-from scheduler.core.plans import Plans, Plan
+from scheduler.core.events.queue import Event
+from scheduler.core.plans import Plan
 
 
 __all__ = [
@@ -68,7 +66,9 @@ class NightlyTimeline:
             pg = entry.plan_generated
             if i > 0:
                 # Get the partial plan, i.e. all visits up to and including time slot t.
+                # print("start timeslot: ",t)
                 partial_plan = pg.get_slice(stop=t)
+                # print("partial plan: ",partial_plan.visits)
                 # If there was a last_visit (i.e. partial_plan.visits[-1]), then it:
                 # * started at last_visit.start_time_slot;
                 # * was scheduled for last_visit.time_slots; and thus
@@ -85,6 +85,7 @@ class NightlyTimeline:
                         last_visit.time_slots = t - last_start_time_slot
                 t = entry.start_time_slot
             else:
+                #TODO:  Add to the plan what is only accounted for (GSCHED-809)
                 partial_plan = pg
 
             all_generated += [v for v in reversed(partial_plan.visits) if v.time_slots]

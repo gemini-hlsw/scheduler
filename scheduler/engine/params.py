@@ -20,6 +20,37 @@ __all__ = [
 @final
 @dataclass
 class SchedulerParameters:
+    """
+    Initial parameters to start the scheduler engine.
+    The start parameter represents both the initial local night that is going to be
+    schedule and the initial date for the visibility calculation.
+
+    Attributes:
+        start (Time): start UT date.
+        end (Time): end UT date. Represents the end of the calculated visibility period.
+        mode (SchedulerModes): The mode the Scheduler can be executed in. VALIDATION, SIMULATION or OPERATION.
+        ranker_parameters (RankerParameters): Parameters that can be toggled in the Ranker to modify score.
+        semester_visibility (bool): Overrides the end parameters and extends the visibility period to the end
+            of the selected semester in start.
+        num_nights_to_schedule (int, optional): Number of nights to schedule. Can't be bigger then the amount of nights
+            in the visibility period. Defaults to None.
+        programs_list (List[str], optional):  A list of ProgramID that allows a specific selection of programs to run.
+            Defaults to None. If None, the default programs list in scheduler/data would be used.
+
+    Examples:
+        ```python
+
+           from scheduler.engine import SchedulerParameters, Engine
+           params = SchedulerParameters(start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
+                                         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+                                         sites=ALL_SITES,
+                                         mode=SchedulerModes.VALIDATION,
+                                         ranker_parameters=RankerParameters(),
+                                         semester_visibility=False,
+                                         num_nights_to_schedule=1,
+                                         programs_list=programs_list)
+        ```
+    """
     start: Time
     end: Time
     sites: FrozenSet[Site]

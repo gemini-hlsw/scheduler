@@ -36,7 +36,8 @@ __all__ = [
 class UUIDIdentified(ABC):
     """
     A class with an automatic UUID attached to it.
-    TODO: This should be moved to lucupy.
+    !!! todo "TO DO"
+        TODO: This should be moved to lucupy.
     """
     id: uuid.UUID = field(default_factory=uuid.uuid4, init=False)
 
@@ -63,20 +64,27 @@ class UUIDReferenced(ABC):
 
 @dataclass(frozen=True)
 class Event(UUIDIdentified, ABC):
-    """
-    Superclass for all events. They contain:
-    1. The site at which the event occurred.
-    2. The time (as a datetime object) at which an event occurred.
-    3. A human-readable description of the event.
+    """Superclass for all events. They contain:
+
+    Attributes:
+        site (Site): The site at which the event occurred.
+        time (datetime): The time at which the event occurred.
+        description (str): A human-readable description of the event.
     """
     site: Site
     time: datetime
     description: str
 
     def to_timeslot_idx(self, twi_eve_time: datetime, time_slot_length: timedelta) -> TimeslotIndex:
-        """
-        Given an event, calculate the timeslot offset it falls into relative to another datetime.
+        """Given an event, calculate the timeslot offset it falls into relative to another datetime.
         This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.
+
+        Args:
+            twi_eve_time (datetime): Evening twilight time.
+            time_slot_length (timedelta): Set time slot length in which the Scheduler work.
+
+        Returns:
+            TimeslotIndex: The timeslot offset relative to the twilight.
         """
         time_from_twilight = self.time - twi_eve_time
         time_slots_from_twilight = time2slots(time_slot_length, time_from_twilight)
@@ -85,8 +93,7 @@ class Event(UUIDIdentified, ABC):
 
 @dataclass(frozen=True)
 class RoutineEvent(Event, ABC):
-    """
-    A routine event that is predictable and processed by the Scheduler.
+    """A routine event that is predictable and processed by the Scheduler.
     Examples include evening and morning twilight.
     """
     ...
@@ -94,8 +101,8 @@ class RoutineEvent(Event, ABC):
 
 @dataclass(frozen=True)
 class TwilightEvent(RoutineEvent, ABC):
-    """
-    An event indicating that the 12 degree starting twilight for a night has been reached.
+    """An event indicating that the 12 degree starting twilight
+        for a night has been reached.
     """
     ...
 
@@ -103,8 +110,8 @@ class TwilightEvent(RoutineEvent, ABC):
 @final
 @dataclass(frozen=True)
 class EveningTwilightEvent(TwilightEvent):
-    """
-    An event indicating that the 12 degree starting twilight for a night has been reached.
+    """An event indicating that the 12 degree starting
+        twilight for a night has been reached.
     """
     ...
 
@@ -112,8 +119,8 @@ class EveningTwilightEvent(TwilightEvent):
 @final
 @dataclass(frozen=True)
 class MorningTwilightEvent(TwilightEvent):
-    """
-    An event indicating that the 12 degree morning twilight for a night has been reached.
+    """An event indicating that the 12 degree morning twilight
+        for a night has been reached.
     This is used to finalize the time accounting for the night.
     """
     ...
@@ -121,9 +128,9 @@ class MorningTwilightEvent(TwilightEvent):
 
 @dataclass(frozen=True)
 class InterruptionEvent(Event, ABC):
-    """
-    Parent class for any interruption that might cause a new schedule to be created.
+    """Parent class for any interruption that might cause a new schedule to be created.
     These events include:
+
     1. Events that have no specified end time (e.g. weather changes).
     2. Events that have a specified end time (e.g. engineering tasks, faults) and thus are paired together
        with an InterruptionResolutionEvent.
@@ -134,8 +141,10 @@ class InterruptionEvent(Event, ABC):
 @final
 @dataclass(frozen=True)
 class WeatherChangeEvent(InterruptionEvent):
-    """
-    Interruption that occurs when new a new weather variant comes in.
+    """Interruption that occurs when new a new weather variant comes in.
+
+    Attributes:
+        variant_change (VariantSnapshot): The variant snapshot that changed.
     """
     variant_change: VariantSnapshot
 
@@ -143,17 +152,21 @@ class WeatherChangeEvent(InterruptionEvent):
 @final
 @dataclass(frozen=True)
 class ToOActivationEvent(InterruptionEvent):
-    """
-    Change the status of a ToO from ON_HOLD to READY.
+    """Change the status of a ToO from ON_HOLD to READY.
+
+    Attributes:
+        too_id (ObservationID): The observation ID for the ToO that was activated.
     """
     too_id: ObservationID
 
 @final
 @dataclass(frozen=True)
 class FaultEvent(InterruptionEvent):
-    """
-    Interruption that occurs when there is a fault in a resource.
+    """Interruption that occurs when there is a fault in a resource.
     In OCS, this will likely be the site itself where the fault occurred.
+
+    Attributes:
+        affects (FrozenSet[Resource]): Resource affected for the fault.
     """
     affects: FrozenSet[Resource]
 
@@ -161,8 +174,7 @@ class FaultEvent(InterruptionEvent):
 @final
 @dataclass(frozen=True)
 class WeatherClosureEvent(InterruptionEvent):
-    """
-    A weather closure for a given site.
+    """A weather closure for a given site.
     This will be treated like a FaultEvent, but the "affects" Resource will be the entire site.
     """
     ...
@@ -174,18 +186,19 @@ class WeatherClosureEvent(InterruptionEvent):
 
 @dataclass(frozen=True)
 class InterruptionResolutionEvent(Event, UUIDReferenced, ABC):
-    """
-    A class representing the resolution of an interruption that can be resolved (e.g. a resolved fault
-    or the end of an engineering task.)
+    """A class representing the resolution of an interruption that
+        can be resolved (e.g. a resolved fault or the end of an engineering task.)
 
     These events, signifying the end of a period of time, can be used to generate a time loss.
     """
     @property
     def time_loss(self) -> timedelta:
-        """
-        Calculate the time loss from this InterruptionEvent to this InterruptionEventResolution as a timedelta.
-        TODO: This assumes that Interruption events are notified or processed at Twilight (or near) situation that might
-        TODO: be completely different when Resource is implemented and real input is processed.
+        """Calculate the time loss from this InterruptionEvent to this InterruptionEventResolution as a timedelta.
+        !!! todo "TO DO"
+            TODO: This assumes that Interruption events are notified or processed at Twilight (or near) situation that might
+            TODO: be completely different when Resource is implemented and real input is processed.
+
+
         """
         if not isinstance(self.uuid_identified, InterruptionEvent):
             raise ValueError(f'{self.__class__.__name__} ({self.description}) does not have a corresponding '
@@ -193,9 +206,14 @@ class InterruptionResolutionEvent(Event, UUIDReferenced, ABC):
         return self.time - self.uuid_identified.time
 
     def time_slot_loss(self, time_slot_length: timedelta) -> int:
-        """
-        Given the length of a time slot, calculate the number of time slots lost from the InterruptionEvent to
-        this InterruptionEventResolution.
+        """Given the length of a time slot, calculate the number of time slots lost from the InterruptionEvent to
+            this InterruptionEventResolution.
+
+        Args:
+            time_slot_length (timedelta): The length of the time slot to calculate the number of time slots lost.
+
+        Returns:
+            int: The number of time slots lost from the Interruption.
         """
         return time2slots(time_slot_length, self.time_loss)
 

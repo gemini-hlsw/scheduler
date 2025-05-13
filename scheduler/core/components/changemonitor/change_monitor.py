@@ -11,8 +11,8 @@ from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex, 
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.selector import Selector
-from scheduler.core.eventsqueue import (Event, EveningTwilightEvent, InterruptionEvent, InterruptionResolutionEvent,
-                                        MorningTwilightEvent, WeatherChangeEvent, ToOActivationEvent)
+from scheduler.core.events.queue import (Event, EveningTwilightEvent, InterruptionEvent, InterruptionResolutionEvent,
+                                         MorningTwilightEvent, WeatherChangeEvent, ToOActivationEvent)
 from scheduler.core.plans import Plans, Visit, Plan
 from scheduler.services.logger_factory import create_logger
 from .time_coordinate_record import TimeCoordinateRecord
@@ -29,6 +29,14 @@ _logger = create_logger(__name__)
 @final
 @dataclass
 class ChangeMonitor(SchedulerComponent):
+    """ Triggers different changes caused by events in the Scheduler components
+
+    Attributes:
+        collector (Collector): Collector instance when observations need to be updated
+            or changed their Status.
+        selector (Selector): Selector instance when weather conditions are modified.
+
+    """
     collector: Collector
     selector: Selector
 
@@ -37,14 +45,12 @@ class ChangeMonitor(SchedulerComponent):
     _blocking_event_sets: Dict[Site, Set[InterruptionEvent]] = field(init=False, default_factory=dict)
 
     def __post_init__(self):
-        """
-        Create the blocking event set for each site.
-        """
+        """Create the blocking event set for each site."""
         self._blocking_event_sets = {site: set() for site in self.collector.sites}
 
     def _process_blocking_event(self, event: InterruptionEvent) -> None:
-        """
-        Event handling routine where a blocking event is received and recorded for a site.
+        """Event handling routine where a blocking event is received
+            and recorded for a site.
         """
         blocking_event_set = self._blocking_event_sets[event.site]
         if any(event.id == evt.id for evt in blocking_event_set):
@@ -52,8 +58,8 @@ class ChangeMonitor(SchedulerComponent):
         blocking_event_set.add(event)
 
     def _process_blocking_resolution_event(self, event: InterruptionResolutionEvent) -> None:
-        """
-        Event handling routine where a resolution event is processed to try to resolve a blocking event at a site.
+        """Event handling routine where a resolution event
+            is processed to try to resolve a blocking event at a site.
         """
         blocking_event_set = self._blocking_event_sets[event.site]
         resolved_event: Optional[InterruptionEvent] = None
@@ -69,9 +75,14 @@ class ChangeMonitor(SchedulerComponent):
         blocking_event_set.remove(resolved_event)
 
     def is_site_unblocked(self, site: Site) -> bool:
-        """
-        Return True if the given site is NOT blocked by one or more events that need to be resolved before the site
-        can have a plan, and False if the site is blocked.
+        """Check if a site is unblocked.
+
+        Args:
+            site (Site): Site to check.
+
+        Returns:
+            bool: True if the given site is NOT blocked by one or more events that need to be resolved before the site
+                can have a plan, and False if the site is blocked.
         """
         return len(self._blocking_event_sets[site]) == 0
 
@@ -93,10 +104,7 @@ class ChangeMonitor(SchedulerComponent):
                       event: Event,
                       plans: Optional[Plans],
                       night_idx: NightIndex) -> Optional[TimeCoordinateRecord]:
-        """
-        TODO: Might want to make return type a Tuple[NightIndex, TimeslotIndex].
-
-        Given an event occurring at a given site and an optional plan running on the site, determine
+        """Given an event occurring at a given site and an optional plan running on the site, determine
         the next timeslot where the plan should be recalculated, if any.
 
         The plan is optional, because for EveningTwilightEvent, no plan has yet been computed and thus None should
@@ -105,13 +113,20 @@ class ChangeMonitor(SchedulerComponent):
         If the ChangeMonitor determines that a new plan should be calculated, then a timeslot index indicating
         when the plan should be calculated is returned, and if no new plan should be calculated, then None is returned.
 
-        :param site: the site at which the event occurred
-        :param event: the event that occurred
-        :param plans: the plans that are currently in action (if any) for the night, which consist of a plan per site
-        :param night_idx: the night index
+        Args:
+            site (Site): the site at which the event occurred
+            event (Event): the event that occurred
+            plans (Plans): the plans that are currently in action (if any) for the night,
+                 which consist of a plan per site
+            night_idx (NightIdx): the night index
 
-        :return: a time coordinate record which provides information about when the next plan should be computed
+        !!! todo "TO DO"
+            TODO: Might want to make return type a Tuple[NightIndex, TimeslotIndex].
+
+        Returns:
+            TimeCoordinateRecord: a time coordinate record which provides information about when the next plan should be computed
                  (if any), if a night is done, and if time accounting should be performed
+
         """
         # Convert the site to a name here in case we want to use site.name (key name) or site.site_name (long form).
         site_name = site.name

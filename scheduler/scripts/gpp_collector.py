@@ -2,31 +2,22 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, FrozenSet, Optional
+from datetime import datetime
 
-import numpy as np
 from astropy import units as u
 from astropy.time import Time
-from lucupy.minimodel import NightIndex, TimeslotIndex, VariantSnapshot
-from lucupy.minimodel.constraints import CloudCover, ImageQuality
+from lucupy.minimodel import NightIndex
 from lucupy.minimodel.semester import Semester
-from lucupy.minimodel.site import ALL_SITES, Site
-from lucupy.minimodel import Group, ObservationID, GroupID, UniqueGroupID, ProgramID, QAState, ObservationClass, ObservationStatus
+from lucupy.minimodel.site import ALL_SITES
+from lucupy.minimodel import ObservationID, ProgramID
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
-from lucupy.timeutils import time2slots
 
-from scheduler.core.builder.blueprint import CollectorBlueprint, SelectorBlueprint, OptimizerBlueprint
-from scheduler.core.builder.validationbuilder import ValidationBuilder
+from scheduler.core.builder.blueprint import CollectorBlueprint
 from scheduler.core.builder.simulationbuilder import SimulationBuilder
-from scheduler.core.components.ranker import RankerParameters, DefaultRanker
-from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
-from scheduler.core.eventsqueue.nightchanges import NightlyTimeline
-from scheduler.core.output import print_collector_info, print_plans
-from scheduler.core.plans import Plans
-from scheduler.core.eventsqueue import EveningTwilightEvent, Event, EventQueue, MorningTwilightEvent, WeatherChangeEvent
+from scheduler.core.components.ranker import RankerParameters
+from scheduler.core.output import print_collector_info
+from scheduler.core.events.queue import EventQueue
 from scheduler.core.sources.sources import Sources
 from scheduler.core.sources.origins import Origins
 from scheduler.services import logger_factory
