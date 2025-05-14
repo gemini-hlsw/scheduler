@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - GSCHED-813
 
 jobs:
   build:
