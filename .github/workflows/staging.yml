@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - GSCHED-813
 
 jobs:
   build:
@@ -37,4 +38,5 @@ jobs:
           heroku container:release -a ${{ secrets.HEROKU_APP_NAME }} web
       - name: Deploy documentation
         run: |
-          pip install mkdocs-material mkdocs-mermaid2-plugin mkdocstrings-python && mkdocs gh-deploy --force
+          pip install mkdocs-material mkdocs-mermaid2-plugin mkdocstrings-python && \ 
+          mkdocs gh-deploy --force --clean --verbose

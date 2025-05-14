@@ -54,7 +54,6 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [scheduler]
           inventories:
             - https://docs.python.org/3/objects.inv
             - https://docs.astropy.org/en/stable/objects.inv
