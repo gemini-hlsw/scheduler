@@ -318,9 +318,7 @@ class DefaultRanker(Ranker):
         program = self.collector.get_program(obs.id.program_id())
         prog_priority = {night_idx: self.params.program_priority if nc[night_idx].filter.program_priority_filter_any(program)
                          else 1.0 for night_idx in self.night_indices}
-        # print(obs.unique_id, night_idx, prog_priority)
 
-        # p = {night_idx: (metric[0] ** self.params.met_power) *
         p = {night_idx: (preimaging * user_priority * prog_priority[night_idx]) * (metric[0] ** self.params.met_power) *
                         (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
                         (wha[night_idx] ** self.params.wha_power) * alt_include[night_idx]
@@ -332,7 +330,6 @@ class DefaultRanker(Ranker):
             slot_indices = target_info[night_idx].visibility_slot_idx
             scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
             metrics[night_idx].append(float(metric[0]))
-            # print(f'   max score on night {night_idx}: {np.max(scores[night_idx])}')
 
         return scores, metrics
 
@@ -355,7 +352,9 @@ class DefaultRanker(Ranker):
         # For each night, calculate the score for the group over its subgroups.
         # This may not be the same as using the observation scoring, since for groups, the score has been adjusted in
         # the Selector for things like wind, conditions matching, etc.
-        for night_idx in self.night_indices:
+
+        nights_to_schedule = list(list(group_data_map.values())[0].group_info.scores.keys())
+        for night_idx in nights_to_schedule:
             # What we want for the night is a numpy array of size (#obs, #timeslots in night)
             # where the rows are the observation scores. Then we will combine them.
             for unique_group_id in (g.unique_id for g in group.children):
@@ -369,7 +368,7 @@ class DefaultRanker(Ranker):
         # Combine the scores as per the score_combiner and return.
         # apply_along_axis results in a (1, #timeslots in night) array, so we have to take index 0.
         combine_scores = {night_idx: np.apply_along_axis(self.params.score_combiner, 0, scores[night_idx])[0]
-                          for night_idx in self.night_indices}
+                          for night_idx in nights_to_schedule}
         return combine_scores, metrics
 
     def _score_or_group(self, group: Group, group_data_map):

@@ -7,6 +7,7 @@ from typing import final, ClassVar, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
+from pandas.io.stata import excessive_string_length_error
 
 from scheduler.core.events.queue import Event
 from scheduler.core.plans import Plan
@@ -47,7 +48,18 @@ class NightlyTimeline:
                               plan_generated)
         self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
 
-    def get_final_plan(self, night_idx: NightIndex, site: Site) -> Optional[Plan]:
+    def get_final_plan(self,
+                       night_idx: NightIndex,
+                       site: Site,
+                       is_unblocked: bool) -> Optional[Plan]:
+        """Get the final plan after all the events are processed and the scheduler
+            reaches the Morning Twilight
+
+            Arguments:
+                night_idx (NightIndex): Night index that the plan belongs to.
+                site (Site): The site that the plan belongs to.
+                is_unblocked (bool): Whether the site is unblocked or not.
+        """
         if night_idx not in self.timeline:
             raise RuntimeError(f'Cannot get final plan: {night_idx} for site {site.name} not in timeline.')
         if site not in self.timeline[night_idx]:
@@ -85,8 +97,10 @@ class NightlyTimeline:
                         last_visit.time_slots = t - last_start_time_slot
                 t = entry.start_time_slot
             else:
-                #TODO:  Add to the plan what is only accounted for (GSCHED-809)
-                partial_plan = pg
+                if is_unblocked:
+                    partial_plan = pg
+                else:
+                    partial_plan = pg.get_slice(stop=0)
 
             all_generated += [v for v in reversed(partial_plan.visits) if v.time_slots]
 
