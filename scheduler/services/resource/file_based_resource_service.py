@@ -527,54 +527,6 @@ class FileBasedResourceService(ResourceService):
         except FileNotFoundError:
             logger.error(f'Time loss file not available: {path}')
 
-    def _load_faults(self, site: Site, name: str) -> None:
-        """
-        Load the faults from the specified file.
-        """
-        path = self._subdir / name
-
-        try:
-            with open(path, 'r') as input_file:
-                pattern = r'FR-(\d+)\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+\[([^\]]+)\]'
-                faults = self._faults[site]
-
-                for line_num, line in enumerate(input_file):
-                    line = line.strip()
-
-                    # Skip blank lines or lines that start with a # indicating a comment.
-                    if not line or line[0] == '#':
-                        continue
-
-                    match = re.match(pattern, line)
-                    if not match:
-                        logger.warning(f'Illegal line {name}@{line_num + 1}: "{line}"')
-                        continue
-
-                    fr_id, local_datetime_str, duration_str, description = match.groups()
-                    local_datetime = datetime.strptime(local_datetime_str, '%Y-%m-%d %H:%M:%S')
-                    local_datetime = local_datetime.replace(tzinfo=site.timezone)
-                    duration = timedelta(hours=float(duration_str))
-
-                    # Determine the night of the fault report from the local datetime.
-                    # If it is before noon, it belongs to the previous night.
-                    if local_datetime.time() < time(hour=12):
-                        night_date = local_datetime.date() - timedelta(days=1)
-                    else:
-                        night_date = local_datetime.date()
-
-                    # Add the fault to the night.
-                    # TODO: Right now, not sure how to handle faults in terms of Resources.
-                    # TODO: Just specify the entire site as a resource for now, indicating that the site cannot be used
-                    # TODO: for the specified period.
-                    # TODO: Fix duration as per email discussion.
-                    faults.setdefault(night_date, set())
-                    fault = Fault(site=site,
-                                  start_time=local_datetime,
-                                  end_time=local_datetime + duration,
-                                  description=f'FR-{fr_id}: {description}')
-                    faults[night_date].add(fault)
-        except FileNotFoundError:
-            logger.error(f'Faults file not available: {path}')
 
     def _load_toos(self, site:  Site, name: str) -> None:
 
@@ -585,38 +537,51 @@ class FileBasedResourceService(ResourceService):
                 for line in input_file:
                     if line.strip()[0] != '#':  # ignore lines that are commented out
                         too_id, too_date, too_time = line.split()
+
+                        # UTC dates
                         too_datetime = datetime.strptime(too_date+' '+too_time, '%Y-%m-%d %H:%M:%S.%f')
 
-                        local_night_date = too_datetime.date()
-                        local_datetime = too_datetime.replace(tzinfo=site.timezone)
-
-                        # If it is before noon, it belongs to the previous night.
-                        if local_datetime.time() < time(hour=12):
-                            night_date = local_datetime.date() - timedelta(days=1)
-                        else:
-                            night_date = local_datetime.date()
+                        local_datetime = too_datetime.astimezone(site.timezone)
+                        local_night_date = local_datetime.date()
 
                         # Twilight for events happening before or after
                         new_ut_time = time(14, 0)
                         astropy_time = Time(
-                            datetime.combine(night_date + timedelta(days=1), new_ut_time).astimezone(
+                            datetime.combine(local_night_date, new_ut_time).astimezone(
                                 site.timezone))
 
+                        # Get the twilights and localize them.
                         eve_twi, morn_twi = night_events(astropy_time, site.location, site.timezone)[3:5]
                         eve_twi = eve_twi.to_datetime(site.timezone)
                         morn_twi = morn_twi.to_datetime(site.timezone)
 
-                        if local_datetime < morn_twi:
+                        if eve_twi > local_datetime:
+                            # belong to that day but is before the eve twi
                             local_datetime = eve_twi + timedelta(seconds=25) # small offset
 
-                        too_activations.setdefault(night_date, set())
+                        if morn_twi < local_datetime:
+                            # belongs to the next day after the eve twi
+                            next_eve_twi, next_morn_twi = night_events(astropy_time + timedelta(days=1), site.location, site.timezone)[3:5]
+                            next_eve_twi = next_eve_twi.to_datetime(site.timezone)
 
-                        too_activation = ToOActivation(site=site, too_id=ObservationID(too_id), start_time=local_datetime)
-                        too_activations[night_date].add(too_activation)
+                            if next_eve_twi > local_datetime:
+                                local_datetime = next_eve_twi + timedelta(seconds=25)  # small offset
+
+                        if local_datetime < morn_twi:
+                            # belongs to day before but it happens after midnight.
+                            local_night_date = local_datetime.date() - timedelta(days=1)
+                        else:
+                            local_night_date = local_datetime.date()
+                        too_activations.setdefault(local_night_date, set())
+
+                        too_activation = ToOActivation(site=site,
+                                                       too_id=ObservationID(too_id),
+                                                       start_time=local_datetime)
+
+                        too_activations[local_night_date].add(too_activation)
 
         except FileNotFoundError:
             logger.error(f'Too Activation file not available: {path}')
-
 
     def load_files(self,
                    site: Site,
