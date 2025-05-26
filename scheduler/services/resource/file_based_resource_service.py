@@ -539,7 +539,8 @@ class FileBasedResourceService(ResourceService):
                         too_id, too_date, too_time = line.split()
 
                         # UTC dates
-                        too_datetime = datetime.strptime(too_date+' '+too_time, '%Y-%m-%d %H:%M:%S.%f')
+                        too_date_str = too_date+' '+too_time+' +0000'
+                        too_datetime = too_datetime = datetime.strptime(too_date_str, '%Y-%m-%d %H:%M:%S.%f %z')
 
                         local_datetime = too_datetime.astimezone(site.timezone)
                         local_night_date = local_datetime.date()
