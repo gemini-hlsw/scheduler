@@ -4,9 +4,11 @@
 from collections import Counter
 from typing import Dict, FrozenSet
 
+import numpy as np
 from lucupy.minimodel import Band, ProgramID, NightIndex, Program
 
 from scheduler.core.components.collector import Collector
+from scheduler.core.components.ranker import Ranker
 from scheduler.core.events.queue import InterruptionResolutionEvent, FaultResolutionEvent, WeatherClosureResolutionEvent, \
     InterruptionEvent, FaultEvent, WeatherClosureEvent
 from scheduler.core.events.queue import NightlyTimeline
@@ -38,7 +40,8 @@ class StatCalculator:
     def calculate_timeline_stats(timeline: NightlyTimeline,
                                  nights: FrozenSet[NightIndex],
                                  sites: Sites,
-                                 collector: Collector) -> RunSummary:
+                                 collector: Collector,
+                                 ranker: Ranker) -> RunSummary:
 
         # scores_per_program: Dict[ProgramID, float] = {}
         metrics_per_program: Dict[ProgramID, float] = {}
@@ -104,6 +107,10 @@ class StatCalculator:
                             metrics_per_band.setdefault(obs.band.name, 0.0)
 
                             # Calculate the metric in the program
+                            remaining = obs.exec_time() - obs.total_used()
+                            cplt = (program.total_used(obs.band) + remaining) / program.total_awarded(obs.band)
+                            print(f'{obs.id} completion: {StatCalculator.calculate_program_completion(program)} vs clpt: {cplt}')
+
                             metrics_per_program[program.id] += sum(v.metric)
                             metrics_per_band[obs.band.name] += sum(v.metric)
 
@@ -163,6 +170,8 @@ class StatCalculator:
 
     @staticmethod
     def calculate_program_completion(program: Program) -> str:
+
         total_used = program.program_used()
         prog_total = program.program_awarded()
+        # print(f'{program.id}: {total_used}/ ({prog_total})')
         return f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'

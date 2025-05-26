@@ -177,7 +177,7 @@ class DefaultRanker(Ranker):
         self.params = params
         super().__init__(collector, night_indices, sites)
 
-    def _metric_slope(self,
+    def metric_slope(self,
                       completion: ListOrNDArray[float],
                       band: ListOrNDArray[Band],
                       b3min: ListOrNDArray[float],
@@ -263,7 +263,7 @@ class DefaultRanker(Ranker):
         # GPP supports allocated and used times by band, this should give the same results for OCS
         cplt = (program.total_used(obs.band) + remaining) / program.total_awarded(obs.band)
 
-        metric, metric_s = self._metric_slope(np.array([cplt]),
+        metric, metric_s = self.metric_slope(np.array([cplt]),
                                               np.array([obs.band.value]),
                                               np.array([0.8]),
                                               program.thesis)

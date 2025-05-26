@@ -170,6 +170,8 @@ class Engine:
         # TODO: Add plan summary to nightlyTimeline
         run_summary = StatCalculator.calculate_timeline_stats(nightly_timeline,
                                                               self.params.night_indices,
-                                                              self.params.sites, scp.collector)
+                                                              self.params.sites,
+                                                              scp.collector,
+                                                              scp.ranker)
 
         return run_summary, nightly_timeline
