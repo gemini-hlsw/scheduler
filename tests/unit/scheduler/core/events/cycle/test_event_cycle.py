@@ -300,9 +300,13 @@ class TestEventCycle:
         final_plan = MagicMock()
         nightly_timeline.get_final_plan.return_value = final_plan
 
-        event_cycle._perform_time_accounting(
-            site, night_idx, update, end_timeslot_bounds, plans, current_timeslot, nightly_timeline
-        )
+        event_cycle._perform_time_accounting(site,
+                                             night_idx,
+                                             update,
+                                             end_timeslot_bounds,
+                                             plans,
+                                             current_timeslot,
+                                             nightly_timeline)
 
         # Should call time_accounting and add a final plan
         comps['scp'].collector.time_accounting.assert_called_once_with(
@@ -310,7 +314,7 @@ class TestEventCycle:
             sites=frozenset({site}),
             end_timeslot_bounds=end_timeslot_bounds
         )
-        nightly_timeline.get_final_plan.assert_called_once_with(NightIndex(night_idx), site)
+        nightly_timeline.get_final_plan.assert_called_once_with(NightIndex(night_idx), site, True)
         nightly_timeline.add.assert_called_once_with(
             NightIndex(night_idx), site, current_timeslot, update_event, final_plan
         )

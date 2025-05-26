@@ -36,7 +36,10 @@ nav:
   - Getting Started: getting-started.md
   - Architecture: architecture.md
   - Core Components:
-      - Events: core-components/events.md
+      - core-components/events.md
+  - External Services:
+      - external-services/index.md
+      - external-services/resource.md
 
 
 markdown_extensions:

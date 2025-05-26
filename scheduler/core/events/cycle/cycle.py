@@ -215,7 +215,9 @@ class EventCycle:
         if update.done:
             # For morning twilight, add final plan showing all observations
             _logger.debug('Night done. Wrapping up final plan')
-            final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx), site)
+            final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx),
+                                                         site,
+                                                         self.change_monitor.is_site_unblocked(site))
             nightly_timeline.add(
                 NightIndex(night_idx),
                 site,
@@ -361,8 +363,6 @@ class EventCycle:
                                            next_update,
                                            next_event,
                                            next_event_timeslot)
-            print(f'next_event: {next_event.description} at {next_event_timeslot}')
-
             # Check if it's time to update the plan
             night_done, plans = self._handle_updates(site,
                                              night_idx,
