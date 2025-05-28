@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from collections import Counter
+from datetime import timedelta
 from typing import Dict, FrozenSet
 
 import numpy as np
@@ -106,13 +107,6 @@ class StatCalculator:
                             metrics_per_program.setdefault(program.id, 0.0)
                             metrics_per_band.setdefault(obs.band.name, 0.0)
 
-                            # Calculate the metric in the program
-                            remaining = obs.exec_time() - obs.total_used()
-                            cplt = (program.total_used(obs.band) + remaining) / program.total_awarded(obs.band)
-                            print(f'{obs.id} completion: {StatCalculator.calculate_program_completion(program)} vs clpt: {cplt}')
-
-                            metrics_per_program[program.id] += sum(v.metric)
-                            metrics_per_band[obs.band.name] += sum(v.metric)
 
                     time_losses[StatCalculator._UNSCHEDULE_KEY] = (plan.time_left() -
                                                                    time_losses[StatCalculator._FAULT_KEY] -
@@ -161,10 +155,14 @@ class StatCalculator:
         for p_id in metrics_per_program:
             program = collector.get_program(p_id)
             completion = StatCalculator.calculate_program_completion(program)
+            program_cplt = program.total_used() / program.total_awarded()
 
-            metric = metrics_per_program[p_id]
-            # score = scores_per_program[p_id]
-            plans_summary[p_id.id] = (completion, metric)
+            metric, _ = ranker.metric_slope(np.array([program_cplt]),
+                                            np.array([program.band.value]),
+                                            np.array([0.8]),
+                                            program.thesis)
+            metrics_per_band[program.band.name] += metric[0]
+            plans_summary[p_id.id] = (completion, metric[0])
 
         return RunSummary(plans_summary, metrics_per_band)
 
@@ -173,5 +171,4 @@ class StatCalculator:
 
         total_used = program.program_used()
         prog_total = program.program_awarded()
-        # print(f'{program.id}: {total_used}/ ({prog_total})')
-        return f'{float(total_used.total_seconds() / prog_total.total_seconds()) * 100:.1f}%'
+        return f'{float((total_used.total_seconds()) / prog_total.total_seconds()) * 100:.1f}%'

@@ -9,7 +9,8 @@ from zoneinfo import ZoneInfo
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 from pandas.io.stata import excessive_string_length_error
 
-from scheduler.core.events.queue import Event
+from scheduler.core.events.queue import Event, InterruptionResolutionEvent, FaultResolutionEvent, \
+    WeatherClosureResolutionEvent, MorningTwilightEvent
 from scheduler.core.plans import Plan
 
 
@@ -138,6 +139,43 @@ class NightlyTimeline:
             f.close()
         else:
             sys.stdout.flush()
+
+    def calculate_time_losses(self, night_idx: NightIndex, site: Site) -> None:
+        self.time_losses.setdefault(night_idx, {})
+        self.time_losses[night_idx].setdefault(site, {})
+        self.time_losses[night_idx][site].setdefault("weather", 0)
+        self.time_losses[night_idx][site].setdefault("fault", 0)
+        self.time_losses[night_idx][site].setdefault("unschedule", 0)
+
+        weather = self.time_losses[night_idx][site]["weather"]
+        fault = self.time_losses[night_idx][site]["fault"]
+        for entry in self.timeline[night_idx][site]:
+            event = entry.event
+            if isinstance(event, InterruptionResolutionEvent):
+                # ALL resolution events need to be in
+                match event:
+                    case FaultResolutionEvent():
+                        fault += int(event.time_loss.total_seconds() / 60)
+                    case WeatherClosureResolutionEvent():
+                        weather += int(event.time_loss.total_seconds() / 60)
+
+        # This is to ensure no matter what order the ResolutionEvents are we get all at them accounted.
+        for entry in self.timeline[night_idx][site]:
+            event = entry.event
+            if isinstance(event, MorningTwilightEvent):
+                unschedule = entry.plan_generated.time_left() - weather - fault
+                if unschedule < 0:
+                    print(f' time_left: {entry.plan_generated.time_left()}')
+                    print(f' weather: {weather}')
+                    print(f' fault: {fault}')
+                    raise ValueError(f'Unscheduled time is negative!')
+                self.time_losses[night_idx][site]["unschedule"] = unschedule
+
+        print(f'Time losses for {night_idx} at {site}\n{self.time_losses[night_idx][site]}')
+
+
+
+
 
     def to_json(self) -> dict:
         utc = ZoneInfo('UTC')
