@@ -117,7 +117,18 @@ class Plan:
         self._time_slots_left = time
 
     def get_slice(self, start: Optional[int] = None, stop: Optional[int] = None) -> 'Plan':
-        if not start and not stop:
+        """Get a slice of the plan. Similar as the [] operator.
+
+        !!! todo "TO DO"
+            TODO: The attribute _time_slots_left for the resulting plan is off as it doesn't gets modified when lesser visits.
+
+        Args:
+            start (int, optional): The start time of the slice. Defaults to None.
+            stop (int, optional): The stop time of the slice. Defaults to None.
+        Returns:
+            Plan: A new plan.
+        """
+        if start is None and stop is None:
             return self
         else:
             visits_by_timeslot = {v.start_time_slot: v for v in self.visits}
@@ -125,7 +136,7 @@ class Plan:
             plan = Plan(self.start, self.end, self.time_slot_length, self.site, self._time_slots_left, self.conditions)
 
             start = start or 0
-            stop = stop or visits_timeslots[-1]
+            stop = stop or visits_timeslots[-1] if stop > 0 else 0
             plan.visits = [visits_by_timeslot[x] for x in visits_timeslots if
                            start <= x <= stop]
             return plan
