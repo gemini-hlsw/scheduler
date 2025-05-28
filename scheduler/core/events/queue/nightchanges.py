@@ -36,7 +36,7 @@ class NightlyTimeline:
     A collection of timeline entries per night and site.
     """
     timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
-    time_losses: Dict[NightIndex, Dict[Site, Dict[str, float]]] = field(init=False, default_factory=dict)
+    time_losses: Dict[NightIndex, Dict[Site, Dict[str, int]]] = field(init=False, default_factory=dict)
     _datetime_formatter: ClassVar[str] = field(init=False, default='%Y-%m-%d %H:%M')
 
     def add(self,
@@ -148,8 +148,8 @@ class NightlyTimeline:
                     case FaultResolutionEvent():
                         fault += event.time_loss.total_seconds() // 60
                     case WeatherClosureResolutionEvent():
-                        print(event.time_loss)
-                        weather += event.time_loss.total_seconds() // 60
+                        # TODO: Weather is giving float somehow
+                        weather += int(event.time_loss.total_seconds() // 60)
 
         # This is to ensure no matter what order the ResolutionEvents are we get all at them accounted.
         for entry in self.timeline[night_idx][site]:
