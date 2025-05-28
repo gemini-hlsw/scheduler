@@ -47,8 +47,6 @@ class Ranker(ABC):
             self._empty_group_scores[site] = {night_idx: np.zeros((0, len(night_events.times[night_idx])), dtype=float)
                                               for night_idx in self.night_indices}
 
-            self._empty_metrics[site] = {night_idx: [] for night_idx in self.night_indices}
-
     def score_group(self, group: Group, group_data_map):
         """
         Calculate the score of a Group.
@@ -66,7 +64,7 @@ class Ranker(ABC):
             raise ValueError('Ranker group scoring can only score groups.')
 
     @abstractmethod
-    def score_observation(self, program: Program, obs: Observation):
+    def score_observation(self, program: Program, obs: Observation, night_configurations: dict):
         """
         Calculate the scores for an observation for each night for each time slot index.
         These are returned as a list indexed by night index as per the night_indices supplied,

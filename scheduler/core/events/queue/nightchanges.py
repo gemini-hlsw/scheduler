@@ -152,7 +152,6 @@ class NightlyTimeline:
         for entry in self.timeline[night_idx][site]:
             event = entry.event
             if isinstance(event, InterruptionResolutionEvent):
-                # ALL resolution events need to be in
                 match event:
                     case FaultResolutionEvent():
                         fault += int(event.time_loss.total_seconds() / 60)
@@ -172,9 +171,6 @@ class NightlyTimeline:
                 self.time_losses[night_idx][site]["unschedule"] = unschedule
 
         print(f'Time losses for {night_idx} at {site}\n{self.time_losses[night_idx][site]}')
-
-
-
 
 
     def to_json(self) -> dict:

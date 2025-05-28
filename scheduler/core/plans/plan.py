@@ -90,7 +90,6 @@ class Plan:
             start_time_slot: int,
             time_slots: int,
             score: float,
-            metric: List[float],
             peak_score: float) -> None:
 
         visit = Visit(start,
@@ -103,7 +102,6 @@ class Plan:
                       time_slots,
                       score,
                       peak_score,
-                      metric,
                       obs.instrument(),
                       obs.fpu(),
                       obs.disperser(),

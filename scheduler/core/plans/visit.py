@@ -25,7 +25,6 @@ class Visit:
     time_slots: int
     score: float
     peak_score: float
-    metric: List[float]
     instrument: Optional[Resource]
     fpu: Optional[Resource]
     disperser: Optional[Resource]
