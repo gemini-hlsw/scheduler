@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import sys
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, ClassVar, Dict, List, Optional
@@ -9,7 +10,8 @@ from zoneinfo import ZoneInfo
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 from pandas.io.stata import excessive_string_length_error
 
-from scheduler.core.events.queue import Event
+from scheduler.core.events.queue import Event, InterruptionResolutionEvent, FaultResolutionEvent, \
+    WeatherClosureResolutionEvent, MorningTwilightEvent
 from scheduler.core.plans import Plan
 
 
@@ -34,7 +36,7 @@ class NightlyTimeline:
     A collection of timeline entries per night and site.
     """
     timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
-    time_losses: Dict[NightIndex, Dict[Site, Dict[str, float]]] = field(init=False, default_factory=dict)
+    time_losses: Dict[NightIndex, Dict[Site, Dict[str, int]]] = field(init=False, default_factory=dict)
     _datetime_formatter: ClassVar[str] = field(init=False, default='%Y-%m-%d %H:%M')
 
     def add(self,
@@ -53,9 +55,9 @@ class NightlyTimeline:
                        site: Site,
                        is_unblocked: bool) -> Optional[Plan]:
         """Get the final plan after all the events are processed and the scheduler
-            reaches the Morning Twilight
+            reaches the Morning Twilight.
 
-            Arguments:
+            Args:
                 night_idx (NightIndex): Night index that the plan belongs to.
                 site (Site): The site that the plan belongs to.
                 is_unblocked (bool): Whether the site is unblocked or not.
@@ -100,18 +102,66 @@ class NightlyTimeline:
                 if is_unblocked:
                     partial_plan = pg
                 else:
-                    partial_plan = pg.get_slice(stop=0)
-
+                    partial_plan = deepcopy(pg)
+                    partial_plan.visits = []
             all_generated += [v for v in reversed(partial_plan.visits) if v.time_slots]
+
+        # Evening twilight plan
+        eve_plan = relevant_entries[0].plan_generated
+
+        night_time_slots = (eve_plan.end - eve_plan.start) // eve_plan.time_slot_length
+        used_time_slots = sum([v.time_slots for v in reversed(all_generated)])
 
         p = Plan(start=relevant_entries[0].plan_generated.start,
                  end=relevant_entries[-1].plan_generated.end,
                  time_slot_length=relevant_entries[0].plan_generated.time_slot_length,
                  site=site,
-                 _time_slots_left=relevant_entries[-1].plan_generated.time_left(),
+                 _time_slots_left=night_time_slots - used_time_slots,
                  conditions=relevant_entries[-1].plan_generated.conditions)
         p.visits = [v for v in reversed(all_generated)]
         return p
+
+    def calculate_time_losses(self, night_idx: NightIndex, site: Site) -> None:
+        """Calculates the time lost by different types of events for the night.
+
+          Args:
+          night_idx (NightIdx): Night index of the plan.
+          site (Site): Site for the night plan.
+
+          Returns:
+            None: Updates the `time_losses` attribute.
+
+        """
+        # Initialize the values
+        self.time_losses.setdefault(night_idx, {})
+        self.time_losses[night_idx].setdefault(site, {})
+        self.time_losses[night_idx][site].setdefault("weather", 0)
+        self.time_losses[night_idx][site].setdefault("fault", 0)
+        self.time_losses[night_idx][site].setdefault("unschedule", 0)
+
+        weather = 0
+        fault = 0
+        for entry in self.timeline[night_idx][site]:
+            event = entry.event
+            if isinstance(event, InterruptionResolutionEvent):
+                match event:
+                    case FaultResolutionEvent():
+                        fault += event.time_loss.total_seconds() // 60
+                    case WeatherClosureResolutionEvent():
+                        # TODO: Weather is giving float somehow
+                        weather += int(event.time_loss.total_seconds() // 60)
+
+        # This is to ensure no matter what order the ResolutionEvents are we get all at them accounted.
+        for entry in self.timeline[night_idx][site]:
+            event = entry.event
+            if isinstance(event, MorningTwilightEvent):
+                unschedule = entry.plan_generated.time_left() - weather - fault
+                #  if unschedule < 0:
+                #    raise ValueError(f'Unscheduled time is negative!')
+                self.time_losses[night_idx][site]["unschedule"] = unschedule
+
+        self.time_losses[night_idx][site]["weather"] = weather
+        self.time_losses[night_idx][site]["fault"] = fault
 
     def display(self, output='stdout') -> None:
         def rnd_min(dt: datetime) -> datetime:

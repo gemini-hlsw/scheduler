@@ -527,6 +527,54 @@ class FileBasedResourceService(ResourceService):
         except FileNotFoundError:
             logger.error(f'Time loss file not available: {path}')
 
+    def _load_faults(self, site: Site, name: str) -> None:
+        """
+        Load the faults from the specified file.
+        """
+        path = self._subdir / name
+
+        try:
+            with open(path, 'r') as input_file:
+                pattern = r'FR-(\d+)\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+\[([^\]]+)\]'
+                faults = self._faults[site]
+
+                for line_num, line in enumerate(input_file):
+                    line = line.strip()
+
+                    # Skip blank lines or lines that start with a # indicating a comment.
+                    if not line or line[0] == '#':
+                        continue
+
+                    match = re.match(pattern, line)
+                    if not match:
+                        logger.warning(f'Illegal line {name}@{line_num + 1}: "{line}"')
+                        continue
+
+                    fr_id, local_datetime_str, duration_str, description = match.groups()
+                    local_datetime = datetime.strptime(local_datetime_str, '%Y-%m-%d %H:%M:%S')
+                    local_datetime = local_datetime.replace(tzinfo=site.timezone)
+                    duration = timedelta(hours=float(duration_str))
+
+                    # Determine the night of the fault report from the local datetime.
+                    # If it is before noon, it belongs to the previous night.
+                    if local_datetime.time() < time(hour=12):
+                        night_date = local_datetime.date() - timedelta(days=1)
+                    else:
+                        night_date = local_datetime.date()
+
+                    # Add the fault to the night.
+                    # TODO: Right now, not sure how to handle faults in terms of Resources.
+                    # TODO: Just specify the entire site as a resource for now, indicating that the site cannot be used
+                    # TODO: for the specified period.
+                    # TODO: Fix duration as per email discussion.
+                    faults.setdefault(night_date, set())
+                    fault = Fault(site=site,
+                                  start_time=local_datetime,
+                                  end_time=local_datetime + duration,
+                                  description=f'FR-{fr_id}: {description}')
+                    faults[night_date].add(fault)
+        except FileNotFoundError:
+            logger.error(f'Faults file not available: {path}')
 
     def _load_toos(self, site:  Site, name: str) -> None:
 
@@ -583,6 +631,7 @@ class FileBasedResourceService(ResourceService):
 
         except FileNotFoundError:
             logger.error(f'Too Activation file not available: {path}')
+
 
     def load_files(self,
                    site: Site,

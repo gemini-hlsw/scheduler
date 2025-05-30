@@ -42,7 +42,6 @@ class GroupInfo:
     conditions_score: Dict[NightIndex, npt.NDArray[float]]
     wind_score: Dict[NightIndex, npt.NDArray[float]]
     schedulable_slot_indices: Dict[NightIndex, npt.NDArray[TimeslotIndex]]
-    metrics: Metrics
     scores: Scores
 
 
