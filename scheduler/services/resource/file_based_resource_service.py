@@ -576,8 +576,10 @@ class FileBasedResourceService(ResourceService):
         except FileNotFoundError:
             logger.error(f'Faults file not available: {path}')
 
-    def _load_toos(self, site:  Site, name: str) -> None:
-
+    def _load_toos(self, site: Site, name: str) -> None:
+        """
+        Load the too activations from the specified .txt file.
+        """
         path = self._subdir / name
         try:
             with open(path, 'r') as input_file:
@@ -616,7 +618,7 @@ class FileBasedResourceService(ResourceService):
                             if next_eve_twi > local_datetime:
                                 local_datetime = next_eve_twi + timedelta(seconds=25)  # small offset
 
-                        if local_datetime < morn_twi:
+                        if local_datetime < morn_twi and site == Site.GN:
                             # belongs to day before but it happens after midnight.
                             local_night_date = local_datetime.date() - timedelta(days=1)
                         else:
