@@ -375,6 +375,10 @@ class EventCycle:
             # Advance the current time.
             current_timeslot += 1
 
+            if next_event_timeslot < current_timeslot:
+                _logger.error(f'Next event timeslot {next_event_timeslot} is before current timeslot {current_timeslot} for site {site_name} on night {night_idx}.')
+                break
+
         self._process_remaining_events(site,
                                        night_idx,
                                        night_events,
