@@ -51,6 +51,7 @@ class EphemerisCalculator(metaclass=Singleton):
         elif start_lookup_time.value.size == 1:
             start_lookup_time_py = start_lookup_time[0].to_datetime()
         else:
+            logger.error('start_lookup_time must be a scalar or s ingle value')
             raise ValueError('start_lookup_time must be a scalar or single value.')
 
         if end_lookup_time.isscalar:
@@ -58,9 +59,11 @@ class EphemerisCalculator(metaclass=Singleton):
         elif end_lookup_time.value.size == 1:
             end_lookup_time_py = end_lookup_time[0].to_datetime()
         else:
+            logger.error('end_lookup_time must be a scalar or single value.')
             raise ValueError('end_lookup_time must be a scalar or single value.')
 
         if start_lookup_time_py > end_lookup_time_py:
+            logger.error(f'Cannot calculate ephemeris for end date that occurs before start date.')
             raise ValueError(f'Cannot calculate ephemeris for end date that occurs before start date.')
 
         with horizons_session(site, start_lookup_time.to_datetime(), end_lookup_time.to_datetime(),
@@ -73,9 +76,8 @@ class EphemerisCalculator(metaclass=Singleton):
             # Expected number of slots. Add 1 to make inclusive.
             expected_slots = time2slots(EphemerisCalculator._DEFAULT_TIMESLOT_LENGTH.to_datetime(),
                                         end_lookup_time_py - start_lookup_time_py) + 1
-                                # end_lookup_time_py - start_lookup_time_py) + config.collector.time_slot_length
 
-            if expected_slots != len(coords):
+            if abs(expected_slots - len(coords)) > 10:
                 logger.warning(f'Ephemeris expected {expected_slots} entries, but received {len(coords)} entries.')
 
             # Extract into arrays of ra and dec. NOTE that these are calculated in radians and not degrees.

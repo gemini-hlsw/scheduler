@@ -793,8 +793,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 try:
                     schedulable_group = self.selection.schedulable_groups[unique_group_id]
                 except KeyError:
-                    logger.warning(f'Schedulable_group key error for {unique_group_id.id}')
-                    print(f'Schedulable_group key error for {unique_group_id.id}')
+                    logger.error(f'Schedulable_group key error for {unique_group_id.id}')
                     return None
                 # print(f"{unique_group_id.id} {schedulable_group.group.exec_time()} {schedulable_group.group.total_used()}")
                 # print(f"\tOld max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f} new max score[0]: "
