@@ -3,7 +3,8 @@
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Callable, Dict, FrozenSet, Mapping, Tuple, final
+from typing import Callable, Dict, FrozenSet, Mapping, Tuple, final, Optional
+from asyncio import Event
 
 import astropy.units as u
 from astropy.coordinates import Angle
@@ -167,7 +168,8 @@ class DefaultRanker(Ranker):
                  night_indices: NightIndices,
                  sites: FrozenSet[Site] = ALL_SITES,
                  params: RankerParameters = RankerParameters(),
-                 band_params: RankerBandParameterMap = None):
+                 band_params: RankerBandParameterMap = None,
+                 thread_event: Optional[Event] = None):
         """
         We only want to calculate the parameters once since they do not change.
         """
@@ -175,6 +177,7 @@ class DefaultRanker(Ranker):
         if band_params is None:
             self.band_params = _default_band_params()
         self.params = params
+        self.thread_event = thread_event
         super().__init__(collector, night_indices, sites)
 
     def metric_slope(self,
@@ -352,6 +355,9 @@ class DefaultRanker(Ranker):
 
         nights_to_schedule = list(list(group_data_map.values())[0].group_info.scores.keys())
         for night_idx in nights_to_schedule:
+            if self.thread_event is not None:
+                if not self.thread_event.is_set():
+                    raise RuntimeError('Connection close stop schedule plan')
             # What we want for the night is a numpy array of size (#obs, #timeslots in night)
             # where the rows are the observation scores. Then we will combine them.
             for unique_group_id in (g.unique_id for g in group.children):

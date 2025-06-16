@@ -1,7 +1,8 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import Tuple
+from typing import Tuple, Optional
+from asyncio import Event
 
 from lucupy.timeutils import time2slots
 
@@ -32,10 +33,16 @@ _logger = logger_factory.create_logger(__name__)
 
 class Engine:
 
-    def __init__(self, params: SchedulerParameters):
+    def __init__(self, params: SchedulerParameters, event: Optional[Event] = None):
         self.params = params
+        self.thread_event = event
         self.sources = Sources()
         self.change_monitor = None
+
+    def _check_thread_event(self) -> None:
+        if self.thread_event is not None:
+            if not self.thread_event.is_set():
+                raise RuntimeError('Connection close stop schedule plan')
 
     def build(self) -> SCP:
         """
@@ -55,17 +62,20 @@ class Engine:
                                             sites=self.params.sites,
                                             semesters=self.params.semesters,
                                             blueprint=Blueprints.collector,
-                                            program_list=self.params.programs_list)
+                                            program_list=self.params.programs_list,
+                                            thread_event=self.thread_event)
 
         selector = builder.build_selector(collector=collector,
                                           num_nights_to_schedule=self.params.num_nights_to_schedule,
-                                          blueprint=Blueprints.selector)
+                                          blueprint=Blueprints.selector,
+                                          thread_event=self.thread_event)
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
         ranker = DefaultRanker(collector,
                                self.params.night_indices,
                                self.params.sites,
-                               params=self.params.ranker_parameters)
+                               params=self.params.ranker_parameters,
+                               thread_event=self.thread_event)
 
         return SCP(collector, selector, optimizer, ranker)
 
@@ -88,6 +98,7 @@ class Engine:
         for site in sites:
             night_events = scp.collector.get_night_events(site)
             for night_idx in night_indices:
+                self._check_thread_event()
                 # this would be probably because when the last time the resource pickle was created, it was winter time
                 # or different.
                 eve_twi_time = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone)
@@ -165,6 +176,7 @@ class Engine:
         event_cycle = EventCycle(self.params, queue, scp)
         for night_idx in sorted(self.params.night_indices):
             for site in sorted(self.params.sites, key=lambda site: site.name):
+                self._check_thread_event()
                 event_cycle.run(site, night_idx, nightly_timeline)
                 nightly_timeline.calculate_time_losses(night_idx, site)
 
