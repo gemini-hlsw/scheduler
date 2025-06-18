@@ -4,6 +4,7 @@
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site, ObservationStatus, Observation, QAState
 from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable
+from asyncio import Event
 
 from lucupy.types import ZeroTime
 
@@ -89,10 +90,11 @@ class ValidationBuilder(SchedulerBuilder):
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
-                        program_list: Optional[bytes] = None) -> Collector:
+                        program_list: Optional[bytes] = None,
+                        thread_event: Optional[Event] = None) -> Collector:
 
-        collector = super().build_collector(start, end, num_of_nights, sites, semesters, blueprint)
-        collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data(program_list))
+        collector = super().build_collector(start, end, num_of_nights, sites, semesters, blueprint, thread_event=thread_event)
+        collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data(program_list), thread_event=thread_event)
         ValidationBuilder.reset_collector_observations(collector)
         return collector
 

@@ -135,3 +135,6 @@ plans.lock
 #scheduler/services/resource/data/telescope_schedules.xlsx
 
 profiles/
+
+# Ephemerides files
+scheduler/services/horizons/data/*.eph

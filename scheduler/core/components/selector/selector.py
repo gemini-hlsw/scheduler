@@ -4,6 +4,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import final, ClassVar, Dict, FrozenSet, Optional, TypeAlias
+from asyncio import Event
 
 import astropy.units as u
 import numpy as np
@@ -55,6 +56,7 @@ class Selector(SchedulerComponent):
     collector: Collector
     num_nights_to_schedule: int
     time_buffer: TimeBuffer
+    thread_event: Event
 
     # Store the current VariantSnapshot at each site.
     # TODO: We will use wind dir and speed later, and perhaps also WV.
@@ -89,6 +91,9 @@ class Selector(SchedulerComponent):
 
         self.night_configurations = {}
         for site in self.collector.sites:
+            if self.thread_event is not None:
+                if not self.thread_event.is_set():
+                    raise RuntimeError('Connection close stop schedule plan')
             self.night_configurations[site] = self.collector.night_configurations(
                 site, np.arange(self.collector.num_nights_calculated))
 
@@ -139,6 +144,10 @@ class Selector(SchedulerComponent):
 
             blocked_indices_by_night = {}
             for night_idx in night_indices:
+                if self.thread_event is not None:
+                    if not self.thread_event.is_set():
+                        raise RuntimeError('Connection close stop schedule plan')
+
                 # Twilights for night_idx.
                 earliest_time = night_events.local_times[night_idx][0]
                 latest_time = night_events.local_times[night_idx][-1]
@@ -248,6 +257,10 @@ class Selector(SchedulerComponent):
         schedulable_groups_map: Dict[UniqueGroupID, GroupData] = {}
 
         for program_id in Collector.get_program_ids():
+            if self.thread_event is not None:
+                if not self.thread_event.is_set():
+                    raise RuntimeError('Connection close stop schedule plan')
+
             original_program = Collector.get_program(program_id)
             if original_program is None:
                 logger.error(f'Program {program_id} was not found in the Collector.')

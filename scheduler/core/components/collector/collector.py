@@ -4,6 +4,7 @@
 from dataclasses import dataclass
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
+from asyncio import Event
 
 import astropy.units as u
 import numpy as np
@@ -81,6 +82,7 @@ class Collector(SchedulerComponent):
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
     sources: Sources
+    thread_event: Event
     time_slot_length: TimeDelta
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
@@ -314,7 +316,7 @@ class Collector(SchedulerComponent):
         # Return all the target info for the base target in the Observation across the nights of interest.
         return target_info
 
-    def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
+    def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict], thread_event: Optional[Event]) -> None:
         """
         Load the programs provided as JSON or GPP disctionaries into the Collector.
 
@@ -345,6 +347,10 @@ class Collector(SchedulerComponent):
 
         for next_program in data:
             try:
+                if thread_event is not None:
+                    if not self.thread_event.is_set():
+                        _logger.error('Connection close stop schedule plan')
+                        raise RuntimeError('Connection close stop schedule plan')
                 if len(next_program.keys()) == 1:
                     # Extract the data from the OCS JSON program. We do not need the top label.
                     next_data = next(iter(next_program.values()))
@@ -393,7 +399,9 @@ class Collector(SchedulerComponent):
                 if site_supported_obs:
                     Collector._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
                     parsed_observations.extend((program.id, obs) for obs in site_supported_obs)
-
+            
+            except RuntimeError as e:
+                raise RuntimeError(e)
             except Exception as e:
                 bad_program_count += 1
                 _logger.warning(f'Could not parse program: {e}')
@@ -406,6 +414,10 @@ class Collector(SchedulerComponent):
             vis_table = {}
 
         for program_id, obs in parsed_observations:
+            if thread_event is not None:
+                    if not self.thread_event.is_set():
+                        _logger.error('Connection close stop schedule plan')
+                        raise RuntimeError('Connection close stop schedule plan')
             # Check for a base target in the observation: if there is none, we cannot process.
             # For ToOs, this may be the case.
             base: Optional[Target] = obs.base_target()

@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 from os import environ
-from typing import List, AsyncGenerator, Dict
+from typing import Tuple, AsyncGenerator, Dict
 
 import strawberry # noqa
 from astropy.time import Time
@@ -22,15 +22,19 @@ _logger = create_logger(__name__)
 
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 
-def sync_schedule(params: SchedulerParameters) -> NewNightPlans:
-    engine = Engine(params)
-    plan_summary, timelines = engine.schedule()
-    s_timelines = SNightTimelines.from_computed_timelines(timelines)
-    s_plan_summary = SRunSummary.from_computed_run_summary(plan_summary)
-    return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
+def sync_schedule(params: SchedulerParameters, event: asyncio.Event) -> NewNightPlans:
+    try:
+        engine = Engine(params, event)
+        plan_summary, timelines = engine.schedule()
+        s_timelines = SNightTimelines.from_computed_timelines(timelines)
+        s_plan_summary = SRunSummary.from_computed_run_summary(plan_summary)
+        return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
+    except RuntimeError as e:
+        _logger.error(f'Error: {e}')
+        return NightPlansResponse(error=NightPlansError(str(e)))
 
 
-active_subscriptions: Dict[str, asyncio.Queue] = {}
+active_subscriptions: Dict[str, Tuple[asyncio.Queue, asyncio.Event]] = {}
 
 
 @strawberry.type
@@ -66,13 +70,15 @@ class Query:
                                      programs_list)
         _logger.info(f"Plan is on the queue! for: {schedule_id}\n{params}")
 
-        task = asyncio.to_thread(sync_schedule, params)
-
         if schedule_id not in active_subscriptions:
             queue = asyncio.Queue()
-            active_subscriptions[schedule_id] = queue
+            event = asyncio.Event()
+            active_subscriptions[schedule_id] = (queue, event)
         else:
-            queue = active_subscriptions[schedule_id]
+            queue, event = active_subscriptions[schedule_id]
+
+        event.set()
+        task = asyncio.to_thread(sync_schedule, params, event)
 
         await queue.put(task)
         return f'Plan is on the queue! for {schedule_id}'
@@ -81,23 +87,29 @@ class Query:
 class Subscription:
     @strawberry.subscription
     async def queue_schedule(self, schedule_id: str) -> AsyncGenerator[NightPlansResponse, None]:
-        schedule_id_var.set(schedule_id)
-        if schedule_id not in active_subscriptions:
-            queue = asyncio.Queue()
-            active_subscriptions[schedule_id] = queue
-        else:
-            queue = active_subscriptions[schedule_id]
         try:
-            while True:
-                try:
-                    item = await queue.get()  # Wait for item from the queue
-                    _logger.info(f'Running ID: {schedule_id}')
-                    result = await item
-                    yield result  # Yield item to the subscription
-                except Exception as e:
-                    _logger.error(f'Error: {e}')
-                    yield NightPlansError(error=f'Error: {e}')
-                    raise
-        finally:
-            if schedule_id in active_subscriptions:
-                del active_subscriptions[schedule_id]
+            if schedule_id not in active_subscriptions:
+                queue = asyncio.Queue()
+                event = asyncio.Event()
+                active_subscriptions[schedule_id] = (queue, event)
+            else:
+                queue, event = active_subscriptions[schedule_id]
+            try:
+                while True:
+                    try:
+                        item = await queue.get()  # Wait for item from the queue
+                        schedule_id_var.set(schedule_id)
+                        _logger.info(f'Running ID: {schedule_id}')
+                        result = await item
+                        yield result  # Yield item to the subscription
+                    except Exception as e:
+                        _logger.error(f'Error: {e}')
+                        yield NightPlansError(error=f'Error: {e}')
+                        raise
+            finally:
+                if schedule_id in active_subscriptions:
+                    del active_subscriptions[schedule_id]
+        except asyncio.CancelledError:
+            # Try to kill any running tasks clearing the event thread
+            _logger.info(f'Connection of id {schedule_id} closed')
+            event.clear()

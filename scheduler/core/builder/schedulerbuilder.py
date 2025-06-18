@@ -3,6 +3,7 @@
 
 from abc import abstractmethod, ABC
 from typing import FrozenSet, Optional
+from asyncio import Event
 
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site
@@ -39,19 +40,22 @@ class SchedulerBuilder(ABC):
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
-                        program_list: Optional[bytes] = None) -> Collector:
+                        program_list: Optional[bytes] = None,
+                        thread_event: Optional[Event] = None) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
-        collector = Collector(start, end, num_of_nights, sites, semesters, self.sources, *blueprint)
+        collector = Collector(start, end, num_of_nights, sites, semesters, self.sources, thread_event, *blueprint)
         return collector
 
     @staticmethod
     def build_selector(collector: Collector,
                        num_nights_to_schedule: int,
+                       thread_event: Event,
                        blueprint: SelectorBlueprint) -> Selector:
         return Selector(collector=collector,
                         num_nights_to_schedule=num_nights_to_schedule,
-                        time_buffer=create_time_buffer(*blueprint))
+                        time_buffer=create_time_buffer(*blueprint),
+                        thread_event=thread_event)
 
     @staticmethod
     def build_optimizer(blueprint: OptimizerBlueprint) -> Optimizer:
