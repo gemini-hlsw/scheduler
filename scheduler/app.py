@@ -28,6 +28,7 @@ origins = [
     "https://gpp-schedule-ui-staging.herokuapp.com",
     "http://scheduler.lucuma.xyz:5173",
     "http://localhost",
+    "http://localhost:5173",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
 ]
