@@ -64,7 +64,8 @@ class Ranker(ABC):
             raise ValueError('Ranker group scoring can only score groups.')
 
     @abstractmethod
-    def score_observation(self, program: Program, obs: Observation, night_configurations: dict):
+    def score_observation(self, program: Program, obs: Observation, night_configurations: dict,
+                          night_indices: NightIndices):
         """
         Calculate the scores for an observation for each night for each time slot index.
         These are returned as a list indexed by night index as per the night_indices supplied,
