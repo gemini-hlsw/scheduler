@@ -514,7 +514,7 @@ class Selector(SchedulerComponent):
                 schedulable_slot_indices[night_idx] = np.array([])
         # print(f'number schedulable slots night: {len(schedulable_slot_indices[night_idx])}')
 
-        obs_scores = ranker.score_observation(program, obs, self.night_configurations)
+        obs_scores = ranker.score_observation(program, obs, self.night_configurations, night_indices)
         # print(f'obs_scores: {max(obs_scores[night_idx])}')
 
         # Calculate the scores for the observation across all night indices across all timeslots.
