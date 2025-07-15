@@ -1216,7 +1216,6 @@ class OcsProgramProvider(ProgramProvider):
         except Exception as ex:
             logger.error(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
 
-        print('FALLLLOOO')
         return None
 
     def parse_time_allocation(self, data: dict, band: Band=None) -> TimeAllocation:
