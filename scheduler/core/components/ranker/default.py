@@ -53,6 +53,7 @@ class RankerParameters:
     met_power: float = 1.0
     vis_power: float = 1.0
     wha_power: float = 1.0
+    air_power: float = 0.0
     program_priority: float = 10.0
     priority_factor: float = 8.0
     preimaging_factor: float = 1.25
@@ -274,6 +275,7 @@ class DefaultRanker(Ranker):
 
         # Hour angle / airmass
         ha = {night_idx: target_info[night_idx].hourangle for night_idx in night_indices}
+        airmass = {night_idx: target_info[night_idx].airmass for night_idx in night_indices}
 
         # Get the latitude associated with the site.
         site_latitude = obs.site.location.lat
@@ -314,6 +316,8 @@ class DefaultRanker(Ranker):
         # Effective user priority
         # Normalized to 1, use priority_factor to scale
         priority_value = obs.priority.value
+        # if obs.status ==  ObservationStatus.ONGOING and obs.total_used() > ZeroTime:
+        #     priority_value += 1
         scale_factor *= 1. + (priority_value - program.mean_priority())/self.params.priority_factor
 
         # If Ongoing and has really started (has charged time), give boost
@@ -327,16 +331,16 @@ class DefaultRanker(Ranker):
                          else 1.0 for night_idx in night_indices}
         scale_factor *= prog_priority[night_idx]
 
+        # Multiply score, divide by the minimum airmass (mainly for cross-site scoring tests)
         p = {night_idx: scale_factor * (metric[0] ** self.params.met_power) *
                         (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
-                        (wha[night_idx] ** self.params.wha_power) * alt_include[night_idx]
+                        (wha[night_idx] ** self.params.wha_power) * alt_include[night_idx] /
+                        (np.min(airmass[night_idx]) ** self.params.air_power)
              for night_idx in night_indices}
 
         # Assign scores in p to all indices where visibility constraints are met.
         # They will otherwise be 0 as originally defined.
         for night_idx in night_indices:
-            if 'Q-127' in obs.id.id:
-                print(obs.id.id, night_idx, np.max(p[night_idx]))
             slot_indices = target_info[night_idx].visibility_slot_idx
             scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
 
