@@ -618,6 +618,9 @@ class OcsProgramProvider(ProgramProvider):
                 disperser = 'mirror'
             else:
                 disperser = disperser.replace('grating', '') + data[OcsProgramProvider._InstrumentKeys.CROSS_DISPERSED]
+        elif instrument == 'NIRI':
+            if disperser.lower() == 'none':
+                disperser = None
         elif instrument == 'Flamingos2' and fpu == 'FPU_NONE':
             if data['instrument:decker'] == 'IMAGING':
                 disperser = data['instrument:decker']
@@ -692,8 +695,7 @@ class OcsProgramProvider(ProgramProvider):
                 elif search_list('IMAGING', dispersers):
                     obs_mode = ObservationMode.IMAGING
             elif inst == 'NIRI':
-                if search_list('NONE', dispersers) and search_list('MASK_IMAGING', fpus):
-                    obs_mode = ObservationMode.IMAGING
+                obs_mode = ObservationMode.IMAGING
             elif inst == 'NIFS':
                 obs_mode = ObservationMode.IFU
             elif inst == 'GNIRS':
