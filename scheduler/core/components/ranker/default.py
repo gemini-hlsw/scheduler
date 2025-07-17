@@ -109,6 +109,7 @@ class RankerParameters:
         f"  ├─met_power: {self.met_power}\n" + \
         f"  ├─vis_power: {self.vis_power}\n" + \
         f"  ├─wha_power: {self.wha_power}\n" + \
+        f"  ├─air_power: {self.air_power}\n" + \
         f"  ├─program_priority: {self.program_priority}\n" + \
         f"  ├─priority_factor: {self.priority_factor}\n" + \
         f"  ├─preimaging_factor: {self.preimaging_factor}\n" + \
