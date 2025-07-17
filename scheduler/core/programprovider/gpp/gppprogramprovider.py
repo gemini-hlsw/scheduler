@@ -1,18 +1,16 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
-import calendar
-# import json
-# import zipfile
+import traceback
+import asyncio
 from datetime import datetime, timedelta
 from dateutil.parser import parse as parsedt
 from os import PathLike
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
-# from pyexplore import explore
-# import numpy as np
-# from lucupy.helpers import dmsstr2deg
+from gpp_client.api import WhereProgram, WhereEqProposalStatus, ProposalStatus, WhereOrderProgramId
+from gpp_client import GPPClient, GPPDirector
+
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
                               ObservationClass, ObservationID, ObservationMode, ObservationStatus, Priority,
@@ -24,8 +22,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
-from lucupy.helpers import unique_list
-# from scipy.signal import find_peaks
+
 
 from definitions import ROOT_DIR
 from scheduler.core.programprovider.abstract import ProgramProvider
@@ -47,31 +44,35 @@ DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'gpp_program_i
 
 def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
     """Query GPP for program data"""
-    for program_id in program_ids:
-        try:
-            # Query the program data from GPP.
-            # TODO change pyexplore to other api query
-            data = {}
-            # data = explore.program(program_id)
-            print(f"Adding program: {program_id} {data.reference.label}")
-            # Pass the class information as a dictionary to mimic the OCS json format
-            yield data.__dict__
-        except:
-            logger.error(f'Problem querying {program_id}.')
+
+    if program_ids:
+
+        where = WhereProgram(id=WhereOrderProgramId(in_=list(program_ids)),
+                             proposal_status=WhereEqProposalStatus(eq=ProposalStatus.ACCEPTED))
+    else:
+        # Bring everything that is accepted.
+        where = WhereProgram(proposal_status=WhereEqProposalStatus(eq=ProposalStatus.ACCEPTED))
+
+    try:
+        client = GPPClient()
+        director = GPPDirector(client)
+
+        ask_director = director.scheduler.program.get_all(where=where)
+        result = asyncio.run(ask_director)
+        programs = result
+
+        print(f"Adding program: {len(programs)}")
+        # Pass the class information as a dictionary to mimic the OCS json format
+        yield from programs
+    except RuntimeError as e:
+        logger.error(f'Problem querying program list {program_ids} data: \n{e}.')
 
 
 def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
     """Query GPP for the programs in program_list. If not given then query GPP for all appropriate observations"""
     if program_list is None:
-        # GPP query
-        # TODO change pyexplore to other api query
-        # obs_for_sched = explore.observations_for_scheduler(include_deleted=False)
-        obs_for_sched = []
-        obs_progs = []
-        for o in obs_for_sched:
-            print(f'{o.id}: {o.program.id} {o.title} {o.active_status} {o.status} {o.science_band}')
-            obs_progs.append(o.program.id)
-        id_frozenset = frozenset(unique_list(obs_progs))
+        # Let's make it empty so we can remove it in the where
+        id_frozenset = frozenset()
     else:
         try:
             # Try to read the file and create a frozenset from its lines
@@ -188,7 +189,7 @@ class GppProgramProvider(ProgramProvider):
         MODE = 'programMode'
         TOO_TYPE = 'tooType'
         TIME_ACCOUNT_ALLOCATION = 'allocations'
-        TIME_CHARGE = 'time_charge'
+        TIME_CHARGE = 'timeCharge'
         # NOTE = 'INFO'
         # SCHED_NOTE = 'INFO_SCHEDNOTE'
         # PROGRAM_NOTE = 'INFO_PROGRAMNOTE'
@@ -200,18 +201,18 @@ class GppProgramProvider(ProgramProvider):
         AWARDED_PART_TIME = 'awardedPartnerTime'
         USED_PROG_TIME = 'program'
         USED_PART_TIME = 'partner'
-        NOT_CHARGED_TIME = 'non_charged'
-        BAND = 'science_band'
+        NOT_CHARGED_TIME = 'nonCharged'
+        BAND = 'scienceBand'
 
     class _GroupKeys:
         ELEMENTS = 'elements'
-        DELAY_MIN = 'minimum_interval'
-        DELAY_MAX = 'maximum_interval'
+        DELAY_MIN = 'minimumInterval'
+        DELAY_MAX = 'maximumInterval'
         ORDERED = 'ordered'
-        NUM_TO_OBSERVE = 'minimum_required'
+        NUM_TO_OBSERVE = 'minimumRequired'
         GROUP_NAME = 'name'
-        PARENT_ID = 'parent_id'
-        PARENT_INDEX = 'parent_index'
+        PARENT_ID = 'parentId'
+        PARENT_INDEX = 'parentIndex'
 
     class _ObsKeys:
         # KEY = 'OBSERVATION_BASIC'
@@ -228,18 +229,18 @@ class GppProgramProvider(ProgramProvider):
         # SETUPTIME = '' # obs_may5_grp.execution.digest.acquisition.time_estimate.total.hours
         # OBS_CLASS = 'obsClass'
         # PHASE2 = 'phase2Status'
-        ACTIVE = 'active_status'
-        BAND = 'science_band'
+        ACTIVE = 'activeStatus'
+        BAND = 'scienceBand'
         # TOO_OVERRIDE_RAPID = 'tooOverrideRapid'
 
     class _TargetKeys:
         KEY = 'target_environment'
         ASTERISM = 'asterism'
-        BASE = 'explicit_base'
+        BASE = 'explicitBase'
         TYPE = 'type'
         RA = 'ra'
         DEC = 'dec'
-        PM = 'proper_motion'
+        PM = 'properMotion'
         EPOCH = 'epoch'
         DES = 'des'
         SIDEREAL_OBJECT_TYPE = 'sidereal'
@@ -248,13 +249,13 @@ class GppProgramProvider(ProgramProvider):
         NAME = 'name'
 
     class _TargetEnvKeys:
-        GUIDE_GROUPS = 'guide_environments'
+        GUIDE_GROUPS = 'guideEnvironments'
         # GUIDE_GROUP_NAME = 'name'
         # GUIDE_GROUP_PRIMARY = 'primaryGroup'
         # GUIDE_PROBE = 'probe'
         GUIDE_PROBE_KEY = 'probe'
         # AUTO_GROUP = 'auto'
-        TARGET = 'guide_targets'
+        TARGET = 'guideTargets'
         # USER_TARGETS = 'userTargets'
 
     _constraint_to_value = {
@@ -280,19 +281,19 @@ class GppProgramProvider(ProgramProvider):
     }
 
     class _ConstraintKeys:
-        KEY = 'constraint_set'
-        CC = 'cloud_extinction'
-        IQ = 'image_quality'
-        SB = 'sky_background'
-        WV = 'water_vapor'
-        ELEVATION = 'elevation_range'
-        AIRMASS_TYPE = 'air_mass'
+        KEY = 'constraintSet'
+        CC = 'cloudExtinction'
+        IQ = 'imageQuality'
+        SB = 'skyBackground'
+        WV = 'waterVapor'
+        ELEVATION = 'elevationRange'
+        AIRMASS_TYPE = 'airMass'
         AIRMASS_MIN = 'min'
         AIRMASS_MAX = 'max'
-        HA_TYPE = 'hour_angle'
-        HA_MIN = 'min_hours'
-        HA_MAX = 'max_hours'
-        TIMING_WINDOWS = 'timing_windows'
+        HA_TYPE = 'hourAngle'
+        HA_MIN = 'minHours'
+        HA_MAX = 'maxHours'
+        TIMING_WINDOWS = 'timingWindows'
 
     class _AtomKeys:
         ATOM = 'atom'
@@ -315,9 +316,9 @@ class GppProgramProvider(ProgramProvider):
     class _TimingWindowKeys:
         # TIMING_WINDOWS = 'timingWindows'
         INCLUSION = 'inclusion'
-        START = 'start_utc'
+        START = 'startUtc'
         DURATION = 'end'
-        ATUTC = 'at_utc'
+        ATUTC = 'atUtc'
         AFTER = 'after'
         REPEAT = 'repeat'
         TIMES = 'times'
@@ -510,7 +511,7 @@ class GppProgramProvider(ProgramProvider):
             cc_bin_values = [0.5, 0.7, 0.8, 1.0]
 
             iq_bins = [0.45, 0.75, 1.05, 1.5]  # for r, should be wavelength dependent
-            iq_bin_values = [0.5, 0.7, 0.85, 1.0]
+            iq_bin_values = [0.2, 0.7, 0.85, 1.0]
 
             # Numerical value equivalent
             value = to_value(const)
@@ -534,8 +535,6 @@ class GppProgramProvider(ProgramProvider):
 
             return bin_value
 
-        # print(getattr(data, GppProgramProvider._ConstraintKeys.CC))
-        # print(data[GppProgramProvider._ConstraintKeys.CC], to_value(data[GppProgramProvider._ConstraintKeys.CC]))
 
         return Conditions(
             *[lookup(to_percent_bin(key, data[key], x_max)) for lookup, key in
@@ -955,11 +954,15 @@ class GppProgramProvider(ProgramProvider):
         belongs_to = program_id
 
         try:
-            active = data[GppProgramProvider._ObsKeys.ACTIVE].upper() != 'INACTIVE'
-            if not active:
-                logger.warning(f"Observation {obs_id} is inactive (skipping).")
-                print(f"Observation {obs_id} is inactive (skipping).")
-                return None
+            print("OBS: ", data)
+            # doesnt exits anymore
+            active = True
+            # active = data.get(GppProgramProvider._ObsKeys.ACTIVE)
+
+            # if not active or active.upper() != 'INACTIVE':
+            #     logger.warning(f"Observation {obs_id} is inactive (skipping).")
+            #     print(f"Observation {obs_id} is inactive (skipping).")
+            #    return None
 
             # ToDo: there is no longer an observation-level obs_class, maybe check later from atom classes
             # obs_class = ObservationClass[data[GppProgramProvider._ObsKeys.OBS_CLASS].upper()]
@@ -977,19 +980,23 @@ class GppProgramProvider(ProgramProvider):
             priority = Priority.MEDIUM
 
             # If the status is not legal, terminate parsing.
-            status = ObservationStatus[data[GppProgramProvider._ObsKeys.STATUS].upper()]
-            if status not in GppProgramProvider._OBSERVATION_STATUSES:
-                logger.warning(f"Observation {obs_id} has invalid status {status.name}.")
-                print(f"Observation {obs_id} has invalid status {status.name}.")
-                return None
+            status = ObservationStatus.READY
+            # status = ObservationStatus[data[GppProgramProvider._ObsKeys.STATUS].upper()]
+            # if status not in GppProgramProvider._OBSERVATION_STATUSES:
+            #    logger.warning(f"Observation {obs_id} has invalid status {status.name}.")
+            #     print(f"Observation {obs_id} has invalid status {status.name}.")
+            #    return None
 
             # ToDo: where to get the setup type?
             # setuptime_type = SetupTimeType[data[GppProgramProvider._ObsKeys.SETUPTIME_TYPE]]
             setuptime_type = SetupTimeType.FULL
-            acq_overhead = timedelta(seconds=data['execution']['digest']['setup']['full']['seconds'])
+            # acq_overhead = timedelta(seconds=data['execution']['digest']['setup']['full']['seconds'])
+            acq_overhead = timedelta(seconds=0)
 
             # Science band
-            band = Band[data[GppProgramProvider._ObsKeys.BAND]]
+            band_value = data.get(GppProgramProvider._ObsKeys.BAND)
+            band = Band[band_value] if band_value is not None else None
+
 
             # Constraints
             find_constraints = {
@@ -1007,7 +1014,7 @@ class GppProgramProvider(ProgramProvider):
             # ToDo: Perhaps add the sequence query to the original observation query
             # TODO change pyexplore to other api query
             # sequence = explore.sequence(internal_id, include_acquisition=True)
-            sequence = []
+            sequence = data["sequence"]
             atoms, obs_class = self.parse_atoms(site, sequence)
 
             # Pre-imaging
@@ -1048,9 +1055,10 @@ class GppProgramProvider(ProgramProvider):
 
                 # Parse the guide stars if guide star data is supplied.
                 try:
-                    guide_groups = target_env[GppProgramProvider._TargetEnvKeys.GUIDE_GROUPS]
+                    # Let's ignore the guide environment
+                    # guide_groups = target_env[GppProgramProvider._TargetEnvKeys.GUIDE_GROUPS]
                     # ToDo: is there a better option than the first one?
-                    guide_group = guide_groups[0]
+                    # guide_group = guide_groups[0]
                     #     auto_guide_group = [group for group in guide_groups
                     #                         if group[GppProgramProvider._TargetEnvKeys.GUIDE_GROUP_NAME] ==
                     #                         GppProgramProvider._TargetEnvKeys.AUTO_GROUP]
@@ -1127,26 +1135,36 @@ class GppProgramProvider(ProgramProvider):
         """
         This method parses group information from GPP
         """
+
         # Get the group name: ROOT_GROUP_ID if the root group and otherwise the name.
         if group_id == ROOT_GROUP_ID:
             group_name = ROOT_GROUP_ID.id
             delay_min = None
             delay_max = None
             group_option = AndOption.ANYORDER
-            number_to_observe = len(data[0]['group']) + len(data[0]['observation'])
-            elements_list = list(reversed(data))
-            parent_id = ROOT_GROUP_ID.id
-            parent_index = data[0][GppProgramProvider._GroupKeys.PARENT_INDEX]
+            number_to_observe = 1 # not that straightforward to get this number without iterating over elements.
+            elements_list = data['elements']
+            parent_id = ROOT_GROUP_ID.id # this should be None?
+            parent_index = 0
         else:
             group_name = data[GppProgramProvider._GroupKeys.GROUP_NAME]
 
-            if data[GppProgramProvider._GroupKeys.DELAY_MIN]:
-                delay_min = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MIN].seconds)
-                delay_max = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MAX].seconds)
+            group_delay_min = data.get(GppProgramProvider._GroupKeys.DELAY_MIN)
+            group_delay_max = data[GppProgramProvider._GroupKeys.DELAY_MAX]
+            if group_delay_min:
+                delay_min = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MIN]["seconds"])
+                if group_delay_max:
+                    delay_max = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MAX]["seconds"])
+                else:
+                    delay_max = None
             else:
                 delay_min = None
                 delay_max = None
-            number_to_observe = data[GppProgramProvider._GroupKeys.NUM_TO_OBSERVE]
+
+            # there can be empty groups for Calibrations, lucupy forces to have at least one
+            # so we need to address that better.
+            number_to_observe = data.get(GppProgramProvider._GroupKeys.NUM_TO_OBSERVE) or 1
+
 
             # Set group_option from Ordered
             ordered = data[GppProgramProvider._GroupKeys.ORDERED]
@@ -1168,8 +1186,8 @@ class GppProgramProvider(ProgramProvider):
                     group_option = AndOption.CONSEC_ORDERED if ordered else AndOption.CONSEC_ANYORDER
                     number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
 
-            parent_id = GroupID(data[GppProgramProvider._GroupKeys.PARENT_ID])
-            parent_index = data[GppProgramProvider._GroupKeys.PARENT_INDEX]
+            parent_id = GroupID(data.get(GppProgramProvider._GroupKeys.PARENT_ID))
+            parent_index = data.get(GppProgramProvider._GroupKeys.PARENT_INDEX)
             elements_list = list(reversed(data[GppProgramProvider._GroupKeys.ELEMENTS]))
 
         # Original empty lists
@@ -1180,27 +1198,16 @@ class GppProgramProvider(ProgramProvider):
         # Recursively process the group elements, reversing required to get the order
         # as in Explore
         for element in elements_list:
-            # print(element)
-            elem_parent_index = element[GppProgramProvider._GroupKeys.PARENT_INDEX]
             if element['observation']:
-                # print(f"\t element['observation']}")
-                # print(f"\t {element['observation']['id']}")
-                # TODO change pyexplore to other api query
-                # obs_data = explore.observation(element['observation']['id'])
-                obs_data = []
-                obs = self.parse_observation(obs_data.__dict__, program_id=program_id, num=(0, 0),
+                elem_parent_index = element.get(GppProgramProvider._GroupKeys.PARENT_INDEX)
+                obs = self.parse_observation(element['observation'], program_id=program_id, num=(0, 0),
                                              split=split, split_by_iterator=split_by_iterator)
                 if obs is not None:
                     observations.append(obs)
                     obs_parent_indices.append(elem_parent_index)
             elif element['group']:
-                # print(f"\t {element['group']['id']}")
-                # TODO change pyexplore to other api query
-                # grp_data, grp_tab = explore.group(element['group']['id'])
-                grp_data = {}
-                grp_tab = []
                 subgroup_id = GroupID(element['group']['id'])
-                subgroup = self.parse_group(grp_data.__dict__, program_id, subgroup_id, split=split,
+                subgroup = self.parse_group(element['group'], program_id, subgroup_id, split=split,
                                             split_by_iterator=split_by_iterator)
                 if subgroup is not None:
                     children.append(subgroup)
@@ -1293,7 +1300,7 @@ class GppProgramProvider(ProgramProvider):
 
         # Now we parse the groups.
         # root_group = GppProgramProvider._EMPTY_ROOT_GROUP
-        root_group = self.parse_group(data['group_elements'], program_id, ROOT_GROUP_ID,
+        root_group = self.parse_group(data['root'], program_id, ROOT_GROUP_ID,
                                       split=split, split_by_iterator=split_by_iterator)
         if root_group is None:
             logger.warning(f'Program {program_id} has empty root group. Skipping.')
