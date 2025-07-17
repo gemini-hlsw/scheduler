@@ -21,4 +21,4 @@ gelidum
 python-dateutil
 sortedcontainers
 redis
-# git+https://stroncod:${GH_PAT}@github.com/stroncod/pyexplore.git
+gpp-client
