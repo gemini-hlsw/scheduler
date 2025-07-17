@@ -51,7 +51,8 @@ class Query:
                                          new_schedule_input.power,
                                          new_schedule_input.met_power,
                                          new_schedule_input.vis_power,
-                                         new_schedule_input.wha_power)
+                                         new_schedule_input.wha_power,
+                                         new_schedule_input.air_power)
         programs_list = None
         if new_schedule_input.programs:
             if len(new_schedule_input.programs) > 0:
