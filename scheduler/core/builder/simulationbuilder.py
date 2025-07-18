@@ -36,12 +36,12 @@ class SimulationBuilder(SchedulerBuilder):
                         num_of_nights: int,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
-                        with_redis: bool,
                         blueprint: CollectorBlueprint,
                         program_list: Optional[bytes] = None) -> Collector:
 
-        collector = super().build_collector(start, end, num_of_nights, sites, semesters, with_redis, blueprint)
-        collector.load_programs(program_provider_class=GppProgramProvider, data=gpp_program_data(program_list))
+        collector = super().build_collector(start, end, num_of_nights, sites, semesters, blueprint)
+        collector.load_programs(program_provider_class=GppProgramProvider,
+                                data=gpp_program_data(program_list))
         return collector
 
     def _setup_event_queue(self,
