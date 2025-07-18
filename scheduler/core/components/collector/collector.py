@@ -333,8 +333,6 @@ class Collector(SchedulerComponent):
             raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
         program_provider = program_provider_class(self.obs_classes, self.sources)
 
-        print(type(data))
-
         # Purge the old programs and observations.
         Collector._programs = {}
 
@@ -347,7 +345,6 @@ class Collector(SchedulerComponent):
 
         for next_program in data:
             try:
-                print(next_program)
                 if len(next_program.keys()) == 1:
                     # Extract the data from the OCS JSON program. We do not need the top label.
                     next_data = next(iter(next_program.values()))
