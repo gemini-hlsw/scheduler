@@ -17,23 +17,26 @@ For the list of dependencies check: `requirements.txt`.
 
 Fork the project and then clone into your desired directory.
 
-You may wish to also fork and clone the [lucupy](https://github.com/gemini-hlsw/lucupy) repository, which is the
-package that contains the model for this project.
+**Otional step:** You may wish to also fork and clone the [lucupy](https://github.com/gemini-hlsw/lucupy) repository, which is the package that contains the model for this project. Otherwise the package dependency will be installed from pypi.
 
 ### Create the project environment:
 
-<!--
-Add the following line to your `~/.bash_profile` or equivalent:
+You should create a set of environment variables before running the scheduler, one option is adding the following lines to your `~/.bash_profile` or equivalent:
+
 ```shell
-$ export PYTHONPATH=$PYTHONPATH:{path-to-project-base}
+export PYTHONPATH=$PYTHONPATH:{path-to-project-base}
+export REDISCLOUD_URL redis://<USER>:<PASSWORD>@redis-12725.c261.us-east-1-4.ec2.cloud.redislabs.com:12725
+export APP_VERSION dev
 ```
--->
+
+Please contact some project staff member for the redis `USER` and `PASSWORD`
 
 #### Using [virtualenv](https://virtualenv.pypa.io/en/latest/):
 
 Make sure you have an active Python 3.10 or 3.11 distribution installed on your machine.
 
 virtualenv can be installed using pip:
+
 ```shell
 $ pip install virtualenv
 ```
@@ -94,16 +97,32 @@ If the startup complains about a missing `allauth` package, install this with:
 $ pip install django-allauth
 ```
 
+### Updating your local environment
+
+To update your project, first pull the latest changes in your repository, to do so, go to your repository directory root and run
+
+```shell
+cd path/to/your/scheduler/repository
+git pull
+```
+
+You can also update some of the packages used enabling the virtual environment and running the following command, i.e. lucupy version
+
+```shell
+pip install lucupy -U
+```
+
 ## How to Install (Docker)
 
 1. Run Docker-compose. If is the first time running the script, it will take some time to
-build the images.  
+   build the images.
+
 ```shell
-$ docker build -t scheduler .  
+$ docker build -t scheduler .
 $ docker run -dp 8000:8000 scheduler
 ```
 
-2. You can access `http://localhost:8000/graphql` to interact with the GraphQL console. 
+2. You can access `http://localhost:8000/graphql` to interact with the GraphQL console.
 
 ## Troubleshooting
 
