@@ -397,7 +397,6 @@ class Collector(SchedulerComponent):
             except Exception as e:
                 bad_program_count += 1
                 _logger.warning(f'Could not parse program: {e}')
-                raise e
 
         if bad_program_count:
             _logger.error(f'Could not parse {bad_program_count} programs.')
