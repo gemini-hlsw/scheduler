@@ -17,7 +17,7 @@ For the list of dependencies check: `requirements.txt`.
 
 Fork the project and then clone into your desired directory.
 
-**Otional step:** You may wish to also fork and clone the [lucupy](https://github.com/gemini-hlsw/lucupy) repository, which is the package that contains the model for this project. Otherwise the package dependency will be installed from pypi.
+**Optional step:** You may wish to also fork and clone the [lucupy](https://github.com/gemini-hlsw/lucupy) repository, which is the package that contains the model for this project. Otherwise the package dependency will be installed from pypi.
 
 ### Create the project environment:
 
