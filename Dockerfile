@@ -1,4 +1,4 @@
-FROM python:3.10-buster
+FROM python:3.11-alpine
 
 # Default app version is development
 ARG APP_VERSION="development"

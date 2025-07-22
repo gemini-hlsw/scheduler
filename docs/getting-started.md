@@ -3,14 +3,24 @@ The Scheduler supports both 3.10 and 3.11 Python version. Newer versions are not
 For the list of dependencies check: requirements.txt.
 
 Redis is currently used in the default configuration but can be deactivated.
+
+## 1.2 Ephemerides files storage for Validation
+
+The system connects to [NASA's Horizons](https://ssd.jpl.nasa.gov/horizons/app.html) to handle Non-Sidereal Targets but 
+due to the amount of data we store all the ephemerides files for 2018B Semester that are needed to create the whole semester. 
+Is possible to skip this step but the performance of the Scheduler would be severely hindered. The files are in a .bz2
+compressed file in `/scheduler/scheduler/services/horizons/data/` and it needs `git-lfs` to be cloned from the repo. 
+You can install it from [here](https://git-lfs.com/)
+
 # 2. Installation
 ## 2.1 Local Development
 Download the project source:
-Fork the project and then clone into your desired directory.
 
-You may wish to also fork and clone the lucupy repository, which is the package that contains the model for this project.
+```shell
+$ git clone https://github.com/gemini-hlsw/scheduler.git
+```
 
-### Create the project environment:
+### 2.1.1 Create the project environment using [virtualenv](https://virtualenv.pypa.io/en/latest/):
 
 <!--
 Add the following line to your `~/.bash_profile` or equivalent:
@@ -18,8 +28,6 @@ Add the following line to your `~/.bash_profile` or equivalent:
 $ export PYTHONPATH=$PYTHONPATH:{path-to-project-base}
 ```
 -->
-
-#### Using [virtualenv](https://virtualenv.pypa.io/en/latest/):
 
 Make sure you have an active Python 3.10 or 3.11 distribution installed on your machine.
 
@@ -35,26 +43,37 @@ $ virtualenv --python=/path/to/python_executable venv
 $ source venv/bin/activate
 $ pip install -r requirements.txt
 ```
+
+### 2.1.2 Unzip ephemerides file storage
+```shell
+$ tar -xjf /scheduler/scheduler/services/horizons/data/ephemerides.tar.bz2
+```
+
+
 ## 2.2 Docker
 
-1. Run Docker-compose. If is the first time running the script, it will take some time to
-build the images.  
+### 2.2.1. Run Docker-compose
+If is the first time running the script, it will take some time to build the images.  
 ```shell
 $ docker build -t scheduler .  
 $ docker run -dp 8000:8000 scheduler
 ```
 
-2. You can access `http://localhost:8000/graphql` to interact with the GraphQL console. 
+Docker doesn't need to unzip the ephemerides storage file as that process is done in the Dockerfile
 
-# 3. Configuration
+# 4. Configuration
 
 The scheduler service needs the following environment variables:
 
 The redis url env name can't change because is how Heroku links the service on the cloud.
-```
+``` shell
 # URL to the Redis instance
-REDISCLOUD_URL=
-# The version of the instance of the scheduler. in local development 
-# this value can be 
-API_VERSION= 
+export REDISCLOUD_URL=https::/url/for/redis
+# The version of the instance of the scheduler. In local development this value can be anything.
+export API_VERSION=1.0
 ```
+
+### 5. Access the GraphQL Playground
+You can access `http://localhost:8000/graphql` to interact with the GraphQL console.
+
+On how to interact with the Playground go to [First Steps](first-steps.md) page to see some examples.
