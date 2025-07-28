@@ -5,130 +5,93 @@
 ![tests](https://github.com/gemini-hlsw/Scheduler/actions/workflows/pytest.yml/badge.svg)
 [![codecov](https://codecov.io/gh/gemini-hlsw/scheduler/branch/main/graph/badge.svg?token=15CBFMK3KP)](https://codecov.io/gh/gemini-hlsw/scheduler)
 
-This is the automated Scheduler for Gemini Observatory, part of the GPP project.
+## Project Overview
 
-For the list of dependencies check: `requirements.txt`.
+The Scheduler is an automated tool for the Gemini Observatory, designed to generate and optimize observation schedules as part of the GPP project. It uses the [lucupy](https://github.com/gemini-hlsw/lucupy) library for modeling and supports both standalone and service modes, as well as a Jupyter-based UI for experimentation.
 
-## How to Install (Local Development)
+## Features
 
-**Note:** These instructions assume you are using Mac OS X or Linux.
+- Automated scheduling of observations
+- GraphQL API for integration with Gemini Program Platform 
+- Jupyter notebooks for interactive exploration
+- Docker support for easy deployment
 
-### Download the project source:
+## Environment Variables
 
-Fork the project and then clone into your desired directory.
+Before running the scheduler, set the following environment variables:
 
-**Optional step:** You may wish to also fork and clone the [lucupy](https://github.com/gemini-hlsw/lucupy) repository, which is the package that contains the model for this project. Otherwise the package dependency will be installed from pypi.
+- `PYTHONPATH`: Should include the project base path.
+- `REDISCLOUD_URL`: Redis connection string (contact project staff for credentials).
+- `APP_VERSION`: Application version (e.g., `dev`).
 
-### Create the project environment:
+Example:
+```shell
+export PYTHONPATH=$PYTHONPATH:/path/to/scheduler
+export REDISCLOUD_URL=redis://<USER>:<PASSWORD>@redis-12725.c261.us-east-1-4.ec2.cloud.redislabs.com:12725
+export APP_VERSION=dev
+``` 
 
-You should create a set of environment variables before running the scheduler, one option is adding the following lines to your `~/.bash_profile` or equivalent:
+## Installation
+
+### Local Development
+
+#### Fork and Clone the Repository
+
+If you plan to contribute, first **fork** the repository on GitHub, then clone your fork:
 
 ```shell
-export PYTHONPATH=$PYTHONPATH:{path-to-project-base}
-export REDISCLOUD_URL redis://<USER>:<PASSWORD>@redis-12725.c261.us-east-1-4.ec2.cloud.redislabs.com:12725
-export APP_VERSION dev
+# Replace <your-username> with your GitHub username
+git clone https://github.com/<your-username>/scheduler.git
+cd scheduler
 ```
 
-Please contact some project staff member for the redis `USER` and `PASSWORD`
-
-#### Using [virtualenv](https://virtualenv.pypa.io/en/latest/):
-
-Make sure you have an active Python 3.10 or 3.11 distribution installed on your machine.
-
-virtualenv can be installed using pip:
+If you only want to use the scheduler and do not plan to contribute, you can clone the main repository directly:
 
 ```shell
-$ pip install virtualenv
+git clone https://github.com/gemini-hlsw/scheduler.git
+cd scheduler
 ```
 
-Then in the project directory, execute:
+#### Set up a virtual environment
 
+Using `virtualenv`:
 ```shell
-$ virtualenv --python=/path/to/python_executable venv
-$ source venv/bin/activate
-$ pip install -r requirements.txt
+pip install virtualenv
+virtualenv --python=python3.10 venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-#### Using [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) or [Anaconda](https://www.anaconda.com):
+#### Run the Scheduler
 
-In the project directory, execute:
-
+Standalone script:
 ```shell
-$ conda env create -f environment.yml
-$ conda activate scheduler
+python scheduler/scripts/run.py
 ```
 
-### Executing the Scheduler
-
-#### Standalone script
-
-To run the scheduler as a standalone script, execute:
-
+As a service:
 ```shell
-$ python scheduler/scripts/run.py
+python scheduler/main.py
+``` 
+
+### Docker
+
+Build and run the container:
+```shell
+docker build -t scheduler .
+docker run -dp 8000:8000 scheduler
 ```
+Access the GraphQL console at [http://localhost:8000/graphql](http://localhost:8000/graphql).
 
-If you have performed the installation correctly, you should see logging messages, and an output of a plan, followed
-by the message `DONE`.
+## Updating & Troubleshooting
 
-#### Service
-
-To run the scheduler as a service, execute:
-
+To update your local repository and dependencies:
 ```shell
-$ python scheduler/main.py
-```
-
-#### Jupyter notebooks
-
-We offer Jupyter notebooks using a [Mercury](https://github.com/mljar/mercury) user interface to test the scheduler.
-This can be launched on `localhost:8000` as follows:
-
-```shell
-$ cd demo
-$ mercury run
-```
-
-This should open a tab in your active browser and show the notebooks.
-
-If the startup complains about a missing `allauth` package, install this with:
-
-```shell
-$ pip install django-allauth
-```
-
-### Updating your local environment
-
-To update your project, first pull the latest changes in your repository, to do so, go to your repository directory root and run
-
-```shell
-cd path/to/your/scheduler/repository
 git pull
+pip install -U lucupy
 ```
+If you encounter issues, ensure you have the latest version of `lucupy` and all dependencies.
 
-You can also update some of the packages used enabling the virtual environment and running the following command, i.e. lucupy version
+## Support
 
-```shell
-pip install lucupy -U
-```
-
-## How to Install (Docker)
-
-1. Run Docker-compose. If is the first time running the script, it will take some time to
-   build the images.
-
-```shell
-$ docker build -t scheduler .
-$ docker run -dp 8000:8000 scheduler
-```
-
-2. You can access `http://localhost:8000/graphql` to interact with the GraphQL console.
-
-## Troubleshooting
-
-The most likely cause of issues during execution is that changes have been made to the [lucupy](https://github.com/gemini-hlsw/lucupy)
-project and an update of the package is necessary. This can be done with:
-
-```shell
-$ pip install -U lucupy
-```
+For help, contact the project maintainers
