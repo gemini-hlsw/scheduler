@@ -27,7 +27,7 @@ Before running the scheduler, set the following environment variables:
 Example:
 ```shell
 export PYTHONPATH=$PYTHONPATH:/path/to/scheduler
-export REDISCLOUD_URL=redis://<USER>:<PASSWORD>@redis-12725.c261.us-east-1-4.ec2.cloud.redislabs.com:12725
+export REDISCLOUD_URL=redis://<USER>:<PASSWORD>@redisserver.ec2.cloud.redislabs.com:12345
 export APP_VERSION=dev
 ``` 
 
