@@ -597,7 +597,7 @@ class Collector(SchedulerComponent):
                                 # Charge acquisition to the first atom.
                                 if atom_idx == visit.atom_start_idx:
                                     if observation.obs_class == ObservationClass.PARTNERCAL:
-                                        obs_seq[atom_idx].program_used += observation.acq_overhead
+                                        obs_seq[atom_idx].partner_used += observation.acq_overhead
                                     elif (observation.obs_class == ObservationClass.SCIENCE or
                                           observation.obs_class == ObservationClass.PROGCAL):
                                         obs_seq[atom_idx].program_used += observation.acq_overhead
