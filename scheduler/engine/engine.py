@@ -16,6 +16,8 @@ from scheduler.core.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.services import logger_factory
 
+from time import time
+
 
 __all__ = [
     'Engine'
@@ -36,6 +38,7 @@ class Engine:
         self.params = params
         self.sources = Sources()
         self.change_monitor = None
+        self.start_time = time()
 
     def build(self) -> SCP:
         """
@@ -174,5 +177,7 @@ class Engine:
                                                               self.params.sites,
                                                               scp.collector,
                                                               scp.ranker)
+        
+        _logger.info(f'Plan calculated in {time() - self.start_time}')
 
         return run_summary, nightly_timeline
