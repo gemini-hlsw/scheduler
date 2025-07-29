@@ -169,6 +169,7 @@ class ResourceService(ExternalService):
         if site not in self._sites:
             raise ValueError(f'Request for night configuration for illegal site: {site.name}')
         if local_date < self._earliest_date_per_site[site] or local_date > self._latest_date_per_site[site]:
+            print(f'earliest: {self._earliest_date_per_site[site]} latest: {self._latest_date_per_site[site]}')
             raise ValueError(f'Request for night configuration for site {site.name} for illegal date: {local_date}')
         return self._night_configurations[site][local_date]
 

@@ -66,7 +66,6 @@ class OcsEnvService(ExternalService):
                                                                            errors='coerce', format='%Y-%m-%d')
                 self._initial_conditions[site] = df
 
-
     @staticmethod
     def _convert_to_variant(row) -> (datetime, VariantSnapshot):
         """

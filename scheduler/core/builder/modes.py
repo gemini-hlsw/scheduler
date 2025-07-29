@@ -18,6 +18,8 @@ __all__ = [
     'dispatch_with',
 ]
 
+from ..sources import Origins
+
 
 @final
 @strawberry.enum
@@ -37,8 +39,10 @@ class SchedulerModes(Enum):
 def dispatch_with(mode: SchedulerModes, sources: Sources, events: EventQueue) -> SchedulerBuilder:
     match mode:
         case SchedulerModes.VALIDATION:
+            sources.set_origin(Origins.OCS())
             return ValidationBuilder(sources, events)
         case SchedulerModes.SIMULATION:
+            sources.set_origin(Origins.SIM())
             return SimulationBuilder(sources, events)
         case SchedulerModes.OPERATION:
             raise ValueError(f'{mode.value} not implemented yet.')
