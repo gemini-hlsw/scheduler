@@ -293,7 +293,7 @@ class EventCycle:
             morn_twi_time.date()
         )
         self.scp.selector.update_site_variant(site, initial_variant)
-        _logger.debug(f'Resetting {site.name} weather to initial values for night...')
+        _logger.debug(f'Resetting {site.site_name} weather to initial values for night...')
 
         # Loop through events until there are no more events
         while events_by_night.has_more_events():
