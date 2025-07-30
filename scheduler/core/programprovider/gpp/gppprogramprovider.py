@@ -1,6 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-import traceback
+
 import asyncio
 from datetime import datetime, timedelta
 from dateutil.parser import parse as parsedt
@@ -190,9 +190,6 @@ class GppProgramProvider(ProgramProvider):
         TOO_TYPE = 'tooType'
         TIME_ACCOUNT_ALLOCATION = 'allocations'
         TIME_CHARGE = 'timeCharge'
-        # NOTE = 'INFO'
-        # SCHED_NOTE = 'INFO_SCHEDNOTE'
-        # PROGRAM_NOTE = 'INFO_PROGRAMNOTE'
 
     class _TAKeys:
         # CATEGORIES = 'timeAccountAllocationCategories'
@@ -1142,7 +1139,7 @@ class GppProgramProvider(ProgramProvider):
             delay_min = None
             delay_max = None
             group_option = AndOption.ANYORDER
-            number_to_observe = 1 # not that straightforward to get this number without iterating over elements.
+            number_to_observe = len(data['elements'])
             elements_list = data['elements']
             parent_id = ROOT_GROUP_ID.id # this should be None?
             parent_index = 0
@@ -1290,7 +1287,10 @@ class GppProgramProvider(ProgramProvider):
         """
         internal_id = data[GppProgramProvider._ProgramKeys.INTERNAL_ID]
         # program_id = ProgramID(internal_id)
+
         # Uncomment below once we have the observation labels
+
+        #TODO: gpp_client has issues with interfaces so Program.reference.label is not yet implemented.
         program_id = ProgramID(data[GppProgramProvider._ProgramKeys.ID]['label']) \
             if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
 
