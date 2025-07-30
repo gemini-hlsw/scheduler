@@ -58,7 +58,7 @@ class TestEventCycle:
         with pytest.raises(RuntimeError):
             event_cycle.run(site, night_idx, nightly_timeline)
 
-    def test_process_current_events_no_events(self, setup_event_cycle, setup_night_events):
+    def test_process_current_first_event(self, setup_event_cycle, setup_night_events):
         """Test processing with no more events."""
         event_cycle, comps = setup_event_cycle
         night_data = setup_night_events
@@ -68,25 +68,23 @@ class TestEventCycle:
         night_start = night_data['base_time']
         time_slot_length = timedelta(minutes=1)
 
+        event = MockEvent(night_start, "Event")
+        event_timeslot = TimeslotIndex(0)
         events_by_night = MagicMock(spec=NightEventQueue)
         events_by_night.is_empty.return_value = False
-        events_by_night.has_more_events.return_value = False
+        events_by_night.has_more_events.return_value = True
+        events_by_night.top_event.return_value = event
 
         plans = MagicMock(spec=Plans)
-        current_timeslot = TimeslotIndex(0)
-        next_update = {site: None}
-        next_event = MockEvent(night_start + timedelta(hours=1))
-        next_event_timeslot = TimeslotIndex(4)
 
-        result_event, result_timeslot = event_cycle._process_current_events(
+        update, current_timeslot = event_cycle._process_current_events(
             site, night_idx, night_start, time_slot_length,
-            events_by_night, plans, current_timeslot, next_update,
-            next_event, next_event_timeslot
+            events_by_night, plans, None, None
         )
 
         # Should return the same next_event and next_event_timeslot
-        assert result_event == next_event
-        assert result_timeslot == next_event_timeslot
+        assert current_timeslot == event_timeslot
+        assert update is not None
 
     def test_process_current_events_future_event(self, setup_event_cycle, setup_night_events):
         """Test processing with an event in the future."""
@@ -98,8 +96,8 @@ class TestEventCycle:
         night_start = night_data['base_time']
         time_slot_length = timedelta(minutes=1)
 
-        future_event = MockEvent(night_start + timedelta(hours=2), "Future Event")
-        future_event_timeslot = TimeslotIndex(120)
+        # Should be executed in 60 minutes (timeslot 60)
+        future_event = MockEvent(night_start + timedelta(hours=1), "Future Event")
 
         events_by_night = MagicMock(spec=NightEventQueue)
         events_by_night.is_empty.return_value = False
@@ -107,22 +105,54 @@ class TestEventCycle:
         events_by_night.top_event.return_value = future_event
 
         plans = MagicMock(spec=Plans)
-        current_timeslot = TimeslotIndex(0)
-        next_update = {site: None}
-        next_event = None
-        next_event_timeslot = None
+        previous_timeslot = TimeslotIndex(0)
+        update = MagicMock(spec=TimeCoordinateRecord)
+        update.timeslot_idx = TimeslotIndex(10)
 
-        result_event, result_timeslot = event_cycle._process_current_events(
+        update_result, current_timeslot = event_cycle._process_current_events(
             site, night_idx, night_start, time_slot_length,
-            events_by_night, plans, current_timeslot, next_update,
-            next_event, next_event_timeslot
+            events_by_night, plans, update, previous_timeslot
         )
 
         # Should update next_event and next_event_timeslot
-        assert result_event == future_event
-        assert result_timeslot == future_event_timeslot
+        assert current_timeslot == update.timeslot_idx
         # Should not process the event yet
         events_by_night.pop_next_event.assert_not_called()
+
+
+    def test_process_current_events_future_event_sooner_timeslot(self, setup_event_cycle, setup_night_events):
+        """Test processing with an event in the future."""
+        event_cycle, comps = setup_event_cycle
+        night_data = setup_night_events
+
+        site = comps['params'].sites
+        night_idx = NightIndex(0)
+        night_start = night_data['base_time']
+        time_slot_length = timedelta(minutes=1)
+
+        # Should be executed in 60 minutes (timeslot 60)
+        future_event = MockEvent(night_start + timedelta(hours=1), "Future Event")
+        future_event_timeslot = TimeslotIndex(60)
+
+        events_by_night = MagicMock(spec=NightEventQueue)
+        events_by_night.is_empty.return_value = False
+        events_by_night.has_more_events.return_value = True
+        events_by_night.top_event.return_value = future_event
+
+        plans = MagicMock(spec=Plans)
+        previous_timeslot = TimeslotIndex(0)
+        update = MagicMock(spec=TimeCoordinateRecord)
+        update.timeslot_idx = TimeslotIndex(120)
+
+        _, current_timeslot = event_cycle._process_current_events(
+            site, night_idx, night_start, time_slot_length,
+            events_by_night, plans, update, previous_timeslot
+        )
+
+        # Should update next_event and next_event_timeslot
+        assert current_timeslot == future_event_timeslot
+        # Should not process the event yet
+        events_by_night.pop_next_event.assert_called_once()
 
     def test_handle_updates_no_update(self, setup_event_cycle):
         """Test handling updates when no update is scheduled."""
@@ -131,16 +161,15 @@ class TestEventCycle:
         site = comps['params'].sites
         night_idx = NightIndex(0)
         current_timeslot = TimeslotIndex(0)
-        next_update = {site: None}
+        update = None
         plans = MagicMock(spec=Plans)
         nightly_timeline = MagicMock(spec=NightlyTimeline)
 
-        night_done, result_plans = event_cycle._handle_updates(
-            site, night_idx, current_timeslot, next_update, plans, nightly_timeline
+        result_plans = event_cycle._handle_updates(
+            site, night_idx, current_timeslot, update, plans, nightly_timeline
         )
 
         # Should not change anything
-        assert not night_done
         assert result_plans == plans
 
     def test_handle_updates_future_update(self, setup_event_cycle):
@@ -158,19 +187,17 @@ class TestEventCycle:
             done=False,
             perform_time_accounting=True
         )
-        next_update = {site: time_record}
+        next_update = time_record
 
         plans = MagicMock(spec=Plans)
         nightly_timeline = MagicMock(spec=NightlyTimeline)
 
-        night_done, result_plans = event_cycle._handle_updates(
+        result_plans = event_cycle._handle_updates(
             site, night_idx, current_timeslot, next_update, plans, nightly_timeline
         )
 
         # Should not change anything
-        assert not night_done
         assert result_plans == plans
-        assert next_update[site] == time_record  # Update should still be scheduled
 
     def test_handle_updates_current_update_not_done(self, setup_event_cycle):
         """Test handling updates when update is scheduled for current timeslot and night not done."""
@@ -187,7 +214,7 @@ class TestEventCycle:
             done=False,
             perform_time_accounting=True
         )
-        next_update = {site: time_record}
+        next_update = time_record
 
         plans = MagicMock(spec=Plans)
         nightly_timeline = MagicMock(spec=NightlyTimeline)
@@ -197,7 +224,7 @@ class TestEventCycle:
         event_cycle._perform_time_accounting = MagicMock()
         event_cycle._create_new_plan = MagicMock(return_value=new_plans)
 
-        night_done, result_plans = event_cycle._handle_updates(
+        result_plans = event_cycle._handle_updates(
             site, night_idx, current_timeslot, next_update, plans, nightly_timeline
         )
 
@@ -207,8 +234,6 @@ class TestEventCycle:
 
         # Should update plans and clear next_update
         assert result_plans == new_plans
-        assert not night_done  # Night not done
-        assert next_update[site] is None  # Update has been processed
 
     def test_handle_updates_current_update_done(self, setup_event_cycle):
         """Test handling updates when update is scheduled for current timeslot and night is done."""
@@ -225,7 +250,7 @@ class TestEventCycle:
             done=True,
             perform_time_accounting=True
         )
-        next_update = {site: time_record}
+        next_update = time_record
 
         plans = MagicMock(spec=Plans)
         nightly_timeline = MagicMock(spec=NightlyTimeline)
@@ -233,7 +258,7 @@ class TestEventCycle:
         # Mock the method we'll call
         event_cycle._perform_time_accounting = MagicMock()
 
-        night_done, result_plans = event_cycle._handle_updates(
+        result_plans = event_cycle._handle_updates(
             site, night_idx, current_timeslot, next_update, plans, nightly_timeline
         )
 
@@ -242,8 +267,6 @@ class TestEventCycle:
 
         # Should not change plans but mark night as done
         assert result_plans == plans
-        assert night_done  # Night is done
-        assert next_update[site] is None  # Update has been processed
 
     def test_perform_time_accounting_not_done(self, setup_event_cycle):
         """Test time accounting when night is not done."""
