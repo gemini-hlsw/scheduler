@@ -23,7 +23,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
-from lucupy.helpers import search_list
+from lucupy.helpers import remove_symbols, search_list
 # from lucupy.minimodel.ids import obs_to_program_id
 from scipy.signal import find_peaks
 
@@ -574,7 +574,7 @@ class OcsProgramProvider(ProgramProvider):
                 # Visitor instrument names are in OcsProgramProvider._AtomKeys.INST_NAME
                 if OcsProgramProvider._AtomKeys.INST_NAME in step:
                     inst_key = OcsProgramProvider._AtomKeys.INST_NAME
-                instrument = step[inst_key].split(' ')[0]
+                instrument = remove_symbols(step[inst_key].split(' ')[0])
 
                 if instrument in OcsProgramProvider.FPU_FOR_INSTRUMENT:
                     if OcsProgramProvider.FPU_FOR_INSTRUMENT[instrument] in step:
@@ -807,7 +807,7 @@ class OcsProgramProvider(ProgramProvider):
             fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU) for fpu in fpus if fpu is not None])
             disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0] if "_" in disperser else disperser, resource_type=ResourceType.DISPERSER)
                                              for disperser in dispersers if disperser is not None])
-            filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER) for filt in filters if filt is not None])
+            filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER) for filt in filters if filt is not None and filt != 'Unknown'])
             resources = frozenset([r for r in instrument_resources | fpu_resources | disperser_resources | filter_resources])
 
         # Remove the None values.

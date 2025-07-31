@@ -10,7 +10,7 @@ from typing import Callable, Dict, Final, List, Optional, Set, Type, TypeVar, Un
 
 from astropy.time import Time
 from openpyxl.reader.excel import load_workbook
-from lucupy.helpers import str_to_bool
+from lucupy.helpers import remove_symbols, str_to_bool
 from lucupy.minimodel import ProgramID, Resource, Site, TimeAccountingCode, ResourceType, ObservationID
 from lucupy.sky import night_events
 
@@ -209,7 +209,7 @@ class FileBasedResourceService(ResourceService):
         # Subtract one from column_idx since we will be iterating over a row, which is a 0-based
         # list, even though getting cells is a 1-based operation.
         while (cell := sheet.cell(row=1, column=column_idx)).value != 'PWFS1':
-            instrument_column_mapping[cell.value] = column_idx - 1
+            instrument_column_mapping[remove_symbols(cell.value)] = column_idx - 1
             column_idx += 1
 
         while column_idx <= max_column_idx:
@@ -263,7 +263,7 @@ class FileBasedResourceService(ResourceService):
                 # 4. Classical: <prog-id-list>
                 # 5. Priority: <prog-id-list>
                 if mode_entry.startswith('VISITOR:'):
-                    instrument = self.lookup_resource(mode_entry[8:].strip(), resource_type=ResourceType.INSTRUMENT)
+                    instrument = self.lookup_resource(remove_symbols(mode_entry[8:].strip()), resource_type=ResourceType.INSTRUMENT)
                     instrument_run.setdefault(instrument, set()).add(row_date)
 
                 elif mode_entry.startswith('PARTNER:'):
@@ -311,7 +311,7 @@ class FileBasedResourceService(ResourceService):
             # The next five entries contain instrument ports.
             # Filter out any ports that are not empty.
             # We then have to check to see what the status of the instrument is for the night.
-            instrument_names = {row[i].value for i in range(5, 10) if row[i].value is not None and row[i].value}
+            instrument_names = {remove_symbols(row[i].value) for i in range(5, 10) if row[i].value is not None and row[i].value}
 
             for filename in instrument_names:
                 # TODO: Temporary: GCAL does not have its own column. Unsure of how to handle this.
