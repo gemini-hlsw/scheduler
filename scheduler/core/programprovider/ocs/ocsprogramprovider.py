@@ -23,7 +23,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
-from lucupy.helpers import search_list
+from lucupy.helpers import remove_symbols, search_list
 # from lucupy.minimodel.ids import obs_to_program_id
 from scipy.signal import find_peaks
 
@@ -31,7 +31,6 @@ from definitions import ROOT_DIR
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
-from scheduler import remove_symbols
 
 
 __all__ = [

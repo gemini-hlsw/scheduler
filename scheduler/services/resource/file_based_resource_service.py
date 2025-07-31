@@ -10,12 +10,11 @@ from typing import Callable, Dict, Final, List, Optional, Set, Type, TypeVar, Un
 
 from astropy.time import Time
 from openpyxl.reader.excel import load_workbook
-from lucupy.helpers import str_to_bool
+from lucupy.helpers import remove_symbols, str_to_bool
 from lucupy.minimodel import ProgramID, Resource, Site, TimeAccountingCode, ResourceType, ObservationID
 from lucupy.sky import night_events
 
 from scheduler.services import logger_factory
-from scheduler import remove_symbols
 from .event_generators import EngineeringTask, Fault, WeatherClosure, ToOActivation
 from .filters import (LgsFilter, NothingFilter, ProgramPermissionFilter, ProgramPriorityFilter, ResourcePriorityFilter,
                       TimeAccountingCodeFilter, TooFilter)
