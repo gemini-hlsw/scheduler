@@ -17,7 +17,7 @@ from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Con
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
                               Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
-                              TimingWindow, TooType, WaterVapor, Wavelength)
+                              TimingWindow, TooType, WaterVapor, Wavelength, Resource)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
@@ -217,11 +217,11 @@ class GppProgramProvider(ProgramProvider):
         INTERNAL_ID = 'id'
         # QASTATE = 'qaState'
         # LOG = 'obsLog'
-        STATUS = 'status'
+        STATUS = 'state'
         # PRIORITY = 'priority'
         TITLE = 'title'
         INSTRUMENT = 'instrument'
-        # SEQUENCE = 'sequence'
+        SEQUENCE = 'sequence'
         # SETUPTIME_TYPE = 'setupTimeType'
         # SETUPTIME = '' # obs_may5_grp.execution.digest.acquisition.time_estimate.total.hours
         # OBS_CLASS = 'obsClass'
@@ -231,7 +231,7 @@ class GppProgramProvider(ProgramProvider):
         # TOO_OVERRIDE_RAPID = 'tooOverrideRapid'
 
     class _TargetKeys:
-        KEY = 'target_environment'
+        KEY = 'targetEnvironment'
         ASTERISM = 'asterism'
         BASE = 'explicitBase'
         TYPE = 'type'
@@ -293,13 +293,13 @@ class GppProgramProvider(ProgramProvider):
         TIMING_WINDOWS = 'timingWindows'
 
     class _AtomKeys:
-        ATOM = 'atom'
-        OBS_CLASS = 'class'
+        ATOM = 'atom_idx'
+        OBS_CLASS = 'observe_class'
         # INSTRUMENT = ''
         # INST_NAME = ''
         WAVELENGTH = 'wavelength'
         # OBSERVED = ''
-        TOTAL_TIME = 'duration'
+        TOTAL_TIME = 'time_estimate'
         OFFSET_P = 'p'
         OFFSET_Q = 'q'
         EXPOSURE_TIME = 'exposure'
@@ -736,138 +736,52 @@ class GppProgramProvider(ProgramProvider):
 
         return fpu, disperser, filt, wavelength
 
-    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState] = frozenset([]),
-                    split: bool = True, split_by_iterator: bool = False) -> List[Atom]:
+    def parse_atoms(
+            self,
+            site: Site,
+            sequence: List[dict],
+            mode: ObservationMode,
+            wavelength: Wavelength,
+            resources: FrozenSet[Resource],
+            split: bool = True,
+            split_by_iterator: bool = False
+    ) -> Tuple[List[Atom], ObservationClass]:
         """
         Parse the sequence by GPP atoms
         qa_states: Determine if needed for GPP
         split/split_by_iterator: not used for GPP
         """
 
-        def guide_state(guide_step: dict) -> bool:
-            # return any('guideWith' in key and guide == 'guide' for key, guide in guide_step.items())
-            return True
-
-        def search_list(val, alist):
-            return any(val in elem for elem in alist)
-
-        def determine_mode(inst: str) -> ObservationMode:
-            # print(f'inst: {inst} dispersers: {dispersers}')
-            # print(f'\t fpus: {fpus}')
-            obs_mode = ObservationMode.UNKNOWN
-
-            if 'GMOS' in inst:
-                if disperser.upper == 'MIRROR':
-                    obs_mode = ObservationMode.IMAGING
-                elif search_list('LONG_SLIT', fpus):
-                    obs_mode = ObservationMode.LONGSLIT
-                elif search_list('IFU', fpus):
-                    obs_mode = ObservationMode.IFU
-                elif search_list('G', fpus):
-                    obs_mode = ObservationMode.MOS
-
-            return obs_mode
-
-        # site = GppProgramProvider._site_for_inst[instrument]
-        # instrument = sequence.meta['instrument'].upper()
-        instrument = GppProgramProvider._gpp_inst_to_ocs[sequence.meta['instrument'].upper()]
-        # print(instrument)
-
-        fpus = []
-        dispersers = []
-        filters = []
-        wavelengths = []
-        resources = frozenset()
-        fpu_resources = frozenset()
-        disperser_resources = frozenset()
-
         atoms = []
-        classes = []
         all_classes = []
-        guiding = []
-        qa_states = []
-        prev_atom_id = -1
-        n_atom = 0
-        instrument_resources = frozenset([self._sources.origin.resource.lookup_resource(instrument, resource_type=ResourceType.INSTRUMENT)])
         for step in sequence:
+            atom_id = step[GppProgramProvider._AtomKeys.ATOM]
+            observe_class = step[GppProgramProvider._AtomKeys.OBS_CLASS]
+            step_time = step[GppProgramProvider._AtomKeys.TOTAL_TIME]
+            lamp_types = step['lamp_types']
+            step_types = step['step_types']
+
             if step[GppProgramProvider._AtomKeys.OBS_CLASS] != 'ACQUISITION':
-                next_atom = False
+
                 atom_id = step[GppProgramProvider._AtomKeys.ATOM]
                 observe_class = step[GppProgramProvider._AtomKeys.OBS_CLASS]
                 step_time = step[GppProgramProvider._AtomKeys.TOTAL_TIME]
-
-                # print(step['atom'], step['class'], step['type'], step['exposure'], step['duration'], step_time, \
-                #       step['fpu'], step['grating'], step['filter'], step['wavelength'])
-
-                # Instrument configuration aka Resource.
-                fpu, disperser, filt, wavelength = GppProgramProvider._parse_instrument_configuration(step, instrument)
-                # print(f"\t{fpu} {disperser} {filt} {wavelength}")
-
-                if atom_id != prev_atom_id:
-                    # Convert all the different components into Resources.
-                    if 'GMOS' in instrument:
-                        # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
-                        # sets, but we filter below to remove them.
-                        # ToDo: decide whether to use FPU names or barcodes for resource matching
-                        fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(
-                            GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu)
-                            for fpu in fpus])
-                        disperser_resources = frozenset(
-                            [self._sources.origin.resource.lookup_resource(disperser.split('_')[0],
-                                                                           resource_type=ResourceType.DISPERSER)
-                             for disperser in dispersers])
-                    resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources])
-
-                    # Close previous atom, if any
-                    if n_atom > 0:
-                        mode = determine_mode(instrument)
-                        previous_atom = atoms[-1]
-                        previous_atom.qa_state = min(qa_states, default=QAState.NONE)
-                        if previous_atom.qa_state is not QAState.NONE:
-                            previous_atom.observed = True
-                        previous_atom.resources = resources
-                        previous_atom.guide_state = any(guiding)
-                        previous_atom.wavelengths = frozenset(wavelengths)
-                        previous_atom.obs_mode = mode
-
-                    # New atom entry
-                    n_atom += 1
-
-                    classes = []
-                    guiding = []
-                    resources = []
-                    wavelengths = []
-                    fpus = []
-                    dispersers = []
-                    filters = []
-                    mode = None
-                    atoms.append(Atom(id=atom_id,
-                                      exec_time=ZeroTime,
-                                      prog_time=ZeroTime,
-                                      part_time=ZeroTime,
-                                      program_used=ZeroTime,
-                                      partner_used=ZeroTime,
-                                      not_charged=ZeroTime,
-                                      observed=False,
-                                      qa_state=QAState.NONE,
-                                      guide_state=False,
-                                      resources=resources,
-                                      wavelengths=frozenset(wavelengths),
-                                      obs_mode=mode))
-                    prev_atom_id = atoms[-1].id
-
-                # If FPU is None, 'None', or FPU_NONE, which are effectively the same thing, we ignore.
-                if fpu is not None and fpu != 'None' and fpu != 'FPU_NONE':
-                    fpus.append(fpu)
-                dispersers.append(disperser)
-                if filt and filt != 'None':
-                    filters.append(filt)
-                wavelengths.append(wavelength)
+                atoms.append(Atom(id=atom_id,
+                                  exec_time=ZeroTime,
+                                  prog_time=ZeroTime,
+                                  part_time=ZeroTime,
+                                  program_used=ZeroTime,
+                                  partner_used=ZeroTime,
+                                  not_charged=ZeroTime,
+                                  observed=False,
+                                  qa_state=QAState.NONE,
+                                  guide_state=False,
+                                  resources=resources,
+                                  wavelengths=frozenset([wavelength]),
+                                  obs_mode=mode))
 
                 # Update atom
-                classes.append(observe_class)
                 all_classes.append(observe_class)
-                guiding.append(guide_state(step))
 
                 atoms[-1].exec_time += timedelta(seconds=step_time)
                 # atom_id = n_atom
@@ -877,29 +791,6 @@ class GppProgramProvider(ProgramProvider):
                     atoms[-1].part_time += timedelta(seconds=step_time)
                 else:
                     atoms[-1].prog_time += timedelta(seconds=step_time)
-
-            if n_atom > 0:
-                # Convert all the different components into Resources.
-                if 'GMOS' in instrument:
-                    # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
-                    # sets, but we filter below to remove them.
-                    fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(
-                        GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu)
-                        for fpu in fpus])
-                    disperser_resources = frozenset(
-                        [self._sources.origin.resource.lookup_resource(disperser.split('_')[0])
-                         for disperser in dispersers])
-                resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources])
-
-                mode = determine_mode(instrument)
-                previous_atom = atoms[-1]
-                previous_atom.qa_state = min(qa_states, default=QAState.NONE)
-                if previous_atom.qa_state is not QAState.NONE:
-                    previous_atom.observed = True
-                previous_atom.resources = resources
-                previous_atom.guide_state = any(guiding)
-                previous_atom.wavelengths = frozenset(wavelengths)
-                previous_atom.obs_mode = mode
 
         obs_class = ObservationClass.NONE
         if 'SCIENCE' in all_classes:
@@ -926,6 +817,66 @@ class GppProgramProvider(ProgramProvider):
             msg = f'Illegal target type.'
             raise ValueError(msg)
 
+    def parse_observing_mode(self, data: dict) -> Tuple[FrozenSet[Resource], Wavelength, ObservationMode]:
+
+        def find_filter(filter_input: str, filter_dict: Mapping[str, float]) -> Optional[str]:
+            return next(filter(lambda f: f in filter_input, filter_dict), None)
+
+        instrument = GppProgramProvider._gpp_inst_to_ocs[data['instrument']]
+        mode = data['mode']
+
+        instrument_config = data.get('gmosNorthLongSlit') or data.get('gmosSouthLongSlit')
+
+        fpu = None
+        if instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
+            if GppProgramProvider._FPUKeys.CUSTOM in instrument_config.keys():
+                # This will assign the MDF name to the FPU
+                fpu = instrument_config[GppProgramProvider._FPUKeys.CUSTOM]
+            elif GppProgramProvider.FPU_FOR_INSTRUMENT[instrument] in instrument_config.keys():
+                fpu = data[GppProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
+
+        # Disperser
+        disperser = None
+        if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
+            disperser = instrument
+        elif GppProgramProvider._AtomKeys.DISPERSER in instrument_config.keys():
+            disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]
+
+        # Filter
+        if GppProgramProvider._AtomKeys.FILTER in instrument_config.keys():
+            filt = data[GppProgramProvider._AtomKeys.FILTER]
+        elif instrument == 'GPI':
+            filt = find_filter(fpu, GppProgramProvider._GPI_FILTER_WAVELENGTHS)
+        else:
+            if instrument == 'GNIRS':
+                filt = None
+            else:
+                filt = 'Unknown'
+
+        try:
+            wavelength = Wavelength(GppProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI' \
+                                        else float(instrument_config['centralWavelength']['nanometers']),)
+        except KeyError:
+            wavelength = None
+
+        if 'GMOS' in instrument:
+        # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
+        # sets, but we filter below to remove them.
+        # ToDo: decide whether to use FPU names or barcodes for resource matching
+            fpu = self._sources.origin.resource.lookup_resource(
+                GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu
+            )
+            disperser = self._sources.origin.resource.lookup_resource(
+                disperser.split('_')[0], resource_type=ResourceType.DISPERSER
+            )
+
+        instrument_resource = self._sources.origin.resource.lookup_resource(
+            instrument, resource_type=ResourceType.INSTRUMENT
+        )
+        resources = frozenset([instrument_resource, disperser, fpu])
+
+        return resources, wavelength, mode
+
     def parse_observation(self,
                           data: dict,
                           num: Tuple[Optional[int], int],
@@ -951,7 +902,6 @@ class GppProgramProvider(ProgramProvider):
         belongs_to = program_id
 
         try:
-            print("OBS: ", data)
             # doesnt exits anymore
             active = True
             # active = data.get(GppProgramProvider._ObsKeys.ACTIVE)
@@ -977,12 +927,11 @@ class GppProgramProvider(ProgramProvider):
             priority = Priority.MEDIUM
 
             # If the status is not legal, terminate parsing.
-            status = ObservationStatus.READY
-            # status = ObservationStatus[data[GppProgramProvider._ObsKeys.STATUS].upper()]
-            # if status not in GppProgramProvider._OBSERVATION_STATUSES:
-            #    logger.warning(f"Observation {obs_id} has invalid status {status.name}.")
+            status = ObservationStatus[data['workflow'][GppProgramProvider._ObsKeys.STATUS].upper()]
+            if status not in GppProgramProvider._OBSERVATION_STATUSES:
+                logger.warning(f"Observation {obs_id} has invalid status {status.name}.")
             #     print(f"Observation {obs_id} has invalid status {status.name}.")
-            #    return None
+                return None
 
             # ToDo: where to get the setup type?
             # setuptime_type = SetupTimeType[data[GppProgramProvider._ObsKeys.SETUPTIME_TYPE]]
@@ -993,7 +942,6 @@ class GppProgramProvider(ProgramProvider):
             # Science band
             band_value = data.get(GppProgramProvider._ObsKeys.BAND)
             band = Band[band_value] if band_value is not None else None
-
 
             # Constraints
             find_constraints = {
@@ -1007,15 +955,15 @@ class GppProgramProvider(ProgramProvider):
             # qa_states = [QAState[log_entry[GppProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
             #              data[GppProgramProvider._ObsKeys.LOG]]
 
+            # observing mode (instrument config)
+            resources, wavelength, mode = self.parse_observing_mode(data['observingMode'])
+
             # Atoms
-            # ToDo: Perhaps add the sequence query to the original observation query
-            # TODO change pyexplore to other api query
-            # sequence = explore.sequence(internal_id, include_acquisition=True)
-            sequence = data["sequence"]
-            atoms, obs_class = self.parse_atoms(site, sequence)
+            sequence = data[GppProgramProvider._ObsKeys.SEQUENCE]
+            atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
 
             # Pre-imaging
-            preimaging = False
+            preimaging = Falsegit
 
             # Targets
             targets = []
