@@ -963,7 +963,7 @@ class GppProgramProvider(ProgramProvider):
             atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
 
             # Pre-imaging
-            preimaging = Falsegit
+            preimaging = False
 
             # Targets
             targets = []
