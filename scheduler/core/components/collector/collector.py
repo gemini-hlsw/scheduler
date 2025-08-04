@@ -1,6 +1,5 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
 from dataclasses import dataclass
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final

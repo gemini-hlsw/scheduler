@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import traceback
 import asyncio
 from datetime import datetime, timedelta
 from dateutil.parser import parse as parsedt
@@ -46,18 +47,16 @@ def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
     """Query GPP for program data"""
 
     if program_ids:
-
-        where = WhereProgram(id=WhereOrderProgramId(in_=list(program_ids)),
-                             proposal_status=WhereEqProposalStatus(eq=ProposalStatus.ACCEPTED))
+        program_list = list(program_ids)
     else:
         # Bring everything that is accepted.
-        where = WhereProgram(proposal_status=WhereEqProposalStatus(eq=ProposalStatus.ACCEPTED))
+        program_list = []
 
     try:
         client = GPPClient()
         director = GPPDirector(client)
 
-        ask_director = director.scheduler.program.get_all(where=where)
+        ask_director = director.scheduler.program.get_all(programs_list=program_list)
         result = asyncio.run(ask_director)
         programs = result
 
@@ -189,7 +188,7 @@ class GppProgramProvider(ProgramProvider):
         MODE = 'programMode'
         TOO_TYPE = 'tooType'
         TIME_ACCOUNT_ALLOCATION = 'allocations'
-        TIME_CHARGE = 'timeCharge'
+        TIME_CHARGE = 'time_charge'
 
     class _TAKeys:
         # CATEGORIES = 'timeAccountAllocationCategories'
@@ -203,13 +202,13 @@ class GppProgramProvider(ProgramProvider):
 
     class _GroupKeys:
         ELEMENTS = 'elements'
-        DELAY_MIN = 'minimumInterval'
-        DELAY_MAX = 'maximumInterval'
+        DELAY_MIN = 'minimum_interval'
+        DELAY_MAX = 'maximum_interval'
         ORDERED = 'ordered'
-        NUM_TO_OBSERVE = 'minimumRequired'
+        NUM_TO_OBSERVE = 'minimum_required'
         GROUP_NAME = 'name'
-        PARENT_ID = 'parentId'
-        PARENT_INDEX = 'parentIndex'
+        PARENT_ID = 'parent_id'
+        PARENT_INDEX = 'parent_index'
 
     class _ObsKeys:
         # KEY = 'OBSERVATION_BASIC'
@@ -590,12 +589,14 @@ class GppProgramProvider(ProgramProvider):
         """Parse GPP sidereal target information"""
         # print(target[ 'id'], target['name'], target['sidereal']['ra']['hms'], target['sidereal']['dec']['dms'],  target['sidereal']['epoch'],
         #   target['sidereal']['proper_motion']['ra']['milliarcseconds_per_year'], target['sidereal']['proper_motion']['dec']['milliarcseconds_per_year'])
-
         name, magnitudes = self._parse_target_header(data)
-        ra_hhmmss = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.RA][
-            'hms']
-        dec_ddmmss = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.DEC][
-            'dms']
+
+        sidereal_object = data.get(GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE)
+        if sidereal_object is None:
+            print('owo')
+
+        ra_hhmmss = sidereal_object[GppProgramProvider._TargetKeys.RA]['hms']
+        dec_ddmmss = sidereal_object[GppProgramProvider._TargetKeys.DEC]['dms']
 
         # Convert RA/Dec to decimal degrees
         ra = sex2dec(ra_hhmmss, to_degree=True)
@@ -603,14 +604,13 @@ class GppProgramProvider(ProgramProvider):
 
         # Proper motion
         try:
-            pm_ra = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.PM] \
-                [GppProgramProvider._TargetKeys.RA]['milliarcseconds_per_year']
-            pm_dec = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.PM] \
-                [GppProgramProvider._TargetKeys.DEC]['milliarcseconds_per_year']
-            epoch_str = data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.EPOCH]
+            pm_ra = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.RA]['milliarcseconds_per_year']
+            pm_dec = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.DEC]['milliarcseconds_per_year']
+            epoch_str = sidereal_object[GppProgramProvider._TargetKeys.EPOCH]
             # Strip off any leading letter, make float
             epoch = float(epoch_str[1:]) if epoch_str[0] in ['B', 'J'] else float(epoch_str)
-        except KeyError as e:
+        except TypeError as e:
+            print(f'Target {name} is missing proper motion')
             pm_ra = 0.0
             pm_dec = 0.0
             epoch = 2000.0
@@ -755,17 +755,12 @@ class GppProgramProvider(ProgramProvider):
         atoms = []
         all_classes = []
         for step in sequence:
-            atom_id = step[GppProgramProvider._AtomKeys.ATOM]
-            observe_class = step[GppProgramProvider._AtomKeys.OBS_CLASS]
-            step_time = step[GppProgramProvider._AtomKeys.TOTAL_TIME]
-            lamp_types = step['lamp_types']
-            step_types = step['step_types']
-
             if step[GppProgramProvider._AtomKeys.OBS_CLASS] != 'ACQUISITION':
-
                 atom_id = step[GppProgramProvider._AtomKeys.ATOM]
                 observe_class = step[GppProgramProvider._AtomKeys.OBS_CLASS]
-                step_time = step[GppProgramProvider._AtomKeys.TOTAL_TIME]
+                step_time = int(step[GppProgramProvider._AtomKeys.TOTAL_TIME]) // 1000000 # transform to seconds
+                lamp_types = step['lamp_types']
+                step_types = step['step_types']
                 atoms.append(Atom(id=atom_id,
                                   exec_time=ZeroTime,
                                   prog_time=ZeroTime,
@@ -833,7 +828,7 @@ class GppProgramProvider(ProgramProvider):
                 # This will assign the MDF name to the FPU
                 fpu = instrument_config[GppProgramProvider._FPUKeys.CUSTOM]
             elif GppProgramProvider.FPU_FOR_INSTRUMENT[instrument] in instrument_config.keys():
-                fpu = data[GppProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
+                fpu = instrument_config[GppProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
 
         # Disperser
         disperser = None
@@ -844,7 +839,7 @@ class GppProgramProvider(ProgramProvider):
 
         # Filter
         if GppProgramProvider._AtomKeys.FILTER in instrument_config.keys():
-            filt = data[GppProgramProvider._AtomKeys.FILTER]
+            filt = instrument_config[GppProgramProvider._AtomKeys.FILTER]
         elif instrument == 'GPI':
             filt = find_filter(fpu, GppProgramProvider._GPI_FILTER_WAVELENGTHS)
         else:
@@ -960,8 +955,11 @@ class GppProgramProvider(ProgramProvider):
 
             # Atoms
             sequence = data[GppProgramProvider._ObsKeys.SEQUENCE]
-            atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
-
+            # There are some obs without atoms
+            atoms = []
+            obs_class = ObservationClass.NONE
+            if sequence:
+                atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
             # Pre-imaging
             preimaging = False
 
@@ -985,10 +983,16 @@ class GppProgramProvider(ProgramProvider):
                 # Process the target environment.
                 target_env = data[target_env_keys[0]]
                 # Use the explicit base if available, otherwise the first target in the asterism
-                try:
-                    target_info = target_env[GppProgramProvider._TargetKeys.BASE]
-                except KeyError:
-                    target_info = target_env[GppProgramProvider._TargetKeys.ASTERISM][0]
+
+                explicit_base = target_env.get(GppProgramProvider._TargetKeys.BASE)
+                if explicit_base is None:
+                    asterism = target_env.get(GppProgramProvider._TargetKeys.ASTERISM)
+                    if asterism:
+                        target_info = asterism[0]
+                    else:
+                        target_info = None
+                else:
+                    target_info = explicit_base
 
                 # Get the target
                 try:
@@ -1063,16 +1067,11 @@ class GppProgramProvider(ProgramProvider):
 
         except KeyError as ex:
             logger.error(f'KeyError while reading {obs_id}: {ex} (skipping).')
-            print(f'KeyError while reading {obs_id}: {ex} (skipping).')
-
         except ValueError as ex:
             logger.error(f'ValueError while reading {obs_id}: {ex} (skipping).')
-            print(f'ValueError while reading {obs_id}: {ex} (skipping).')
 
         except Exception as ex:
             logger.error(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
-            print(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
-
         return None
 
     def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
@@ -1195,7 +1194,8 @@ class GppProgramProvider(ProgramProvider):
 
     def parse_time_allocation(self, data: dict, band: Band = None) -> TimeAllocation:
         """Time allocations by category and band"""
-        category = TimeAccountingCode[data[GppProgramProvider._TAKeys.CATEGORY]]
+        # Todo: category code is not on the gpp data
+        #category = TimeAccountingCode[data[GppProgramProvider._TAKeys.CATEGORY]]
         program_awarded = timedelta(hours=data[GppProgramProvider._TAKeys.AWARDED_PROG_TIME]['hours'])
         partner_awarded = timedelta(hours=0.0)
 
@@ -1205,7 +1205,7 @@ class GppProgramProvider(ProgramProvider):
             sciband = band
 
         return TimeAllocation(
-            category=category,
+            category=None,
             program_awarded=program_awarded,
             partner_awarded=partner_awarded,
             band=sciband
@@ -1213,6 +1213,7 @@ class GppProgramProvider(ProgramProvider):
 
     def parse_time_used(self, data: dict) -> TimeUsed:
         """Previously used/charged time"""
+        print(data)
         program_used = timedelta(hours=data[GppProgramProvider._TAKeys.USED_PROG_TIME]['hours'])
         partner_used = timedelta(hours=data[GppProgramProvider._TAKeys.USED_PART_TIME]['hours'])
         not_charged = timedelta(hours=data[GppProgramProvider._TAKeys.NOT_CHARGED_TIME]['hours'])
@@ -1262,6 +1263,7 @@ class GppProgramProvider(ProgramProvider):
         if gpp_prog_type in ['CALIBRATION', 'ENGINEERING']:
             prog_type = gpp_prog_type[0:3]
         elif gpp_prog_type == 'SCIENCE':
+            # TODO: switch to interfaces
             gpp_prop_subtype = data['proposal']['type']['science_subtype']
             prog_type = self._gpp_prop_type[gpp_prop_subtype]
 
@@ -1296,9 +1298,9 @@ class GppProgramProvider(ProgramProvider):
 
         # Determine the start and end date of the program.
         # NOTE that this includes the fuzzy boundaries.
-        start_date = (datetime.fromisoformat(data['proposal']['call']['active']['start'].isoformat() + 'T00:00:00')
+        start_date = (datetime.fromisoformat(data['proposal']['call']['active']['start'] + 'T00:00:00')
                       - Program.FUZZY_BOUNDARY)
-        end_date = (datetime.fromisoformat(data['proposal']['call']['active']['end'].isoformat() + 'T00:00:00')
+        end_date = (datetime.fromisoformat(data['proposal']['call']['active']['end'] + 'T00:00:00')
                     + Program.FUZZY_BOUNDARY)
 
         # Parse the time accounting allocation data.
@@ -1307,7 +1309,8 @@ class GppProgramProvider(ProgramProvider):
         time_act_alloc = frozenset(self.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
 
         # Previous time used - eventually loop over bands
-        time_used = frozenset([self.parse_time_used(data[GppProgramProvider._ProgramKeys.TIME_CHARGE])])
+
+        time_used = frozenset([self.parse_time_used(tc) for tc in data[GppProgramProvider._ProgramKeys.TIME_CHARGE]])
 
         # ToOs
         too_type = None
