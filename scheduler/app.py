@@ -1,12 +1,14 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
+from contextlib import asynccontextmanager
 
 from os import environ
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from scheduler.graphql_mid.server import graphql_server
 from scheduler.services.visibility import visibility_calculator
+from scheduler.core.information_storage import info_storage
 from scheduler.services.logger_factory import create_logger
 from scheduler.config import config
 
@@ -15,8 +17,10 @@ _logger = create_logger(__name__, with_id=False)
 _logger.info(f"Running scheduler server version {environ['APP_VERSION']}")
 _logger.info(f"Changelog {config.app.changelog}")
 
+@asynccontextmanager
 async def lifespan(app: FastAPI):
-    await visibility_calculator.calculate()
+    asyncio.create_task(visibility_calculator.calculate())
+    asyncio.create_task(info_storage.initialize())
     yield
 
 app = FastAPI(lifespan=lifespan)

@@ -591,8 +591,6 @@ class GppProgramProvider(ProgramProvider):
         name, magnitudes = self._parse_target_header(data)
 
         sidereal_object = data.get(GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE)
-        if sidereal_object is None:
-            print('owo')
 
         ra_hhmmss = sidereal_object[GppProgramProvider._TargetKeys.RA]['hms']
         dec_ddmmss = sidereal_object[GppProgramProvider._TargetKeys.DEC]['dms']

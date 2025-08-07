@@ -127,7 +127,7 @@ class SimOrigin(Origin):
 class GppOrigin(Origin):
     """Real-time mode GPP data origins"""
     def load(self) -> NoReturn:
-        raise NotImplementedError('GPP sources are not implemented')
+         raise NotImplementedError('GPP sources are not implemented')
 
 @final
 class FileOrigin(Origin):
