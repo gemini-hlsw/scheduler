@@ -34,6 +34,13 @@ dependencies = [
 ]
 
 [dependency-groups]
+dev = [
+    "hypothesis>=6.137.1",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-xdist>=3.8.0",
+]
 docs = [
     "mkdocs-material>=9.6.16",
     "mkdocs-mermaid2-plugin>=1.2.1",
