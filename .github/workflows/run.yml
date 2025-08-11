@@ -10,18 +10,8 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v2
 
-      # Setup Python (faster than using Python container)
-      - name: Setup Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-uv
 
       - name: Add $PYTHONPATH
         run: echo "PYTHONPATH=$PYTHONPATH:/home/runner/work/scheduler/scheduler" >> $GITHUB_ENV
@@ -31,4 +21,4 @@ jobs:
           REDISCLOUD_URL: ${{ secrets.REDISCLOUD_URL }}
           GPP_URL: ${{ secrets.GPP_URL }}
           GPP_KEY: ${{ secrets.GPP_KEY }}
-        run: python scheduler/scripts/run.py
+        run: uv run python scheduler/scripts/run.py
