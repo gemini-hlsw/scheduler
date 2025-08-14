@@ -247,8 +247,8 @@ class Selector(SchedulerComponent):
         # A flat top-level list of GroupData indexed by UniqueGroupID.
         schedulable_groups_map: Dict[UniqueGroupID, GroupData] = {}
 
-        for program_id in Collector.get_program_ids():
-            original_program = Collector.get_program(program_id)
+        for program_id in self.collector.get_program_ids():
+            original_program = self.collector.get_program(program_id)
             if original_program is None:
                 logger.error(f'Program {program_id} was not found in the Collector.')
                 continue

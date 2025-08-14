@@ -3,7 +3,7 @@
 
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site
-from typing import final, FrozenSet, Optional
+from typing import final, FrozenSet, Optional, List
 
 from .blueprint import CollectorBlueprint
 from .schedulerbuilder import SchedulerBuilder
@@ -17,6 +17,9 @@ from scheduler.core.events.queue import EventQueue
 __all__ = [
     'SimulationBuilder',
 ]
+
+from ..storage_manager import storage_manager
+
 
 @final
 class SimulationBuilder(SchedulerBuilder):
@@ -37,11 +40,16 @@ class SimulationBuilder(SchedulerBuilder):
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
-                        program_list: Optional[bytes] = None) -> Collector:
+                        program_list: Optional[List[str]] = None) -> Collector:
 
-        collector = super().build_collector(start, end, num_of_nights, sites, semesters, blueprint)
-        collector.load_programs(program_provider_class=GppProgramProvider,
-                                data=gpp_program_data(program_list))
+        if program_list is None:
+            programs_ids = storage_manager.load_gpp_default_list()
+        else:
+            programs_ids = frozenset(program_list)
+
+        collector = super().build_collector(start, end, num_of_nights, sites, semesters, blueprint, programs_ids)
+        #collector.load_programs(program_provider_class=GppProgramProvider,
+        #                       data=gpp_program_data(program_list))
         return collector
 
     def _setup_event_queue(self,

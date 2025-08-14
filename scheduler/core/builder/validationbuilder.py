@@ -20,6 +20,8 @@ __all__ = [
     'ValidationBuilder',
 ]
 
+from ..storage_manager import storage_manager
+
 
 @final
 class ValidationBuilder(SchedulerBuilder):
@@ -90,9 +92,14 @@ class ValidationBuilder(SchedulerBuilder):
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
                         program_list: Optional[bytes] = None) -> Collector:
+        if program_list is None:
+            programs_ids = storage_manager.load_ocs_default_list()
+        else:
+            programs_ids = frozenset(program_list)
+        print('ids in builder', programs_ids)
+        collector = super().build_collector(start, end, num_of_nights, sites, semesters, blueprint, programs_ids)
 
-        collector = super().build_collector(start, end, num_of_nights, sites, semesters, blueprint)
-        collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data(program_list))
+        # collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data(program_list))
         ValidationBuilder.reset_collector_observations(collector)
         return collector
 

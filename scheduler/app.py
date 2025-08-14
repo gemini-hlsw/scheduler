@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from scheduler.graphql_mid.server import graphql_server
 from scheduler.services.visibility import visibility_calculator
-from scheduler.core.information_storage import info_storage
+from scheduler.core.storage_manager import storage_manager
 from scheduler.services.logger_factory import create_logger
 from scheduler.config import config
 
@@ -20,7 +20,7 @@ _logger.info(f"Changelog {config.app.changelog}")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     asyncio.create_task(visibility_calculator.calculate())
-    asyncio.create_task(info_storage.initialize())
+    asyncio.create_task(storage_manager.initialize())
     yield
 
 app = FastAPI(lifespan=lifespan)

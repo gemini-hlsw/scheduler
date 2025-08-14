@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import abstractmethod, ABC
-from typing import FrozenSet, Optional
+from typing import FrozenSet, Optional, List
 
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site
@@ -14,6 +14,7 @@ from scheduler.core.components.selector.timebuffer import create_time_buffer
 from scheduler.core.components.optimizer import Optimizer
 from scheduler.core.sources.sources import Sources
 from scheduler.core.events.queue import EventQueue
+from scheduler.core.storage_manager import storage_manager
 
 
 __all__ = [
@@ -39,10 +40,21 @@ class SchedulerBuilder(ABC):
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
-                        program_list: Optional[bytes] = None) -> Collector:
+                        programs_ids: List[str]) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
-        collector = Collector(start, end, num_of_nights, sites, semesters, self.sources, *blueprint)
+        print('ids in abc', programs_ids)
+        programs = storage_manager.get_programs(programs_ids)
+        collector = Collector(
+            start,
+            end,
+            num_of_nights,
+            sites,
+            semesters,
+            self.sources,
+            *blueprint,
+            _programs=programs
+        )
         return collector
 
     @staticmethod
