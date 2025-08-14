@@ -71,24 +71,23 @@ export APP_VERSION=dev
 
 #### Set up a virtual environment
 
-Using `virtualenv`:
+Using `uv`:
 ```shell
-pip install virtualenv
-virtualenv --python=python3.10 venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+# Install uv if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Create virtual environment and install dependencies
+uv sync
 
 #### Run the Scheduler
 
 Standalone script:
 ```shell
-python scheduler/scripts/run.py
+uv run python scheduler/main.py
 ```
 
 As a service:
 ```shell
-python scheduler/main.py
+uv run python scheduler/main.py
 ``` 
 
 ### Docker

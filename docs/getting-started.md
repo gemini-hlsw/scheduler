@@ -20,7 +20,7 @@ Download the project source:
 $ git clone https://github.com/gemini-hlsw/scheduler.git
 ```
 
-### 2.1.1 Create the project environment using [virtualenv](https://virtualenv.pypa.io/en/latest/):
+### 2.1.1 Create the project environment using [uv](https://docs.astral.sh/uv/getting-started/installation/):
 
 <!--
 Add the following line to your `~/.bash_profile` or equivalent:
@@ -29,19 +29,17 @@ $ export PYTHONPATH=$PYTHONPATH:{path-to-project-base}
 ```
 -->
 
-Make sure you have an active Python 3.10 or 3.11 distribution installed on your machine.
+Make sure you have an active 3.11 distribution installed on your machine.
 
-virtualenv can be installed using pip:
+uv can be installed using curl:
 ```shell
-$ pip install virtualenv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 Then in the project directory, execute:
 
 ```shell
-$ virtualenv --python=/path/to/python_executable venv
-$ source venv/bin/activate
-$ pip install -r requirements.txt
+$ uv sync
 ```
 
 ### 2.1.2 Unzip ephemerides file storage
