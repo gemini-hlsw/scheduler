@@ -1,15 +1,11 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-import traceback
-import asyncio
+
 from datetime import datetime, timedelta
 from dateutil.parser import parse as parsedt
-from os import PathLike
-from pathlib import Path
-from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
-from gpp_client.api import WhereProgram, WhereEqProposalStatus, ProposalStatus, WhereOrderProgramId
-from gpp_client import GPPClient, GPPDirector
+from typing import FrozenSet, List, Mapping, Optional, Tuple
+
 
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
@@ -24,7 +20,6 @@ from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
 
 
-from definitions import ROOT_DIR
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
@@ -32,64 +27,9 @@ from scheduler.services import logger_factory
 
 __all__ = [
     'GppProgramProvider',
-    'gpp_program_data'
 ]
 
 logger = logger_factory.create_logger(__name__)
-
-
-# DEFAULT_GPP_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
-DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'gpp_program_ids.txt'
-
-
-def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
-    """Query GPP for program data"""
-
-    if program_ids:
-        program_list = list(program_ids)
-    else:
-        # Bring everything that is accepted.
-        program_list = []
-
-    try:
-        client = GPPClient()
-        director = GPPDirector(client)
-
-        ask_director = director.scheduler.program.get_all(programs_list=program_list)
-        result = asyncio.run(ask_director)
-        programs = result
-
-        print(f"Adding program: {len(programs)}")
-        # Pass the class information as a dictionary to mimic the OCS json format
-        yield from programs
-    except RuntimeError as e:
-        logger.error(f'Problem querying program list {program_ids} data: \n{e}.')
-
-
-def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
-    """Query GPP for the programs in program_list. If not given then query GPP for all appropriate observations"""
-    if program_list is None:
-        # Let's make it empty so we can remove it in the where
-        id_frozenset = frozenset()
-    else:
-        try:
-            # Try to read the file and create a frozenset from its lines
-            if program_list.lower() == 'default':
-                list_file = DEFAULT_PROGRAM_ID_PATH
-            else:
-                list_file = program_list
-
-            if isinstance(program_list, bytes):
-                file = program_list.decode('utf-8')
-                id_frozenset = frozenset(f.strip() for f in file.split('\n') if f.strip() and f.strip()[0] != '#')
-            else:
-                with list_file.open('r') as file:
-                    id_frozenset = frozenset(line.strip() for line in file if line.strip() and line.strip()[0] != '#')
-        except FileNotFoundError:
-            # If the file does not exist, set id_frozenset to None
-            id_frozenset = None
-    # return id_frozenset
-    return get_gpp_data(id_frozenset)
 
 
 def parse_preimaging(sequence: List[dict]) -> bool:

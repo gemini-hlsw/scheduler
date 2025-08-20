@@ -4,11 +4,11 @@ import json
 import zipfile
 from os import PathLike
 from pathlib import Path
-from typing import Optional, FrozenSet, Iterable, Dict
+from typing import Optional, FrozenSet, Iterable, Dict, List, Any, NoReturn
 
 from gpp_client import GPPClient, GPPDirector
 from lucupy.meta import Singleton
-from lucupy.minimodel import ProgramID, Program
+from lucupy.minimodel import ProgramID, Program, Site, ObservationClass
 
 from definitions import ROOT_DIR
 from scheduler.core.builder.blueprint import Blueprints
@@ -17,6 +17,8 @@ from scheduler.core.programprovider.ocs import OcsProgramProvider
 from scheduler.core.sources import Sources, Origins
 from scheduler.services import logger_factory
 from scheduler.services.visibility import calculate_target_snapshot
+
+import traceback
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -92,12 +94,27 @@ class StorageManager(metaclass=Singleton):
             id_frozenset
         )
 
-    def _process_programs(self, programs, provider_key, obs_classes, source):
-        """Process programs from a given provider and update internal collections."""
+    def _process_programs(
+            self, programs: List[Dict[Any,Any]],
+            provider_key: str,
+            obs_classes: FrozenSet[ObservationClass],
+            source: Sources
+    ) -> None:
+        """Process programs from a given provider and update internal collections.
+
+        Attributes:
+            programs (List[Dict[Any,Any]]): Serialized programs.
+            provider_key (str): The key of the provider, either OCS or GPP.
+            obs_classes (FrozenSet[ObservationClass]): Observation classes to be filtered in the config.
+            source (Sources): Source selected for external services (e.g. Resource).
+
+        """
         program_provider = self._providers[provider_key](obs_classes, source)
 
-        try:
-            for next_program in programs:
+        # Count the number of parse failures.
+        bad_program_count = 0
+        for next_program in programs:
+            try:
                 if len(next_program.keys()) == 1:
                     # Extract the data from the JSON program. We do not need the top label.
                     next_data = next(iter(next_program.values()))
@@ -112,19 +129,28 @@ class StorageManager(metaclass=Singleton):
                 if program.id in self._programs.keys():
                     _logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
 
-                self._programs[ProgramID(program.id)] = program
+                self._programs[program.id] = program
+
                 for obs in program.observations():
                     self._observations[obs.id] = obs
                     target = obs.base_target()
                     if target is not None:
                         self._targets[target.name] = target
 
-        except Exception as e:
-            _logger.warning(f'Could not parse {provider_key} program: {e}')
+            except Exception as e:
+                traceback.print_exc()
+                bad_program_count += 1
+                _logger.warning(f'Could not parse {provider_key} program: {e}')
 
-    def get_programs(self, program_ids: FrozenSet[ProgramID]) -> Dict[ProgramID, Program]:
-        print(program_ids)
-        return {program_id: self._programs[program_id] for program_id in program_ids if program_id in self._programs}
+        if bad_program_count:
+            _logger.error(f'Could not parse {bad_program_count} programs for {provider_key}.')
+
+    def get_programs(self, program_ids: FrozenSet[ProgramID], sites: FrozenSet[Site] ) -> Dict[ProgramID, Program]:
+        str_sites = [s.name for s in sites]
+        return {
+            p_id: self._programs[p_id] for p_id in self._programs.keys()
+            if p_id.id in program_ids and p_id.id[:2] in str_sites
+        }
 
     def get_observations(self, obs_ids: FrozenSet[str]) -> Iterable[dict]:
         return [self._observations[obs_id] for obs_id in obs_ids if obs_id in self._observations]
@@ -134,7 +160,6 @@ class StorageManager(metaclass=Singleton):
 
     def load_ocs_default_list(self) -> FrozenSet[str]:
         id_frozenset = self._read_program_ids_file(DEFAULT_OCS_PROGRAMS_PATH)
-        print(id_frozenset)
         return id_frozenset
 
     def load_gpp_default_list(self) -> FrozenSet[str]:
@@ -142,6 +167,10 @@ class StorageManager(metaclass=Singleton):
         return id_frozenset
 
     async def initialize(self):
+        """Starting point for the storage manager.
+        Brings both OCS and GPP data to the storage manager and store it to be retrieved later.
+        This process is done in the background at the starting of the server.
+        """
 
         # for GPP
         # Allows to tell the collector to not filter those observations by default.
@@ -150,11 +179,15 @@ class StorageManager(metaclass=Singleton):
         source = Sources()
         source.set_origin(Origins.SIM())
         programs = await self._gpp_data_retrieval()  # Assuming this exists
+        _logger.info(f'Total GPP {len(programs)} programs')
         self._process_programs(programs, 'GPP', obs_classes, source)
         _logger.info(f'Programs after GPP data retrieval: {len(self._programs.keys())}')
+
         programs = await self._ocs_data_retrieval()
+        programs_list = [p for p in programs]
+        _logger.info(f'Total OCS {len(programs_list)} programs')
         source.set_origin(Origins.OCS())
-        self._process_programs(programs, 'OCS', obs_classes, source)
+        self._process_programs(programs_list, 'OCS', obs_classes, source)
         _logger.info(f'Programs after OCS data retrieval: {len(self._programs.keys())}')
 
 storage_manager = StorageManager()

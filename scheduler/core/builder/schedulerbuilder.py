@@ -43,8 +43,8 @@ class SchedulerBuilder(ABC):
                         programs_ids: List[str]) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
-        print('ids in abc', programs_ids)
-        programs = storage_manager.get_programs(programs_ids)
+        print('sites in builder: ', sites)
+        programs = storage_manager.get_programs(programs_ids, sites)
         collector = Collector(
             start,
             end,

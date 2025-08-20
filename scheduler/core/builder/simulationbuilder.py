@@ -9,7 +9,6 @@ from .blueprint import CollectorBlueprint
 from .schedulerbuilder import SchedulerBuilder
 from scheduler.core.components.collector import Collector
 from scheduler.core.sources.sources import Sources
-from scheduler.core.programprovider.gpp import gpp_program_data, GppProgramProvider
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.events.queue import EventQueue
 

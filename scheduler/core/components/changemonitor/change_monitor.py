@@ -194,14 +194,14 @@ class ChangeMonitor(SchedulerComponent):
 
                 # TODO: This should be more complicated to allow for splitting and to meet requirements.
                 # TODO: Talk to Bryan about how to go about this.
-                obs = Collector.get_observation(visit.obs_id)
+                obs = self.collector.get_observation(visit.obs_id)
 
                 # Most restrictive conditions.
                 mrc = obs.constraints.conditions
 
                 # TODO: This code is somewhat duplicated from Selector. See if we can simplify it, although in this
                 # TODO: case, it is for a single night instead of all nights.
-                target_info = Collector.get_target_info(obs.id)
+                target_info = self.collector.get_target_info(obs.id)
                 if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
                     neg_ha = target_info[night_idx].hourangle[0].value < 0
                 else:
