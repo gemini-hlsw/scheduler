@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from astropy.time import Time
-from lucupy.minimodel import Semester, Site, ObservationStatus, Observation, QAState
+from lucupy.minimodel import Semester, Site, ObservationStatus, Observation, QAState, TooType
 from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable
 
 from lucupy.types import ZeroTime
@@ -69,7 +69,8 @@ class ValidationBuilder(SchedulerBuilder):
                 o.status = ObservationStatus.READY
 
             if o.too_type is not None:
-                o.status = ObservationStatus.ON_HOLD
+                if o.too_type is TooType.RAPID:
+                    o.status = ObservationStatus.ON_HOLD
 
     @staticmethod
     def reset_collector_observations(collector: Collector) -> None:
