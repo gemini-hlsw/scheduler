@@ -11,7 +11,6 @@ from .blueprint import CollectorBlueprint
 from .schedulerbuilder import SchedulerBuilder
 from scheduler.core.components.collector import Collector
 from scheduler.core.sources.sources import Sources
-from scheduler.core.programprovider.ocs import ocs_program_data, OcsProgramProvider
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.events.queue import EventQueue
 
@@ -19,6 +18,8 @@ from scheduler.core.events.queue import EventQueue
 __all__ = [
     'ValidationBuilder',
 ]
+
+from ..storage_manager import storage_manager
 
 
 @final
@@ -91,9 +92,12 @@ class ValidationBuilder(SchedulerBuilder):
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
                         program_list: Optional[bytes] = None) -> Collector:
+        if program_list is None:
+            programs_ids = storage_manager.load_ocs_default_list()
+        else:
+            programs_ids = frozenset(program_list)
 
-        collector = super().build_collector(start, end, num_of_nights, sites, semesters, blueprint)
-        collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data(program_list))
+        collector = super().build_collector(start, end, num_of_nights, sites, semesters, blueprint, programs_ids)
         ValidationBuilder.reset_collector_observations(collector)
         return collector
 

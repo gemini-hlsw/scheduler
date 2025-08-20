@@ -31,6 +31,7 @@ __all__ = [
 @dataclass(frozen=True)
 class NightEvents:
     """
+    todo: change to AstronomicalEvents
     Represents night events for a given site for the period under consideration
     with the specified time slot length granularity.
 
