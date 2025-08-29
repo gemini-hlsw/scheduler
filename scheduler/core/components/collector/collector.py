@@ -530,7 +530,11 @@ class Collector(SchedulerComponent):
                     # For now, only change aa scheduling group if it can be done fully
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.end_time_slot()
                 else:
-                    charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.start_time_slot()
+                    observation = self.get_observation(grpvisit.visits[0].obs_id)
+                    n_slots_acq = time2slots(time_slot_length, observation.acq_overhead)
+                    n_slots_atom0 = time2slots(time_slot_length, observation.sequence[0].exec_time)
+                    slot_atom0_end = grpvisit.visits[0].start_time_slot + n_slots_atom0 - 1 + n_slots_acq
+                    charge_group = end_timeslot_bound is None or end_timeslot_bound > slot_atom0_end
 
                 # Charge if the end slot is less than this
                 if end_timeslot_bound is not None:
@@ -568,8 +572,6 @@ class Collector(SchedulerComponent):
                         else:
                             _logger.debug(f'Marking observation ongoing: {observation.id.id}')
                             observation.status = ObservationStatus.ONGOING
-                    elif not_charged:
-                        observation.status = ObservationStatus.ONGOING
 
                     # Loop over atoms
                     for atom_idx in range(visit.atom_start_idx, visit.atom_end_idx + 1):
