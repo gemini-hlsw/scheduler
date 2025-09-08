@@ -381,6 +381,7 @@ class Selector(SchedulerComponent):
         if group_data_map is None:
             group_data_map: GroupDataMap = {}
 
+        # print(group.id.id, group.group_name, group.group_option, group.is_scheduling_group(), group.is_and_group(), group.is_or_group(), group.number_to_observe)
         if group.is_observation_group():
             processor = self._calculate_observation_group
         elif group.is_and_group():
@@ -669,12 +670,30 @@ class Selector(SchedulerComponent):
                             ranker: Ranker,
                             group_data_map: GroupDataMap) -> GroupDataMap:
         """
-        Calculate the GroupInfo for an AND group that contains subgroups and add it to
-        the group_data_map.
-
-        Not yet implemented.
+        Process an OR group
+        There is no score for an OR group, just have to process the members.
         """
-        raise NotImplementedError(f'Selector does not yet handle OR groups: {group.id}')
+        if not isinstance(group, Group):
+            raise ValueError(f'Tried to process group {group.id} as an AND group.')
+        if isinstance(group.children, Observation):
+            raise ValueError(f'Tried to process observation group {group.id} as an AND group.')
+
+        verbose = False
+
+        if verbose:
+            print(f'\t_calculate_or_group: {group.unique_id.id}')
+
+        # Process all subgroups
+        # Ignore the return values here: they will just accumulate in group_info_map.
+        for subgroup in group.children:
+            if verbose:
+                print(f'\t\tsubgroup: {subgroup.unique_id.id}')
+            self._calculate_group(program, subgroup, sites, night_indices, starting_time_slots, night_configurations,
+                                  ranker, group_data_map)
+
+        return group_data_map
+
+        # raise NotImplementedError(f'Selector does not yet handle OR groups: {group.id}')
 
     @staticmethod
     def _wind_conditions(variant: Variant,

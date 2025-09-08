@@ -43,6 +43,42 @@ logger = logger_factory.create_logger(__name__)
 DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'gpp_program_ids.txt'
 
 
+# def get_progid(group):
+#     """Work around for gpp-client issue with program reference, get from the first observation group"""
+#
+#     def get_obsid(subgroup):
+#         if isinstance(subgroup.children, Observation):
+#             return subgroup.id.id
+#         else:
+#             for child in subgroup.children:
+#                 obsid = get_obsid(child)
+#                 if obsid is not None:
+#                     return obsid
+#
+#     obsid = get_obsid(group)
+#     return ProgramID(obsid[0:obsid.rfind('-')])
+
+def get_progid(group) -> ProgramID:
+    """Work around for gpp-client issue with the program reference label, get it from the first observation group"""
+
+    def get_obsid(subgroup):
+        """Get the first obsid"""
+        for g in subgroup['elements']:
+            if g["observation"]:
+                return g["observation"]["reference"]["label"]
+            elif g["group"]:
+                if "elements" in g["group"].keys():
+                    obsid = get_obsid(g["group"])
+                    if obsid is not None:
+                        return obsid
+        return None
+
+    prog_id = get_obsid(group)
+    if prog_id is not None:
+        prog_id = ProgramID(prog_id[0:prog_id.rfind('-')])
+    return prog_id
+
+
 def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
     """Query GPP for program data"""
 
@@ -60,7 +96,7 @@ def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
         result = asyncio.run(ask_director)
         programs = result
 
-        print(f"Adding program: {len(programs)}")
+        print(f"Adding {len(programs)} programs")
         # Pass the class information as a dictionary to mimic the OCS json format
         yield from programs
     except RuntimeError as e:
@@ -75,15 +111,13 @@ def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
     else:
         try:
             # Try to read the file and create a frozenset from its lines
-            if program_list.lower() == 'default':
-                list_file = DEFAULT_PROGRAM_ID_PATH
-            else:
-                list_file = program_list
-
-            if isinstance(program_list, bytes):
+            if isinstance(program_list, List):
+                id_frozenset = frozenset(p.strip() for p in program_list if p.strip() and p.strip()[0] != '#')
+            elif isinstance(program_list, bytes):
                 file = program_list.decode('utf-8')
                 id_frozenset = frozenset(f.strip() for f in file.split('\n') if f.strip() and f.strip()[0] != '#')
             else:
+                list_file = program_list
                 with list_file.open('r') as file:
                     id_frozenset = frozenset(line.strip() for line in file if line.strip() and line.strip()[0] != '#')
         except FileNotFoundError:
@@ -932,7 +966,8 @@ class GppProgramProvider(ProgramProvider):
             # setuptime_type = SetupTimeType[data[GppProgramProvider._ObsKeys.SETUPTIME_TYPE]]
             setuptime_type = SetupTimeType.FULL
             # acq_overhead = timedelta(seconds=data['execution']['digest']['setup']['full']['seconds'])
-            acq_overhead = timedelta(seconds=0)
+            # GMOS longslit FULL acq overhead is 16 minutes
+            acq_overhead = timedelta(seconds=16*60)
 
             # Science band
             band_value = data.get(GppProgramProvider._ObsKeys.BAND)
@@ -955,11 +990,14 @@ class GppProgramProvider(ProgramProvider):
 
             # Atoms
             sequence = data[GppProgramProvider._ObsKeys.SEQUENCE]
-            # There are some obs without atoms
+            # There are some obs without atoms, skip these for now
             atoms = []
             obs_class = ObservationClass.NONE
             if sequence:
                 atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
+            else:
+                raise ValueError(f'Observation {obs_id} has no sequence. Cannot process.')
+
             # Pre-imaging
             preimaging = False
 
@@ -1092,7 +1130,6 @@ class GppProgramProvider(ProgramProvider):
             parent_index = 0
         else:
             group_name = data[GppProgramProvider._GroupKeys.GROUP_NAME]
-
             group_delay_min = data.get(GppProgramProvider._GroupKeys.DELAY_MIN)
             group_delay_max = data[GppProgramProvider._GroupKeys.DELAY_MAX]
             if group_delay_min:
@@ -1105,30 +1142,38 @@ class GppProgramProvider(ProgramProvider):
                 delay_min = None
                 delay_max = None
 
-            # there can be empty groups for Calibrations, lucupy forces to have at least one
-            # so we need to address that better.
-            number_to_observe = data.get(GppProgramProvider._GroupKeys.NUM_TO_OBSERVE) or 1
-
+            # If needed this number gets set to a non-None value further down
+            number_to_observe = data.get(GppProgramProvider._GroupKeys.NUM_TO_OBSERVE)
 
             # Set group_option from Ordered
             ordered = data[GppProgramProvider._GroupKeys.ORDERED]
-            # print(f"Ordered: {ordered}")
+            # print(f"parse_group {group_id}: num_to_observe {number_to_observe}, ordered: {ordered}")
 
             # Currently if delay_min is not None, delay_max will be at least delay_min
             # OR group, delays are None, number_to_observe not None, set to NONE
             # AND cadence - delays not None, number_to_observe None, ordered should be forced to True
             # AND conseq - delays None,  number_to_observe None
-            group_option = AndOption.ANYORDER
             if delay_max is not None:
                 group_option = AndOption.CUSTOM
-                ordered = True
+                # ordered = True
+                number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+            # The baseline calibrations group must be ANYORDER
+            # ToDo: We need to be able to distinguish the the automatic calibrations group from any group that
+            #  someone names "Calibrations"
+            elif group_name == 'Calibrations':
+                group_option = AndOption.ANYORDER
                 number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
             else:
-                if number_to_observe is not None:
-                    group_option = AndOption.NONE  # OR group
-                else:
+                if (number_to_observe is not None and
+                        number_to_observe < len(data[GppProgramProvider._GroupKeys.ELEMENTS])): # OR group
+                    group_option = AndOption.NONE
+                else: # AND group
                     group_option = AndOption.CONSEC_ORDERED if ordered else AndOption.CONSEC_ANYORDER
                     number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+
+            # Skip if number_to_observe is 0
+            if number_to_observe == 0:
+                return None
 
             parent_id = GroupID(data.get(GppProgramProvider._GroupKeys.PARENT_ID))
             parent_index = data.get(GppProgramProvider._GroupKeys.PARENT_INDEX)
@@ -1147,8 +1192,11 @@ class GppProgramProvider(ProgramProvider):
                 obs = self.parse_observation(element['observation'], program_id=program_id, num=(0, 0),
                                              split=split, split_by_iterator=split_by_iterator)
                 if obs is not None:
-                    observations.append(obs)
-                    obs_parent_indices.append(elem_parent_index)
+                    # Ignore Twilight observations for now
+                    # ToDo: extend timeline to include twilights
+                    if obs.title != 'Twilight':
+                        observations.append(obs)
+                        obs_parent_indices.append(elem_parent_index)
             elif element['group']:
                 subgroup_id = GroupID(element['group']['id'])
                 subgroup = self.parse_group(element['group'], program_id, subgroup_id, split=split,
@@ -1241,7 +1289,8 @@ class GppProgramProvider(ProgramProvider):
 
         #TODO: gpp_client has issues with interfaces so Program.reference.label is not yet implemented.
         program_id = ProgramID(data[GppProgramProvider._ProgramKeys.ID]['label']) \
-            if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
+            if GppProgramProvider._ProgramKeys.ID in data.keys() else get_progid(data['root'])
+            # if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
 
         # Initialize split variables - not used by GPP
         split = True
@@ -1283,7 +1332,7 @@ class GppProgramProvider(ProgramProvider):
             program_mode = ProgramMode['QUEUE']  # Need a separate field to specify PV
 
         # Band
-        band = Band(1)  # Should be an allocation by band, then the band is set for each observation
+        # band = Band(1)  # Should be an allocation by band, then the band is set for each observation
         # try:
         #     band = Band(int(data[GppProgramProvider._ProgramKeys.BAND]))
         # except ValueError:

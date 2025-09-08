@@ -429,7 +429,6 @@ class Collector(SchedulerComponent):
 
                 # Get the night configurations (for resources)
                 nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
-
                 vis_table[obs.id.id] = VisibilityCalculator.calculate_visibility(obs,
                                                                                 base,
                                                                                 program,

@@ -88,7 +88,7 @@ class StatCalculator:
                         # check completion
                         program = collector.get_program(obs.belongs_to)
 
-                        completion_fraction[program.band] += 1
+                        completion_fraction[obs.band] += 1
 
                         # Calculate altitude data
                         ti = collector.get_target_info(visit.obs_id)
@@ -114,10 +114,10 @@ class StatCalculator:
             program_cplt = program.total_used() / program.total_awarded()
 
             metric, _ = ranker.metric_slope(np.array([program_cplt]),
-                                            np.array([program.band.value]),
+                                            np.array([obs.band.value]),
                                             np.array([0.8]),
                                             program.thesis)
-            metrics_per_band[program.band.name] += metric[0]
+            metrics_per_band[obs.band.name] += metric[0]
             plans_summary[p_id.id] = (completion, metric[0])
 
         return RunSummary(plans_summary, metrics_per_band)

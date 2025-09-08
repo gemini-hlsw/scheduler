@@ -56,7 +56,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
     def __init__(self,
                  min_visit_len: timedelta = timedelta(minutes=30),
-                 show_plots: bool = False, verbose: bool = False):
+                 show_plots: bool = False, verbose: bool = True):
         self.selection: Optional[Selection] = None
         self.group_data_list: List[GroupData] = []
         self.group_ids: List[UniqueGroupID] = []
@@ -858,12 +858,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
         Returns the number of time slots filled.
         """
 
-        verbose = False
+        verbose = True
 
         site = max_group_info.group_data.group.observations()[0].site
         timeline = self.timelines[night_idx][site]
         # program = self.selection.program_info[max_group_info.group_data.group.program_id].program
 
+        print(self.obs_group_ids)
+        print(obs.id, obs.to_unique_group_id)
         iobs = self.obs_group_ids.index(obs.to_unique_group_id)
         cumul_seq = obs.cumulative_exec_times()
 
