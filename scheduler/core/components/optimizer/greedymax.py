@@ -56,7 +56,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
     def __init__(self,
                  min_visit_len: timedelta = timedelta(minutes=30),
-                 show_plots: bool = False, verbose: bool = True):
+                 show_plots: bool = False, verbose: bool = False):
         self.selection: Optional[Selection] = None
         self.group_data_list: List[GroupData] = []
         self.group_ids: List[UniqueGroupID] = []
