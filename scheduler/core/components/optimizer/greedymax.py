@@ -858,14 +858,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
         Returns the number of time slots filled.
         """
 
-        verbose = True
+        verbose = False
 
         site = max_group_info.group_data.group.observations()[0].site
         timeline = self.timelines[night_idx][site]
         # program = self.selection.program_info[max_group_info.group_data.group.program_id].program
 
-        print(self.obs_group_ids)
-        print(obs.id, obs.to_unique_group_id)
+        # print(self.obs_group_ids)
+        # print(obs.id, obs.to_unique_group_id)
         iobs = self.obs_group_ids.index(obs.to_unique_group_id)
         cumul_seq = obs.cumulative_exec_times()
 
