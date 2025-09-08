@@ -864,6 +864,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
         timeline = self.timelines[night_idx][site]
         # program = self.selection.program_info[max_group_info.group_data.group.program_id].program
 
+        # print(self.obs_group_ids)
+        # print(obs.id, obs.to_unique_group_id)
         iobs = self.obs_group_ids.index(obs.to_unique_group_id)
         cumul_seq = obs.cumulative_exec_times()
 
