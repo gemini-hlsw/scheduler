@@ -14,6 +14,7 @@ from lucupy.observatory.gemini import GeminiProperties
 from definitions import ROOT_DIR
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
+from scheduler.core.storage_manager import storage_manager
 from scheduler.engine import SchedulerParameters, Engine
 from scheduler.services import logger_factory
 from scheduler.services.visibility import visibility_calculator
@@ -28,6 +29,7 @@ def main(*,
 
     # Grab visibility calculations from Reddit
     asyncio.run(visibility_calculator.calculate())
+    asyncio.run(storage_manager.initialize())
 
     # Parsed program file (this replaces the program picker from Schedule)
     with open(programs_ids, 'r') as file:
