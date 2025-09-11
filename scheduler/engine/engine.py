@@ -3,6 +3,8 @@
 
 from typing import Tuple
 
+from astropy.time import Time
+
 from lucupy.timeutils import time2slots
 
 from .params import SchedulerParameters
@@ -34,11 +36,13 @@ _logger = logger_factory.create_logger(__name__)
 
 class Engine:
 
-    def __init__(self, params: SchedulerParameters):
+    def __init__(self, params: SchedulerParameters, night_start_time: Time | None = None, night_end_time: Time | None = None):
         self.params = params
         self.sources = Sources()
         self.change_monitor = None
         self.start_time = time()
+        self.night_start_time = night_start_time
+        self.night_end_time = night_end_time
 
     def build(self) -> SCP:
         """
@@ -57,6 +61,8 @@ class Engine:
                                             num_of_nights=self.params.num_nights_to_schedule,
                                             sites=self.params.sites,
                                             semesters=self.params.semesters,
+                                            night_start_time=self.night_start_time,
+                                            night_end_time=self.night_end_time,
                                             blueprint=Blueprints.collector,
                                             program_list=self.params.programs_list)
 

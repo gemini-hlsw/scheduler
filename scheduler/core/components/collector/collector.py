@@ -79,6 +79,8 @@ class Collector(SchedulerComponent):
     num_of_nights: int
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
+    night_start_time: Time
+    night_end_time: Time
     sources: Sources
     time_slot_length: TimeDelta
     program_types: FrozenSet[ProgramTypes]
@@ -153,14 +155,21 @@ class Collector(SchedulerComponent):
         # TODO: This code can be greatly simplified. The night_events only have to be calculated once.
         # Create the night events, which contain the data for all given nights by site.
         # This may retrigger a calculation of the night events for one or more sites.
+        print(f"Night start time: {self.night_start_time}, Night end time: {self.night_end_time}")
         self.night_events = {
-            site: Collector._night_events_manager.get_night_events(self.time_grid, self.time_slot_length, site)
+            site: Collector._night_events_manager.get_night_events(self.time_grid,
+                                                                   self.night_start_time,
+                                                                   self.night_end_time,
+                                                                   self.time_slot_length,
+                                                                   site)
             for site in self.sites
         }
         Collector._resource_service = self.sources.origin.resource
 
     def get_night_events(self, site: Site) -> NightEvents:
         return Collector._night_events_manager.get_night_events(self.time_grid,
+                                                                self.night_start_time,
+                                                                self.night_end_time,
                                                                 self.time_slot_length,
                                                                 site)
 

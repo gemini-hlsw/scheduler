@@ -38,6 +38,8 @@ class NightEvents:
     compatible with the original data.
     """
     time_grid: Time
+    night_start_time: Time
+    night_end_time: Time
     time_slot_length: TimeDelta
     site: Site
     midnight: Time
@@ -85,6 +87,13 @@ class NightEvents:
         timeslot_length_days = self.time_slot_length.to(u.day).value
         time_starts = helpers.round_minute(self.twilight_evening_12, up=True)
         time_ends = helpers.round_minute(self.twilight_morning_12, up=True)
+
+        # Make a shorter night if start and end is provided.
+        # Replace the first time_starts and time_ends if between twilights.
+        if self.night_start_time is not None and time_starts[0] < self.night_start_time < time_ends[0]:
+            time_starts[0] = self.night_start_time
+        if self.night_end_time is not None and time_starts[0] < self.night_end_time < time_ends[0]:
+            time_ends[0] = self.night_end_time
 
         n = ((time_ends.jd - time_starts.jd) / timeslot_length_days + 0.5).astype(int)
         object.__setattr__(self, 'num_timeslots_per_night', n)
