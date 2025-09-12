@@ -41,7 +41,14 @@ class SimulationBuilder(SchedulerBuilder):
                         night_end_time: Time | None = None,
                         program_list: Optional[bytes] = None) -> Collector:
 
-        collector = super().build_collector(start, end, num_of_nights, sites, semesters, night_start_time, night_end_time, blueprint)
+        collector = super().build_collector(start,
+                                            end,
+                                            num_of_nights,
+                                            sites,
+                                            semesters,
+                                            blueprint,
+                                            night_start_time,
+                                            night_end_time)
         collector.load_programs(program_provider_class=GppProgramProvider,
                                 data=gpp_program_data(program_list))
         return collector

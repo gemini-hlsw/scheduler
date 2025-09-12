@@ -89,7 +89,7 @@ class Query:
         params = SchedulerParameters(start,
                                      end,
                                      new_schedule_rt_input.sites,
-                                     SchedulerModes.VALIDATION,
+                                     SchedulerModes.SIMULATION,
                                      ranker_params,
                                      False,
                                      1,
