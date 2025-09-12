@@ -61,9 +61,9 @@ class Engine:
                                             num_of_nights=self.params.num_nights_to_schedule,
                                             sites=self.params.sites,
                                             semesters=self.params.semesters,
+                                            blueprint=Blueprints.collector,
                                             night_start_time=self.night_start_time,
                                             night_end_time=self.night_end_time,
-                                            blueprint=Blueprints.collector,
                                             program_list=self.params.programs_list)
 
         selector = builder.build_selector(collector=collector,

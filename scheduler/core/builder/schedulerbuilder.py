@@ -38,13 +38,21 @@ class SchedulerBuilder(ABC):
                         num_of_nights: int,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
-                        night_start_time: Time | None,
-                        night_end_time: Time | None,
                         blueprint: CollectorBlueprint,
+                        night_start_time: Time | None = None,
+                        night_end_time: Time | None = None,
                         program_list: Optional[bytes] = None) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
-        collector = Collector(start, end, num_of_nights, sites, semesters, night_start_time, night_end_time, self.sources, *blueprint)
+        collector = Collector(start,
+                              end,
+                              num_of_nights,
+                              sites,
+                              semesters,
+                              night_start_time,
+                              night_end_time,
+                              self.sources,
+                              *blueprint)
         return collector
 
     @staticmethod
