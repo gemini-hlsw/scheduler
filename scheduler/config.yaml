@@ -2,7 +2,7 @@ collector:
   observation_classes: [SCIENCE, PROGCAL, PARTNERCAL]
   program_types: [Q, LP, FT, DD]
   time_slot_length: 1.0 # on minutes
-  with_redis: true
+  with_redis: false
 
 optimizer:
   name: GREEDYMAX

@@ -18,7 +18,7 @@ from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Con
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
                               Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
-                              TimingWindow, TooType, WaterVapor, Wavelength)
+                              TimingWindow, TooType, WaterVapor, Wavelength, ROOT_PARENT_ID)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
@@ -1256,8 +1256,8 @@ class OcsProgramProvider(ProgramProvider):
     #     """
     #     raise NotImplementedError('OCS does not support OR groups.')
 
-    def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
-                        split: bool, split_by_iterator: bool, band: Band) -> Optional[Group]:
+    def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID, parent_id: GroupID,
+                    split: bool, split_by_iterator: bool, band: Band) -> Optional[Group]:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -1272,10 +1272,13 @@ class OcsProgramProvider(ProgramProvider):
         delay_max = timedelta.max
 
         # Get the group name: ROOT_GROUP_ID if the root group and otherwise the name.
+        # parent_id = group_id
+        group_option=AndOption.CONSEC_ORDERED
         if OcsProgramProvider._GroupKeys.GROUP_NAME in data:
             group_name = data[OcsProgramProvider._GroupKeys.GROUP_NAME]
         else:
             group_name = ROOT_GROUP_ID.id
+            group_option = AndOption.ANYORDER
 
         # Parse notes for "do not split" information if not found previously
         notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
@@ -1294,7 +1297,7 @@ class OcsProgramProvider(ProgramProvider):
                                        if key.startswith(OcsProgramProvider._GroupKeys.SCHEDULING_GROUP))
         for key in scheduling_group_keys:
             subgroup_id = GroupID(key.split('-')[-1])
-            subgroup = self.parse_group(data[key], program_id, subgroup_id, split=split,
+            subgroup = self.parse_group(data[key], program_id, subgroup_id, group_id, split=split,
                                             split_by_iterator=split_by_iterator, band=band)
             if subgroup is not None:
                 children.append(subgroup)
@@ -1346,13 +1349,15 @@ class OcsProgramProvider(ProgramProvider):
         trivial_groups = [
             Group(
                 id=GroupID(obs.id.id),
+                parent_id=group_id,
                 program_id=program_id,
                 group_name=obs.title,
                 number_to_observe=1,
+                number_observed=0,
                 delay_min=delay_min,
                 delay_max=delay_max,
                 children=obs,
-                group_option=AndOption.ANYORDER)
+                group_option=group_option)
             for obs in observations]
         children.extend(trivial_groups)
 
@@ -1365,14 +1370,16 @@ class OcsProgramProvider(ProgramProvider):
         # Put all the observations in the one big AND group and return it.
         return Group(
             id=group_id,
+            parent_id=parent_id,
             program_id=program_id,
             group_name=group_name,
             number_to_observe=number_to_observe,
+            number_observed=0,
             delay_min=delay_min,
             delay_max=delay_max,
             children=children,
             # TODO: Should this be ANYORDER OR CONSEC_ORDERED?
-            group_option=AndOption.CONSEC_ORDERED)
+            group_option=group_option)
 
     def parse_program(self, data: dict) -> Optional[Program]:
         """
@@ -1418,7 +1425,7 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
-        root_group = self.parse_group(data, program_id, ROOT_GROUP_ID, band=band,
+        root_group = self.parse_group(data, program_id, ROOT_GROUP_ID, ROOT_PARENT_ID, band=band,
                                           split=split, split_by_iterator=split_by_iterator)
         if root_group is None:
             logger.debug(f'Program {program_id} has empty root group. Skipping.')

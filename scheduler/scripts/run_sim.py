@@ -42,12 +42,12 @@ def main(*,
                                mode=SchedulerModes.SIMULATION,
                                ranker_parameters=RankerParameters(vis_power=1.0, air_power=0.0),
                                semester_visibility=False,
-                               num_nights_to_schedule=2,
+                               num_nights_to_schedule=1,
                                programs_list=programs_list)
     engine = Engine(params)
     plan_summary, timelines = engine.schedule()
     # File output for future results comparison
-    outpath = os.path.join(os.environ['HOME'], 'gemini', 'sciops', 'softdevel', 'Queue_planning', 'sched_output')
+    # outpath = os.path.join(os.environ['HOME'], 'gemini', 'sciops', 'softdevel', 'Queue_planning', 'sched_output')
     # timelines.display(output=os.path.join(outpath, 'dev_niri_s20181001_20250715.txt'))
     # Display to stdout
     timelines.display()
