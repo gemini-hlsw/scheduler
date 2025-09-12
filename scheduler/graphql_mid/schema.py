@@ -6,7 +6,9 @@ from typing import List, AsyncGenerator, Dict
 
 import numpy as np
 import strawberry # noqa
+from astropy.coordinates import Angle
 from astropy.time import Time
+import astropy.units as u
 from lucupy.minimodel import TimeslotIndex, NightIndex, VariantSnapshot, ImageQuality, CloudCover
 from lucupy.minimodel.site import Site
 from scheduler.context import schedule_id_var
@@ -34,15 +36,11 @@ def sync_schedule(params: SchedulerParameters) -> NewNightPlans:
     s_plan_summary = SRunSummary.from_computed_run_summary(plan_summary)
     return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
 
-def sync_rt_schedule(params: SchedulerParameters, night_start_time: Time, night_end_time: Time) -> NewPlansRT:
+def sync_rt_schedule(params: SchedulerParameters, night_start_time: Time, night_end_time: Time, initial_variant: VariantSnapshot) -> NewPlansRT:
     engine = Engine(params, night_start_time=night_start_time, night_end_time=night_end_time)
     scp = engine.build()
 
     site = list(params.sites)[0]
-    initial_variant = scp.collector.sources.origin.env.get_initial_conditions(
-        site,
-        params.start.to_datetime().date()
-    )
 
     scp.selector.update_site_variant(site, initial_variant)
     plans = scp.run(site, np.array([NightIndex(0)]), TimeslotIndex(0))
@@ -72,7 +70,6 @@ class Query:
 
     @strawberry.field
     async def schedule_rt(self, schedule_id: str, new_schedule_rt_input: CreateNewScheduleRTInput) -> str:
-        #TODO: replace with the rt schedule input
         schedule_id_var.set(schedule_id)
         start = Time(new_schedule_rt_input.start_time, format='iso', scale='utc')
         end = Time(new_schedule_rt_input.end_time, format='iso', scale='utc')
@@ -109,7 +106,12 @@ class Query:
         wind_speed = new_schedule_rt_input.wind_speed
         wind_direction = new_schedule_rt_input.wind_direction
 
-        task = asyncio.to_thread(sync_rt_schedule, params, night_start, night_end)
+        initial_variant = VariantSnapshot(iq=image_quality,
+                                          cc=cloud_cover,
+                                          wind_dir=Angle(wind_direction, unit=u.deg),
+                                          wind_spd=wind_speed * (u.m / u.s))
+
+        task = asyncio.to_thread(sync_rt_schedule, params, night_start, night_end, initial_variant)
         if schedule_id not in active_subscriptions:
             queue = asyncio.Queue()
             active_subscriptions[schedule_id] = queue
