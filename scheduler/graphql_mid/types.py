@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from datetime import datetime, timedelta
-from typing import List, FrozenSet, Optional
+from typing import List, FrozenSet, Optional, Dict
 from zoneinfo import ZoneInfo
 
 import strawberry  # noqa
@@ -207,10 +207,16 @@ class NewNightPlans:
     plans_summary: SRunSummary
 
 @strawberry.type
+class NewPlansRT:
+    night_plans: SPlans
+
+@strawberry.type
 class NightPlansError:
     error: str
 
 NightPlansResponse = Annotated[Union[NewNightPlans, NightPlansError], strawberry.union("NightPlansResponse")]
+
+NightPlansResponseRT = Annotated[Union[NightPlansResponse, NewPlansRT], strawberry.union("NightPlansResponseRT")]
 
 @strawberry.type
 class NewScheduleSuccess:

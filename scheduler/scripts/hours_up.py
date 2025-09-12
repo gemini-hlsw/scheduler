@@ -256,12 +256,12 @@ builder = dispatch_with(params.mode, sources, queue)
 
 # Create Collector
 collector = builder.build_collector(start=params.start,
-                                            end=params.end_vis,
-                                            num_of_nights=params.num_nights_to_schedule,
-                                            sites=params.sites,
-                                            semesters=params.semesters,
-                                            blueprint=Blueprints.collector,
-                                            program_list=params.programs_list)
+                                    end=params.end_vis,
+                                    num_of_nights=params.num_nights_to_schedule,
+                                    sites=params.sites,
+                                    semesters=params.semesters,
+                                    blueprint=Blueprints.collector,
+                                    program_list=params.programs_list)
 
 # Example observation with visibility
 obs_vis = collector.get_observation(ObservationID('GN-2018B-Q-103-16'))

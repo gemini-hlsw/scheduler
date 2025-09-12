@@ -1165,6 +1165,7 @@ class GppProgramProvider(ProgramProvider):
             # The baseline calibrations group must be ANYORDER
             # ToDo: We need to be able to distinguish the the automatic calibrations group from any group that
             #  someone names "Calibrations", we probably need to store the calibration_role.
+
             elif group_name == 'Calibrations':
                 group_option = AndOption.ANYORDER
                 number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
@@ -1189,6 +1190,7 @@ class GppProgramProvider(ProgramProvider):
             parent_id = ROOT_GROUP_ID if data.get(GppProgramProvider._GroupKeys.PARENT_ID) is None else \
                 GroupID(data.get(GppProgramProvider._GroupKeys.PARENT_ID))
             # print(f'parent_id: {parent_id}')
+
             parent_index = data.get(GppProgramProvider._GroupKeys.PARENT_INDEX)
             elements_list = list(reversed(data[GppProgramProvider._GroupKeys.ELEMENTS]))
 

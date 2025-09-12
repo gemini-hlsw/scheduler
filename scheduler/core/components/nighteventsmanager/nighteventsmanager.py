@@ -26,6 +26,8 @@ class NightEventsManager(metaclass=Singleton):
 
     @staticmethod
     def get_night_events(time_grid: Time,
+                         night_start_time: Time,
+                         night_end_time: Time,
                          time_slot_length: TimeDelta,
                          site: Site) -> NightEvents:
         """
@@ -39,10 +41,24 @@ class NightEventsManager(metaclass=Singleton):
         if data_id not in NightEventsManager._night_events:
             night_events = NightEvents(
                 time_grid,
+                night_start_time,
+                night_end_time,
                 time_slot_length,
                 site,
                 *sky.night_events(time_grid, site.location, site.timezone)
             )
             NightEventsManager._night_events[data_id] = night_events
+
+        # Check if night lenght was modified
+        elif night_start_time != NightEventsManager._night_events[data_id].night_start_time or \
+                night_end_time != NightEventsManager._night_events[data_id].night_end_time:
+            NightEventsManager._night_events[data_id] = NightEvents(
+                time_grid,
+                night_start_time,
+                night_end_time,
+                time_slot_length,
+                site,
+                *sky.night_events(time_grid, site.location, site.timezone)
+            )
 
         return NightEventsManager._night_events[data_id]

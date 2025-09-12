@@ -32,6 +32,29 @@ class CreateNewScheduleInput:
 
 
 @strawberry.input
+class CreateNewScheduleRTInput:
+    """
+    Input for creating a new schedule.
+    """
+    start_time: str
+    end_time: str
+    night_start_time: str
+    night_end_time: str
+    image_quality: float
+    cloud_cover: float
+    wind_speed: float
+    wind_direction: float
+    sites: Sites
+    thesis_factor: Optional[float] = 1.1
+    power: Optional[int] = 2
+    met_power: Optional[float] = 1.0
+    vis_power: Optional[float] = 1.0
+    wha_power: Optional[float] = 1.0
+    air_power: Optional[float] = 0.0
+    programs: Optional[List[str]] = None
+
+
+@strawberry.input
 class UseFilesSourceInput:
     service: str
     sites: Sites

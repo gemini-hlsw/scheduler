@@ -79,6 +79,8 @@ class Collector(SchedulerComponent):
     num_of_nights: int
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
+    night_start_time: Time
+    night_end_time: Time
     sources: Sources
     time_slot_length: TimeDelta
     program_types: FrozenSet[ProgramTypes]
@@ -153,14 +155,21 @@ class Collector(SchedulerComponent):
         # TODO: This code can be greatly simplified. The night_events only have to be calculated once.
         # Create the night events, which contain the data for all given nights by site.
         # This may retrigger a calculation of the night events for one or more sites.
+        print(f"Night start time: {self.night_start_time}, Night end time: {self.night_end_time}")
         self.night_events = {
-            site: Collector._night_events_manager.get_night_events(self.time_grid, self.time_slot_length, site)
+            site: Collector._night_events_manager.get_night_events(self.time_grid,
+                                                                   self.night_start_time,
+                                                                   self.night_end_time,
+                                                                   self.time_slot_length,
+                                                                   site)
             for site in self.sites
         }
         Collector._resource_service = self.sources.origin.resource
 
     def get_night_events(self, site: Site) -> NightEvents:
         return Collector._night_events_manager.get_night_events(self.time_grid,
+                                                                self.night_start_time,
+                                                                self.night_end_time,
                                                                 self.time_slot_length,
                                                                 site)
 
@@ -529,7 +538,11 @@ class Collector(SchedulerComponent):
                     # For now, only change aa scheduling group if it can be done fully
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.end_time_slot()
                 else:
-                    charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.start_time_slot()
+                    observation = self.get_observation(grpvisit.visits[0].obs_id)
+                    n_slots_acq = time2slots(time_slot_length, observation.acq_overhead)
+                    n_slots_atom0 = time2slots(time_slot_length, observation.sequence[0].exec_time)
+                    slot_atom0_end = grpvisit.visits[0].start_time_slot + n_slots_atom0 - 1 + n_slots_acq
+                    charge_group = end_timeslot_bound is None or end_timeslot_bound > slot_atom0_end
 
                 # Charge if the end slot is less than this
                 if end_timeslot_bound is not None:
@@ -567,8 +580,6 @@ class Collector(SchedulerComponent):
                         else:
                             _logger.debug(f'Marking observation ongoing: {observation.id.id}')
                             observation.status = ObservationStatus.ONGOING
-                    elif not_charged:
-                        observation.status = ObservationStatus.ONGOING
 
                     # Loop over atoms
                     for atom_idx in range(visit.atom_start_idx, visit.atom_end_idx + 1):

@@ -48,6 +48,7 @@ def main(*,
     plan_summary, timelines = engine.schedule()
     # File output for future results comparison
     # outpath = os.path.join(os.environ['HOME'], 'gemini', 'sciops', 'softdevel', 'Queue_planning', 'sched_output')
+
     # timelines.display(output=os.path.join(outpath, 'dev_niri_s20181001_20250715.txt'))
     # Display to stdout
     timelines.display()
