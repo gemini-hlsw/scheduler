@@ -11,13 +11,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from lucupy.minimodel import (Group, NightIndex, Observation, ObservationClass, ObservationID, ObservationStatus,
-                              Program, QAState, Site, UniqueGroupID, Wavelengths, ObservationMode)
+                              Program, QAState, Site, UniqueGroupID, Wavelengths, ObservationMode,
+                              unique_group_id, AndOption, ROOT_PARENT_ID)
 
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.timeutils import time2slots
 from lucupy.types import Interval, ListOrNDArray, ZeroTime
 
-from scheduler.core.calculations import GroupData, NightTimeslotScores
+from scheduler.core.calculations import GroupData, NightTimeslotScores, ProgramInfo
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.components.optimizer.timeline import Timelines
 from scheduler.core.plans import Plans
@@ -805,6 +806,66 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f}")
         return None
 
+
+    def _update_group_list(self, max_group_info: MaxGroup):
+        """Remove groups as needed from group_data_list. Navigates the group tree to evaluate completion."""
+
+        def sep(indent: int) -> str:
+            return '-----' * indent
+
+
+        def trim_tree(group: Group, depth: int = 1) -> None:
+            """Trim the unneeded branches from the tree"""
+
+            # print(f"{sep(depth)} {group.id.id}")
+            if group.unique_id in self.group_ids:
+                child_data = self.selection.schedulable_groups[group.unique_id]
+                if child_data in self.group_data_list:
+                    self.group_data_list.remove(child_data)
+                    # print(f"{sep(depth)} update_group_list: removing {group.id.id}")
+            if not group.is_observation_group():
+                for child in group.children:
+                    trim_tree(child)
+
+            return
+
+
+        def traverse_group_tree(prog_info: ProgramInfo, group: Group, depth: int = 1) -> None:
+            """Traverse parent groups (up, then down each branch) starting at the given group"""
+
+            # print(f"Group {group.id} with parent {group.parent_id}")
+            if group.group_option in [AndOption.NONE, AndOption.ANYORDER, AndOption.CUSTOM]:
+                group.number_observed += 1
+            # print(f"{sep(depth)} group {group.unique_id}: to_observe {group.number_to_observe}, "
+            #       f"observed {group.number_observed}")
+            if group.number_observed == group.number_to_observe:
+                # Traverse down the lower branches
+                # print(f"{sep(depth)} group complete, trim the tree")
+                trim_tree(group, depth=depth+1)
+
+            # If not at the root group, get parent info and move up the tree
+            if group.parent_id != ROOT_PARENT_ID:
+                parent_unique_id = unique_group_id(prog_info.program.id, group.parent_id)
+                parent = prog_info.program.get_group(parent_unique_id)
+                # subgroup = prog_info.group_data_map[parent]
+                traverse_group_tree(prog_info, parent)
+
+            return
+
+        # Remove group from list if completely observed
+        # print(f"update_group_list")
+        # print(f"group_ids: {self.group_ids}")
+
+        # Get program information
+        p = self.selection.program_info[max_group_info.group_data.group.program_id]
+        # print(f"\tgroup_data_map: {p.group_data_map.keys()}")
+        # p.program.show()
+
+        traverse_group_tree(p, max_group_info.group_data.group)
+
+        return
+
+
     def _run(self, plans: Plans) -> None:
 
         # Fill plans for all sites on one night
@@ -823,10 +884,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     # if self.verbose:
                     #     print(f"Group {max_group_info.group_data.group.unique_id.id} with "
                     #           f"max score {max_group_info.max_score} added.")
-                    # Remove group from list if completely observed
-                    # if max_group_info.group_data.group.program_used() >= max_group_info.group_data.group.prog_time():
-                    # remove any added group to avoid multiple visits on the same night
-                    self.group_data_list.remove(max_group_info.group_data)
+                    # Clean up group_data_list
+                    self._update_group_list(max_group_info)
             else:
                 # Nothing remaining can be scheduled
                 # for plan in plans:
@@ -991,6 +1050,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 obs = before_std
                 # print(f"Adding before_std: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
+                max_group_info.group_data.group.number_observed += 1
+
 
             # split at atoms
             for obs in prog_obs:
@@ -998,6 +1059,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 n_slots_filled = n_slots_cal
                 # print(f"Adding science: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
+                # ToDo: eventually check whether any are split, for now we consider it observed
+                #  to avoid multiple visits on one night
+                max_group_info.group_data.group.number_observed += 1
                 if after_std is not None:
                     # "put back" time for the final standard
                     n_slots_filled -= time2slots(self.time_slot_length, standards[-1].exec_time())
@@ -1006,12 +1070,19 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 obs = after_std
                 # print(f"Adding after_std: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
+                max_group_info.group_data.group.number_observed += 1
+
 
             # If group is not split, inactivate any unused standards
             if max_group_info.n_slots_remaining == n_slots_filled:
                 for obs in part_obs:
                     if obs not in standards:
                         obs.status = ObservationStatus.INACTIVE
+
+            # Update the number to observe for the number of standards
+            # print(f"greedymax.add: number_to_observe changed from {max_group_info.group_data.group.number_to_observe} "
+            #       f"to {len(prog_obs) + max_group_info.n_std} for {max_group_info.group_data.group.id.id}")
+            max_group_info.group_data.group.number_to_observe = len(prog_obs) + max_group_info.n_std
 
             # TODO: Shift to remove any gaps in the plan?
 
