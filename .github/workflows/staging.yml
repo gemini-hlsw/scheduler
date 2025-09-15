@@ -20,7 +20,7 @@ jobs:
           echo "Checking LFS status:"
           git lfs ls-files
           echo "Checking if LFS files exist locally:" 
-          ls -la ./scheduler/scheduler/services/horizons/data/ 
+          ls -la /scheduler/services/horizons/data/ 
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
       - name: Login to Heroku Container registry
