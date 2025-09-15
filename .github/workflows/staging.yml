@@ -14,9 +14,13 @@ jobs:
         run: echo "VERSION_TAG=$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
       - uses: actions/checkout@v4
         with:
-          lfs: "true"
-      - name: Checkout LFS objects
-        run: git lfs pull
+          lfs: true
+      - name: Verify LFS files
+        run: |
+          echo "Checking LFS status:"
+          git lfs ls-files
+          echo "Checking if LFS files exist locally:" 
+          ls -la ./scheduler/scheduler/services/horizons/data/ 
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
       - name: Login to Heroku Container registry
@@ -30,6 +34,7 @@ jobs:
           heroku container:push -a ${{ secrets.HEROKU_APP_NAME }} web \
           --arg GH_PAT=${{ secrets.GH_PAT }} \
           --arg APP_VERSION=${{ env.VERSION_TAG }}-staging
+
       - name: Release
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
