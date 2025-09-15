@@ -369,7 +369,7 @@ class OcsProgramProvider(ProgramProvider):
                 # Convert month data as above to a list of months.
                 curr_note_title = curr_note_title.strip().replace('and ', ' ')\
                     .replace('  ', ' ').replace(', ', '-').replace(';', '')\
-                    .replace('(', '').replace(')', '')
+                    .replace('(', '').replace(')', '').replace('Cycle:','')
                 # curr_note_months = curr_note_title.split(' ')[-1].lower()
                 # Can't assume that the months are in the last element of the split title, key on '-'
                 curr_note_months = [val.lower() for val in curr_note_title.split(' ') if '-' in val][0]
@@ -378,7 +378,7 @@ class OcsProgramProvider(ProgramProvider):
                 # print(f'\t{month_list}')
                 # print(f'{program_id.id}: month_list {month_list}')
                 if len(month_list) < 3:
-                    msg = (f'Error parsing active note title for FT program {id}. '
+                    msg = (f'Error parsing active note title for FT program {program_id}. '
                            f'Check month names/abreviations or extra dashes.')
                     raise ValueError(msg)
                 m1 = month_number(month_list[0], months_list)
@@ -398,7 +398,7 @@ class OcsProgramProvider(ProgramProvider):
             # Find the note (if any) that contains the information.
             note_title = next(filter(is_ft_note, note_titles), None)
             if note_title is None:
-                msg = f'Fast turnaround program {id} has no note containing start / end date information.'
+                msg = f'Fast turnaround program {program_id} has no note containing start / end date information.'
                 raise ValueError(msg)
 
             # Parse the month information.
@@ -406,7 +406,7 @@ class OcsProgramProvider(ProgramProvider):
                 date_info = parse_dates(note_title)
 
             except IndexError as e:
-                msg = f'Fast turnaround program {id} note title has improper form: {note_title}.'
+                msg = f'Fast turnaround program {program_id} note title has improper form: {note_title}.'
                 raise ValueError(e, msg)
 
             start_date, end_date = date_info
