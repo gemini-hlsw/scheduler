@@ -18,7 +18,7 @@ from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Con
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
                               Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
-                              TimingWindow, TooType, WaterVapor, Wavelength, ROOT_PARENT_ID)
+                              TimingWindow, TooType, WaterVapor, Wavelength, GROUP_NONE_ID)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
@@ -1349,13 +1349,16 @@ class OcsProgramProvider(ProgramProvider):
         trivial_groups = [
             Group(
                 id=GroupID(obs.id.id),
-                parent_id=group_id,
                 program_id=program_id,
                 group_name=obs.title,
+                parent_id=group_id,
+                previous_id=GROUP_NONE_ID,
+                next_id=GROUP_NONE_ID,
                 number_to_observe=1,
                 number_observed=0,
                 delay_min=delay_min,
                 delay_max=delay_max,
+                active=True,
                 children=obs,
                 group_option=group_option)
             for obs in observations]
@@ -1367,18 +1370,26 @@ class OcsProgramProvider(ProgramProvider):
             logger.debug(f"Program {program_id} group {group_id} has no candidate children. Skipping.")
             return None
 
+
+        # Get previous/next groups in children
+        for idx, child in enumerate(children):
+            child.next_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
+            child.previous_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
+
         # Put all the observations in the one big AND group and return it.
         return Group(
             id=group_id,
-            parent_id=parent_id,
             program_id=program_id,
             group_name=group_name,
+            parent_id=parent_id,
+            previous_id=GROUP_NONE_ID,
+            next_id=GROUP_NONE_ID,
             number_to_observe=number_to_observe,
             number_observed=0,
             delay_min=delay_min,
             delay_max=delay_max,
+            active=True,
             children=children,
-            # TODO: Should this be ANYORDER OR CONSEC_ORDERED?
             group_option=group_option)
 
     def parse_program(self, data: dict) -> Optional[Program]:
@@ -1425,7 +1436,7 @@ class OcsProgramProvider(ProgramProvider):
         # 3. A list of Observations for each Organizational Folder.
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
-        root_group = self.parse_group(data, program_id, ROOT_GROUP_ID, ROOT_PARENT_ID, band=band,
+        root_group = self.parse_group(data, program_id, ROOT_GROUP_ID, GROUP_NONE_ID, band=band,
                                           split=split, split_by_iterator=split_by_iterator)
         if root_group is None:
             logger.debug(f'Program {program_id} has empty root group. Skipping.')

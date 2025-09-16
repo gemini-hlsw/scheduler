@@ -23,8 +23,8 @@ def group_ranges(i):
 
 
 @final
-@immutable
-@dataclass(frozen=True)
+# @immutable
+@dataclass(frozen=False)
 class VisibilitySnapshot:
     """
     Visibility information needed to calculate the remaining visibility for

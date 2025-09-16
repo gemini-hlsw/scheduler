@@ -109,7 +109,6 @@ class RankerParameters:
         f"  ├─met_power: {self.met_power}\n" + \
         f"  ├─vis_power: {self.vis_power}\n" + \
         f"  ├─wha_power: {self.wha_power}\n" + \
-        f"  ├─air_power: {self.air_power}\n" + \
         f"  ├─program_priority: {self.program_priority}\n" + \
         f"  ├─priority_factor: {self.priority_factor}\n" + \
         f"  ├─preimaging_factor: {self.preimaging_factor}\n" + \
@@ -270,6 +269,8 @@ class DefaultRanker(Ranker):
                                               np.array([obs.band.value]),
                                               np.array([0.8]),
                                               program.thesis)
+        # print(f"Scoring {obs.id.id}: used={program.total_used(obs.band)}, remaining={remaining}, cplt={cplt}, "
+        #       f"metric={metric[0]}")
 
         # Declination for the base target per night.
         dec = {night_idx: target_info[night_idx].coord.dec for night_idx in night_indices}
@@ -332,7 +333,7 @@ class DefaultRanker(Ranker):
                          else 1.0 for night_idx in night_indices}
         scale_factor *= prog_priority[night_idx]
 
-        # Multiply score, divide by the minimum airmass (mainly for cross-site scoring tests)
+        # Divide by the minimum airmass (mainly for cross-site scoring tests)
         p = {night_idx: scale_factor * (metric[0] ** self.params.met_power) *
                         (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
                         (wha[night_idx] ** self.params.wha_power) * alt_include[night_idx] /
@@ -342,6 +343,8 @@ class DefaultRanker(Ranker):
         # Assign scores in p to all indices where visibility constraints are met.
         # They will otherwise be 0 as originally defined.
         for night_idx in night_indices:
+            # if 'Q-127' in obs.id.id:
+            #     print(obs.id.id, night_idx, np.max(p[night_idx]), priority_value)
             slot_indices = target_info[night_idx].visibility_slot_idx
             scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
 

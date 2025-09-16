@@ -18,8 +18,8 @@ __all__ = [
 ]
 
 @final
-@immutable
-@dataclass(frozen=True)
+# @immutable
+@dataclass(frozen=False)
 class TargetInfo:
     """
     Target information for a given target at a given site for a given night.

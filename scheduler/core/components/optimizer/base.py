@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import final, List
 
 from lucupy.types import Interval
@@ -20,7 +20,7 @@ __all__ = [
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class MaxGroup:
     """
     Store information about the selected group (max score)
@@ -32,6 +32,8 @@ class MaxGroup:
     n_slots_remaining: int
     n_std: int
     exec_sci_nir: timedelta
+    start_time: datetime
+    end_time: datetime
 
 
 class BaseOptimizer(ABC):
