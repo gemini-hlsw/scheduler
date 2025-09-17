@@ -16,9 +16,9 @@ __all__ = [
 ]
 
 
-# Leave this as non-immutable, as program, group_data, and observations all might change.
+# Leave this as mutable, as program, group_data, and observations all might change.
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class ProgramInfo:
     """
     This represents the information for a program that contains schedulable components during the time frame
@@ -49,7 +49,7 @@ class ProgramInfo:
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class ProgramCalculations:
     """
     This dataclass contains a collection of the data returned when a Program is scored.

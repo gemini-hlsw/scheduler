@@ -37,8 +37,8 @@ __all__ = [
 
 
 @final
-@immutable
-@dataclass(frozen=True)
+# @immutable
+@dataclass(frozen=False)
 class TargetVisibility:
     visibility_slot_idx: npt.NDArray[int]
     visibility_time: TimeDelta
