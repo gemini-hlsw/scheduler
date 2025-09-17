@@ -1360,7 +1360,7 @@ class OcsProgramProvider(ProgramProvider):
                 delay_max=delay_max,
                 active=True,
                 children=obs,
-                group_option=group_option)
+                group_option=AndOption.CONSEC_ORDERED)
             for obs in observations]
         children.extend(trivial_groups)
 

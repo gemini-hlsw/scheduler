@@ -192,6 +192,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
                     # NIR science time for to determine the number of tellurics
                     if any(inst in obs.required_resources() for inst in ObservatoryProperties.nir_instruments()):
+                            # and obs.obs_mode() in [ObservationMode.LONGSLIT, ObservationMode.XD, ObservationMode.MOS]:
                         exec_sci_nir += time_remain
                         if verbose:
                             print(f'Adding {time_remain} to exec_sci_nir')
@@ -216,6 +217,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             n_std = self.num_nir_standards(exec_sci_nir, wavelengths=group.wavelengths(), mode=group.obs_mode())
 
         # if only partner standards, set n_std to the number of standards in group (e.g. specphots)
+        # ToDo: review this... can cause problems depending on use of n_std
         if nprt > 0 and nsci == 0:
             n_std = nprt
 
@@ -867,10 +869,12 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
             # print(f"{sep(depth)} {group.id.id}")
             if group.unique_id in self.group_ids:
-                child_data = self.selection.schedulable_groups[group.unique_id]
-                if child_data in self.group_data_list:
-                    self.group_data_list.remove(child_data)
-                    # print(f"{sep(depth)} update_group_list: removing {group.id.id}")
+                # self.group_data_list.remove(group)
+                # print(f"{sep(depth)} update_group_list: removing {group.id.id}")
+                group_data = self.selection.schedulable_groups[group.unique_id]
+                if group_data in self.group_data_list:
+                    self.group_data_list.remove(group_data)
+                    # print(f"{sep(depth)} update_group_list: removing {group.unique_id}")
             if not group.is_observation_group():
                 for child in group.children:
                     trim_tree(child)
@@ -879,7 +883,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                                 set_next: bool = True) -> None:
             """Traverse parent groups (up, then down each branch) starting at the given group"""
 
-            # print(f"Group {group.id} with parent {group.parent_id}")
+            # print(f"Group {group.id} with parent {group.parent_id}, AndOption={group.group_option}")
             if group.group_option in [AndOption.NONE, AndOption.ANYORDER, AndOption.CUSTOM]:
                 group.number_observed += 1
             # print(f"{sep(depth)} group {group.unique_id}: to_observe {group.number_to_observe}, "
@@ -1035,11 +1039,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         Add a group to a Plan - find the best location within the interval (maximize the score) and select standards
         """
 
-        if self.verbose:
-            print(f"Greedymax.add group {max_group_info.group_data.group.unique_id.id}")
-
         # TODO: update base method?
-        # TODO: Missing different logic for different AND/OR GROUPS
         # Add method should handle those
         standards: List[Observation] = []
 
@@ -1051,7 +1051,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
         result = False
         start_time = None # datetime
         total_slots_filled = 0
+        n_std_placed = 0
 
+        if self.verbose:
+            print(f"Greedymax.add group {max_group_info.group_data.group.unique_id.id}")
+            print(f"\tTimeline slots remaining = {timeline.slots_unscheduled()}")
+            print(f"\tnumber to observe={max_group_info.group_data.group.number_to_observe}, "
+                  f"number observed = {max_group_info.group_data.group.number_observed}, "
+                  f"n_std = {max_group_info.n_std}")
         # print(f"Interval start end: {max_group_info.interval[0]} {max_group_info.interval[-1]}")
 
         if not timeline.is_full:
@@ -1104,6 +1111,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # print(f"Adding before_std: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled, start = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
                 max_group_info.group_data.group.number_observed += 1
+                n_std_placed += 1
                 start_time = start
                 total_slots_filled += n_slots_filled
 
@@ -1114,7 +1122,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 n_slots_filled = n_slots_cal
                 # print(f"Adding science: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled, start = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
-                start_time = start if start_time == None else start_time
+                start_time = start if start_time is None else start_time
                 # ToDo: eventually check whether any are split, for now we consider it observed
                 #  to avoid multiple visits on one night
                 max_group_info.group_data.group.number_observed += 1
@@ -1128,6 +1136,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # print(f"Adding after_std: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled, start = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
                 max_group_info.group_data.group.number_observed += 1
+                n_std_placed += 1
                 total_slots_filled += n_slots_filled
 
 
@@ -1140,7 +1149,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             # Update the number to observe for the number of standards
             # print(f"greedymax.add: number_to_observe changed from {max_group_info.group_data.group.number_to_observe} "
             #       f"to {len(prog_obs) + max_group_info.n_std} for {max_group_info.group_data.group.id.id}")
-            max_group_info.group_data.group.number_to_observe = len(prog_obs) + max_group_info.n_std
+            max_group_info.group_data.group.number_to_observe = len(prog_obs) + n_std_placed
             max_group_info.start_time = start_time
             max_group_info.end_time = start_time + total_slots_filled * self.time_slot_length
 
