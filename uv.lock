@@ -913,15 +913,15 @@ wheels = [
 
 [[package]]
 name = "lucupy"
-version = "0.2.4"
+version = "0.2.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "gelidum" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bf/08/7e48038cfab553ada166449317373ca3360e89156c17653ea02f9101fb75/lucupy-0.2.4.tar.gz", hash = "sha256:a0ff5b1185a32788687e71b63918cef7e08d81d004ce16c5d41a690521593283", size = 47796, upload-time = "2025-07-31T14:18:29.474Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/1a/70700c001efc2a92f80419efa73e0996234b3297225f85feedaec06953ba/lucupy-0.2.7.tar.gz", hash = "sha256:0589533ccf9b6c5a3d1ab9073d70c2adf7907a1259b79811cb628949f5bb7670", size = 47670, upload-time = "2025-09-16T18:39:05.664Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a2/bb/070e6a5a258963cad525ce154d459447ac9116eff1ae443d02259312bd81/lucupy-0.2.4-py3-none-any.whl", hash = "sha256:784b98789b96996f3118b44b151053d3b832ae9823a3205d8ae2ef5d915ddbe5", size = 69598, upload-time = "2025-07-31T14:18:28.406Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/6d/1d6a31e414a05aa51806f58c9fdefa503c4728d4b4a373c6003c0670f05e/lucupy-0.2.7-py3-none-any.whl", hash = "sha256:6329c47fb839681696bd12f2939c8b4b9bc762bf30b461e4e14191ef921337f8", size = 69562, upload-time = "2025-09-16T18:39:04.142Z" },
 ]
 
 [[package]]
