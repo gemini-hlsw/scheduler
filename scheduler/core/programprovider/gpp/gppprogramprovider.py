@@ -1170,13 +1170,13 @@ class GppProgramProvider(ProgramProvider):
                 group_option = AndOption.CUSTOM
                 # ordered = True
                 number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
-            # The baseline calibrations group must be ANYORDER
+            # The baseline calibrations group is like a folder, treat as OR group to avoid giving it a score
             # ToDo: We need to be able to distinguish the the automatic calibrations group from any group that
             #  someone names "Calibrations", we probably need to store the calibration_role.
-
             elif group_name == 'Calibrations':
-                group_option = AndOption.ANYORDER
+                group_option = AndOption.NONE
                 number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+                # print(f"Calibrations to observe {number_to_observe}")
             else:
                 if (number_to_observe is not None and
                         number_to_observe < len(data[GppProgramProvider._GroupKeys.ELEMENTS])): # OR group
@@ -1228,6 +1228,8 @@ class GppProgramProvider(ProgramProvider):
                     if obs.title != 'Twilight':
                         observations.append(obs)
                         obs_parent_indices.append(elem_parent_index)
+                    else:
+                        number_to_observe -= 1
             elif element['group']:
                 subgroup_id = GroupID(element['group']['id'])
                 subgroup = self.parse_group(element['group'], program_id, subgroup_id, split=split,
