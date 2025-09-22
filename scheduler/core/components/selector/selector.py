@@ -13,7 +13,7 @@ from astropy.units import Quantity
 from lucupy.helpers import is_contiguous
 from lucupy.minimodel import (Group, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
                               ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, TimeslotIndex,
-                              UniqueGroupID, Variant, VariantSnapshot)
+                              UniqueGroupID, Variant, VariantSnapshot, AndOption)
 from lucupy.minimodel import CloudCover, ImageQuality
 from lucupy.timeutils import time2slots
 
@@ -384,10 +384,10 @@ class Selector(SchedulerComponent):
         # print(group.id.id, group.group_name, group.group_option, group.is_scheduling_group(), group.is_and_group(), group.is_or_group(), group.number_to_observe)
         if group.is_observation_group():
             processor = self._calculate_observation_group
+        elif group.is_or_group() or group.group_option == AndOption.CUSTOM:
+            processor = self._calculate_nonconsec_group
         elif group.is_and_group():
             processor = self._calculate_and_group
-        elif group.is_or_group():
-            processor = self._calculate_or_group
         else:
             raise ValueError(f'Could not process group {group.id}')
 
@@ -660,7 +660,7 @@ class Selector(SchedulerComponent):
         group_data_map[group.unique_id] = GroupData(group, group_info)
         return group_data_map
 
-    def _calculate_or_group(self,
+    def _calculate_nonconsec_group(self,
                             program: Program,
                             group: Group,
                             sites: FrozenSet[Site],
@@ -671,7 +671,7 @@ class Selector(SchedulerComponent):
                             group_data_map: GroupDataMap) -> GroupDataMap:
         """
         Process an OR group
-        There is no score for an OR group, just have to process the members.
+        There is no score for an OR or non-consecutive AND groups, just have to process the members.
         """
         if not isinstance(group, Group):
             raise ValueError(f'Tried to process group {group.id} as an AND group.')
@@ -681,7 +681,7 @@ class Selector(SchedulerComponent):
         verbose = False
 
         if verbose:
-            print(f'\t_calculate_or_group: {group.unique_id.id}')
+            print(f'\t_calculate_nonconsec_group: {group.unique_id.id}')
 
         # Process all subgroups
         # Ignore the return values here: they will just accumulate in group_info_map.
