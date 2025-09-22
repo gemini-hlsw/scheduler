@@ -35,10 +35,11 @@ def main(*,
         programs_list = [line.strip() for line in file if line.strip()[0] != '#']
 
     # Create Parameters
-    params = SchedulerParameters(start=Time("2025-09-22 08:00:00", format='iso', scale='utc'),
-                                 end=Time("2025-09-28 08:00:00", format='iso', scale='utc'),
+    params = SchedulerParameters(start=Time("2025-09-23 08:00:00", format='iso', scale='utc'),
+                                 end=Time("2025-10-05 08:00:00", format='iso', scale='utc'),
                               sites=ALL_SITES,
-                               # sites=[Site.GN],
+                              #  sites=[Site.GN],
+                              #  sites=[Site.GS],
                                mode=SchedulerModes.SIMULATION,
                                ranker_parameters=RankerParameters(vis_power=1.0, air_power=0.0),
                                semester_visibility=False,
@@ -48,7 +49,6 @@ def main(*,
     plan_summary, timelines = engine.schedule()
     # File output for future results comparison
     # outpath = os.path.join(os.environ['HOME'], 'gemini', 'sciops', 'softdevel', 'Queue_planning', 'sched_output')
-
     # timelines.display(output=os.path.join(outpath, 'dev_niri_s20181001_20250715.txt'))
     # Display to stdout
     timelines.display()

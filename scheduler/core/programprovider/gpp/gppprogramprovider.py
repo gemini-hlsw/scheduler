@@ -1175,7 +1175,7 @@ class GppProgramProvider(ProgramProvider):
             #  someone names "Calibrations", we probably need to store the calibration_role.
             elif group_name == 'Calibrations':
                 group_option = AndOption.NONE
-                number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+                # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
                 # print(f"Calibrations to observe {number_to_observe}")
             else:
                 if (number_to_observe is not None and
@@ -1228,8 +1228,8 @@ class GppProgramProvider(ProgramProvider):
                     if obs.title != 'Twilight':
                         observations.append(obs)
                         obs_parent_indices.append(elem_parent_index)
-                    else:
-                        number_to_observe -= 1
+                    # else:
+                    #     number_to_observe -= 1
             elif element['group']:
                 subgroup_id = GroupID(element['group']['id'])
                 subgroup = self.parse_group(element['group'], program_id, subgroup_id, split=split,
@@ -1264,6 +1264,10 @@ class GppProgramProvider(ProgramProvider):
         if len(children) == 0:
             logger.warning(f"Program {program_id} group {group_id} has no candidate children. Skipping.")
             return None
+
+        # Account for removed twilights or other unreadable observations
+        if group_name == 'Calibrations':
+            number_to_observe = len(children)
 
         # Get previous/next groups in children
         for idx, child in enumerate(children):

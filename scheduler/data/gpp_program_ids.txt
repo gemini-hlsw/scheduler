@@ -1,8 +1,11 @@
 # p-147
-# p-11d
+#p-11d
 # p-cc9
 # p-d5d
 # XT1 programs in production
+p-58f
+p-577
+p-56e
 p-597
 p-5af
 p-572
