@@ -648,8 +648,8 @@ class GppProgramProvider(ProgramProvider):
 
         # Proper motion
         try:
-            pm_ra = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.RA]['milliarcseconds_per_year']
-            pm_dec = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.DEC]['milliarcseconds_per_year']
+            pm_ra = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.RA]['milliarcsecondsPerYear']
+            pm_dec = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.DEC]['milliarcsecondsPerYear']
             epoch_str = sidereal_object[GppProgramProvider._TargetKeys.EPOCH]
             # Strip off any leading letter, make float
             epoch = float(epoch_str[1:]) if epoch_str[0] in ['B', 'J'] else float(epoch_str)
@@ -658,6 +658,8 @@ class GppProgramProvider(ProgramProvider):
             pm_ra = 0.0
             pm_dec = 0.0
             epoch = 2000.0
+
+        # print(f"parse_sidereal_target: {name} {ra} {dec} {pm_ra} {pm_dec} {epoch}")
 
         return SiderealTarget(
             name=name,
