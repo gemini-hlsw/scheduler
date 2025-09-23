@@ -71,9 +71,11 @@ class EventCycle:
         if update.done:
             # For morning twilight, add final plan showing all observations
             _logger.debug('Night done. Wrapping up final plan')
-            final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx),
-                                                        site,
-                                                        self.change_monitor.is_site_unblocked(site))
+            # final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx),
+            #                                            site,
+            #                                           self.change_monitor.is_site_unblocked(site))
+            final_plan = self.scp.collector.final_plans[night_idx][site]
+            final_plan.conditions = self.scp.selector._variant_snapshot_per_site[site]
             nightly_timeline.add(
                 NightIndex(night_idx),
                 site,

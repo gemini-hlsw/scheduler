@@ -6,13 +6,15 @@ from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, T
 
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import Angle
 
 from astropy.time import Time, TimeDelta
+from astropy.units import Quantity
 
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               Site, Target, TimeslotIndex, QAState, ObservationStatus,
-                              Group)
+                              Group, VariantSnapshot, ImageQuality, CloudCover)
 from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
 
@@ -164,6 +166,19 @@ class Collector(SchedulerComponent):
             for site in self.sites
         }
         Collector._resource_service = self.sources.origin.resource
+
+        self.final_plans = {
+            NightIndex(i): Plans(
+                self.night_events,
+                {site: VariantSnapshot(
+                    iq=ImageQuality.IQANY,
+                    cc=CloudCover.CCANY,
+                    wind_dir=Angle(20, unit=u.rad),
+                    wind_spd=10 * (u.m / u.s)
+                ) for site in self.sites},
+                NightIndex(i)
+            ) for i in range(self.num_of_nights)
+        }
 
     def get_night_events(self, site: Site) -> NightEvents:
         return Collector._night_events_manager.get_night_events(self.time_grid,
@@ -534,7 +549,7 @@ class Collector(SchedulerComponent):
             for grpvisit in grpvisits:
                 # Determine if group should be charged
                 if grpvisit.group.is_scheduling_group():
-                    # For now, only change aa scheduling group if it can be done fully
+                    # For now, only charge a scheduling group if it can be done fully
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.end_time_slot()
                 else:
                     observation = self.get_observation(grpvisit.visits[0].obs_id)
@@ -549,7 +564,7 @@ class Collector(SchedulerComponent):
                 else:
                     end_timeslot_charge = grpvisit.end_time_slot() + 1
 
-                # Charge to not_charged if the bound occurs during an AND (scheduling) group
+                # Change to not_charged if the bound occurs during an AND (scheduling) group
                 # TODO: for NIR + telluric, check if the standard was taken before the event, if so then charge for
                 # what was observed and make a new copy of the telluric
                 not_charged = (grpvisit.group.is_scheduling_group() and
@@ -581,6 +596,7 @@ class Collector(SchedulerComponent):
                             observation.status = ObservationStatus.ONGOING
 
                     # Loop over atoms
+                    last_atom_charged = None
                     for atom_idx in range(visit.atom_start_idx, visit.atom_end_idx + 1):
                         # calculate end time slot for each atom and compare with end_timeslot_charge
                         slot_length_visit = n_slots_acq + time2slots(time_slot_length, cumul_seq[atom_idx])  # noqa
@@ -619,6 +635,20 @@ class Collector(SchedulerComponent):
                                                     slot_atom_start + 1) * self.time_slot_length.to_datetime()
                                 obs_seq[atom_idx].not_charged += not_charged_time
 
+                            last_atom_charged = atom_idx
+
+                        if last_atom_charged is None:
+                            last_atom_charged = visit.atom_start_idx
+                        self.final_plans[plans.night_idx][plan.site].add(
+                            observation,
+                            visit.start_time,
+                            visit.atom_start_idx,
+                            last_atom_charged,
+                            visit.start_time_slot,
+                            visit.start_time_slot+end_timeslot_charge,
+                            visit.score,
+                            visit.peak_score
+                        )
                 # If charging the groups, set remaining partner cals to INACTIVE
                 if charge_group:
                     for obs in part_obs:
