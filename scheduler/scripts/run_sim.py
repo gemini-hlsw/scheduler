@@ -35,7 +35,7 @@ def main(*,
         programs_list = [line.strip() for line in file if line.strip()[0] != '#']
 
     # Create Parameters
-    params = SchedulerParameters(start=Time("2025-09-23 08:00:00", format='iso', scale='utc'),
+    params = SchedulerParameters(start=Time("2025-09-24 08:00:00", format='iso', scale='utc'),
                                  end=Time("2025-10-05 08:00:00", format='iso', scale='utc'),
                               sites=ALL_SITES,
                               #  sites=[Site.GN],
