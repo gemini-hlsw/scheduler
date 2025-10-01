@@ -21,7 +21,8 @@ from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Con
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
                               Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
-                              TimingWindow, TooType, WaterVapor, Wavelength, Resource, UniqueGroupID, GROUP_NONE_ID)
+                              TimingWindow, TooType, WaterVapor, Wavelength, Resource, UniqueGroupID, GROUP_NONE_ID,
+                              CalibrationRole)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
@@ -248,6 +249,7 @@ class GppProgramProvider(ProgramProvider):
         GROUP_NAME = 'name'
         PARENT_ID = 'parent_id'
         PARENT_INDEX = 'parent_index'
+        SYSTEM = 'system'
 
     class _ObsKeys:
         # KEY = 'OBSERVATION_BASIC'
@@ -266,6 +268,7 @@ class GppProgramProvider(ProgramProvider):
         # PHASE2 = 'phase2Status'
         ACTIVE = 'activeStatus'
         BAND = 'scienceBand'
+        CALROLE = 'calibrationRole'
         # TOO_OVERRIDE_RAPID = 'tooOverrideRapid'
 
     class _TargetKeys:
@@ -985,6 +988,10 @@ class GppProgramProvider(ProgramProvider):
             band_value = data.get(GppProgramProvider._ObsKeys.BAND)
             band = Band[band_value] if band_value is not None else None
 
+            # Calibration role
+            cal_role_value = data.get(GppProgramProvider._ObsKeys.CALROLE)
+            calibration_role = CalibrationRole[cal_role_value] if cal_role_value is not None else None
+
             # Constraints
             find_constraints = {
                 GppProgramProvider._ConstraintKeys.KEY: data[GppProgramProvider._ConstraintKeys.KEY],
@@ -1112,7 +1119,8 @@ class GppProgramProvider(ProgramProvider):
                 belongs_to=program_id,
                 too_type=too_type,
                 preimaging=preimaging,
-                band=band
+                band=band,
+                calibration_role=calibration_role
             )
 
         except KeyError as ex:
@@ -1143,6 +1151,7 @@ class GppProgramProvider(ProgramProvider):
             # parent_id = UniqueGroupID(ROOT_GROUP_ID.id)
             parent_index = 0
             child_active=active
+            system_group=False
         else:
             group_name = data[GppProgramProvider._GroupKeys.GROUP_NAME]
             group_delay_min = data.get(GppProgramProvider._GroupKeys.DELAY_MIN)
@@ -1164,6 +1173,9 @@ class GppProgramProvider(ProgramProvider):
             ordered = data[GppProgramProvider._GroupKeys.ORDERED]
             # print(f"parse_group {group_id}: num_to_observe {number_to_observe}, ordered: {ordered}")
 
+            # Special system group?
+            system_group = data[GppProgramProvider._GroupKeys.SYSTEM]
+
             # Currently if delay_min is not None, delay_max will be at least delay_min
             # OR group, delays are None, number_to_observe not None, set to NONE
             # AND cadence - delays not None, number_to_observe None, ordered should be forced to True
@@ -1173,9 +1185,7 @@ class GppProgramProvider(ProgramProvider):
                 # ordered = True
                 number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
             # The baseline calibrations group is like a folder, treat as OR group to avoid giving it a score
-            # ToDo: We need to be able to distinguish the the automatic calibrations group from any group that
-            #  someone names "Calibrations", we probably need to store the calibration_role.
-            elif group_name == 'Calibrations':
+            elif group_name == 'Calibrations' and system_group:
                 group_option = AndOption.NONE
                 # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
                 # print(f"Calibrations to observe {number_to_observe}")
@@ -1224,14 +1234,11 @@ class GppProgramProvider(ProgramProvider):
                 obs = self.parse_observation(element['observation'], program_id=program_id, num=(0, 0),
                                              split=split, split_by_iterator=split_by_iterator)
                 if obs is not None:
-                    # Ignore Twilight observations for now
-                    # ToDo: identify twilight w/o just parsing the title (maybe use title with another param)
+                    # Ignore Twilight observations for now, no sequences
                     # ToDo: extend timeline to include twilights
-                    if obs.title != 'Twilight':
+                    if obs.calibration_role != CalibrationRole.TWILIGHT:
                         observations.append(obs)
                         obs_parent_indices.append(elem_parent_index)
-                    # else:
-                    #     number_to_observe -= 1
             elif element['group']:
                 subgroup_id = GroupID(element['group']['id'])
                 subgroup = self.parse_group(element['group'], program_id, subgroup_id, split=split,
@@ -1257,7 +1264,9 @@ class GppProgramProvider(ProgramProvider):
                 delay_max=ZeroTime,
                 active=child_active,
                 children=obs,
-                group_option=AndOption.CONSEC_ORDERED)
+                group_option=AndOption.CONSEC_ORDERED,
+                calibration_role=obs.calibration_role,
+                system_group=system_group)
             for idx_obs, obs in enumerate(observations)]
         children.extend(trivial_groups)
         # [children.insert(0, child) for child in trivial_groups]
@@ -1297,7 +1306,9 @@ class GppProgramProvider(ProgramProvider):
             delay_max=delay_max,
             active=active,
             children=list(children) if group_id == ROOT_GROUP_ID else list(reversed(children)),  # to get the order correct
-            group_option=group_option)
+            group_option=group_option,
+            calibration_role=None,
+            system_group=system_group)
 
     def parse_time_allocation(self, data: dict, band: Band = None) -> TimeAllocation:
         """Time allocations by category and band"""

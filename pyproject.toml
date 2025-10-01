@@ -1,6 +1,6 @@
 [project]
 name = "scheduler"
-version = "0.1.0"
+version = "0.1.1"
 description = "Add your description here"
 readme = 'README.md'
 authors = [{ name = "NOIRLab" }]
@@ -11,7 +11,7 @@ dependencies = [
     "coverage>=7.10.3",
     "fastapi>=0.116.1",
     "gelidum>=0.5.9",
-    "gpp-client>=25.8.1",
+    "gpp-client>=25.9.0",
     "hypothesis>=6.137.1",
     "lucupy>=0.2.4",
     "matplotlib>=3.10.5",
