@@ -157,6 +157,7 @@ class ChangeMonitor(SchedulerComponent):
                                     f'timeslot {event_timeslot}.')
                 return TimeCoordinateRecord(event=event,
                                             timeslot_idx=last_timeslot_for_night,
+                                            perform_time_accounting=self.is_site_unblocked(site),
                                             done=True)
 
             case WeatherChangeEvent(variant_change=variant_change):
@@ -164,11 +165,15 @@ class ChangeMonitor(SchedulerComponent):
                 self.selector.update_site_variant(site, variant_change)
 
                 # If the site is blocked, we have no reason to recalculate a plan until all blocking events
-                # are unblocked.
+                # are unblocked.  Also, perform no time accounting.
                 if plans is None:
                     if self.is_site_blocked(site):
                         return None
                     raise ValueError(f'No plans have been created for night {night_idx}.')
+                elif self.is_site_blocked(site):
+                    return TimeCoordinateRecord(event=event,
+                                                perform_time_accounting=False,
+                                                timeslot_idx=event_timeslot)
 
                 # Check if there is a visit running now.
                 plan = plans[site]
@@ -236,11 +241,15 @@ class ChangeMonitor(SchedulerComponent):
                 too.status = ObservationStatus.READY
 
                 # If the site is blocked, we have no reason to recalculate a plan until all blocking events
-                # are unblocked.
+                # are unblocked.  Also, do not run time accounting.
                 if plans is None:
                     if self.is_site_blocked(site):
                         return None
                     raise ValueError(f'No plans have been created for night {night_idx}.')
+                elif self.is_site_blocked(site):
+                    return TimeCoordinateRecord(event=event,
+                                                perform_time_accounting=False,
+                                                timeslot_idx=event_timeslot)
 
                 # Check if there is a visit running now.
                 plan = plans[site]
@@ -274,8 +283,10 @@ class ChangeMonitor(SchedulerComponent):
                                             timeslot_idx=TimeslotIndex(event_timeslot + 1))
 
             case InterruptionEvent():
+                current_unblocked_status = self.is_site_unblocked(site)
                 self._process_blocking_event(cast(InterruptionEvent, event))
                 return TimeCoordinateRecord(event=event,
+                                            perform_time_accounting=current_unblocked_status,
                                             timeslot_idx=event_timeslot)
 
             case InterruptionResolutionEvent():
