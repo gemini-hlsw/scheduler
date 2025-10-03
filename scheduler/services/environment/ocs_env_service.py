@@ -36,6 +36,8 @@ class OcsEnvService(ExternalService):
     _iq_col_initial: Final[str] = 'IQ'
     _wv_col_initial: Final[str] = 'WV'
 
+    _MINIMUM_MINUTES_BETWEEN_VARIANTS: Final[int] = 20
+
     def __init__(self, sites: FrozenSet[Site] = ALL_SITES):
         """
         Read in the pickled pandas data from the data files.
@@ -96,7 +98,24 @@ class OcsEnvService(ExternalService):
         # Get all the entries for the given night date.
         filtered_df = df[df[OcsEnvService._night_time_stamp_col].dt.date == night_date]
         variant_list = filtered_df.apply(OcsEnvService._convert_to_variant, axis=1).values.tolist()
-        return {dt: v for dt, v in variant_list}
+
+        # If there are 0 or 1 entries, just return them.
+        if (len(variant_list) < 2):
+            return {dt: v for dt, v in variant_list}
+
+
+        # If there are 2 or more variants, filter out the ones that are too close together
+        # Make sure the list is sorted by time
+        variant_list.sort(key=lambda x: x[0])
+        variant_dict = {}
+        last_variant = variant_list[0]
+        variant_dict[last_variant[0]] = last_variant[1]
+        for dt, v in variant_list[1:]:
+            if (dt - last_variant[0]).total_seconds() / 60.0 > self._MINIMUM_MINUTES_BETWEEN_VARIANTS:
+                variant_dict[dt] = v
+                last_variant = (dt, v)
+
+        return variant_dict
 
     def get_initial_conditions(self,
                                site: Site,

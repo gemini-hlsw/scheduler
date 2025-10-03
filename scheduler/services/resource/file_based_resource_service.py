@@ -45,6 +45,9 @@ class FileBasedResourceService(ResourceService):
     _NOT_AVAILABLE: Final[str] = 'NOT AVAILABLE'
     _CALIBRATION: Final[str] = 'CALIBRATION'
 
+    # Minimum duration
+    _MINIMUM_LOSS_DURATION: Final[timedelta] = timedelta(minutes=20)
+
     def _load_fpu_to_barcodes(self, site: Site,
                               filename: str) -> None:
         """
@@ -518,6 +521,13 @@ class FileBasedResourceService(ResourceService):
                     if end_datetime < start_datetime:
                         raise RuntimeError(f'Problem parsing date information for {path.name}: L{line_num}, {line} ')
 
+                    if constructor == Fault or constructor == WeatherClosure:
+                        # If this is a fault, check if durations is greater than 20 min.
+                        duration = end_datetime - start_datetime
+                        if duration < self._MINIMUM_LOSS_DURATION:
+                            logger.debug(f'Fault too short: {line}')
+                            continue
+
                     entry = constructor(site=site,
                                         start_time=start_datetime,
                                         end_time=end_datetime,
@@ -554,6 +564,10 @@ class FileBasedResourceService(ResourceService):
                     local_datetime = datetime.strptime(local_datetime_str, '%Y-%m-%d %H:%M:%S')
                     local_datetime = local_datetime.replace(tzinfo=site.timezone)
                     duration = timedelta(hours=float(duration_str))
+
+                    if duration < self._MINIMUM_LOSS_DURATION:
+                        logger.debug(f'Fault duration shorter than 20 minutes {name}@{line_num + 1}: "{line}"')
+                        continue
 
                     # Determine the night of the fault report from the local datetime.
                     # If it is before noon, it belongs to the previous night.
