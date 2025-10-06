@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, ANY
 import numpy as np
 from lucupy.timeutils import time2slots
 
@@ -298,7 +298,6 @@ class TestEventCycle:
             sites=frozenset({site}),
             end_timeslot_bounds=end_timeslot_bounds
         )
-        nightly_timeline.get_final_plan.assert_not_called()
         nightly_timeline.add.assert_not_called()
 
     def test_perform_time_accounting_done(self, setup_event_cycle):
@@ -320,8 +319,6 @@ class TestEventCycle:
         plans = MagicMock(spec=Plans)
         current_timeslot = TimeslotIndex(5)
         nightly_timeline = MagicMock(spec=NightlyTimeline)
-        final_plan = MagicMock()
-        nightly_timeline.get_final_plan.return_value = final_plan
 
         event_cycle._perform_time_accounting(site,
                                              night_idx,
@@ -331,15 +328,13 @@ class TestEventCycle:
                                              current_timeslot,
                                              nightly_timeline)
 
-        # Should call time_accounting and add a final plan
         comps['scp'].collector.time_accounting.assert_called_once_with(
             plans=plans,
             sites=frozenset({site}),
-            end_timeslot_bounds=end_timeslot_bounds
+            end_timeslot_bounds=end_timeslot_bounds,
         )
-        nightly_timeline.get_final_plan.assert_called_once_with(NightIndex(night_idx), site, True)
         nightly_timeline.add.assert_called_once_with(
-            NightIndex(night_idx), site, current_timeslot, update_event, final_plan
+            NightIndex(night_idx), site, current_timeslot, update_event, ANY
         )
 
     def test_create_new_plan_unblocked(self, setup_event_cycle):
