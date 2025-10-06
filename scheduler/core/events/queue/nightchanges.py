@@ -155,10 +155,11 @@ class NightlyTimeline:
         for entry in self.timeline[night_idx][site]:
             event = entry.event
             if isinstance(event, MorningTwilightEvent):
-                unschedule = entry.plan_generated.time_left() - weather - fault
-                #  if unschedule < 0:
-                #    raise ValueError(f'Unscheduled time is negative!')
-                self.time_losses[night_idx][site]["unschedule"] = unschedule
+                if entry.plan_generated is not None:
+                    unschedule = entry.plan_generated.time_left() - weather - fault
+                    #  if unschedule < 0:
+                    #    raise ValueError(f'Unscheduled time is negative!')
+                    self.time_losses[night_idx][site]["unschedule"] = unschedule
 
         self.time_losses[night_idx][site]["weather"] = weather
         self.time_losses[night_idx][site]["fault"] = fault

@@ -68,20 +68,6 @@ class EventCycle:
             end_timeslot_bounds=end_timeslot_bounds
         )
 
-        if update.done:
-            # For morning twilight, add final plan showing all observations
-            _logger.debug('Night done. Wrapping up final plan')
-            final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx),
-                                                        site,
-                                                        self.change_monitor.is_site_unblocked(site))
-            nightly_timeline.add(
-                NightIndex(night_idx),
-                site,
-                current_timeslot,
-                update.event,
-                final_plan
-            )
-
     def _create_new_plan(self,
                          site: Site,
                          night_idx: NightIndex,
@@ -240,8 +226,22 @@ class EventCycle:
                     nightly_timeline
                 )
 
-            # Get a new selection and request a new plan if the night is not done
-            if not update.done:
+            # If the night is done, get a final plan and add it to the timeline.
+            # Otherwise, get a new selection and request a new plan
+            if update.done:
+                _logger.debug('Night done. Wrapping up final plan')
+                final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx),
+                                                             site,
+                                                             self.change_monitor.is_site_unblocked(site))
+                nightly_timeline.add(
+                    NightIndex(night_idx),
+                    site,
+                    current_timeslot,
+                    update.event,
+                    final_plan
+                )
+                
+            else:
                 plans = self._create_new_plan(
                     site,
                     night_idx,
