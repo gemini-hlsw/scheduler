@@ -24,8 +24,6 @@ from scheduler.core.sources.sources import Sources
 from scheduler.services.redis_client import redis_client
 from scheduler.services.visibility.calculator import VisibilityCalculator
 
-from pympler import asizeof
-
 
 async def calculate_and_save():
     start = Time("2018-08-01 08:00:00", format='iso', scale='utc')
@@ -64,6 +62,8 @@ async def calculate_and_save():
     collector = Collector(
         start_vis_time=start,
         end_vis_time=end,
+        night_start_time=None,
+        night_end_time=None,
         num_of_nights=1,
         sites=sites,
         semesters=semesters,
@@ -174,7 +174,6 @@ async def calculate_and_save():
 
     main_key = f"{sem}-{collector.time_slot_length.to_value('min')}min"
     print('Setting key: ', main_key)
-    print('Size of payload: ', asizeof.asizeof(vis_table))
     await redis_client.set_whole_dict(main_key, vis_table)
 
     # main_key = f"2018b1.0min"
