@@ -649,7 +649,7 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "25.8.3"
+version = "25.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -661,9 +661,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/24/c2/56e461d26bf67749d62abef19bd37d0d89f7ddd10bb6a662ac36479e0ff2/gpp_client-25.8.3.tar.gz", hash = "sha256:5591dfe994312c7fb3c0985b14af67c14c3c398dcea1fc07298c510a70933a2e", size = 100881, upload-time = "2025-09-19T21:08:43.59Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dd/4a/d3389b690e3afeffc731c6631f099295bd186053c87a9760058a0077bcb9/gpp_client-25.9.0.tar.gz", hash = "sha256:3d7d7e8cbecdb13e99bfa12d46d35bfa5c4eaaf642bd2abd07b46199b637d25e", size = 102718, upload-time = "2025-09-30T17:14:23.642Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e6/96/87d8f5198e371ba5df974807074f1ab8ad67746cc89255eb4b5e6abc2e47/gpp_client-25.8.3-py3-none-any.whl", hash = "sha256:5dff0d3ff7747f08cbbeddac8532e4201f098e6a35b3b0cb43b16baadeccfcbb", size = 123497, upload-time = "2025-09-19T21:08:42.368Z" },
+    { url = "https://files.pythonhosted.org/packages/97/c0/41a749410361ac296693bdc6f8857c761c4e091c0c124406e86161d1b999/gpp_client-25.9.0-py3-none-any.whl", hash = "sha256:d4522fc041408f3eca23d9821dd717101c05a62c8f4802058ec1fa32d116ff91", size = 126717, upload-time = "2025-09-30T17:14:22.228Z" },
 ]
 
 [[package]]
@@ -913,15 +913,15 @@ wheels = [
 
 [[package]]
 name = "lucupy"
-version = "0.2.7"
+version = "0.2.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "gelidum" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c1/1a/70700c001efc2a92f80419efa73e0996234b3297225f85feedaec06953ba/lucupy-0.2.7.tar.gz", hash = "sha256:0589533ccf9b6c5a3d1ab9073d70c2adf7907a1259b79811cb628949f5bb7670", size = 47670, upload-time = "2025-09-16T18:39:05.664Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/51/6d/138719e7ac2f0b5f9e57d7e502af42ecdfcfa80a3903f38c540cf5183b21/lucupy-0.2.8.tar.gz", hash = "sha256:242e45bcadbbf5db91d030523c76c49dd0023d6333bcc2b28359dc0a1fbf35a0", size = 47783, upload-time = "2025-10-03T20:32:45.771Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9b/6d/1d6a31e414a05aa51806f58c9fdefa503c4728d4b4a373c6003c0670f05e/lucupy-0.2.7-py3-none-any.whl", hash = "sha256:6329c47fb839681696bd12f2939c8b4b9bc762bf30b461e4e14191ef921337f8", size = 69562, upload-time = "2025-09-16T18:39:04.142Z" },
+    { url = "https://files.pythonhosted.org/packages/81/f0/acd3d2e26753bf11c0661d1e8d72c1b14663988fc9cef5e38d34d385d6a8/lucupy-0.2.8-py3-none-any.whl", hash = "sha256:537c747a5ea300d53e1df033fc391119d03dc7d7976208ca20c985da32f83b2e", size = 69695, upload-time = "2025-10-03T20:32:44.426Z" },
 ]
 
 [[package]]
@@ -1957,7 +1957,7 @@ wheels = [
 
 [[package]]
 name = "scheduler"
-version = "0.1.0"
+version = "0.1.1"
 source = { virtual = "." }
 dependencies = [
     { name = "astropy" },
@@ -2006,9 +2006,9 @@ requires-dist = [
     { name = "coverage", specifier = ">=7.10.3" },
     { name = "fastapi", specifier = ">=0.116.1" },
     { name = "gelidum", specifier = ">=0.5.9" },
-    { name = "gpp-client", specifier = ">=25.8.1" },
+    { name = "gpp-client", specifier = ">=25.9.0" },
     { name = "hypothesis", specifier = ">=6.137.1" },
-    { name = "lucupy", specifier = ">=0.2.4" },
+    { name = "lucupy", specifier = ">=0.2.8" },
     { name = "matplotlib", specifier = ">=3.10.5" },
     { name = "more-itertools", specifier = ">=10.7.0" },
     { name = "numpy", specifier = ">=2.3.2" },
