@@ -12,7 +12,7 @@ The Scheduler is an automated tool for the Gemini Observatory, designed to gener
 ## Features
 
 - Automated scheduling of observations
-- GraphQL API for integration with Gemini Program Platform 
+- GraphQL API for integration with Gemini Program Platform
 - Jupyter notebooks for interactive exploration
 - Docker support for easy deployment
 
@@ -25,87 +25,113 @@ Before running the scheduler, set the following environment variables:
 - `APP_VERSION`: Application version (e.g., `dev`).
 
 Example:
+
 ```shell
 export PYTHONPATH=$PYTHONPATH:/path/to/scheduler
 export REDISCLOUD_URL=redis://<USER>:<PASSWORD>@redisserver.ec2.cloud.redislabs.com:12345
 export APP_VERSION=dev
-``` 
+```
 
-## Installation
+# Installation
 
-### Local Development
+## Local Development
 
-#### Clone the Repository and Create a Feature Branch
+### Set up a virtual environment
+
+Using `uv`:
+
+```shell
+# Install uv if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Create virtual environment and install dependencies
+uv sync
+```
+
+### Run the Scheduler
+
+#### As a service:
+
+```shell
+uv run python scheduler/main.py
+```
+
+After the scheduler service is started, it will instantiate a web server in the port 8000 by default. The service is meant to be used through the web UI https://github.com/gemini-hlsw/schedule
+
+#### Standalone script:
+
+The standalone script should be able to run a single plan request directly in the terminal and print the output
+
+```shell
+uv run python scheduler/scripts/run.py
+```
+
+### Contribute to the repository code
 
 > **Note:**  
 > To ensure GitHub Actions secrets (such as `REDISCLOUD_URL`) are available for testing and CI, all contributions should be made from branches within the main repository, **not from forks**.
 
 1. **Clone the main repository:**
+
    ```shell
    git clone https://github.com/gemini-hlsw/scheduler.git
    cd scheduler
    ```
 
 2. **Create a new feature branch:**
+
    ```shell
    git checkout -b your-feature-branch
    ```
 
 3. **Work on your changes and commit as usual.**
 
-4. **Rebase your branch with the latest main branch before pushing:**
+4. **Sync dependencies**
+   Make sure you packages are updated
+
+   ```shell
+   uv sync
+   ```
+
+   Commit uv.lock file changes
+
+5. **Rebase your branch with the latest main branch before pushing:**
+
    ```shell
    git fetch origin
    git rebase origin/main
    ```
 
-5. **Push your branch to the main repository:**
+6. **Push your branch to the main repository:**
+
    ```shell
    git push origin your-feature-branch
    ```
 
-6. **Open a Pull Request** from your feature branch to `main` in the [main repository](https://github.com/gemini-hlsw/scheduler).
+7. **Open a Pull Request** from your feature branch to `main` in the [main repository](https://github.com/gemini-hlsw/scheduler).
 
 > **Do not use the GitHub fork workflow.**  
 > Opening pull requests from forks will not have access to required repository secrets, and CI/CD workflows may fail.
 
-#### Set up a virtual environment
-
-Using `uv`:
-```shell
-# Install uv if you haven't already
-curl -LsSf https://astral.sh/uv/install.sh | sh
-# Create virtual environment and install dependencies
-uv sync
-
-#### Run the Scheduler
-
-Standalone script:
-```shell
-uv run python scheduler/main.py
-```
-
-As a service:
-```shell
-uv run python scheduler/main.py
-``` 
-
 ### Docker
 
 Build and run the container:
+
 ```shell
 docker build -t scheduler .
 docker run -dp 8000:8000 scheduler
 ```
+
 Access the GraphQL console at [http://localhost:8000/graphql](http://localhost:8000/graphql).
 
 ## Updating & Troubleshooting
 
 To update your local repository and dependencies:
+
 ```shell
 git pull
 pip install -U lucupy
 ```
+
 If you encounter issues, ensure you have the latest version of `lucupy` and all dependencies.
 
 ## Support
