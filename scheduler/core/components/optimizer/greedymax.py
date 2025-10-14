@@ -1054,12 +1054,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
         n_std_placed = 0
 
         if self.verbose:
-            print(f"Greedymax.add group {max_group_info.group_data.group.unique_id.id}")
-            print(f"\tTimeline slots remaining = {timeline.slots_unscheduled()}")
-            print(f"\tnumber to observe={max_group_info.group_data.group.number_to_observe}, "
+            print(f"Greedymax.add group {max_group_info.group_data.group.unique_id.id} "
+                  f"with max score{max_group_info.max_score:8.4f}")
+            print(f"\tTimeline slots remaining = {timeline.slots_unscheduled()}, "
+                  f"n_slots_remaining = {max_group_info.n_slots_remaining}")
+            print(f"\tNumber to observe={max_group_info.group_data.group.number_to_observe}, "
                   f"number observed = {max_group_info.group_data.group.number_observed}, "
                   f"n_std = {max_group_info.n_std}")
-        # print(f"Interval start end: {max_group_info.interval[0]} {max_group_info.interval[-1]}")
+            print(f"\tInterval start end: {max_group_info.interval[0]} {max_group_info.interval[-1]}")
 
         if not timeline.is_full:
             # Find the best location in timeline for the group
@@ -1087,8 +1089,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
             #       f'nir_sci:{max_group_info.exec_sci_nir}')
             # print(f'{max_group_info.group_data.group.required_resources()}')
             # [print(wav) for wav in max_group_info.group_data.group.wavelengths()]
-            # print('Program observations')
-            # [print(f'\t {obs.unique_id.id}') for obs in prog_obs]
+            print('Program observations')
+            [print(f'\t {obs.unique_id.id}') for obs in prog_obs]
             # print('Partner observations')
             # [print(f'\t {obs.unique_id.id}') for obs in part_obs]
             if max_group_info.n_std > 0:
