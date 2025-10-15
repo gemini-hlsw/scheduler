@@ -69,7 +69,7 @@ class ValidationBuilder(SchedulerBuilder):
                 o.status = ObservationStatus.READY
 
             if o.too_type is not None:
-                if o.too_type is TooType.RAPID:
+                if o.too_type in [TooType.RAPID, TooType.STANDARD]:
                     o.status = ObservationStatus.ON_HOLD
 
     @staticmethod

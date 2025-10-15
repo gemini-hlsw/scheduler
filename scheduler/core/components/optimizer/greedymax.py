@@ -1054,12 +1054,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
         n_std_placed = 0
 
         if self.verbose:
-            print(f"Greedymax.add group {max_group_info.group_data.group.unique_id.id}")
-            print(f"\tTimeline slots remaining = {timeline.slots_unscheduled()}")
-            print(f"\tnumber to observe={max_group_info.group_data.group.number_to_observe}, "
+            print(f"Greedymax.add group {max_group_info.group_data.group.unique_id.id} "
+                  f"with max score{max_group_info.max_score:8.4f}")
+            print(f"\tTimeline slots remaining = {timeline.slots_unscheduled()}, "
+                  f"n_slots_remaining = {max_group_info.n_slots_remaining}")
+            print(f"\tNumber to observe={max_group_info.group_data.group.number_to_observe}, "
                   f"number observed = {max_group_info.group_data.group.number_observed}, "
                   f"n_std = {max_group_info.n_std}")
-        # print(f"Interval start end: {max_group_info.interval[0]} {max_group_info.interval[-1]}")
+            print(f"\tInterval start end: {max_group_info.interval[0]} {max_group_info.interval[-1]}")
 
         if not timeline.is_full:
             # Find the best location in timeline for the group
