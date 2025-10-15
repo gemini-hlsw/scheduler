@@ -1089,8 +1089,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
             #       f'nir_sci:{max_group_info.exec_sci_nir}')
             # print(f'{max_group_info.group_data.group.required_resources()}')
             # [print(wav) for wav in max_group_info.group_data.group.wavelengths()]
-            print('Program observations')
-            [print(f'\t {obs.unique_id.id}') for obs in prog_obs]
+            # print('Program observations')
+            # [print(f'\t {obs.unique_id.id}') for obs in prog_obs]
             # print('Partner observations')
             # [print(f'\t {obs.unique_id.id}') for obs in part_obs]
             if max_group_info.n_std > 0:
