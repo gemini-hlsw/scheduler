@@ -110,15 +110,18 @@ class StatCalculator:
         plans_summary: Summary = {}
         for p_id in metrics_per_program:
             program = collector.get_program(p_id)
-            completion = StatCalculator.calculate_program_completion(program)
-            program_cplt = program.total_used() / program.total_awarded()
-
-            metric, _ = ranker.metric_slope(np.array([program_cplt]),
-                                            np.array([obs.band.value]),
+            completion_bands = StatCalculator.calculate_program_completion_band(program)
+            completion_str = StatCalculator.calculate_program_completion(program)
+            metric_total = 0.0
+            for band in completion_bands.keys():
+                metric, _ = ranker.metric_slope(np.array([completion_bands[band]]),
+                                            np.array([band.value]),
                                             np.array([0.8]),
                                             program.thesis)
-            metrics_per_band[obs.band.name] += metric[0]
-            plans_summary[p_id.id] = (completion, metric[0])
+                metrics_per_band[band.name] += metric[0]
+                # For now sum all the metrics
+                metric_total += metric[0]
+            plans_summary[p_id.id] = (completion_str, metric_total)
 
         return RunSummary(plans_summary, metrics_per_band)
 
@@ -128,3 +131,15 @@ class StatCalculator:
         total_used = program.program_used()
         prog_total = program.program_awarded()
         return f'{float((total_used.total_seconds()) / prog_total.total_seconds()) * 100:.1f}%'
+
+    @staticmethod
+    def calculate_program_completion_band(program: Program) -> str:
+        """Completion by band"""
+
+        completion = {}
+        for band in program.bands():
+            total_used = program.program_used(band=band)
+            prog_total = program.program_awarded(band=band)
+            completion[band] = total_used.total_seconds() / prog_total.total_seconds()
+
+        return completion

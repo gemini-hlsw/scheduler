@@ -8,6 +8,7 @@ import astropy.units as u
 import numpy as np
 
 from astropy.time import Time, TimeDelta
+from joblib import Parallel, delayed
 
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
@@ -28,8 +29,8 @@ from scheduler.services import logger_factory
 from scheduler.services.redis_client import RedisClient
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
-from scheduler.services.visibility.calculator import calculate_target_snapshot, visibility_calculator
-from scheduler.services.visibility.calculator import VisibilityCalculator, VisibilitySnapshot
+from scheduler.services.visibility.calculator import visibility_calculator
+from scheduler.services.visibility.calculator import VisibilitySnapshot, program_obs_vis, get_cores
 
 __all__ = [
     'Collector',
@@ -246,81 +247,6 @@ class Collector(SchedulerComponent):
         target_name = target.name
         return Collector._target_info.get((target_name, obs_id), None)
 
-    @staticmethod
-    def _process_timing_windows(prog: Program, obs: Observation) -> List[Time]:
-        """
-        Given an Observation, convert the TimingWindow information in it to a simpler format
-        to verify by converting each TimingWindow representation to a collection of Time frames
-        based on the start, duration, repeat, and period.
-
-        If no timing windows are given, then create one large timing window for the entire program.
-
-        TODO: Look into simplifying to datetime instead of AstroPy Time.
-        TODO: We may want to store this information in an Observation for future use.
-        """
-        if not obs.constraints or len(obs.constraints.timing_windows) == 0:
-            # Create a timing window for the entirety of the program.
-            windows = [Time([prog.start, prog.end])]
-        else:
-            windows = []
-            for tw in obs.constraints.timing_windows:
-                # The start time is now already an astropy Time
-                begin = tw.start
-                duration = tw.duration.total_seconds() / 3600.0 * u.h
-                repeat = max(1, tw.repeat)
-                period = tw.period.total_seconds() / 3600.0 * u.h if tw.period is not None else 0.0 * u.h
-                windows.extend([Time([begin + i * period, begin + i * period + duration]) for i in range(repeat)])
-
-        return windows
-
-    def _calculate_target_info(self,
-                               obs: Observation,
-                               target: Target,
-                               tv: Dict[str, VisibilitySnapshot] = None) -> TargetInfoNightIndexMap:
-        """
-        For a given site, calculate the information for a target for all the nights in
-        the time grid and store this in the _target_information.
-
-        Some of this information may be repetitive as, e.g. the RA and dec of a target should not
-        depend on the site, so sites whose twilights overlap with have this information repeated.
-
-        Finally, this method can calculate the total amount of time that, for the observation,
-        the target is visible, and the visibility fraction for the target as a ratio of the amount of
-        time remaining for the observation to the total visibility time for the target from a night through
-        to the end of the period.
-        """
-        # Get the night events.
-        if obs.site not in self.night_events:
-            raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
-        night_events = self.night_events[obs.site]
-
-        target_vis = visibility_calculator.get_target_visibility(obs, self.time_grid, self.semesters, tv)
-
-        target_info: TargetInfoNightIndexMap = {}
-
-        for i in range(self.num_nights_calculated):
-            night_idx = NightIndex(i)
-            target_snapshot = calculate_target_snapshot(night_idx,
-                                                        obs,
-                                                        target,
-                                                        night_events,
-                                                        self.time_grid[night_idx],
-                                                        self.time_slot_length,
-                                                        for_vis_calc= False)
-            ts = target_vis[night_idx]
-
-            ti = TargetInfo(coord=target_snapshot.coord,
-                            alt=target_snapshot.alt,
-                            az=target_snapshot.az,
-                            hourangle=target_snapshot.hourangle,
-                            airmass=target_snapshot.airmass,
-                            visibility_slot_idx=ts.visibility_slot_idx,
-                            rem_visibility_frac=ts.rem_visibility_frac)
-
-            target_info[NightIndex(night_idx)] = ti
-        # Return all the target info for the base target in the Observation across the nights of interest.
-        return target_info
-
     def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         """
         Load the programs provided as JSON or GPP disctionaries into the Collector.
@@ -349,6 +275,11 @@ class Collector(SchedulerComponent):
         # Read in the programs.
         # Count the number of parse failures.
         bad_program_count = 0
+
+        # Night configurations
+        nc = {}
+        for site in self.sites:
+            nc[site] = self.night_configurations(site, np.arange(self.num_nights_calculated))
 
         for next_program in data:
             try:
@@ -408,53 +339,40 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             _logger.error(f'Could not parse {bad_program_count} programs.')
 
-        # TODO STEP 1: This is the code that needs parallelization.
         if not self.with_redis:
             vis_table = {}
 
+        sem, = self.semesters
+        # Get information about CPU cores, to avoid overloading
+        core_info = get_cores()
+        if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
+            n_jobs = core_info['performance']
+        else:
+            n_jobs = core_info['cores']
+
+        parallel = Parallel(n_jobs=n_jobs, backend='loky')
+        result = parallel(delayed(program_obs_vis)(program_id, obs, Collector.get_program(program_id), self.time_grid, self.time_slot_length,
+                                                   self.semesters, nc, self.night_events,
+                                                   None if visibility_calculator.vis_table is None else VisibilitySnapshot.from_dict_days(visibility_calculator.vis_table.get_obs(sem, obs.id)))
+                          for program_id, obs in parsed_observations)
+        targ_info, base_targets, vis_tables = zip(*result)
+
+        ii = 0
         for program_id, obs in parsed_observations:
-            # Check for a base target in the observation: if there is none, we cannot process.
-            # For ToOs, this may be the case.
-            base: Optional[Target] = obs.base_target()
-            if base is None:
-                _logger.error(f'Could not find base target for {obs.id.id}.')
-                continue
-
-            program = Collector.get_program(program_id)
-            if program is None:
-                raise RuntimeError(f'Could not find program {program_id.id} for observation {obs.id.id}.')
-
-            # Record the observation and target for this obs id.
-            Collector._observations[obs.id] = obs, base
-
-            # Compute the timing window expansion for the observation.
-            # Then, calculate the target information, which performs the visibility calculations.
+            # Read target information
+            ti = targ_info[ii]
             if not self.with_redis:
-                tw = self._process_timing_windows(program, obs)
-                if obs.site not in self.night_events:
-                    raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
-                night_events = self.night_events[obs.site]
+                # Record the observation and target for this obs id.
+                vis_table[obs.id.id] = vis_tables[ii]
 
-                # Get the night configurations (for resources)
-                nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
-                vis_table[obs.id.id] = VisibilityCalculator.calculate_visibility(obs,
-                                                                                base,
-                                                                                program,
-                                                                                night_events,
-                                                                                nc,
-                                                                                self.time_grid,
-                                                                                tw,
-                                                                                self.time_slot_length)
-
-                ti = self._calculate_target_info(obs, base, vis_table[obs.id.id])
-            else:
-                ti = self._calculate_target_info(obs, base)
-            Collector._target_info[base.name, obs.id] = ti
+            Collector._observations[obs.id] = obs, base_targets[ii]
+            Collector._target_info[base_targets[ii].name, obs.id] = ti
+            ii += 1
 
         if not self.with_redis:
             sem, = self.semesters
             visibility_calculator.vis_table = {sem: RedisClient.transform_to_json(vis_table)}
-        
+
         _logger.info(f'Collected {len(Collector._observations)} observations: {[ o.id for o in Collector._observations.keys()]}.')
 
         

@@ -1054,12 +1054,12 @@ class OcsProgramProvider(ProgramProvider):
 
         try:
             active = data[OcsProgramProvider._ObsKeys.PHASE2] != 'Inactive'
-
             if not active:
                 logger.debug(f"Observation {obs_id} is inactive (skipping).")
                 return None
+
             obs_class = ObservationClass[data[OcsProgramProvider._ObsKeys.OBS_CLASS].upper()]
-            if obs_class not in self._obs_classes or not active:
+            if obs_class not in self._obs_classes:
                 logger.debug(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
                 return None
 
@@ -1100,8 +1100,6 @@ class OcsProgramProvider(ProgramProvider):
             # If splitting not allowed, then can't split by iterator, not splitting takes precedence
             if not split:
                 split_by_iterator = False
-
-            # print(f'\nparse_observation: {obs_id}')
 
             atoms = self.parse_atoms(site, data[OcsProgramProvider._ObsKeys.SEQUENCE], qa_states,
                                      split=split, split_by_iterator=split_by_iterator)
@@ -1440,6 +1438,7 @@ class OcsProgramProvider(ProgramProvider):
                                           split=split, split_by_iterator=split_by_iterator)
         if root_group is None:
             logger.debug(f'Program {program_id} has empty root group. Skipping.')
+            print(f'Program {program_id} has empty root group. Skipping.')
             return None
 
         # Extract the semester and program type, if it can be inferred from the filename.

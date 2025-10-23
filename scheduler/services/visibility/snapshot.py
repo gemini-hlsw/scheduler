@@ -6,6 +6,9 @@ from astropy.coordinates import SkyCoord, Angle
 from astropy.time import TimeDelta
 from typing import final
 
+from dask.dataframe import from_dict
+# from pandas.core.methods.to_dict import to_dict
+
 from lucupy.decorators import immutable
 from lucupy.minimodel import SkyBackground
 import itertools
@@ -51,6 +54,15 @@ class VisibilitySnapshot:
             }
         }
 
+    @staticmethod
+    def from_dict_days(ti_dict: Dict) -> Dict[str, 'VisibilitySnapshot']:
+        """Create a target visibility dictionary by looping over days"""
+        tv = None
+        if ti_dict is not None:
+            tv = {}
+            for day in ti_dict.keys():
+                tv[day] = from_dict(ti_dict[day])
+        return tv
 
 @final
 @immutable
