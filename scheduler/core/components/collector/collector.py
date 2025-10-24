@@ -8,7 +8,7 @@ import astropy.units as u
 import numpy as np
 
 from astropy.time import Time, TimeDelta
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, parallel_config
 
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
@@ -351,9 +351,11 @@ class Collector(SchedulerComponent):
             n_jobs = core_info['cores']
 
         parallel = Parallel(n_jobs=n_jobs, backend='loky')
-        result = parallel(delayed(program_obs_vis)(program_id, obs, Collector.get_program(program_id), self.time_grid, self.time_slot_length,
-                                                   self.semesters, nc, self.night_events,
-                                                   None if visibility_calculator.vis_table is None else VisibilitySnapshot.from_dict_days(visibility_calculator.vis_table.get_obs(sem, obs.id)))
+        # with parallel_config(backend="loky", inner_max_num_threads=1):
+        result = parallel(delayed(program_obs_vis)(program_id, obs, Collector.get_program(program_id), self.time_grid,
+                                                   self.time_slot_length, self.semesters, nc, self.night_events,
+                                                   None if visibility_calculator.vis_table is None else
+                                                   VisibilitySnapshot.from_dict_days(visibility_calculator.vis_table.get_obs(sem, obs.id)))
                           for program_id, obs in parsed_observations)
         targ_info, base_targets, vis_tables = zip(*result)
 
@@ -376,9 +378,9 @@ class Collector(SchedulerComponent):
         _logger.info(f'Collected {len(Collector._observations)} observations: {[ o.id for o in Collector._observations.keys()]}.')
 
         
-    def load_target_info_for_too(self, obs: Observation, target: Target) -> None:
-        ti = self._calculate_target_info(obs, target)
-        Collector._target_info[target.name, obs.id] = ti
+    # def load_target_info_for_too(self, obs: Observation, target: Target) -> None:
+    #     ti = self._calculate_target_info(obs, target)
+    #     Collector._target_info[target.name, obs.id] = ti
 
     def night_configurations(self,
                              site: Site,

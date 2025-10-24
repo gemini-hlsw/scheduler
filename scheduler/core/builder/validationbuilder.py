@@ -4,6 +4,9 @@
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site, ObservationStatus, Observation, QAState, TooType
 from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable
+import os
+from glob import glob
+import tarfile
 
 from lucupy.types import ZeroTime
 
@@ -14,6 +17,8 @@ from scheduler.core.sources.sources import Sources
 from scheduler.core.programprovider.ocs import ocs_program_data, OcsProgramProvider
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.events.queue import EventQueue
+
+from definitions import ROOT_DIR
 
 
 __all__ = [
@@ -83,6 +88,28 @@ class ValidationBuilder(SchedulerBuilder):
             ValidationBuilder._obs_statuses_to_ready
         )
 
+    @staticmethod
+    def check_ephemerides():
+        """Check that the nonsidereal ephemerides files exist, Untar if needed"""
+
+        ephemeris_path = os.path.join(ROOT_DIR, 'scheduler', 'services' , 'horizons' , 'data')
+        ephemeris_tarfile = os.path.join(ephemeris_path, 'ephemerides.tar.bz2')
+        # print(ephemeris_tarfile)
+
+        if tarfile.is_tarfile(ephemeris_tarfile):
+            # with tarfile.open(ephemeris_tarfile) as f:
+            #     tarlist = f.getnames()
+            # Note there seem to be more members that are actually extracted
+
+            # Check for eph files
+            files = glob(os.path.join(ephemeris_path, '*.eph'))
+            # print(f'{len(tarlist)} tar members, {len(files)} eph found')
+            if len(files) < 10612:
+                # Untar if they aren't all there
+                # print(f'Untaring ephemerides')
+                with tarfile.open(ephemeris_tarfile) as f:
+                    f.extractall(path=ephemeris_path)
+
     def build_collector(self,
                         start: Time,
                         end: Time,
@@ -94,6 +121,7 @@ class ValidationBuilder(SchedulerBuilder):
                         night_end_time: Time | None = None,
                         program_list: Optional[bytes] = None) -> Collector:
 
+        ValidationBuilder.check_ephemerides()
         collector = super().build_collector(start,
                                             end,
                                             num_of_nights,
