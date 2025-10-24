@@ -97,14 +97,19 @@ class ValidationBuilder(SchedulerBuilder):
         # print(ephemeris_tarfile)
 
         if tarfile.is_tarfile(ephemeris_tarfile):
-            # with tarfile.open(ephemeris_tarfile) as f:
-            #     tarlist = f.getnames()
-            # Note there seem to be more members that are actually extracted
+            # Get number of members of tar file
+            with tarfile.open(ephemeris_tarfile) as f:
+                tarlist = f.getnames()
+            # Don't count hidden files
+            n_mem = 0
+            for name in tarlist:
+                if name[0] != '.':
+                    n_mem += 1
 
             # Check for eph files
             files = glob(os.path.join(ephemeris_path, '*.eph'))
-            # print(f'{len(tarlist)} tar members, {len(files)} eph found')
-            if len(files) < 10612:
+            # print(f'{n_mem} tar members, {len(files)} eph found')
+            if len(files) < n_mem:
                 # Untar if they aren't all there
                 # print(f'Untaring ephemerides')
                 with tarfile.open(ephemeris_tarfile) as f:
