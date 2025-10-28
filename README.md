@@ -32,6 +32,14 @@ export REDISCLOUD_URL=redis://<USER>:<PASSWORD>@redisserver.ec2.cloud.redislabs.
 export APP_VERSION=dev
 ```
 
+# Version 2
+
+Started a new branch `scheduler-v2` to start the architecture modification described in multiple documents
+
+- Scheduler Architecture Discussions: https://docs.google.com/document/d/1RVOLt3BhQaseInz3IVkhbFp73RgsSlVn5ZOrVZYMjG4/edit?tab=t.0
+- Scheduler Architecture: https://docs.google.com/document/d/1tGUwyI-6UyjHGs0rMl9ZwM2n79zlqnVoKp32hT2c1a8/edit?tab=t.0
+- Scheduler Refactor Diagram: https://app.diagrams.net/#G1wLwWCbrAcYPyLzg9cEM7-SAsbZjfmhzO
+
 # Installation
 
 ## Local Development
