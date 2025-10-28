@@ -9,6 +9,7 @@ requires-python = ">=3.11"
 dependencies = [
     "astropy>=7.1.0",
     "coverage>=7.10.3",
+    "dask>=2025.10.0",
     "fastapi>=0.116.1",
     "gelidum>=0.5.9",
     "gpp-client>=25.9.0",
@@ -21,6 +22,7 @@ dependencies = [
     "omegaconf>=2.3.0",
     "openpyxl>=3.1.5",
     "pandas>=2.3.1",
+    "psutil>=7.1.2",
     "pyarrow>=22.0.0",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
