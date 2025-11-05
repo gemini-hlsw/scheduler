@@ -1,24 +1,10 @@
-# Copyright (c) 2016-2025 Association of Universities for Research in Astronomy, Inc. (AURA)
-# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
 import asyncio
 
 from scheduler.night_monitor import EventSourceType
-from scheduler.night_monitor.event_handler import (
-    EventHandler, ResourceEventHandler, WeatherEventHandler,
-    ODBEventHandler
-)
 
-__all__ = ['EventConsumer']
 
 class EventConsumer:
-    """
-    Consumes the events retrieved by the Listener from the queue
-    so it can be handled by the corresponding Handler.
 
-    Args:
-        queue (asyncio.Queue): Queue to receive events from.
-    """
 
     def __init__(self, queue: asyncio.Queue):
         self.queue = queue
