@@ -1,3 +1,6 @@
+# Copyright (c) 2016-2025 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 import asyncio
 
 import pytest
@@ -9,7 +12,6 @@ from scheduler.night_monitor import EventConsumer, EventSourceType
 
 @pytest_asyncio.fixture
 def queue():
-    """Provides a fresh asyncio.Queue for each test."""
     return asyncio.Queue()
 
 
@@ -17,16 +19,14 @@ def queue():
 def event_consumer(queue):
     """
     Provides an EventConsumer instance.
-
-    This fixture patches the handler classes at their source, so when
-    EventConsumer() is called, it gets our mocks instead of real handlers.
+    Patches handlers so the real ones are not called.
     """
-    with patch('scheduler.night_monitor.event_consumer.ResourceEventHandler', new_callable=MagicMock) as mock_res_h, \
-            patch('scheduler.night_monitor.event_consumer.WeatherEventHandler', new_callable=MagicMock) as mock_wea_h, \
+    with patch('scheduler.night_monitor.event_consumer.ResourceEventHandler', new_callable=MagicMock) as mock_resource_h, \
+            patch('scheduler.night_monitor.event_consumer.WeatherEventHandler', new_callable=MagicMock) as mock_weather_h, \
             patch('scheduler.night_monitor.event_consumer.ODBEventHandler', new_callable=MagicMock) as mock_odb_h:
         # Configure the 'handle' method on the *mock instances* to be async
-        mock_res_h.return_value.handle = AsyncMock()
-        mock_wea_h.return_value.handle = AsyncMock()
+        mock_resource_h.return_value.handle = AsyncMock()
+        mock_weather_h.return_value.handle = AsyncMock()
         mock_odb_h.return_value.handle = AsyncMock()
 
         c = EventConsumer(queue)
@@ -36,7 +36,7 @@ def event_consumer(queue):
 async def test_match_source_unknown_raises_error(event_consumer):
     """Test that an unknown source raises a RuntimeError."""
     with pytest.raises(RuntimeError):
-        await event_consumer._match_source_to_handler("INVALID_SOURCE")
+        event_consumer._match_source_to_handler("INVALID_SOURCE")
 
 
 @pytest.mark.asyncio
