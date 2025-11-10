@@ -2,6 +2,30 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import ABC, abstractmethod
+from datetime import timedelta
+from typing import ClassVar
+
+from gpp_client.api.custom_fields import TargetEnvironmentFields
+from pydantic import BaseModel
+
+class MockObservation(BaseModel):
+    """
+    gpp client should have these base model
+    for now we used this until gpp client is hooked up
+    In this case the model is similar to the minimodel but NOT the same.
+    """
+    id: str
+    target_environment: TargetEnvironmentFields
+
+class MockObscalcUpdate(BaseModel):
+    """gpp client should have these base model
+     for now we used this until gpp client is hooked up """
+
+    editType: str
+    oldState: str
+    newState: str
+    observationId: str
+    value: MockObservation
 
 __all__ = [
     'EventHandler',
@@ -16,7 +40,7 @@ class EventHandler(ABC):
     def parse_event(self, raw_event: dict):
         pass
     @abstractmethod
-    def handle(self, event):
+    async def handle(self, event):
         pass
 
 
@@ -24,7 +48,7 @@ class ResourceEventHandler(EventHandler):
 
     def parse_event(self, raw_event: dict):
         pass
-    def handle(self, event):
+    async def handle(self, event):
         pass
 
 
@@ -33,11 +57,76 @@ class WeatherEventHandler(EventHandler):
     def parse_event(self, raw_event: dict):
         pass
 
-    def handle(self, event):
+    async def handle(self, event):
         pass
 
 class ODBEventHandler(EventHandler):
+
+    THRESHOLD: ClassVar[timedelta] = timedelta(minutes=10)
+
+    def _on_created(self, event: MockObscalcUpdate):
+        """
+        Handles the logic when an observation was created.
+        """
+        # If the observation is a ToO we trigger a new plan request
+        too = event.value.target_environment.first_science_target(include_deleted=False).opportunity()
+        if too is not None:
+            # Do a new schedule
+            pass
+        # Otherwise we discard the event ?
+
+    async def _on_deleted(self, event: MockObscalcUpdate):
+
+        # Retrieve last plan
+        last_plan = [] # plandb_client.get_last_plan()
+
+        if event.observationId in last_plan:
+            # TODO: If we keep the ObservationID wrapper this would require a modification
+            # Do a new schedule
+            pass
+
+    async def _on_update(self, event):
+
+        if event.new_state == 'READY':
+            # Calculations ended. lets retrieve the current sequence
+            obs_id = event.observationId
+            last_plan = [] # plandb_client.get_last_plan()
+            sequence = [] # gpp.client.get_sequence(obs_id)
+
+            last_visit = (last_plan.visits[-1])
+
+            if len(last_visit.sequence) != len(sequence):
+                print('Observation got modified from later plan, trigger a new schedule')
+
+            for old_atom, new_atom in zip(last_visit.sequence, sequence):
+                if old_atom.status != new_atom.status:
+                    # Different plan structure
+                    # do a new plan
+                    pass
+
+            if visit.end_time - old_atom.end_time > ODBEventHandler.THRESHOLD:
+                # Different plan structure
+                # do a new plan
+                pass
+
+
+
+
+
+
     def parse_event(self, raw_event: dict):
-        pass
-    def handle(self, event):
-        pass
+        event = MockObscalcUpdate.model_validate(raw_event) # Call pydantic model
+        return event
+
+    async def handle(self, event: MockObscalcUpdate):
+
+        # Check type of event
+        match event.editType:
+            case 'created':
+                pass
+            case 'updated':
+                pass
+            case 'hard_delete':
+                pass
+            case _:
+                raise NotImplementedError(f'Missing logic for this type of edit {event.editType}')
