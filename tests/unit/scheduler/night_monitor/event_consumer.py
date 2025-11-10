@@ -42,11 +42,11 @@ async def test_match_source_unknown_raises_error(event_consumer):
 @pytest.mark.asyncio
 async def test_consume_one_item(event_consumer, queue):
     """Test that the consumer correctly processes one item."""
-    item = (EventSourceType.RESOURCE, {"id": 1})
+    item = (EventSourceType.ODB, {"id": 1})
     mock_event = {"parsed_id": 1}
 
     # Configure the mock handler
-    handler = event_consumer.resource_handler
+    handler = event_consumer.odb_handler
     handler.parse_event.return_value = mock_event
 
     await queue.put(item)

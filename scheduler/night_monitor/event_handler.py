@@ -7,7 +7,6 @@ __all__ = [
     'EventHandler',
     'ResourceEventHandler',
     'WeatherEventHandler',
-    'WeatherEventHandler',
     'ODBEventHandler'
 ]
 
