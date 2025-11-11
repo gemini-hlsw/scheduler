@@ -3,10 +3,17 @@
 
 from abc import ABC, abstractmethod
 from datetime import timedelta
-from typing import ClassVar
+from typing import ClassVar, Optional, Dict, Tuple, Callable
+from unittest import case
 
-from gpp_client.api.custom_fields import TargetEnvironmentFields
+from gpp_client.api.custom_fields import TargetEnvironmentFields, ConstraintSetFields, \
+    CalculatedObservationWorkflowFields, VisitFields
+from scheduler.clients.scheduler_queue_client import schedule_queue
 from pydantic import BaseModel
+
+from scheduler.core.plans import Visit
+from scheduler.night_monitor import ODBEventSource
+
 
 class MockObservation(BaseModel):
     """
@@ -15,9 +22,11 @@ class MockObservation(BaseModel):
     In this case the model is similar to the minimodel but NOT the same.
     """
     id: str
-    target_environment: TargetEnvironmentFields
+    target_environment: Optional[TargetEnvironmentFields]
+    constraint_set: Optional[ConstraintSetFields]
+    workflow: Optional[CalculatedObservationWorkflowFields]
 
-class MockObscalcUpdate(BaseModel):
+class MockObservationEdit(BaseModel):
     """gpp client should have these base model
      for now we used this until gpp client is hooked up """
 
@@ -31,6 +40,14 @@ class MockObscalcUpdate(BaseModel):
 class LastPlanMock:
     visits = []
 
+    def get_observation(self, observationId):
+        return MockObservation
+
+    def current_visit(self):
+        """Pointer to the current visit. Gets updated when a new visit is executed"""
+        return VisitFields
+
+
 __all__ = [
     'EventHandler',
     'ResourceEventHandler',
@@ -41,93 +58,173 @@ __all__ = [
 class EventHandler(ABC):
 
     @abstractmethod
-    def parse_event(self, raw_event: dict):
-        pass
-    @abstractmethod
-    async def handle(self, event):
+    async def handle(self, sub_name, event):
         pass
 
 
 class ResourceEventHandler(EventHandler):
 
-    def parse_event(self, raw_event: dict):
-        pass
-    async def handle(self, event):
+    async def handle(self, sub_name, event):
         pass
 
 
 class WeatherEventHandler(EventHandler):
 
-    def parse_event(self, raw_event: dict):
-        pass
-
-    async def handle(self, event):
+    async def handle(self, sub_name, event):
         pass
 
 class ODBEventHandler(EventHandler):
+    """
+    Handles ODB events. To check the different subscriptions go to ODBEventSource.
+
+
+    """
 
     WAITING_THRESHOLD: ClassVar[timedelta] = timedelta(minutes=10)
 
-    async def _on_created(self, event: MockObscalcUpdate):
+    _DISPATCH_MAP: Dict[str, Tuple[callable, callable]]
+
+    def __init__(self):
+        # Initialize the map, binding the methods to 'self'
+        self._DISPATCH_MAP = {
+            ODBEventSource.OBSERVATION_EDIT: (
+                self.parse_observation_edit_event,
+                self._on_observation_edit,
+            ),
+            # ODBEventSource.VISIT_EXECUTED: (
+            #     self.parse_visit_executed_event,
+            #     self._on_visit_executed
+            # ),
+        }
+
+    @staticmethod
+    async def _on_created_edit(event: MockObservationEdit):
         """
-        Handles the logic when an observation was created.
+        A new observation was created. Check if the status is ready for this new observation.
+        For ToOs we might want to interrupt so check that status as well.
+
+        Args:
+            event (MockObservationEdit): The observation edit type created.
         """
         # If the observation is a ToO we trigger a new plan request
-        too = event.value.target_environment.first_science_target(include_deleted=False).opportunity()
-        if too is not None:
-            # Do a new schedule
-            pass
-        # Otherwise we discard the event ?
+        if event.value.observation.workflow.state == 'READY':
+            too = event.value.target_environment.first_science_target(include_deleted=False).opportunity()
+            if too is not None:
+                # TODO: For now we do nothing until we implement the logic for different types of ToOs.
+                pass # Check the type of opportunity
+            schedule_queue.add_schedule_event()
 
-    async def _on_deleted(self, event: MockObscalcUpdate):
+    @staticmethod
+    async def _on_deleted_edit(event: MockObservationEdit):
+        """
+        An observation was deleted. Check if is in the current plan to retrieve a new plan.
+        Otherwise, we keep the current plan.
 
+        Args:
+            event (MockObservationEdit): The observation edit type deleted.
+        """
         # Retrieve last plan
         last_plan = LastPlanMock() # plandb_client.get_last_plan()
 
         if event.observationId in last_plan:
             # TODO: If we keep the ObservationID wrapper this would require a modification
-            # Do a new schedule
-            pass
+            schedule_queue.add_schedule_event()
 
-    async def _on_updated(self, event):
+    @staticmethod
+    async def _on_updated_edit(event: MockObservationEdit):
+        """
+        An updated edit means the observation was modified.
+        Check if the conditions in an observation was changed.
 
-        if event.new_state == 'READY':
-            # Calculations ended. Lets retrieve the current sequence
-            obs_id = event.observationId
-            last_plan = LastPlanMock() # plandb_client.get_last_plan()
-            sequence = [] # gpp.client.get_sequence(obs_id)
-            last_visit = last_plan.visits[-1]
+        Args:
+            event (MockObservationEdit): The observation edit type updated.
+        """
+        # Retrieve last plan
+        last_plan = LastPlanMock()
+        old_observation = last_plan.get_observation(event.observationId)
 
-            if len(last_visit.sequence) != len(sequence):
-                print('Observation got modified from later plan, trigger a new schedule')
+        old_constraints = old_observation.constraints_set
+        new_constraints = event.value.constraint_set
 
-            for old_atom, new_atom in zip(last_visit.sequence, sequence):
-                # TODO: This comparison needs to be done by visit instead fo atom as sequence might change
-                # TODO: when the real execution happens.
-                # Different plan structure
-                if old_atom.status != new_atom.status:
-                    # do a new plan
-                    pass
+        # TODO: This only work if we keep the pydantic model from gpp-client into the
+        # TODO: plan structure (currently we use minimodel Constraints).
+        # Constraints changed so we need to trigger a new plan
+        if old_constraints != new_constraints:
+            schedule_queue.add_schedule_event()
 
-                # Visit past the waiting threshold
-                if new_atom.end_time - old_atom.end_time > ODBEventHandler.WAITING_THRESHOLD:
-                    # do a new plan
-                    pass
+    async def _on_observation_edit(self, event: MockObservationEdit):
+        """
+        Handles all modifications (edits) to existing observations.
 
-
-    def parse_event(self, raw_event: dict):
-        event = MockObscalcUpdate.model_validate(raw_event) # Call pydantic model
-        return event
-
-    async def handle(self, event: MockObscalcUpdate):
-
+        Args:
+            event (MockObservationEdit): The observation edit type.
+        """
         # Check type of event
         match event.editType:
             case 'created':
-               await self._on_created(event)
+               await self._on_created_edit(event)
             case 'updated':
-                await self._on_updated(event)
+                await self._on_updated_edit(event)
             case 'hard_delete':
-                await self._on_deleted(event)
+                await self._on_deleted_edit(event)
             case _:
                 raise NotImplementedError(f'Missing logic for this type of edit {event.editType}')
+
+    @staticmethod
+    async def _on_visit_executed(event):
+        """
+        Handles when a visit is executed in Navigate and registered in the ODB.
+        Allowing the scheduler to check if the last plan is being followed and to update the
+        last executed visit.
+        """
+        # Visit ended. Retrieve last plan
+        obs_id = event.observationId
+        last_plan = LastPlanMock()  # plandb_client.get_last_plan()
+        current_visit_last_plan = last_plan.current_visit()
+
+        new_plan_created = False
+
+        if obs_id != current_visit_last_plan.observation().id:
+            # Last executed visit differs from the plan. Do a new plan
+            schedule_queue.add_schedule_event()
+            return
+
+        new_visit_duration = event.visit.interval().duration().seconds
+        current_plan_delta = (
+                current_visit_last_plan.interval().duration().seconds
+                + ODBEventHandler.WAITING_THRESHOLD.seconds
+        )
+        # Visit took longer that it should, putting it behind schedule.
+        if new_visit_duration > current_plan_delta:
+            schedule_queue.add_schedule_event()
+            return
+
+        # We are following the plan. Update last executed visit.
+        # TODO: PlanDB is not implemented yet, any code put here is just speculation.
+
+    @staticmethod
+    def parse_observation_edit_event(raw_event: dict) -> MockObservationEdit:
+        event = MockObservationEdit.model_validate(raw_event) # Call pydantic model
+        return event
+
+    @staticmethod
+    def parse_visit_executed_event(raw_event: dict):
+        # No pydantic model exists yet
+        pass
+
+    async def handle(self, sub_name: str, raw_event: dict):
+        """
+        Match the event using a dispatch map for better scalability.
+        """
+        try:
+            # Look up the parser and handler functions
+            parser, handler = self._DISPATCH_MAP[sub_name]
+        except KeyError:
+            # Handle missing subscription
+            raise ValueError(f"Missing subscription for event source: {sub_name}")
+
+        # Call the parser with the raw data
+        event = parser(raw_event)
+
+        # Call the async handler with the parsed event
+        await handler(event)

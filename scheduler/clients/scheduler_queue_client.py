@@ -3,7 +3,7 @@ from scheduler.core.meta import Singleton
 
 class SchedulerQueueClient(metaclass=Singleton):
 
-    def new_schedule(self):
+    def add_schedule_event(self):
         pass
 
 

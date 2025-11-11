@@ -66,12 +66,11 @@ class EventConsumer:
                    # Poison pill
                    raise RuntimeError('Corrupt message was received')
 
-               source, data = item
+               source, sub_name, data = item
                handler = self._match_source_to_handler(source)
 
                try:
-                   event = handler.parse_event(data)
-                   await handler.handle(event)
+                   await handler.handle(sub_name, data)
                except Exception as e:
                    print("Handling process failed:", e)
                finally:
