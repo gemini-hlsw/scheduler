@@ -27,6 +27,10 @@ class MockObscalcUpdate(BaseModel):
     observationId: str
     value: MockObservation
 
+
+class LastPlanMock:
+    visits = []
+
 __all__ = [
     'EventHandler',
     'ResourceEventHandler',
@@ -62,9 +66,9 @@ class WeatherEventHandler(EventHandler):
 
 class ODBEventHandler(EventHandler):
 
-    THRESHOLD: ClassVar[timedelta] = timedelta(minutes=10)
+    WAITING_THRESHOLD: ClassVar[timedelta] = timedelta(minutes=10)
 
-    def _on_created(self, event: MockObscalcUpdate):
+    async def _on_created(self, event: MockObscalcUpdate):
         """
         Handles the logic when an observation was created.
         """
@@ -78,40 +82,37 @@ class ODBEventHandler(EventHandler):
     async def _on_deleted(self, event: MockObscalcUpdate):
 
         # Retrieve last plan
-        last_plan = [] # plandb_client.get_last_plan()
+        last_plan = LastPlanMock() # plandb_client.get_last_plan()
 
         if event.observationId in last_plan:
             # TODO: If we keep the ObservationID wrapper this would require a modification
             # Do a new schedule
             pass
 
-    async def _on_update(self, event):
+    async def _on_updated(self, event):
 
         if event.new_state == 'READY':
-            # Calculations ended. lets retrieve the current sequence
+            # Calculations ended. Lets retrieve the current sequence
             obs_id = event.observationId
-            last_plan = [] # plandb_client.get_last_plan()
+            last_plan = LastPlanMock() # plandb_client.get_last_plan()
             sequence = [] # gpp.client.get_sequence(obs_id)
-
-            last_visit = (last_plan.visits[-1])
+            last_visit = last_plan.visits[-1]
 
             if len(last_visit.sequence) != len(sequence):
                 print('Observation got modified from later plan, trigger a new schedule')
 
             for old_atom, new_atom in zip(last_visit.sequence, sequence):
+                # TODO: This comparison needs to be done by visit instead fo atom as sequence might change
+                # TODO: when the real execution happens.
+                # Different plan structure
                 if old_atom.status != new_atom.status:
-                    # Different plan structure
                     # do a new plan
                     pass
 
-            if visit.end_time - old_atom.end_time > ODBEventHandler.THRESHOLD:
-                # Different plan structure
-                # do a new plan
-                pass
-
-
-
-
+                # Visit past the waiting threshold
+                if new_atom.end_time - old_atom.end_time > ODBEventHandler.WAITING_THRESHOLD:
+                    # do a new plan
+                    pass
 
 
     def parse_event(self, raw_event: dict):
@@ -123,10 +124,10 @@ class ODBEventHandler(EventHandler):
         # Check type of event
         match event.editType:
             case 'created':
-                pass
+               await self._on_created(event)
             case 'updated':
-                pass
+                await self._on_updated(event)
             case 'hard_delete':
-                pass
+                await self._on_deleted(event)
             case _:
                 raise NotImplementedError(f'Missing logic for this type of edit {event.editType}')
