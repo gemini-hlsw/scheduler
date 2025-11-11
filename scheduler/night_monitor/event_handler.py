@@ -78,7 +78,10 @@ class ResourceEventHandler(EventHandler):
 
 class WeatherEventHandler(EventHandler):
 
-    async def handle(self, sub_name, event):
+    def parse_event(self, raw_event: dict):
+        pass
+
+    async def handle(self, event):
         pass
 
 class ODBEventHandler(EventHandler):
