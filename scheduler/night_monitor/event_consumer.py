@@ -20,11 +20,12 @@ class EventConsumer:
         queue (asyncio.Queue): Queue to receive events from.
     """
 
-    def __init__(self, queue: asyncio.Queue):
+    def __init__(self, queue: asyncio.Queue, shutdown_event: asyncio.Event):
         self.queue = queue
         self.resource_handler = ResourceEventHandler()
         self.weather_handler = WeatherEventHandler()
         self.odb_handler = ODBEventHandler()
+        self._shutdown_event = shutdown_event
 
 
     def _match_source_to_handler(self, source: EventSourceType) -> EventHandler:
@@ -58,13 +59,13 @@ class EventConsumer:
         Raises:
             RuntimeError: a returned item from the queue is invalid.
         """
-        while True:
+        while not self._shutdown_event.is_set():
            try:
                item = await self.queue.get()
 
-               if item is None:
-                   # Poison pill
-                   raise RuntimeError('Corrupt message was received')
+               # if item is None:
+               #    # Poison pill
+               #    raise RuntimeError('Corrupt message was received')
 
                source, sub_name, data = item
                handler = self._match_source_to_handler(source)
@@ -79,6 +80,7 @@ class EventConsumer:
 
            except asyncio.CancelledError:
                print('Consumer cancelled')
+               break
            except RuntimeError:
                print('Consumer error')
                break

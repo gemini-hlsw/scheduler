@@ -27,14 +27,14 @@ class EventListener:
     """
     Handles all subscriptions that generates events and store them so they can be retrieved from the EventConsumer.
     """
-    def __init__(self, client):
-        self.queue = asyncio.Queue()
+    def __init__(self, client, queue: asyncio.Queue, shutdown_event: asyncio.Event):
+        self.queue = queue
         self._sources = [
             ResourceEventSource(client),
             WeatherEventSource(client),
             ODBEventSource(client)
         ]
-        # self._shutdown_event = asyncio.Event()
+        self._shutdown_event = shutdown_event
 
     @stamina.retry(
         on=RETRYABLE_EXCEPTIONS,
@@ -54,10 +54,17 @@ class EventListener:
         sub_name (str): Name of the subscription called.
         subscription_factory (callable): Callable that returns the async generator that is used to retrieve the data.
         """
-        sub_generator = await subscription_factory()
+        try:
+            sub_generator = await subscription_factory()
 
-        async for data in sub_generator:
-            await self.queue.put((source, sub_name, data))
+            async for data in sub_generator:
+                if self._shutdown_event.is_set():
+                    break
+                await self.queue.put((source, sub_name, data))
+
+        except asyncio.CancelledError:
+            raise
+
 
 
     async def listen(self):
@@ -73,5 +80,9 @@ class EventListener:
                )
            ) for source in self._sources for sub_name, sub in source.subscriptions()
        ]
-
-       await asyncio.gather(*producer_tasks, return_exceptions=True)
+       try:
+           await asyncio.gather(*producer_tasks, return_exceptions=True)
+       except asyncio.CancelledError:
+           for task in producer_tasks:
+               if not task.done():
+                   task.cancel()
