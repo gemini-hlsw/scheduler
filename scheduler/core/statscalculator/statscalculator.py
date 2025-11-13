@@ -86,8 +86,6 @@ class StatCalculator:
                         plan_conditions.append(obs.constraints.conditions)
 
                         # check completion
-                        program = collector.get_program(obs.belongs_to)
-
                         completion_fraction[obs.band] += 1
 
                         # Calculate altitude data
