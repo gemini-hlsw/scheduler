@@ -4,3 +4,4 @@ from .event_listener import *
 from .event_sources import *
 from .event_consumer import *
 from .event_handler import *
+from .night_monitor import *
