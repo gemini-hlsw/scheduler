@@ -26,9 +26,6 @@ RETRYABLE_EXCEPTIONS = (
 class EventListener:
     """
     Handles all subscriptions that generates events and store them so they can be retrieved from the EventConsumer.
-
-    Args:
-
     """
     def __init__(self, client):
         self.queue = asyncio.Queue()
@@ -44,17 +41,23 @@ class EventListener:
         wait_initial=1.0,
         wait_max=10.0,
     )
-    async def _producer(self, source: EventSourceType, subscription_factory: callable):
+    async def _producer(
+            self,
+            source: EventSourceType,
+            sub_name: str,
+            subscription_factory: callable
+    ):
         """
         Calls the factory from each source and put the data on the queue.
 
         source (EventSourceType): Source of the subscription.
+        sub_name (str): Name of the subscription called.
         subscription_factory (callable): Callable that returns the async generator that is used to retrieve the data.
         """
         sub_generator = await subscription_factory()
 
         async for data in sub_generator:
-            await self.queue.put((source, data))
+            await self.queue.put((source, sub_name, data))
 
 
     async def listen(self):
@@ -65,9 +68,10 @@ class EventListener:
            asyncio.create_task(
                self._producer(
                    source.source_type,
+                   sub_name,
                    sub
                )
-           ) for source in self._sources for sub in source.subscriptions()
+           ) for source in self._sources for sub_name, sub in source.subscriptions()
        ]
 
        await asyncio.gather(*producer_tasks, return_exceptions=True)

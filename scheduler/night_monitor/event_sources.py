@@ -1,7 +1,7 @@
 # Copyright (c) 2016-2025 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import List
+from typing import List, Tuple
 from enum import Enum
 
 __all__ = [
@@ -23,29 +23,38 @@ class EventSource:
         self.source_type = source_type
 
 class ResourceEventSource(EventSource):
+    RESOURCE_EDIT = 'resource_edit'
+
     def __init__(self, client):
         super().__init__(client, EventSourceType.RESOURCE)
 
-    def subscriptions(self) -> List[callable]:
+    def subscriptions(self) -> List[Tuple[str ,callable]]:
         return[
-            lambda: self._client.subscribe('resource_edit')
+            (ResourceEventSource.RESOURCE_EDIT, lambda: self._client.subscribe(ResourceEventSource.RESOURCE_EDIT))
         ]
 
 class WeatherEventSource(EventSource):
+
+    WEATHER_CHANGE = 'weather_change'
+
     def __init__(self, client):
         super().__init__(client, EventSourceType.WEATHER)
 
-    def subscriptions(self) -> List[callable]:
+    def subscriptions(self) -> List[Tuple[str ,callable]]:
         return [
-            lambda: self._client.subscribe('weather_change')
+            (WeatherEventSource.WEATHER_CHANGE, lambda: self._client.subscribe(WeatherEventSource.WEATHER_CHANGE))
         ]
 
 class ODBEventSource(EventSource):
+
+    OBSERVATION_EDIT = 'observation_edit'
+    VISIT_EXECUTED = 'visit_executed'
+
     def __init__(self, client):
         super().__init__(client, EventSourceType.ODB)
 
-    def subscriptions(self) -> List[callable]:
+    def subscriptions(self) -> List[Tuple[str ,callable]]:
         return [
-            lambda: self._client.subscribe('observation_edit'),
-            lambda: self._client.subscribe('observation_change')
+            (ODBEventSource.OBSERVATION_EDIT, lambda: self._client.subscribe(ODBEventSource.OBSERVATION_EDIT)),
+            (ODBEventSource.VISIT_EXECUTED, lambda: self._client.subscribe(ODBEventSource.VISIT_EXECUTED))
         ]
