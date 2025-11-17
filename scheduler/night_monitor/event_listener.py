@@ -62,6 +62,9 @@ class EventListener:
                     break
                 await self.queue.put((source, sub_name, data))
 
+            if not self._shutdown_event.is_set():
+                raise SubscriptionEndedException(f"Subscription '{sub_name}' ended gracefully, retrying.")
+
         except asyncio.CancelledError:
             raise
 
