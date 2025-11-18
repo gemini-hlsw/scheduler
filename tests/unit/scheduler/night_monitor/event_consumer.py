@@ -29,7 +29,7 @@ def event_consumer(queue):
         mock_weather_h.return_value.handle = AsyncMock()
         mock_odb_h.return_value.handle = AsyncMock()
 
-        c = EventConsumer(queue)
+        c = EventConsumer(queue, shutdown_event=asyncio.Event())
         yield c
 
 @pytest.mark.asyncio
@@ -42,7 +42,7 @@ async def test_match_source_unknown_raises_error(event_consumer):
 @pytest.mark.asyncio
 async def test_consume_one_item(event_consumer, queue):
     """Test that the consumer correctly processes one item."""
-    item = (EventSourceType.ODB, {"id": 1})
+    item = (EventSourceType.ODB, 'observation_edit', {"id": 1})
     mock_event = {"parsed_id": 1}
 
     # Configure the mock handler
@@ -50,37 +50,55 @@ async def test_consume_one_item(event_consumer, queue):
     handler.parse_event.return_value = mock_event
 
     await queue.put(item)
-    await queue.put(None)
 
-    await event_consumer.consume()
+    consumer_task = asyncio.create_task(event_consumer.consume())
+    await queue.join()
+    event_consumer._shutdown_event.set()
+    await asyncio.sleep(0.01)
 
     # Check that the correct handler was used
-    handler.parse_event.assert_called_once_with(item[1])
-    handler.handle.assert_called_once_with(mock_event)
+    handler = event_consumer.odb_handler
+    handler.handle.assert_called_once_with(item[1], item[2])
 
     # Check other handlers were not called
-    event_consumer.weather_handler.parse_event.assert_not_called()
+    event_consumer.weather_handler.handle.assert_not_called()
+
+    # Kill just in case
+    consumer_task.cancel()
+    try:
+        await consumer_task
+    except asyncio.CancelledError:
+        pass
+
+
 
 
 @pytest.mark.asyncio
 async def test_consume_multiple_items(event_consumer, queue):
     """Test processing multiple items for different handlers."""
-    item1 = (EventSourceType.RESOURCE, {"id": 1})
-    item2 = (EventSourceType.WEATHER, {"id": 99})
+    item1 = (EventSourceType.RESOURCE, 'resource_edit', {"id": 1})
+    item2 = (EventSourceType.WEATHER, 'weather_edit', {"id": 99})
 
     await queue.put(item1)
     await queue.put(item2)
-    await queue.put(None)
 
-    await event_consumer.consume()
+    consumer_task = asyncio.create_task(event_consumer.consume())
+    await queue.join()
+    event_consumer._shutdown_event.set()
+    await asyncio.sleep(0.01)
 
     # Check resource handler
-    event_consumer.resource_handler.parse_event.assert_called_once_with(item1[1])
-    event_consumer.resource_handler.handle.assert_called_once()
+    event_consumer.resource_handler.handle.assert_called_once_with(item1[1], item1[2])
 
     # Check weather handler
-    event_consumer.weather_handler.parse_event.assert_called_once_with(item2[1])
-    event_consumer.weather_handler.handle.assert_called_once()
+    event_consumer.weather_handler.handle.assert_called_once_with(item2[1], item2[2])
 
     # Check ODB handler
-    event_consumer.odb_handler.parse_event.assert_not_called()
+    event_consumer.odb_handler.handle.assert_not_called()
+
+    # Kill just in case
+    consumer_task.cancel()
+    try:
+        await consumer_task
+    except asyncio.CancelledError:
+        pass

@@ -26,6 +26,10 @@ class MockObservation(BaseModel):
     constraint_set: Optional[ConstraintSetFields]
     workflow: Optional[CalculatedObservationWorkflowFields]
 
+    model_config = {
+        'arbitrary_types_allowed': True
+    }
+
 class MockObservationEdit(BaseModel):
     """gpp client should have these base model
      for now we used this until gpp client is hooked up """
@@ -54,6 +58,8 @@ __all__ = [
     'WeatherEventHandler',
     'ODBEventHandler'
 ]
+
+
 
 class EventHandler(ABC):
 
