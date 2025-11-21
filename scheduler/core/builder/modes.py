@@ -11,6 +11,7 @@ from . import SimulationBuilder
 from .schedulerbuilder import SchedulerBuilder
 from .validationbuilder import ValidationBuilder
 from scheduler.core.events.queue import EventQueue
+from scheduler.config import config
 
 
 __all__ = [
@@ -35,6 +36,7 @@ class SchedulerModes(Enum):
     SIMULATION = 'simulation'
     VALIDATION = 'validation'
 
+app_mode = SchedulerModes(config.app.mode if config.app.mode in SchedulerModes else SchedulerModes.VALIDATION)
 
 def dispatch_with(mode: SchedulerModes, sources: Sources, events: EventQueue) -> SchedulerBuilder:
     match mode:
