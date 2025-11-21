@@ -3,10 +3,10 @@
 
 import asyncio
 
-from scheduler.night_monitor import EventSourceType
-from scheduler.night_monitor.event_handler import (
-    EventHandler, ResourceEventHandler, WeatherEventHandler,
-    ODBEventHandler
+from scheduler.night_monitor.event_sources import EventSourceType
+from scheduler.night_monitor.event_handlers import (
+    EventHandler, WeatherEventHandler,
+    ODBEventHandler, ResourceEventHandler
 )
 
 __all__ = ['EventConsumer']

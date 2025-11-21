@@ -1,106 +1,33 @@
 # Copyright (c) 2016-2025 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from abc import ABC, abstractmethod
 from datetime import timedelta
-from typing import ClassVar, Optional, Dict, Tuple, Callable
-from unittest import case
+from typing import ClassVar, Dict, Tuple, Callable
 
-from gpp_client.api.custom_fields import TargetEnvironmentFields, ConstraintSetFields, \
-    CalculatedObservationWorkflowFields, VisitFields
 from scheduler.clients.scheduler_queue_client import schedule_queue
-from pydantic import BaseModel
+from scheduler.night_monitor.event_sources import ODBEventSource
+from .event_handler import EventHandler, MockObservationEdit, LastPlanMock
 
-from scheduler.core.plans import Visit
-from scheduler.night_monitor import ODBEventSource
-
-
-class MockObservation(BaseModel):
-    """
-    gpp client should have these base model
-    for now we used this until gpp client is hooked up
-    In this case the model is similar to the minimodel but NOT the same.
-    """
-    id: str
-    target_environment: Optional[TargetEnvironmentFields]
-    constraint_set: Optional[ConstraintSetFields]
-    workflow: Optional[CalculatedObservationWorkflowFields]
-
-    model_config = {
-        'arbitrary_types_allowed': True
-    }
-
-class MockObservationEdit(BaseModel):
-    """gpp client should have these base model
-     for now we used this until gpp client is hooked up """
-
-    editType: str
-    oldState: str
-    newState: str
-    observationId: str
-    value: MockObservation
-
-
-class LastPlanMock:
-    visits = []
-
-    def get_observation(self, observationId):
-        return MockObservation
-
-    def current_visit(self):
-        """Pointer to the current visit. Gets updated when a new visit is executed"""
-        return VisitFields
-
-
-__all__ = [
-    'EventHandler',
-    'ResourceEventHandler',
-    'WeatherEventHandler',
-    'ODBEventHandler'
-]
-
-
-
-class EventHandler(ABC):
-
-    @abstractmethod
-    async def handle(self, sub_name, event):
-        pass
-
-
-class ResourceEventHandler(EventHandler):
-
-    async def handle(self, sub_name, event):
-        pass
-
-
-class WeatherEventHandler(EventHandler):
-
-    async def handle(self, sub_name, event):
-        pass
 
 class ODBEventHandler(EventHandler):
     """
     Handles ODB events. To check the different subscriptions go to ODBEventSource.
-
-
     """
 
     WAITING_THRESHOLD: ClassVar[timedelta] = timedelta(minutes=10)
 
     _DISPATCH_MAP: Dict[str, Tuple[callable, callable]]
 
-    def __init__(self):
-        # Initialize the map, binding the methods to 'self'
-        self._DISPATCH_MAP = {
+    def _build_dispatch_map(self) -> Dict[str, Tuple[Callable, Callable]]:
+        return {
             ODBEventSource.OBSERVATION_EDIT: (
                 self.parse_observation_edit_event,
                 self._on_observation_edit,
             ),
-            # ODBEventSource.VISIT_EXECUTED: (
-            #     self.parse_visit_executed_event,
-            #     self._on_visit_executed
-            # ),
+            ODBEventSource.VISIT_EXECUTED: (
+                self.parse_visit_executed_event,
+                self._on_visit_executed
+            ),
         }
 
     @staticmethod
@@ -217,20 +144,3 @@ class ODBEventHandler(EventHandler):
     def parse_visit_executed_event(raw_event: dict):
         # No pydantic model exists yet
         pass
-
-    async def handle(self, sub_name: str, raw_event: dict):
-        """
-        Match the event using a dispatch map for better scalability.
-        """
-        try:
-            # Look up the parser and handler functions
-            parser, handler = self._DISPATCH_MAP[sub_name]
-        except KeyError:
-            # Handle missing subscription
-            raise ValueError(f"Missing subscription for event source: {sub_name}")
-
-        # Call the parser with the raw data
-        event = parser(raw_event)
-
-        # Call the async handler with the parsed event
-        await handler(event)
