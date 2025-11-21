@@ -7,7 +7,8 @@ import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from scheduler.night_monitor import EventConsumer, EventSourceType
+from scheduler.night_monitor import EventConsumer
+from scheduler.night_monitor.event_sources import EventSourceType
 
 
 @pytest_asyncio.fixture

@@ -6,7 +6,8 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 import asyncio
 
-from scheduler.night_monitor import EventListener, EventSourceType, SubscriptionEndedException
+from scheduler.night_monitor import EventListener, SubscriptionEndedException
+from scheduler.night_monitor.event_sources import EventSourceType
 
 async def mock_subscription_generator(data_list):
     """A mock async generator that yields items from data_list."""
