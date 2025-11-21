@@ -36,7 +36,10 @@ class SchedulerModes(Enum):
     SIMULATION = 'simulation'
     VALIDATION = 'validation'
 
-app_mode = SchedulerModes(config.app.mode if config.app.mode in SchedulerModes else SchedulerModes.VALIDATION)
+try:
+    app_mode = SchedulerModes(config.app.mode)
+except ValueError:
+    app_mode = SchedulerModes.VALIDATION
 
 def dispatch_with(mode: SchedulerModes, sources: Sources, events: EventQueue) -> SchedulerBuilder:
     match mode:
