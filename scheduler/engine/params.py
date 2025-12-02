@@ -2,10 +2,10 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import final, Optional, FrozenSet, List
 
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 from lucupy.minimodel import Site, ALL_SITES, Semester, NightIndex
 
 from scheduler.core.builder.modes import SchedulerModes
@@ -61,12 +61,14 @@ class SchedulerParameters:
     programs_list: Optional[List[str]] = None
 
     def __post_init__(self):
-        self.semesters = frozenset([Semester.find_semester_from_date(self.start.datetime),
-                                    Semester.find_semester_from_date(self.end.datetime)])
+        self.semesters = frozenset([Semester.find_semester_from_date(self.start.datetime - timedelta(days=1)),
+                                    Semester.find_semester_from_date(self.end.datetime - timedelta(days=1))])
 
         if self.semester_visibility:
             end_date = max(s.end_date() for s in self.semesters)
-            self.end_vis = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
+            self.end_vis = (Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
+                            + TimeDelta(115200, format='sec'))
+
             diff = self.end - self.start + 1
             diff = int(diff.jd)
 
