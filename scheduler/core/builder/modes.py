@@ -41,6 +41,10 @@ try:
 except ValueError:
     app_mode = SchedulerModes.VALIDATION
 
+is_operation = app_mode == SchedulerModes.OPERATION
+is_simulation = app_mode == SchedulerModes.SIMULATION
+is_validation = app_mode == SchedulerModes.VALIDATION
+
 def dispatch_with(mode: SchedulerModes, sources: Sources, events: EventQueue) -> SchedulerBuilder:
     match mode:
         case SchedulerModes.VALIDATION:

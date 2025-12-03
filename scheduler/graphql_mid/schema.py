@@ -16,7 +16,7 @@ from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
 from scheduler.services.logger_factory import create_logger
-from scheduler.config import config
+from scheduler.shared_queue import scheduler_process_queue, plan_response_queue
 
 from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, NightPlansResponse, Version, SRunSummary,
                     NewPlansRT, NightPlansResponseRT)
@@ -66,7 +66,7 @@ class Query:
 
     @strawberry.field
     def version(self) -> Version:
-        return Version(version=environ['APP_VERSION'], changelog=config.app.changelog)
+        return Version(version=environ['APP_VERSION'], changelog=[])
 
     @strawberry.field
     async def schedule_rt(self, schedule_id: str, new_schedule_rt_input: CreateNewScheduleRTInput) -> str:
@@ -149,38 +149,35 @@ class Query:
                                      programs_list)
         _logger.info(f"Plan is on the queue! for: {schedule_id}\n{params}")
 
-        task = asyncio.to_thread(sync_schedule, params)
+        # task = asyncio.to_thread(sync_schedule, params)
+        await scheduler_process_queue.put((schedule_id, params))
 
-        if schedule_id not in active_subscriptions:
-            queue = asyncio.Queue()
-            active_subscriptions[schedule_id] = queue
-        else:
-            queue = active_subscriptions[schedule_id]
+        # if schedule_id not in active_subscriptions:
+        #     queue = asyncio.Queue()
+        #     active_subscriptions[schedule_id] = queue
+        # else:
+        #     queue = active_subscriptions[schedule_id]
 
-        await queue.put(task)
+        # await queue.put(task)
         return f'Plan is on the queue! for {schedule_id}'
 
 @strawberry.type
 class Subscription:
     @strawberry.subscription
     async def queue_schedule(self, schedule_id: str) -> AsyncGenerator[NightPlansResponseRT, None]:
-        schedule_id_var.set(schedule_id)
-        if schedule_id not in active_subscriptions:
-            queue = asyncio.Queue()
-            active_subscriptions[schedule_id] = queue
-        else:
-            queue = active_subscriptions[schedule_id]
-        try:
-            while True:
-                try:
-                    item = await queue.get()  # Wait for item from the queue
-                    _logger.info(f'Running ID: {schedule_id}')
-                    result = await item
-                    yield result  # Yield item to the subscription
-                except Exception as e:
-                    _logger.error(f'Error: {e}')
-                    yield NightPlansError(error=f'Error: {e}')
-                    raise
-        finally:
-            if schedule_id in active_subscriptions:
-                del active_subscriptions[schedule_id]
+        if plan_response_queue.get(schedule_id) is None:
+            plan_response_queue[schedule_id] = asyncio.Queue()
+
+        queue = plan_response_queue[schedule_id]
+
+        while True:
+            try:
+                print(f"Subscription: Waiting for plan response for {schedule_id}")
+                result = await queue.get()  # Wait for item from the queue
+                print(f"Subscription: Received plan response for {schedule_id}")
+                _logger.debug(f'Result: {result}')
+                yield result  # Yield item to the subscription
+            except Exception as e:
+                _logger.error(f'Error: {e}')
+                yield NightPlansError(error=f'Error: {e}')
+                raise

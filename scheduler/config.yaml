@@ -16,8 +16,4 @@ server:
   host: 0.0.0.0
 
 app:
-  mode: operation # validation | simulation | operation
-  version: 0.0.0
-  changelog:
-    - Added server versioning and changelog
-    - Added schema to send version to client
+  mode: validation # validation | simulation | operation

@@ -9,21 +9,38 @@ from lucupy.observatory.abstract import ObservatoryProperties  # isort: skip
 from scheduler.app import app
 from scheduler.config import config
 
+from scheduler.server.process_manager import ProcessManager
+import asyncio
+
 
 heroku_port = os.environ.get("PORT")
 heroku_port = int(heroku_port) if isinstance(heroku_port, str) else heroku_port
 
 
-def main():
+async def main():
     # Setup lucupy properties
     # TODO: This should be dynamic but since we are just working with Gemini right now
     #       should not be an issue.
     ObservatoryProperties.set_properties(GeminiProperties)
-    uvicorn.run(app,
+    uvicorn_config = uvicorn.Config(app,
                 host=config.server.host,
                 port=heroku_port if heroku_port else config.server.port,
                 ws_ping_interval=50)
 
+    server = uvicorn.Server(uvicorn_config)
+
+    # Initialize the process manager
+    process_manager = ProcessManager()
+
+    # Start the server and the process manager
+    await asyncio.gather(
+        server.serve(),
+        process_manager.start()
+    )
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Shutting down scheduler server...")
+        asyncio.get_event_loop().stop()
