@@ -84,3 +84,14 @@ class ProcessManager:
             process_id, request_params = await scheduler_process_queue.get()
             print(f"Process Manager: Adding new scheduler process {process_id}")
             self.add_scheduler_process(process_id, request_params)
+
+@staticmethod
+def add_scheduler_request(process_id: str, request_params: SchedulerParameters):
+    """
+    Add a new scheduler process request to the scheduler_process_queue.
+    
+    Args:
+            process_id (str): A unique identifier for the scheduler process.
+            request_params (SchedulerParameters): The parameters for the scheduler process.
+    """
+    scheduler_process_queue.put_nowait((process_id, request_params))

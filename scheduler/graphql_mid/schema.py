@@ -10,19 +10,18 @@ from astropy.coordinates import Angle
 from astropy.time import Time
 import astropy.units as u
 from lucupy.minimodel import TimeslotIndex, NightIndex, VariantSnapshot, ImageQuality, CloudCover
-from lucupy.minimodel.site import Site
 from scheduler.context import schedule_id_var
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
+from scheduler.server.process_manager import add_scheduler_request
 from scheduler.services.logger_factory import create_logger
-from scheduler.shared_queue import scheduler_process_queue, plan_response_queue
+from scheduler.shared_queue import plan_response_queue
 
-from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, NightPlansResponse, Version, SRunSummary,
+from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
                     NewPlansRT, NightPlansResponseRT)
 from .inputs import CreateNewScheduleInput, CreateNewScheduleRTInput
 from ..core.plans import NightStats
-from ..core.statscalculator import StatCalculator
 
 _logger = create_logger(__name__)
 
@@ -149,8 +148,7 @@ class Query:
                                      programs_list)
         _logger.info(f"Plan is on the queue! for: {schedule_id}\n{params}")
 
-        # task = asyncio.to_thread(sync_schedule, params)
-        await scheduler_process_queue.put((schedule_id, params))
+        add_scheduler_request(schedule_id, params)
         return f'Plan is on the queue! for {schedule_id}'
 
 @strawberry.type
