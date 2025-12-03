@@ -151,14 +151,6 @@ class Query:
 
         # task = asyncio.to_thread(sync_schedule, params)
         await scheduler_process_queue.put((schedule_id, params))
-
-        # if schedule_id not in active_subscriptions:
-        #     queue = asyncio.Queue()
-        #     active_subscriptions[schedule_id] = queue
-        # else:
-        #     queue = active_subscriptions[schedule_id]
-
-        # await queue.put(task)
         return f'Plan is on the queue! for {schedule_id}'
 
 @strawberry.type

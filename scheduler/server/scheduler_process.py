@@ -22,12 +22,23 @@ class SchedulerProcess:
   def __init__(self,
                process_id: str,
                params: SchedulerParameters):
+    """
+    Initialize the scheduler process
+    
+    Args:
+      process_id (str): A unique identifier for the scheduler process.
+      params (SchedulerParameters): The parameters for the scheduler process.
+    """
+
     self.process_id = process_id
     self.params = params
     self.running_event = asyncio.Event()
 
   def stop_process(self):
-    # Stop the scheduler process
+    """
+    Stop the scheduler process
+    """
+
     _logger.info("Stopping scheduler process...")
     self.running_event.clear()
     # Cancel the running task if needed
@@ -35,17 +46,28 @@ class SchedulerProcess:
       self.task.cancel()
 
   def start_task(self):
-    # Start the scheduler process as an asyncio task
+    """
+    Start the scheduler process as an asyncio task
+    """
+
     self.task = asyncio.create_task(self.run())
 
   def is_running(self) -> bool:
-    # Check if the scheduler process is running
+    """
+    Check if the scheduler process is running
+    """
+
     return self.running_event.is_set()
 
   async def run(self):
-    # Run the scheduler process
+    """
+    Run the scheduler process
+    """
+
     _logger.info("Start running scheduler process...")
     self.running_event.set()
+
+
 
     while self.running_event.is_set():
       try:
@@ -54,7 +76,6 @@ class SchedulerProcess:
         s_timelines = SNightTimelines.from_computed_timelines(timelines)
         s_plan_summary = SRunSummary.from_computed_run_summary(plan_summary)
         await plan_response_queue[self.process_id].put(NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary))
-        print(f"Scheduler process {self.process_id}: Scheduled night completed and response sent.")
       except asyncio.CancelledError:
         _logger.info("Scheduler process was cancelled.")
       except Exception as e:
