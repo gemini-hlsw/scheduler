@@ -9,7 +9,6 @@ from scheduler.core.builder.modes import is_operation
 from scheduler.services.logger_factory import create_logger
 from scheduler.server.scheduler_process import SchedulerProcess
 from scheduler.engine import SchedulerParameters
-from scheduler.shared_queue import scheduler_process_queue
 
 _logger = create_logger(__name__)
 
@@ -22,7 +21,10 @@ class ProcessManager:
     Every scheduler process will be identified by a unique process ID provided by the UI subscription
     if running in validation or simulation mode, if running in operation mode it will be "operation".
     """
-    
+
+    # Queue to manage scheduler process requests
+    scheduler_process_queue = asyncio.Queue()
+
     def __init__(self):
         """
         Initialize the ProcessManager and the processes dictionary.
@@ -81,17 +83,17 @@ class ProcessManager:
         Add new scheduler processes from the scheduler_process_queue.
         """
         while True:
-            process_id, request_params = await scheduler_process_queue.get()
+            process_id, request_params = await ProcessManager.scheduler_process_queue.get()
             print(f"Process Manager: Adding new scheduler process {process_id}")
             self.add_scheduler_process(process_id, request_params)
 
-@staticmethod
-def add_scheduler_request(process_id: str, request_params: SchedulerParameters):
-    """
-    Add a new scheduler process request to the scheduler_process_queue.
-    
-    Args:
-            process_id (str): A unique identifier for the scheduler process.
-            request_params (SchedulerParameters): The parameters for the scheduler process.
-    """
-    scheduler_process_queue.put_nowait((process_id, request_params))
+    @staticmethod
+    def add_scheduler_request(process_id: str, request_params: SchedulerParameters):
+        """
+        Add a new scheduler process request to the scheduler_process_queue.
+        
+        Args:
+                process_id (str): A unique identifier for the scheduler process.
+                request_params (SchedulerParameters): The parameters for the scheduler process.
+        """
+        ProcessManager.scheduler_process_queue.put_nowait((process_id, request_params))
