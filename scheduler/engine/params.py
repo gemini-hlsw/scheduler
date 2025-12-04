@@ -52,23 +52,29 @@ class SchedulerParameters:
         ```
     """
     start: Time
-    end: Time
-    sites: FrozenSet[Site]
-    mode: SchedulerModes
+    end: Time = None
+    sites: FrozenSet[Site] = ALL_SITES
+    mode: SchedulerModes = SchedulerModes.OPERATION
     ranker_parameters: RankerParameters = field(default_factory=RankerParameters)
     semester_visibility: bool = True
     num_nights_to_schedule: Optional[int] = None
     programs_list: Optional[List[str]] = None
 
     def __post_init__(self):
-        self.semesters = frozenset([Semester.find_semester_from_date(self.start.datetime),
-                                    Semester.find_semester_from_date(self.end.datetime)])
+        if self.end is not None and self.end > self.start:
+            self.semesters = frozenset([Semester.find_semester_from_date(self.start.datetime),
+                                        Semester.find_semester_from_date(self.end.datetime)])
+        else:
+            self.semesters = frozenset([Semester.find_semester_from_date(self.start.datetime)])
 
         if self.semester_visibility:
             end_date = max(s.end_date() for s in self.semesters)
             self.end_vis = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
-            diff = self.end - self.start + 1
-            diff = int(diff.jd)
+            if self.end is None:
+                diff = 1
+            else:
+                diff = self.end - self.start + 1
+                diff = int(diff.jd)
 
             self.num_nights_to_schedule = diff
             self.night_indices = frozenset(NightIndex(idx) for idx in range(diff))
