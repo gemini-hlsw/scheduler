@@ -14,13 +14,11 @@ from scheduler.services import logger_factory
 
 from scheduler.graphql_mid.types import SPlans, NewPlansRT
 
-import numpy as np
-
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover
 from astropy.coordinates import Angle
 from astropy import units as u
 
-from scheduler.core.events import Event
+from scheduler.core.events.queue import Event
 
 from time import time
 
