@@ -4,10 +4,10 @@
 import asyncio
 import datetime
 
+from astropy.time import Time
 from lucupy import sky
 from astropy.time import Time
 from astropy import units as u
-from time import sleep
 from scheduler.clients.scheduler_queue_client import schedule_queue
 from scheduler.core.builder.modes import SchedulerModes, app_mode
 
@@ -26,11 +26,11 @@ class NightTracker:
   
   CHECK_INTERVAL = 30 # seconds
 
-  def __init__(self, date: datetime.datetime, sites: list):
+  def __init__(self, date: Time, sites: list):
     """
     Constructor for NightTracker.
     Args:
-        date (datetime.datetime): The date for which to track night events.
+        date (Time): The date for which to track night events.
         sites (list): List of site objects to track events for.
     """
     # Set night date
@@ -39,7 +39,7 @@ class NightTracker:
     # Precompute night events for each site as an array of tuples
     all_events = []
     for site in sites:
-      (midnight, sunset, sunrise, even_12twi, morn_12twi, moonrise, moonset) = sky.night_events(Time(date, format='datetime'), site.location, site.timezone)
+      (midnight, sunset, sunrise, even_12twi, morn_12twi, moonrise, moonset) = sky.night_events(self.date, site.location, site.timezone)
       all_events.extend([
         (midnight[0], f"Midnight at {site.name}"),
         (sunset, f"Sunset at {site.name}"),
@@ -89,7 +89,7 @@ class NightTracker:
       _logger.info("Starting non-real-time tracking of night events")
       for event_time, event_desc in self.sorted_night_events:
         if self.should_trigger_plan((next_event_time, event_description)):
-          # TODO: Add proper event object to the queue
+          # TODO: add proper event to the schedule queue
           schedule_queue.add_schedule_event()
       return
 
@@ -99,10 +99,10 @@ class NightTracker:
       current_time = Time.now()
       next_event_time, event_description = self.sorted_night_events[0]
       if current_time >= next_event_time:
-        print(f"Event Triggered: {event_description} at {current_time.iso}")
+        _logger.debug(f"Event Triggered: {event_description} at {current_time.iso}")
         self.sorted_night_events.pop(0)
         if self.should_trigger_plan((next_event_time, event_description)):
-          # TODO: Add proper event object to the queue
+          # TODO: add proper event to the schedule queue
           schedule_queue.add_schedule_event()
       else:
         await asyncio.sleep(self.CHECK_INTERVAL)  # Sleep for a while before checking again

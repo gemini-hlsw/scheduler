@@ -238,3 +238,11 @@ class WeatherClosureResolutionEvent(InterruptionResolutionEvent, UUIDReferenced)
     def __post_init__(self):
         if not isinstance(self.uuid_identified, WeatherClosureEvent):
             raise ValueError('WeatherClosureResolutionEvent is not paired with a WeatherClosureEvent.')
+
+@final
+@dataclass(frozen=True)
+class EndOfNightEvent(TwilightEvent):
+    """An event indicating that the night has ended
+        for all sites.
+    """
+    ...

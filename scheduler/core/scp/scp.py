@@ -2,9 +2,10 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from typing import final
+from typing import final, Dict
 
 import numpy.typing as npt
+import numpy as np
 from lucupy.minimodel import Site, NightIndex, TimeslotIndex
 
 from scheduler.core.components.collector import Collector
@@ -45,6 +46,19 @@ class SCP:
                                          sites=frozenset([site]),
                                          starting_time_slots={site: {night_idx: current_timeslot
                                                                      for night_idx in night_indices}},
+                                         ranker=self.ranker)
+        # Right now the optimizer generates List[Plans], a list of plans indexed by
+        # every night in the selection. We only want the first one, which corresponds
+        # to the current night index we are looping over.
+        # _logger.debug(f'Running optimizer for {site.site_name} for night {night_idx} '
+        #               f'starting at time slot {current_timeslot}.')
+        plans = self.optimizer.schedule(selection)[0]
+        return plans
+
+    def run_rt(self,
+               sites_timeslots=Dict[Site, Dict[NightIndex, TimeslotIndex]]) -> Plans:
+        selection = self.selector.select(night_indices=np.array([NightIndex(0)]),
+                                         starting_time_slots=sites_timeslots,
                                          ranker=self.ranker)
         # Right now the optimizer generates List[Plans], a list of plans indexed by
         # every night in the selection. We only want the first one, which corresponds
