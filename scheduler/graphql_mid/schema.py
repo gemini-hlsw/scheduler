@@ -2,7 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 from os import environ
-from typing import List, AsyncGenerator, Dict
+from typing import AsyncGenerator, Dict
+from datetime import datetime
 
 import numpy as np
 import strawberry # noqa
@@ -70,8 +71,8 @@ class Query:
     @strawberry.field
     async def schedule_rt(self, schedule_id: str, new_schedule_rt_input: CreateNewScheduleRTInput) -> str:
         schedule_id_var.set(schedule_id)
-        start = Time(new_schedule_rt_input.start_time, format='iso', scale='utc')
-        end = Time(new_schedule_rt_input.end_time, format='iso', scale='utc')
+        start = datetime.fromisoformat(new_schedule_rt_input.start_time)
+        end = datetime.fromisoformat(new_schedule_rt_input.end_time)
 
         ranker_params = RankerParameters(new_schedule_rt_input.thesis_factor,
                                          new_schedule_rt_input.power,
@@ -125,8 +126,8 @@ class Query:
     async def schedule(self, schedule_id: str, new_schedule_input: CreateNewScheduleInput) -> str:
         schedule_id_var.set(schedule_id)
 
-        start = Time(new_schedule_input.start_time, format='iso', scale='utc')
-        end = Time(new_schedule_input.end_time, format='iso', scale='utc')
+        start = datetime.fromisoformat(new_schedule_input.start_time)
+        end = datetime.fromisoformat(new_schedule_input.end_time)
 
         ranker_params = RankerParameters(new_schedule_input.thesis_factor,
                                          new_schedule_input.power,

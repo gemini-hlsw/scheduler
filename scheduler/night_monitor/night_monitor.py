@@ -32,6 +32,7 @@ class NightMonitor:
 
     """
     def __init__(self, night: Time, sites: List[Site]):
+        _logger.debug("Initializing night monitor...")
         # The shared queue for events
         self.event_queue = asyncio.Queue()
         self.scheduler_queue = SchedulerQueueClient()

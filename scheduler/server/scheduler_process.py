@@ -2,14 +2,11 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-from astropy.time import Time, TimeDelta
-from scheduler.core.events.queue.events import EndOfNightEvent
-from scheduler.graphql_mid.types import NightPlansError
+from datetime import timedelta
 from scheduler.night_monitor.night_monitor import NightMonitor
 from scheduler.services.logger_factory import create_logger
 from scheduler.engine import SchedulerParameters
 from scheduler.engine import EngineRT
-from scheduler.shared_queue import plan_response_queue
 
 _logger = create_logger(__name__)
 
@@ -24,8 +21,8 @@ class SchedulerProcess:
     """
 
     def __init__(self,
-                             process_id: str,
-                             params: SchedulerParameters):
+                 process_id: str,
+                 params: SchedulerParameters):
         """
         Initialize the scheduler process
         
@@ -73,7 +70,7 @@ class SchedulerProcess:
 
         # Loop through nights until stopped or reached the specified number of nights/date
         night_index = 0
-        current_night = self.params.start + TimeDelta(night_index, format='jd')
+        current_night = self.params.start + timedelta(days=night_index)
 
         while self.running_event.is_set():
             # Check if we have reached the end date or number of nights
@@ -83,34 +80,13 @@ class SchedulerProcess:
                 return
 
             # Initialize the night monitor
-            _logger.debug("Initializing night monitor...")
             night_monitor = NightMonitor(current_night, self.params.sites)
+            night_monitor.start()
 
             # Initialize Real Time Engine
-            _logger.debug("Initializing real-time engine...")
             engine = EngineRT(self.params)
+            await engine.run()
 
-            # Run event loop while still in the same night
-            while True:
-                # Wait for the next event
-                event = await night_monitor.scheduler_queue.get()
-                _logger.debug(f"Received scheduler event: {event}")
-
-                # Check if we have reached the end of the night
-                if isinstance(event, EndOfNightEvent):
-                    _logger.info("Night end event received, ending night scheduling loop.")
-                    night_index += 1
-                    current_night = self.params.start + TimeDelta(night_index, format='jd')
-                    _logger.debug(f"Next night: {current_night}")
-                    break
-
-                try:
-                    plan = engine.compute_event_plan(event)
-                    await plan_response_queue[self.process_id].put(plan)
-                except asyncio.CancelledError:
-                    _logger.info("Scheduler process was cancelled.")
-                except Exception as e:
-                    _logger.error(f"Error in scheduler process: {e}")
-                    await plan_response_queue[self.process_id].put(NightPlansError(error=str(e)))
-                finally:
-                    return
+            night_index += 1
+            current_night = self.params.start + timedelta(days=night_index)
+            _logger.debug(f"Next night: {current_night}")

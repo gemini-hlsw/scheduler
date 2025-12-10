@@ -4,6 +4,7 @@
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site
 from typing import final, FrozenSet, Optional
+from datetime import datetime
 
 from .blueprint import CollectorBlueprint
 from .schedulerbuilder import SchedulerBuilder
@@ -31,8 +32,8 @@ class SimulationBuilder(SchedulerBuilder):
         self.stats = StatCalculator
 
     def build_collector(self,
-                        start: Time,
-                        end: Time,
+                        start: datetime,
+                        end: datetime,
                         num_of_nights: int,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
@@ -54,7 +55,7 @@ class SimulationBuilder(SchedulerBuilder):
         return collector
 
     def _setup_event_queue(self,
-                           start: Time,
+                           start: datetime,
                            num_nights_to_schedule: int,
                            sites: FrozenSet[Site]) -> None:
         """

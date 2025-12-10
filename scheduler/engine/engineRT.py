@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import asyncio
 from astropy.time import Time
 
 from .params import SchedulerParameters
@@ -11,6 +12,10 @@ from scheduler.core.builder import Blueprints
 from scheduler.core.sources import Sources
 from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
+from scheduler.core.events.queue.events import EndOfNightEvent
+from scheduler.graphql_mid.types import NightPlansError
+from scheduler.shared_queue import plan_response_queue
+from scheduler.clients.scheduler_queue_client import schedule_queue
 
 from scheduler.graphql_mid.types import SPlans, NewPlansRT
 
@@ -43,6 +48,7 @@ class EngineRT:
             night_start_time (Time | None): Optional start time of the night.
             night_end_time (Time | None): Optional end time of the night.
         """
+        _logger.debug("Initializing real-time engine...")
         self.params = params
         self.sources = Sources()
         self.change_monitor = None
@@ -85,6 +91,9 @@ class EngineRT:
         self.scp = SCP(collector, selector, optimizer, ranker)
 
     def init_variant(self):
+        """
+        Initialize site variants with default values.
+        """
         # Should get variants from weather service in the future
         initial_variant = VariantSnapshot(iq=ImageQuality(1.0),
                                           cc=CloudCover(1.0),
@@ -94,6 +103,14 @@ class EngineRT:
             self.scp.selector.update_site_variant(site, initial_variant)
 
     def compute_event_plan(self, event: Event):
+        """
+        Compute a new plan based on the given event.
+        
+        Args:
+            event (Event): The event to compute the plan for.
+        Returns:
+            NewPlansRT: The new plan for the event.
+        """
         # Get the timeslots associated with the sites with format
         # {site: {0: current_timeslot}}
         start_timeslot = {}
@@ -117,3 +134,31 @@ class EngineRT:
             splans = SPlans.from_computed_plans(plans, self.params.sites)
 
         return NewPlansRT(night_plans=splans)
+
+    async def run(self):
+        """
+        Run the EngineRT process throuout the set of nights.
+        """
+
+        # Run event loop while still in the same night
+        while True:
+            # Wait for the next event
+            event = await schedule_queue.get()
+            _logger.debug(f"Received scheduler event: {event}")
+
+            # Check if we have reached the end of the night
+            if isinstance(event, EndOfNightEvent):
+                _logger.info("Night end event received, ending night scheduling loop.")
+                break
+
+            try:
+                plan = self.compute_event_plan(event)
+                await plan_response_queue[self.process_id].put(plan)
+            except asyncio.CancelledError:
+                _logger.info("Scheduler process was cancelled.")
+            except Exception as e:
+                _logger.error(f"Error in scheduler process: {e}")
+                await plan_response_queue[self.process_id].put(NightPlansError(error=str(e)))
+            finally:
+                return
+

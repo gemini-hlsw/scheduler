@@ -3,6 +3,7 @@
 
 from abc import abstractmethod, ABC
 from typing import FrozenSet, Optional
+from datetime import datetime
 
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site
@@ -33,8 +34,8 @@ class SchedulerBuilder(ABC):
         self.storage = None
 
     def build_collector(self,
-                        start: Time,
-                        end: Time,
+                        start: datetime,
+                        end: datetime,
                         num_of_nights: int,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
@@ -69,7 +70,7 @@ class SchedulerBuilder(ABC):
 
     @abstractmethod
     def _setup_event_queue(self,
-                           start: Time,
+                           start: datetime,
                            num_nights_to_schedule: int,
                            sites: FrozenSet[Site]) -> None:
         """
