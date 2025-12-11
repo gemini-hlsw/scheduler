@@ -13,6 +13,8 @@ from scheduler.core.meta import AsyncSingleton
 from scheduler.engine.params import SchedulerParametersV2
 
 
+__all__ = ["SchedulerQueueClient", "SchedulerEvent"]
+
 class SchedulerEvent(BaseModel):
     trigger_event: str
     time: datetime
@@ -21,6 +23,7 @@ class SchedulerEvent(BaseModel):
 
     @field_serializer('site')
     def serialize_site(self, site: Site) -> str:
+        """Convert Site enum to string"""
         return site.site_name
 
     @field_validator('site', mode='before')
@@ -33,6 +36,7 @@ class SchedulerEvent(BaseModel):
 
 class SchedulerQueueClient(metaclass=AsyncSingleton):
 
+    # TODO: Move everything to a proper config file.
     queue_name = 'scheduler_queue_test'
     exchange_name = 'scheduler_exchange_test'
     routing_key = 'scheduler_key_test'
@@ -54,11 +58,10 @@ class SchedulerQueueClient(metaclass=AsyncSingleton):
 
     async def connect(self):
         """
-        Establishes the pika connection and creates a channel.
-        Releases the lock before blocking on connect.
+        Establishes the connection and creates a channel.
         """
         if self.connection and not self.connection.is_closed:
-            return  # Already connected
+            return
 
         try:
             self.connection = await aio_pika.connect_robust(
@@ -72,7 +75,7 @@ class SchedulerQueueClient(metaclass=AsyncSingleton):
             self._is_ready.set()
 
         except Exception as e:
-            print(f"-> [AMQP] Failed to connect: {e}")
+            print(f"Failed to connect: {e}")
             self._is_ready.clear()
             raise
 
@@ -121,7 +124,6 @@ class SchedulerQueueClient(metaclass=AsyncSingleton):
         except Exception as e:
             print(f"Failed to setup queue/exchange: {e}")
             raise
-
 
     async def add_schedule_event(self, event: SchedulerEvent, priority: int = 0):
         """
@@ -215,12 +217,11 @@ class SchedulerQueueClient(metaclass=AsyncSingleton):
         self._is_ready.clear()
 
 async def main():
-    async def process_event(event: SchedulerEvent):
-        """Callback to process incoming events."""
-        print(f"Processing event: {event.trigger_event} at {event.time}")
-        # Add your event processing logic here
-        await asyncio.sleep(0.1)  # Simulate work
+    """Small snippet for further implementation."""
 
+    async def process_event(event: SchedulerEvent):
+        print(f"Processing event: {event.trigger_event} at {event.time} of event: {event.site}")
+        await asyncio.sleep(0.1)
     schedule_queue = None
 
     try:
