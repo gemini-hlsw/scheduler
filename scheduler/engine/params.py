@@ -69,7 +69,7 @@ class SchedulerParameters:
 
         if self.semester_visibility:
             end_date = max(s.end_date() for s in self.semesters)
-            self.end_vis = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
+            self.end_vis = datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S")
             if self.end is None:
                 diff = 1
             else:
@@ -79,7 +79,7 @@ class SchedulerParameters:
             self.night_indices = frozenset(NightIndex(idx) for idx in range(diff))
         else:
             self.night_indices = frozenset(NightIndex(idx) for idx in range(self.num_nights_to_schedule))
-            self.end_vis = Time(self.end)
+            self.end_vis = self.end
             if not self.num_nights_to_schedule:
                 raise ValueError("num_nights_to_schedule can't be None when visibility is given by end date")
 
