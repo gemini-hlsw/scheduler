@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
+from datetime import datetime, timedelta
 
 import astropy.units as u
 import numpy as np
@@ -75,8 +76,8 @@ class Collector(SchedulerComponent):
     Here, we just perform the necessary calculations, and are not concerned with the number of nights to be
     scheduled.
     """
-    start_vis_time: Time
-    end_vis_time: Time
+    start_vis_time: datetime
+    end_vis_time: datetime
     num_of_nights: int
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
@@ -133,11 +134,11 @@ class Collector(SchedulerComponent):
         Initializes the internal data structures for the Collector and populates them.
         """
         # Check that the times are valid.
-        if not np.isscalar(self.start_vis_time.value):
-            msg = f'Illegal start time (must be scalar): {self.start_vis_time}.'
+        if not isinstance(self.start_vis_time, datetime):
+            msg = f'Illegal start time (must be datetime): {self.start_vis_time}.'
             raise ValueError(msg)
-        if not np.isscalar(self.end_vis_time.value):
-            msg = f'Illegal end time (must be scalar): {self.end_vis_time}.'
+        if not isinstance(self.end_vis_time, datetime):
+            msg = f'Illegal end time (must be datetime): {self.end_vis_time}.'
             raise ValueError(msg)
         if self.start_vis_time > self.end_vis_time:
             msg = f'Start time ({self.start_vis_time}) cannot occur later than end time ({self.end_vis_time}).'
@@ -146,9 +147,9 @@ class Collector(SchedulerComponent):
         # Set up the time grid for the period under consideration in calculations: this is an astropy Time
         # object from start_time to end_time inclusive, with one entry per day.
         # Note that the format is in jdate.
-        self.time_grid = Time(np.arange(self.start_vis_time.jd,
-                                        self.end_vis_time.jd + 1.0, (1.0 * u.day).value),
-                              format='jd')
+        self.time_grid = Time(np.arange(self.start_vis_time,
+                                        self.end_vis_time + timedelta(days=1.0),
+                                        timedelta(days=1.0)))
 
         # The number of nights for which we are performing calculations.
         self.num_nights_calculated = len(self.time_grid)

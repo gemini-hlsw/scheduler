@@ -2,9 +2,17 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
+from astropy.time import Time
+from typing import List
+
+from lucupy.minimodel.site import Site
 
 from scheduler.clients.scheduler_queue_client import SchedulerQueueClient
 from scheduler.night_monitor import EventListener, EventConsumer
+from scheduler.night_monitor.night_tracker import NightTracker
+
+from scheduler.services import logger_factory
+_logger = logger_factory.create_logger(__name__)
 
 __all__ = ['NightMonitor']
 
@@ -23,7 +31,8 @@ class NightMonitor:
         _consumer_task (asyncio.Task): Holds the Event Consumer process.
 
     """
-    def __init__(self, night):
+    def __init__(self, night: Time, sites: List[Site]):
+        _logger.debug("Initializing night monitor...")
         # The shared queue for events
         self.event_queue = asyncio.Queue()
         self.scheduler_queue = SchedulerQueueClient()
@@ -33,10 +42,11 @@ class NightMonitor:
         client = None
         self.listener = EventListener(client, self.event_queue, self._shutdown_event)
         self.consumer = EventConsumer(self.event_queue, self._shutdown_event)
+        self.night_tracker = NightTracker(night, sites)
 
         self._listener_task: asyncio.Task | None = None
         self._consumer_task: asyncio.Task | None = None
-        # self._night_traker_task: asyncio.Task | None = None
+        self._night_tracker_task: asyncio.Task | None = None
 
     async def start(self):
         """
@@ -44,7 +54,7 @@ class NightMonitor:
         """
         self._listener_task = asyncio.create_task(self.listener.listen())
         self._consumer_task = asyncio.create_task(self.consumer.consume())
-        # self._night_traker ...
+        self._night_tracker_task = asyncio.create_task(self.night_tracker.start_tracking())
 
 
     async def shutdown(self, drain_queue: bool = True):
@@ -53,7 +63,7 @@ class NightMonitor:
         Args:
             drain_queue (bool): If True, the event queue is drained. Defaults to True.
         """
-        print("Shutting down the Night Monitor.")
+        _logger.info("Shutting down the Night Monitor.")
         self._shutdown_event.set()
 
         # Clean listener
@@ -72,20 +82,21 @@ class NightMonitor:
 
             # Force cancel any still-pending tasks
             for task in pending:
-                print(f"Force cancelling pending task: {task.get_name()}")
+                _logger.info(f"Force cancelling pending task: {task.get_name()}")
                 task.cancel()
                 try:
                     await task
                 except asyncio.CancelledError:
+                    _logger.error(f"Task {task.get_name()} cancelled during shutdown.")
                     pass
         # drain the event_queue
         if drain_queue and not self.event_queue.empty():
             try:
                 await asyncio.wait_for(self.event_queue.join(), timeout=2.0)
             except asyncio.TimeoutError:
-                print(f"Queue drain timed out, {self.event_queue.qsize()} items remaining")
+                _logger.warning(f"Queue drain timed out, {self.event_queue.qsize()} items remaining")
 
-        print("Shutdown complete")
+        _logger.info("Shutdown complete")
 
 
     async def on_demand(self, params):
@@ -94,4 +105,5 @@ class NightMonitor:
         and reset other events.
         """
         scheduler_queue = SchedulerQueueClient()
+        # TODO: add proper event to the schedule queue
         scheduler_queue.add_schedule_event()

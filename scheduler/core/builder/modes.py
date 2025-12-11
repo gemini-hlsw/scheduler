@@ -45,8 +45,8 @@ is_operation = app_mode == SchedulerModes.OPERATION
 is_simulation = app_mode == SchedulerModes.SIMULATION
 is_validation = app_mode == SchedulerModes.VALIDATION
 
-def dispatch_with(mode: SchedulerModes, sources: Sources, events: EventQueue) -> SchedulerBuilder:
-    match mode:
+def dispatch_with(sources: Sources, events: EventQueue) -> SchedulerBuilder:
+    match app_mode:
         case SchedulerModes.VALIDATION:
             sources.set_origin(Origins.OCS())
             return ValidationBuilder(sources, events)
@@ -54,4 +54,4 @@ def dispatch_with(mode: SchedulerModes, sources: Sources, events: EventQueue) ->
             sources.set_origin(Origins.SIM())
             return SimulationBuilder(sources, events)
         case SchedulerModes.OPERATION:
-            raise ValueError(f'{mode.value} not implemented yet.')
+            raise ValueError(f'{app_mode.value} not implemented yet.')

@@ -4,8 +4,8 @@
 import asyncio
 import os
 from pathlib import Path
+from datetime import datetime
 
-from astropy.time import Time
 from lucupy.minimodel.site import ALL_SITES
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
@@ -34,8 +34,8 @@ def main(*,
         programs_list = [line.strip() for line in file if line.strip()[0] != '#']
 
     # Create Parameters
-    params = SchedulerParameters(start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
-                                 end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+    params = SchedulerParameters(start=datetime.fromisoformat("2018-10-01 08:00:00"),
+                                 end=datetime.fromisoformat("2018-10-03 08:00:00"),
                                  sites=ALL_SITES,
                                  mode=SchedulerModes.VALIDATION,
                                  ranker_parameters=RankerParameters(),

@@ -41,8 +41,8 @@ class SchedulerParameters:
         ```python
 
            from scheduler.engine import SchedulerParameters, Engine
-           params = SchedulerParameters(start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
-                                         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+           params = SchedulerParameters(start=datetime.fromisoformat("2018-10-01 08:00:00"),
+                                         end=datetime.fromisoformat("2018-10-03 08:00:00"),
                                          sites=ALL_SITES,
                                          mode=SchedulerModes.VALIDATION,
                                          ranker_parameters=RankerParameters(),
@@ -51,8 +51,8 @@ class SchedulerParameters:
                                          programs_list=programs_list)
         ```
     """
-    start: Time
-    end: Time = None
+    start: datetime
+    end: datetime = None
     sites: FrozenSet[Site] = ALL_SITES
     mode: SchedulerModes = SchedulerModes.OPERATION
     ranker_parameters: RankerParameters = field(default_factory=RankerParameters)
@@ -62,19 +62,18 @@ class SchedulerParameters:
 
     def __post_init__(self):
         if self.end is not None and self.end > self.start:
-            self.semesters = frozenset([Semester.find_semester_from_date(self.start.datetime),
-                                        Semester.find_semester_from_date(self.end.datetime)])
+            self.semesters = frozenset([Semester.find_semester_from_date(self.start),
+                                        Semester.find_semester_from_date(self.end)])
         else:
-            self.semesters = frozenset([Semester.find_semester_from_date(self.start.datetime)])
+            self.semesters = frozenset([Semester.find_semester_from_date(self.start)])
 
         if self.semester_visibility:
             end_date = max(s.end_date() for s in self.semesters)
-            self.end_vis = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
+            self.end_vis = datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S")
             if self.end is None:
                 diff = 1
             else:
-                diff = self.end - self.start + 1
-                diff = int(diff.jd)
+                diff = (self.end - self.start).days + 1
 
             self.num_nights_to_schedule = diff
             self.night_indices = frozenset(NightIndex(idx) for idx in range(diff))
@@ -86,8 +85,8 @@ class SchedulerParameters:
 
     @staticmethod
     def from_json(received_params: dict) -> 'SchedulerParameters':
-        return SchedulerParameters(Time(received_params['startTime'], format='iso', scale='utc'),
-                                   Time(received_params['endTime'], format='iso', scale='utc'),
+        return SchedulerParameters(datetime.fromisoformat(received_params['startTime'], ),
+                                   datetime.fromisoformat(received_params['endTime']),
                                    frozenset([Site[received_params['sites'][0]]]) if len(received_params['sites']) < 2 else ALL_SITES,
                                    SchedulerModes[received_params['schedulerMode']],
                                    RankerParameters(thesis_factor=float(received_params['rankerParameters']['thesisFactor']),
