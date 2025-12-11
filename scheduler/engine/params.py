@@ -7,6 +7,7 @@ from typing import final, Optional, FrozenSet, List
 
 from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, Semester, NightIndex
+from pydantic import BaseModel
 
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
@@ -107,3 +108,11 @@ class SchedulerParameters:
             f"├─semester_visibility: {self.semester_visibility}\n" + \
             f"├─num_nights_to_schedule: {self.num_nights_to_schedule}\n" + \
             f"└─ranker_parameters: {self.ranker_parameters}"
+
+
+
+
+class SchedulerParametersV2(BaseModel):
+    vis_start: datetime
+    vis_end: datetime
+    programs_list: Optional[List[str]] = None
