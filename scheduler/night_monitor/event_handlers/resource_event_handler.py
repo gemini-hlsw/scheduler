@@ -45,6 +45,7 @@ class PDRQueue:
             self,
             resource_name: str,
             delay: float,
+            schedule_queue: SchedulerQueueClient,
             callback: callable
     ) -> MockResourceEvent:
         """
@@ -54,6 +55,7 @@ class PDRQueue:
         Args:
             resource_name (str): The resource id from Resource.
             delay (float): The delay time in seconds.
+            schedule_queue (SchedulerQueueClient): Queue to put the scheduler event in.
             callback (callable): The callback function to handle resource event.
         Returns:
             MockResourceEvent: Pop the event from the queue.
@@ -69,7 +71,7 @@ class PDRQueue:
                     print(f"Item {resource_name} auto-popped: {event}")
 
                     # Call callback
-                    await callback(event)
+                    await callback(event, schedule_queue)
 
                     return event
         except asyncio.CancelledError:
@@ -78,6 +80,7 @@ class PDRQueue:
     async def put(
             self,
             event: MockResourceEvent,
+            schedule_queue: SchedulerQueueClient,
             callback: callable,
             timeout: float = 15.0
     ):
@@ -86,15 +89,15 @@ class PDRQueue:
 
         Args:
             event: (MockResourceEvent): Event from Resource that disables a resource.
+            schedule_queue: (SchedulerQueueClient): Queue to put the scheduler event in.
             callback (callable): The callback function to handle resource event.
             timeout (float): The timeout time in seconds. After this the callback would be call.
         """
 
         async with self.lock:
             self.queue[event.resource_name] = event
-
             timer_duration = timeout if timeout is not None else self.timeout
-            task = asyncio.create_task(self._auto_pop(event.resource_name, timer_duration, callback))
+            task = asyncio.create_task(self._auto_pop(event.resource_name, timer_duration, schedule_queue, callback))
             self.tasks[event.resource_name] = task
 
 
@@ -157,12 +160,11 @@ class ResourceEventHandler(EventHandler):
         return MockResourceEvent.model_validate(raw_event)
 
     @staticmethod
-    async def _disabled_callback(event: MockResourceEvent):
+    async def _disabled_callback(event: MockResourceEvent, schedule_queue: SchedulerQueueClient):
         print("Resource is still disabled after timeout")
-        scheduler_queue = SchedulerQueueClient()
-        scheduler_queue.add_schedule_event()
+        # scheduler_queue.add_schedule_event()
 
-    async def _on_resource_edit(self, event: MockResourceEvent):
+    async def _on_resource_edit(self, event: MockResourceEvent, scheduler_queue: SchedulerQueueClient):
         """
         Handles resource_edit events: any modification that affects a resource.
         This assumes a similar naming structure as in the ODB.
@@ -175,7 +177,7 @@ class ResourceEventHandler(EventHandler):
                 # If the event is disabling a resource that is on the plan lets put it in the PDR
                 last_plan = LastPlanMock()
                 if event.resource_name in last_plan.resources():
-                    await self.pdr.put(event, self._disabled_callback)
+                    await self.pdr.put(event, scheduler_queue, self._disabled_callback)
             case "enabled":
                 await self.pdr.force_pop(event.resource_name)
             case _:

@@ -4,9 +4,10 @@
 from datetime import timedelta
 from typing import ClassVar, Dict, Tuple, Callable
 
-from scheduler.clients.scheduler_queue_client import schedule_queue
+from scheduler.clients.scheduler_queue_client import SchedulerQueueClient
 from scheduler.night_monitor.event_sources import ODBEventSource
 from .event_handler import EventHandler, MockObservationEdit, LastPlanMock
+
 
 
 class ODBEventHandler(EventHandler):
@@ -31,7 +32,7 @@ class ODBEventHandler(EventHandler):
         }
 
     @staticmethod
-    async def _on_created_edit(event: MockObservationEdit):
+    async def _on_created_edit(event: MockObservationEdit, schedule_queue: SchedulerQueueClient):
         """
         A new observation was created. Check if the status is ready for this new observation.
         For ToOs we might want to interrupt so check that status as well.
@@ -45,10 +46,10 @@ class ODBEventHandler(EventHandler):
             if too is not None:
                 # TODO: For now we do nothing until we implement the logic for different types of ToOs.
                 pass # Check the type of opportunity
-            schedule_queue.add_schedule_event()
+            # await schedule_queue.add_schedule_event()
 
     @staticmethod
-    async def _on_deleted_edit(event: MockObservationEdit):
+    async def _on_deleted_edit(event: MockObservationEdit, schedule_queue: SchedulerQueueClient):
         """
         An observation was deleted. Check if is in the current plan to retrieve a new plan.
         Otherwise, we keep the current plan.
@@ -61,10 +62,11 @@ class ODBEventHandler(EventHandler):
 
         if event.observationId in last_plan:
             # TODO: If we keep the ObservationID wrapper this would require a modification
-            schedule_queue.add_schedule_event()
+            # await schedule_queue.add_schedule_event()
+            pass
 
     @staticmethod
-    async def _on_updated_edit(event: MockObservationEdit):
+    async def _on_updated_edit(event: MockObservationEdit, schedule_queue: SchedulerQueueClient):
         """
         An updated edit means the observation was modified.
         Check if the conditions in an observation was changed.
@@ -72,6 +74,8 @@ class ODBEventHandler(EventHandler):
         Args:
             event (MockObservationEdit): The observation edit type updated.
         """
+
+
         # Retrieve last plan
         last_plan = LastPlanMock()
         old_observation = last_plan.get_observation(event.observationId)
@@ -83,9 +87,10 @@ class ODBEventHandler(EventHandler):
         # TODO: plan structure (currently we use minimodel Constraints).
         # Constraints changed so we need to trigger a new plan
         if old_constraints != new_constraints:
-            schedule_queue.add_schedule_event()
+           # schedule_queue.add_schedule_event()
+           pass
 
-    async def _on_observation_edit(self, event: MockObservationEdit):
+    async def _on_observation_edit(self, event: MockObservationEdit, schedule_queue: SchedulerQueueClient):
         """
         Handles all modifications (edits) to existing observations.
 
@@ -95,21 +100,23 @@ class ODBEventHandler(EventHandler):
         # Check type of event
         match event.editType:
             case 'created':
-               await self._on_created_edit(event)
+               await self._on_created_edit(event, schedule_queue)
             case 'updated':
-                await self._on_updated_edit(event)
+                await self._on_updated_edit(event, schedule_queue)
             case 'hard_delete':
-                await self._on_deleted_edit(event)
+                await self._on_deleted_edit(event, schedule_queue)
             case _:
                 raise NotImplementedError(f'Missing logic for this type of edit {event.editType}')
 
     @staticmethod
-    async def _on_visit_executed(event):
+    async def _on_visit_executed(event, schedule_queue: SchedulerQueueClient):
         """
         Handles when a visit is executed in Navigate and registered in the ODB.
         Allowing the scheduler to check if the last plan is being followed and to update the
         last executed visit.
         """
+
+
         # Visit ended. Retrieve last plan
         obs_id = event.observationId
         last_plan = LastPlanMock()  # plandb_client.get_last_plan()
@@ -119,7 +126,7 @@ class ODBEventHandler(EventHandler):
 
         if obs_id != current_visit_last_plan.observation().id:
             # Last executed visit differs from the plan. Do a new plan
-            schedule_queue.add_schedule_event()
+            # schedule_queue.add_schedule_event()
             return
 
         new_visit_duration = event.visit.interval().duration().seconds
@@ -129,7 +136,7 @@ class ODBEventHandler(EventHandler):
         )
         # Visit took longer that it should, putting it behind schedule.
         if new_visit_duration > current_plan_delta:
-            schedule_queue.add_schedule_event()
+            # schedule_queue.add_schedule_event()
             return
 
         # We are following the plan. Update last executed visit.
