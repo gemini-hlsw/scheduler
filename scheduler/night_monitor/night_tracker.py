@@ -8,7 +8,7 @@ from astropy.time import Time
 from lucupy import sky
 from astropy.time import Time
 from astropy import units as u
-from scheduler.clients.scheduler_queue_client import schedule_queue
+from scheduler.clients.scheduler_queue_client import SchedulerQueueClient
 from scheduler.core.builder.modes import SchedulerModes, app_mode
 
 from scheduler.services.logger_factory import create_logger
@@ -85,6 +85,8 @@ class NightTracker:
     In RT should add events to the scheduler queue when an event time is reached
     In non-RT should add all events to the scheduler queue at once
     """
+    schedule_queue = await SchedulerQueueClient.instance()
+
     if app_mode != SchedulerModes.OPERATION:
       _logger.info("Starting non-real-time tracking of night events")
       for event_time, event_desc in self.sorted_night_events:

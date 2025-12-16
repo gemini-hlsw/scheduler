@@ -15,7 +15,7 @@ from scheduler.services import logger_factory
 from scheduler.core.events.queue.events import EndOfNightEvent
 from scheduler.graphql_mid.types import NightPlansError
 from scheduler.shared_queue import plan_response_queue
-from scheduler.clients.scheduler_queue_client import schedule_queue
+from scheduler.clients.scheduler_queue_client import SchedulerQueueClient
 
 from scheduler.graphql_mid.types import SPlans, NewPlansRT
 
@@ -143,7 +143,10 @@ class EngineRT:
         # Run event loop while still in the same night
         while True:
             # Wait for the next event
-            event = await schedule_queue.get()
+            # TODO: implement Queue integration properly
+            schedule_queue = await SchedulerQueueClient.instance()
+            # event = await schedule_queue.consume_events(lambda)
+            event = None
             _logger.debug(f"Received scheduler event: {event}")
 
             # Check if we have reached the end of the night

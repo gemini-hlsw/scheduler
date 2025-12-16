@@ -15,6 +15,9 @@ __all__ = [
     'LastPlanMock'
 ]
 
+from scheduler.clients import SchedulerQueueClient
+
+
 class MockObservation(BaseModel):
     """
     gpp client should have these base model
@@ -92,5 +95,7 @@ class EventHandler(ABC):
         # Parse the raw event
         event = parser(raw_event)
 
+        schedule_queue = await SchedulerQueueClient.instance()
+
         # Handle the parsed event
-        await handler(event)
+        await handler(event, schedule_queue)
