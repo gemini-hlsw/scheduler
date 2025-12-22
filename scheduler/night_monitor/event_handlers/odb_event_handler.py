@@ -4,10 +4,10 @@
 from datetime import timedelta
 from typing import ClassVar, Dict, Tuple, Callable
 
-from scheduler.clients.scheduler_queue_client import SchedulerQueueClient
+from scheduler.clients.scheduler_queue_client import SchedulerQueueClient, SchedulerEvent
 from scheduler.night_monitor.event_sources import ODBEventSource
 from .event_handler import EventHandler, MockObservationEdit, LastPlanMock
-
+from ...engine.params import SchedulerParametersV2, get_shared_params
 
 
 class ODBEventHandler(EventHandler):
@@ -46,7 +46,16 @@ class ODBEventHandler(EventHandler):
             if too is not None:
                 # TODO: For now we do nothing until we implement the logic for different types of ToOs.
                 pass # Check the type of opportunity
-            # await schedule_queue.add_schedule_event()
+
+            params = await get_shared_params().get_params()
+            scheduler_event = SchedulerEvent(
+                trigger_event=f'New observation edit: {event.editType} for {event.observationId}',
+                time=event.time,
+                site=event.observation.site,
+                parameters=params
+
+            )
+            await schedule_queue.add_schedule_event(scheduler_event)
 
     @staticmethod
     async def _on_deleted_edit(event: MockObservationEdit, schedule_queue: SchedulerQueueClient):
@@ -62,8 +71,15 @@ class ODBEventHandler(EventHandler):
 
         if event.observationId in last_plan:
             # TODO: If we keep the ObservationID wrapper this would require a modification
-            # await schedule_queue.add_schedule_event()
-            pass
+            params = await get_shared_params().get_params()
+            scheduler_event = SchedulerEvent(
+                trigger_event=f'Observation {event.observationId} deleted from plan: {event.editType}',
+                time=event.time,
+                site=event.observation.site,
+                parameters=params
+            )
+            await schedule_queue.add_schedule_event(scheduler_event)
+
 
     @staticmethod
     async def _on_updated_edit(event: MockObservationEdit, schedule_queue: SchedulerQueueClient):
@@ -87,8 +103,14 @@ class ODBEventHandler(EventHandler):
         # TODO: plan structure (currently we use minimodel Constraints).
         # Constraints changed so we need to trigger a new plan
         if old_constraints != new_constraints:
-           # schedule_queue.add_schedule_event()
-           pass
+            params = await get_shared_params().get_params()
+            scheduler_event = SchedulerEvent(
+                trigger_event=f'Observation {event.observationId} deleted from plan: {event.editType}',
+                time=event.time,
+                site=event.observation.site,
+                parameters=params
+            )
+            await schedule_queue.add_schedule_event(scheduler_event)
 
     async def _on_observation_edit(self, event: MockObservationEdit, schedule_queue: SchedulerQueueClient):
         """
@@ -126,7 +148,14 @@ class ODBEventHandler(EventHandler):
 
         if obs_id != current_visit_last_plan.observation().id:
             # Last executed visit differs from the plan. Do a new plan
-            # schedule_queue.add_schedule_event()
+            params = await get_shared_params().get_params()
+            scheduler_event = SchedulerEvent(
+                trigger_event=f'Observation {event.observationId} deleted from plan: {event.editType}',
+                time=event.time,
+                site=event.observation.site,
+                parameters=params
+            )
+            await schedule_queue.add_schedule_event(scheduler_event)
             return
 
         new_visit_duration = event.visit.interval().duration().seconds
@@ -136,7 +165,14 @@ class ODBEventHandler(EventHandler):
         )
         # Visit took longer that it should, putting it behind schedule.
         if new_visit_duration > current_plan_delta:
-            # schedule_queue.add_schedule_event()
+            params = await get_shared_params().get_params()
+            scheduler_event = SchedulerEvent(
+                trigger_event=f'Observation {event.observationId} deleted from plan: {event.editType}',
+                time=event.time,
+                site=event.observation.site,
+                parameters=params
+            )
+            await schedule_queue.add_schedule_event(scheduler_event)
             return
 
         # We are following the plan. Update last executed visit.

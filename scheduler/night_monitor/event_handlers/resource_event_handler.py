@@ -6,10 +6,13 @@ from typing import Dict, Tuple, Callable
 
 from pydantic import BaseModel
 
-from scheduler.clients.scheduler_queue_client import SchedulerQueueClient
+from scheduler.clients.scheduler_queue_client import SchedulerQueueClient, SchedulerEvent
 from .event_handler import EventHandler, LastPlanMock
 
 __all__ = ['ResourceEventHandler', 'MockResourceEvent', 'PDRQueue']
+
+from ...engine.params import get_shared_params
+
 
 class MockResourceEvent(BaseModel):
     resource_status: str
@@ -162,7 +165,14 @@ class ResourceEventHandler(EventHandler):
     @staticmethod
     async def _disabled_callback(event: MockResourceEvent, schedule_queue: SchedulerQueueClient):
         print("Resource is still disabled after timeout")
-        # scheduler_queue.add_schedule_event()
+        params = await get_shared_params().get_params()
+        scheduler_event = SchedulerEvent(
+            trigger_event=f'Observation {event.observationId} deleted from plan: {event.editType}',
+            time=event.time,
+            site=event.observation.site,
+            parameters=params
+        )
+        await schedule_queue.add_schedule_event(scheduler_event)
 
     async def _on_resource_edit(self, event: MockResourceEvent, scheduler_queue: SchedulerQueueClient):
         """

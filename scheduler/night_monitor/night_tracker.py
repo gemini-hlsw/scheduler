@@ -91,8 +91,14 @@ class NightTracker:
       _logger.info("Starting non-real-time tracking of night events")
       for event_time, event_desc in self.sorted_night_events:
         if self.should_trigger_plan((next_event_time, event_description)):
-          # TODO: add proper event to the schedule queue
-          schedule_queue.add_schedule_event()
+          params = await get_shared_params().get_params()
+          scheduler_event = SchedulerEvent(
+            trigger_event=f'Observation {event.observationId} deleted from plan: {event.editType}',
+            time=event.time,
+            site=event.observation.site,
+            parameters=params
+          )
+          await schedule_queue.add_schedule_event(scheduler_event)
       return
 
     # Real-time mode

@@ -4,4 +4,4 @@
 from .event_handler import *
 from .odb_event_handler import *
 from .resource_event_handler import *
-from .weather_event_hanlder import *
+from .weather_event_handler import *

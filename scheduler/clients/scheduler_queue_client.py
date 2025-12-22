@@ -125,7 +125,11 @@ class SchedulerQueueClient(metaclass=AsyncSingleton):
             print(f"Failed to setup queue/exchange: {e}")
             raise
 
-    async def add_schedule_event(self, event: SchedulerEvent, priority: int = 0):
+    async def add_schedule_event(
+        self,
+        event: SchedulerEvent,
+        reason: str,
+        priority: int = 0):
         """
         Publishes a scheduler event to the queue.
 
