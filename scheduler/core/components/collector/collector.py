@@ -343,12 +343,15 @@ class Collector(SchedulerComponent):
             vis_table = {}
 
         sem, = self.semesters
-        # Get information about CPU cores, to avoid overloading
-        core_info = get_cores()
-        if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
-            n_jobs = core_info['performance']
+        if config.collector.parallel_viscalc:
+            # Get information about CPU cores, to avoid overloading
+            core_info = get_cores()
+            if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
+                n_jobs = core_info['performance']
+            else:
+                n_jobs = core_info['cores']
         else:
-            n_jobs = core_info['cores']
+            n_jobs = 1
 
         parallel = Parallel(n_jobs=n_jobs, backend='loky')
         # with parallel_config(backend="loky", inner_max_num_threads=1):
