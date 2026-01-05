@@ -1,7 +1,7 @@
 [project]
 name = "scheduler"
-version = "0.1.5"
-description = "Add your description here"
+version = "0.1.6"
+description = "Gemini Observatory automated scheduler"
 readme = 'README.md'
 authors = [{ name = "NOIRLab" }]
 license = { file = "LICENSE" }
