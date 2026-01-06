@@ -110,35 +110,3 @@ class SchedulerParameters:
             f"└─ranker_parameters: {self.ranker_parameters}"
 
 
-
-
-class SchedulerParametersV2(BaseModel):
-    vis_start: datetime
-    vis_end: datetime
-    programs_list: Optional[List[str]] = None
-
-
-class SharedStateSchedulerParameters:
-    def __init__(self):
-        self._params : Optional[SchedulerParametersV2] = None
-        self._lock = Lock()
-
-    async def get_params(self) -> SchedulerParametersV2:
-        with self._lock:
-            return self._params
-
-    async def set_params(self, params: SchedulerParametersV2) -> None:
-        async with self._lock:
-            self._params = params
-
-
-_shared_params_instance = None
-
-
-def get_shared_params() -> SharedStateSchedulerParameters:
-    global _shared_params_instance
-    if _shared_params_instance is None:
-        _state_manager_instance = SharedStateSchedulerParameters()
-    return _shared_params_instance
-
-

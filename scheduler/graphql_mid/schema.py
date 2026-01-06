@@ -15,7 +15,7 @@ from scheduler.context import schedule_id_var
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
-from scheduler.server.process_manager import ProcessManager
+from scheduler.server.process_manager import process_manager
 from scheduler.services.logger_factory import create_logger
 from scheduler.shared_queue import plan_response_queue
 
@@ -121,7 +121,6 @@ class Query:
         await queue.put(task)
         return f'Plan is on the queue! for {schedule_id}'
 
-
     @strawberry.field
     async def schedule(self, schedule_id: str, new_schedule_input: CreateNewScheduleInput) -> str:
         schedule_id_var.set(schedule_id)
@@ -149,8 +148,19 @@ class Query:
                                      programs_list)
         _logger.info(f"Plan is on the queue! for: {schedule_id}\n{params}")
 
-        ProcessManager.add_scheduler_request(schedule_id, params)
+
         return f'Plan is on the queue! for {schedule_id}'
+
+    @strawberry.field
+    async def schedule_v2(self) -> str:
+        op_process = process_manager.get_operation_process()
+        await op_process.scheduler_queue.add_schedule_event(
+            reason='On demand request',
+            event=None
+        )
+        return f'Plan is on the queue in the Operation Process!'
+
+
 
 @strawberry.type
 class Subscription:

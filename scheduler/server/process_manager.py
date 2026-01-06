@@ -4,13 +4,13 @@
 import asyncio
 from datetime import datetime, timezone
 from astropy.time import Time
-from typing import Dict
+from typing import Dict, Optional
 from scheduler.core.builder.modes import is_operation
 from scheduler.services.logger_factory import create_logger
 from scheduler.server.scheduler_process import SchedulerProcess
 from scheduler.engine import SchedulerParameters
 
-_logger = create_logger(__name__)
+_logger = create_logger(__name__, with_id=False)
 
 __all__ = ["ProcessManager"]
 
@@ -22,18 +22,22 @@ class ProcessManager:
     if running in validation or simulation mode, if running in operation mode it will be "operation".
     """
 
-    # Queue to manage scheduler process requests
-    scheduler_process_queue = asyncio.Queue()
-
     def __init__(self):
         """
-        Initialize the ProcessManager and the processes dictionary.
+        Initialize the ProcessManager and the processes' dictionary.
         """
         # Initialize the process manager
         # If operation_mode initialize single scheduler process
-        self.processes: Dict[str, SchedulerProcess] = {}
+        self.active_processes: Dict[str, SchedulerProcess] = {}
+        self.operation_process_id: Optional[str] = None
+        self._lock = asyncio.Lock()
 
-    def add_scheduler_process(self, process_id: str, request_params: SchedulerParameters):
+
+    async def add_scheduler_process(
+            self,
+            process_id: str,
+            request_params: Optional[SchedulerParameters]
+    ):
         """
         Add a new scheduler process to the manager.
         
@@ -41,8 +45,8 @@ class ProcessManager:
                 process_id (str): A unique identifier for the scheduler process.
                 request_params (SchedulerParameters): The parameters for the scheduler process.
         """
-        self.processes[process_id] = SchedulerProcess(process_id, request_params)
-        self.processes[process_id].start_task()
+        self.active_processes[process_id] = SchedulerProcess(process_id, request_params)
+        await self.active_processes[process_id].start_task()
 
     def stop_process(self, process_id: str):
         """
@@ -51,9 +55,24 @@ class ProcessManager:
         Args:
                 process_id (str): The unique identifier of the scheduler process to stop.
         """
-        if process_id in self.processes:
-            self.processes[process_id].stop_process()
-            del self.processes[process_id]
+        if process_id in self.active_processes:
+            self.active_processes[process_id].stop_process()
+            del self.active_processes[process_id]
+
+    async def set_operation_process(self, process_id: str):
+        # We add the process without parameters as those should be setup separately
+
+        params = SchedulerParameters(start=datetime.now(timezone.utc))
+        await self.add_scheduler_process(process_id, params)
+        self.operation_process_id = process_id
+        _logger.info(f"Set operation process ID: {process_id}")
+
+    def get_operation_process(self) -> Optional[SchedulerProcess]:
+        return self.active_processes[self.operation_process_id]
+
+    def clear_operation_process(self):
+        self.stop_process(self.operation_process_id)
+        self.operation_process_id = None
 
     async def start(self):
         """
@@ -63,37 +82,26 @@ class ProcessManager:
         Otherwise, listen for new scheduler process requests from the scheduler_process_queue.
         """
         if is_operation:
-            self.add_scheduler_process("operation", SchedulerParameters(
-                start=Time(datetime.now(tz=timezone.utc), scale='utc'),
-            ))
+
+            await self.set_operation_process("operation")
         else:
             # Start new_process_queue check
-            asyncio.create_task(self.new_process_queue())
-
+            pass
+        _logger.info("Process manager started.")
         # Monitor all scheduler processes
-        while True:
-            for process_id, process in self.processes.items():
-                if not process.is_running:
-                    # Let the UI know that the process has stopped
-                    _logger.warning(f"Scheduler process {process_id} has stopped unexpectedly.")
-            await asyncio.sleep(60)  # Check every minute
+        #while True:
+        #    for process_id, process in self.active_processes.items():
+        #        if not process.is_running:
+        #            # Let the UI know that the process has stopped
+        #            _logger.warning(f"Scheduler process {process_id} has stopped unexpectedly.")
+        #    await asyncio.sleep(60)  # Check every minute
 
-    async def new_process_queue(self):
-        """
-        Add new scheduler processes from the scheduler_process_queue.
-        """
-        while True:
-            process_id, request_params = await ProcessManager.scheduler_process_queue.get()
-            print(f"Process Manager: Adding new scheduler process {process_id}")
-            self.add_scheduler_process(process_id, request_params)
+    async def stop(self):
+        for process in list(self.active_processes.values()):
+            await process.stop_process()
+        self.active_processes.clear()
+        self.operation_process_id = None
+        _logger.info("Process manager stopped.")
 
-    @staticmethod
-    def add_scheduler_request(process_id: str, request_params: SchedulerParameters):
-        """
-        Add a new scheduler process request to the scheduler_process_queue.
-        
-        Args:
-                process_id (str): A unique identifier for the scheduler process.
-                request_params (SchedulerParameters): The parameters for the scheduler process.
-        """
-        ProcessManager.scheduler_process_queue.put_nowait((process_id, request_params))
+
+process_manager = ProcessManager()

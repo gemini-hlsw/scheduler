@@ -3,11 +3,8 @@
 from fastapi import Depends
 from fastapi.responses import JSONResponse
 from scheduler.app import app
-from scheduler.engine import SchedulerParameters
-from scheduler.engine.params import SharedStateSchedulerParameters, SchedulerParametersV2, get_shared_params
+from scheduler.server.process_manager import process_manager
 
-
-scheduler = SharedStateSchedulerParameters()
 
 # Root API
 @app.get("/", include_in_schema=False)
@@ -16,13 +13,10 @@ def root() -> JSONResponse:
                         content={
                             "message": "Welcome to Server"})
 
-
-@app.post("/scheduler_parameters")
-async def set_scheduler_parameters(
-        scheduler_parameters: SchedulerParametersV2,
-        shared_params: SharedStateSchedulerParameters = Depends(get_shared_params)
-):
-    await shared_params.set_params(scheduler_parameters)
-
-
-
+@app.get("/get_operation_id")
+def get_operation_id() -> JSONResponse:
+    return JSONResponse(
+        status_code=200,
+        content={
+            "message": process_manager.get_operation_id()
+    })

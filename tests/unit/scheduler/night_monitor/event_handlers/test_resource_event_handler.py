@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
 
-from scheduler.clients import SchedulerEvent, SchedulerQueueClient
+from scheduler.clients import SchedulerEvent, Schedulerqueueclient
 from scheduler.night_monitor.event_handlers.resource_event_handler import MockResourceEvent, PDRQueue, ResourceEventHandler
 
 
@@ -150,7 +150,7 @@ class TestResourceEventHandler:
         callback_called = asyncio.Event()
         received_event = None
 
-        async def test_callback(event: MockResourceEvent, sched_queue: SchedulerQueueClient):
+        async def test_callback(event: MockResourceEvent, sched_queue: Schedulerqueueclient):
             nonlocal received_event
             received_event = event
             callback_called.set()

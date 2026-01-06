@@ -54,4 +54,5 @@ def dispatch_with(sources: Sources, events: EventQueue) -> SchedulerBuilder:
             sources.set_origin(Origins.SIM())
             return SimulationBuilder(sources, events)
         case SchedulerModes.OPERATION:
-            raise ValueError(f'{app_mode.value} not implemented yet.')
+            sources.set_origin(Origins.SIM())
+            return SimulationBuilder(sources, events)

@@ -29,18 +29,14 @@ async def main():
 
     server = uvicorn.Server(uvicorn_config)
 
-    # Initialize the process manager
-    process_manager = ProcessManager()
-
     # Start the server and the process manager
-    await asyncio.gather(
-        server.serve(),
-        process_manager.start()
-    )
+
+    await server.serve(),
+
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Shutting down scheduler server...")
-        asyncio.get_event_loop().stop()
+        # asyncio.get_event_loop().stop()

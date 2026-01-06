@@ -3,18 +3,29 @@
 
 import asyncio
 import datetime
+from dataclasses import dataclass
+from typing import FrozenSet
 
-from astropy.time import Time
 from lucupy import sky
+from lucupy.minimodel import Site
 from astropy.time import Time
 from astropy import units as u
-from scheduler.clients.scheduler_queue_client import SchedulerQueueClient
+
+
+from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.core.builder.modes import SchedulerModes, app_mode
 
 from scheduler.services.logger_factory import create_logger
 _logger = create_logger(__name__)
 
 __all__ = ["NightTracker"]
+
+@dataclass
+class NightEvent:
+  description: str
+  time: Time
+  site: str
+
 
 class NightTracker:
   """
@@ -26,7 +37,7 @@ class NightTracker:
   
   CHECK_INTERVAL = 30 # seconds
 
-  def __init__(self, date: Time, sites: list):
+  def __init__(self, date: Time, sites: FrozenSet[Site], scheduler_queue: SchedulerQueue):
     """
     Constructor for NightTracker.
     Args:
@@ -35,31 +46,40 @@ class NightTracker:
     """
     # Set night date
     self.date = date
+    self.scheduler_queue = scheduler_queue
 
     # Precompute night events for each site as an array of tuples
     all_events = []
     for site in sites:
-      (midnight, sunset, sunrise, even_12twi, morn_12twi, moonrise, moonset) = sky.night_events(self.date, site.location, site.timezone)
+      astropy_date = Time(self.date)
+      (midnight, sunset, sunrise, even_12twi, morn_12twi, moonrise, moonset) = sky.night_events(
+        astropy_date,
+        site.location,
+        site.timezone
+      )
       all_events.extend([
-        (midnight[0], f"Midnight at {site.name}"),
-        (sunset, f"Sunset at {site.name}"),
-        (sunrise, f"Sunrise at {site.name}"),
-        (even_12twi, f"Evening 12° Twilight at {site.name}"),
-        (morn_12twi, f"Morning 12° Twilight at {site.name}"),
-        (moonrise, f"Moonrise at {site.name}"),
-        (moonset, f"Moonset at {site.name}"),
+        NightEvent(description=f"Midnight at {site.name}", time=midnight[0], site=site.name),
+        NightEvent(description=f"Sunset at {site.name}", time=sunset, site=site.name),
+        NightEvent(description=f"Sunrise at {site.name}", time=sunrise, site=site.name),
+        NightEvent(description=f"Evening 12° Twilight at {site.name}", time=even_12twi, site=site.name),
+        NightEvent(description=f"Morning 12° Twilight at {site.name}", time=morn_12twi, site=site.name),
+        NightEvent(description=f"Moonrise at {site.name}", time=moonrise, site=site.name),
+        NightEvent(description=f"Moonset at {site.name}", time=moonset, site=site.name),
       ])
     
     # Sort events by time
-    self.sorted_night_events = sorted(all_events, key=lambda x: x[0])
+    self.sorted_night_events = sorted(all_events, key=lambda x: x.time)
 
     # Add end of night event
-    self.sorted_night_events.append((self.sorted_night_events[-1][0] + 5 * u.min, "End of Night"))
+    self.sorted_night_events.append(
+      NightEvent(description="End of Night", time=self.sorted_night_events[-1].time + 5 * u.min, site="Both"),
+    )
 
     # Debugging output
     _logger.debug(self)
-  
-  def should_trigger_plan(self, event):
+
+  @staticmethod
+  def should_trigger_plan(event: NightEvent) -> bool:
     """
     Determines if a given event should trigger a new plan.
     Args:
@@ -73,7 +93,7 @@ class NightTracker:
       "End of Night"
     ]
     for trigger in trigger_events:
-      if trigger in event[1]:
+      if trigger in event.description:
         return True
 
     # TODO: Add more conditions as needed
@@ -85,33 +105,31 @@ class NightTracker:
     In RT should add events to the scheduler queue when an event time is reached
     In non-RT should add all events to the scheduler queue at once
     """
-    schedule_queue = await SchedulerQueueClient.instance()
+    schedule_queue = self.scheduler_queue
 
     if app_mode != SchedulerModes.OPERATION:
       _logger.info("Starting non-real-time tracking of night events")
-      for event_time, event_desc in self.sorted_night_events:
-        if self.should_trigger_plan((next_event_time, event_description)):
-          params = await get_shared_params().get_params()
-          scheduler_event = SchedulerEvent(
-            trigger_event=f'Observation {event.observationId} deleted from plan: {event.editType}',
-            time=event.time,
-            site=event.observation.site,
-            parameters=params
-          )
-          await schedule_queue.add_schedule_event(scheduler_event)
+      for night_event in self.sorted_night_events:
+        if self.should_trigger_plan(night_event):
+          await schedule_queue.add_schedule_event(
+            reason=f'Night event {night_event.description}',
+            event=night_event
+        )
       return
 
     # Real-time mode
     _logger.info("Starting real-time tracking of night events")
     while len(self.sorted_night_events) > 0:
       current_time = Time.now()
-      next_event_time, event_description = self.sorted_night_events[0]
-      if current_time >= next_event_time:
-        _logger.debug(f"Event Triggered: {event_description} at {current_time.iso}")
+      next_night_event = self.sorted_night_events[0]
+      if current_time >= next_night_event.time:
+        _logger.debug(f"Event Triggered: {next_night_event.description} at {current_time.iso}")
         self.sorted_night_events.pop(0)
-        if self.should_trigger_plan((next_event_time, event_description)):
-          # TODO: add proper event to the schedule queue
-          schedule_queue.add_schedule_event()
+        if self.should_trigger_plan(next_night_event):
+          await schedule_queue.add_schedule_event(
+            reason=f'Night event {next_night_event.description}',
+            event=next_night_event
+          )
       else:
         await asyncio.sleep(self.CHECK_INTERVAL)  # Sleep for a while before checking again
 
@@ -121,7 +139,7 @@ class NightTracker:
     """
     text = f"Night Events for {self.date.date()}:"
     for event in self.sorted_night_events:
-      text += f"\n - {event[0]} - {event[1]}"
+      text += f"\n - {event.description} - {event.time}"
     return text
 
 

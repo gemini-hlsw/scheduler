@@ -6,9 +6,10 @@ from os import environ
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from scheduler.graphql_mid.server import graphql_server
+from scheduler.server.process_manager import process_manager
 from scheduler.services.visibility import visibility_calculator
 from scheduler.services.logger_factory import create_logger
-from scheduler.core.builder.modes import is_validation
+from scheduler.core.builder.modes import is_validation, is_operation
 
 _logger = create_logger(__name__, with_id=False)
 
@@ -17,7 +18,12 @@ _logger.info(f"Running scheduler server version {environ['APP_VERSION']}")
 async def lifespan(app: FastAPI):
     if is_validation:
         await visibility_calculator.calculate()
+
+    await process_manager.start()
+
     yield
+
+    await process_manager.stop()
 
 app = FastAPI(lifespan=lifespan)
 

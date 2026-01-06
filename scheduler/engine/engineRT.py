@@ -15,7 +15,7 @@ from scheduler.services import logger_factory
 from scheduler.core.events.queue.events import EndOfNightEvent
 from scheduler.graphql_mid.types import NightPlansError
 from scheduler.shared_queue import plan_response_queue
-from scheduler.clients.scheduler_queue_client import SchedulerQueueClient
+from scheduler.clients.scheduler_queue_client import SchedulerQueue, SchedulerEvent
 
 from scheduler.graphql_mid.types import SPlans, NewPlansRT
 
@@ -39,23 +39,33 @@ _logger = logger_factory.create_logger(__name__)
 
 class EngineRT:
 
-    def __init__(self, params: SchedulerParameters, night_start_time: Time | None = None, night_end_time: Time | None = None):
+    def __init__(
+        self,
+        params: SchedulerParameters,
+        scheduler_queue: SchedulerQueue,
+        process_id: str,
+        night_start_time: Time | None = None,
+        night_end_time: Time | None = None
+    ):
         """
         Initializes the EngineRT with the given parameters.
         
         Args:
             params (SchedulerParameters): Parameters for the scheduler.
+            scheduler_queue (SchedulerQueue): Queue for the scheduler.
+            process_id (str): Unique process ID from SchedulerProcess
             night_start_time (Time | None): Optional start time of the night.
             night_end_time (Time | None): Optional end time of the night.
         """
         _logger.debug("Initializing real-time engine...")
         self.params = params
+        self.scheduler_queue = scheduler_queue
+        self.process_id = process_id
         self.sources = Sources()
         self.change_monitor = None
         self.start_time = time()
         self.night_start_time = night_start_time
         self.night_end_time = night_end_time
-
         self.build()
         self.init_variant()
 
@@ -66,7 +76,7 @@ class EngineRT:
         """
 
         # Create builder based in the mode to create SCP
-        builder = dispatch_with(self.sources, self.queue)
+        builder = dispatch_with(self.sources, None)
 
         collector = builder.build_collector(start=self.params.start,
                                             end=self.params.end_vis,
@@ -102,7 +112,7 @@ class EngineRT:
         for site in self.params.sites:
             self.scp.selector.update_site_variant(site, initial_variant)
 
-    def compute_event_plan(self, event: Event):
+    def compute_event_plan(self, event: SchedulerEvent):
         """
         Compute a new plan based on the given event.
         
@@ -137,16 +147,14 @@ class EngineRT:
 
     async def run(self):
         """
-        Run the EngineRT process throuout the set of nights.
+        Run the EngineRT process throughout the set of nights.
         """
 
         # Run event loop while still in the same night
         while True:
             # Wait for the next event
-            # TODO: implement Queue integration properly
-            schedule_queue = await SchedulerQueueClient.instance()
-            # event = await schedule_queue.consume_events(lambda)
-            event = None
+
+            event = await self.scheduler_queue.consume_events(self.compute_event_plan)
             _logger.debug(f"Received scheduler event: {event}")
 
             # Check if we have reached the end of the night
