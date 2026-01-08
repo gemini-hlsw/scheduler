@@ -29,6 +29,8 @@ def to_timeslot_idx(
   Returns:
       TimeslotIndex: The timeslot offset relative to the twilight.
   """
+  # print(time, twi_eve_time, time_slot_length)
   time_from_twilight = time - twi_eve_time
+
   time_slots_from_twilight = time2slots(time_slot_length, time_from_twilight)
   return TimeslotIndex(time_slots_from_twilight)

@@ -93,7 +93,7 @@ class SchedulerQueue:
                 raise ValueError('No callback function provided')
 
         except Exception as e:
-            print(f"Error setting up consumer: {e}")
+            print(f"Error trying to consume event {event.trigger_event}: {e}")
             raise
 
     async def close(self):

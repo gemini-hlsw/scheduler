@@ -16,7 +16,7 @@ from scheduler.core.events.queue.events import EndOfNightEvent
 from scheduler.graphql_mid.types import NightPlansError
 from scheduler.shared_queue import plan_response_queue
 from scheduler.clients.scheduler_queue_client import SchedulerQueue, SchedulerEvent
-
+from scheduler.events import to_timeslot_idx
 from scheduler.graphql_mid.types import SPlans, NewPlansRT
 
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover
@@ -127,8 +127,14 @@ class EngineRT:
         # {site: {0: current_timeslot}}
         start_timeslot = {}
         for site in self.params.sites:
-            night_start_time = self.scp.collector.night_events[site].times[0]
-            event_timeslot = to_timeslot_index(event.time, night_start_time, self.scp.collector.time_slot_length)
+            night_start_time = self.scp.collector.night_events[site].times[0][0]
+
+            print(night_start_time)
+            event_timeslot = to_timeslot_idx(
+                event.time,
+                night_start_time.to_datetime(),
+                self.scp.collector.time_slot_length.to_datetime()
+            )
             start_timeslot[site] = {0: event_timeslot}
 
         plans = self.scp.run_rt(start_timeslot)
