@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from astropy.time import Time
 from typing import Dict, Optional
 from scheduler.core.builder.modes import is_operation
@@ -62,7 +62,12 @@ class ProcessManager:
     async def set_operation_process(self, process_id: str):
         # We add the process without parameters as those should be setup separately
 
-        params = SchedulerParameters(start=datetime.now(timezone.utc))
+        params = SchedulerParameters(
+            start=datetime.now(timezone.utc),
+            end=datetime.now(timezone.utc)+timedelta(days=5),
+            semester_visibility=False,
+            num_nights_to_schedule=1
+        )
         await self.add_scheduler_process(process_id, params)
         self.operation_process_id = process_id
         _logger.info(f"Set operation process ID: {process_id}")

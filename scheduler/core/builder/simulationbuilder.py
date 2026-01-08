@@ -50,8 +50,37 @@ class SimulationBuilder(SchedulerBuilder):
                                             blueprint,
                                             night_start_time,
                                             night_end_time)
+        collector.load_programs(
+            program_provider_class=GppProgramProvider,
+            data=gpp_program_data(program_list)
+        )
+        return collector
+
+
+    async def async_build_collector(
+        self,
+        start: datetime,
+        end: datetime,
+        num_of_nights: int,
+        sites: FrozenSet[Site],
+        semesters: FrozenSet[Semester],
+        blueprint: CollectorBlueprint,
+        night_start_time: Time | None = None,
+        night_end_time: Time | None = None,
+        program_list: Optional[bytes] = None
+    ) -> Collector:
+        collector = super().build_collector(start,
+                                            end,
+                                            num_of_nights,
+                                            sites,
+                                            semesters,
+                                            blueprint,
+                                            night_start_time,
+                                            night_end_time)
+        async_data = await gpp_program_data(program_list)
+        data = [item async for item in async_data]
         collector.load_programs(program_provider_class=GppProgramProvider,
-                                data=gpp_program_data(program_list))
+                                data=data)
         return collector
 
     def _setup_event_queue(self,

@@ -55,7 +55,7 @@ class SchedulerProcess:
         """
 
         self.task = asyncio.create_task(self.run())
-        await self.task
+        # await self.task
 
     def is_running(self) -> bool:
         """
@@ -76,8 +76,6 @@ class SchedulerProcess:
         night_index = 0
         current_night = self.params.start + timedelta(days=night_index)
         while self.running_event.is_set():
-
-            print("inside the running loop")
             # Check if we have reached the end date or number of nights
             if (self.params.end and current_night >= self.params.end) or \
                  (self.params.num_nights_to_schedule and night_index >= self.params.num_nights_to_schedule):
@@ -91,7 +89,9 @@ class SchedulerProcess:
 
             # Initialize Real Time Engine
             engine = EngineRT(self.params, self.scheduler_queue, self.process_id)
-            await engine.run()
+            await engine.build()
+            engine.init_variant()
+            asyncio.create_task(engine.run())
             _logger.info("Engine started.")
 
             night_index += 1

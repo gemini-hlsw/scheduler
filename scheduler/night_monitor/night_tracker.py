@@ -3,7 +3,6 @@
 
 import asyncio
 import datetime
-from dataclasses import dataclass
 from typing import FrozenSet
 
 from lucupy import sky
@@ -14,17 +13,11 @@ from astropy import units as u
 
 from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.core.builder.modes import SchedulerModes, app_mode
-
+from scheduler.events import NightEvent
 from scheduler.services.logger_factory import create_logger
 _logger = create_logger(__name__)
 
 __all__ = ["NightTracker"]
-
-@dataclass
-class NightEvent:
-  description: str
-  time: Time
-  site: str
 
 
 class NightTracker:
@@ -58,13 +51,13 @@ class NightTracker:
         site.timezone
       )
       all_events.extend([
-        NightEvent(description=f"Midnight at {site.name}", time=midnight[0], site=site.name),
-        NightEvent(description=f"Sunset at {site.name}", time=sunset, site=site.name),
-        NightEvent(description=f"Sunrise at {site.name}", time=sunrise, site=site.name),
-        NightEvent(description=f"Evening 12° Twilight at {site.name}", time=even_12twi, site=site.name),
-        NightEvent(description=f"Morning 12° Twilight at {site.name}", time=morn_12twi, site=site.name),
-        NightEvent(description=f"Moonrise at {site.name}", time=moonrise, site=site.name),
-        NightEvent(description=f"Moonset at {site.name}", time=moonset, site=site.name),
+        NightEvent(description=f"Midnight at {site.name}", time=midnight[0], site=site),
+        NightEvent(description=f"Sunset at {site.name}", time=sunset, site=site),
+        NightEvent(description=f"Sunrise at {site.name}", time=sunrise, site=site),
+        NightEvent(description=f"Evening 12° Twilight at {site.name}", time=even_12twi, site=site),
+        NightEvent(description=f"Morning 12° Twilight at {site.name}", time=morn_12twi, site=site),
+        NightEvent(description=f"Moonrise at {site.name}", time=moonrise, site=site),
+        NightEvent(description=f"Moonset at {site.name}", time=moonset, site=site),
       ])
     
     # Sort events by time

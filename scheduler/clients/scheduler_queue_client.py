@@ -9,6 +9,7 @@ from lucupy.minimodel import Site
 from pydantic import BaseModel, field_serializer, field_validator
 
 from scheduler.graphql_mid.types import NewPlansRT
+from scheduler.events import NightEvent
 from scheduler.services import logger_factory
 
 __all__ = ["SchedulerQueue", "SchedulerEvent"]
@@ -52,11 +53,18 @@ class SchedulerQueue:
             priority: Priority level (0 = regular, 1 = on_demand)
         """
         if event is not None:
-            scheduler_event = SchedulerEvent(
-                trigger_event=reason,
-                time=event.time,
-                site=event.observation.site,
-            )
+            if isinstance(event, NightEvent):
+                scheduler_event = SchedulerEvent(
+                    trigger_event=reason,
+                    time=event.time.to_datetime(),
+                    site=event.site,
+                )
+            else:
+                scheduler_event = SchedulerEvent(
+                    trigger_event=reason,
+                    time=event.time,
+                    site=event.observation.site,
+                )
         else:
             scheduler_event = SchedulerEvent(trigger_event=reason)
         self._queue.put_nowait(scheduler_event)
