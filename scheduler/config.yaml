@@ -16,4 +16,4 @@ server:
   host: 0.0.0.0
 
 app:
-  mode: validation # validation | simulation | operation
+  mode: operation # validation | simulation | operation

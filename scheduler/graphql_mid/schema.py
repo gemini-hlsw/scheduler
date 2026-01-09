@@ -3,7 +3,7 @@
 import asyncio
 from os import environ
 from typing import AsyncGenerator, Dict
-from datetime import datetime
+from datetime import datetime, UTC
 
 import numpy as np
 import strawberry # noqa
@@ -15,7 +15,7 @@ from scheduler.context import schedule_id_var
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
-from scheduler.server.process_manager import ProcessManager
+from scheduler.server.process_manager import process_manager
 from scheduler.services.logger_factory import create_logger
 from scheduler.shared_queue import plan_response_queue
 
@@ -23,6 +23,7 @@ from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Ver
                     NewPlansRT, NightPlansResponseRT)
 from .inputs import CreateNewScheduleInput, CreateNewScheduleRTInput
 from ..core.plans import NightStats
+from ..events import OnDemandScheduleEvent
 
 _logger = create_logger(__name__)
 
@@ -121,7 +122,6 @@ class Query:
         await queue.put(task)
         return f'Plan is on the queue! for {schedule_id}'
 
-
     @strawberry.field
     async def schedule(self, schedule_id: str, new_schedule_input: CreateNewScheduleInput) -> str:
         schedule_id_var.set(schedule_id)
@@ -149,8 +149,23 @@ class Query:
                                      programs_list)
         _logger.info(f"Plan is on the queue! for: {schedule_id}\n{params}")
 
-        ProcessManager.add_scheduler_request(schedule_id, params)
+
         return f'Plan is on the queue! for {schedule_id}'
+
+    @strawberry.field
+    async def schedule_v2(self) -> str:
+        op_process = process_manager.get_operation_process()
+        event = OnDemandScheduleEvent(
+            description="On demand request",
+            time=datetime.now(UTC)
+        )
+        await op_process.scheduler_queue.add_schedule_event(
+            reason='On demand request',
+            event=event,
+        )
+        return f'Plan is on the queue in the Operation Process!'
+
+
 
 @strawberry.type
 class Subscription:

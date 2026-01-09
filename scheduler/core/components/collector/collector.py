@@ -351,13 +351,18 @@ class Collector(SchedulerComponent):
         else:
             n_jobs = core_info['cores']
 
-        parallel = Parallel(n_jobs=n_jobs, backend='loky')
+        print(f"Starting parallel processing of {len(list(parsed_observations))} observations")
+        import time
+        start = time.time()
+
+        parallel = Parallel(n_jobs=n_jobs, backend='threading')
         # with parallel_config(backend="loky", inner_max_num_threads=1):
         result = parallel(delayed(program_obs_vis)(program_id, obs, Collector.get_program(program_id), self.time_grid,
                                                    self.time_slot_length, self.semesters, nc, self.night_events,
                                                    None if visibility_calculator.vis_table is None else
                                                    VisibilitySnapshot.from_dict_days(visibility_calculator.vis_table.get_obs(sem, obs.id)))
                           for program_id, obs in parsed_observations)
+        print(f"Completed in {time.time() - start:.2f} seconds")
         targ_info, base_targets, vis_tables = zip(*result)
 
         ii = 0

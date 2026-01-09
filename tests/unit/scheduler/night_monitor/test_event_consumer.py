@@ -7,6 +7,7 @@ import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 
+from scheduler.clients import SchedulerQueue
 from scheduler.night_monitor import EventConsumer
 from scheduler.night_monitor.event_sources import EventSourceType
 
@@ -15,9 +16,13 @@ from scheduler.night_monitor.event_sources import EventSourceType
 def queue():
     return asyncio.Queue()
 
+@pytest_asyncio.fixture
+def scheduler_queue():
+    return SchedulerQueue()
+
 
 @pytest_asyncio.fixture
-def event_consumer(queue):
+def event_consumer(queue, scheduler_queue):
     """
     Provides an EventConsumer instance.
     Patches handlers so the real ones are not called.
@@ -30,7 +35,7 @@ def event_consumer(queue):
         mock_weather_h.return_value.handle = AsyncMock()
         mock_odb_h.return_value.handle = AsyncMock()
 
-        c = EventConsumer(queue, shutdown_event=asyncio.Event())
+        c = EventConsumer(queue, shutdown_event=asyncio.Event(), scheduler_queue=scheduler_queue)
         yield c
 
 @pytest.mark.asyncio
@@ -70,8 +75,6 @@ async def test_consume_one_item(event_consumer, queue):
         await consumer_task
     except asyncio.CancelledError:
         pass
-
-
 
 
 @pytest.mark.asyncio

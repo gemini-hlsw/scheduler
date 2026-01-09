@@ -3,6 +3,7 @@
 
 import asyncio
 
+from scheduler.clients import SchedulerQueue
 from scheduler.night_monitor.event_sources import EventSourceType
 from scheduler.night_monitor.event_handlers import (
     EventHandler, WeatherEventHandler,
@@ -17,14 +18,22 @@ class EventConsumer:
     so it can be handled by the corresponding Handler.
 
     Args:
-        queue (asyncio.Queue): Queue to receive events from.
+        event_queue (asyncio.Queue): Queue to receive events from that is shared with the Listener.
+        shutdown_event (asyncio.Event): Event to stop consuming linked with the Listener.
+        scheduler_queue (SchedulerQueue): Use to send new schedule request to the Engine.
     """
 
-    def __init__(self, queue: asyncio.Queue, shutdown_event: asyncio.Event):
-        self.queue = queue
-        self.resource_handler = ResourceEventHandler()
-        self.weather_handler = WeatherEventHandler()
-        self.odb_handler = ODBEventHandler()
+    def __init__(
+        self,
+        event_queue: asyncio.Queue,
+        shutdown_event: asyncio.Event,
+        scheduler_queue: SchedulerQueue
+    ):
+        self.queue = event_queue
+        self.scheduler_queue = scheduler_queue
+        self.resource_handler = ResourceEventHandler(self.scheduler_queue)
+        self.weather_handler = WeatherEventHandler(self.scheduler_queue)
+        self.odb_handler = ODBEventHandler(self.scheduler_queue)
         self._shutdown_event = shutdown_event
 
 

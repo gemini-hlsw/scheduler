@@ -288,6 +288,19 @@ class NewWeatherChange:
                                   description=self.description,
                                   variant_change=variant_change)
 
+@strawberry.type
+class RankerParameters:
+    """
+    Ranker Parameters used for modifying the scoring algorithm in the Ranker
+    component. These are only used on Multi Night modes: VALIDATION and SIMULATION.
+    """
+    thesis_factor: Optional[float] = 1.1
+    power: Optional[int] = 2
+    met_power: Optional[float] = 1.0
+    vis_power: Optional[float] = 1.0
+    wha_power: Optional[float] = 1.0
+    air_power: Optional[float] = 0.0
+
 
 @strawberry.type
 class EventsAddedSuccess:

@@ -16,6 +16,9 @@ from .event_sources import (
 
 __all__ = ['EventListener', 'SubscriptionEndedException']
 
+from ..clients import SchedulerQueue
+
+
 class SubscriptionEndedException(Exception): pass
 RETRYABLE_EXCEPTIONS = (
     ConnectionError, asyncio.TimeoutError,
@@ -27,7 +30,12 @@ class EventListener:
     """
     Handles all subscriptions that generates events and store them so they can be retrieved from the EventConsumer.
     """
-    def __init__(self, client, queue: asyncio.Queue, shutdown_event: asyncio.Event):
+    def __init__(
+        self,
+        client,
+        queue: asyncio.Queue,
+        shutdown_event: asyncio.Event
+    ):
         self.queue = queue
         self._sources = [
             ResourceEventSource(client),
