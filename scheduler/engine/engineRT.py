@@ -2,6 +2,8 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
+import datetime
+
 from astropy.time import Time
 
 from .params import SchedulerParameters
@@ -128,11 +130,9 @@ class EngineRT:
         start_timeslot = {}
         for site in self.params.sites:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
-
-            print(night_start_time)
             event_timeslot = to_timeslot_idx(
                 event.time,
-                night_start_time.to_datetime(),
+                night_start_time.utc.to_datetime(timezone=datetime.timezone.utc),
                 self.scp.collector.time_slot_length.to_datetime()
             )
             start_timeslot[site] = {0: event_timeslot}

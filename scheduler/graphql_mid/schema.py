@@ -3,7 +3,7 @@
 import asyncio
 from os import environ
 from typing import AsyncGenerator, Dict
-from datetime import datetime
+from datetime import datetime, UTC
 
 import numpy as np
 import strawberry # noqa
@@ -23,6 +23,7 @@ from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Ver
                     NewPlansRT, NightPlansResponseRT)
 from .inputs import CreateNewScheduleInput, CreateNewScheduleRTInput
 from ..core.plans import NightStats
+from ..events import OnDemandScheduleEvent
 
 _logger = create_logger(__name__)
 
@@ -154,9 +155,13 @@ class Query:
     @strawberry.field
     async def schedule_v2(self) -> str:
         op_process = process_manager.get_operation_process()
+        event = OnDemandScheduleEvent(
+            description="On demand request",
+            time=datetime.now(UTC)
+        )
         await op_process.scheduler_queue.add_schedule_event(
             reason='On demand request',
-            event=None
+            event=event,
         )
         return f'Plan is on the queue in the Operation Process!'
 

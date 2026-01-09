@@ -5,11 +5,11 @@ import asyncio
 from datetime import datetime
 from typing import Callable, Any
 
-from lucupy.minimodel import Site
+from lucupy.minimodel import Site, ALL_SITES
 from pydantic import BaseModel, field_serializer, field_validator
 
 from scheduler.graphql_mid.types import NewPlansRT
-from scheduler.events import NightEvent
+from scheduler.events import NightEvent, OnDemandScheduleEvent
 from scheduler.services import logger_factory
 
 __all__ = ["SchedulerQueue", "SchedulerEvent"]
@@ -59,6 +59,12 @@ class SchedulerQueue:
                     time=event.time.to_datetime(),
                     site=event.site,
                 )
+            elif isinstance(event, OnDemandScheduleEvent):
+                scheduler_event = SchedulerEvent(
+                    trigger_event=reason,
+                    time=event.time,
+                    site=None
+                )
             else:
                 scheduler_event = SchedulerEvent(
                     trigger_event=reason,
@@ -80,7 +86,7 @@ class SchedulerQueue:
 
         try:
             event = await self._queue.get()
-            _logger.info(f"Received Scheduler event: {event.trigger_event} ")
+            _logger.info(f"Received Scheduler event: {event.trigger_event} at {event.time} ")
 
             # Call the user's callback
             if callback is not None:

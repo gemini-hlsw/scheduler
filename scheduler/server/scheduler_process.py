@@ -94,6 +94,7 @@ class SchedulerProcess:
             asyncio.create_task(engine.run())
             _logger.info("Engine started.")
 
-            night_index += 1
-            current_night = self.params.start + timedelta(days=night_index)
-            _logger.debug(f"Next night: {current_night}")
+            # RT should not do more than one night
+            # night_index += 1
+            #current_night = self.params.start + timedelta(days=night_index)
+            #_logger.debug(f"Next night: {current_night}")

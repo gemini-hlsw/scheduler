@@ -13,6 +13,12 @@ class NightEvent:
   site: Site
 
 
+@dataclass
+class OnDemandScheduleEvent:
+  description: str
+  time: datetime
+
+
 def to_timeslot_idx(
   time: datetime,
   twi_eve_time: datetime,
