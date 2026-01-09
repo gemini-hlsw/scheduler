@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
 
-from scheduler.clients import SchedulerEvent, Schedulerqueueclient
+from scheduler.clients import SchedulerEvent, SchedulerQueue
 from scheduler.night_monitor.event_handlers.resource_event_handler import MockResourceEvent, PDRQueue, ResourceEventHandler
 
 
@@ -90,7 +90,7 @@ class TestResourceEventHandler:
 
     @pytest.fixture
     def handler(self):
-        return ResourceEventHandler()
+        return ResourceEventHandler(scheduler_queue=SchedulerQueue())
 
     @pytest.fixture
     def schedule_queue(self):
@@ -112,11 +112,11 @@ class TestResourceEventHandler:
         disabled_event = MockResourceEvent(resource_status="disabled", resource_name="test_resource")
         enabled_event = MockResourceEvent(resource_status="enabled", resource_name="test_resource")
         with mock_last_plan(["test_resource"]):
-            await handler._on_resource_edit(disabled_event, schedule_queue)
+            await handler._on_resource_edit(disabled_event)
             await asyncio.sleep(0)
             assert "test_resource" in handler.pdr.queue
 
-            await handler._on_resource_edit(enabled_event, schedule_queue)
+            await handler._on_resource_edit(enabled_event)
 
         assert "test_resource" not in handler.pdr.queue
 
@@ -125,7 +125,7 @@ class TestResourceEventHandler:
         event = MockResourceEvent(resource_status="unknown", resource_name="test_resource")
 
         with pytest.raises(RuntimeError, match="Unknown resource status"):
-            await handler._on_resource_edit(event, schedule_queue)
+            await handler._on_resource_edit(event)
 
     @pytest.mark.asyncio
     async def test_enabled_before_timeout_prevents_callback(self, handler, schedule_queue):
@@ -136,9 +136,9 @@ class TestResourceEventHandler:
             disabled_event = MockResourceEvent(resource_status="disabled", resource_name="test_resource")
             enabled_event = MockResourceEvent(resource_status="enabled", resource_name="test_resource")
 
-            await handler._on_resource_edit(disabled_event, schedule_queue)
+            await handler._on_resource_edit(disabled_event)
             await asyncio.sleep(0.05)
-            await handler._on_resource_edit(enabled_event, schedule_queue)
+            await handler._on_resource_edit(enabled_event)
             await asyncio.sleep(0.3)
 
             # Callback should not have been called since we enabled before timeout
@@ -150,7 +150,7 @@ class TestResourceEventHandler:
         callback_called = asyncio.Event()
         received_event = None
 
-        async def test_callback(event: MockResourceEvent, sched_queue: Schedulerqueueclient):
+        async def test_callback(event: MockResourceEvent, sched_queue: SchedulerQueue):
             nonlocal received_event
             received_event = event
             callback_called.set()
