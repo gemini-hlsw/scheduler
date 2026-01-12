@@ -8,15 +8,13 @@ from gpp_client.api.custom_fields import TargetEnvironmentFields, ConstraintSetF
     CalculatedObservationWorkflowFields, VisitFields
 
 from pydantic import BaseModel
+from scheduler.clients import SchedulerQueue
 
 __all__ = [
     'EventHandler',
     'MockObservation',
     'LastPlanMock'
 ]
-
-from scheduler.clients import SchedulerQueueClient
-
 
 class MockObservation(BaseModel):
     """
@@ -65,8 +63,9 @@ class EventHandler(ABC):
 
     _DISPATCH_MAP: Dict[str, Tuple[callable, callable]]
 
-    def __init__(self):
+    def __init__(self, scheduler_queue: SchedulerQueue):
         self._DISPATCH_MAP = self._build_dispatch_map()
+        self.scheduler_queue = scheduler_queue
 
     @abstractmethod
     def _build_dispatch_map(self) -> Dict[str, Tuple[Callable, Callable]]:
@@ -79,13 +78,14 @@ class EventHandler(ABC):
         """
         pass
 
-    async def handle(self, sub_name: str, raw_event: dict):
+    async def handle(self, sub_name: str, raw_event: dict, scheduler_queue: SchedulerQueue):
         """
         Generic handle method using the dispatch map pattern.
 
         Args:
-            sub_name: The subscription name/event type
-            raw_event: Raw event data to parse and handle
+            sub_name (str): The subscription name/event type
+            raw_event (dict): Raw JSON event data to parse and handle
+            scheduler_queue (SchedulerQueue): Scheduler queue from the SchedulerProcess.
         """
         try:
             parser, handler = self._DISPATCH_MAP[sub_name]
@@ -95,7 +95,5 @@ class EventHandler(ABC):
         # Parse the raw event
         event = parser(raw_event)
 
-        schedule_queue = await SchedulerQueueClient.instance()
-
         # Handle the parsed event
-        await handler(event, schedule_queue)
+        await handler(event, scheduler_queue)

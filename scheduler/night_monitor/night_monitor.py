@@ -2,12 +2,12 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-from astropy.time import Time
-from typing import List
+from datetime import datetime
+from typing import FrozenSet
 
 from lucupy.minimodel.site import Site
 
-from scheduler.clients.scheduler_queue_client import SchedulerQueueClient
+from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor import EventListener, EventConsumer
 from scheduler.night_monitor.night_tracker import NightTracker
 
@@ -22,7 +22,7 @@ class NightMonitor:
 
     Attributes:
         event_queue (asyncio.Queue): Queue to hold the events received from different subscriptions.
-        scheduler_queue (SchedulerQueueClient): Client to interact with the Scheduler Queue that commands new schedules.
+        scheduler_queue (SchedulerQueue): Client to interact with the Scheduler Queue that commands new schedules.
         listener (EventListener): Event listener handles all subscriptions connections and messages.
         consumer (EventConsumer): Event Consumer that receives serialized events from subscriptions.
 
@@ -31,18 +31,18 @@ class NightMonitor:
         _consumer_task (asyncio.Task): Holds the Event Consumer process.
 
     """
-    def __init__(self, night: Time, sites: List[Site]):
+    def __init__(self, night: datetime, sites: FrozenSet[Site], scheduler_queue: SchedulerQueue):
         _logger.debug("Initializing night monitor...")
         # The shared queue for events
         self.event_queue = asyncio.Queue()
-        self.scheduler_queue = SchedulerQueueClient()
+        self.scheduler_queue = scheduler_queue
 
         self._shutdown_event = asyncio.Event()
 
         client = None
         self.listener = EventListener(client, self.event_queue, self._shutdown_event)
-        self.consumer = EventConsumer(self.event_queue, self._shutdown_event)
-        self.night_tracker = NightTracker(night, sites)
+        self.consumer = EventConsumer(self.event_queue, self._shutdown_event, self.scheduler_queue)
+        self.night_tracker = NightTracker(night, sites, scheduler_queue)
 
         self._listener_task: asyncio.Task | None = None
         self._consumer_task: asyncio.Task | None = None
@@ -97,13 +97,3 @@ class NightMonitor:
                 _logger.warning(f"Queue drain timed out, {self.event_queue.qsize()} items remaining")
 
         _logger.info("Shutdown complete")
-
-
-    async def on_demand(self, params):
-        """
-        When an on-demand schedule happens we add to the queue with priority
-        and reset other events.
-        """
-        scheduler_queue = SchedulerQueueClient()
-        # TODO: add proper event to the schedule queue
-        scheduler_queue.add_schedule_event()

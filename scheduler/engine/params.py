@@ -1,6 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
+from asyncio import Lock
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import final, Optional, FrozenSet, List
@@ -110,9 +110,3 @@ class SchedulerParameters:
             f"└─ranker_parameters: {self.ranker_parameters}"
 
 
-
-
-class SchedulerParametersV2(BaseModel):
-    vis_start: datetime
-    vis_end: datetime
-    programs_list: Optional[List[str]] = None
