@@ -79,8 +79,10 @@ class SimulationBuilder(SchedulerBuilder):
                                             night_end_time)
         async_data = await gpp_program_data(program_list)
         data = [item async for item in async_data]
-        collector.load_programs(program_provider_class=GppProgramProvider,
-                                data=data)
+        await collector.async_load_programs(
+            program_provider_class=GppProgramProvider,
+            data=data
+        )
         return collector
 
     def _setup_event_queue(self,

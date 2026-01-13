@@ -1,9 +1,12 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import asyncio
+import time
 from dataclasses import dataclass
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
 
 import astropy.units as u
 import numpy as np
@@ -31,7 +34,7 @@ from scheduler.services.redis_client import RedisClient
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
 from scheduler.services.visibility.calculator import visibility_calculator
-from scheduler.services.visibility.calculator import VisibilitySnapshot, program_obs_vis, get_cores
+from scheduler.services.visibility.calculator import VisibilitySnapshot, program_obs_vis, get_cores, safe_program_obs_vis
 
 __all__ = [
     'Collector',
@@ -248,6 +251,7 @@ class Collector(SchedulerComponent):
         target_name = target.name
         return Collector._target_info.get((target_name, obs_id), None)
 
+
     def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         """
         Load the programs provided as JSON or GPP disctionaries into the Collector.
@@ -351,18 +355,14 @@ class Collector(SchedulerComponent):
         else:
             n_jobs = core_info['cores']
 
-        print(f"Starting parallel processing of {len(list(parsed_observations))} observations")
-        import time
-        start = time.time()
-
-        parallel = Parallel(n_jobs=n_jobs, backend='threading')
+        parallel = Parallel(n_jobs=n_jobs, backend='threading', verbose=50)
         # with parallel_config(backend="loky", inner_max_num_threads=1):
         result = parallel(delayed(program_obs_vis)(program_id, obs, Collector.get_program(program_id), self.time_grid,
                                                    self.time_slot_length, self.semesters, nc, self.night_events,
                                                    None if visibility_calculator.vis_table is None else
                                                    VisibilitySnapshot.from_dict_days(visibility_calculator.vis_table.get_obs(sem, obs.id)))
                           for program_id, obs in parsed_observations)
-        print(f"Completed in {time.time() - start:.2f} seconds")
+        _logger.info(f'Viscalc done successfully for {len(parsed_observations)} programs.')
         targ_info, base_targets, vis_tables = zip(*result)
 
         ii = 0
@@ -383,7 +383,164 @@ class Collector(SchedulerComponent):
 
         _logger.info(f'Collected {len(Collector._observations)} observations: {[ o.id for o in Collector._observations.keys()]}.')
 
-        
+    @staticmethod
+    def calculate_parallel_visibility(
+            parsed_observations,
+            time_grid,
+            time_slot_length,
+            semesters,
+            nc,
+            night_events,
+            sem,
+            n_jobs: int = -1,
+    ):
+        obs_list = list(parsed_observations)
+
+        if not obs_list:
+            _logger.warning("No observations to process")
+            return []
+
+        start_time = time.time()
+        try:
+            parallel = Parallel(
+                n_jobs=n_jobs,
+                backend='threading',
+                verbose=10,
+                timeout=300
+            )
+
+            results = parallel(
+                delayed(safe_program_obs_vis)(
+                    program_id,
+                    obs,
+                    Collector.get_program(program_id),
+                    time_grid,
+                    time_slot_length,
+                    semesters,
+                    nc,
+                    night_events,
+                    None
+                )
+                for program_id, obs in obs_list
+            )
+            elapsed = time.time() - start_time
+
+            valid_results = [r for r in results if r is not None]
+            failed_count = len(results) - len(valid_results)
+
+            _logger.info(
+                f"Parallel processing complete: "
+                f"{len(valid_results)}/{len(results)} successful, "
+                f"{failed_count} failed, "
+                f"took {elapsed:.2f}s"
+            )
+            return results
+
+        except Exception as e:
+            _logger.error(f"Parallel processing failed catastrophically: {e}", exc_info=True)
+
+    async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
+
+        if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
+            raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
+        program_provider = program_provider_class(self.obs_classes, self.sources)
+
+        # Purge the old programs and observations.
+        Collector._programs = {}
+
+        # Keep a list of the observations for parallel processing.
+        parsed_observations: List[Tuple[ProgramID, Observation]] = []
+
+        # Read in the programs.
+        # Count the number of parse failures.
+        bad_program_count = 0
+
+        # Night configurations
+        nc = {}
+        for site in self.sites:
+            nc[site] = self.night_configurations(site, np.arange(self.num_nights_calculated))
+
+        for next_program in data:
+            try:
+                if len(next_program.keys()) == 1:
+                    next_data = next(iter(next_program.values()))
+                else:
+                    next_data = next_program
+
+                program = program_provider.parse_program(next_data)
+                if program is None:
+                    continue
+
+                if program.semester is None or program.semester not in self.semesters:
+                    _logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                    continue
+
+                if program.program_awarded() == ZeroTime:
+                    _logger.debug(f'Program {program.id} has awarded time of zero (skipping).')
+                    continue
+
+                if program.id in Collector._programs.keys():
+                    _logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
+
+                Collector._programs[program.id] = program
+
+                site_supported_obs = [obs for obs in program.observations() if obs.site in self.sites]
+                if site_supported_obs:
+                    Collector._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
+                    parsed_observations.extend((program.id, obs) for obs in site_supported_obs)
+
+            except Exception as e:
+                bad_program_count += 1
+                _logger.warning(f'Could not parse program: {e}')
+
+        if bad_program_count:
+            _logger.error(f'Could not parse {bad_program_count} programs.')
+
+
+        vis_table = {}
+        sem, = self.semesters
+
+        _logger.info("Starting parallel processing in background thread...")
+
+        core_info = get_cores()
+        if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
+            n_jobs = core_info['performance']
+        else:
+            n_jobs = core_info['cores']
+
+        # Run the blocking parallel code in a thread
+        result = await asyncio.to_thread(
+            self.calculate_parallel_visibility,
+            parsed_observations,
+            self.time_grid,
+            self.time_slot_length,
+            self.semesters,
+            nc,
+            self.night_events,
+            sem,
+            n_jobs
+        )
+
+        targ_info, base_targets, vis_tables = zip(*result)
+
+        ii = 0
+        for program_id, obs in parsed_observations:
+            # Read target information
+            ti = targ_info[ii]
+
+            # Record the observation and target for this obs id.
+            vis_table[obs.id.id] = vis_tables[ii]
+
+            Collector._observations[obs.id] = obs, base_targets[ii]
+            Collector._target_info[base_targets[ii].name, obs.id] = ti
+            ii += 1
+
+
+        visibility_calculator.vis_table = {sem: RedisClient.transform_to_json(vis_table)}
+
+        _logger.info(
+            f'Collected {len(Collector._observations)} observations: {[o.id for o in Collector._observations.keys()]}.')
+
     # def load_target_info_for_too(self, obs: Observation, target: Target) -> None:
     #     ti = self._calculate_target_info(obs, target)
     #     Collector._target_info[target.name, obs.id] = ti
