@@ -38,7 +38,7 @@ class SchedulerProcess:
         self.params = params
         self.running_event = asyncio.Event()
 
-    def stop_process(self):
+    async def stop_process(self):
         """
         Stop the scheduler process
         """
@@ -48,6 +48,10 @@ class SchedulerProcess:
         # Cancel the running task if needed
         if hasattr(self, 'task'):
             self.task.cancel()
+            try:
+                await self.task
+            except asyncio.CancelledError:
+                pass
 
     async def start_task(self):
         """

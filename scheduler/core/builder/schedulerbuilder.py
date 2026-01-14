@@ -42,7 +42,8 @@ class SchedulerBuilder(ABC):
                         blueprint: CollectorBlueprint,
                         night_start_time: Time | None = None,
                         night_end_time: Time | None = None,
-                        program_list: Optional[bytes] = None) -> Collector:
+                        program_list: Optional[bytes] = None,
+                        defer_night_events: bool = False) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
         collector = Collector(start,
@@ -53,7 +54,8 @@ class SchedulerBuilder(ABC):
                               night_start_time,
                               night_end_time,
                               self.sources,
-                              *blueprint)
+                              *blueprint,
+                              defer_night_events=defer_night_events)
         return collector
 
     @staticmethod

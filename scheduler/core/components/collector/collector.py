@@ -90,6 +90,7 @@ class Collector(SchedulerComponent):
     time_slot_length: TimeDelta
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
+    defer_night_events: bool = False  # If True, skip night_events initialization in __post_init__
 
     # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
     _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
@@ -160,15 +161,41 @@ class Collector(SchedulerComponent):
         # TODO: This code can be greatly simplified. The night_events only have to be calculated once.
         # Create the night events, which contain the data for all given nights by site.
         # This may retrigger a calculation of the night events for one or more sites.
-        self.night_events = {
-            site: Collector._night_events_manager.get_night_events(self.time_grid,
-                                                                   self.night_start_time,
-                                                                   self.night_end_time,
-                                                                   self.time_slot_length,
-                                                                   site)
-            for site in self.sites
-        }
+        # Only initialize if not deferred (for async initialization later)
+        if not self.defer_night_events:
+            self.night_events = {
+                site: Collector._night_events_manager.get_night_events(self.time_grid,
+                                                                       self.night_start_time,
+                                                                       self.night_end_time,
+                                                                       self.time_slot_length,
+                                                                       site)
+                for site in self.sites
+            }
         Collector._resource_service = self.sources.origin.resource
+
+    async def async_init_night_events(self):
+        """
+        Initialize night_events asynchronously using asyncio.to_thread to avoid blocking.
+        This should be called after construction when defer_night_events=True.
+        """
+        if hasattr(self, 'night_events'):
+            _logger.warning("night_events already initialized, skipping async initialization")
+            return
+        
+        # Initialize night_events dict
+        self.night_events = {}
+        
+        # Initialize night events for each site asynchronously
+        for site in self.sites:
+            self.night_events[site] = await asyncio.to_thread(
+                Collector._night_events_manager.get_night_events,
+                self.time_grid,
+                self.night_start_time,
+                self.night_end_time,
+                self.time_slot_length,
+                site
+            )
+        _logger.info("Night events initialized asynchronously")
 
     def get_night_events(self, site: Site) -> NightEvents:
         return Collector._night_events_manager.get_night_events(self.time_grid,
@@ -440,10 +467,12 @@ class Collector(SchedulerComponent):
             _logger.error(f"Parallel processing failed catastrophically: {e}", exc_info=True)
 
     async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
+        _logger.info("Starting async_load_programs...")
 
         if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
             raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
         program_provider = program_provider_class(self.obs_classes, self.sources)
+        _logger.debug("Program provider created")
 
         # Purge the old programs and observations.
         Collector._programs = {}
@@ -455,10 +484,15 @@ class Collector(SchedulerComponent):
         # Count the number of parse failures.
         bad_program_count = 0
 
-        # Night configurations
+        # Night configurations - run in thread to avoid blocking
+        _logger.debug("Loading night configurations...")
         nc = {}
         for site in self.sites:
-            nc[site] = self.night_configurations(site, np.arange(self.num_nights_calculated))
+            nc[site] = await asyncio.to_thread(
+                self.night_configurations, 
+                site, 
+                np.arange(self.num_nights_calculated)
+            )
 
         for next_program in data:
             try:
@@ -539,7 +573,8 @@ class Collector(SchedulerComponent):
         visibility_calculator.vis_table = {sem: RedisClient.transform_to_json(vis_table)}
 
         _logger.info(
-            f'Collected {len(Collector._observations)} observations: {[o.id for o in Collector._observations.keys()]}.')
+            f'Collected {len(Collector._observations)} observations: {[o.id for o in Collector._observations.keys()]}.'
+        )
 
     # def load_target_info_for_too(self, obs: Observation, target: Target) -> None:
     #     ti = self._calculate_target_info(obs, target)

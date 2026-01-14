@@ -40,7 +40,7 @@ __all__ = [
     'gpp_program_data'
 ]
 
-logger = logger_factory.create_logger(__name__)
+logger = logger_factory.create_logger(__name__, with_id=False)
 
 
 # DEFAULT_GPP_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
@@ -105,9 +105,9 @@ async def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
         for item in programs:
             yield item
 
-    except RuntimeError as e:
-        logger.error(f'Problem querying program list {program_ids} data: \n{e}.')
-
+    except Exception as e:
+        logger.error(f'Problem querying program list {program_ids} data: \n{e}.', exc_info=True)
+        raise
 
 async def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
     """Query GPP for the programs in program_list. If not given then query GPP for all appropriate observations"""
