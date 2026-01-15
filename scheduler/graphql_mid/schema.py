@@ -173,7 +173,6 @@ class Subscription:
     async def queue_schedule(self, schedule_id: str) -> AsyncGenerator[NightPlansResponseRT, None]:
         if plan_response_queue.get(schedule_id) is None:
             plan_response_queue[schedule_id] = asyncio.Queue()
-
         queue = plan_response_queue[schedule_id]
 
         while True:
