@@ -89,14 +89,17 @@ class SchedulerQueue:
             _logger.info(f"Received Scheduler event: {event.trigger_event} at {event.time} ")
 
             # Call the user's callback
+            result = None
             if callback is not None:
                 if asyncio.iscoroutinefunction(callback):
-                    await callback(event)
+                    result = await callback(event)
                 else:
-                    callback(event)
+                    result = callback(event)
                 _logger.info("Callback executed successfully")
             else:
                 raise ValueError('No callback function provided')
+            
+            return event, result
 
         except Exception as e:
             print(f"Error trying to consume event {event.trigger_event}: {e}")
