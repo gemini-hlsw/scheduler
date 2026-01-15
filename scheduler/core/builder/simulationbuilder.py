@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import asyncio
+import logging
 
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site
@@ -18,6 +20,10 @@ from scheduler.core.events.queue import EventQueue
 __all__ = [
     'SimulationBuilder',
 ]
+
+from ...services import logger_factory
+
+_logger = logger_factory.create_logger(__name__, level=logging.INFO)
 
 @final
 class SimulationBuilder(SchedulerBuilder):
@@ -69,6 +75,7 @@ class SimulationBuilder(SchedulerBuilder):
         night_end_time: Time | None = None,
         program_list: Optional[bytes] = None
     ) -> Collector:
+        # Build collector with deferred night events initialization
         collector = super().build_collector(start,
                                             end,
                                             num_of_nights,
@@ -76,11 +83,21 @@ class SimulationBuilder(SchedulerBuilder):
                                             semesters,
                                             blueprint,
                                             night_start_time,
-                                            night_end_time)
+                                            night_end_time,
+                                            defer_night_events=True)  # Defer blocking night events
+        
+        # Initialize night events asynchronously
+        await collector.async_init_night_events()
+        
+        # Load programs asynchronously
+        _logger.info("Fetching program data...")
         async_data = await gpp_program_data(program_list)
         data = [item async for item in async_data]
-        collector.load_programs(program_provider_class=GppProgramProvider,
-                                data=data)
+        await collector.async_load_programs(
+            program_provider_class=GppProgramProvider,
+            data=data
+        )
+        
         return collector
 
     def _setup_event_queue(self,

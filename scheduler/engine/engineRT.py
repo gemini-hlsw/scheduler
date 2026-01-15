@@ -73,7 +73,6 @@ class EngineRT:
         Creates a Scheduler Core Pipeline based on the parameters.
         Also initialize both the Event Queue , both needed for the scheduling process.
         """
-
         # Create builder based in the mode to create SCP
         builder = dispatch_with(self.sources, None)
         if not isinstance(builder, SimulationBuilder):
@@ -88,6 +87,7 @@ class EngineRT:
                                             night_start_time=self.night_start_time,
                                             night_end_time=self.night_end_time,
                                             program_list=self.params.programs_list)
+
 
         selector = builder.build_selector(collector=collector,
                                           num_nights_to_schedule=self.params.num_nights_to_schedule,

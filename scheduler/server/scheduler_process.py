@@ -38,7 +38,7 @@ class SchedulerProcess:
         self.params = params
         self.running_event = asyncio.Event()
 
-    def stop_process(self):
+    async def stop_process(self):
         """
         Stop the scheduler process
         """
@@ -48,6 +48,10 @@ class SchedulerProcess:
         # Cancel the running task if needed
         if hasattr(self, 'task'):
             self.task.cancel()
+            try:
+                await self.task
+            except asyncio.CancelledError:
+                pass
 
     async def start_task(self):
         """
@@ -70,29 +74,32 @@ class SchedulerProcess:
         """
 
         _logger.info("Start running scheduler process...")
+
+
+        night_index = 0
+        current_night = self.params.start + timedelta(days=night_index)
+        # Initialize the night monitor
+        night_monitor = NightMonitor(current_night, self.params.sites, self.scheduler_queue)
+        await night_monitor.start()
+        _logger.info("Night monitor started.")
+
+        # Initialize Real Time Engine
+        engine = EngineRT(self.params, self.scheduler_queue, self.process_id)
+        await engine.build()
+        engine.init_variant()
+        asyncio.create_task(engine.run())
+        _logger.info("Engine started.")
+
         self.running_event.set()
 
         # Loop through nights until stopped or reached the specified number of nights/date
-        night_index = 0
-        current_night = self.params.start + timedelta(days=night_index)
-        while self.running_event.is_set():
-            # Check if we have reached the end date or number of nights
-            if (self.params.end and current_night >= self.params.end) or \
-                 (self.params.num_nights_to_schedule and night_index >= self.params.num_nights_to_schedule):
-                _logger.info("End date reached, ending scheduler process.")
-                return
 
-            # Initialize the night monitor
-            night_monitor = NightMonitor(current_night, self.params.sites, self.scheduler_queue)
-            await night_monitor.start()
-            _logger.info("Night monitor started.")
-
-            # Initialize Real Time Engine
-            engine = EngineRT(self.params, self.scheduler_queue, self.process_id)
-            await engine.build()
-            engine.init_variant()
-            asyncio.create_task(engine.run())
-            _logger.info("Engine started.")
+        #while self.running_event.is_set():
+        #    # Check if we have reached the end date or number of nights
+        #    if (self.params.end and current_night >= self.params.end) or \
+        #         (self.params.num_nights_to_schedule and night_index >= self.params.num_nights_to_schedule):
+        #        _logger.info("End date reached, ending scheduler process.")
+        #        return
 
             # RT should not do more than one night
             # night_index += 1

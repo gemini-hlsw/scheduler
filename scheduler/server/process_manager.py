@@ -48,7 +48,7 @@ class ProcessManager:
         self.active_processes[process_id] = SchedulerProcess(process_id, request_params)
         await self.active_processes[process_id].start_task()
 
-    def stop_process(self, process_id: str):
+    async def stop_process(self, process_id: str):
         """
         Stop a scheduler process and remove it from the manager.
         
@@ -56,7 +56,7 @@ class ProcessManager:
                 process_id (str): The unique identifier of the scheduler process to stop.
         """
         if process_id in self.active_processes:
-            self.active_processes[process_id].stop_process()
+            await self.active_processes[process_id].stop_process()
             del self.active_processes[process_id]
 
     async def set_operation_process(self, process_id: str):
@@ -75,8 +75,8 @@ class ProcessManager:
     def get_operation_process(self) -> Optional[SchedulerProcess]:
         return self.active_processes[self.operation_process_id]
 
-    def clear_operation_process(self):
-        self.stop_process(self.operation_process_id)
+    async def clear_operation_process(self):
+        await self.stop_process(self.operation_process_id)
         self.operation_process_id = None
 
     async def start(self):

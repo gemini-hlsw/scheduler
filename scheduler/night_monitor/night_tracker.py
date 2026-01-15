@@ -119,10 +119,11 @@ class NightTracker:
         _logger.debug(f"Event Triggered: {next_night_event.description} at {current_time.iso}")
         self.sorted_night_events.pop(0)
         if self.should_trigger_plan(next_night_event):
-          await schedule_queue.add_schedule_event(
-            reason=f'Night event {next_night_event.description}',
-            event=next_night_event
-          )
+          pass
+          #await schedule_queue.add_schedule_event(
+          #  reason=f'Night event {next_night_event.description}',
+          #  event=next_night_event
+          #)
       else:
         await asyncio.sleep(self.CHECK_INTERVAL)  # Sleep for a while before checking again
 
