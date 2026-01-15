@@ -67,7 +67,7 @@ class ProcessManager:
             end=datetime.now(timezone.utc)+timedelta(days=5),
             semester_visibility=False,
             num_nights_to_schedule=1,
-            programs_list=['p-11d']
+            # programs_list=['p-11d'] To test uncomment until ProgramProvider is updated.
         )
         await self.add_scheduler_process(process_id, params)
         self.operation_process_id = process_id
