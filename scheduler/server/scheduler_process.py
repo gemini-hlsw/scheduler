@@ -4,6 +4,8 @@
 import asyncio
 from datetime import timedelta
 
+from astropy.time import Time
+
 from scheduler.clients import SchedulerQueue
 from scheduler.night_monitor.night_monitor import NightMonitor
 from scheduler.services.logger_factory import create_logger
@@ -109,13 +111,19 @@ class SchedulerProcess:
             #current_night = self.params.start + timedelta(days=night_index)
             #_logger.debug(f"Next night: {current_night}")
 
-    async def update_params(self, params: SchedulerParameters):
+    async def update_params(self, params: SchedulerParameters, night_start: Time, night_end: Time):
 
         self.params = params
         # rebuild engine
-        self._engine_task.stop()
+        self._engine_task.cancel()
         self._engine_task = None
-        self.engine = EngineRT(self.params, self.scheduler_queue, self.process_id)
+        self.engine = EngineRT(
+            self.params,
+            self.scheduler_queue,
+            self.process_id,
+            night_start_time=night_start,
+            night_end_time=night_end,
+        )
         await self.engine.build()
         self.engine.init_variant()
         self._engine_task = asyncio.create_task(self.engine.run())
