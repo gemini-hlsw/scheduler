@@ -34,6 +34,7 @@ __all__ = [
 ]
 
 from ..core.components.ranker import DefaultRanker
+from ..core.statscalculator import StatCalculator
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -149,7 +150,7 @@ class EngineRT:
                 values = ti[plans.night_idx].alt[visit.start_time_slot: end_time_slot]
                 alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
                 plans.plans[site].alt_degs.append(alt_degs)
-            splans = SPlans.from_computed_plans(plans, self.params.sites)
+        splans = SPlans.from_computed_plans(plans, self.params.sites)
 
         return NewPlansRT(night_plans=splans)
 
@@ -161,7 +162,7 @@ class EngineRT:
             # Run event loop while still in the same night
             while True:
                 # Wait for the next event
-                event = await self.scheduler_queue.consume_events(self.compute_event_plan)
+                event, plan = await self.scheduler_queue.consume_events(self.compute_event_plan)
                 _logger.debug(f"Received scheduler event: {event}")
 
                 # Check if we have reached the end of the night
@@ -170,7 +171,7 @@ class EngineRT:
                     break
 
                 try:
-                    plan = self.compute_event_plan(event)
+                    # Plan is already computed by the callback in consume_events
                     await plan_response_queue[self.process_id].put(plan)
 
                 except Exception as e:
