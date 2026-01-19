@@ -153,7 +153,14 @@ class Query:
         return f'Plan is on the queue! for {schedule_id}'
 
     @strawberry.field
-    async def schedule_v2(self) -> str:
+    async def schedule_v2(self, new_schedule_rt_input: CreateNewScheduleRTInput)-> str:
+
+        start = datetime.fromisoformat(new_schedule_rt_input.start_time)
+        end = datetime.fromisoformat(new_schedule_rt_input.end_time)
+
+        night_start = Time(new_schedule_rt_input.night_start_time, format='iso', scale='utc')
+        night_end = Time(new_schedule_rt_input.night_end_time, format='iso', scale='utc')
+
         op_process = process_manager.get_operation_process()
         event = OnDemandScheduleEvent(
             description="On demand request",

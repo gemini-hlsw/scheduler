@@ -37,6 +37,9 @@ class SchedulerProcess:
         self.scheduler_queue = SchedulerQueue()
         self.params = params
         self.running_event = asyncio.Event()
+        self.engine = None
+        self.night_monitor = None
+        self._engine_task = None
 
     async def stop_process(self):
         """
@@ -87,7 +90,7 @@ class SchedulerProcess:
         engine = EngineRT(self.params, self.scheduler_queue, self.process_id)
         await engine.build()
         engine.init_variant()
-        asyncio.create_task(engine.run())
+        self._engine_task = asyncio.create_task(engine.run())
         _logger.info("Engine started.")
 
         self.running_event.set()
@@ -105,3 +108,14 @@ class SchedulerProcess:
             # night_index += 1
             #current_night = self.params.start + timedelta(days=night_index)
             #_logger.debug(f"Next night: {current_night}")
+
+    async def update_params(self, params: SchedulerParameters):
+
+        self.params = params
+        # rebuild engine
+        self._engine_task.stop()
+        self._engine_task = None
+        self.engine = EngineRT(self.params, self.scheduler_queue, self.process_id)
+        await self.engine.build()
+        self.engine.init_variant()
+        self._engine_task = asyncio.create_task(self.engine.run())
