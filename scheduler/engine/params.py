@@ -70,7 +70,7 @@ class SchedulerParameters:
 
         if self.semester_visibility:
             end_date = max(s.end_date() for s in self.semesters)
-            self.end_vis = datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S")
+            self.end_vis = datetime(end_date.year, end_date.month, end_date.day)
             if self.end is None:
                 diff = 1
             else:

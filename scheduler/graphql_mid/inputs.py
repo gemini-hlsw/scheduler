@@ -40,11 +40,12 @@ class CreateNewScheduleRTInput:
     end_time: str
     night_start_time: str
     night_end_time: str
-    image_quality: float
-    cloud_cover: float
-    wind_speed: float
-    wind_direction: float
     sites: Sites
+    image_quality: Optional[float] = None
+    cloud_cover: Optional[float] = None
+    wind_speed: Optional[float]  = None
+    wind_direction: Optional[float] =None
+
     thesis_factor: Optional[float] = 1.1
     power: Optional[int] = 2
     met_power: Optional[float] = 1.0
