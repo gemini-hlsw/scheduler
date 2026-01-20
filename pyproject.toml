@@ -1,6 +1,6 @@
 [project]
 name = "scheduler"
-version = "0.1.6"
+version = "0.1.7"
 description = "Gemini Observatory automated scheduler"
 readme = 'README.md'
 authors = [{ name = "NOIRLab" }]
