@@ -181,10 +181,10 @@ class Collector(SchedulerComponent):
         if hasattr(self, 'night_events'):
             _logger.warning("night_events already initialized, skipping async initialization")
             return
-        
+
         # Initialize night_events dict
         self.night_events = {}
-        
+
         # Initialize night events for each site asynchronously
         for site in self.sites:
             self.night_events[site] = await asyncio.to_thread(
@@ -277,7 +277,6 @@ class Collector(SchedulerComponent):
 
         target_name = target.name
         return Collector._target_info.get((target_name, obs_id), None)
-
 
     def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         """
@@ -375,21 +374,23 @@ class Collector(SchedulerComponent):
             vis_table = {}
 
         sem, = self.semesters
-        # Get information about CPU cores, to avoid overloading
-        core_info = get_cores()
-        if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
-            n_jobs = core_info['performance']
+        if config.collector.parallel_viscalc:
+            # Get information about CPU cores, to avoid overloading
+            core_info = get_cores()
+            if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
+                n_jobs = core_info['performance']
+            else:
+                n_jobs = core_info['cores']
         else:
-            n_jobs = core_info['cores']
+            n_jobs = 1
 
         parallel = Parallel(n_jobs=n_jobs, backend='threading', verbose=50)
         # with parallel_config(backend="loky", inner_max_num_threads=1):
         result = parallel(delayed(program_obs_vis)(program_id, obs, Collector.get_program(program_id), self.time_grid,
                                                    self.time_slot_length, self.semesters, nc, self.night_events,
-                                                   None if visibility_calculator.vis_table is None else
+                                                   None if not isinstance(visibility_calculator.vis_table, TargetVisibilityTable)  else
                                                    VisibilitySnapshot.from_dict_days(visibility_calculator.vis_table.get_obs(sem, obs.id)))
                           for program_id, obs in parsed_observations)
-        _logger.info(f'Viscalc done successfully for {len(parsed_observations)} programs.')
         targ_info, base_targets, vis_tables = zip(*result)
 
         ii = 0
@@ -489,8 +490,8 @@ class Collector(SchedulerComponent):
         nc = {}
         for site in self.sites:
             nc[site] = await asyncio.to_thread(
-                self.night_configurations, 
-                site, 
+                self.night_configurations,
+                site,
                 np.arange(self.num_nights_calculated)
             )
 
@@ -637,6 +638,7 @@ class Collector(SchedulerComponent):
             # Determine the end timeslot for the site if one is specified.
             # We set to None is the whole night is to be done.
             end_timeslot_bound = end_timeslot_bounds.get(plan.site) if end_timeslot_bounds is not None else None
+            # print(f'time_accounting: end_timeslot_bounds {end_timeslot_bounds}, end_timeslot_bound {end_timeslot_bound}')
 
             grpvisits = []
             # Restore this if we actually need ii, but seems it was just being used to check that grpvisits nonempty.
@@ -644,6 +646,7 @@ class Collector(SchedulerComponent):
             for visit in sorted(plan.visits, key=lambda v: v.start_time_slot):
                 obs = self.get_observation(visit.obs_id)
                 group = self._get_group(obs)
+                # print(f'time_accounting: {obs.id.id} {group.id.id} {group.unique_id.id}')
                 if grpvisits and group.is_scheduling_group() and group == grpvisits[-1].group:
                     grpvisits[-1].visits.append(visit)
                 else:
@@ -652,11 +655,12 @@ class Collector(SchedulerComponent):
             for grpvisit in grpvisits:
                 # Determine if group should be charged
                 if grpvisit.group.is_scheduling_group():
-                    # For now, only change aa scheduling group if it can be done fully
+                    # For now, only charge a scheduling group if it can be done fully
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.end_time_slot()
                 else:
                     observation = self.get_observation(grpvisit.visits[0].obs_id)
                     n_slots_acq = time2slots(time_slot_length, observation.acq_overhead)
+                    # This should probably be the first unobserved atom, not the first in the sequence.
                     n_slots_atom0 = time2slots(time_slot_length, observation.sequence[0].exec_time)
                     slot_atom0_end = grpvisit.visits[0].start_time_slot + n_slots_atom0 - 1 + n_slots_acq
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > slot_atom0_end
@@ -692,6 +696,7 @@ class Collector(SchedulerComponent):
                         if visit.atom_end_idx == len(obs_seq) - 1:
                             _logger.debug(f'Marking observation complete: {observation.id.id}')
                             observation.status = ObservationStatus.OBSERVED
+                            grpvisit.group.number_observed += 1
                             if observation in part_obs:
                                 part_obs.remove(observation)
                         else:
@@ -742,3 +747,5 @@ class Collector(SchedulerComponent):
                     for obs in part_obs:
                         _logger.debug(f'\tTime_accounting setting {obs.unique_id.id} to INACTIVE.')
                         obs.status = ObservationStatus.INACTIVE
+
+                # Evaluate tree here?

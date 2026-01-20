@@ -212,7 +212,8 @@ class EventCycle:
         """
         if update is not None and current_timeslot >= update.timeslot_idx:
             # Determine end timeslot bounds for time accounting
-            end_timeslot_bounds = {} if update.done else {site: update.timeslot_idx}
+            end_timeslot_bounds = None if update.done else {site: update.timeslot_idx}
+            # print(f'handle_updates: update.done {update.done} {end_timeslot_bounds}')
 
             # If there was an old plan and time accounting is needed, process it
             if plans is not None and update.perform_time_accounting:
