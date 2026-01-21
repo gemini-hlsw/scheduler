@@ -132,6 +132,7 @@ class EngineRT:
         start_timeslot = {}
         for site in self.params.sites:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
+            print(event.time, night_start_time)
             event_timeslot = to_timeslot_idx(
                 event.time,
                 night_start_time.utc.to_datetime(timezone=datetime.timezone.utc),

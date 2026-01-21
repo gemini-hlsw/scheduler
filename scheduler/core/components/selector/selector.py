@@ -492,18 +492,14 @@ class Selector(SchedulerComponent):
             # has already been covered and should be ineligible for scheduling.
             # Zero out the part of the night that was already done.
             variant = self._variant_snapshot_per_site[obs.site].make_variant(total_timeslots_in_night)
+            #print(f'Selector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}')
+            #print(f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}')
+            #print(f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}')
+            #print(f'rising: {rising[night_idx]}, Too: {too_type}')
             conditions_score[night_idx] = Selector.match_conditions(mrc, variant, rising[night_idx], too_type)
             conditions_score[night_idx][:starting_timeslot_in_night] = 0
             wind_score[night_idx] = Selector._wind_conditions(variant, target_info[night_idx].az)
-
-            logger.debug(
-                f'Selector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}\n'+
-                f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}'+
-                f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}'+
-                f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}'+
-                f'rising: {rising[night_idx]}, Too: {too_type}'+
-                f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}'
-            )
+            # print(f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}')
 
         # Calculate the schedulable slot indices.
         # These are the indices where the observation has:

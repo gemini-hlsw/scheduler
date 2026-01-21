@@ -4,7 +4,6 @@ import asyncio
 from os import environ
 from typing import AsyncGenerator, Dict
 from datetime import datetime, UTC
-from zoneinfo import ZoneInfo
 
 import numpy as np
 import strawberry # noqa
