@@ -4,7 +4,9 @@
 import asyncio
 import os
 import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from astropy.time import Time
 from lucupy.minimodel.site import ALL_SITES, Site
@@ -37,8 +39,8 @@ def main(*,
     # Create Parameters
     # params = SchedulerParameters(start=Time("2025-09-30 08:00:00", format='iso', scale='utc'),
     #                              end=Time("2025-10-05 08:00:00", format='iso', scale='utc'),
-    params=SchedulerParameters(start=Time("2026-01-20 08:00:00", format='iso', scale='utc'),
-                                end=Time("2026-01-25 08:00:00", format='iso', scale='utc'),
+    params=SchedulerParameters(start=datetime.fromisoformat("2026-01-20T08:00:00").replace(tzinfo=ZoneInfo("UTC")),
+                                end = datetime.fromisoformat("2026-01-25T08:00:00").replace(tzinfo=ZoneInfo("UTC")),
                                sites=ALL_SITES,
                               #  sites=[Site.GN],
                               #  sites=[Site.GS],

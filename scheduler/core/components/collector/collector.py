@@ -477,6 +477,9 @@ class Collector(SchedulerComponent):
 
         # Purge the old programs and observations.
         Collector._programs = {}
+        Collector._observations = {}
+        Collector._observations_per_program = {}
+        Collector._target_info = {}
 
         # Keep a list of the observations for parallel processing.
         parsed_observations: List[Tuple[ProgramID, Observation]] = []
@@ -542,7 +545,7 @@ class Collector(SchedulerComponent):
             n_jobs = core_info['performance']
         else:
             n_jobs = core_info['cores']
-
+        print([o.id.id for p,o in parsed_observations])
         # Run the blocking parallel code in a thread
         result = await asyncio.to_thread(
             self.calculate_parallel_visibility,
@@ -557,6 +560,7 @@ class Collector(SchedulerComponent):
         )
 
         targ_info, base_targets, vis_tables = zip(*result)
+        # print(targ_info, base_targets, vis_tables)
 
         ii = 0
         for program_id, obs in parsed_observations:

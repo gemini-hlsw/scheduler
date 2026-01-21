@@ -11,7 +11,7 @@ from scheduler.core.scp.scp import SCP
 
 from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints, SimulationBuilder
-from scheduler.core.sources import Sources
+from scheduler.core.sources import Sources, Origin, Origins
 from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
 from scheduler.core.events.queue.events import EndOfNightEvent
@@ -131,6 +131,7 @@ class EngineRT:
         start_timeslot = {}
         for site in self.params.sites:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
+            print(event.time, night_start_time)
             event_timeslot = to_timeslot_idx(
                 event.time,
                 night_start_time.utc.to_datetime(timezone=datetime.timezone.utc),
