@@ -74,6 +74,5 @@ plugins:
             unwrap_annotated: true
             show_labels: false
             show_source: false
-            members_in_toc: false
 
 
