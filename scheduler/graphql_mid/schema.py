@@ -164,7 +164,13 @@ class Query:
 
         op_process = process_manager.get_operation_process()
 
-        params = SchedulerParameters(start, end, programs_list=new_schedule_rt_input.programs)
+        params = SchedulerParameters(
+            start,
+            end,
+            programs_list=new_schedule_rt_input.programs,
+            num_nights_to_schedule=1,
+            semester_visibility=False
+        )
         await op_process.update_params(params, night_start, night_end)
 
         utc_start = start.replace(tzinfo=ZoneInfo("UTC"))

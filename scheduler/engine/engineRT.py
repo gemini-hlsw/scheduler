@@ -4,6 +4,7 @@
 import asyncio
 import datetime
 
+import numpy as np
 from astropy.time import Time
 
 from .params import SchedulerParameters
@@ -21,7 +22,7 @@ from scheduler.clients.scheduler_queue_client import SchedulerQueue, SchedulerEv
 from scheduler.events import to_timeslot_idx
 from scheduler.graphql_mid.types import SPlans, NewPlansRT
 
-from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover
+from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site
 from astropy.coordinates import Angle
 from astropy import units as u
 
@@ -34,6 +35,7 @@ __all__ = [
 ]
 
 from ..core.components.ranker import DefaultRanker
+from ..core.output import print_collector_info
 from ..core.statscalculator import StatCalculator
 
 _logger = logger_factory.create_logger(__name__)
@@ -64,10 +66,9 @@ class EngineRT:
         self.scheduler_queue = scheduler_queue
         self.process_id = process_id
         self.sources = Sources()
-        self.change_monitor = None
         self.start_time = time()
-        self.night_start_time = night_start_time
-        self.night_end_time = night_end_time
+        self.night_start_time = None
+        self.night_end_time = None
 
     async def build(self) -> SCP:
         """
@@ -88,7 +89,9 @@ class EngineRT:
                                             night_start_time=self.night_start_time,
                                             night_end_time=self.night_end_time,
                                             program_list=self.params.programs_list)
-
+        print_collector_info(collector)
+        print('GS: ',collector.night_events[Site.GS].twilight_morning_12)
+        print('GN: ', collector.night_events[Site.GN].twilight_morning_12)
 
         selector = builder.build_selector(collector=collector,
                                           num_nights_to_schedule=self.params.num_nights_to_schedule,
@@ -108,8 +111,8 @@ class EngineRT:
         Initialize site variants with default values.
         """
         # Should get variants from weather service in the future
-        initial_variant = VariantSnapshot(iq=ImageQuality(1.0),
-                                          cc=CloudCover(1.0),
+        initial_variant = VariantSnapshot(iq=ImageQuality(0.2),
+                                          cc=CloudCover(0.5),
                                           wind_dir=Angle(0.0, unit=u.deg),
                                           wind_spd=0.0 * (u.m / u.s))
         for site in self.params.sites:
@@ -137,7 +140,7 @@ class EngineRT:
                 night_start_time.utc.to_datetime(timezone=datetime.timezone.utc),
                 self.scp.collector.time_slot_length.to_datetime()
             )
-            start_timeslot[site] = {0: event_timeslot}
+            start_timeslot[site] = {np.int64(0): 0}
 
         plans = self.scp.run_rt(start_timeslot)
 
