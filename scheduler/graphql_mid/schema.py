@@ -173,7 +173,7 @@ class Query:
         )
         await op_process.update_params(params, night_start, night_end)
 
-        utc_start = start.replace(tzinfo=ZoneInfo("UTC"))
+        utc_start = night_start.to_datetime(timezone=UTC)
         event = OnDemandScheduleEvent(
             description="On demand request",
             # time=datetime.now(UTC)

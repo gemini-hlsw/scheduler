@@ -64,13 +64,14 @@ class EngineRT:
         _logger.debug("Initializing real-time engine...")
         self.params = params
         self.scheduler_queue = scheduler_queue
+        self.scp = None
         self.process_id = process_id
         self.sources = Sources()
         self.start_time = time()
-        self.night_start_time = None
-        self.night_end_time = None
+        self.night_start_time = night_start_time
+        self.night_end_time = night_end_time
 
-    async def build(self) -> SCP:
+    async def build(self) -> None:
         """
         Creates a Scheduler Core Pipeline based on the parameters.
         Also initialize both the Event Queue , both needed for the scheduling process.
@@ -89,9 +90,6 @@ class EngineRT:
                                             night_start_time=self.night_start_time,
                                             night_end_time=self.night_end_time,
                                             program_list=self.params.programs_list)
-        print_collector_info(collector)
-        print('GS: ',collector.night_events[Site.GS].twilight_morning_12)
-        print('GN: ', collector.night_events[Site.GN].twilight_morning_12)
 
         selector = builder.build_selector(collector=collector,
                                           num_nights_to_schedule=self.params.num_nights_to_schedule,
@@ -134,13 +132,12 @@ class EngineRT:
         start_timeslot = {}
         for site in self.params.sites:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
-            print(event.time, night_start_time)
             event_timeslot = to_timeslot_idx(
                 event.time,
                 night_start_time.utc.to_datetime(timezone=datetime.timezone.utc),
                 self.scp.collector.time_slot_length.to_datetime()
             )
-            start_timeslot[site] = {np.int64(0): 0}
+            start_timeslot[site] = {np.int64(0): event_timeslot}
 
         plans = self.scp.run_rt(start_timeslot)
 
