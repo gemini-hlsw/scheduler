@@ -34,7 +34,7 @@ from scheduler.services.redis_client import RedisClient
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
 from scheduler.services.visibility.calculator import visibility_calculator
-from scheduler.services.visibility.calculator import VisibilitySnapshot, program_obs_vis, get_cores, safe_program_obs_vis
+from scheduler.services.visibility.calculator import VisibilitySnapshot, program_obs_vis, get_cores, safe_program_obs_vis, TargetVisibilityTable
 
 __all__ = [
     'Collector',
