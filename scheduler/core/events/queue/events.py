@@ -147,6 +147,8 @@ class WeatherChangeEvent(InterruptionEvent):
         variant_change (VariantSnapshot): The variant snapshot that changed.
     """
     variant_change: VariantSnapshot
+    site: Site
+    time: datetime
 
 
 @final
