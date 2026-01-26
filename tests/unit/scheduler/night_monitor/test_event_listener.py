@@ -38,7 +38,7 @@ async def test_produce_success(event_listener):
     source_type = EventSourceType.RESOURCE
 
     with pytest.raises(SubscriptionEndedException):
-        await event_listener._producer(source_type, 'resource_edit', mock_sub_factory)
+        await event_listener._producer(source_type, 'resource_edit', mock_sub_factory, )
 
     # Check if the factory was called
     mock_sub_factory.assert_called_once()
