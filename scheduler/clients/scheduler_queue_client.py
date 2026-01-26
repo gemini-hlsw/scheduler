@@ -11,6 +11,7 @@ from pydantic import BaseModel, field_serializer, field_validator
 from scheduler.graphql_mid.types import NewPlansRT
 from scheduler.events import NightEvent, OnDemandScheduleEvent
 from scheduler.services import logger_factory
+from scheduler.core.events.queue import WeatherChangeEvent
 
 __all__ = ["SchedulerQueue", "SchedulerEvent"]
 
@@ -64,6 +65,14 @@ class SchedulerQueue:
                     trigger_event=reason,
                     time=event.time,
                     site=None
+                )
+            elif isinstance(event, WeatherChangeEvent):
+                # TODO: Variant snapshot should be used to update weather before plan calculation
+                # Maybe the entire eventt should be passed to get the variants in the consume_events function
+                scheduler_event = SchedulerEvent(
+                    trigger_event=reason,
+                    time=event.time,
+                    site=event.site,
                 )
             else:
                 scheduler_event = SchedulerEvent(

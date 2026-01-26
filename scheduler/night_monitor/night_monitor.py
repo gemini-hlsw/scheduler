@@ -39,7 +39,9 @@ class NightMonitor:
 
         self._shutdown_event = asyncio.Event()
 
-        client = None
+        # There should be multiple connections depending on the service
+        # even if there is only one client instance
+        client = None # TODO: Singleton
         self.listener = EventListener(client, self.event_queue, self._shutdown_event)
         self.consumer = EventConsumer(self.event_queue, self._shutdown_event, self.scheduler_queue)
         self.night_tracker = NightTracker(night, sites, scheduler_queue)

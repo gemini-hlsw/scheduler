@@ -78,7 +78,7 @@ class EventHandler(ABC):
         """
         pass
 
-    async def handle(self, sub_name: str, raw_event: dict, scheduler_queue: SchedulerQueue):
+    async def handle(self, sub_name: str, raw_event: dict):
         """
         Generic handle method using the dispatch map pattern.
 
@@ -96,4 +96,4 @@ class EventHandler(ABC):
         event = parser(raw_event)
 
         # Handle the parsed event
-        await handler(event, scheduler_queue)
+        await handler(event, self.scheduler_queue)
