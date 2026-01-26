@@ -29,16 +29,18 @@ def event_listener(mock_client_async):
 
 @patch('scheduler.night_monitor.event_listener.stamina.retry', lambda **kwargs: lambda f: f) # Disable stamina
 @pytest.mark.asyncio
-async def test_produce_success(event_listener):
+async def test_produce_success(event_listener, mock_client_async):
     """Test the _producer method successfully reeds from subscription"""
 
-    # Mock subscription factory
+    # Mock subscription factory - must return generator directly, not a coroutine
+    # Use MagicMock (not AsyncMock) so we can still assert it was called
     mock_data = ['data1', 'data2']
-    mock_sub_factory = AsyncMock(return_value=mock_subscription_generator(mock_data))
+    mock_sub_factory = MagicMock(side_effect=lambda session: mock_subscription_generator(mock_data))
     source_type = EventSourceType.RESOURCE
 
+    client = AsyncMock()
     with pytest.raises(SubscriptionEndedException):
-        await event_listener._producer(source_type, 'resource_edit', mock_sub_factory, )
+        await event_listener._producer(source_type, 'resource_edit', mock_sub_factory, client)
 
     # Check if the factory was called
     mock_sub_factory.assert_called_once()
@@ -51,15 +53,16 @@ async def test_produce_success(event_listener):
 
 @patch('scheduler.night_monitor.event_listener.stamina.retry', lambda **kwargs: lambda f: f) # Disable stamina
 @pytest.mark.asyncio
-async def test_producer_ends_gracefully(event_listener):
+async def test_producer_ends_gracefully(event_listener,  mock_client_async):
     """Test that the producer correctly raises SubscriptionEndedException."""
     mock_data = ['data1']
-    mock_sub_factory = AsyncMock(return_value=mock_subscription_generator(mock_data))
+    mock_sub_factory = MagicMock(side_effect=lambda session: mock_subscription_generator(mock_data))
     source_type = EventSourceType.RESOURCE
 
+    client = AsyncMock()
     # The producer should raise SubscriptionEndedException when the generator finishes
     with pytest.raises(SubscriptionEndedException):
-        await event_listener._producer(source_type, 'resource_edit', mock_sub_factory)
+        await event_listener._producer(source_type, 'resource_edit', mock_sub_factory,  client)
 
     # Check that the data was still processed
     assert event_listener.queue.qsize() == 1, f"queue size should be 1 event but it got {event_listener.queue.qsize()}"
@@ -71,7 +74,7 @@ async def test_producer_retry(mock_sleep, event_listener):
     """Test the producer's retry logic via stamina."""
     mock_data = ['data1']
     # Mock factory that fails once with a retryable exception, then succeeds
-    mock_sub_factory = AsyncMock()
+    mock_sub_factory = MagicMock()
 
     mock_sub_factory.side_effect = [
         ConnectionError("Simulated connection error"),
@@ -80,9 +83,10 @@ async def test_producer_retry(mock_sleep, event_listener):
 
     source_type = EventSourceType.WEATHER
 
+    client = AsyncMock()
     # It should eventually succeed and then raise SubscriptionEndedException
     with pytest.raises(SubscriptionEndedException):
-        await event_listener._producer(source_type, 'weather_edit', mock_sub_factory)
+        await event_listener._producer(source_type, 'weather_edit', mock_sub_factory, client)
 
     # 1 fail, 1 success
     assert mock_sub_factory.call_count == 2
@@ -111,29 +115,24 @@ async def test_listen(event_listener, mock_client_async):
 
     # Mock subscriptions() to return (subscription_name, factory) tuples
     # The factory is a callable that returns an async generator when awaited
-    async def resource_factory():
-        return mock_subscription_generator(['res_data'])
+    # Factories must be lambdas that return generators directly, not async functions
+    resource_factory = lambda session: mock_subscription_generator(['res_data'])
+    weather_factory = lambda session: mock_subscription_generator(['weather_data'])
+    odb_factory1 = lambda session: mock_subscription_generator(['odb_data1'])
+    odb_factory2 = lambda session: mock_subscription_generator(['odb_data2'])
 
-    async def weather_factory():
-        return mock_subscription_generator(['weather_data'])
-
-    async def odb_factory1():
-        return mock_subscription_generator(['odb_data1'])
-
-    async def odb_factory2():
-        return mock_subscription_generator(['odb_data2'])
-
+    # Subscriptions must return 3-tuples: (sub_name, factory, client)
     mock_resource_source.subscriptions.return_value = [
-        ('resource_edit', resource_factory)
+        ('resource_edit', resource_factory, mock_client_async)
     ]
 
     mock_weather_source.subscriptions.return_value = [
-        ('weather_change', weather_factory)
+        ('weather_change', weather_factory, mock_client_async)
     ]
 
     mock_odb_source.subscriptions.return_value = [
-        ('observation_edit', odb_factory1),
-        ('observation_edit', odb_factory2)
+        ('observation_edit', odb_factory1, mock_client_async),
+        ('observation_edit', odb_factory2, mock_client_async)
     ]
 
     event_listener._sources = [mock_resource_source, mock_weather_source, mock_odb_source]
