@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-import datetime
+from datetime import datetime, timedelta, timezone
 from typing import FrozenSet
 
 from lucupy import sky
@@ -113,17 +113,18 @@ class NightTracker:
     # Real-time mode
     _logger.info("Starting real-time tracking of night events")
     while len(self.sorted_night_events) > 0:
-      current_time = Time.now()
+      current_time = Time(datetime.now(tz=timezone.utc), scale='utc')
       next_night_event = self.sorted_night_events[0]
+      print(f'current: {current_time} and next event {next_night_event.description}: {next_night_event.time}')
       if current_time >= next_night_event.time:
         _logger.debug(f"Event Triggered: {next_night_event.description} at {current_time.iso}")
         self.sorted_night_events.pop(0)
         if self.should_trigger_plan(next_night_event):
           pass
-          #await schedule_queue.add_schedule_event(
-          #  reason=f'Night event {next_night_event.description}',
-          #  event=next_night_event
-          #)
+          await schedule_queue.add_schedule_event(
+            reason=f'Night event {next_night_event.description}',
+            event=next_night_event
+          )
       else:
         await asyncio.sleep(self.CHECK_INTERVAL)  # Sleep for a while before checking again
 

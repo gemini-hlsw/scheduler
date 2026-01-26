@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import FrozenSet
 
 from lucupy.minimodel.site import Site
@@ -44,7 +44,7 @@ class NightMonitor:
         client = None # TODO: Singleton
         self.listener = EventListener(client, self.event_queue, self._shutdown_event)
         self.consumer = EventConsumer(self.event_queue, self._shutdown_event, self.scheduler_queue)
-        self.night_tracker = NightTracker(night, sites, scheduler_queue)
+        self.night_tracker = NightTracker(night+timedelta(days=1), sites, scheduler_queue)
 
         self._listener_task: asyncio.Task | None = None
         self._consumer_task: asyncio.Task | None = None
