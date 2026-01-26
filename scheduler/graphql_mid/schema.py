@@ -4,6 +4,7 @@ import asyncio
 from os import environ
 from typing import AsyncGenerator, Dict
 from datetime import datetime, UTC
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import strawberry # noqa
@@ -163,12 +164,20 @@ class Query:
 
         op_process = process_manager.get_operation_process()
 
-        params = SchedulerParameters(start, end, programs_list=["p-11d"])
+        params = SchedulerParameters(
+            start,
+            end,
+            programs_list=new_schedule_rt_input.programs,
+            num_nights_to_schedule=1,
+            semester_visibility=False
+        )
         await op_process.update_params(params, night_start, night_end)
 
+        utc_start = night_start.to_datetime(timezone=UTC)
         event = OnDemandScheduleEvent(
             description="On demand request",
-            time=datetime.now(UTC)
+            # time=datetime.now(UTC)
+            time=utc_start,
         )
         await op_process.scheduler_queue.add_schedule_event(
             reason='On demand request',

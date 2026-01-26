@@ -6,6 +6,7 @@ from typing import final, Dict
 
 import numpy.typing as npt
 import numpy as np
+from dotenv import set_key
 from lucupy.minimodel import Site, NightIndex, TimeslotIndex
 
 from scheduler.core.components.collector import Collector
@@ -57,6 +58,7 @@ class SCP:
 
     def run_rt(self,
                sites_timeslots=Dict[Site, Dict[NightIndex, TimeslotIndex]]) -> Plans:
+
         selection = self.selector.select(night_indices=np.array([NightIndex(0)]),
                                          starting_time_slots=sites_timeslots,
                                          ranker=self.ranker)

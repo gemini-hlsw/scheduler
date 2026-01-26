@@ -4,6 +4,9 @@ import asyncio
 from datetime import timedelta, datetime
 from unittest.mock import MagicMock
 
+import os
+os.environ["REDISCLOUD_URL"] = "redis://mock:6379"
+
 import pytest
 
 from astropy.time import Time
