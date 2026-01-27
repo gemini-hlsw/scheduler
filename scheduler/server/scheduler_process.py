@@ -90,8 +90,8 @@ class SchedulerProcess:
 
         # Initialize Real Time Engine
         engine = EngineRT(self.params, self.scheduler_queue, self.process_id)
-        await engine.build()
-        engine.init_variant()
+        # await engine.build()
+        # engine.init_variant()
         self._engine_task = asyncio.create_task(engine.run())
         _logger.info("Engine started.")
 

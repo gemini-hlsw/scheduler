@@ -81,6 +81,7 @@ class EngineRT:
         if not isinstance(builder, SimulationBuilder):
             raise RuntimeError("Builder must be Simulation to use async build method.")
 
+        print('start/end times: ',self.night_start_time, self.night_end_time)
         collector = await builder.async_build_collector(start=self.params.start,
                                             end=self.params.end_vis,
                                             num_of_nights=self.params.num_nights_to_schedule,
@@ -118,7 +119,7 @@ class EngineRT:
 
         _logger.info("Initial weather variants successfully updated.")
 
-    def compute_event_plan(self, event: SchedulerEvent):
+    async def compute_event_plan(self, event: SchedulerEvent):
         """
         Compute a new plan based on the given event.
         
@@ -129,6 +130,11 @@ class EngineRT:
         """
         # Get the timeslots associated with the sites with format
         # {site: {0: current_timeslot}}
+
+        await self.build()
+        self.init_variant()
+        print(self.params)
+
         start_timeslot = {}
         for site in self.params.sites:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
