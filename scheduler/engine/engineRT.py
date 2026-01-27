@@ -133,14 +133,15 @@ class EngineRT:
 
         await self.build()
         self.init_variant()
-        print(self.params)
 
         start_timeslot = {}
         for site in self.params.sites:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
+            utc_night_start = night_start_time.utc.to_datetime(timezone=datetime.timezone.utc)
             event_timeslot = to_timeslot_idx(
-                event.time,
-                night_start_time.utc.to_datetime(timezone=datetime.timezone.utc),
+                # event.time, all event need to happen in the test range for now
+                utc_night_start+datetime.timedelta(hours=3),
+                utc_night_start,
                 self.scp.collector.time_slot_length.to_datetime()
             )
             start_timeslot[site] = {np.int64(0): event_timeslot}

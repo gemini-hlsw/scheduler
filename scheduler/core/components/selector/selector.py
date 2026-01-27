@@ -497,12 +497,11 @@ class Selector(SchedulerComponent):
             wind_score[night_idx] = Selector._wind_conditions(variant, target_info[night_idx].az)
 
             logger.debug(
-                f'Selector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}\n'+
-                f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}'+
-                f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}'+
-                f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}'+
-                f'rising: {rising[night_idx]}, Too: {too_type}'+
-                f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}'
+                f'\nSelector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}\n'+
+                f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}\n'+
+                f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}\n'+
+                f'rising: {rising[night_idx]}, Too: {too_type}\n'+
+                f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}\n'
             )
 
         # Calculate the schedulable slot indices.
@@ -765,7 +764,6 @@ class Selector(SchedulerComponent):
         # Determine the positions where the actual conditions are worse than the requirements.
         bad_iq = actual_iq > required_conditions.iq
         bad_cc = actual_cc > required_conditions.cc
-
         bad_cond_idx = np.where(np.logical_or(bad_iq, bad_cc))[0]
         cond_match = np.ones(length)
         cond_match[bad_cond_idx] = 0
