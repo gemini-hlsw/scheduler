@@ -196,10 +196,9 @@ class Subscription:
 
         while True:
             try:
-                print(f"Subscription: Waiting for plan response for {schedule_id}")
+                _logger.info(f"Subscription: Waiting for plan response for {schedule_id}")
                 result = await queue.get()  # Wait for item from the queue
-                print(f"Subscription: Received plan response for {schedule_id}")
-                print(result)
+                _logger.info(f"Subscription: Received plan response for {schedule_id}")
                 _logger.debug(f'Result: {result}')
                 yield result  # Yield item to the subscription
             except Exception as e:

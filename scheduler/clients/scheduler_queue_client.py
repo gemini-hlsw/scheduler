@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Any
 
@@ -17,23 +18,12 @@ __all__ = ["SchedulerQueue", "SchedulerEvent"]
 
 _logger = logger_factory.create_logger(__name__)
 
-class SchedulerEvent(BaseModel):
+@dataclass
+class SchedulerEvent:
     trigger_event: str
+    event: Any | None = None
     time: datetime | None = None
     site: Site | None = None
-
-    @field_serializer('site')
-    def serialize_site(self, site: Site) -> str:
-        """Convert Site enum to string"""
-        return site.site_name
-
-    @field_validator('site', mode='before')
-    @classmethod
-    def parse_site(cls, value):
-        """Convert string to Site enum"""
-        if isinstance(value, str):
-            return Site.GN if value == 'Gemini North' else Site.GS
-        return value
 
 class SchedulerQueue:
 
@@ -68,9 +58,10 @@ class SchedulerQueue:
                 )
             elif isinstance(event, WeatherChangeEvent):
                 # TODO: Variant snapshot should be used to update weather before plan calculation
-                # Maybe the entire eventt should be passed to get the variants in the consume_events function
+                # Maybe the entire event should be passed to get the variants in the consume_events function
                 scheduler_event = SchedulerEvent(
                     trigger_event=reason,
+                    event=event,
                     time=event.time,
                     site=event.site,
                 )

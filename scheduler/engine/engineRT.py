@@ -3,6 +3,7 @@
 
 import asyncio
 import datetime
+from typing import FrozenSet
 
 import numpy as np
 from astropy.time import Time
@@ -35,6 +36,7 @@ __all__ = [
 ]
 
 from ..core.components.ranker import DefaultRanker
+from ..core.events.queue import WeatherChangeEvent
 from ..core.output import print_collector_info
 from ..core.statscalculator import StatCalculator
 
@@ -105,17 +107,26 @@ class EngineRT:
         self.scp = SCP(collector, selector, optimizer, ranker)
         _logger.info("SCP successfully built.")
 
-    def init_variant(self):
+    def init_variant(self, sites: FrozenSet[Site], new_variant: VariantSnapshot | None = None) -> None:
         """
         Initialize site variants with default values.
+        If a new variant is presented via event, set to those.
+
+        Args:
+            new_variant (VariantSnapshot | None): Optional new variant snapshot for weather changes.
+
         """
-        # Should get variants from weather service in the future
+
         initial_variant = VariantSnapshot(iq=ImageQuality(0.2),
                                           cc=CloudCover(0.5),
                                           wind_dir=Angle(0.0, unit=u.deg),
                                           wind_spd=0.0 * (u.m / u.s))
-        for site in self.params.sites:
+
+        for site in self.params.sites - sites:
             self.scp.selector.update_site_variant(site, initial_variant)
+
+        for site in sites:
+            self.scp.selector.update_site_variant(site, new_variant)
 
         _logger.info("Initial weather variants successfully updated.")
 
@@ -132,7 +143,17 @@ class EngineRT:
         # {site: {0: current_timeslot}}
 
         await self.build()
-        self.init_variant()
+        # TODO: Specific logic for events
+        # In theory this should be a shared process for all events.
+        # Meaning the process of setup the SCP and run a schedule is independent from the type of event.
+        # Right now there is no get weather query so we would need to handle this specifically.
+        if 'Weather' in event.trigger_event:
+            self.init_variant(
+                sites=frozenset([event.site]),
+                new_variant=event.event.variant_change
+            )
+        else:
+            self.init_variant(self.params.sites)
 
         start_timeslot = {}
         for site in self.params.sites:
