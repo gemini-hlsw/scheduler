@@ -23,7 +23,7 @@ class WeatherEventHandler(EventHandler):
             ),
         }
 
-    def parse_weather_change(self, raw_event: dict) -> dict:
+    def parse_weather_change(self, raw_event: dict) -> WeatherChangeEvent:
         # Get weather changes
         # Dict of type {'weatherUpdates': {'site': string, 'imageQuality': number, 'cloudCover': number, 'windDirection': number, 'windSpeed': number}}
         site = Site[raw_event['weatherUpdates']['site']]

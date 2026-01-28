@@ -224,6 +224,15 @@ wheels = [
 ]
 
 [[package]]
+name = "backoff"
+version = "2.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/d7/5bbeb12c44d7c4f2fb5b56abce497eb5ed9f34d85701de869acedd602619/backoff-2.2.1.tar.gz", hash = "sha256:03f829f5bb1923180821643f8753b0502c3b682293992485b0eef2807afa5cba", size = 17001, upload-time = "2022-10-05T19:19:32.061Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/df/73/b6e24bd22e6720ca8ee9a85a0c4a2971af8497d8f3193fa05390cbd46e09/backoff-2.2.1-py3-none-any.whl", hash = "sha256:63579f9a0628e06278f7e47b7d7d5b6ce20dc65c5e96a6f3ca99a6adca0396e8", size = 15148, upload-time = "2022-10-05T19:19:30.546Z" },
+]
+
+[[package]]
 name = "backrefs"
 version = "5.9"
 source = { registry = "https://pypi.org/simple" }
@@ -727,6 +736,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/dd/4a/d3389b690e3afeffc731c6631f099295bd186053c87a9760058a0077bcb9/gpp_client-25.9.0.tar.gz", hash = "sha256:3d7d7e8cbecdb13e99bfa12d46d35bfa5c4eaaf642bd2abd07b46199b637d25e", size = 102718, upload-time = "2025-09-30T17:14:23.642Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/97/c0/41a749410361ac296693bdc6f8857c761c4e091c0c124406e86161d1b999/gpp_client-25.9.0-py3-none-any.whl", hash = "sha256:d4522fc041408f3eca23d9821dd717101c05a62c8f4802058ec1fa32d116ff91", size = 126717, upload-time = "2025-09-30T17:14:22.228Z" },
+]
+
+[[package]]
+name = "gql"
+version = "4.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "backoff" },
+    { name = "graphql-core" },
+    { name = "yarl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/06/9f/cf224a88ed71eb223b7aa0b9ff0aa10d7ecc9a4acdca2279eb046c26d5dc/gql-4.0.0.tar.gz", hash = "sha256:f22980844eb6a7c0266ffc70f111b9c7e7c7c13da38c3b439afc7eab3d7c9c8e", size = 215644, upload-time = "2025-08-17T14:32:35.397Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/94/30bbd09e8d45339fa77a48f5778d74d47e9242c11b3cd1093b3d994770a5/gql-4.0.0-py3-none-any.whl", hash = "sha256:f3beed7c531218eb24d97cb7df031b4a84fdb462f4a2beb86e2633d395937479", size = 89900, upload-time = "2025-08-17T14:32:34.029Z" },
 ]
 
 [[package]]
@@ -2148,7 +2172,7 @@ wheels = [
 
 [[package]]
 name = "scheduler"
-version = "0.1.6"
+version = "0.1.7"
 source = { virtual = "." }
 dependencies = [
     { name = "aio-pika" },
@@ -2158,6 +2182,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "gelidum" },
     { name = "gpp-client" },
+    { name = "gql" },
     { name = "hypothesis" },
     { name = "joblib" },
     { name = "lucupy" },
@@ -2206,6 +2231,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.116.1" },
     { name = "gelidum", specifier = ">=0.5.9" },
     { name = "gpp-client", specifier = ">=25.9.0" },
+    { name = "gql", specifier = ">=4.0.0" },
     { name = "hypothesis", specifier = ">=6.137.1" },
     { name = "joblib", specifier = ">=1.5.2" },
     { name = "lucupy", specifier = ">=0.2.8" },

@@ -63,11 +63,13 @@ class ProcessManager:
         # We add the process without parameters as those should be setup separately
 
         params = SchedulerParameters(
-            start=datetime.now(timezone.utc),
-            end=datetime.now(timezone.utc)+timedelta(days=5),
+            #start=datetime.now(timezone.utc),
+            #end=datetime.now(timezone.utc)+timedelta(days=5),
+            start=datetime.strptime("2026-01-20 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc),
+            end=datetime.strptime("2026-01-25 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc),
             semester_visibility=False,
             num_nights_to_schedule=1,
-            # programs_list=['p-11d'] To test uncomment until ProgramProvider is updated.
+            programs_list=["p-cc9", "p-113"]
         )
         await self.add_scheduler_process(process_id, params)
         self.operation_process_id = process_id
@@ -88,7 +90,6 @@ class ProcessManager:
         Otherwise, listen for new scheduler process requests from the scheduler_process_queue.
         """
         if is_operation:
-
             await self.set_operation_process("operation")
         else:
             # Start new_process_queue check
