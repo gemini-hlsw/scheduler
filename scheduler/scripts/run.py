@@ -5,6 +5,7 @@ import asyncio
 import os
 from pathlib import Path
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from lucupy.minimodel.site import ALL_SITES
 from lucupy.observatory.abstract import ObservatoryProperties
@@ -33,8 +34,8 @@ def main(*,
         programs_list = [line.strip() for line in file if line.strip()[0] != '#']
 
     # Create Parameters
-    params = SchedulerParameters(start=datetime.fromisoformat("2018-10-01 08:00:00"),
-                                 end=datetime.fromisoformat("2018-10-03 08:00:00"),
+    params = SchedulerParameters(start=datetime.fromisoformat("2018-10-01 08:00:00").replace(tzinfo=ZoneInfo("UTC")),
+                                 end=datetime.fromisoformat("2018-10-03 08:00:00").replace(tzinfo=ZoneInfo("UTC")),
                                  sites=ALL_SITES,
                                  mode=SchedulerModes.VALIDATION,
                                  ranker_parameters=RankerParameters(),
