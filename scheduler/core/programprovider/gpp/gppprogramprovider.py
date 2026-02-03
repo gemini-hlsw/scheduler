@@ -47,6 +47,13 @@ logger = logger_factory.create_logger(__name__, with_id=False)
 DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'gpp_program_ids.txt'
 
 
+def camel_case(st):
+    """Convert to camel case
+       Based on https://stackoverflow.com/questions/8347048/how-to-convert-string-to-title-case-in-python
+    """
+    output = ''.join(x for x in st.replace('_', ' ').title() if x.isalnum())
+    return output[0].lower() + output[1:]
+
 # def get_progid(group):
 #     """Work around for gpp-client issue with program reference, get from the first observation group"""
 #
@@ -154,13 +161,13 @@ class GppProgramProvider(ProgramProvider):
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
-    _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS}
+    _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS, 'FLAMINGOS2': Site.GS}
 
     # Allowed instrument statuses
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
 
     # Translate instrument names to use the OCS Resources
-    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S'}
+    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2'}
 
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
@@ -374,7 +381,7 @@ class GppProgramProvider(ProgramProvider):
         # GNIRS = 'instrument:slitWidth'
         GMOSN = 'fpu'
         # GPI = 'instrument:observingMode'
-        # F2 = 'instrument:fpu'
+        F2 = 'fpu'
         GMOSS = 'fpu'
         # NIRI = 'instrument:mask'
         # NIFS = 'instrument:mask'
@@ -389,7 +396,7 @@ class GppProgramProvider(ProgramProvider):
     FPU_FOR_INSTRUMENT = {
         # 'GSAOI': _FPUKeys.GSAOI,
         # 'GPI': _FPUKeys.GPI,
-        # 'Flamingos2': _FPUKeys.F2,
+        'Flamingos2': _FPUKeys.F2,
         # 'NIFS': _FPUKeys.NIFS,
         # 'GNIRS': _FPUKeys.GNIRS,
         'GMOS-N': _FPUKeys.GMOSN,
@@ -726,7 +733,7 @@ class GppProgramProvider(ProgramProvider):
 
                 if instrument in ['GMOS-N', 'GMOS_NORTH'] and fpu == 'IFU Left Slit (blue)':
                     instrument = 'GRACES'
-
+                print(f'_parse_instrument: {instrument} {fpu}')
                 break
 
         return instrument
@@ -872,7 +879,12 @@ class GppProgramProvider(ProgramProvider):
         instrument = GppProgramProvider._gpp_inst_to_ocs[data['instrument']]
         mode = data['mode']
 
-        instrument_config = data.get('gmosNorthLongSlit') or data.get('gmosSouthLongSlit')
+        print(f'\t\t parse_observing_mode: instrument={instrument}, mode={mode} {camel_case(mode)}')
+        print(data)
+        
+        instrument_config = data.get(camel_case(mode))
+        # instrument_config = data.get('gmosNorthLongSlit') or data.get('gmosSouthLongSlit')
+        print(f'\t\t {instrument_config}')
 
         fpu = None
         if instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
@@ -943,6 +955,7 @@ class GppProgramProvider(ProgramProvider):
         # obs_id = f"{program_id.id}-{internal_id.replace('-', '')}"
         obs_id = data[GppProgramProvider._ObsKeys.ID]['label'] if GppProgramProvider._ObsKeys.ID in data.keys() \
             else f"{program_id.id}-{internal_id.replace('-', '')}"
+        print(f'\t parse_observation {obs_id}')
 
         order = None
         obs_class = ObservationClass.NONE
@@ -1009,6 +1022,7 @@ class GppProgramProvider(ProgramProvider):
 
             # observing mode (instrument config)
             resources, wavelength, mode = self.parse_observing_mode(data['observingMode'])
+            print(f'\t\t resources :{resources}')
 
             # Atoms
             sequence = data[GppProgramProvider._ObsKeys.SEQUENCE]
@@ -1185,7 +1199,7 @@ class GppProgramProvider(ProgramProvider):
 
             # Set group_option from Ordered
             ordered = data[GppProgramProvider._GroupKeys.ORDERED]
-            # print(f"parse_group {group_id}: num_to_observe {number_to_observe}, ordered: {ordered}")
+            print(f"parse_group {group_id}: num_to_observe {number_to_observe}, ordered: {ordered}")
 
             # Special system group?
             system_group = data[GppProgramProvider._GroupKeys.SYSTEM]
