@@ -40,7 +40,7 @@ __all__ = [
     'gpp_program_data'
 ]
 
-logger = logger_factory.create_logger(__name__)
+logger = logger_factory.create_logger(__name__, with_id=False)
 
 
 # DEFAULT_GPP_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
@@ -83,31 +83,33 @@ def get_progid(group) -> ProgramID:
     return prog_id
 
 
-def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
+async def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
     """Query GPP for program data"""
 
     if program_ids:
         program_list = list(program_ids)
     else:
         # Bring everything that is accepted.
-        program_list = []
+        program_list = None
 
     try:
         client = GPPClient()
         director = GPPDirector(client)
 
         ask_director = director.scheduler.program.get_all(programs_list=program_list)
-        result = asyncio.run(ask_director)
+        result = await ask_director
         programs = result
 
         print(f"Adding {len(programs)} programs")
         # Pass the class information as a dictionary to mimic the OCS json format
-        yield from programs
-    except RuntimeError as e:
-        logger.error(f'Problem querying program list {program_ids} data: \n{e}.')
+        for item in programs:
+            yield item
 
+    except Exception as e:
+        logger.error(f'Problem querying program list {program_ids} data: \n{e}.', exc_info=True)
+        raise
 
-def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
+async def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
     """Query GPP for the programs in program_list. If not given then query GPP for all appropriate observations"""
     if program_list is None:
         # Let's make it empty so we can remove it in the where

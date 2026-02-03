@@ -7,6 +7,7 @@ from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable
 import os
 from glob import glob
 import tarfile
+from datetime import datetime
 
 from lucupy.types import ZeroTime
 
@@ -116,8 +117,8 @@ class ValidationBuilder(SchedulerBuilder):
                     f.extractall(path=ephemeris_path)
 
     def build_collector(self,
-                        start: Time,
-                        end: Time,
+                        start: datetime,
+                        end: datetime,
                         num_of_nights: int,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
@@ -140,7 +141,7 @@ class ValidationBuilder(SchedulerBuilder):
         return collector
 
     def _setup_event_queue(self,
-                           start: Time,
+                           start: datetime,
                            num_nights_to_schedule: int,
                            sites: FrozenSet[Site]) -> None:
         """

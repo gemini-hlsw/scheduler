@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from typing import final, FrozenSet
+from datetime import datetime
 
 from astropy.time import Time
 from lucupy.minimodel import Site
@@ -17,7 +18,7 @@ __all__ = [
 @final
 class OperationBuilder(SchedulerBuilder):
     def _setup_event_queue(self,
-                           start: Time,
+                           start: datetime,
                            num_nights_to_schedule: int,
                            sites: FrozenSet[Site]) -> None:
         """

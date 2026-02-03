@@ -198,6 +198,15 @@ wheels = [
 ]
 
 [[package]]
+name = "backoff"
+version = "2.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/d7/5bbeb12c44d7c4f2fb5b56abce497eb5ed9f34d85701de869acedd602619/backoff-2.2.1.tar.gz", hash = "sha256:03f829f5bb1923180821643f8753b0502c3b682293992485b0eef2807afa5cba", size = 17001, upload-time = "2022-10-05T19:19:32.061Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/df/73/b6e24bd22e6720ca8ee9a85a0c4a2971af8497d8f3193fa05390cbd46e09/backoff-2.2.1-py3-none-any.whl", hash = "sha256:63579f9a0628e06278f7e47b7d7d5b6ce20dc65c5e96a6f3ca99a6adca0396e8", size = 15148, upload-time = "2022-10-05T19:19:30.546Z" },
+]
+
+[[package]]
 name = "backrefs"
 version = "5.9"
 source = { registry = "https://pypi.org/simple" }
@@ -701,6 +710,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/dd/4a/d3389b690e3afeffc731c6631f099295bd186053c87a9760058a0077bcb9/gpp_client-25.9.0.tar.gz", hash = "sha256:3d7d7e8cbecdb13e99bfa12d46d35bfa5c4eaaf642bd2abd07b46199b637d25e", size = 102718, upload-time = "2025-09-30T17:14:23.642Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/97/c0/41a749410361ac296693bdc6f8857c761c4e091c0c124406e86161d1b999/gpp_client-25.9.0-py3-none-any.whl", hash = "sha256:d4522fc041408f3eca23d9821dd717101c05a62c8f4802058ec1fa32d116ff91", size = 126717, upload-time = "2025-09-30T17:14:22.228Z" },
+]
+
+[[package]]
+name = "gql"
+version = "4.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "backoff" },
+    { name = "graphql-core" },
+    { name = "yarl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/06/9f/cf224a88ed71eb223b7aa0b9ff0aa10d7ecc9a4acdca2279eb046c26d5dc/gql-4.0.0.tar.gz", hash = "sha256:f22980844eb6a7c0266ffc70f111b9c7e7c7c13da38c3b439afc7eab3d7c9c8e", size = 215644, upload-time = "2025-08-17T14:32:35.397Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/94/30bbd09e8d45339fa77a48f5778d74d47e9242c11b3cd1093b3d994770a5/gql-4.0.0-py3-none-any.whl", hash = "sha256:f3beed7c531218eb24d97cb7df031b4a84fdb462f4a2beb86e2633d395937479", size = 89900, upload-time = "2025-08-17T14:32:34.029Z" },
 ]
 
 [[package]]
@@ -2113,7 +2137,7 @@ wheels = [
 
 [[package]]
 name = "scheduler"
-version = "0.1.6"
+version = "0.1.7"
 source = { virtual = "." }
 dependencies = [
     { name = "astropy" },
@@ -2122,6 +2146,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "gelidum" },
     { name = "gpp-client" },
+    { name = "gql" },
     { name = "hypothesis" },
     { name = "joblib" },
     { name = "lucupy" },
@@ -2141,6 +2166,7 @@ dependencies = [
     { name = "requests" },
     { name = "scipy" },
     { name = "sortedcontainers" },
+    { name = "stamina" },
     { name = "strawberry-graphql", extra = ["fastapi"] },
     { name = "tabulate" },
     { name = "uvicorn", extra = ["standard"] },
@@ -2168,6 +2194,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.116.1" },
     { name = "gelidum", specifier = ">=0.5.9" },
     { name = "gpp-client", specifier = ">=25.9.0" },
+    { name = "gql", specifier = ">=4.0.0" },
     { name = "hypothesis", specifier = ">=6.137.1" },
     { name = "joblib", specifier = ">=1.5.2" },
     { name = "lucupy", specifier = ">=0.2.8" },
@@ -2187,6 +2214,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.4" },
     { name = "scipy", specifier = ">=1.16.1" },
     { name = "sortedcontainers", specifier = ">=2.4.0" },
+    { name = "stamina", specifier = ">=25.1.0" },
     { name = "strawberry-graphql", extras = ["fastapi"], specifier = ">=0.278.1" },
     { name = "tabulate", specifier = ">=0.9.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.35.0" },
@@ -2326,6 +2354,18 @@ wheels = [
 ]
 
 [[package]]
+name = "stamina"
+version = "25.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tenacity" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fd/c4/d242d76ffc88aa1fd14214d3143b542857b32276db4a20f8d99669054a5e/stamina-25.1.0.tar.gz", hash = "sha256:ad674809796ae40512b3b6296cfade826efd63863ff2ca2f59f806342e91e94a", size = 561127, upload-time = "2025-03-12T09:37:08.217Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/ba/d03f7ee711391af1d5f4dd7c44f8abdd06bce247028af2441ba8f6ff329b/stamina-25.1.0-py3-none-any.whl", hash = "sha256:c08291da540e6f4243c20f7ee98f0ed0ac9101d639803c481a029b56d7e9b45d", size = 17323, upload-time = "2025-03-12T09:37:06.886Z" },
+]
+
+[[package]]
 name = "starlette"
 version = "0.47.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2367,6 +2407,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ec/fe/802052aecb21e3797b8f7902564ab6ea0d60ff8ca23952079064155d1ae1/tabulate-0.9.0.tar.gz", hash = "sha256:0095b12bf5966de529c0feb1fa08671671b3368eec77d7ef7ab114be2c068b3c", size = 81090, upload-time = "2022-10-06T17:21:48.54Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/40/44/4a5f08c96eb108af5cb50b41f76142f0afa346dfa99d5296fe7202a11854/tabulate-0.9.0-py3-none-any.whl", hash = "sha256:024ca478df22e9340661486f85298cff5f6dcdba14f3813e8830015b9ed1948f", size = 35252, upload-time = "2022-10-06T17:21:44.262Z" },
+]
+
+[[package]]
+name = "tenacity"
+version = "9.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0a/d4/2b0cd0fe285e14b36db076e78c93766ff1d529d70408bd1d2a5a84f1d929/tenacity-9.1.2.tar.gz", hash = "sha256:1169d376c297e7de388d18b4481760d478b0e99a777cad3a9c86e556f4b697cb", size = 48036, upload-time = "2025-04-02T08:25:09.966Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/30/643397144bfbfec6f6ef821f36f33e57d35946c44a2352d3c9f0ae847619/tenacity-9.1.2-py3-none-any.whl", hash = "sha256:f77bf36710d8b73a50b2dd155c97b870017ad21afe6ab300326b0371b3b05138", size = 28248, upload-time = "2025-04-02T08:25:07.678Z" },
 ]
 
 [[package]]

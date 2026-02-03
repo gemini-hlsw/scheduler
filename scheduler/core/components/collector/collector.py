@@ -1,8 +1,12 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import asyncio
+import time
 from dataclasses import dataclass
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
+from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
 
 import astropy.units as u
 import numpy as np
@@ -30,7 +34,7 @@ from scheduler.services.redis_client import RedisClient
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
 from scheduler.services.visibility.calculator import visibility_calculator
-from scheduler.services.visibility.calculator import VisibilitySnapshot, program_obs_vis, get_cores, TargetVisibilityTable
+from scheduler.services.visibility.calculator import VisibilitySnapshot, program_obs_vis, get_cores, safe_program_obs_vis, TargetVisibilityTable
 
 __all__ = [
     'Collector',
@@ -75,8 +79,8 @@ class Collector(SchedulerComponent):
     Here, we just perform the necessary calculations, and are not concerned with the number of nights to be
     scheduled.
     """
-    start_vis_time: Time
-    end_vis_time: Time
+    start_vis_time: datetime
+    end_vis_time: datetime
     num_of_nights: int
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
@@ -86,6 +90,7 @@ class Collector(SchedulerComponent):
     time_slot_length: TimeDelta
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
+    defer_night_events: bool = False  # If True, skip night_events initialization in __post_init__
 
     # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
     _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
@@ -133,11 +138,11 @@ class Collector(SchedulerComponent):
         Initializes the internal data structures for the Collector and populates them.
         """
         # Check that the times are valid.
-        if not np.isscalar(self.start_vis_time.value):
-            msg = f'Illegal start time (must be scalar): {self.start_vis_time}.'
+        if not isinstance(self.start_vis_time, datetime):
+            msg = f'Illegal start time (must be datetime): {self.start_vis_time}.'
             raise ValueError(msg)
-        if not np.isscalar(self.end_vis_time.value):
-            msg = f'Illegal end time (must be scalar): {self.end_vis_time}.'
+        if not isinstance(self.end_vis_time, datetime):
+            msg = f'Illegal end time (must be datetime): {self.end_vis_time}.'
             raise ValueError(msg)
         if self.start_vis_time > self.end_vis_time:
             msg = f'Start time ({self.start_vis_time}) cannot occur later than end time ({self.end_vis_time}).'
@@ -146,9 +151,9 @@ class Collector(SchedulerComponent):
         # Set up the time grid for the period under consideration in calculations: this is an astropy Time
         # object from start_time to end_time inclusive, with one entry per day.
         # Note that the format is in jdate.
-        self.time_grid = Time(np.arange(self.start_vis_time.jd,
-                                        self.end_vis_time.jd + 1.0, (1.0 * u.day).value),
-                              format='jd')
+        self.time_grid = Time(np.arange(self.start_vis_time,
+                                        self.end_vis_time + timedelta(days=1.0),
+                                        timedelta(days=1.0)))
 
         # The number of nights for which we are performing calculations.
         self.num_nights_calculated = len(self.time_grid)
@@ -156,15 +161,41 @@ class Collector(SchedulerComponent):
         # TODO: This code can be greatly simplified. The night_events only have to be calculated once.
         # Create the night events, which contain the data for all given nights by site.
         # This may retrigger a calculation of the night events for one or more sites.
-        self.night_events = {
-            site: Collector._night_events_manager.get_night_events(self.time_grid,
-                                                                   self.night_start_time,
-                                                                   self.night_end_time,
-                                                                   self.time_slot_length,
-                                                                   site)
-            for site in self.sites
-        }
+        # Only initialize if not deferred (for async initialization later)
+        if not self.defer_night_events:
+            self.night_events = {
+                site: Collector._night_events_manager.get_night_events(self.time_grid,
+                                                                       self.night_start_time,
+                                                                       self.night_end_time,
+                                                                       self.time_slot_length,
+                                                                       site)
+                for site in self.sites
+            }
         Collector._resource_service = self.sources.origin.resource
+
+    async def async_init_night_events(self):
+        """
+        Initialize night_events asynchronously using asyncio.to_thread to avoid blocking.
+        This should be called after construction when defer_night_events=True.
+        """
+        if hasattr(self, 'night_events'):
+            _logger.warning("night_events already initialized, skipping async initialization")
+            return
+
+        # Initialize night_events dict
+        self.night_events = {}
+
+        # Initialize night events for each site asynchronously
+        for site in self.sites:
+            self.night_events[site] = await asyncio.to_thread(
+                Collector._night_events_manager.get_night_events,
+                self.time_grid,
+                self.night_start_time,
+                self.night_end_time,
+                self.time_slot_length,
+                site
+            )
+        _logger.info("Night events initialized asynchronously")
 
     def get_night_events(self, site: Site) -> NightEvents:
         return Collector._night_events_manager.get_night_events(self.time_grid,
@@ -353,7 +384,7 @@ class Collector(SchedulerComponent):
         else:
             n_jobs = 1
 
-        parallel = Parallel(n_jobs=n_jobs, backend='loky')
+        parallel = Parallel(n_jobs=n_jobs, backend='threading', verbose=50)
         # with parallel_config(backend="loky", inner_max_num_threads=1):
         result = parallel(delayed(program_obs_vis)(program_id, obs, Collector.get_program(program_id), self.time_grid,
                                                    self.time_slot_length, self.semesters, nc, self.night_events,
@@ -380,7 +411,176 @@ class Collector(SchedulerComponent):
 
         _logger.info(f'Collected {len(Collector._observations)} observations: {[ o.id for o in Collector._observations.keys()]}.')
 
-        
+    @staticmethod
+    def calculate_parallel_visibility(
+            parsed_observations,
+            time_grid,
+            time_slot_length,
+            semesters,
+            nc,
+            night_events,
+            sem,
+            n_jobs: int = -1,
+    ):
+        obs_list = list(parsed_observations)
+
+        if not obs_list:
+            _logger.warning("No observations to process")
+            return []
+
+        start_time = time.time()
+        try:
+            parallel = Parallel(
+                n_jobs=n_jobs,
+                backend='threading',
+                verbose=10,
+                timeout=300
+            )
+
+            results = parallel(
+                delayed(safe_program_obs_vis)(
+                    program_id,
+                    obs,
+                    Collector.get_program(program_id),
+                    time_grid,
+                    time_slot_length,
+                    semesters,
+                    nc,
+                    night_events,
+                    None
+                )
+                for program_id, obs in obs_list
+            )
+            elapsed = time.time() - start_time
+
+            valid_results = [r for r in results if r is not None]
+            failed_count = len(results) - len(valid_results)
+
+            _logger.info(
+                f"Parallel processing complete: "
+                f"{len(valid_results)}/{len(results)} successful, "
+                f"{failed_count} failed, "
+                f"took {elapsed:.2f}s"
+            )
+            return results
+
+        except Exception as e:
+            _logger.error(f"Parallel processing failed catastrophically: {e}", exc_info=True)
+
+    async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
+        _logger.info("Starting async_load_programs...")
+
+        if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
+            raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
+        program_provider = program_provider_class(self.obs_classes, self.sources)
+        _logger.debug("Program provider created")
+
+        # Purge the old programs and observations.
+        Collector._programs = {}
+        Collector._observations = {}
+        Collector._observations_per_program = {}
+        Collector._target_info = {}
+
+        # Keep a list of the observations for parallel processing.
+        parsed_observations: List[Tuple[ProgramID, Observation]] = []
+
+        # Read in the programs.
+        # Count the number of parse failures.
+        bad_program_count = 0
+
+        # Night configurations - run in thread to avoid blocking
+        _logger.debug("Loading night configurations...")
+        nc = {}
+        for site in self.sites:
+            nc[site] = await asyncio.to_thread(
+                self.night_configurations,
+                site,
+                np.arange(self.num_nights_calculated)
+            )
+
+        for next_program in data:
+            try:
+                if len(next_program.keys()) == 1:
+                    next_data = next(iter(next_program.values()))
+                else:
+                    next_data = next_program
+
+                program = program_provider.parse_program(next_data)
+                if program is None:
+                    continue
+
+                if program.semester is None or program.semester not in self.semesters:
+                    _logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                    continue
+
+                if program.program_awarded() == ZeroTime:
+                    _logger.debug(f'Program {program.id} has awarded time of zero (skipping).')
+                    continue
+
+                if program.id in Collector._programs.keys():
+                    _logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
+
+                Collector._programs[program.id] = program
+
+                site_supported_obs = [obs for obs in program.observations() if obs.site in self.sites]
+                if site_supported_obs:
+                    Collector._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
+                    parsed_observations.extend((program.id, obs) for obs in site_supported_obs)
+
+            except Exception as e:
+                bad_program_count += 1
+                _logger.warning(f'Could not parse program: {e}')
+
+        if bad_program_count:
+            _logger.error(f'Could not parse {bad_program_count} programs.')
+
+
+        vis_table = {}
+        sem, = self.semesters
+
+        _logger.info("Starting parallel processing in background thread...")
+
+        core_info = get_cores()
+        if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
+            n_jobs = core_info['performance']
+        else:
+            n_jobs = core_info['cores']
+        print([o.id.id for p,o in parsed_observations])
+        # Run the blocking parallel code in a thread
+        result = await asyncio.to_thread(
+            self.calculate_parallel_visibility,
+            parsed_observations,
+            self.time_grid,
+            self.time_slot_length,
+            self.semesters,
+            nc,
+            self.night_events,
+            sem,
+            n_jobs
+        )
+
+        targ_info, base_targets, vis_tables = zip(*result)
+        # print(targ_info, base_targets, vis_tables)
+
+        ii = 0
+        for program_id, obs in parsed_observations:
+            # Read target information
+            ti = targ_info[ii]
+
+            # Record the observation and target for this obs id.
+            vis_table[obs.id.id] = vis_tables[ii]
+
+            Collector._observations[obs.id] = obs, base_targets[ii]
+            Collector._target_info[base_targets[ii].name, obs.id] = ti
+            ii += 1
+
+
+        visibility_calculator.vis_table = {sem: RedisClient.transform_to_json(vis_table)}
+
+        _logger.info(
+            f'Collected {len(Collector._observations)} observations: {[o.id for o in Collector._observations.keys()]}.'
+        )
+
     # def load_target_info_for_too(self, obs: Observation, target: Target) -> None:
     #     ti = self._calculate_target_info(obs, target)
     #     Collector._target_info[target.name, obs.id] = ti

@@ -11,6 +11,7 @@ from . import SimulationBuilder
 from .schedulerbuilder import SchedulerBuilder
 from .validationbuilder import ValidationBuilder
 from scheduler.core.events.queue import EventQueue
+from scheduler.config import config
 
 
 __all__ = [
@@ -35,9 +36,17 @@ class SchedulerModes(Enum):
     SIMULATION = 'simulation'
     VALIDATION = 'validation'
 
+try:
+    app_mode = SchedulerModes(config.app.mode)
+except ValueError:
+    app_mode = SchedulerModes.VALIDATION
 
-def dispatch_with(mode: SchedulerModes, sources: Sources, events: EventQueue) -> SchedulerBuilder:
-    match mode:
+is_operation = app_mode == SchedulerModes.OPERATION
+is_simulation = app_mode == SchedulerModes.SIMULATION
+is_validation = app_mode == SchedulerModes.VALIDATION
+
+def dispatch_with(sources: Sources, events: EventQueue) -> SchedulerBuilder:
+    match app_mode:
         case SchedulerModes.VALIDATION:
             sources.set_origin(Origins.OCS())
             return ValidationBuilder(sources, events)
@@ -45,4 +54,5 @@ def dispatch_with(mode: SchedulerModes, sources: Sources, events: EventQueue) ->
             sources.set_origin(Origins.SIM())
             return SimulationBuilder(sources, events)
         case SchedulerModes.OPERATION:
-            raise ValueError(f'{mode.value} not implemented yet.')
+            sources.set_origin(Origins.SIM())
+            return SimulationBuilder(sources, events)

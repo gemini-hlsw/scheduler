@@ -5,6 +5,7 @@
 # 2025apr09
 
 from pathlib import Path
+from datetime import datetime
 
 from astropy.time import Time, TimeDelta
 from astropy.coordinates import Angle
@@ -237,14 +238,14 @@ verbose = False
 test_events = True
 
 # Create Parameters
-params = SchedulerParameters(start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
-                                 end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
-                                 sites=ALL_SITES,
-                                 mode=SchedulerModes.VALIDATION,   #Options: VALITADION, SIMULATION, OPERATION
-                                 ranker_parameters=RankerParameters(),
-                                 semester_visibility=False,
-                                 num_nights_to_schedule=1,
-                                 programs_list=programs_list)
+params = SchedulerParameters(start=datetime.fromisoformat("2018-10-01 08:00:00"),
+                             end=datetime.fromisoformat("2018-10-03 08:00:00"),
+                             sites=ALL_SITES,
+                             mode=SchedulerModes.VALIDATION,   #Options: VALITADION, SIMULATION, OPERATION
+                             ranker_parameters=RankerParameters(),
+                             semester_visibility=False,
+                             num_nights_to_schedule=1,
+                             programs_list=programs_list)
 
 # Engine.build
 sources = Sources()

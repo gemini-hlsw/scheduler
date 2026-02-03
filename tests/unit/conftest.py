@@ -4,6 +4,9 @@ import asyncio
 from datetime import timedelta, datetime
 from unittest.mock import MagicMock
 
+import os
+os.environ["REDISCLOUD_URL"] = "redis://mock:6379"
+
 import pytest
 
 from astropy.time import Time
@@ -31,8 +34,8 @@ def visibility_calculator_fixture():
 
 @pytest.fixture(scope="module")
 def scheduler_collector():
-    start = Time("2018-10-01 08:00:00", format='iso', scale='utc')
-    end = Time("2018-10-03 08:00:00", format='iso', scale='utc')
+    start = datetime.fromisoformat("2018-10-01 08:00:00")
+    end = datetime.fromisoformat("2018-10-03 08:00:00")
     num_nights_to_schedule = 3
     sites = ALL_SITES
 
