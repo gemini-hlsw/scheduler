@@ -56,9 +56,13 @@ class SimulationBuilder(SchedulerBuilder):
                                             blueprint,
                                             night_start_time,
                                             night_end_time)
+        async def fetch_data():
+            async_gen = await gpp_program_data(program_list)
+            return [item async for item in async_gen]
+
         collector.load_programs(
             program_provider_class=GppProgramProvider,
-            data=gpp_program_data(program_list)
+            data=asyncio.run(fetch_data())
         )
         return collector
 
