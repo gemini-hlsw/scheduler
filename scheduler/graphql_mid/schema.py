@@ -147,9 +147,17 @@ class Query:
                                      new_schedule_input.semester_visibility,
                                      new_schedule_input.num_nights_to_schedule,
                                      programs_list)
+
+        task = asyncio.to_thread(sync_schedule, params)
+
+        if schedule_id not in plan_response_queue:
+            queue = asyncio.Queue()
+            plan_response_queue[schedule_id] = queue
+        else:
+            queue = plan_response_queue[schedule_id]
+
+        await queue.put(task)
         _logger.info(f"Plan is on the queue! for: {schedule_id}\n{params}")
-
-
         return f'Plan is on the queue! for {schedule_id}'
 
     @strawberry.field
