@@ -58,23 +58,23 @@ def print_collector_info(collector: Collector) -> None:
 
     # Print out sampled calculation for every hour as there are far too many results to print in full.
     time_grid = collector.time_grid
-    for site in collector.sites:
-        nc = collector.night_configurations(site, np.arange(collector.num_nights_calculated))
-        print(f'\n\n+++++ NIGHT EVENTS FOR {site.name} +++++')
-        night_events = NightEventsManager.get_night_events(collector.time_grid, collector.time_slot_length, site)
-        for idx, jday in enumerate(time_grid):
-            start = night_events.local_times[idx][0]
-            end = night_events.local_times[idx][-1]
-            num_slots = len(night_events.times[idx])
-            print(f'* DAY {idx}: {start} to {end}, {num_slots} time slots.')
-            print(f'\tmidnight:              {night_events.midnight[idx]}')
-            print(f'\tsunset:                {night_events.sunset[idx]}')
-            print(f'\tsunrise:               {night_events.sunrise[idx]}')
-            print(f'\t12° eve twilight:      {night_events.twilight_evening_12[idx]}')
-            print(f'\t12° mor twilight:      {night_events.twilight_morning_12[idx]}')
-            print(f'\tmoonrise:              {night_events.moonrise[idx]}')
-            print(f'\tmoonset:               {night_events.moonset[idx]}')
-            print(f"\tInstruments available: {', '.join(sorted(r.id for r in nc[idx].resources))}")
+    #for site in collector.sites:
+        #nc = collector.night_configurations(site, np.arange(collector.num_nights_calculated))
+        # print(f'\n\n+++++ NIGHT EVENTS FOR {site.name} +++++')
+        # night_events = NightEventsManager.get_night_events(collector.time_grid, collector.time_slot_length, site)
+        #for idx, jday in enumerate(time_grid):
+        #    start = night_events.local_times[idx][0]
+        #    end = night_events.local_times[idx][-1]
+        #    num_slots = len(night_events.times[idx])
+        #    print(f'* DAY {idx}: {start} to {end}, {num_slots} time slots.')
+        #    print(f'\tmidnight:              {night_events.midnight[idx]}')
+        #    print(f'\tsunset:                {night_events.sunset[idx]}')
+        #    print(f'\tsunrise:               {night_events.sunrise[idx]}')
+        #    print(f'\t12° eve twilight:      {night_events.twilight_evening_12[idx]}')
+        #    print(f'\t12° mor twilight:      {night_events.twilight_morning_12[idx]}')
+        #    print(f'\tmoonrise:              {night_events.moonrise[idx]}')
+        #    print(f'\tmoonset:               {night_events.moonset[idx]}')
+        #    print(f"\tInstruments available: {', '.join(sorted(r.id for r in nc[idx].resources))}")
     sys.stdout.flush()
 
 

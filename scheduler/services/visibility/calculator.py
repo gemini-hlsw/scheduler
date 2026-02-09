@@ -1,13 +1,16 @@
+import threading
 from dataclasses import dataclass
 from typing import final, Dict, List, Any, Optional, ClassVar, FrozenSet
 
 import os
 import psutil
+import time
 
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
 from astropy.time import TimeDelta, Time
+from joblib import Parallel, delayed
 from lucupy import sky
 from lucupy.decorators import immutable
 from lucupy.timeutils import time2slots
@@ -35,6 +38,7 @@ _logger = create_logger(__name__, with_id=False)
 __all__ = [
     'calculate_target_snapshot',
     'program_obs_vis',
+    'safe_program_obs_vis',
     'calculate_target_info',
     'visibility_calculator',
     'TargetVisibility',
@@ -433,8 +437,18 @@ def process_timing_windows(prog: Program, obs: Observation) -> List[Time]:
     return windows
 
 
-def program_obs_vis(program_id, obs, program, time_grid, time_slot_length, semesters, night_configs,
-                    night_events, vis_table):
+
+def program_obs_vis(
+    program_id,
+    obs,
+    program,
+    time_grid,
+    time_slot_length,
+    semesters,
+    night_configs,
+    night_events,
+    vis_table
+):
     """Main routine for visibility calculations for observations in a program.
        This is run in difference processes by joblib"""
 
@@ -453,21 +467,47 @@ def program_obs_vis(program_id, obs, program, time_grid, time_slot_length, semes
     tw = process_timing_windows(program, obs)
 
     # Calculate visibilities
-    vis_table_snap, target_snapshots = calculate_visibility(obs,
-                                                            base,
-                                                            program,
-                                                            night_events[obs.site],
-                                                            night_configs[obs.site],
-                                                            time_grid,
-                                                            tw,
-                                                            time_slot_length,
-                                                            for_vis_calc=for_vis_calc)
+    vis_table_snap, target_snapshots = calculate_visibility(
+        obs,
+        base,
+        program,
+        night_events[obs.site],
+        night_configs[obs.site],
+        time_grid,
+        tw,
+        time_slot_length,
+        for_vis_calc=for_vis_calc
+    )
 
-    ti = calculate_target_info(obs, time_grid, semesters, night_events, vis_table_snap, target_snapshots,
-                               vis_table)
+    ti = calculate_target_info(
+        obs,
+        time_grid,
+        semesters,
+        night_events,
+        vis_table_snap,
+        target_snapshots,
+        vis_table
+    )
 
     return ti, base, vis_table_snap
 
+
+def safe_program_obs_vis(program_id, obs, *args):
+    obs_id = getattr(obs, 'id', 'unknown')
+    thread_id = threading.get_ident()
+
+    try:
+        _logger.debug(f"[Thread {thread_id}] Processing obs {obs_id}")
+        result = program_obs_vis(program_id, obs, *args)
+        _logger.debug(f"[Thread {thread_id}] Completed obs {obs_id}")
+        return result
+
+    except Exception as e:
+        _logger.error(
+            f"[Thread {thread_id}] Error processing obs {obs_id}: {e}",
+            exc_info=True
+        )
+        return None
 
 class VisibilityCalculator(metaclass=Singleton):
 

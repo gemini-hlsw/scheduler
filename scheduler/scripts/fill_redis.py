@@ -6,7 +6,7 @@ from pathlib import Path
 import asyncio
 
 import numpy as np
-from astropy.time import Time
+from datetime import datetime
 from lucupy.minimodel import NightIndex
 from lucupy.minimodel.semester import Semester
 from lucupy.minimodel.site import ALL_SITES, Site
@@ -26,8 +26,8 @@ from scheduler.services.visibility.calculator import VisibilityCalculator
 
 
 async def calculate_and_save():
-    start = Time("2018-08-01 08:00:00", format='iso', scale='utc')
-    end = Time("2019-01-31 08:00:00", format='iso', scale='utc')
+    start = datetime.fromisoformat("2018-08-01 08:00:00")
+    end = datetime.fromisoformat("2019-01-31 08:00:00")
 
     ObservatoryProperties.set_properties(GeminiProperties)
 

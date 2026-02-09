@@ -54,9 +54,12 @@ class Selection:
         """
         return (self.__class__, (self.program_info,
                                  self.schedulable_groups,
+                                 self.night_events,
                                  self.night_indices,
-                                 self.night_indices,
-                                 self.time_slot_length))
+                                 self.night_conditions,
+                                 self.time_slot_length,
+                                 self.starting_time_slots,
+                                 self.ranker))
 
     def score_program(self, program: Program) -> ProgramCalculations:
         """
