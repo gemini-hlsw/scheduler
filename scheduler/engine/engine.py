@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from typing import Tuple
-# import time
 
 from astropy.time import Time
 
@@ -18,7 +17,6 @@ from scheduler.core.events.queue import NightlyTimeline
 from scheduler.core.sources import Sources
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.services import logger_factory
-from lucupy.minimodel import ProgramID
 
 from time import time
 
@@ -30,7 +28,6 @@ __all__ = [
 from ..core.components.ranker import DefaultRanker
 
 from ..core.events.cycle.cycle import EventCycle
-from ..core.output import print_collector_info
 
 from ..core.statscalculator.run_summary import RunSummary
 
@@ -59,7 +56,6 @@ class Engine:
         # Create builder based in the mode to create SCP
         builder = dispatch_with(self.sources, self.queue)
 
-        t0 = time()
         collector = builder.build_collector(start=self.params.start,
                                             end=self.params.end_vis,
                                             num_of_nights=self.params.num_nights_to_schedule,
@@ -69,39 +65,6 @@ class Engine:
                                             night_start_time=self.night_start_time,
                                             night_end_time=self.night_end_time,
                                             program_list=self.params.programs_list)
-        t1 = time()
-        print(f'Collector built in {(t1 - t0) / 60.} min')
-
-        # print_collector_info(collector)
-        # print(collector.get_program_ids()
-        progids = collector.get_program_ids()
-        print(progids)
-        p=None
-        from lucupy.minimodel import ProgramID, Band
-        if ProgramID('G-2025B-1165-D') in progids:
-            p = collector.get_program(ProgramID('G-2025B-1165-D')) # GPP dev, F2
-        elif ProgramID('G-2025B-0571-Q') in progids:
-            p = collector.get_program(ProgramID('G-2025B-0571-Q')) # GPP dev
-        elif ProgramID('G-2025B-1066-D') in progids:
-            p = collector.get_program(ProgramID('G-2025B-1066-D'))  # GPP
-        # if ProgramID('G-2025B-0505-V') in progids:
-        #     p = collector.get_program(ProgramID('G-2025B-0505-V'))  # GPP prod
-        if ProgramID('G-2025B-0501-V') in progids:
-            p = collector.get_program(ProgramID('G-2025B-0501-V'))  # GPP prod
-        elif ProgramID('G-2025B-0496-V') in progids:
-            p = collector.get_program(ProgramID('G-2025B-0496-V'))  # GPP prod
-        # if ProgramID('GN-2018B-Q-101') in progids:
-        # p = collector.get_program(ProgramID('GN-2018B-Q-101'))  # OCS
-        #     p = collector.get_program(ProgramID('GS-2018B-Q-113')) # OCS
-        if ProgramID('GS-2018B-Q-224') in progids:
-            p = collector.get_program(ProgramID('GS-2018B-Q-224')) # OCS
-        # print(p.id, p.internal_id, p.type)
-        # print(f"Start: {p.start}, End: {p.end}")
-        # print(f"Total used: {p.total_used()}")
-        if p is not None:
-            print(f"Program awarded: {p.program_awarded()}, Band 1: {p.program_awarded(Band(1))}")
-            print(f"Program used: {p.program_used()}, Band 1: {p.program_used(Band(1))}")
-            p.show()
 
         selector = builder.build_selector(collector=collector,
                                           num_nights_to_schedule=self.params.num_nights_to_schedule,
@@ -209,19 +172,10 @@ class Engine:
         queue = EventQueue(self.params.night_indices, self.params.sites)
         self._setup(scp, queue)
         event_cycle = EventCycle(self.params, queue, scp)
-        tn0 = time()
         for night_idx in sorted(self.params.night_indices):
-            print(f'Engine: starting night {night_idx + 1}')
             for site in sorted(self.params.sites, key=lambda site: site.name):
                 event_cycle.run(site, night_idx, nightly_timeline)
                 nightly_timeline.calculate_time_losses(night_idx, site)
-                if ProgramID('G-2025B-0571-Q') in scp.collector.get_program_ids():
-                    p = scp.collector.get_program(ProgramID('G-2025B-0571-Q'))  # GPP dev
-                    p.show()
-            tn1 = time()
-            print(f'Night {night_idx + 1} scheduled in {(tn1 - tn0) / 60.} min')
-            # nightly_timeline.display(night_idx_sel=night_idx)
-            tn0 = tn1
 
         # TODO: Add plan summary to nightlyTimeline
         run_summary = StatCalculator.calculate_timeline_stats(nightly_timeline,
