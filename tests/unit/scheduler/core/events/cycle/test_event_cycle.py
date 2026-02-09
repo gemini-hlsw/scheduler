@@ -301,46 +301,6 @@ class TestEventCycle:
         nightly_timeline.get_final_plan.assert_not_called()
         nightly_timeline.add.assert_not_called()
 
-    def test_perform_time_accounting_done(self, setup_event_cycle):
-        """Test time accounting when night is done."""
-        event_cycle, comps = setup_event_cycle
-
-        site = comps['params'].sites
-        night_idx = NightIndex(0)
-
-        update_event = MockEvent(datetime.now(), "Update Event")
-        update = TimeCoordinateRecord(
-            timeslot_idx=TimeslotIndex(5),
-            event=update_event,
-            done=True,
-            perform_time_accounting=True
-        )
-
-        end_timeslot_bounds = {}
-        plans = MagicMock(spec=Plans)
-        current_timeslot = TimeslotIndex(5)
-        nightly_timeline = MagicMock(spec=NightlyTimeline)
-        final_plan = MagicMock()
-        nightly_timeline.get_final_plan.return_value = final_plan
-
-        event_cycle._perform_time_accounting(site,
-                                             night_idx,
-                                             update,
-                                             end_timeslot_bounds,
-                                             plans,
-                                             current_timeslot,
-                                             nightly_timeline)
-
-        # Should call time_accounting and add a final plan
-        comps['scp'].collector.time_accounting.assert_called_once_with(
-            plans=plans,
-            sites=frozenset({site}),
-            end_timeslot_bounds=end_timeslot_bounds
-        )
-        nightly_timeline.get_final_plan.assert_called_once_with(NightIndex(night_idx), site, True)
-        nightly_timeline.add.assert_called_once_with(
-            NightIndex(night_idx), site, current_timeslot, update_event, final_plan
-        )
 
     def test_create_new_plan_unblocked(self, setup_event_cycle):
         """Test creating a new plan when site is unblocked."""

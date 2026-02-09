@@ -1,9 +1,12 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import asyncio
+import logging
 
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site
 from typing import final, FrozenSet, Optional
+from datetime import datetime
 
 from .blueprint import CollectorBlueprint
 from .schedulerbuilder import SchedulerBuilder
@@ -18,6 +21,10 @@ __all__ = [
     'SimulationBuilder',
 ]
 
+from ...services import logger_factory
+
+_logger = logger_factory.create_logger(__name__, level=logging.INFO)
+
 @final
 class SimulationBuilder(SchedulerBuilder):
     """Simulation mode is used to predict future plans based on current GPP data
@@ -31,8 +38,8 @@ class SimulationBuilder(SchedulerBuilder):
         self.stats = StatCalculator
 
     def build_collector(self,
-                        start: Time,
-                        end: Time,
+                        start: datetime,
+                        end: datetime,
                         num_of_nights: int,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
@@ -49,12 +56,56 @@ class SimulationBuilder(SchedulerBuilder):
                                             blueprint,
                                             night_start_time,
                                             night_end_time)
-        collector.load_programs(program_provider_class=GppProgramProvider,
-                                data=gpp_program_data(program_list))
+        async def fetch_data():
+            async_gen = await gpp_program_data(program_list)
+            return [item async for item in async_gen]
+
+        collector.load_programs(
+            program_provider_class=GppProgramProvider,
+            data=asyncio.run(fetch_data())
+        )
+        return collector
+
+
+    async def async_build_collector(
+        self,
+        start: datetime,
+        end: datetime,
+        num_of_nights: int,
+        sites: FrozenSet[Site],
+        semesters: FrozenSet[Semester],
+        blueprint: CollectorBlueprint,
+        night_start_time: Time | None = None,
+        night_end_time: Time | None = None,
+        program_list: Optional[bytes] = None
+    ) -> Collector:
+        # Build collector with deferred night events initialization
+        collector = super().build_collector(start,
+                                            end,
+                                            num_of_nights,
+                                            sites,
+                                            semesters,
+                                            blueprint,
+                                            night_start_time,
+                                            night_end_time,
+                                            defer_night_events=True)  # Defer blocking night events
+        
+        # Initialize night events asynchronously
+        await collector.async_init_night_events()
+        
+        # Load programs asynchronously
+        _logger.info("Fetching program data...")
+        async_data = await gpp_program_data(program_list)
+        data = [item async for item in async_data]
+        await collector.async_load_programs(
+            program_provider_class=GppProgramProvider,
+            data=data
+        )
+        
         return collector
 
     def _setup_event_queue(self,
-                           start: Time,
+                           start: datetime,
                            num_nights_to_schedule: int,
                            sites: FrozenSet[Site]) -> None:
         """

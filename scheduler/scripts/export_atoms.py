@@ -4,7 +4,8 @@
 import os
 
 import astropy.units as u
-from astropy.time import Time, TimeDelta
+from datetime import datetime
+from astropy.time import TimeDelta
 from lucupy.minimodel import ALL_SITES, ObservationClass, ProgramTypes, Semester, SemesterHalf
 
 from scheduler.core.components.collector import Collector
@@ -22,8 +23,8 @@ if __name__ == '__main__':
 
     # Create the Collector and load the programs.
     collector = Collector(
-        start_vis_time=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
-        end_vis_time=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
+        start_vis_time=datetime.fromisoformat("2018-10-01 08:00:00"),
+        end_vis_time=datetime.fromisoformat("2018-10-03 08:00:00"),
         time_slot_length=TimeDelta(1.0 * u.min),
         sites=ALL_SITES,
         semesters=frozenset({Semester(2018, SemesterHalf.B)}),
