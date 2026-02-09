@@ -40,7 +40,7 @@ __all__ = [
     'gpp_program_data'
 ]
 
-logger = logger_factory.create_logger(__name__)
+logger = logger_factory.create_logger(__name__, with_id=False)
 
 
 # DEFAULT_GPP_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
@@ -83,31 +83,33 @@ def get_progid(group) -> ProgramID:
     return prog_id
 
 
-def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
+async def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
     """Query GPP for program data"""
 
     if program_ids:
         program_list = list(program_ids)
     else:
         # Bring everything that is accepted.
-        program_list = []
+        program_list = None
 
     try:
         client = GPPClient()
         director = GPPDirector(client)
 
         ask_director = director.scheduler.program.get_all(programs_list=program_list)
-        result = asyncio.run(ask_director)
+        result = await ask_director
         programs = result
 
         print(f"Adding {len(programs)} programs")
         # Pass the class information as a dictionary to mimic the OCS json format
-        yield from programs
-    except RuntimeError as e:
-        logger.error(f'Problem querying program list {program_ids} data: \n{e}.')
+        for item in programs:
+            yield item
 
+    except Exception as e:
+        logger.error(f'Problem querying program list {program_ids} data: \n{e}.', exc_info=True)
+        raise
 
-def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
+async def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
     """Query GPP for the programs in program_list. If not given then query GPP for all appropriate observations"""
     if program_list is None:
         # Let's make it empty so we can remove it in the where
@@ -305,6 +307,7 @@ class GppProgramProvider(ProgramProvider):
         'POINT_SIX': 0.6,
         'POINT_EIGHT': 0.8,
         'ONE_POINT_ZERO': 1.0,
+        'ONE_POINT_TWO': 1.2,
         'ONE_POINT_FIVE': 1.5,
         'TWO_POINT_ZERO': 2.0,
         'THREE_POINT_ZERO': 3.0,
@@ -1144,9 +1147,10 @@ class GppProgramProvider(ProgramProvider):
             delay_min = None
             delay_max = None
             group_option = AndOption.ANYORDER
-            number_to_observe = len(data['elements'])
+            # number_to_observe = len(data['elements'])
+            number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
             number_observed = 0
-            elements_list = data['elements']
+            elements_list = data[GppProgramProvider._GroupKeys.ELEMENTS]
             parent_id = GROUP_NONE_ID
             # parent_id = UniqueGroupID(ROOT_GROUP_ID.id)
             parent_index = 0
@@ -1156,13 +1160,23 @@ class GppProgramProvider(ProgramProvider):
             group_name = data[GppProgramProvider._GroupKeys.GROUP_NAME]
             group_delay_min = data.get(GppProgramProvider._GroupKeys.DELAY_MIN)
             group_delay_max = data[GppProgramProvider._GroupKeys.DELAY_MAX]
-            if group_delay_min:
-                delay_min = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MIN]["seconds"])
+            # print(group_id, group_name, group_delay_min, group_delay_max)
+            if group_delay_min or group_delay_max:
+                if group_delay_min:
+                    delay_min = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MIN]["seconds"])
+                else:
+                    delay_min = ZeroTime
                 if group_delay_max:
                     delay_max = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MAX]["seconds"])
                 else:
+                    # Set time for upper limit, maybe should be the duration of the program?
+                    delay_max = TimingWindow.INFINITE_DURATION
+                # If both delays are both 0, treat as not set, interpret as CONSEQ
+                if delay_min == ZeroTime and delay_max == ZeroTime:
+                    delay_min = None
                     delay_max = None
             else:
+                # Needed for OR groups
                 delay_min = None
                 delay_max = None
 
@@ -1180,15 +1194,17 @@ class GppProgramProvider(ProgramProvider):
             # OR group, delays are None, number_to_observe not None, set to NONE
             # AND cadence - delays not None, number_to_observe None, ordered should be forced to True
             # AND conseq - delays None,  number_to_observe None
-            if delay_max is not None:
+            # The baseline calibrations group is like a folder, treat as OR group to avoid giving it a score
+            if group_name == 'Calibrations' and system_group:
+                group_option = AndOption.NONE
+                delay_min = None
+                delay_max = None
+                # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+                # print(f"Calibrations to observe {number_to_observe}")
+            elif delay_min is not None:
                 group_option = AndOption.CUSTOM
                 # ordered = True
                 number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
-            # The baseline calibrations group is like a folder, treat as OR group to avoid giving it a score
-            elif group_name == 'Calibrations' and system_group:
-                group_option = AndOption.NONE
-                # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
-                # print(f"Calibrations to observe {number_to_observe}")
             else:
                 if (number_to_observe is not None and
                         number_to_observe < len(data[GppProgramProvider._GroupKeys.ELEMENTS])): # OR group
@@ -1277,19 +1293,21 @@ class GppProgramProvider(ProgramProvider):
             return None
 
         # Account for removed twilights or other unreadable observations
-        if group_name == 'Calibrations':
+        if group_name in ['Calibrations', ROOT_GROUP_ID.id]:
             number_to_observe = len(children)
 
         # Get previous/next groups in children
-        for idx, child in enumerate(children):
-            if group_id == ROOT_GROUP_ID:
-                child.next_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
-                child.previous_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
-            else:
-                child.previous_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
-                child.next_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
-                if group_option == AndOption.CUSTOM and child.previous_id == GROUP_NONE_ID and active != False:
-                    child.active = True
+        if group_option in [AndOption.CUSTOM, AndOption.CONSEC_ORDERED]:
+            for idx, child in enumerate(children):
+                # if group_id == ROOT_GROUP_ID:
+                #     child.next_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
+                #     child.previous_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
+                # else:
+                if group_id != ROOT_GROUP_ID:
+                    child.previous_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
+                    child.next_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
+                    if group_option == AndOption.CUSTOM and child.previous_id == GROUP_NONE_ID and active != False:
+                        child.active = True
 
         # Put all the observations in the one big group and return it.
         return Group(

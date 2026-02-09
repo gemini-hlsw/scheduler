@@ -65,10 +65,17 @@ class RankerParameters:
 
     # user_priority_factors: Dict[Priority, float] = field(default_factory=lambda: _default_user_priority_factors)
 
-    # Weighted to slightly positive HA.
+    # HA weighting for zenith distances < 40 deg
+    # Weighted to slightly positive HA, this was the original intention
+    # dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0.1, -0.06]))
+    # Weighted to the meridian, used most of the time but backwards from the initial intention
     dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
-    # Weighted to 0 HA if Xmin > 1.3.
-    dec_diff: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0.1, -0.06]))
+
+    # HA weighting for zenith distances > 40 deg (Xmin > 1.3)
+    # Weighted to 0, the original intention
+    dec_diff: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
+    # Weighted to slightly positive HA, backwards from the intention
+    # dec_diff: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0.1, -0.06]))
 
     score_combiner: Callable[[npt.NDArray[float]], npt.NDArray[float]] = field(init=False)
 
@@ -322,8 +329,9 @@ class DefaultRanker(Ranker):
         #     priority_value += 1
         scale_factor *= 1. + (priority_value - program.mean_priority())/self.params.priority_factor
 
-        # If Ongoing and has really started (has charged time), give boost
-        if obs.status ==  ObservationStatus.ONGOING and obs.total_used() > ZeroTime:
+        # If Ongoing give boost
+        # if obs.status ==  ObservationStatus.ONGOING and obs.total_used() > ZeroTime:
+        if obs.status ==  ObservationStatus.ONGOING:
             scale_factor *= self.params.ongoing_factor
 
         # Program priority (from calendar, e.g. PV, classical)
@@ -343,9 +351,9 @@ class DefaultRanker(Ranker):
         # Assign scores in p to all indices where visibility constraints are met.
         # They will otherwise be 0 as originally defined.
         for night_idx in night_indices:
-            # if 'Q-127' in obs.id.id:
-            #     print(obs.id.id, night_idx, np.max(p[night_idx]), priority_value)
             slot_indices = target_info[night_idx].visibility_slot_idx
+            # if 'Q-224' in obs.id.id:
+            #     print(obs.id.id, night_idx, np.max(p[night_idx]), priority_value, len(slot_indices))
             scores[night_idx].put(slot_indices, p[night_idx][slot_indices])
 
         return scores

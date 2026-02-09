@@ -54,7 +54,7 @@ class Engine:
         self.queue = EventQueue(self.params.night_indices, self.params.sites)
 
         # Create builder based in the mode to create SCP
-        builder = dispatch_with(self.params.mode, self.sources, self.queue)
+        builder = dispatch_with(self.sources, self.queue)
 
         collector = builder.build_collector(start=self.params.start,
                                             end=self.params.end_vis,

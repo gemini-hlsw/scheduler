@@ -1,14 +1,24 @@
 name: Deploy Staging to Heroku
 
 on:
+  workflow_dispatch:  # Manual trigger for testing
   push:
     branches:
       - main
 
 jobs:
   build:
-    name: Scheduler Staging Deploy
+    name: Scheduler Staging Deploy (${{ matrix.mode }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - mode: realtime
+            app_mode: operation
+            app_secret: HEROKU_APP_NAME_REALTIME_STAGING
+          - mode: multinight
+            app_mode: validation
+            app_secret: HEROKU_APP_NAME_MULTINIGHT_STAGING
     steps:
       - name: Set version tag
         run: echo "VERSION_TAG=$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
@@ -20,7 +30,12 @@ jobs:
           echo "Checking LFS status:"
           git lfs ls-files
           echo "Checking if LFS files exist locally:" 
-          ls -la scheduler/services/horizons/data/ 
+          ls -la scheduler/services/horizons/data/
+      - name: Set app mode in config
+        run: |
+          sed -i 's/mode: .*/mode: ${{ matrix.app_mode }}/' scheduler/config.yaml
+          echo "Config updated to:"
+          cat scheduler/config.yaml
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
       - name: Login to Heroku Container registry
@@ -31,15 +46,21 @@ jobs:
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
         run: |
-          heroku container:push -a ${{ secrets.HEROKU_APP_NAME }} web \
-          --arg GH_PAT=${{ secrets.GH_PAT }} \
-          --arg APP_VERSION=${{ env.VERSION_TAG }}-staging
+          heroku container:push -a ${{ secrets[matrix.app_secret] }} web \
+          --arg APP_VERSION=${{ env.VERSION_TAG }}-staging-${{ matrix.mode }}
 
       - name: Release
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
         run: |
-          heroku container:release -a ${{ secrets.HEROKU_APP_NAME }} web
+          heroku container:release -a ${{ secrets[matrix.app_secret] }} web
+
+  deploy-docs:
+    name: Deploy Documentation
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
       - name: Deploy documentation
         run: |
           pip install mkdocs-material mkdocs-mermaid2-plugin mkdocstrings-python && mkdocs gh-deploy --force --clean --verbose

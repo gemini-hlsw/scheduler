@@ -3,6 +3,7 @@ collector:
   program_types: [Q, LP, FT, DD]
   time_slot_length: 1.0 # on minutes
   with_redis: false
+  parallel_viscalc: true
 
 optimizer:
   name: GREEDYMAX
@@ -16,7 +17,4 @@ server:
   host: 0.0.0.0
 
 app:
-  version: 0.0.0
-  changelog:
-    - Added server versioning and changelog
-    - Added schema to send version to client
+  mode: validation # validation | simulation | operation

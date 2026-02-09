@@ -1,7 +1,7 @@
 [project]
 name = "scheduler"
-version = "0.1.4"
-description = "Add your description here"
+version = "0.1.7"
+description = "Gemini Observatory automated scheduler"
 readme = 'README.md'
 authors = [{ name = "NOIRLab" }]
 license = { file = "LICENSE" }
@@ -9,9 +9,11 @@ requires-python = ">=3.11"
 dependencies = [
     "astropy>=7.1.0",
     "coverage>=7.10.3",
+    "dask>=2025.10.0",
     "fastapi>=0.116.1",
     "gelidum>=0.5.9",
-    "gpp-client>=25.9.0",
+    "gpp-client>=26.1.1",
+    "gql>=4.0.0",
     "hypothesis>=6.137.1",
     "joblib>=1.5.2",
     "lucupy>=0.2.8",
@@ -31,6 +33,7 @@ dependencies = [
     "requests>=2.32.4",
     "scipy>=1.16.1",
     "sortedcontainers>=2.4.0",
+    "stamina>=25.1.0",
     "strawberry-graphql[fastapi]>=0.278.1",
     "tabulate>=0.9.0",
     "uvicorn[standard]>=0.35.0",

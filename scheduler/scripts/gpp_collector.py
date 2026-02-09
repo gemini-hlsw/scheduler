@@ -5,7 +5,6 @@
 from datetime import datetime
 
 from astropy import units as u
-from astropy.time import Time
 from lucupy.minimodel import NightIndex
 from lucupy.minimodel.semester import Semester
 from lucupy.minimodel.site import ALL_SITES
@@ -32,8 +31,8 @@ if __name__ == '__main__':
     # Initial variables
     verbose = False
     # Default
-    start = Time("2024-11-01 08:00:00", format='iso', scale='utc')
-    end = Time("2024-11-03 08:00:00", format='iso', scale='utc')
+    start = datetime.fromisoformat("2024-11-01 08:00:00")
+    end = datetime.fromisoformat("2024-11-03 08:00:00")
     num_nights_to_schedule = 1
     semester_visibility = False
     test_events = True
@@ -61,7 +60,7 @@ if __name__ == '__main__':
 
     if semester_visibility:
         end_date = max(s.end_date() for s in semesters)
-        end_vis = Time(datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S"))
+        end_vis = datetime(end_date.year, end_date.month, end_date.day).strftime("%Y-%m-%d %H:%M:%S")
         diff = end - start + 1
         diff = int(diff.jd)
         night_indices = frozenset(NightIndex(idx) for idx in range(diff))
