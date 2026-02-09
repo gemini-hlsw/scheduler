@@ -384,6 +384,7 @@ class Collector(SchedulerComponent):
         else:
             n_jobs = 1
 
+        # parallel = Parallel(n_jobs=n_jobs, backend='loky', verbose=50)
         parallel = Parallel(n_jobs=n_jobs, backend='threading', verbose=50)
         # with parallel_config(backend="loky", inner_max_num_threads=1):
         result = parallel(delayed(program_obs_vis)(program_id, obs, Collector.get_program(program_id), self.time_grid,
