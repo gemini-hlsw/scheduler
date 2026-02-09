@@ -158,6 +158,8 @@ class GppProgramProvider(ProgramProvider):
     """
 
     _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
+    _F2_FILTER_WAVELENGTHS = {'Y': 1.02, 'J': 1.25, 'H': 1.63, 'Ks': 2.16, 'K-blue': 2.06, 'K-red': 2.31,
+                              'JH': 1.34, 'HK': 1.9, 'Jlow': 1.12, 'K-long': 2.2}
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
@@ -387,6 +389,11 @@ class GppProgramProvider(ProgramProvider):
         # NIFS = 'instrument:mask'
         CUSTOM = 'fpuCustomMask'
 
+    class _DISPKeys:
+        GMOSN = 'grating'
+        F2 = 'disperser'
+        GMOSS = 'grating'
+
     class _InstrumentKeys:
         NAME = 'instrument:name'
         DECKER = 'instrument:acquisitionMirror'
@@ -401,6 +408,17 @@ class GppProgramProvider(ProgramProvider):
         # 'GNIRS': _FPUKeys.GNIRS,
         'GMOS-N': _FPUKeys.GMOSN,
         'GMOS-S': _FPUKeys.GMOSS,
+        # 'NIRI': _FPUKeys.NIRI
+    }
+
+    DISPERSER_FOR_INSTRUMENT = {
+        # 'GSAOI': _FPUKeys.GSAOI,
+        # 'GPI': _FPUKeys.GPI,
+        'Flamingos2': _DISPKeys.F2,
+        # 'NIFS': _FPUKeys.NIFS,
+        # 'GNIRS': _FPUKeys.GNIRS,
+        'GMOS-N': _DISPKeys.GMOSN,
+        'GMOS-S': _DISPKeys.GMOSS,
         # 'NIRI': _FPUKeys.NIRI
     }
 
@@ -761,8 +779,8 @@ class GppProgramProvider(ProgramProvider):
         disperser = None
         if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
             disperser = instrument
-        elif GppProgramProvider._AtomKeys.DISPERSER in data.keys():
-            disperser = data[GppProgramProvider._AtomKeys.DISPERSER]
+        elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT:
+            disperser = data[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
 
         # if instrument == 'GNIRS':
         #     if (data[OcsProgramProvider._InstrumentKeys.ACQ_MIRROR] == 'in'
@@ -788,8 +806,12 @@ class GppProgramProvider(ProgramProvider):
         #     filt = find_filter(disperser[0], OcsProgramProvider._NIFS_FILTER_WAVELENGTHS)
 
         try:
-            wavelength = Wavelength(GppProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI' \
-                                        else float(data[GppProgramProvider._AtomKeys.WAVELENGTH]))
+            if instrument == 'GPI':
+                wavelength = Wavelength(GppProgramProvider._GPI_FILTER_WAVELENGTHS[filt])
+            elif instrument == 'Flamingos2':
+                wavelength = Wavelength(GppProgramProvider._F2_FILTER_WAVELENGTHS[filt])
+            else:
+                wavelength = Wavelength(float(data[GppProgramProvider._AtomKeys.WAVELENGTH]))
         except KeyError:
             wavelength = None
 
@@ -879,12 +901,12 @@ class GppProgramProvider(ProgramProvider):
         instrument = GppProgramProvider._gpp_inst_to_ocs[data['instrument']]
         mode = data['mode']
 
-        print(f'\t\t parse_observing_mode: instrument={instrument}, mode={mode} {camel_case(mode)}')
-        print(data)
+        # print(f'\t\t parse_observing_mode: instrument={instrument}, mode={mode} {camel_case(mode)}')
+        # print(data)
         
         instrument_config = data.get(camel_case(mode))
         # instrument_config = data.get('gmosNorthLongSlit') or data.get('gmosSouthLongSlit')
-        print(f'\t\t {instrument_config}')
+        # print(f'\t\t instrument_config: {instrument_config}')
 
         fpu = None
         if instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
@@ -898,8 +920,10 @@ class GppProgramProvider(ProgramProvider):
         disperser = None
         if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
             disperser = instrument
-        elif GppProgramProvider._AtomKeys.DISPERSER in instrument_config.keys():
-            disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]
+        # elif GppProgramProvider._AtomKeys.DISPERSER in instrument_config.keys():
+        #     disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]
+        elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT:
+            disperser = instrument_config[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
 
         # Filter
         if GppProgramProvider._AtomKeys.FILTER in instrument_config.keys():
@@ -912,27 +936,33 @@ class GppProgramProvider(ProgramProvider):
             else:
                 filt = 'Unknown'
 
-        try:
-            wavelength = Wavelength(GppProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI' \
-                                        else float(instrument_config['centralWavelength']['nanometers']),)
-        except KeyError:
+        if instrument == 'GPI':
+            wavelength = Wavelength(GppProgramProvider._GPI_FILTER_WAVELENGTHS[filt])
+        elif instrument == 'Flamingos2':
+            wavelength = Wavelength(GppProgramProvider._F2_FILTER_WAVELENGTHS[filt])
+        elif 'centralWavelength' in instrument_config.keys():
+            wavelength = Wavelength(float(instrument_config['centralWavelength']['nanometers'] / 1000.))
+        else:
             wavelength = None
 
         if 'GMOS' in instrument:
         # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
         # sets, but we filter below to remove them.
         # ToDo: decide whether to use FPU names or barcodes for resource matching
-            fpu = self._sources.origin.resource.lookup_resource(
+            fpu_resources = self._sources.origin.resource.lookup_resource(
                 GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu
             )
-            disperser = self._sources.origin.resource.lookup_resource(
+            disperser_resources = self._sources.origin.resource.lookup_resource(
                 disperser.split('_')[0], resource_type=ResourceType.DISPERSER
             )
+        else:
+            fpu_resources = self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU)
+            disperser_resources = self._sources.origin.resource.lookup_resource(disperser, resource_type=ResourceType.DISPERSER)
 
         instrument_resource = self._sources.origin.resource.lookup_resource(
             instrument, resource_type=ResourceType.INSTRUMENT
         )
-        resources = frozenset([instrument_resource, disperser, fpu])
+        resources = frozenset([instrument_resource, disperser_resources, fpu_resources])
 
         return resources, wavelength, mode
 
@@ -955,7 +985,7 @@ class GppProgramProvider(ProgramProvider):
         # obs_id = f"{program_id.id}-{internal_id.replace('-', '')}"
         obs_id = data[GppProgramProvider._ObsKeys.ID]['label'] if GppProgramProvider._ObsKeys.ID in data.keys() \
             else f"{program_id.id}-{internal_id.replace('-', '')}"
-        print(f'\t parse_observation {obs_id}')
+        # print(f'\t parse_observation {obs_id}')
 
         order = None
         obs_class = ObservationClass.NONE
@@ -1002,7 +1032,9 @@ class GppProgramProvider(ProgramProvider):
 
             # Science band
             band_value = data.get(GppProgramProvider._ObsKeys.BAND)
-            band = Band[band_value] if band_value is not None else None
+            # band = Band[band_value] if band_value is not None else None
+            # Workaround until calibrations have a band assigned
+            band = Band[band_value] if band_value is not None else Band['BAND1']
 
             # Calibration role
             cal_role_value = data.get(GppProgramProvider._ObsKeys.CALROLE)
@@ -1022,7 +1054,10 @@ class GppProgramProvider(ProgramProvider):
 
             # observing mode (instrument config)
             resources, wavelength, mode = self.parse_observing_mode(data['observingMode'])
-            print(f'\t\t resources :{resources}')
+            # print(f'\t\t resources: {resources}')
+            # print(f'\t\t wavelength: {wavelength}')
+            # print(f'\t\t mode: {mode}')
+            # print(f'\t\t calibration_role: {calibration_role}')
 
             # Atoms
             sequence = data[GppProgramProvider._ObsKeys.SEQUENCE]
@@ -1033,6 +1068,10 @@ class GppProgramProvider(ProgramProvider):
                 atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
             else:
                 raise ValueError(f'Observation {obs_id} has no sequence. Cannot process.')
+
+            # For now, set tellurics to partner cals for GM until this can be generalized, perhaps using the calibration role
+            if calibration_role == CalibrationRole.TELLURIC:
+                obs_class = ObservationClass.PARTNERCAL
 
             # Pre-imaging
             preimaging = False
@@ -1199,7 +1238,7 @@ class GppProgramProvider(ProgramProvider):
 
             # Set group_option from Ordered
             ordered = data[GppProgramProvider._GroupKeys.ORDERED]
-            print(f"parse_group {group_id}: num_to_observe {number_to_observe}, ordered: {ordered}")
+            # print(f"parse_group {group_id}: num_to_observe {number_to_observe}, ordered: {ordered}")
 
             # Special system group?
             system_group = data[GppProgramProvider._GroupKeys.SYSTEM]
@@ -1215,6 +1254,10 @@ class GppProgramProvider(ProgramProvider):
                 delay_max = None
                 # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
                 # print(f"Calibrations to observe {number_to_observe}")
+            # Telluric groups must not be ordered, override for now using the group name
+            elif 'telluric' in group_name:
+                group_option = AndOption.CONSEC_ANYORDER
+                number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
             elif delay_min is not None:
                 group_option = AndOption.CUSTOM
                 # ordered = True
