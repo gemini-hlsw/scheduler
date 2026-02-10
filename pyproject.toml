@@ -12,7 +12,7 @@ dependencies = [
     "dask>=2025.10.0",
     "fastapi>=0.116.1",
     "gelidum>=0.5.9",
-    "gpp-client>=26.1.1",
+    "gpp-client==26.2.0",
     "gql>=4.0.0",
     "hypothesis>=6.137.1",
     "joblib>=1.5.2",
