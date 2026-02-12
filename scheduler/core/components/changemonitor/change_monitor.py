@@ -162,6 +162,16 @@ class ChangeMonitor(SchedulerComponent):
 
             case WeatherChangeEvent(variant_change=variant_change):
                 # Regardless, we want to change the weather values for CC and IQ.
+                current_variant = self.selector.get_current_variant(site)
+                if current_variant.iq == variant_change.iq and current_variant.cc == variant_change.cc:
+                    _logger.info(
+                        f'We skip this as is the same conditions as current variant.' +
+                        f'\n\t current IQ: {current_variant.iq} vs new IQ: {variant_change.iq}.'
+                        f'\n\t current CC: {current_variant.cc} vs new CC: {variant_change.cc}.'
+                    )
+                    self.selector.update_site_variant(site, variant_change)
+                    return None
+
                 self.selector.update_site_variant(site, variant_change)
 
                 # If the site is blocked, we have no reason to recalculate a plan until all blocking events
