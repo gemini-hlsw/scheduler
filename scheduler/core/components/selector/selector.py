@@ -198,6 +198,10 @@ class Selector(SchedulerComponent):
             variant_snapshot = Selector._default_variant_snapshot
         self._variant_snapshot_per_site[site] = variant_snapshot
 
+    def get_current_variant(self,
+                            site: Site):
+        return self._variant_snapshot_per_site[site]
+
     def select(self,
                sites: Optional[FrozenSet[Site]] = None,
                night_indices: Optional[NightIndices] = None,
@@ -258,7 +262,7 @@ class Selector(SchedulerComponent):
             # while leaving the information in the Collector intact.
             program = deepcopy(original_program)
             program_calculations = self.score_program(program, sites, night_indices, starting_time_slots, ranker)
-            logger.debug(f"{program_id} has schedulable groups? {program_calculations.has_schedulable_groups}")
+            #logger.debug(f"{program_id} has schedulable groups? {program_calculations.has_schedulable_groups}")
             if program_calculations is None:
                 # Warning is already issued in scorer.
                 continue
