@@ -157,6 +157,7 @@ class Collector(SchedulerComponent):
 
         # The number of nights for which we are performing calculations.
         self.num_nights_calculated = len(self.time_grid)
+        # print(f"Collector: time_grid start/end {self.time_grid[0]} {self.time_grid[-1]} {self.num_nights_calculated}")
 
         # TODO: This code can be greatly simplified. The night_events only have to be calculated once.
         # Create the night events, which contain the data for all given nights by site.
@@ -373,6 +374,7 @@ class Collector(SchedulerComponent):
         if not self.with_redis:
             vis_table = {}
 
+        # print(f'Collector: start {self.start_vis_time} {self.end_vis_time} {self.num_of_nights} {self.semesters}')
         sem, = self.semesters
         if config.collector.parallel_viscalc:
             # Get information about CPU cores, to avoid overloading

@@ -2,12 +2,13 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import final, Optional, FrozenSet, List
 
 from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, Semester, NightIndex
-from pydantic import BaseModel
+# from pydantic import BaseModel
 
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
@@ -63,14 +64,18 @@ class SchedulerParameters:
 
     def __post_init__(self):
         if self.end is not None and self.end > self.start:
-            self.semesters = frozenset([Semester.find_semester_from_date(self.start),
-                                        Semester.find_semester_from_date(self.end)])
+            # The semester methods work on local dates, so have to subtract 1 day from UT dates
+            self.semesters = frozenset([Semester.find_semester_from_date(self.start - timedelta(days=1)),
+                                        Semester.find_semester_from_date(self.end - timedelta(days=1))])
         else:
-            self.semesters = frozenset([Semester.find_semester_from_date(self.start)])
+            self.semesters = frozenset([Semester.find_semester_from_date(self.start) - timedelta(days=1)])
 
         if self.semester_visibility:
             end_date = max(s.end_date() for s in self.semesters)
-            self.end_vis = datetime(end_date.year, end_date.month, end_date.day)
+            # end_date is a local date, so add 1 for UT
+            end_date += timedelta(days=1)
+            ut_hr = self.start.hour
+            self.end_vis = datetime(end_date.year, end_date.month, end_date.day, hour=ut_hr, tzinfo=ZoneInfo("UTC"))
             if self.end is None:
                 diff = 1
             else:
@@ -79,14 +84,15 @@ class SchedulerParameters:
             self.num_nights_to_schedule = diff
             self.night_indices = frozenset(NightIndex(idx) for idx in range(diff))
         else:
-            self.night_indices = frozenset(NightIndex(idx) for idx in range(self.num_nights_to_schedule))
-            self.end_vis = self.end
             if not self.num_nights_to_schedule:
                 raise ValueError("num_nights_to_schedule can't be None when visibility is given by end date")
+            self.night_indices = frozenset(NightIndex(idx) for idx in range(self.num_nights_to_schedule))
+            self.end_vis = self.end
+
 
     @staticmethod
     def from_json(received_params: dict) -> 'SchedulerParameters':
-        return SchedulerParameters(datetime.fromisoformat(received_params['startTime'], ),
+        return SchedulerParameters(datetime.fromisoformat(received_params['startTime']),
                                    datetime.fromisoformat(received_params['endTime']),
                                    frozenset([Site[received_params['sites'][0]]]) if len(received_params['sites']) < 2 else ALL_SITES,
                                    SchedulerModes[received_params['schedulerMode']],

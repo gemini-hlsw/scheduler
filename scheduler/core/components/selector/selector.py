@@ -262,10 +262,11 @@ class Selector(SchedulerComponent):
             # while leaving the information in the Collector intact.
             program = deepcopy(original_program)
             program_calculations = self.score_program(program, sites, night_indices, starting_time_slots, ranker)
-            #logger.debug(f"{program_id} has schedulable groups? {program_calculations.has_schedulable_groups}")
             if program_calculations is None:
                 # Warning is already issued in scorer.
+                # print(f"Selector: {program_id} has no schedulable groups")
                 continue
+            logger.debug(f"{program_id} has schedulable groups? {program_calculations.has_schedulable_groups}")
 
             # Get the top-level groups (excluding root) in group_data_map and add to the schedulable_groups_map map.
             for unique_group_id in program_calculations.top_level_groups:
