@@ -40,6 +40,8 @@ __all__ = [
     'Collector',
 ]
 
+from scheduler.time_accountant.time_accountant import TimeAccountant
+
 _logger = logger_factory.create_logger(__name__)
 
 
@@ -173,6 +175,10 @@ class Collector(SchedulerComponent):
                 for site in self.sites
             }
         Collector._resource_service = self.sources.origin.resource
+
+        self.time_accountant = TimeAccountant(
+            self.sites, list(map(lambda x: NightIndex(x), range(self.num_of_nights)))
+        )
 
     async def async_init_night_events(self):
         """
@@ -642,6 +648,7 @@ class Collector(SchedulerComponent):
             if plan.site not in sites:
                 continue
 
+            self.time_accountant.set_current(plan.sitem, plans.night_idx)
             # Determine the end timeslot for the site if one is specified.
             # We set to None is the whole night is to be done.
             end_timeslot_bound = end_timeslot_bounds.get(plan.site) if end_timeslot_bounds is not None else None
@@ -727,27 +734,37 @@ class Collector(SchedulerComponent):
                             slot_atom_start = slot_atom_end - slot_atom_length
 
                         if slot_atom_end < end_timeslot_charge:
+
+                            atom_record = self.time_accountant.get_record(observation.id, atom_idx)
                             if charge_group:
                                 # Charge to program or partner
                                 obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
                                 obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
 
+                                atom_record.program_used = atom_record.prog_time
+                                atom_record.partner_used = atom_record.part_time
+
                                 # Charge acquisition to the first atom.
                                 if atom_idx == visit.atom_start_idx:
                                     if observation.obs_class == ObservationClass.PARTNERCAL:
                                         obs_seq[atom_idx].partner_used += observation.acq_overhead
+                                        atom_record.partner_used += observation.acq_overhead
                                     elif (observation.obs_class == ObservationClass.SCIENCE or
                                           observation.obs_class == ObservationClass.PROGCAL):
                                         obs_seq[atom_idx].program_used += observation.acq_overhead
+                                        atom_record.program_used += observation.acq_overhead
 
                                 obs_seq[atom_idx].observed = True
                                 obs_seq[atom_idx].qa_state = QAState.PASS
+
+                                atom_record.observed = True
 
                             elif not_charged:
                                 # charge to not_charged
                                 not_charged_time = (end_timeslot_charge -
                                                     slot_atom_start + 1) * self.time_slot_length.to_datetime()
                                 obs_seq[atom_idx].not_charged += not_charged_time
+                                atom_record.not_charged += not_charged_time
 
                 # If charging the groups, set remaining partner cals to INACTIVE
                 if charge_group:
