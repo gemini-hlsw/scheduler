@@ -172,10 +172,16 @@ class Engine:
         queue = EventQueue(self.params.night_indices, self.params.sites)
         self._setup(scp, queue)
         event_cycle = EventCycle(self.params, queue, scp)
+        # tn0 = time()
         for night_idx in sorted(self.params.night_indices):
+            # print(f'Engine: starting night {night_idx + 1}: {scp.collector.time_grid[night_idx]}')
             for site in sorted(self.params.sites, key=lambda site: site.name):
                 event_cycle.run(site, night_idx, nightly_timeline)
                 nightly_timeline.calculate_time_losses(night_idx, site)
+            # tn1 = time()
+            # print(f'Night {night_idx + 1} scheduled in {(tn1 - tn0) / 60.} min')
+            # nightly_timeline.display(night_idx_sel=night_idx)
+            # tn0 = tn1
 
         # TODO: Add plan summary to nightlyTimeline
         run_summary = StatCalculator.calculate_timeline_stats(nightly_timeline,

@@ -4,6 +4,7 @@ import asyncio
 from os import environ
 from typing import AsyncGenerator, Dict
 from datetime import datetime, UTC
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import strawberry # noqa
@@ -126,8 +127,8 @@ class Query:
     async def schedule(self, schedule_id: str, new_schedule_input: CreateNewScheduleInput) -> str:
         schedule_id_var.set(schedule_id)
 
-        start = datetime.fromisoformat(new_schedule_input.start_time)
-        end = datetime.fromisoformat(new_schedule_input.end_time)
+        start = datetime.fromisoformat(new_schedule_input.start_time).replace(tzinfo=ZoneInfo("UTC"))
+        end = datetime.fromisoformat(new_schedule_input.end_time).replace(tzinfo=ZoneInfo("UTC"))
 
         ranker_params = RankerParameters(new_schedule_input.thesis_factor,
                                          new_schedule_input.power,
