@@ -1,18 +1,22 @@
 from collections import defaultdict
 from dataclasses import field, dataclass
 from datetime import timedelta
-from typing import FrozenSet, Sequence, Dict, List, Tuple, Optional, Final
+from typing import FrozenSet, Sequence, Dict, List, Tuple, Optional, Final, ClassVar
 
 import numpy as np
-from lucupy.minimodel import Site, GroupID, ObservationID, NightIndex, Atom, ObservationStatus
+import numpy.typing as npt
+from lucupy.minimodel import Site, GroupID, ObservationID, NightIndex, Atom, ObservationStatus, Observation
 from lucupy.types import ZeroTime
-from pandas._typing import npt
+
 
 
 __all__ = ["TimeAccountant"]
 
 @dataclass
 class AtomAccountingRecord:
+    """
+    Records time accounting at atom level.
+    """
     exec_time: timedelta = field(hash=False, compare=False)
     prog_time: timedelta = field(hash=False, compare=False)
     part_time: timedelta = field(hash=False, compare=False)
@@ -21,8 +25,26 @@ class AtomAccountingRecord:
     not_charged: timedelta = field(hash=False, compare=False)
     observed: bool
 
+    _dirty: bool = field(default=False, repr=False, init=False)
+    _tracked_fields: ClassVar[frozenset] = frozenset({
+        'exec_time', 'prog_time', 'part_time',
+        'program_used', 'partner_used', 'not_charged', 'observed'
+    })
+
+    def __setattr__(self, name, value):
+        if name in self._tracked_fields and hasattr(self, name):
+            if getattr(self, name) != value:
+                object.__setattr__(self, '_dirty', True)
+        object.__setattr__(self, name, value)
+
+    def clear_dirty(self):
+        object.__setattr__(self, '_dirty', False)
+
 @dataclass
 class ObservationAccountingRecord:
+    """
+    Records Observation and atom records for an observation.
+    """
     status: ObservationStatus
     atoms_records: List[Tuple[Atom,AtomAccountingRecord]]
 
@@ -44,8 +66,17 @@ class ObservationAccountingRecord:
 
 
 class TimeAccountant:
+    """
+    Keeps a tally on how the observations are time accounted.
 
+    TODO: Add time accounting method from collector in here.
+
+    """
     def __init__(self, sites: FrozenSet[Site], night_indices: List[NightIndex]):
+        """
+        The structure separates the records for specific sites and night_indices.
+        each ObservationAccountingRecord records a list of atoms records that hold the TA calculations.
+        """
 
         self._time_accounting_table: Dict[
             Site, Dict[NightIndex, Dict[ObservationID, ObservationAccountingRecord]]
@@ -62,35 +93,71 @@ class TimeAccountant:
         self._current_data: Optional[Dict[ObservationID, ObservationAccountingRecord]] = None
 
     def _ensure_current(self) -> Dict[ObservationID, ObservationAccountingRecord]:
+        """
+        Ensures the context is set when accessing records.
+        """
         if self._current_data is None:
             raise RuntimeError("Call set_current(site, night_index) before accessing records.")
         return self._current_data
 
     def set_current(self, site: Site, night_index: NightIndex) -> None:
+        """
+        Set night and site context for easy retrieval.
+        """
         self._current_site = site
         self._current_night = night_index
         self._current_data = self._time_accounting_table[site][night_index]
 
-    def add_record(
-        self, obs_id: ObservationID, atom: Atom, record: AtomAccountingRecord
-    ) -> None:
-        data = self._ensure_current()
-        atoms = data[obs_id].atoms_records
-        # Check if this atom_id already exists
-        for existing_atom, _ in atoms:
-            if existing_atom.id == atom.id:
-                raise ValueError(
-                    f"Record for atom {atom.id} already exists fop obs={obs_id}"
-                )
-        atoms.append((atom, record))
-
     def get_record(
-        self, obs_id: ObservationID, atom_idx: int
+            self, obs: Observation, atom: Atom
     ) -> AtomAccountingRecord:
+        """
+        Get the AtomAccountingRecord in the current context.
+        If the record does not exist, create it and return it.
+        """
         data = self._ensure_current()
-        for existing_atom_id, record in data[obs_id].atoms_records:
-            if existing_atom_id == atom_idx:
+
+        # Create observation record if it doesn't exist
+        if obs.id not in data:
+            data[obs.id] = ObservationAccountingRecord(
+                status=obs.status,
+                atoms_records=[
+                    (a, AtomAccountingRecord(
+                        exec_time=a.exec_time,
+                        prog_time=a.prog_time,
+                        part_time=a.part_time,
+                        program_used=a.program_used,
+                        partner_used=a.partner_used,
+                        not_charged=a.not_charged,
+                        observed=a.observed,
+                    )) for a in obs.sequence
+                ]
+            )
+            # Mark all atoms in new observation as dirty
+            for _, record in data[obs.id].atoms_records:
+                object.__setattr__(record, '_dirty', True)
+
+        # Find and return the atom record
+        for existing_atom, record in data[obs.id].atoms_records:
+            if existing_atom == atom:
                 return record
-        raise KeyError(
-            f"No record for atom {atom_idx} in obs={obs_id}"
-        )
+
+        raise KeyError(f"Atom {atom} not found in obs={obs.id}")
+
+    def get_dirty_observations(self) -> Dict[ObservationID, ObservationAccountingRecord]:
+        """
+        Retrieves all observations records with modified AtomAccountingRecords.
+        It means those observations were modified by
+        """
+        data = self._ensure_current()
+        return {
+            obs_id: obs_record
+            for obs_id, obs_record in data.items()
+            if any(record._dirty for _, record in obs_record.atoms_records)
+        }
+
+    def clear_all_dirty(self) -> None:
+        data = self._ensure_current()
+        for obs_record in data.values():
+            for _, record in obs_record.atoms_records:
+                record.clear_dirty()

@@ -648,7 +648,7 @@ class Collector(SchedulerComponent):
             if plan.site not in sites:
                 continue
 
-            self.time_accountant.set_current(plan.sitem, plans.night_idx)
+            self.time_accountant.set_current(plan.site, plans.night_idx)
             # Determine the end timeslot for the site if one is specified.
             # We set to None is the whole night is to be done.
             end_timeslot_bound = end_timeslot_bounds.get(plan.site) if end_timeslot_bounds is not None else None
@@ -735,7 +735,7 @@ class Collector(SchedulerComponent):
 
                         if slot_atom_end < end_timeslot_charge:
 
-                            atom_record = self.time_accountant.get_record(observation.id, atom_idx)
+                            atom_record = self.time_accountant.get_record(observation, obs_seq[atom_idx])
                             if charge_group:
                                 # Charge to program or partner
                                 obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time

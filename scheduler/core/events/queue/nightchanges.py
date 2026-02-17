@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import final, ClassVar, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from lucupy.minimodel import TimeslotIndex, NightIndex, Site
+from lucupy.minimodel import TimeslotIndex, NightIndex, Site, ObservationID
 from pandas.io.stata import excessive_string_length_error
 
 from scheduler.core.events.queue import Event, InterruptionResolutionEvent, FaultResolutionEvent, \
@@ -21,15 +21,14 @@ __all__ = [
 ]
 
 
-@final
-@dataclass(frozen=True)
+@dataclass
 class TimelineEntry:
     start_time_slot: TimeslotIndex
     event: Event
     plan_generated: Optional[Plan]
+    accounted_observations: Optional[List[ObservationID]]
 
 
-@final
 @dataclass
 class NightlyTimeline:
     """
@@ -44,10 +43,11 @@ class NightlyTimeline:
             site: Site,
             time_slot: TimeslotIndex,
             event: Event,
-            plan_generated: Optional[Plan]) -> None:
-        entry = TimelineEntry(time_slot,
-                              event,
-                              plan_generated)
+            plan_generated: Optional[Plan],
+            accounted_observations: List[ObservationID] = []) -> None:
+        entry = TimelineEntry(
+            time_slot, event, plan_generated, accounted_observations
+        )
         self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
 
     def get_final_plan(self,
