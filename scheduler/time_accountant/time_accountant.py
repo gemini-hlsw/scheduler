@@ -1,7 +1,9 @@
-from collections import defaultdict
+# Copyright (c) 2016-2026 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
 from dataclasses import field, dataclass
 from datetime import timedelta
-from typing import FrozenSet, Sequence, Dict, List, Tuple, Optional, Final, ClassVar
+from typing import FrozenSet, Dict, List, Tuple, Optional, ClassVar
 
 import numpy as np
 import numpy.typing as npt
@@ -16,6 +18,8 @@ __all__ = ["TimeAccountant"]
 class AtomAccountingRecord:
     """
     Records time accounting at atom level.
+
+    _dirty flag helps to check if any parameters where modified in the time accounting process.
     """
     exec_time: timedelta = field(hash=False, compare=False)
     prog_time: timedelta = field(hash=False, compare=False)
@@ -67,7 +71,7 @@ class ObservationAccountingRecord:
 
 class TimeAccountant:
     """
-    Keeps a tally on how the observations are time accounted.
+    Keeps track of how observation time is accounted for across sites and nights.
 
     TODO: Add time accounting method from collector in here.
 
@@ -147,7 +151,7 @@ class TimeAccountant:
     def get_dirty_observations(self) -> Dict[ObservationID, ObservationAccountingRecord]:
         """
         Retrieves all observations records with modified AtomAccountingRecords.
-        It means those observations were modified by
+        It means those observations were accounted by the last plan entry.
         """
         data = self._ensure_current()
         return {
@@ -157,6 +161,9 @@ class TimeAccountant:
         }
 
     def clear_all_dirty(self) -> None:
+        """
+        Clear the dirty flag for all records.
+        """
         data = self._ensure_current()
         for obs_record in data.values():
             for _, record in obs_record.atoms_records:
