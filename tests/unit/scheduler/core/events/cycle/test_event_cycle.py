@@ -2,12 +2,13 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 import numpy as np
+from scheduler.core.events.queue.nightchanges import TimelineEntry
 from lucupy.timeutils import time2slots
 
 from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
 from scheduler.core.events.queue import NightlyTimeline, NightEventQueue
 from scheduler.core.events.cycle import EventCycle
-from scheduler.core.plans import Plans
+from scheduler.core.plans import Plans, Plan
 
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
@@ -255,8 +256,9 @@ class TestEventCycle:
         plans = MagicMock(spec=Plans)
         nightly_timeline = MagicMock(spec=NightlyTimeline)
 
-        # Mock the method we'll call
+        # Mock the methods we'll call
         event_cycle._perform_time_accounting = MagicMock()
+        event_cycle._get_final_plan = MagicMock(return_value=MagicMock(spec=Plan))
 
         result_plans = event_cycle._handle_updates(
             site, night_idx, current_timeslot, next_update, plans, nightly_timeline
@@ -287,6 +289,10 @@ class TestEventCycle:
         plans = MagicMock(spec=Plans)
         current_timeslot = TimeslotIndex(5)
         nightly_timeline = MagicMock(spec=NightlyTimeline)
+
+        # Set up timeline attribute with a mock entry so line 73-74 in cycle.py can access it
+        mock_entry = MagicMock(spec=TimelineEntry)
+        nightly_timeline.timeline = {night_idx: {site: [mock_entry]}}
 
         event_cycle._perform_time_accounting(
             site, night_idx, update, end_timeslot_bounds, plans, current_timeslot, nightly_timeline
