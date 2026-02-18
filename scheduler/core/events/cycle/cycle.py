@@ -7,7 +7,7 @@ from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 from scheduler.core.calculations import NightEvents
 from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
 from scheduler.core.events.queue import Event, NightlyTimeline, EventQueue, NightEventQueue
-from scheduler.core.plans import Plans
+from scheduler.core.plans import Plans, Plan
 from scheduler.core.scp import SCP
 from scheduler.services import logger_factory
 
@@ -43,7 +43,6 @@ class EventCycle:
                                  current_timeslot: TimeslotIndex,
                                  nightly_timeline: NightlyTimeline):
         """Perform time accounting for executed plans.
-        Also add the final plan for the Morning twilight.
         Args:
             site: Site being processed
             night_idx: Index of the night
@@ -61,12 +60,18 @@ class EventCycle:
 
         _logger.info(f'Time accounting: site {site.site_name} for night {night_idx} {ta_description}')
 
+        self.scp.collector.time_accountant.set_current(site, night_idx)
+        self.scp.collector.time_accountant.clear_all_dirty()
+
         # Run time accounting
         self.scp.collector.time_accounting(
             plans=plans,
             sites=frozenset({site}),
             end_timeslot_bounds=end_timeslot_bounds
         )
+
+        last_entry = nightly_timeline.timeline[night_idx][site][-1]
+        last_entry.accounted_observations = list(self.scp.collector.time_accountant.get_dirty_observations().keys())
 
     def _create_new_plan(self,
                          site: Site,
@@ -231,15 +236,17 @@ class EventCycle:
             # Otherwise, get a new selection and request a new plan
             if update.done:
                 _logger.debug('Night done. Wrapping up final plan')
-                final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx),
-                                                             site,
-                                                             self.change_monitor.is_site_unblocked(site))
+                final_plan = self._get_final_plan(site, night_idx, nightly_timeline)
+                # final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx),
+                #                                             site,
+                #                                             self.change_monitor.is_site_unblocked(site))
+
                 nightly_timeline.add(
                     NightIndex(night_idx),
                     site,
                     current_timeslot,
                     update.event,
-                    final_plan
+                    final_plan,
                 )
                 
             else:
@@ -253,6 +260,50 @@ class EventCycle:
                 )
         
         return plans
+
+
+    def _get_final_plan(
+        self, site: Site, night_idx: NightIndex, nt: NightlyTimeline
+    ):
+
+        if night_idx not in nt.timeline:
+            raise RuntimeError(f'Cannot get final plan: {night_idx} for site {site.name} not in timeline.')
+        if site not in nt.timeline[night_idx]:
+            raise RuntimeError(f'Cannot get final plan: {site.name} not in timeline.')
+        entries = nt.timeline[night_idx][site]
+
+        # Skip the None entries.
+        relevant_entries = [e for e in entries if e.plan_generated is not None]
+        if len(relevant_entries) == 0:
+            return None
+
+        accounted_visits = []
+        for entry in relevant_entries:
+            accounted_observations = entry.accounted_observations
+            for v in entry.plan_generated.visits:
+                if v.obs_id in accounted_observations:
+                    accounted_visits.append(v)
+
+        end = relevant_entries[-1].plan_generated.end
+        start = relevant_entries[0].plan_generated.start
+        total_night_timeslots = int((end - start).total_seconds()/60)
+
+        total_used_timeslots = sum([v.time_slots for v in accounted_visits])
+
+        p = Plan(
+            start=relevant_entries[0].plan_generated.start,
+            end=relevant_entries[-1].plan_generated.end,
+            time_slot_length=relevant_entries[0].plan_generated.time_slot_length,
+            site=site,
+            _time_slots_left=total_night_timeslots - total_used_timeslots,
+            conditions=relevant_entries[-1].plan_generated.conditions
+        )
+
+        p.visits = accounted_visits
+        return p
+
+
+
 
     def run(self, site: Site, night_idx: NightIndex, nightly_timeline: NightlyTimeline):
         """Executes the Event cycle for a specific site and night.
