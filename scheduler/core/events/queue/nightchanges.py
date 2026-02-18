@@ -122,7 +122,8 @@ class NightlyTimeline:
         return p
 
     def calculate_time_losses(self, night_idx: NightIndex, site: Site) -> None:
-        """Calculates the time lost by different types of events for the night.
+        """
+        Calculates the time lost by different types of events for the night.
 
           Args:
           night_idx (NightIdx): Night index of the plan.

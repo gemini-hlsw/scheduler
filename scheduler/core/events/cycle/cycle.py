@@ -60,6 +60,7 @@ class EventCycle:
 
         _logger.info(f'Time accounting: site {site.site_name} for night {night_idx} {ta_description}')
 
+        self.scp.collector.time_accountant.set_current(site, night_idx)
         self.scp.collector.time_accountant.clear_all_dirty()
 
         # Run time accounting
@@ -70,7 +71,6 @@ class EventCycle:
         )
 
         last_entry = nightly_timeline.timeline[night_idx][site][-1]
-        self.scp.collector.time_accountant.set_current(site, night_idx)
         last_entry.accounted_observations = list(self.scp.collector.time_accountant.get_dirty_observations().keys())
 
     def _create_new_plan(self,
@@ -284,12 +284,18 @@ class EventCycle:
                 if v.obs_id in accounted_observations:
                     accounted_visits.append(v)
 
+        end = relevant_entries[-1].plan_generated.end
+        start = relevant_entries[0].plan_generated.start
+        total_night_timeslots = int((end - start).total_seconds()/60)
+
+        total_used_timeslots = sum([v.time_slots for v in accounted_visits])
+
         p = Plan(
             start=relevant_entries[0].plan_generated.start,
             end=relevant_entries[-1].plan_generated.end,
             time_slot_length=relevant_entries[0].plan_generated.time_slot_length,
             site=site,
-            _time_slots_left=0,
+            _time_slots_left=total_night_timeslots - total_used_timeslots,
             conditions=relevant_entries[-1].plan_generated.conditions
         )
 
