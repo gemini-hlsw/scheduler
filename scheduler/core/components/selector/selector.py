@@ -198,6 +198,10 @@ class Selector(SchedulerComponent):
             variant_snapshot = Selector._default_variant_snapshot
         self._variant_snapshot_per_site[site] = variant_snapshot
 
+    def get_current_variant(self,
+                            site: Site):
+        return self._variant_snapshot_per_site[site]
+
     def select(self,
                sites: Optional[FrozenSet[Site]] = None,
                night_indices: Optional[NightIndices] = None,
@@ -260,7 +264,9 @@ class Selector(SchedulerComponent):
             program_calculations = self.score_program(program, sites, night_indices, starting_time_slots, ranker)
             if program_calculations is None:
                 # Warning is already issued in scorer.
+                # print(f"Selector: {program_id} has no schedulable groups")
                 continue
+            logger.debug(f"{program_id} has schedulable groups? {program_calculations.has_schedulable_groups}")
 
             # Get the top-level groups (excluding root) in group_data_map and add to the schedulable_groups_map map.
             for unique_group_id in program_calculations.top_level_groups:
@@ -491,14 +497,17 @@ class Selector(SchedulerComponent):
             # has already been covered and should be ineligible for scheduling.
             # Zero out the part of the night that was already done.
             variant = self._variant_snapshot_per_site[obs.site].make_variant(total_timeslots_in_night)
-            # print(f'Selector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}')
-            # print(f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}')
-            # print(f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}')
-            # print(f'rising: {rising[night_idx]}, Too: {too_type}')
             conditions_score[night_idx] = Selector.match_conditions(mrc, variant, rising[night_idx], too_type)
             conditions_score[night_idx][:starting_timeslot_in_night] = 0
             wind_score[night_idx] = Selector._wind_conditions(variant, target_info[night_idx].az)
-            # print(f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}')
+
+            logger.debug(
+                f'\nSelector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}\n'+
+                f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}\n'+
+                f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}\n'+
+                f'rising: {rising[night_idx]}, Too: {too_type}\n'+
+                f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}\n'
+            )
 
         # Calculate the schedulable slot indices.
         # These are the indices where the observation has:
@@ -508,15 +517,15 @@ class Selector(SchedulerComponent):
         schedulable_slot_indices = {}
         for night_idx in night_indices:
             vis_idx = target_info[night_idx].visibility_slot_idx
-            # print(f'len(vis_idx) = {len(vis_idx)}')
+            #print(f'len(vis_idx) = {len(vis_idx)}')
             if night_filtering[night_idx]:
                 schedulable_slot_indices[night_idx] = np.where(conditions_score[night_idx][vis_idx] > 0)[0]
             else:
                 schedulable_slot_indices[night_idx] = np.array([])
-        # print(f'number schedulable slots night: {len(schedulable_slot_indices[night_idx])}')
+        logger.debug(f'number schedulable slots night: {len(schedulable_slot_indices[night_idx])}')
 
         obs_scores = ranker.score_observation(program, obs, self.night_configurations, night_indices)
-        # print(f'obs_scores: {max(obs_scores[night_idx])}')
+        logger.debug(f'obs_scores: {max(obs_scores[night_idx])}')
 
         # Calculate the scores for the observation across all night indices across all timeslots.
         scores = {night_idx: np.multiply(
@@ -534,7 +543,7 @@ class Selector(SchedulerComponent):
         for night_idx, time_slot_idx in starting_time_slots_for_site.items():
             if night_idx in night_indices:
                 scores[night_idx][:time_slot_idx] = 0.0
-        # print(f'scores: {max(scores[night_idx])}\n')
+        logger.debug(f'scores: {max(scores[night_idx])}\n')
 
         # These scores might differ from the observation score in the ranker since they have been adjusted for
         # conditions and wind.
@@ -760,7 +769,6 @@ class Selector(SchedulerComponent):
         # Determine the positions where the actual conditions are worse than the requirements.
         bad_iq = actual_iq > required_conditions.iq
         bad_cc = actual_cc > required_conditions.cc
-
         bad_cond_idx = np.where(np.logical_or(bad_iq, bad_cc))[0]
         cond_match = np.ones(length)
         cond_match[bad_cond_idx] = 0

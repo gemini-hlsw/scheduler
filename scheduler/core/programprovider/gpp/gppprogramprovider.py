@@ -40,12 +40,19 @@ __all__ = [
     'gpp_program_data'
 ]
 
-logger = logger_factory.create_logger(__name__)
+logger = logger_factory.create_logger(__name__, with_id=False)
 
 
 # DEFAULT_GPP_DATA_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'programs.zip'
 DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'gpp_program_ids.txt'
 
+
+def camel_case(st):
+    """Convert to camel case
+       Based on https://stackoverflow.com/questions/8347048/how-to-convert-string-to-title-case-in-python
+    """
+    output = ''.join(x for x in st.replace('_', ' ').title() if x.isalnum())
+    return output[0].lower() + output[1:]
 
 # def get_progid(group):
 #     """Work around for gpp-client issue with program reference, get from the first observation group"""
@@ -83,31 +90,33 @@ def get_progid(group) -> ProgramID:
     return prog_id
 
 
-def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
+async def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
     """Query GPP for program data"""
 
     if program_ids:
         program_list = list(program_ids)
     else:
         # Bring everything that is accepted.
-        program_list = []
+        program_list = None
 
     try:
         client = GPPClient()
         director = GPPDirector(client)
 
         ask_director = director.scheduler.program.get_all(programs_list=program_list)
-        result = asyncio.run(ask_director)
+        result = await ask_director
         programs = result
 
         print(f"Adding {len(programs)} programs")
         # Pass the class information as a dictionary to mimic the OCS json format
-        yield from programs
-    except RuntimeError as e:
-        logger.error(f'Problem querying program list {program_ids} data: \n{e}.')
+        for item in programs:
+            yield item
 
+    except Exception as e:
+        logger.error(f'Problem querying program list {program_ids} data: \n{e}.', exc_info=True)
+        raise
 
-def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
+async def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
     """Query GPP for the programs in program_list. If not given then query GPP for all appropriate observations"""
     if program_list is None:
         # Let's make it empty so we can remove it in the where
@@ -149,16 +158,18 @@ class GppProgramProvider(ProgramProvider):
     """
 
     _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
+    _F2_FILTER_WAVELENGTHS = {'Y': 1.02, 'J': 1.25, 'H': 1.63, 'Ks': 2.16, 'K-blue': 2.06, 'K-red': 2.31,
+                              'JH': 1.34, 'HK': 1.9, 'Jlow': 1.12, 'K-long': 2.2}
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
-    _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS}
+    _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS, 'FLAMINGOS2': Site.GS}
 
     # Allowed instrument statuses
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
 
     # Translate instrument names to use the OCS Resources
-    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S'}
+    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2'}
 
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
@@ -305,6 +316,7 @@ class GppProgramProvider(ProgramProvider):
         'POINT_SIX': 0.6,
         'POINT_EIGHT': 0.8,
         'ONE_POINT_ZERO': 1.0,
+        'ONE_POINT_TWO': 1.2,
         'ONE_POINT_FIVE': 1.5,
         'TWO_POINT_ZERO': 2.0,
         'THREE_POINT_ZERO': 3.0,
@@ -371,11 +383,16 @@ class GppProgramProvider(ProgramProvider):
         # GNIRS = 'instrument:slitWidth'
         GMOSN = 'fpu'
         # GPI = 'instrument:observingMode'
-        # F2 = 'instrument:fpu'
+        F2 = 'fpu'
         GMOSS = 'fpu'
         # NIRI = 'instrument:mask'
         # NIFS = 'instrument:mask'
         CUSTOM = 'fpuCustomMask'
+
+    class _DISPKeys:
+        GMOSN = 'grating'
+        F2 = 'disperser'
+        GMOSS = 'grating'
 
     class _InstrumentKeys:
         NAME = 'instrument:name'
@@ -386,11 +403,22 @@ class GppProgramProvider(ProgramProvider):
     FPU_FOR_INSTRUMENT = {
         # 'GSAOI': _FPUKeys.GSAOI,
         # 'GPI': _FPUKeys.GPI,
-        # 'Flamingos2': _FPUKeys.F2,
+        'Flamingos2': _FPUKeys.F2,
         # 'NIFS': _FPUKeys.NIFS,
         # 'GNIRS': _FPUKeys.GNIRS,
         'GMOS-N': _FPUKeys.GMOSN,
         'GMOS-S': _FPUKeys.GMOSS,
+        # 'NIRI': _FPUKeys.NIRI
+    }
+
+    DISPERSER_FOR_INSTRUMENT = {
+        # 'GSAOI': _FPUKeys.GSAOI,
+        # 'GPI': _FPUKeys.GPI,
+        'Flamingos2': _DISPKeys.F2,
+        # 'NIFS': _FPUKeys.NIFS,
+        # 'GNIRS': _FPUKeys.GNIRS,
+        'GMOS-N': _DISPKeys.GMOSN,
+        'GMOS-S': _DISPKeys.GMOSS,
         # 'NIRI': _FPUKeys.NIRI
     }
 
@@ -723,7 +751,7 @@ class GppProgramProvider(ProgramProvider):
 
                 if instrument in ['GMOS-N', 'GMOS_NORTH'] and fpu == 'IFU Left Slit (blue)':
                     instrument = 'GRACES'
-
+                print(f'_parse_instrument: {instrument} {fpu}')
                 break
 
         return instrument
@@ -751,8 +779,8 @@ class GppProgramProvider(ProgramProvider):
         disperser = None
         if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
             disperser = instrument
-        elif GppProgramProvider._AtomKeys.DISPERSER in data.keys():
-            disperser = data[GppProgramProvider._AtomKeys.DISPERSER]
+        elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT:
+            disperser = data[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
 
         # if instrument == 'GNIRS':
         #     if (data[OcsProgramProvider._InstrumentKeys.ACQ_MIRROR] == 'in'
@@ -778,8 +806,12 @@ class GppProgramProvider(ProgramProvider):
         #     filt = find_filter(disperser[0], OcsProgramProvider._NIFS_FILTER_WAVELENGTHS)
 
         try:
-            wavelength = Wavelength(GppProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI' \
-                                        else float(data[GppProgramProvider._AtomKeys.WAVELENGTH]))
+            if instrument == 'GPI':
+                wavelength = Wavelength(GppProgramProvider._GPI_FILTER_WAVELENGTHS[filt])
+            elif instrument == 'Flamingos2':
+                wavelength = Wavelength(GppProgramProvider._F2_FILTER_WAVELENGTHS[filt])
+            else:
+                wavelength = Wavelength(float(data[GppProgramProvider._AtomKeys.WAVELENGTH]))
         except KeyError:
             wavelength = None
 
@@ -869,7 +901,12 @@ class GppProgramProvider(ProgramProvider):
         instrument = GppProgramProvider._gpp_inst_to_ocs[data['instrument']]
         mode = data['mode']
 
-        instrument_config = data.get('gmosNorthLongSlit') or data.get('gmosSouthLongSlit')
+        # print(f'\t\t parse_observing_mode: instrument={instrument}, mode={mode} {camel_case(mode)}')
+        # print(data)
+        
+        instrument_config = data.get(camel_case(mode))
+        # instrument_config = data.get('gmosNorthLongSlit') or data.get('gmosSouthLongSlit')
+        # print(f'\t\t instrument_config: {instrument_config}')
 
         fpu = None
         if instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
@@ -883,8 +920,10 @@ class GppProgramProvider(ProgramProvider):
         disperser = None
         if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
             disperser = instrument
-        elif GppProgramProvider._AtomKeys.DISPERSER in instrument_config.keys():
-            disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]
+        # elif GppProgramProvider._AtomKeys.DISPERSER in instrument_config.keys():
+        #     disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]
+        elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT:
+            disperser = instrument_config[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
 
         # Filter
         if GppProgramProvider._AtomKeys.FILTER in instrument_config.keys():
@@ -897,27 +936,33 @@ class GppProgramProvider(ProgramProvider):
             else:
                 filt = 'Unknown'
 
-        try:
-            wavelength = Wavelength(GppProgramProvider._GPI_FILTER_WAVELENGTHS[filt] if instrument == 'GPI' \
-                                        else float(instrument_config['centralWavelength']['nanometers']),)
-        except KeyError:
+        if instrument == 'GPI':
+            wavelength = Wavelength(GppProgramProvider._GPI_FILTER_WAVELENGTHS[filt])
+        elif instrument == 'Flamingos2':
+            wavelength = Wavelength(GppProgramProvider._F2_FILTER_WAVELENGTHS[filt])
+        elif 'centralWavelength' in instrument_config.keys():
+            wavelength = Wavelength(float(instrument_config['centralWavelength']['nanometers'] / 1000.))
+        else:
             wavelength = None
 
         if 'GMOS' in instrument:
         # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
         # sets, but we filter below to remove them.
         # ToDo: decide whether to use FPU names or barcodes for resource matching
-            fpu = self._sources.origin.resource.lookup_resource(
+            fpu_resources = self._sources.origin.resource.lookup_resource(
                 GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu
             )
-            disperser = self._sources.origin.resource.lookup_resource(
+            disperser_resources = self._sources.origin.resource.lookup_resource(
                 disperser.split('_')[0], resource_type=ResourceType.DISPERSER
             )
+        else:
+            fpu_resources = self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU)
+            disperser_resources = self._sources.origin.resource.lookup_resource(disperser, resource_type=ResourceType.DISPERSER)
 
         instrument_resource = self._sources.origin.resource.lookup_resource(
             instrument, resource_type=ResourceType.INSTRUMENT
         )
-        resources = frozenset([instrument_resource, disperser, fpu])
+        resources = frozenset([instrument_resource, disperser_resources, fpu_resources])
 
         return resources, wavelength, mode
 
@@ -940,6 +985,7 @@ class GppProgramProvider(ProgramProvider):
         # obs_id = f"{program_id.id}-{internal_id.replace('-', '')}"
         obs_id = data[GppProgramProvider._ObsKeys.ID]['label'] if GppProgramProvider._ObsKeys.ID in data.keys() \
             else f"{program_id.id}-{internal_id.replace('-', '')}"
+        # print(f'\t parse_observation {obs_id}')
 
         order = None
         obs_class = ObservationClass.NONE
@@ -986,7 +1032,9 @@ class GppProgramProvider(ProgramProvider):
 
             # Science band
             band_value = data.get(GppProgramProvider._ObsKeys.BAND)
-            band = Band[band_value] if band_value is not None else None
+            # band = Band[band_value] if band_value is not None else None
+            # Workaround until calibrations have a band assigned
+            band = Band[band_value] if band_value is not None else Band['BAND1']
 
             # Calibration role
             cal_role_value = data.get(GppProgramProvider._ObsKeys.CALROLE)
@@ -1006,6 +1054,10 @@ class GppProgramProvider(ProgramProvider):
 
             # observing mode (instrument config)
             resources, wavelength, mode = self.parse_observing_mode(data['observingMode'])
+            # print(f'\t\t resources: {resources}')
+            # print(f'\t\t wavelength: {wavelength}')
+            # print(f'\t\t mode: {mode}')
+            # print(f'\t\t calibration_role: {calibration_role}')
 
             # Atoms
             sequence = data[GppProgramProvider._ObsKeys.SEQUENCE]
@@ -1016,6 +1068,10 @@ class GppProgramProvider(ProgramProvider):
                 atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
             else:
                 raise ValueError(f'Observation {obs_id} has no sequence. Cannot process.')
+
+            # For now, set tellurics to partner cals for GM until this can be generalized, perhaps using the calibration role
+            if calibration_role == CalibrationRole.TELLURIC:
+                obs_class = ObservationClass.PARTNERCAL
 
             # Pre-imaging
             preimaging = False
@@ -1144,9 +1200,10 @@ class GppProgramProvider(ProgramProvider):
             delay_min = None
             delay_max = None
             group_option = AndOption.ANYORDER
-            number_to_observe = len(data['elements'])
+            # number_to_observe = len(data['elements'])
+            number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
             number_observed = 0
-            elements_list = data['elements']
+            elements_list = data[GppProgramProvider._GroupKeys.ELEMENTS]
             parent_id = GROUP_NONE_ID
             # parent_id = UniqueGroupID(ROOT_GROUP_ID.id)
             parent_index = 0
@@ -1156,13 +1213,23 @@ class GppProgramProvider(ProgramProvider):
             group_name = data[GppProgramProvider._GroupKeys.GROUP_NAME]
             group_delay_min = data.get(GppProgramProvider._GroupKeys.DELAY_MIN)
             group_delay_max = data[GppProgramProvider._GroupKeys.DELAY_MAX]
-            if group_delay_min:
-                delay_min = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MIN]["seconds"])
+            # print(group_id, group_name, group_delay_min, group_delay_max)
+            if group_delay_min or group_delay_max:
+                if group_delay_min:
+                    delay_min = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MIN]["seconds"])
+                else:
+                    delay_min = ZeroTime
                 if group_delay_max:
                     delay_max = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MAX]["seconds"])
                 else:
+                    # Set time for upper limit, maybe should be the duration of the program?
+                    delay_max = TimingWindow.INFINITE_DURATION
+                # If both delays are both 0, treat as not set, interpret as CONSEQ
+                if delay_min == ZeroTime and delay_max == ZeroTime:
+                    delay_min = None
                     delay_max = None
             else:
+                # Needed for OR groups
                 delay_min = None
                 delay_max = None
 
@@ -1180,15 +1247,21 @@ class GppProgramProvider(ProgramProvider):
             # OR group, delays are None, number_to_observe not None, set to NONE
             # AND cadence - delays not None, number_to_observe None, ordered should be forced to True
             # AND conseq - delays None,  number_to_observe None
-            if delay_max is not None:
+            # The baseline calibrations group is like a folder, treat as OR group to avoid giving it a score
+            if group_name == 'Calibrations' and system_group:
+                group_option = AndOption.NONE
+                delay_min = None
+                delay_max = None
+                # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+                # print(f"Calibrations to observe {number_to_observe}")
+            # Telluric groups must not be ordered, override for now using the group name
+            elif 'telluric' in group_name:
+                group_option = AndOption.CONSEC_ANYORDER
+                number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+            elif delay_min is not None:
                 group_option = AndOption.CUSTOM
                 # ordered = True
                 number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
-            # The baseline calibrations group is like a folder, treat as OR group to avoid giving it a score
-            elif group_name == 'Calibrations' and system_group:
-                group_option = AndOption.NONE
-                # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
-                # print(f"Calibrations to observe {number_to_observe}")
             else:
                 if (number_to_observe is not None and
                         number_to_observe < len(data[GppProgramProvider._GroupKeys.ELEMENTS])): # OR group
@@ -1277,19 +1350,21 @@ class GppProgramProvider(ProgramProvider):
             return None
 
         # Account for removed twilights or other unreadable observations
-        if group_name == 'Calibrations':
+        if group_name in ['Calibrations', ROOT_GROUP_ID.id]:
             number_to_observe = len(children)
 
         # Get previous/next groups in children
-        for idx, child in enumerate(children):
-            if group_id == ROOT_GROUP_ID:
-                child.next_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
-                child.previous_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
-            else:
-                child.previous_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
-                child.next_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
-                if group_option == AndOption.CUSTOM and child.previous_id == GROUP_NONE_ID and active != False:
-                    child.active = True
+        if group_option in [AndOption.CUSTOM, AndOption.CONSEC_ORDERED]:
+            for idx, child in enumerate(children):
+                # if group_id == ROOT_GROUP_ID:
+                #     child.next_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
+                #     child.previous_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
+                # else:
+                if group_id != ROOT_GROUP_ID:
+                    child.previous_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
+                    child.next_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
+                    if group_option == AndOption.CUSTOM and child.previous_id == GROUP_NONE_ID and active != False:
+                        child.active = True
 
         # Put all the observations in the one big group and return it.
         return Group(

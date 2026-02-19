@@ -1,13 +1,18 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import asyncio
+import time
 from dataclasses import dataclass
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
+from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
 
 import astropy.units as u
 import numpy as np
 
 from astropy.time import Time, TimeDelta
+from joblib import Parallel, delayed, parallel_config
 
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
@@ -28,12 +33,14 @@ from scheduler.services import logger_factory
 from scheduler.services.redis_client import RedisClient
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
-from scheduler.services.visibility.calculator import calculate_target_snapshot, visibility_calculator
-from scheduler.services.visibility.calculator import VisibilityCalculator, VisibilitySnapshot
+from scheduler.services.visibility.calculator import visibility_calculator
+from scheduler.services.visibility.calculator import VisibilitySnapshot, program_obs_vis, get_cores, safe_program_obs_vis, TargetVisibilityTable
 
 __all__ = [
     'Collector',
 ]
+
+from scheduler.time_accountant.time_accountant import TimeAccountant
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -74,8 +81,8 @@ class Collector(SchedulerComponent):
     Here, we just perform the necessary calculations, and are not concerned with the number of nights to be
     scheduled.
     """
-    start_vis_time: Time
-    end_vis_time: Time
+    start_vis_time: datetime
+    end_vis_time: datetime
     num_of_nights: int
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
@@ -85,6 +92,7 @@ class Collector(SchedulerComponent):
     time_slot_length: TimeDelta
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
+    defer_night_events: bool = False  # If True, skip night_events initialization in __post_init__
 
     # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
     _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
@@ -132,11 +140,11 @@ class Collector(SchedulerComponent):
         Initializes the internal data structures for the Collector and populates them.
         """
         # Check that the times are valid.
-        if not np.isscalar(self.start_vis_time.value):
-            msg = f'Illegal start time (must be scalar): {self.start_vis_time}.'
+        if not isinstance(self.start_vis_time, datetime):
+            msg = f'Illegal start time (must be datetime): {self.start_vis_time}.'
             raise ValueError(msg)
-        if not np.isscalar(self.end_vis_time.value):
-            msg = f'Illegal end time (must be scalar): {self.end_vis_time}.'
+        if not isinstance(self.end_vis_time, datetime):
+            msg = f'Illegal end time (must be datetime): {self.end_vis_time}.'
             raise ValueError(msg)
         if self.start_vis_time > self.end_vis_time:
             msg = f'Start time ({self.start_vis_time}) cannot occur later than end time ({self.end_vis_time}).'
@@ -145,25 +153,56 @@ class Collector(SchedulerComponent):
         # Set up the time grid for the period under consideration in calculations: this is an astropy Time
         # object from start_time to end_time inclusive, with one entry per day.
         # Note that the format is in jdate.
-        self.time_grid = Time(np.arange(self.start_vis_time.jd,
-                                        self.end_vis_time.jd + 1.0, (1.0 * u.day).value),
-                              format='jd')
+        self.time_grid = Time(np.arange(self.start_vis_time,
+                                        self.end_vis_time + timedelta(days=1.0),
+                                        timedelta(days=1.0)))
 
         # The number of nights for which we are performing calculations.
         self.num_nights_calculated = len(self.time_grid)
+        # print(f"Collector: time_grid start/end {self.time_grid[0]} {self.time_grid[-1]} {self.num_nights_calculated}")
 
         # TODO: This code can be greatly simplified. The night_events only have to be calculated once.
         # Create the night events, which contain the data for all given nights by site.
         # This may retrigger a calculation of the night events for one or more sites.
-        self.night_events = {
-            site: Collector._night_events_manager.get_night_events(self.time_grid,
-                                                                   self.night_start_time,
-                                                                   self.night_end_time,
-                                                                   self.time_slot_length,
-                                                                   site)
-            for site in self.sites
-        }
+        # Only initialize if not deferred (for async initialization later)
+        if not self.defer_night_events:
+            self.night_events = {
+                site: Collector._night_events_manager.get_night_events(self.time_grid,
+                                                                       self.night_start_time,
+                                                                       self.night_end_time,
+                                                                       self.time_slot_length,
+                                                                       site)
+                for site in self.sites
+            }
         Collector._resource_service = self.sources.origin.resource
+
+        self.time_accountant = TimeAccountant(
+            self.sites, list(map(lambda x: NightIndex(x), range(self.num_of_nights)))
+        )
+
+    async def async_init_night_events(self):
+        """
+        Initialize night_events asynchronously using asyncio.to_thread to avoid blocking.
+        This should be called after construction when defer_night_events=True.
+        """
+        if hasattr(self, 'night_events'):
+            _logger.warning("night_events already initialized, skipping async initialization")
+            return
+
+        # Initialize night_events dict
+        self.night_events = {}
+
+        # Initialize night events for each site asynchronously
+        for site in self.sites:
+            self.night_events[site] = await asyncio.to_thread(
+                Collector._night_events_manager.get_night_events,
+                self.time_grid,
+                self.night_start_time,
+                self.night_end_time,
+                self.time_slot_length,
+                site
+            )
+        _logger.info("Night events initialized asynchronously")
 
     def get_night_events(self, site: Site) -> NightEvents:
         return Collector._night_events_manager.get_night_events(self.time_grid,
@@ -246,81 +285,6 @@ class Collector(SchedulerComponent):
         target_name = target.name
         return Collector._target_info.get((target_name, obs_id), None)
 
-    @staticmethod
-    def _process_timing_windows(prog: Program, obs: Observation) -> List[Time]:
-        """
-        Given an Observation, convert the TimingWindow information in it to a simpler format
-        to verify by converting each TimingWindow representation to a collection of Time frames
-        based on the start, duration, repeat, and period.
-
-        If no timing windows are given, then create one large timing window for the entire program.
-
-        TODO: Look into simplifying to datetime instead of AstroPy Time.
-        TODO: We may want to store this information in an Observation for future use.
-        """
-        if not obs.constraints or len(obs.constraints.timing_windows) == 0:
-            # Create a timing window for the entirety of the program.
-            windows = [Time([prog.start, prog.end])]
-        else:
-            windows = []
-            for tw in obs.constraints.timing_windows:
-                # The start time is now already an astropy Time
-                begin = tw.start
-                duration = tw.duration.total_seconds() / 3600.0 * u.h
-                repeat = max(1, tw.repeat)
-                period = tw.period.total_seconds() / 3600.0 * u.h if tw.period is not None else 0.0 * u.h
-                windows.extend([Time([begin + i * period, begin + i * period + duration]) for i in range(repeat)])
-
-        return windows
-
-    def _calculate_target_info(self,
-                               obs: Observation,
-                               target: Target,
-                               tv: Dict[str, VisibilitySnapshot] = None) -> TargetInfoNightIndexMap:
-        """
-        For a given site, calculate the information for a target for all the nights in
-        the time grid and store this in the _target_information.
-
-        Some of this information may be repetitive as, e.g. the RA and dec of a target should not
-        depend on the site, so sites whose twilights overlap with have this information repeated.
-
-        Finally, this method can calculate the total amount of time that, for the observation,
-        the target is visible, and the visibility fraction for the target as a ratio of the amount of
-        time remaining for the observation to the total visibility time for the target from a night through
-        to the end of the period.
-        """
-        # Get the night events.
-        if obs.site not in self.night_events:
-            raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
-        night_events = self.night_events[obs.site]
-
-        target_vis = visibility_calculator.get_target_visibility(obs, self.time_grid, self.semesters, tv)
-
-        target_info: TargetInfoNightIndexMap = {}
-
-        for i in range(self.num_nights_calculated):
-            night_idx = NightIndex(i)
-            target_snapshot = calculate_target_snapshot(night_idx,
-                                                        obs,
-                                                        target,
-                                                        night_events,
-                                                        self.time_grid[night_idx],
-                                                        self.time_slot_length,
-                                                        for_vis_calc= False)
-            ts = target_vis[night_idx]
-
-            ti = TargetInfo(coord=target_snapshot.coord,
-                            alt=target_snapshot.alt,
-                            az=target_snapshot.az,
-                            hourangle=target_snapshot.hourangle,
-                            airmass=target_snapshot.airmass,
-                            visibility_slot_idx=ts.visibility_slot_idx,
-                            rem_visibility_frac=ts.rem_visibility_frac)
-
-            target_info[NightIndex(night_idx)] = ti
-        # Return all the target info for the base target in the Observation across the nights of interest.
-        return target_info
-
     def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         """
         Load the programs provided as JSON or GPP disctionaries into the Collector.
@@ -349,6 +313,11 @@ class Collector(SchedulerComponent):
         # Read in the programs.
         # Count the number of parse failures.
         bad_program_count = 0
+
+        # Night configurations
+        nc = {}
+        for site in self.sites:
+            nc[site] = self.night_configurations(site, np.arange(self.num_nights_calculated))
 
         for next_program in data:
             try:
@@ -408,59 +377,222 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             _logger.error(f'Could not parse {bad_program_count} programs.')
 
-        # TODO STEP 1: This is the code that needs parallelization.
         if not self.with_redis:
             vis_table = {}
 
-        for program_id, obs in parsed_observations:
-            # Check for a base target in the observation: if there is none, we cannot process.
-            # For ToOs, this may be the case.
-            base: Optional[Target] = obs.base_target()
-            if base is None:
-                _logger.error(f'Could not find base target for {obs.id.id}.')
-                continue
-
-            program = Collector.get_program(program_id)
-            if program is None:
-                raise RuntimeError(f'Could not find program {program_id.id} for observation {obs.id.id}.')
-
-            # Record the observation and target for this obs id.
-            Collector._observations[obs.id] = obs, base
-
-            # Compute the timing window expansion for the observation.
-            # Then, calculate the target information, which performs the visibility calculations.
-            if not self.with_redis:
-                tw = self._process_timing_windows(program, obs)
-                if obs.site not in self.night_events:
-                    raise ValueError(f'Requested obs {obs.id.id} target info for site {obs.site}, which is not included.')
-                night_events = self.night_events[obs.site]
-
-                # Get the night configurations (for resources)
-                nc = self.night_configurations(obs.site, np.arange(self.num_nights_calculated))
-                vis_table[obs.id.id] = VisibilityCalculator.calculate_visibility(obs,
-                                                                                base,
-                                                                                program,
-                                                                                night_events,
-                                                                                nc,
-                                                                                self.time_grid,
-                                                                                tw,
-                                                                                self.time_slot_length)
-
-                ti = self._calculate_target_info(obs, base, vis_table[obs.id.id])
+        # print(f'Collector: start {self.start_vis_time} {self.end_vis_time} {self.num_of_nights} {self.semesters}')
+        sem, = self.semesters
+        if config.collector.parallel_viscalc:
+            # Get information about CPU cores, to avoid overloading
+            core_info = get_cores()
+            if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
+                n_jobs = core_info['performance']
             else:
-                ti = self._calculate_target_info(obs, base)
-            Collector._target_info[base.name, obs.id] = ti
+                n_jobs = core_info['cores']
+        else:
+            n_jobs = 1
+
+        # parallel = Parallel(n_jobs=n_jobs, backend='loky')
+        parallel = Parallel(n_jobs=n_jobs, backend='threading')
+        # with parallel_config(backend="loky", inner_max_num_threads=1):
+        result = parallel(delayed(program_obs_vis)(program_id, obs, Collector.get_program(program_id), self.time_grid,
+                                                   self.time_slot_length, self.semesters, nc, self.night_events,
+                                                   None if not isinstance(visibility_calculator.vis_table, TargetVisibilityTable)  else
+                                                   VisibilitySnapshot.from_dict_days(visibility_calculator.vis_table.get_obs(sem, obs.id)))
+                          for program_id, obs in parsed_observations)
+        targ_info, base_targets, vis_tables = zip(*result)
+
+        ii = 0
+        for program_id, obs in parsed_observations:
+            # Read target information
+            ti = targ_info[ii]
+            if not self.with_redis:
+                # Record the observation and target for this obs id.
+                vis_table[obs.id.id] = vis_tables[ii]
+
+            Collector._observations[obs.id] = obs, base_targets[ii]
+            Collector._target_info[base_targets[ii].name, obs.id] = ti
+            ii += 1
 
         if not self.with_redis:
             sem, = self.semesters
             visibility_calculator.vis_table = {sem: RedisClient.transform_to_json(vis_table)}
-        
+
         _logger.info(f'Collected {len(Collector._observations)} observations: {[ o.id for o in Collector._observations.keys()]}.')
 
-        
-    def load_target_info_for_too(self, obs: Observation, target: Target) -> None:
-        ti = self._calculate_target_info(obs, target)
-        Collector._target_info[target.name, obs.id] = ti
+    @staticmethod
+    def calculate_parallel_visibility(
+            parsed_observations,
+            time_grid,
+            time_slot_length,
+            semesters,
+            nc,
+            night_events,
+            sem,
+            n_jobs: int = -1,
+    ):
+        obs_list = list(parsed_observations)
+
+        if not obs_list:
+            _logger.warning("No observations to process")
+            return []
+
+        start_time = time.time()
+        try:
+            parallel = Parallel(
+                n_jobs=n_jobs,
+                backend='threading',
+                verbose=10,
+                timeout=300
+            )
+
+            results = parallel(
+                delayed(safe_program_obs_vis)(
+                    program_id,
+                    obs,
+                    Collector.get_program(program_id),
+                    time_grid,
+                    time_slot_length,
+                    semesters,
+                    nc,
+                    night_events,
+                    None
+                )
+                for program_id, obs in obs_list
+            )
+            elapsed = time.time() - start_time
+
+            valid_results = [r for r in results if r is not None]
+            failed_count = len(results) - len(valid_results)
+
+            _logger.info(
+                f"Parallel processing complete: "
+                f"{len(valid_results)}/{len(results)} successful, "
+                f"{failed_count} failed, "
+                f"took {elapsed:.2f}s"
+            )
+            return results
+
+        except Exception as e:
+            _logger.error(f"Parallel processing failed catastrophically: {e}", exc_info=True)
+
+    async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
+        _logger.info("Starting async_load_programs...")
+
+        if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
+            raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
+        program_provider = program_provider_class(self.obs_classes, self.sources)
+        _logger.debug("Program provider created")
+
+        # Purge the old programs and observations.
+        Collector._programs = {}
+        Collector._observations = {}
+        Collector._observations_per_program = {}
+        Collector._target_info = {}
+
+        # Keep a list of the observations for parallel processing.
+        parsed_observations: List[Tuple[ProgramID, Observation]] = []
+
+        # Read in the programs.
+        # Count the number of parse failures.
+        bad_program_count = 0
+
+        # Night configurations - run in thread to avoid blocking
+        _logger.debug("Loading night configurations...")
+        nc = {}
+        for site in self.sites:
+            nc[site] = await asyncio.to_thread(
+                self.night_configurations,
+                site,
+                np.arange(self.num_nights_calculated)
+            )
+
+        for next_program in data:
+            try:
+                if len(next_program.keys()) == 1:
+                    next_data = next(iter(next_program.values()))
+                else:
+                    next_data = next_program
+
+                program = program_provider.parse_program(next_data)
+                if program is None:
+                    continue
+
+                if program.semester is None or program.semester not in self.semesters:
+                    _logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                    continue
+
+                if program.program_awarded() == ZeroTime:
+                    _logger.debug(f'Program {program.id} has awarded time of zero (skipping).')
+                    continue
+
+                if program.id in Collector._programs.keys():
+                    _logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
+
+                Collector._programs[program.id] = program
+
+                site_supported_obs = [obs for obs in program.observations() if obs.site in self.sites]
+                if site_supported_obs:
+                    Collector._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
+                    parsed_observations.extend((program.id, obs) for obs in site_supported_obs)
+
+            except Exception as e:
+                bad_program_count += 1
+                _logger.warning(f'Could not parse program: {e}')
+
+        if bad_program_count:
+            _logger.error(f'Could not parse {bad_program_count} programs.')
+
+
+        vis_table = {}
+        sem, = self.semesters
+
+        _logger.info("Starting parallel processing in background thread...")
+
+        core_info = get_cores()
+        if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
+            n_jobs = core_info['performance']
+        else:
+            n_jobs = core_info['cores']
+        print([o.id.id for p,o in parsed_observations])
+        # Run the blocking parallel code in a thread
+        result = await asyncio.to_thread(
+            self.calculate_parallel_visibility,
+            parsed_observations,
+            self.time_grid,
+            self.time_slot_length,
+            self.semesters,
+            nc,
+            self.night_events,
+            sem,
+            n_jobs
+        )
+
+        targ_info, base_targets, vis_tables = zip(*result)
+        # print(targ_info, base_targets, vis_tables)
+
+        ii = 0
+        for program_id, obs in parsed_observations:
+            # Read target information
+            ti = targ_info[ii]
+
+            # Record the observation and target for this obs id.
+            vis_table[obs.id.id] = vis_tables[ii]
+
+            Collector._observations[obs.id] = obs, base_targets[ii]
+            Collector._target_info[base_targets[ii].name, obs.id] = ti
+            ii += 1
+
+
+        visibility_calculator.vis_table = {sem: RedisClient.transform_to_json(vis_table)}
+
+        _logger.info(
+            f'Collected {len(Collector._observations)} observations: {[o.id for o in Collector._observations.keys()]}.'
+        )
+
+    # def load_target_info_for_too(self, obs: Observation, target: Target) -> None:
+    #     ti = self._calculate_target_info(obs, target)
+    #     Collector._target_info[target.name, obs.id] = ti
 
     def night_configurations(self,
                              site: Site,
@@ -516,9 +648,11 @@ class Collector(SchedulerComponent):
             if plan.site not in sites:
                 continue
 
+            self.time_accountant.set_current(plan.site, plans.night_idx)
             # Determine the end timeslot for the site if one is specified.
             # We set to None is the whole night is to be done.
             end_timeslot_bound = end_timeslot_bounds.get(plan.site) if end_timeslot_bounds is not None else None
+            # print(f'time_accounting: end_timeslot_bounds {end_timeslot_bounds}, end_timeslot_bound {end_timeslot_bound}')
 
             grpvisits = []
             # Restore this if we actually need ii, but seems it was just being used to check that grpvisits nonempty.
@@ -526,6 +660,7 @@ class Collector(SchedulerComponent):
             for visit in sorted(plan.visits, key=lambda v: v.start_time_slot):
                 obs = self.get_observation(visit.obs_id)
                 group = self._get_group(obs)
+                # print(f'time_accounting: {obs.id.id} {group.id.id} {group.unique_id.id}')
                 if grpvisits and group.is_scheduling_group() and group == grpvisits[-1].group:
                     grpvisits[-1].visits.append(visit)
                 else:
@@ -534,11 +669,12 @@ class Collector(SchedulerComponent):
             for grpvisit in grpvisits:
                 # Determine if group should be charged
                 if grpvisit.group.is_scheduling_group():
-                    # For now, only change aa scheduling group if it can be done fully
+                    # For now, only charge a scheduling group if it can be done fully
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.end_time_slot()
                 else:
                     observation = self.get_observation(grpvisit.visits[0].obs_id)
                     n_slots_acq = time2slots(time_slot_length, observation.acq_overhead)
+                    # This should probably be the first unobserved atom, not the first in the sequence.
                     n_slots_atom0 = time2slots(time_slot_length, observation.sequence[0].exec_time)
                     slot_atom0_end = grpvisit.visits[0].start_time_slot + n_slots_atom0 - 1 + n_slots_acq
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > slot_atom0_end
@@ -574,6 +710,7 @@ class Collector(SchedulerComponent):
                         if visit.atom_end_idx == len(obs_seq) - 1:
                             _logger.debug(f'Marking observation complete: {observation.id.id}')
                             observation.status = ObservationStatus.OBSERVED
+                            grpvisit.group.number_observed += 1
                             if observation in part_obs:
                                 part_obs.remove(observation)
                         else:
@@ -597,30 +734,42 @@ class Collector(SchedulerComponent):
                             slot_atom_start = slot_atom_end - slot_atom_length
 
                         if slot_atom_end < end_timeslot_charge:
+
+                            atom_record = self.time_accountant.get_record(observation, obs_seq[atom_idx])
                             if charge_group:
                                 # Charge to program or partner
                                 obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
                                 obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
 
+                                atom_record.program_used = atom_record.prog_time
+                                atom_record.partner_used = atom_record.part_time
+
                                 # Charge acquisition to the first atom.
                                 if atom_idx == visit.atom_start_idx:
                                     if observation.obs_class == ObservationClass.PARTNERCAL:
                                         obs_seq[atom_idx].partner_used += observation.acq_overhead
+                                        atom_record.partner_used += observation.acq_overhead
                                     elif (observation.obs_class == ObservationClass.SCIENCE or
                                           observation.obs_class == ObservationClass.PROGCAL):
                                         obs_seq[atom_idx].program_used += observation.acq_overhead
+                                        atom_record.program_used += observation.acq_overhead
 
                                 obs_seq[atom_idx].observed = True
                                 obs_seq[atom_idx].qa_state = QAState.PASS
+
+                                atom_record.observed = True
 
                             elif not_charged:
                                 # charge to not_charged
                                 not_charged_time = (end_timeslot_charge -
                                                     slot_atom_start + 1) * self.time_slot_length.to_datetime()
                                 obs_seq[atom_idx].not_charged += not_charged_time
+                                atom_record.not_charged += not_charged_time
 
                 # If charging the groups, set remaining partner cals to INACTIVE
                 if charge_group:
                     for obs in part_obs:
                         _logger.debug(f'\tTime_accounting setting {obs.unique_id.id} to INACTIVE.')
                         obs.status = ObservationStatus.INACTIVE
+
+                # Evaluate tree here?

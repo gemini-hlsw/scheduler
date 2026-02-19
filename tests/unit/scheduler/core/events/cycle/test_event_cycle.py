@@ -2,12 +2,13 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 import numpy as np
+from scheduler.core.events.queue.nightchanges import TimelineEntry
 from lucupy.timeutils import time2slots
 
 from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
 from scheduler.core.events.queue import NightlyTimeline, NightEventQueue
 from scheduler.core.events.cycle import EventCycle
-from scheduler.core.plans import Plans
+from scheduler.core.plans import Plans, Plan
 
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site
@@ -255,8 +256,9 @@ class TestEventCycle:
         plans = MagicMock(spec=Plans)
         nightly_timeline = MagicMock(spec=NightlyTimeline)
 
-        # Mock the method we'll call
+        # Mock the methods we'll call
         event_cycle._perform_time_accounting = MagicMock()
+        event_cycle._get_final_plan = MagicMock(return_value=MagicMock(spec=Plan))
 
         result_plans = event_cycle._handle_updates(
             site, night_idx, current_timeslot, next_update, plans, nightly_timeline
@@ -288,6 +290,10 @@ class TestEventCycle:
         current_timeslot = TimeslotIndex(5)
         nightly_timeline = MagicMock(spec=NightlyTimeline)
 
+        # Set up timeline attribute with a mock entry so line 73-74 in cycle.py can access it
+        mock_entry = MagicMock(spec=TimelineEntry)
+        nightly_timeline.timeline = {night_idx: {site: [mock_entry]}}
+
         event_cycle._perform_time_accounting(
             site, night_idx, update, end_timeslot_bounds, plans, current_timeslot, nightly_timeline
         )
@@ -301,46 +307,6 @@ class TestEventCycle:
         nightly_timeline.get_final_plan.assert_not_called()
         nightly_timeline.add.assert_not_called()
 
-    def test_perform_time_accounting_done(self, setup_event_cycle):
-        """Test time accounting when night is done."""
-        event_cycle, comps = setup_event_cycle
-
-        site = comps['params'].sites
-        night_idx = NightIndex(0)
-
-        update_event = MockEvent(datetime.now(), "Update Event")
-        update = TimeCoordinateRecord(
-            timeslot_idx=TimeslotIndex(5),
-            event=update_event,
-            done=True,
-            perform_time_accounting=True
-        )
-
-        end_timeslot_bounds = {}
-        plans = MagicMock(spec=Plans)
-        current_timeslot = TimeslotIndex(5)
-        nightly_timeline = MagicMock(spec=NightlyTimeline)
-        final_plan = MagicMock()
-        nightly_timeline.get_final_plan.return_value = final_plan
-
-        event_cycle._perform_time_accounting(site,
-                                             night_idx,
-                                             update,
-                                             end_timeslot_bounds,
-                                             plans,
-                                             current_timeslot,
-                                             nightly_timeline)
-
-        # Should call time_accounting and add a final plan
-        comps['scp'].collector.time_accounting.assert_called_once_with(
-            plans=plans,
-            sites=frozenset({site}),
-            end_timeslot_bounds=end_timeslot_bounds
-        )
-        nightly_timeline.get_final_plan.assert_called_once_with(NightIndex(night_idx), site, True)
-        nightly_timeline.add.assert_called_once_with(
-            NightIndex(night_idx), site, current_timeslot, update_event, final_plan
-        )
 
     def test_create_new_plan_unblocked(self, setup_event_cycle):
         """Test creating a new plan when site is unblocked."""

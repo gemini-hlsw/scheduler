@@ -4,6 +4,10 @@
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site, ObservationStatus, Observation, QAState, TooType
 from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable
+import os
+from glob import glob
+import tarfile
+from datetime import datetime
 
 from lucupy.types import ZeroTime
 
@@ -14,6 +18,8 @@ from scheduler.core.sources.sources import Sources
 from scheduler.core.programprovider.ocs import ocs_program_data, OcsProgramProvider
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.events.queue import EventQueue
+
+from definitions import ROOT_DIR
 
 
 __all__ = [
@@ -69,7 +75,7 @@ class ValidationBuilder(SchedulerBuilder):
                 o.status = ObservationStatus.READY
 
             if o.too_type is not None:
-                if o.too_type is TooType.RAPID:
+                if o.too_type in [TooType.RAPID, TooType.STANDARD]:
                     o.status = ObservationStatus.ON_HOLD
 
     @staticmethod
@@ -83,9 +89,36 @@ class ValidationBuilder(SchedulerBuilder):
             ValidationBuilder._obs_statuses_to_ready
         )
 
+    @staticmethod
+    def check_ephemerides():
+        """Check that the nonsidereal ephemerides files exist, Untar if needed"""
+
+        ephemeris_path = os.path.join(ROOT_DIR, 'scheduler', 'services' , 'horizons' , 'data')
+        ephemeris_tarfile = os.path.join(ephemeris_path, 'ephemerides.tar.bz2')
+        # print(ephemeris_tarfile)
+
+        if tarfile.is_tarfile(ephemeris_tarfile):
+            # Get number of members of tar file
+            with tarfile.open(ephemeris_tarfile) as f:
+                tarlist = f.getnames()
+            # Don't count hidden files
+            n_mem = 0
+            for name in tarlist:
+                if name[0] != '.':
+                    n_mem += 1
+
+            # Check for eph files
+            files = glob(os.path.join(ephemeris_path, '*.eph'))
+            # print(f'{n_mem} tar members, {len(files)} eph found')
+            if len(files) < n_mem:
+                # Untar if they aren't all there
+                # print(f'Untaring ephemerides')
+                with tarfile.open(ephemeris_tarfile) as f:
+                    f.extractall(path=ephemeris_path)
+
     def build_collector(self,
-                        start: Time,
-                        end: Time,
+                        start: datetime,
+                        end: datetime,
                         num_of_nights: int,
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
@@ -94,6 +127,7 @@ class ValidationBuilder(SchedulerBuilder):
                         night_end_time: Time | None = None,
                         program_list: Optional[bytes] = None) -> Collector:
 
+        ValidationBuilder.check_ephemerides()
         collector = super().build_collector(start,
                                             end,
                                             num_of_nights,
@@ -107,7 +141,7 @@ class ValidationBuilder(SchedulerBuilder):
         return collector
 
     def _setup_event_queue(self,
-                           start: Time,
+                           start: datetime,
                            num_nights_to_schedule: int,
                            sites: FrozenSet[Site]) -> None:
         """

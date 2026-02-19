@@ -51,6 +51,15 @@ class VisibilitySnapshot:
             }
         }
 
+    @staticmethod
+    def from_dict_days(ti_dict: Dict) -> Dict[str, 'VisibilitySnapshot']:
+        """Create a target visibility dictionary by looping over days"""
+        tv = None
+        if ti_dict is not None:
+            tv = {}
+            for day in ti_dict.keys():
+                tv[day] = VisibilitySnapshot.from_dict(ti_dict[day])
+        return tv
 
 @final
 @immutable

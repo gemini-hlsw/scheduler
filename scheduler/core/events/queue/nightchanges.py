@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import final, ClassVar, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from lucupy.minimodel import TimeslotIndex, NightIndex, Site
+from lucupy.minimodel import TimeslotIndex, NightIndex, Site, ObservationID
 from pandas.io.stata import excessive_string_length_error
 
 from scheduler.core.events.queue import Event, InterruptionResolutionEvent, FaultResolutionEvent, \
@@ -21,15 +21,14 @@ __all__ = [
 ]
 
 
-@final
-@dataclass(frozen=True)
+@dataclass
 class TimelineEntry:
     start_time_slot: TimeslotIndex
     event: Event
     plan_generated: Optional[Plan]
+    accounted_observations: Optional[List[ObservationID]]
 
 
-@final
 @dataclass
 class NightlyTimeline:
     """
@@ -44,10 +43,11 @@ class NightlyTimeline:
             site: Site,
             time_slot: TimeslotIndex,
             event: Event,
-            plan_generated: Optional[Plan]) -> None:
-        entry = TimelineEntry(time_slot,
-                              event,
-                              plan_generated)
+            plan_generated: Optional[Plan],
+            accounted_observations: List[ObservationID] = []) -> None:
+        entry = TimelineEntry(
+            time_slot, event, plan_generated, accounted_observations
+        )
         self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
 
     def get_final_plan(self,
@@ -122,7 +122,8 @@ class NightlyTimeline:
         return p
 
     def calculate_time_losses(self, night_idx: NightIndex, site: Site) -> None:
-        """Calculates the time lost by different types of events for the night.
+        """
+        Calculates the time lost by different types of events for the night.
 
           Args:
           night_idx (NightIdx): Night index of the plan.
@@ -164,27 +165,28 @@ class NightlyTimeline:
         self.time_losses[night_idx][site]["weather"] = weather
         self.time_losses[night_idx][site]["fault"] = fault
 
-    def display(self, output='stdout') -> None:
+    def display(self, output='stdout', night_idx_sel=None) -> None:
         def rnd_min(dt: datetime) -> datetime:
             return dt + timedelta(minutes=1 - (dt.minute % 1))
 
         sys.stderr.flush()
         f = sys.stdout if output == 'stdout' else open(output, 'w')
         for night_idx, entries_by_site in self.timeline.items():
-            for site, entries in sorted(entries_by_site.items(), key=lambda x: x[0].name):
-                print(f'\n\n+++++ NIGHT {night_idx + 1}, SITE: {site.name} +++++', file=f)
-                for entry in entries:
-                    time = rnd_min(entry.event.time).strftime(self._datetime_formatter)
-                    print(f'\t+++++ Triggered by event: {entry.event.description} at {time} '
-                          f'(time slot {entry.start_time_slot}) at site {site.name}', file=f)
-                    if entry.plan_generated is not None:
-                        for visit in entry.plan_generated.visits:
-                            visit_time = rnd_min(visit.start_time).strftime(self._datetime_formatter)
-                            print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
-                                  f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}'
-                                  f' {visit.start_time_slot+visit.time_slots:4d}', file=f)
-                    print('\t+++++ END EVENT +++++', file=f)
-            print('', file=f)
+            if night_idx_sel is None or night_idx == night_idx_sel:
+                for site, entries in sorted(entries_by_site.items(), key=lambda x: x[0].name):
+                    print(f'\n\n+++++ NIGHT {night_idx + 1}, SITE: {site.name} +++++', file=f)
+                    for entry in entries:
+                        time = rnd_min(entry.event.time).strftime(self._datetime_formatter)
+                        print(f'\t+++++ Triggered by event: {entry.event.description} at {time} '
+                              f'(time slot {entry.start_time_slot}) at site {site.name}', file=f)
+                        if entry.plan_generated is not None:
+                            for visit in entry.plan_generated.visits:
+                                visit_time = rnd_min(visit.start_time).strftime(self._datetime_formatter)
+                                print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
+                                      f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}'
+                                      f' {visit.start_time_slot+visit.time_slots:4d}', file=f)
+                        print('\t+++++ END EVENT +++++', file=f)
+                print('', file=f)
         if f != sys.stdout:
             f.close()
         else:
