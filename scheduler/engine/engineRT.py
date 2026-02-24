@@ -20,6 +20,7 @@ from scheduler.shared_queue import plan_response_queue
 from scheduler.clients.scheduler_queue_client import SchedulerQueue, SchedulerEvent
 from scheduler.events import to_timeslot_idx
 from scheduler.graphql_mid.types import SPlans, NewPlansRT
+from scheduler.night_monitor.event_sources import WeatherEventSource
 
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site
 from astropy.coordinates import Angle
@@ -45,8 +46,7 @@ class EngineRT:
         params: SchedulerParameters,
         scheduler_queue: SchedulerQueue,
         process_id: str,
-        night_start_time: Time | None = None,
-        night_end_time: Time | None = None
+        weather_source: WeatherEventSource
     ):
         """
         Initializes the EngineRT with the given parameters.
@@ -63,8 +63,11 @@ class EngineRT:
         self.scheduler_queue = scheduler_queue
         self.scp = None
         self.process_id = process_id
+        self.weather_source = weather_source
         self.sources = Sources()
         self.start_time = time()
+
+    def set_night_times(self, night_start_time: Time, night_end_time: Time):
         self.night_start_time = night_start_time
         self.night_end_time = night_end_time
 
@@ -103,18 +106,15 @@ class EngineRT:
         self.scp = SCP(collector, selector, optimizer, ranker)
         _logger.info("SCP successfully built.")
 
-    def init_variant(self, initial_state) -> None:
+    async def init_variant(self) -> None:
         """
         Initialize site variants with default values.
         If a new variant is presented via event, set to those.
-
-        Args:
-            new_variant (VariantSnapshot | None): Optional new variant snapshot for weather changes.
-
         """
 
         _logger.info("Updating initial variants...")
-        for site_state in initial_state:
+        current_state = await self.weather_source.get_current_state()
+        for site_state in current_state:
             initial_variant = VariantSnapshot(iq=ImageQuality(site_state["imageQuality"]),
                                           cc=CloudCover(site_state["cloudCover"]),
                                           wind_dir=Angle(site_state["windDirection"], unit=u.deg),
@@ -122,7 +122,6 @@ class EngineRT:
 
             _logger.info(f"Initial variant for site {site_state['site']} is {initial_variant}")
             self.scp.selector.update_site_variant(Site[site_state["site"]], initial_variant)
-
         _logger.info("Initial weather variants successfully updated.")
 
     async def compute_event_plan(self, event: SchedulerEvent):

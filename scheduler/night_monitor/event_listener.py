@@ -45,13 +45,6 @@ class EventListener:
         ]
         self._shutdown_event = shutdown_event
 
-    async def get_initial_state(self):
-        # Retrieve initial states from weather and resource
-        initial_resource = await self._sources[0].get_initial_state()
-        initial_weather = await self._sources[1].get_initial_state()
-        return (initial_resource, initial_weather)
-
-
     @stamina.retry(
         on=RETRYABLE_EXCEPTIONS,
         wait_initial=1.0,
@@ -88,8 +81,6 @@ class EventListener:
 
         except asyncio.CancelledError:
             raise
-
-
 
     async def listen(self):
        """

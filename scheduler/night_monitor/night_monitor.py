@@ -49,9 +49,12 @@ class NightMonitor:
         self._listener_task: asyncio.Task | None = None
         self._consumer_task: asyncio.Task | None = None
         self._night_tracker_task: asyncio.Task | None = None
-    
-    async def get_initial_state(self):
-        return await self.listener.get_initial_state()
+
+    def get_weather_source(self):
+        """
+        Returns the source for the Night Monitor.
+        """
+        return self.listener._sources[1]
 
     async def start(self):
         """

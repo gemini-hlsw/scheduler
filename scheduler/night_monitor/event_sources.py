@@ -33,7 +33,7 @@ class ResourceEventSource(EventSource):
     def __init__(self, client):
         super().__init__(client, EventSourceType.RESOURCE)
 
-    async def get_initial_state(self) -> any:
+    def get_current_state(self) -> Any:
         return
 
     def subscriptions(self) -> List[Tuple[str ,callable]]:
@@ -86,7 +86,7 @@ class WeatherEventSource(EventSource):
         self.weather_client = Client(transport=self.transport)
 
 
-    async def get_initial_state(self) -> Any:
+    async def get_current_state(self) -> Any:
         result = await self.weather_client.execute_async(self.query)
         return result['weather']
 

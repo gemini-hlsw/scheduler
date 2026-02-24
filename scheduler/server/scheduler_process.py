@@ -84,23 +84,20 @@ class SchedulerProcess:
         night_index = 0
         current_night = self.params.start + timedelta(days=night_index)
         # Initialize the night monitor
-        night_monitor = NightMonitor(current_night, self.params.sites, self.scheduler_queue)
-
-        # Get initial states
-        (initial_resource, initial_weather) = await night_monitor.get_initial_state()
+        self.night_monitor = NightMonitor(current_night, self.params.sites, self.scheduler_queue)
 
         # Start night monitor
-        await night_monitor.start()
+        await self.night_monitor.start()
         _logger.info("Night monitor started.")
 
+        # Get the weather source gql client
+        weather_source = self.night_monitor.get_weather_source()
+
         # Initialize Real Time Engine
-        engine = EngineRT(self.params, self.scheduler_queue, self.process_id)
-        await engine.build()
+        self.engine = EngineRT(self.params, self.scheduler_queue, self.process_id, weather_source=weather_source)
 
         # Initialize the engine variants
-        engine.init_variant(initial_weather)
-
-        self._engine_task = asyncio.create_task(engine.run())
+        self._engine_task = asyncio.create_task(self.engine.run())
         _logger.info("Engine started.")
 
         self.running_event.set()
@@ -122,17 +119,7 @@ class SchedulerProcess:
     async def update_params(self, params: SchedulerParameters, night_start: Time, night_end: Time):
 
         self.params = params
-        # rebuild engine
-        self._engine_task.cancel()
-        self._engine_task = None
-        self.engine = EngineRT(
-            self.params,
-            self.scheduler_queue,
-            self.process_id,
-            night_start_time=night_start,
-            night_end_time=night_end,
-        )
-        # await self.engine.build()
-        # This shouldnt be needed if we are getting the initial value from the weather service
-        # self.engine.init_variant()
+        self.engine.set_night_times(night_start, night_end)
+        await self.engine.build()
+        await self.engine.init_variant()
         self._engine_task = asyncio.create_task(self.engine.run())
