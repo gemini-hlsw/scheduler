@@ -1,8 +1,13 @@
 # Copyright (c) 2016-2025 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import List, Tuple
+from typing import Any, List, Tuple
 from enum import Enum
+
+# Temporary connection to weather service for tests purposes
+from gql import Client, gql
+from gql.transport.aiohttp_websockets import AIOHTTPWebsocketsTransport
+from gql.transport.aiohttp import AIOHTTPTransport
 
 __all__ = [
     "EventSourceType",
@@ -28,15 +33,13 @@ class ResourceEventSource(EventSource):
     def __init__(self, client):
         super().__init__(client, EventSourceType.RESOURCE)
 
+    async def get_initial_state(self) -> any:
+        return
+
     def subscriptions(self) -> List[Tuple[str ,callable]]:
         return[
             (ResourceEventSource.RESOURCE_EDIT, lambda x: self._client.subscribe(ResourceEventSource.RESOURCE_EDIT), None)
         ]
-
-# Temporary connection to weather service for tests purposes
-from gql import Client, gql
-from gql.transport.aiohttp_websockets import AIOHTTPWebsocketsTransport
-from typing import Any
 
 class WeatherEventSource(EventSource):
 
@@ -44,11 +47,14 @@ class WeatherEventSource(EventSource):
 
     def __init__(self, client):
         super().__init__(client, EventSourceType.WEATHER)
-        self.transport = AIOHTTPWebsocketsTransport(
+        self.ws_transport = AIOHTTPWebsocketsTransport(
             url="wss://weather-graphql-ec26c2063b75.herokuapp.com/"
         )
+        self.transport = AIOHTTPTransport(
+            url="https://weather-graphql-ec26c2063b75.herokuapp.com/"
+        )
 
-        self.query = gql(
+        self.subscription = gql(
             """
             subscription weatherUpdates {
                 weatherUpdates {
@@ -62,13 +68,33 @@ class WeatherEventSource(EventSource):
             """
         )
 
+        self.query = gql(
+            """
+            query Weather {
+                weather {
+                    site
+                    imageQuality
+                    cloudCover
+                    windDirection
+                    windSpeed
+                }
+            }
+        """
+        )
+
+        self.ws_weather_client = Client(transport=self.ws_transport)
         self.weather_client = Client(transport=self.transport)
+
+
+    async def get_initial_state(self) -> Any:
+        result = await self.weather_client.execute_async(self.query)
+        return result['weather']
 
     def subscriptions(self) -> List[Tuple[str, callable, Any]]:
         return [
             (WeatherEventSource.WEATHER_CHANGE,
-             lambda x: x.subscribe(self.query),
-             self.weather_client)
+             lambda x: x.subscribe(self.subscription),
+             self.ws_weather_client)
         ]
 
 class ODBEventSource(EventSource):

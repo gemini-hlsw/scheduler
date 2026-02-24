@@ -85,13 +85,21 @@ class SchedulerProcess:
         current_night = self.params.start + timedelta(days=night_index)
         # Initialize the night monitor
         night_monitor = NightMonitor(current_night, self.params.sites, self.scheduler_queue)
+
+        # Get initial states
+        (initial_resource, initial_weather) = await night_monitor.get_initial_state()
+
+        # Start night monitor
         await night_monitor.start()
         _logger.info("Night monitor started.")
 
         # Initialize Real Time Engine
         engine = EngineRT(self.params, self.scheduler_queue, self.process_id)
-        # await engine.build()
-        # engine.init_variant()
+        await engine.build()
+
+        # Initialize the engine variants
+        engine.init_variant(initial_weather)
+
         self._engine_task = asyncio.create_task(engine.run())
         _logger.info("Engine started.")
 
@@ -124,6 +132,7 @@ class SchedulerProcess:
             night_start_time=night_start,
             night_end_time=night_end,
         )
-        await self.engine.build()
-        self.engine.init_variant()
+        # await self.engine.build()
+        # This shouldnt be needed if we are getting the initial value from the weather service
+        # self.engine.init_variant()
         self._engine_task = asyncio.create_task(self.engine.run())
