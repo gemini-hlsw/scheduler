@@ -84,46 +84,20 @@ class SchedulerProcess:
         night_index = 0
         current_night = self.params.start + timedelta(days=night_index)
         # Initialize the night monitor
-        night_monitor = NightMonitor(current_night, self.params.sites, self.scheduler_queue)
-        await night_monitor.start()
+        self.night_monitor = NightMonitor(current_night, self.params.sites, self.scheduler_queue)
+
+        # Start night monitor
+        await self.night_monitor.start()
         _logger.info("Night monitor started.")
 
+        # Get the weather source gql client
+        weather_source = self.night_monitor.get_weather_source()
+
         # Initialize Real Time Engine
-        engine = EngineRT(self.params, self.scheduler_queue, self.process_id)
-        # await engine.build()
-        # engine.init_variant()
-        self._engine_task = asyncio.create_task(engine.run())
+        self.engine = EngineRT(self.params, self.scheduler_queue, self.process_id, weather_source=weather_source)
+
+        # Initialize the engine variants
+        self._engine_task = asyncio.create_task(self.engine.run())
         _logger.info("Engine started.")
 
         self.running_event.set()
-
-        # Loop through nights until stopped or reached the specified number of nights/date
-
-        #while self.running_event.is_set():
-        #    # Check if we have reached the end date or number of nights
-        #    if (self.params.end and current_night >= self.params.end) or \
-        #         (self.params.num_nights_to_schedule and night_index >= self.params.num_nights_to_schedule):
-        #        _logger.info("End date reached, ending scheduler process.")
-        #        return
-
-            # RT should not do more than one night
-            # night_index += 1
-            #current_night = self.params.start + timedelta(days=night_index)
-            #_logger.debug(f"Next night: {current_night}")
-
-    async def update_params(self, params: SchedulerParameters, night_start: Time, night_end: Time):
-
-        self.params = params
-        # rebuild engine
-        self._engine_task.cancel()
-        self._engine_task = None
-        self.engine = EngineRT(
-            self.params,
-            self.scheduler_queue,
-            self.process_id,
-            night_start_time=night_start,
-            night_end_time=night_end,
-        )
-        await self.engine.build()
-        self.engine.init_variant()
-        self._engine_task = asyncio.create_task(self.engine.run())

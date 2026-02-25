@@ -3,8 +3,6 @@
 
 import asyncio
 import datetime
-from typing import FrozenSet
-
 import numpy as np
 from astropy.time import Time
 
@@ -13,7 +11,7 @@ from scheduler.core.scp.scp import SCP
 
 from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints, SimulationBuilder
-from scheduler.core.sources import Sources, Origin, Origins
+from scheduler.core.sources import Sources
 from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
 from scheduler.core.events.queue.events import EndOfNightEvent
@@ -22,6 +20,7 @@ from scheduler.shared_queue import plan_response_queue
 from scheduler.clients.scheduler_queue_client import SchedulerQueue, SchedulerEvent
 from scheduler.events import to_timeslot_idx
 from scheduler.graphql_mid.types import SPlans, NewPlansRT
+from scheduler.night_monitor.event_sources import WeatherEventSource
 
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site
 from astropy.coordinates import Angle
@@ -36,9 +35,6 @@ __all__ = [
 ]
 
 from ..core.components.ranker import DefaultRanker
-from ..core.events.queue import WeatherChangeEvent
-from ..core.output import print_collector_info
-from ..core.statscalculator import StatCalculator
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -50,8 +46,7 @@ class EngineRT:
         params: SchedulerParameters,
         scheduler_queue: SchedulerQueue,
         process_id: str,
-        night_start_time: Time | None = None,
-        night_end_time: Time | None = None
+        weather_source: WeatherEventSource
     ):
         """
         Initializes the EngineRT with the given parameters.
@@ -68,8 +63,13 @@ class EngineRT:
         self.scheduler_queue = scheduler_queue
         self.scp = None
         self.process_id = process_id
+        self.weather_source = weather_source
         self.sources = Sources()
         self.start_time = time()
+        self.night_start_time = None
+        self.night_end_time = None
+
+    def set_night_times(self, night_start_time: Time, night_end_time: Time):
         self.night_start_time = night_start_time
         self.night_end_time = night_end_time
 
@@ -108,27 +108,22 @@ class EngineRT:
         self.scp = SCP(collector, selector, optimizer, ranker)
         _logger.info("SCP successfully built.")
 
-    def init_variant(self, sites: FrozenSet[Site], new_variant: VariantSnapshot | None = None) -> None:
+    async def init_variant(self) -> None:
         """
         Initialize site variants with default values.
         If a new variant is presented via event, set to those.
-
-        Args:
-            new_variant (VariantSnapshot | None): Optional new variant snapshot for weather changes.
-
         """
 
-        initial_variant = VariantSnapshot(iq=ImageQuality(0.2),
-                                          cc=CloudCover(0.5),
-                                          wind_dir=Angle(0.0, unit=u.deg),
-                                          wind_spd=0.0 * (u.m / u.s))
+        _logger.info("Updating initial variants...")
+        current_state = await self.weather_source.get_current_state()
+        for site_state in current_state:
+            initial_variant = VariantSnapshot(iq=ImageQuality(site_state["imageQuality"]),
+                                          cc=CloudCover(site_state["cloudCover"]),
+                                          wind_dir=Angle(site_state["windDirection"], unit=u.deg),
+                                          wind_spd=site_state["windSpeed"] * (u.m / u.s))
 
-        for site in self.params.sites - sites:
-            self.scp.selector.update_site_variant(site, initial_variant)
-
-        for site in sites:
-            self.scp.selector.update_site_variant(site, new_variant)
-
+            _logger.info(f"Initial variant for site {site_state['site']} is {initial_variant}")
+            self.scp.selector.update_site_variant(Site[site_state["site"]], initial_variant)
         _logger.info("Initial weather variants successfully updated.")
 
     async def compute_event_plan(self, event: SchedulerEvent):
@@ -148,13 +143,11 @@ class EngineRT:
         # In theory this should be a shared process for all events.
         # Meaning the process of setup the SCP and run a schedule is independent from the type of event.
         # Right now there is no get weather query so we would need to handle this specifically.
-        if 'Weather' in event.trigger_event:
-            self.init_variant(
-                sites=frozenset([event.site]),
-                new_variant=event.event.variant_change
-            )
-        else:
-            self.init_variant(self.params.sites)
+        # sites_to_update = self.params.sites
+        # if 'Weather' in event.trigger_event:
+        #     self.scp.selector.update_site_variant(event.site, event.event.variant_change)
+        #     sites_to_update = [event.site]
+        await self.init_variant()
 
         start_timeslot = {}
         for site in self.params.sites:

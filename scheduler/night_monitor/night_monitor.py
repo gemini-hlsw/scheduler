@@ -50,6 +50,12 @@ class NightMonitor:
         self._consumer_task: asyncio.Task | None = None
         self._night_tracker_task: asyncio.Task | None = None
 
+    def get_weather_source(self):
+        """
+        Returns the source for the Night Monitor.
+        """
+        return self.listener._sources[1]
+
     async def start(self):
         """
         Start the tasks for each subcomponent in the Night Monitor.

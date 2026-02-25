@@ -82,8 +82,6 @@ class EventListener:
         except asyncio.CancelledError:
             raise
 
-
-
     async def listen(self):
        """
        Starts and gathers all producer tasks.
