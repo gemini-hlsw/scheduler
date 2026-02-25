@@ -55,7 +55,8 @@ def scheduler_collector():
         num_of_nights=num_nights_to_schedule,
         sites=sites,
         semesters=semesters,
-        blueprint=collector_blueprint
+        blueprint=collector_blueprint,
+        night_times={}
     )
 
     return collector

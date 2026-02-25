@@ -165,10 +165,12 @@ class Collector(SchedulerComponent):
         # This may retrigger a calculation of the night events for one or more sites.
         # Only initialize if not deferred (for async initialization later)
         if not self.defer_night_events:
+            night_start_time = None
+            night_end_time = None
             self.night_events = {
                 site: Collector._night_events_manager.get_night_events(self.time_grid,
-                                                                       self.night_times[site][0],
-                                                                       self.night_times[site][1],
+                                                                       night_start_time,
+                                                                       night_end_time,
                                                                        self.time_slot_length,
                                                                        site)
                 for site in self.sites
