@@ -66,6 +66,8 @@ class EngineRT:
         self.weather_source = weather_source
         self.sources = Sources()
         self.start_time = time()
+        self.night_start_time = None
+        self.night_end_time = None
 
     def set_night_times(self, night_start_time: Time, night_end_time: Time):
         self.night_start_time = night_start_time
@@ -136,13 +138,15 @@ class EngineRT:
         # Get the timeslots associated with the sites with format
         # {site: {0: current_timeslot}}
 
-        # await self.build()
+        await self.build()
         # TODO: Specific logic for events
         # In theory this should be a shared process for all events.
         # Meaning the process of setup the SCP and run a schedule is independent from the type of event.
         # Right now there is no get weather query so we would need to handle this specifically.
         if 'Weather' in event.trigger_event:
             self.scp.selector.update_site_variant(event.site, event.event.variant_change)
+        else:
+            await self.init_variant()
         # This shouldn't be required if we are getting the initial value from the weather service
         # self.init_variant(self.params.sites)
 

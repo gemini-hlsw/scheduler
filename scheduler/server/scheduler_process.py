@@ -101,25 +101,3 @@ class SchedulerProcess:
         _logger.info("Engine started.")
 
         self.running_event.set()
-
-        # Loop through nights until stopped or reached the specified number of nights/date
-
-        #while self.running_event.is_set():
-        #    # Check if we have reached the end date or number of nights
-        #    if (self.params.end and current_night >= self.params.end) or \
-        #         (self.params.num_nights_to_schedule and night_index >= self.params.num_nights_to_schedule):
-        #        _logger.info("End date reached, ending scheduler process.")
-        #        return
-
-            # RT should not do more than one night
-            # night_index += 1
-            #current_night = self.params.start + timedelta(days=night_index)
-            #_logger.debug(f"Next night: {current_night}")
-
-    async def update_params(self, params: SchedulerParameters, night_start: Time, night_end: Time):
-
-        self.params = params
-        self.engine.set_night_times(night_start, night_end)
-        await self.engine.build()
-        await self.engine.init_variant()
-        self._engine_task = asyncio.create_task(self.engine.run())
