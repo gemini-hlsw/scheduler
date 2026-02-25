@@ -12,6 +12,8 @@ from astropy.coordinates import Angle
 from astropy.time import Time
 import astropy.units as u
 from lucupy.minimodel import TimeslotIndex, NightIndex, VariantSnapshot, ImageQuality, CloudCover
+from pydantic import ValidationError
+
 from scheduler.context import schedule_id_var
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
@@ -21,9 +23,10 @@ from scheduler.services.logger_factory import create_logger
 from scheduler.shared_queue import plan_response_queue
 
 from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
-                    NewPlansRT, NightPlansResponseRT)
+                    NewPlansRT, NightPlansResponseRT, BuildParametersInput)
 from .inputs import CreateNewScheduleInput, CreateNewScheduleRTInput
 from ..core.plans import NightStats
+from ..engine.params import build_params_store
 from ..events import OnDemandScheduleEvent
 
 _logger = create_logger(__name__)
@@ -163,8 +166,10 @@ class Query:
 
     @strawberry.field
     async def schedule_v2(self, new_schedule_rt_input: CreateNewScheduleRTInput)-> str:
+
         night_start = Time(new_schedule_rt_input.night_start_time, format='iso', scale='utc')
         op_process = process_manager.get_operation_process()
+
         utc_start = night_start.to_datetime(timezone=UTC)
         event = OnDemandScheduleEvent(
             description="On demand request",
@@ -198,3 +203,17 @@ class Subscription:
                 _logger.error(f'Error: {e}')
                 yield NightPlansError(error=f'Error: {e}')
                 raise
+
+
+@strawberry.type
+class Mutation:
+    @strawberry.mutation
+    async def update_build_params(self, build_params_input: BuildParametersInput) -> str:
+        msg = ''
+        try:
+            build_params = build_params_input.to_pydantic()
+            build_params_store.set(build_params)
+            msg += f'Build Parameters updated successful'
+        except ValidationError as e:
+            msg+=f'Error: {e.errors()}'
+        return msg

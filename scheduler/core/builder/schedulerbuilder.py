@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from abc import abstractmethod, ABC
-from typing import FrozenSet, Optional
+from typing import FrozenSet, Optional, Dict, Tuple
 from datetime import datetime
 
 from astropy.time import Time
@@ -40,8 +40,7 @@ class SchedulerBuilder(ABC):
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
-                        night_start_time: Time | None = None,
-                        night_end_time: Time | None = None,
+                        night_times: Dict[Site, Tuple[Time, Time]],
                         program_list: Optional[bytes] = None,
                         defer_night_events: bool = False) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
@@ -51,8 +50,7 @@ class SchedulerBuilder(ABC):
                               num_of_nights,
                               sites,
                               semesters,
-                              night_start_time,
-                              night_end_time,
+                              night_times,
                               self.sources,
                               *blueprint,
                               defer_night_events=defer_night_events)

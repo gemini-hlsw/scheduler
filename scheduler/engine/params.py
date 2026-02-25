@@ -1,13 +1,15 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from typing import final, Optional, FrozenSet, List
+from typing import final, Optional, FrozenSet, List, NamedTuple, Dict
 
 from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, Semester, NightIndex
+from pydantic import BaseModel
+
 # from pydantic import BaseModel
 
 from scheduler.core.builder.modes import SchedulerModes
@@ -15,7 +17,9 @@ from scheduler.core.components.ranker import RankerParameters
 
 
 __all__ = [
-    'SchedulerParameters'
+    'SchedulerParameters',
+    'build_params_store',
+    'BuildParameters'
 ]
 
 
@@ -114,3 +118,57 @@ class SchedulerParameters:
             f"├─semester_visibility: {self.semester_visibility}\n" + \
             f"├─num_nights_to_schedule: {self.num_nights_to_schedule}\n" + \
             f"└─ranker_parameters: {self.ranker_parameters}"
+
+
+class NightTimes(BaseModel):
+    night_start: datetime | None = None
+    night_end: datetime | None = None
+
+    def start_time(self) -> Time:
+        return Time(self.night_start, scale="utc")
+
+    def end_time(self) -> Time:
+        return Time(self.night_end, scale="utc")
+
+
+class BuildParameters(BaseModel):
+    """
+    Specific parameters used to modify behavior on components on the SCP.
+
+    night_start (datetime): Modify the start of the night, instead of evening twilight use this date.
+    night_end (datetime): Modify the end of the night, instead of morning twilight use this date.
+    """
+    night_times: Dict[Site, NightTimes] | None = None
+    visibility_start: datetime | None = None
+    visibility_end: datetime | None = None
+    program_list: List[str] | None = None
+
+    def get_night_times(self):
+        if self.night_times is None:
+            return {}
+        return {site: (
+                    self.night_times[site].start_time(),
+                    self.night_times[site].end_time()
+                )
+            for site, nt in self.night_times.items() if nt is not None
+        }
+
+
+class BuildParamsStore:
+    """
+
+    """
+    def __init__(self) -> None:
+        self._params = BuildParameters()
+
+        self._lock = threading.Lock()
+
+    def get(self) -> BuildParameters:
+        with self._lock:
+            return self._params
+
+    def set(self,params: BuildParameters) -> None:
+        with self._lock:
+            self._params = params
+
+build_params_store = BuildParamsStore()

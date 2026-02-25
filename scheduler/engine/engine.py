@@ -56,14 +56,17 @@ class Engine:
         # Create builder based in the mode to create SCP
         builder = dispatch_with(self.sources, self.queue)
 
+        night_times = { site: (self.night_start_time, self.night_end_time)
+            for site in self.params.sites
+        }
+
         collector = builder.build_collector(start=self.params.start,
                                             end=self.params.end_vis,
                                             num_of_nights=self.params.num_nights_to_schedule,
                                             sites=self.params.sites,
                                             semesters=self.params.semesters,
                                             blueprint=Blueprints.collector,
-                                            night_start_time=self.night_start_time,
-                                            night_end_time=self.night_end_time,
+                                            night_times=night_times,
                                             program_list=self.params.programs_list)
 
         selector = builder.build_selector(collector=collector,

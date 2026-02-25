@@ -5,7 +5,7 @@ import logging
 
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site
-from typing import final, FrozenSet, Optional
+from typing import final, FrozenSet, Optional, Dict, Tuple
 from datetime import datetime
 
 from .blueprint import CollectorBlueprint
@@ -44,18 +44,13 @@ class SimulationBuilder(SchedulerBuilder):
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
-                        night_start_time: Time | None = None,
-                        night_end_time: Time | None = None,
-                        program_list: Optional[bytes] = None) -> Collector:
+                        night_times: Dict[Site, Tuple[Time, Time]],
+                        program_list: Optional[bytes] = None,
+                        defer_night_events: bool = False) -> Collector:
 
-        collector = super().build_collector(start,
-                                            end,
-                                            num_of_nights,
-                                            sites,
-                                            semesters,
-                                            blueprint,
-                                            night_start_time,
-                                            night_end_time)
+        collector = super().build_collector(
+            start, end, num_of_nights, sites, semesters, blueprint, night_times
+        )
         async def fetch_data():
             async_gen = await gpp_program_data(program_list)
             return [item async for item in async_gen]
@@ -75,20 +70,14 @@ class SimulationBuilder(SchedulerBuilder):
         sites: FrozenSet[Site],
         semesters: FrozenSet[Semester],
         blueprint: CollectorBlueprint,
-        night_start_time: Time | None = None,
-        night_end_time: Time | None = None,
+        night_times: Dict[Site, Tuple[Time, Time]],
         program_list: Optional[bytes] = None
     ) -> Collector:
         # Build collector with deferred night events initialization
-        collector = super().build_collector(start,
-                                            end,
-                                            num_of_nights,
-                                            sites,
-                                            semesters,
-                                            blueprint,
-                                            night_start_time,
-                                            night_end_time,
-                                            defer_night_events=True)  # Defer blocking night events
+        collector = super().build_collector(
+            start, end, num_of_nights, sites, semesters, blueprint, night_times,
+            defer_night_events=True
+        )
         
         # Initialize night events asynchronously
         await collector.async_init_night_events()

@@ -86,8 +86,7 @@ class Collector(SchedulerComponent):
     num_of_nights: int
     sites: FrozenSet[Site]
     semesters: FrozenSet[Semester]
-    night_start_time: Time
-    night_end_time: Time
+    night_times: Dict[Site, Tuple[Time, Time]]
     sources: Sources
     time_slot_length: TimeDelta
     program_types: FrozenSet[ProgramTypes]
@@ -168,8 +167,8 @@ class Collector(SchedulerComponent):
         if not self.defer_night_events:
             self.night_events = {
                 site: Collector._night_events_manager.get_night_events(self.time_grid,
-                                                                       self.night_start_time,
-                                                                       self.night_end_time,
+                                                                       self.night_times[site][0],
+                                                                       self.night_times[site][1],
                                                                        self.time_slot_length,
                                                                        site)
                 for site in self.sites
@@ -192,22 +191,35 @@ class Collector(SchedulerComponent):
         # Initialize night_events dict
         self.night_events = {}
 
+        night_start_time = None
+        night_end_time = None
         # Initialize night events for each site asynchronously
         for site in self.sites:
+            if self.night_times and site in self.night_times:
+                night_start_time = self.night_times[site][0]
+                night_end_time = self.night_times[site][1]
+
             self.night_events[site] = await asyncio.to_thread(
                 Collector._night_events_manager.get_night_events,
                 self.time_grid,
-                self.night_start_time,
-                self.night_end_time,
+                night_start_time,
+                night_end_time,
                 self.time_slot_length,
                 site
             )
         _logger.info("Night events initialized asynchronously")
 
     def get_night_events(self, site: Site) -> NightEvents:
+
+        night_start_time = None
+        night_end_time = None
+        if site in self.night_times:
+            night_start_time = self.night_times[site][0]
+            night_end_time = self.night_times[site][1]
+
         return Collector._night_events_manager.get_night_events(self.time_grid,
-                                                                self.night_start_time,
-                                                                self.night_end_time,
+                                                                night_start_time,
+                                                                night_end_time,
                                                                 self.time_slot_length,
                                                                 site)
 
