@@ -143,12 +143,11 @@ class EngineRT:
         # In theory this should be a shared process for all events.
         # Meaning the process of setup the SCP and run a schedule is independent from the type of event.
         # Right now there is no get weather query so we would need to handle this specifically.
-        if 'Weather' in event.trigger_event:
-            self.scp.selector.update_site_variant(event.site, event.event.variant_change)
-        else:
-            await self.init_variant()
-        # This shouldn't be required if we are getting the initial value from the weather service
-        # self.init_variant(self.params.sites)
+        # sites_to_update = self.params.sites
+        # if 'Weather' in event.trigger_event:
+        #     self.scp.selector.update_site_variant(event.site, event.event.variant_change)
+        #     sites_to_update = [event.site]
+        await self.init_variant()
 
         start_timeslot = {}
         for site in self.params.sites:
