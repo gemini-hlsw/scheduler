@@ -183,7 +183,6 @@ class Query:
         return f'Plan is on the queue in the Operation Process!'
 
 
-
 @strawberry.type
 class Subscription:
     @strawberry.subscription
@@ -212,7 +211,7 @@ class Mutation:
         msg = ''
         try:
             build_params = build_params_input.to_pydantic()
-            build_params_store.set(build_params)
+            await build_params_store.set(build_params)
             msg += f'Build Parameters updated successful'
         except ValidationError as e:
             msg+=f'Error: {e.errors()}'

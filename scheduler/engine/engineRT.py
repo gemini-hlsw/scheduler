@@ -7,7 +7,7 @@ from typing import FrozenSet
 from time import time
 
 import numpy as np
-from astropy.time import Time
+
 
 from .params import SchedulerParameters, build_params_store
 
@@ -75,15 +75,13 @@ class EngineRT:
         if not isinstance(builder, SimulationBuilder):
             raise RuntimeError("Builder must be Simulation to use async build method.")
 
-        build_params = build_params_store.get()
+        build_params = await build_params_store.get()
         night_times = build_params.get_night_times()
 
         vis_start = build_params.visibility_start or self.params.start
         vis_end = build_params.visibility_end or self.params.end_vis
         programs_list = build_params.program_list or self.params.programs_list
 
-        print('start/end times: ', night_times)
-        # get night_start_times
         collector = await builder.async_build_collector(
             start=vis_start,
             end=vis_end,
