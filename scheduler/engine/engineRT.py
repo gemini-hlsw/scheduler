@@ -3,12 +3,15 @@
 
 import asyncio
 import datetime
+from typing import FrozenSet
+from time import time
+
 import numpy as np
-from astropy.time import Time
 
-from .params import SchedulerParameters
+
+from .params import SchedulerParameters, build_params_store
+
 from scheduler.core.scp.scp import SCP
-
 from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
@@ -25,9 +28,6 @@ from scheduler.night_monitor.event_sources import WeatherEventSource
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site
 from astropy.coordinates import Angle
 from astropy import units as u
-
-
-from time import time
 
 
 __all__ = [
@@ -55,8 +55,6 @@ class EngineRT:
             params (SchedulerParameters): Parameters for the scheduler.
             scheduler_queue (SchedulerQueue): Queue for the scheduler.
             process_id (str): Unique process ID from SchedulerProcess
-            night_start_time (Time | None): Optional start time of the night.
-            night_end_time (Time | None): Optional end time of the night.
         """
         _logger.debug("Initializing real-time engine...")
         self.params = params
@@ -66,12 +64,6 @@ class EngineRT:
         self.weather_source = weather_source
         self.sources = Sources()
         self.start_time = time()
-        self.night_start_time = None
-        self.night_end_time = None
-
-    def set_night_times(self, night_start_time: Time, night_end_time: Time):
-        self.night_start_time = night_start_time
-        self.night_end_time = night_end_time
 
     async def build(self) -> None:
         """
@@ -83,16 +75,23 @@ class EngineRT:
         if not isinstance(builder, SimulationBuilder):
             raise RuntimeError("Builder must be Simulation to use async build method.")
 
-        print('start/end times: ',self.night_start_time, self.night_end_time)
-        collector = await builder.async_build_collector(start=self.params.start,
-                                            end=self.params.end_vis,
-                                            num_of_nights=self.params.num_nights_to_schedule,
-                                            sites=self.params.sites,
-                                            semesters=self.params.semesters,
-                                            blueprint=Blueprints.collector,
-                                            night_start_time=self.night_start_time,
-                                            night_end_time=self.night_end_time,
-                                            program_list=self.params.programs_list)
+        build_params = await build_params_store.get()
+        night_times = build_params.get_night_times()
+
+        vis_start = build_params.visibility_start or self.params.start
+        vis_end = build_params.visibility_end or self.params.end_vis
+        programs_list = build_params.program_list or self.params.programs_list
+
+        collector = await builder.async_build_collector(
+            start=vis_start,
+            end=vis_end,
+            num_of_nights=self.params.num_nights_to_schedule,
+            sites=self.params.sites,
+            semesters=self.params.semesters,
+            blueprint=Blueprints.collector,
+            night_times=night_times,
+            program_list=programs_list
+        )
 
 
         selector = builder.build_selector(collector=collector,

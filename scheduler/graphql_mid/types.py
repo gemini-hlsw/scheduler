@@ -261,34 +261,6 @@ IQ = strawberry.enum(ImageQuality)
 
 
 @strawberry.type
-class NewWeatherChange:
-    site: Site
-    time: datetime
-    description: str
-    new_CC: Optional[CC]
-    new_IQ: Optional[IQ]
-    new_wind_direction: Optional[float]
-    new_wind_speed: Optional[float]
-
-    def to_scheduler_event(self) -> WeatherChangeEvent:
-        if self.new_wind_direction is None:
-            wind_dir = None
-        else:
-            wind_dir = self.new_wind_direction * u.degrees
-        if self.new_wind_speed is None:
-            wind_spd = None
-        else:
-            wind_spd = self.new_wind_speed * (u.m / u.s)
-        variant_change = VariantSnapshot(cc=CloudCover[self.new_CC.name] if self.new_CC else None,
-                                         iq=ImageQuality[self.new_IQ.name] if self.new_IQ else None,
-                                         wind_dir=Angle(wind_dir, unit=u.deg),
-                                         wind_spd=wind_spd * (u.m / u.s))
-        return WeatherChangeEvent(site=self.site,
-                                  time=self.time,
-                                  description=self.description,
-                                  variant_change=variant_change)
-
-@strawberry.type
 class RankerParameters:
     """
     Ranker Parameters used for modifying the scoring algorithm in the Ranker
@@ -324,3 +296,44 @@ class Version:
     changelog: List[str]
 
 EventsAddedResponse = EventsAddedSuccess | EventsAddedError
+
+from scheduler.engine.params import BuildParameters, NightTimes
+
+
+
+
+@strawberry.experimental.pydantic.input(model=NightTimes, all_fields=True)
+class NightTimesInput:
+    pass
+
+@strawberry.input
+class SiteNightTimesEntry:
+    site: strawberry.enum(Site)
+    night_times: NightTimesInput
+
+
+@strawberry.experimental.pydantic.input(model=BuildParameters)
+class BuildParametersInput:
+    night_times: Optional[List[SiteNightTimesEntry]] = None
+    visibility_start: strawberry.auto
+    visibility_end: strawberry.auto
+    program_list: strawberry.auto
+
+    def to_pydantic(self) -> BuildParameters:
+        """Convert to Pydantic model"""
+        night_times_dict = None
+        if self.night_times:
+            night_times_dict = {
+                Site(entry.site): NightTimes(
+                    night_start=entry.night_times.night_start,
+                    night_end=entry.night_times.night_end
+                )
+                for entry in self.night_times
+            }
+
+        return BuildParameters(
+            night_times=night_times_dict,
+            visibility_start=self.visibility_start,
+            visibility_end=self.visibility_end,
+            program_list=self.program_list
+        )

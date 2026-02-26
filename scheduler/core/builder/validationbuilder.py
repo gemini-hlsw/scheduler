@@ -3,7 +3,7 @@
 
 from astropy.time import Time
 from lucupy.minimodel import Semester, Site, ObservationStatus, Observation, QAState, TooType
-from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable
+from typing import final, FrozenSet, ClassVar, Iterable, Optional, Callable, Dict, Tuple
 import os
 from glob import glob
 import tarfile
@@ -123,8 +123,7 @@ class ValidationBuilder(SchedulerBuilder):
                         sites: FrozenSet[Site],
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
-                        night_start_time: Time | None = None,
-                        night_end_time: Time | None = None,
+                        night_times: Dict[Site, Tuple[Time, Time]],
                         program_list: Optional[bytes] = None) -> Collector:
 
         ValidationBuilder.check_ephemerides()
@@ -134,8 +133,7 @@ class ValidationBuilder(SchedulerBuilder):
                                             sites,
                                             semesters,
                                             blueprint,
-                                            night_start_time,
-                                            night_end_time)
+                                            night_times)
         collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data(program_list))
         ValidationBuilder.reset_collector_observations(collector)
         return collector

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Any
 
+from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES
 from pydantic import BaseModel, field_serializer, field_validator
 
@@ -23,7 +24,10 @@ class SchedulerEvent:
     trigger_event: str
     event: Any | None = None
     time: datetime | None = None
+    night_start: Time | None = None
+    night_end: Time | None = None
     site: Site | None = None
+
 
 class SchedulerQueue:
 
@@ -34,6 +38,8 @@ class SchedulerQueue:
         self,
         reason: str,
         event: Any | None, # The type should be a collection of different events, a
+        night_start: datetime | None = None,
+        night_end: datetime | None = None,
         priority: int = 0):
         """
         Publishes a scheduler event to the queue.
@@ -54,6 +60,7 @@ class SchedulerQueue:
                 scheduler_event = SchedulerEvent(
                     trigger_event=reason,
                     time=event.time,
+                    night_start=night_start,
                     site=None
                 )
             elif isinstance(event, WeatherChangeEvent):

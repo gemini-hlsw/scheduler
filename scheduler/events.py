@@ -19,6 +19,7 @@ class OnDemandScheduleEvent:
   time: datetime
 
 
+
 def to_timeslot_idx(
   time: datetime,
   twi_eve_time: datetime,
