@@ -1,0 +1,4596 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../../architecture/">
+      
+      
+        <link rel="next" href="../../external-services/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/logo@2x.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+    
+    
+      
+        <title>Events - GPP Scheduler</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+  
+  
+    
+      
+      
+    
+  
+  
+  <style>:root{--md-admonition-icon--todo:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M19%203h-4.18C14.4%201.84%2013.3%201%2012%201s-2.4.84-2.82%202H5a2%202%200%200%200-2%202v14a2%202%200%200%200%202%202h14a2%202%200%200%200%202-2V5a2%202%200%200%200-2-2m-7%200a1%201%200%200%201%201%201%201%201%200%200%201-1%201%201%201%200%200%201-1-1%201%201%200%200%201%201-1M7%207h10V5h2v14H5V5h2zm.5%206.5L9%2012l2%202%204.5-4.5L17%2011l-6%206z%22/%3E%3C/svg%3E');}</style>
+
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#events" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="GPP Scheduler" class="md-header__button md-logo" aria-label="GPP Scheduler" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            GPP Scheduler
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Events
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-hidden="true"  type="radio" name="__palette" id="__palette_1">
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_3" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_3">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_4" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="amber"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_4">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="GPP Scheduler" class="md-nav__button md-logo" aria-label="GPP Scheduler" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    GPP Scheduler
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Components
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#base-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Base event
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.Event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Event">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.Event.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#abstract-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.RoutineEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RoutineEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RoutineEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.RoutineEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        InterruptionEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="InterruptionEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#twilight-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Twilight events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.TwilightEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TwilightEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TwilightEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.TwilightEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.EveningTwilightEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EveningTwilightEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="EveningTwilightEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.EveningTwilightEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.MorningTwilightEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MorningTwilightEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MorningTwilightEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.MorningTwilightEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interruption-and-resolution-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interruption and Resolution events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherChangeEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WeatherChangeEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WeatherChangeEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherChangeEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.ToOActivationEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ToOActivationEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ToOActivationEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.ToOActivationEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FaultEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FaultEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WeatherClosureEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WeatherClosureEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionResolutionEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        InterruptionResolutionEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="InterruptionResolutionEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionResolutionEvent.time_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionResolutionEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionResolutionEvent.time_slot_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_slot_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultResolutionEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FaultResolutionEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FaultResolutionEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultResolutionEvent.time_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultResolutionEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultResolutionEvent.time_slot_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_slot_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureResolutionEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WeatherClosureResolutionEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WeatherClosureResolutionEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureResolutionEvent.time_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureResolutionEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureResolutionEvent.time_slot_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_slot_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External Services
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    External Services
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../external-services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External Services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../external-services/resource/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resource
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#base-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Base event
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.Event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Event">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.Event.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#abstract-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.RoutineEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RoutineEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RoutineEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.RoutineEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        InterruptionEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="InterruptionEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#twilight-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Twilight events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.TwilightEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TwilightEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TwilightEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.TwilightEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.EveningTwilightEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EveningTwilightEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="EveningTwilightEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.EveningTwilightEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.MorningTwilightEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MorningTwilightEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MorningTwilightEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.MorningTwilightEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interruption-and-resolution-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interruption and Resolution events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherChangeEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WeatherChangeEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WeatherChangeEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherChangeEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.ToOActivationEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ToOActivationEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ToOActivationEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.ToOActivationEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FaultEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FaultEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WeatherClosureEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WeatherClosureEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionResolutionEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        InterruptionResolutionEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="InterruptionResolutionEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionResolutionEvent.time_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionResolutionEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.InterruptionResolutionEvent.time_slot_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_slot_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultResolutionEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FaultResolutionEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FaultResolutionEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultResolutionEvent.time_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultResolutionEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.FaultResolutionEvent.time_slot_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_slot_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureResolutionEvent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WeatherClosureResolutionEvent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WeatherClosureResolutionEvent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureResolutionEvent.time_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureResolutionEvent.to_timeslot_idx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_timeslot_idx
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheduler.core.events.queue.WeatherClosureResolutionEvent.time_slot_loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        time_slot_loss
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="events">Events</h1>
+<p>The scheduler reacts to different events throughout the night allowing him to emulate
+the behavior that could happen if the telescope is shutdown or a rapid ToO is activated.</p>
+<p>The following are the types of events that are currently handle by the scheduler:</p>
+<h2 id="base-event">Base event</h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.Event" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">Event</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="scheduler.core.events.queue.events.UUIDIdentified">UUIDIdentified</span></code>, <code><a class="autorefs autorefs-external" title="abc.ABC" href="https://docs.python.org/3/library/abc.html#abc.ABC">ABC</a></code></p>
+
+
+
+        <p>Superclass for all events. They contain:</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">ATTRIBUTE</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.events.queue.Event.site">site</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>The site at which the event occurred.</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.Site">Site</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.events.queue.Event.time">time</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>The time at which the event occurred.</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.events.queue.Event.description">description</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>A human-readable description of the event.</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.Event.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="abstract-events">Abstract events</h2>
+<p>These events are general purpose events that describe a non-specific behavior in the night.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.RoutineEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">RoutineEvent</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.Event(site, time, description) (scheduler.core.events.queue.events.Event)" href="#scheduler.core.events.queue.Event">Event</a></code>, <code><a class="autorefs autorefs-external" title="abc.ABC" href="https://docs.python.org/3/library/abc.html#abc.ABC">ABC</a></code></p>
+
+
+
+        <p>A routine event that is predictable and processed by the Scheduler.
+Examples include evening and morning twilight.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.RoutineEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.InterruptionEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">InterruptionEvent</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.Event(site, time, description) (scheduler.core.events.queue.events.Event)" href="#scheduler.core.events.queue.Event">Event</a></code>, <code><a class="autorefs autorefs-external" title="abc.ABC" href="https://docs.python.org/3/library/abc.html#abc.ABC">ABC</a></code></p>
+
+
+
+        <p>Parent class for any interruption that might cause a new schedule to be created.
+These events include:</p>
+<ol>
+<li>Events that have no specified end time (e.g. weather changes).</li>
+<li>Events that have a specified end time (e.g. engineering tasks, faults) and thus are paired together
+   with an InterruptionResolutionEvent.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.InterruptionEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="twilight-events">Twilight events</h2>
+<p>They marked the start and end of the night. Without them the event cycle won't start and 
+the final plan can't be created.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.TwilightEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">TwilightEvent</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.RoutineEvent(site, time, description) (scheduler.core.events.queue.events.RoutineEvent)" href="#scheduler.core.events.queue.RoutineEvent">RoutineEvent</a></code>, <code><a class="autorefs autorefs-external" title="abc.ABC" href="https://docs.python.org/3/library/abc.html#abc.ABC">ABC</a></code></p>
+
+
+
+        <p>An event indicating that the 12 degree starting twilight
+for a night has been reached.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.TwilightEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.EveningTwilightEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">EveningTwilightEvent</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.TwilightEvent(site, time, description) (scheduler.core.events.queue.events.TwilightEvent)" href="#scheduler.core.events.queue.TwilightEvent">TwilightEvent</a></code></p>
+
+
+
+        <p>An event indicating that the 12 degree starting
+twilight for a night has been reached.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.EveningTwilightEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.MorningTwilightEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">MorningTwilightEvent</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.TwilightEvent(site, time, description) (scheduler.core.events.queue.events.TwilightEvent)" href="#scheduler.core.events.queue.TwilightEvent">TwilightEvent</a></code></p>
+
+
+
+        <p>An event indicating that the 12 degree morning twilight
+    for a night has been reached.
+This is used to finalize the time accounting for the night.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.MorningTwilightEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="interruption-and-resolution-events">Interruption and Resolution events</h2>
+<p>Are all the events that might interrupt the current plan and might trigger a different plan
+with different conditions. Some interruptions create a lasting effect that might be resolved later
+in the night.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.WeatherChangeEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">WeatherChangeEvent</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">variant_change</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.InterruptionEvent(site, time, description) (scheduler.core.events.queue.events.InterruptionEvent)" href="#scheduler.core.events.queue.InterruptionEvent">InterruptionEvent</a></code></p>
+
+
+
+        <p>Interruption that occurs when new a new weather variant comes in.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">ATTRIBUTE</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.events.queue.WeatherChangeEvent.variant_change">variant_change</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>The variant snapshot that changed.</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.VariantSnapshot">VariantSnapshot</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.WeatherChangeEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.ToOActivationEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">ToOActivationEvent</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">too_id</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.InterruptionEvent(site, time, description) (scheduler.core.events.queue.events.InterruptionEvent)" href="#scheduler.core.events.queue.InterruptionEvent">InterruptionEvent</a></code></p>
+
+
+
+        <p>Change the status of a ToO from ON_HOLD to READY.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">ATTRIBUTE</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.events.queue.ToOActivationEvent.too_id">too_id</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>The observation ID for the ToO that was activated.</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.ObservationID">ObservationID</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.ToOActivationEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.FaultEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">FaultEvent</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">affects</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.InterruptionEvent(site, time, description) (scheduler.core.events.queue.events.InterruptionEvent)" href="#scheduler.core.events.queue.InterruptionEvent">InterruptionEvent</a></code></p>
+
+
+
+        <p>Interruption that occurs when there is a fault in a resource.
+In OCS, this will likely be the site itself where the fault occurred.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">ATTRIBUTE</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.events.queue.FaultEvent.affects">affects</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>Resource affected for the fault.</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="typing.FrozenSet" href="https://docs.python.org/3/library/typing.html#typing.FrozenSet">FrozenSet</a>[<span title="lucupy.minimodel.Resource">Resource</span>]</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.FaultEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.WeatherClosureEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">WeatherClosureEvent</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.InterruptionEvent(site, time, description) (scheduler.core.events.queue.events.InterruptionEvent)" href="#scheduler.core.events.queue.InterruptionEvent">InterruptionEvent</a></code></p>
+
+
+
+        <p>A weather closure for a given site.
+This will be treated like a FaultEvent, but the "affects" Resource will be the entire site.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.WeatherClosureEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.InterruptionResolutionEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">InterruptionResolutionEvent</span><span class="p">(</span><span class="n">uuid_identified</span><span class="p">,</span> <span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.Event(site, time, description) (scheduler.core.events.queue.events.Event)" href="#scheduler.core.events.queue.Event">Event</a></code>, <code><span title="scheduler.core.events.queue.events.UUIDReferenced">UUIDReferenced</span></code>, <code><a class="autorefs autorefs-external" title="abc.ABC" href="https://docs.python.org/3/library/abc.html#abc.ABC">ABC</a></code></p>
+
+
+
+        <p>A class representing the resolution of an interruption that
+    can be resolved (e.g. a resolved fault or the end of an engineering task.)</p>
+<p>These events, signifying the end of a period of time, can be used to generate a time loss.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="scheduler.core.events.queue.InterruptionResolutionEvent.time_loss" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">time_loss</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Calculate the time loss from this InterruptionEvent to this InterruptionEventResolution as a timedelta.</p>
+<div class="admonition todo">
+<p class="admonition-title">TO DO</p>
+<p>TODO: This assumes that Interruption events are notified or processed at Twilight (or near) situation that might
+TODO: be completely different when Resource is implemented and real input is processed.</p>
+</div>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.InterruptionResolutionEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.InterruptionResolutionEvent.time_slot_loss" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">time_slot_loss</span><span class="p">(</span><span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given the length of a time slot, calculate the number of time slots lost from the InterruptionEvent to
+    this InterruptionEventResolution.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The length of the time slot to calculate the number of time slots lost.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>int</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The number of time slots lost from the Interruption.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.FaultResolutionEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">FaultResolutionEvent</span><span class="p">(</span><span class="n">uuid_identified</span><span class="p">,</span> <span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.InterruptionResolutionEvent(uuid_identified, site, time, description) (scheduler.core.events.queue.events.InterruptionResolutionEvent)" href="#scheduler.core.events.queue.InterruptionResolutionEvent">InterruptionResolutionEvent</a></code>, <code><span title="scheduler.core.events.queue.events.UUIDReferenced">UUIDReferenced</span></code></p>
+
+
+
+        <p>Interruption that occurs when a Fault is resolved.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="scheduler.core.events.queue.FaultResolutionEvent.time_loss" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">time_loss</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Calculate the time loss from this InterruptionEvent to this InterruptionEventResolution as a timedelta.</p>
+<div class="admonition todo">
+<p class="admonition-title">TO DO</p>
+<p>TODO: This assumes that Interruption events are notified or processed at Twilight (or near) situation that might
+TODO: be completely different when Resource is implemented and real input is processed.</p>
+</div>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.FaultResolutionEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.FaultResolutionEvent.time_slot_loss" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">time_slot_loss</span><span class="p">(</span><span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given the length of a time slot, calculate the number of time slots lost from the InterruptionEvent to
+    this InterruptionEventResolution.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The length of the time slot to calculate the number of time slots lost.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>int</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The number of time slots lost from the Interruption.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.WeatherClosureResolutionEvent" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">WeatherClosureResolutionEvent</span><span class="p">(</span><span class="n">uuid_identified</span><span class="p">,</span> <span class="n">site</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.InterruptionResolutionEvent(uuid_identified, site, time, description) (scheduler.core.events.queue.events.InterruptionResolutionEvent)" href="#scheduler.core.events.queue.InterruptionResolutionEvent">InterruptionResolutionEvent</a></code>, <code><span title="scheduler.core.events.queue.events.UUIDReferenced">UUIDReferenced</span></code></p>
+
+
+
+        <p>Interruption that occurs when a WeatherClosure is resolved.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="scheduler.core.events.queue.WeatherClosureResolutionEvent.time_loss" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">time_loss</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Calculate the time loss from this InterruptionEvent to this InterruptionEventResolution as a timedelta.</p>
+<div class="admonition todo">
+<p class="admonition-title">TO DO</p>
+<p>TODO: This assumes that Interruption events are notified or processed at Twilight (or near) situation that might
+TODO: be completely different when Resource is implemented and real input is processed.</p>
+</div>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.WeatherClosureResolutionEvent.to_timeslot_idx" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">to_timeslot_idx</span><span class="p">(</span><span class="n">twi_eve_time</span><span class="p">,</span> <span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event, calculate the timeslot offset it falls into relative to another datetime.
+This would typically be the twilight of the night on which the event occurs, hence the name twi_eve_time.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>twi_eve_time</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Evening twilight time.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Set time slot length in which the Scheduler work.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeslotIndex</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The timeslot offset relative to the twilight.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.WeatherClosureResolutionEvent.time_slot_loss" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">time_slot_loss</span><span class="p">(</span><span class="n">time_slot_length</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given the length of a time slot, calculate the number of time slots lost from the InterruptionEvent to
+    this InterruptionEventResolution.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>time_slot_length</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The length of the time slot to calculate the number of time slots lost.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="datetime.timedelta" href="https://docs.python.org/3/library/datetime.html#datetime.timedelta">timedelta</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>int</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The number of time slots lost from the Interruption.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h1 id="event-queue">Event Queue</h1>
+<p>The <code>Event Queue</code> allows the scheduler to keep all events ordered chronologically.
+This is separated in two: One that compromises all the nights and sites and one that
+is specific for a night.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.EventQueue" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">EventQueue</span><span class="p">(</span><span class="n">night_indices</span><span class="p">,</span> <span class="n">sites</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.queue.EventQueue.get_night_events" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_night_events</span><span class="p">(</span><span class="n">night_idx</span><span class="p">,</span> <span class="n">site</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Returns the sorted list for the site for the night index if it exists, else None.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.queue.NightEventQueue" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">NightEventQueue</span><span class="p">(</span><span class="n">night_idx</span><span class="p">,</span> <span class="n">site</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div><h1 id="event-cycle">Event Cycle</h1>
+<p>Encapsulates all the behavior the events can be affected through the night and pass
+the event to be process by the <code>Change Monitor</code> and controls when the time accounting and
+the plans creation happens.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.events.cycle.EventCycle" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">cycle</span><span class="o">.</span><span class="n">EventCycle</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">queue</span><span class="p">,</span> <span class="n">scp</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">ATTRIBUTE</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.events.cycle.EventCycle.params">params</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>Scheduler parameters</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="SchedulerParams">SchedulerParams</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.events.cycle.EventCycle.queue">queue</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>Event queue that orders the events chronologically</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.EventQueue(night_indices, sites) (scheduler.core.events.queue.EventQueue)" href="#scheduler.core.events.queue.EventQueue">EventQueue</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.events.cycle.EventCycle.scp">scp</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>The Scheduler Core Pipeline that allows creating plans.</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="scheduler.core.scp.SCP">SCP</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.events.cycle.EventCycle.run" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">run</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">night_idx</span><span class="p">,</span> <span class="n">nightly_timeline</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Executes the Event cycle for a specific site and night.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>site</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Site to process events from the night.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.Site">Site</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>night_idx</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Night to process events from.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.NightIndex">NightIndex</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>nightly_timeline</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Records all the events and their corresponding plans.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="scheduler.core.events.queue.NightlyTimeline">NightlyTimeline</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RAISES</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+              <span class="doc-raises-annotation">
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError">RuntimeError</a></code>
+              </span>
+            </td>
+            <td class="doc-raises-details">
+              <div class="doc-md-description">
+                <p>If required events are missing</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h1 id="change-monitor">Change Monitor</h1>
+<p>Matches the event with their specific behavior. These are usually modifications to both
+<code>Collector</code> and <code>Selector</code>.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.components.changemonitor.ChangeMonitor" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">changemonitor</span><span class="o">.</span><span class="n">ChangeMonitor</span><span class="p">(</span><span class="n">collector</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="scheduler.core.components.base.SchedulerComponent">SchedulerComponent</span></code></p>
+
+
+
+        <p>Triggers different changes caused by events in the Scheduler components</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">ATTRIBUTE</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.components.changemonitor.ChangeMonitor.collector">collector</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>Collector instance when observations need to be updated
+or changed their Status.</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="scheduler.core.components.collector.Collector">Collector</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.components.changemonitor.ChangeMonitor.selector">selector</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>Selector instance when weather conditions are modified.</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="scheduler.core.components.selector.Selector">Selector</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.components.changemonitor.ChangeMonitor.__post_init__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">__post_init__</span><span class="p">()</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create the blocking event set for each site.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.components.changemonitor.ChangeMonitor.is_site_unblocked" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">is_site_unblocked</span><span class="p">(</span><span class="n">site</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Check if a site is unblocked.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>site</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Site to check.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.Site">Site</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>bool</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>True if the given site is NOT blocked by one or more events that need to be resolved before the site
+can have a plan, and False if the site is blocked.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="scheduler.core.components.changemonitor.ChangeMonitor.process_event" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">process_event</span><span class="p">(</span><span class="n">site</span><span class="p">,</span> <span class="n">event</span><span class="p">,</span> <span class="n">plans</span><span class="p">,</span> <span class="n">night_idx</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Given an event occurring at a given site and an optional plan running on the site, determine
+the next timeslot where the plan should be recalculated, if any.</p>
+<p>The plan is optional, because for EveningTwilightEvent, no plan has yet been computed and thus None should
+be passed in.</p>
+<p>If the ChangeMonitor determines that a new plan should be calculated, then a timeslot index indicating
+when the plan should be calculated is returned, and if no new plan should be calculated, then None is returned.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>site</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>the site at which the event occurred</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="lucupy.minimodel.Site">Site</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>event</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>the event that occurred</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.Event(site, time, description) (scheduler.core.events.queue.Event)" href="#scheduler.core.events.queue.Event">Event</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>plans</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>the plans that are currently in action (if any) for the night,
+ which consist of a plan per site</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="scheduler.core.plans.Plans">Plans</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>night_idx</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>the night index</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="NightIdx">NightIdx</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+        <div class="admonition todo">
+<p class="admonition-title">TO DO</p>
+<p>TODO: Might want to make return type a Tuple[NightIndex, TimeslotIndex].</p>
+</div>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>TimeCoordinateRecord</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>a time coordinate record which provides information about when the next plan should be computed
+ (if any), if a night is done, and if time accounting should be performed</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a>[<a class="autorefs autorefs-internal" title="              scheduler.core.components.changemonitor.TimeCoordinateRecord(event, timeslot_idx, perform_time_accounting=True, done=False) (scheduler.core.components.changemonitor.time_coordinate_record.TimeCoordinateRecord)" href="#scheduler.core.components.changemonitor.TimeCoordinateRecord">TimeCoordinateRecord</a>]</code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><p>The <code>Change Monitor</code> gives updates to the <code>Event Cycle</code> through Time Coordinate Record so the 
+cycle knows which updates are needed after that event.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="scheduler.core.components.changemonitor.TimeCoordinateRecord" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">scheduler</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">changemonitor</span><span class="o">.</span><span class="n">TimeCoordinateRecord</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">timeslot_idx</span><span class="p">,</span> <span class="n">perform_time_accounting</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">done</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Time coordinate record calculated for an event.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">ATTRIBUTE</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.components.changemonitor.TimeCoordinateRecord.event">event</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>the event for which this time coordinate record holds</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-internal" title="              scheduler.core.events.queue.Event(site, time, description) (scheduler.core.events.queue.Event)" href="#scheduler.core.events.queue.Event">Event</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.components.changemonitor.TimeCoordinateRecord.timeslot_idx">timeslot_idx</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>the timeslot index for which the plan should be recalculated</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="typing.Optional" href="https://docs.python.org/3/library/typing.html#typing.Optional">Optional</a>[<span title="lucupy.minimodel.TimeslotIndex">TimeslotIndex</span>]</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.components.changemonitor.TimeCoordinateRecord.perform_time_accounting">perform_time_accounting</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>True if time accounting should be performed, and False to suppress time accounting</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="scheduler.core.components.changemonitor.TimeCoordinateRecord.done">done</span></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>True if the night is done, and False otherwise</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
