@@ -3,7 +3,7 @@
 
 from typing import Dict, Tuple, Callable
 from lucupy.minimodel import ImageQuality, CloudCover, Site, VariantSnapshot
-from scheduler.clients import SchedulerQueue
+from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from astropy.coordinates import Angle
 import astropy.units as u
 from scheduler.core.events.queue import WeatherChangeEvent

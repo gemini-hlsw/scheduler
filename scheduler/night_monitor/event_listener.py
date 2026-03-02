@@ -17,7 +17,7 @@ from .event_sources import (
 
 __all__ = ['EventListener', 'SubscriptionEndedException']
 
-from ..clients import SchedulerQueue
+from scheduler.clients.scheduler_queue_client import SchedulerQueue
 
 
 class SubscriptionEndedException(Exception): pass
