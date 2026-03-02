@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from scheduler.clients import SchedulerQueue
+from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor import EventConsumer
 from scheduler.night_monitor.event_sources import EventSourceType
 
