@@ -170,11 +170,11 @@ class BuildParamsStore:
         self._lock = asyncio.Lock()
 
     async def get(self) -> BuildParameters:
-        with self._lock:
+        async with self._lock:
             return self._params
 
     async def set(self, params: BuildParameters) -> None:
-        with self._lock:
+        async with self._lock:
             self._params = params
 
 build_params_store = BuildParamsStore() # Singleton
