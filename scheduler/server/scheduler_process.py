@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from astropy.time import Time
 
-from scheduler.clients import SchedulerQueue
+from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor.night_monitor import NightMonitor
 from scheduler.services.logger_factory import create_logger
 from scheduler.engine import SchedulerParameters

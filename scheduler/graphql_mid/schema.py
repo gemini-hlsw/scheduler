@@ -11,6 +11,7 @@ import strawberry # noqa
 from astropy.coordinates import Angle
 from astropy.time import Time
 import astropy.units as u
+from gpp_client.api import WhereProgram, WhereProposal, WhereEqProposalStatus, ProposalStatus
 from lucupy.minimodel import TimeslotIndex, NightIndex, VariantSnapshot, ImageQuality, CloudCover
 from pydantic import ValidationError
 
@@ -21,10 +22,12 @@ from scheduler.engine import Engine, SchedulerParameters
 from scheduler.server.process_manager import process_manager
 from scheduler.services.logger_factory import create_logger
 from scheduler.shared_queue import plan_response_queue
+from scheduler.clients.scheduler_gpp_client import gpp_client_instance
 
 from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
                     NewPlansRT, NightPlansResponseRT, BuildParametersInput)
 from .inputs import CreateNewScheduleInput, CreateNewScheduleRTInput
+
 from ..core.plans import NightStats
 from ..engine.params import build_params_store
 from ..events import OnDemandScheduleEvent
@@ -181,6 +184,16 @@ class Query:
             event=event,
         )
         return f'Plan is on the queue in the Operation Process!'
+
+    @strawberry.field
+    async def available_programs(self)-> str:
+        client = gpp_client_instance.client
+        where = WhereProgram(proposal_status=WhereEqProposalStatus(
+            eq=ProposalStatus.ACCEPTED
+        ))
+        response = await client.program.get_all(where=where)
+        ids = [p["id"] for p in response['matches']]
+        return str(ids)
 
 
 @strawberry.type

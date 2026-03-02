@@ -3,7 +3,7 @@
 
 import asyncio
 
-from scheduler.clients import SchedulerQueue
+from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor.event_sources import EventSourceType
 from scheduler.night_monitor.event_handlers import (
     EventHandler, WeatherEventHandler,
