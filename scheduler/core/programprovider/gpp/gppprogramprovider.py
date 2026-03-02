@@ -100,7 +100,7 @@ async def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
         program_list = None
 
     try:
-        director = gpp_client_instance.director()
+        director = gpp_client_instance.director
 
         ask_director = director.scheduler.program.get_all(programs_list=program_list)
         result = await ask_director
