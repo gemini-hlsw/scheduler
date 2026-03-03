@@ -214,9 +214,14 @@ class NewPlansRT:
 class NightPlansError:
     error: str
 
+@strawberry.type
+class NightPlansWithEvent:
+    night_plans: SPlans
+    event: str
+
 NightPlansResponse = Annotated[Union[NewNightPlans, NightPlansError], strawberry.union("NightPlansResponse")]
 
-NightPlansResponseRT = Annotated[Union[NightPlansResponse, NewPlansRT], strawberry.union("NightPlansResponseRT")]
+NightPlansResponseRT = Annotated[Union[NightPlansResponse, NewPlansRT, NightPlansWithEvent], strawberry.union("NightPlansResponseRT")]
 
 @strawberry.type
 class NewScheduleSuccess:

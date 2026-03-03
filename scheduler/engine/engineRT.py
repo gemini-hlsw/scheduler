@@ -3,7 +3,6 @@
 
 import asyncio
 import datetime
-from typing import FrozenSet
 from time import time
 
 import numpy as np
@@ -22,7 +21,7 @@ from scheduler.graphql_mid.types import NightPlansError
 from scheduler.shared_queue import plan_response_queue
 from scheduler.clients.scheduler_queue_client import SchedulerQueue, SchedulerEvent
 from scheduler.events import to_timeslot_idx
-from scheduler.graphql_mid.types import SPlans, NewPlansRT
+from scheduler.graphql_mid.types import SPlans, NightPlansWithEvent
 from scheduler.night_monitor.event_sources import WeatherEventSource
 
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site
@@ -174,7 +173,7 @@ class EngineRT:
                 plans.plans[site].alt_degs.append(alt_degs)
         splans = SPlans.from_computed_plans(plans, self.params.sites)
 
-        return NewPlansRT(night_plans=splans)
+        return NightPlansWithEvent(night_plans=splans, event=f"{event.trigger_event} {event.time}")
 
     async def run(self):
         """
