@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
+import inspect
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Any
@@ -98,7 +99,7 @@ class SchedulerQueue:
             # Call the user's callback
             result = None
             if callback is not None:
-                if asyncio.iscoroutinefunction(callback):
+                if inspect.iscoroutinefunction(callback):
                     result = await callback(event)
                 else:
                     result = callback(event)
