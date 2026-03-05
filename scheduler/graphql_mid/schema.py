@@ -186,14 +186,14 @@ class Query:
         return f'Plan is on the queue in the Operation Process!'
 
     @strawberry.field
-    async def available_programs(self)-> str:
+    async def available_programs(self)-> list[str]:
         client = gpp_client_instance.client
         where = WhereProgram(proposal_status=WhereEqProposalStatus(
             eq=ProposalStatus.ACCEPTED
         ))
         response = await client.program.get_all(where=where)
         ids = [p["id"] for p in response['matches']]
-        return str(ids)
+        return ids
 
 
 @strawberry.type
