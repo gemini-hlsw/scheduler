@@ -51,7 +51,7 @@ class HorizonsClient:
     # We look up across the whole night, so the labels are simply night labels.
     date_format: str = field(default='%Y%m%d')
     path: Path = field(default=Path(ROOT_DIR) / 'scheduler' / 'services' / 'horizons' / 'data')
-    url: str = field(default='https://ssd.jpl.nasa.gov/horizons_batch.cgi')
+    url: str = field(default='https://ssd.jpl.nasa.gov/api/horizons_file.api')
 
     @staticmethod
     def generate_horizons_id(designation: str) -> str:
@@ -72,11 +72,11 @@ class HorizonsClient:
         center = self.site.coordinate_center
 
         params = {
-            'batch': 1,
+            'format': 'text',
             'COMMAND': f"'{target}'",
             'OBJ_DATA': object_data,
             'MAKE_EPHEM': make_ephem,
-            'TABLE_TYPE': 'OBSERVER',
+            'EPHEM_TYPE': 'OBSERVER',
             'CENTER': center,
             'REF_PLANE': None,
             'COORD_TYPE': None,
