@@ -1,6 +1,6 @@
 [project]
 name = "scheduler"
-version = "0.1.9"
+version = "0.1.10"
 description = "Gemini Observatory automated scheduler"
 readme = 'README.md'
 authors = [{ name = "NOIRLab" }]
@@ -12,7 +12,7 @@ dependencies = [
     "dask>=2025.10.0",
     "fastapi>=0.116.1",
     "gelidum>=0.5.9",
-    "gpp-client==26.2.0",
+    "gpp-client==26.3.0",
     "gql>=4.0.0",
     "hypothesis>=6.137.1",
     "joblib>=1.5.2",

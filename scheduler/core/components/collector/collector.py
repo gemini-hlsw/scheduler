@@ -356,9 +356,10 @@ class Collector(SchedulerComponent):
                 # TODO: improve this. Pass the semesters into the program_provider and return None as soon
                 # TODO: as we know that the program is not from a semester in which we are interested.
                 # If program semester is not in the list of specified semesters, skip.
-                if program.semester is None or program.semester not in self.semesters:
-                    _logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
-                    continue
+                # Don't restrict by semester, programs often are active in other semesters
+                # if program.semester is None or program.semester not in self.semesters:
+                #     _logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                #     continue
 
                 # If a program has no time awarded, then we will get a divide by zero in scoring, so skip it.
                 if program.program_awarded() == ZeroTime:
