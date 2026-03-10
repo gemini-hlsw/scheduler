@@ -753,7 +753,7 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "26.2.0"
+version = "26.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -765,9 +765,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/03/6c/065b5e53bb5270d1f542431f5f018dfe33ca86da0ea33b088b37dfc27324/gpp_client-26.2.0.tar.gz", hash = "sha256:98a8b4b37747c10bcf7d93413f84e836330bcd729ac505f99173d8fa8cbbf626", size = 158733, upload-time = "2026-02-10T13:00:56.47Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/ee/729be58eb4f538165978a5d5253ede2896552c2f84019a03f43e03f4166d/gpp_client-26.3.0.tar.gz", hash = "sha256:7b9778934b56cbda02d7b05e9f3609e1af13bb0773e9b51fc87d996fe91e901b", size = 158936, upload-time = "2026-03-03T13:48:41.358Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/86/f6/af9924f9fd199d43fa761a625c695ce2a9650b10e91abf375dd35e90dc44/gpp_client-26.2.0-py3-none-any.whl", hash = "sha256:13b568d4c7739ae7ffd904c77893b7861b2e2b10f70239cab77d9a1edf040adf", size = 194537, upload-time = "2026-02-10T13:00:55.127Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/78/c8404f6d309df424eb2badc987947c5db781c02072390d4e22ceec4a7e1f/gpp_client-26.3.0-py3-none-any.whl", hash = "sha256:4d9bd7b721e6f4071a0f2e911c8e48406b30fe837004751cb040ee2723ac66ae", size = 194608, upload-time = "2026-03-03T13:48:39.676Z" },
 ]
 
 [[package]]
@@ -2228,7 +2228,7 @@ wheels = [
 
 [[package]]
 name = "scheduler"
-version = "0.1.9"
+version = "0.1.10"
 source = { virtual = "." }
 dependencies = [
     { name = "astropy" },
@@ -2284,7 +2284,7 @@ requires-dist = [
     { name = "dask", specifier = ">=2025.10.0" },
     { name = "fastapi", specifier = ">=0.116.1" },
     { name = "gelidum", specifier = ">=0.5.9" },
-    { name = "gpp-client", specifier = "==26.2.0" },
+    { name = "gpp-client", specifier = "==26.3.0" },
     { name = "gql", specifier = ">=4.0.0" },
     { name = "hypothesis", specifier = ">=6.137.1" },
     { name = "joblib", specifier = ">=1.5.2" },

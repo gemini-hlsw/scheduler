@@ -10,9 +10,9 @@ from os import PathLike
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
-from fontTools.ttLib.tables.otTables import DeltaSetIndexMap
-from gpp_client.api import WhereProgram, WhereEqProposalStatus, ProposalStatus, WhereOrderProgramId
-from gpp_client import GPPClient, GPPDirector
+# from fontTools.ttLib.tables.otTables import DeltaSetIndexMap
+# from gpp_client.api import WhereProgram, WhereEqProposalStatus, ProposalStatus, WhereOrderProgramId
+# from gpp_client import GPPClient, GPPDirector
 
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
@@ -163,6 +163,14 @@ class GppProgramProvider(ProgramProvider):
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
     _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS, 'FLAMINGOS2': Site.GS}
+
+    _gmos_filters = {'GMOS-S': ['U_PRIME', 'G_PRIME', 'R_PRIME', 'I_PRIME', 'Z_PRIME', 'Z', 'Y', 'GG455', 'OG515',
+                                    'RG610', 'CA_T', 'F396N', 'OIII', 'OIIIC', 'HE_II', 'HE_IIC', 'OVI', 'OVIC',
+                                    'HA', 'HA_C'],
+                     'GMOS-N': ['G_PRIME', 'R_PRIME', 'I_PRIME', 'Z_PRIME', 'Z', 'Y', 'GG455', 'OG515',
+                                    'RG610', 'CA_T', 'RI', 'OIII', 'OIIIC', 'HE_II', 'HE_IIC', 'OVI', 'OVIC',
+                                    'HA', 'HA_C', 'SII', 'DS920']
+                     }
 
     # Allowed instrument statuses
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
@@ -904,8 +912,8 @@ class GppProgramProvider(ProgramProvider):
         # print(data)
         
         instrument_config = data.get(camel_case(mode))
-        # instrument_config = data.get('gmosNorthLongSlit') or data.get('gmosSouthLongSlit')
-        # print(f'\t\t instrument_config: {instrument_config}')
+        # print(instrument_config)
+        # print(instrument_config.keys())
 
         fpu = None
         if instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
@@ -921,47 +929,67 @@ class GppProgramProvider(ProgramProvider):
             disperser = instrument
         # elif GppProgramProvider._AtomKeys.DISPERSER in instrument_config.keys():
         #     disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]
-        elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT:
+        elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT and 'SLIT' in mode:
             disperser = instrument_config[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
+        elif 'GMOS' in instrument and 'IMAGING' in mode:
+            disperser = 'Mirror'
 
-        # Filter
+        # Filters
+        filters = []
         if GppProgramProvider._AtomKeys.FILTER in instrument_config.keys():
-            filt = instrument_config[GppProgramProvider._AtomKeys.FILTER]
-        elif instrument == 'GPI':
-            filt = find_filter(fpu, GppProgramProvider._GPI_FILTER_WAVELENGTHS)
+            filters = [instrument_config[GppProgramProvider._AtomKeys.FILTER]]
+        elif 'filters' in instrument_config.keys():  # for GMOS imaging
+            for filt in instrument_config['filters']:
+                # Handle multiple-filter combos for GMOS
+                if 'GMOS' in instrument:
+                    for f in self._gmos_filters[instrument]:
+                        if f in filt['filter']:
+                            filters.append(filt['filter'])
+                else:
+                    filters.append(filt['filter'])
         else:
             if instrument == 'GNIRS':
-                filt = None
+                filters = [None]
             else:
-                filt = 'Unknown'
+                filters = ['Unknown']
 
-        if instrument == 'GPI':
-            wavelength = Wavelength(GppProgramProvider._GPI_FILTER_WAVELENGTHS[filt])
-        elif instrument == 'Flamingos2':
-            wavelength = Wavelength(GppProgramProvider._F2_FILTER_WAVELENGTHS[filt])
+        if instrument == 'Flamingos2':
+            wavelength = Wavelength(GppProgramProvider._F2_FILTER_WAVELENGTHS[filters[0]])
         elif 'centralWavelength' in instrument_config.keys():
             wavelength = Wavelength(float(instrument_config['centralWavelength']['nanometers'] / 1000.))
         else:
             wavelength = None
 
+        # print(f'\t\t parse_observing_mode: fpu={fpu} disp={disperser}, filters={filters}')
+
         if 'GMOS' in instrument:
         # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
         # sets, but we filter below to remove them.
         # ToDo: decide whether to use FPU names or barcodes for resource matching
-            fpu_resources = self._sources.origin.resource.lookup_resource(
-                GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu
-            )
-            disperser_resources = self._sources.origin.resource.lookup_resource(
+            if fpu:
+                fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(
+                    GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu, resource_type=ResourceType.FPU
+                )])
+            else:
+                fpu_resources = frozenset()
+            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(
                 disperser.split('_')[0], resource_type=ResourceType.DISPERSER
-            )
+            )])
         else:
-            fpu_resources = self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU)
-            disperser_resources = self._sources.origin.resource.lookup_resource(disperser, resource_type=ResourceType.DISPERSER)
+            fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU)])
+            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser, resource_type=ResourceType.DISPERSER)])
 
-        instrument_resource = self._sources.origin.resource.lookup_resource(
+        filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER)
+                                      for filt in filters if filt is not None and filt != 'Unknown'])
+
+        instrument_resource = frozenset([self._sources.origin.resource.lookup_resource(
             instrument, resource_type=ResourceType.INSTRUMENT
-        )
-        resources = frozenset([instrument_resource, disperser_resources, fpu_resources])
+        )])
+
+        resources = frozenset([r for r in instrument_resource | fpu_resources | disperser_resources | filter_resources])
+        # Remove any None values.
+        # resources = frozenset([res for res in resources if res is not None])
+        # print(f'resources: {resources}')
 
         return resources, wavelength, mode
 
@@ -1482,9 +1510,9 @@ class GppProgramProvider(ProgramProvider):
 
         # Determine the start and end date of the program.
         # NOTE that this includes the fuzzy boundaries.
-        start_date = (datetime.fromisoformat(data['proposal']['call']['active']['start'] + 'T00:00:00')
+        start_date = (datetime.fromisoformat(data['active']['start'] + 'T00:00:00')
                       - Program.FUZZY_BOUNDARY)
-        end_date = (datetime.fromisoformat(data['proposal']['call']['active']['end'] + 'T00:00:00')
+        end_date = (datetime.fromisoformat(data['active']['end'] + 'T00:00:00')
                     + Program.FUZZY_BOUNDARY)
 
         # Parse the time accounting allocation data.
