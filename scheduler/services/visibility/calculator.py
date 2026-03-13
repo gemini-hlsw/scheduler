@@ -23,7 +23,7 @@ from datetime import timedelta
 from scheduler.core.calculations import NightEvents
 from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.services.proper_motion import ProperMotionCalculator
-from scheduler.services.ephemeris import EphemerisCalculator
+from scheduler.services.ephemeris import EphemerisCalculator, EphemerisLookup
 from scheduler.services.redis_client import redis_client
 from scheduler.services.logger_factory import create_logger
 from scheduler.services.resource import NightConfiguration
@@ -140,6 +140,14 @@ def calculate_target_snapshot(night_idx: NightIndex,
 
             sunset = night_events.sunset[night_idx]
             sunrise = night_events.sunrise[night_idx]
+            eph_lookup_table = EphemerisLookup()
+            try:
+                date = sunset.to_datetime()
+                eph_coord = eph_lookup_table.lookup(target.name, obs.site.name, date)
+            except KeyError:
+                _logger.info(f'Lookup failed for {night_idx} no info for target: {target.name} at')
+                pass
+
             eph_coord = EphemerisCalculator().calculate_coordinates(obs.site,
                                                                     nonsidereal_target,
                                                                     sunset,

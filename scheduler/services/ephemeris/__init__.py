@@ -2,3 +2,4 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from .ephemeris_calculator import *
+from .ephemeris_lookup import *
