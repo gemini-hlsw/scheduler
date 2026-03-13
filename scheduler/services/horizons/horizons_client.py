@@ -51,7 +51,7 @@ class HorizonsClient:
     # We look up across the whole night, so the labels are simply night labels.
     date_format: str = field(default='%Y%m%d')
     path: Path = field(default=Path(ROOT_DIR) / 'scheduler' / 'services' / 'horizons' / 'data')
-    url: str = field(default='https://ssd.jpl.nasa.gov/api/horizons_file.api')
+    url: str = field(default='https://ssd.jpl.nasa.gov/api/horizons.api')
 
     @staticmethod
     def generate_horizons_id(designation: str) -> str:
@@ -78,35 +78,21 @@ class HorizonsClient:
             'MAKE_EPHEM': make_ephem,
             'EPHEM_TYPE': 'OBSERVER',
             'CENTER': center,
-            'REF_PLANE': None,
-            'COORD_TYPE': None,
-            'SITE_COORD': None,
             'START_TIME': self.start.strftime("'%Y-%b-%d %H:%M'"),
             'STOP_TIME': self.end.strftime("'%Y-%b-%d %H:%M'"),
             'STEP_SIZE': f"'{step}'",
-            'TLIST': None,
             'QUANTITIES': quantities,
             'REF_SYSTEM': 'J2000',
-            'OUT_UNITS': None,
-            'VECT_TABLE': None,
-            'VECT_CORR': None,
             'CAL_FORMAT': cal_format,
             'ANG_FORMAT': 'HMS',
-            'APPARENT': None,
             'TIME_DIGITS': 'MINUTES',
-            'TIME_ZONE': None,
-            'RANGE_UNITS': None,
             'SUPPRESS_RANGE_RATE': 'NO',
             'ELEV_CUT': '-90',
             'SKIP_DAYLT': skip_day,
             'SOLAR_ELONG': "'0,180'",
             'AIRMASS': 100,
-            'LHA_CUTOFF': None,
             'EXTRA_PREC': 'YES',
             'CSV_FORMAT': csv_format,
-            'VEC_LABELS': None,
-            'ELM_LABELS': None,
-            'TP_TYPE': None,
             'R_T_S_ONLY': 'NO'
         }
 

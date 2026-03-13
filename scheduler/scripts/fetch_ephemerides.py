@@ -176,17 +176,17 @@ async def main():
 
     site = Site.GS
     start = datetime(2026, 3, 1)
-    end = datetime(2026, 3, 15)
+    end = datetime(2026, 3, 2)
 
     #targets = await get_nonsidereal_targets()
     #print(f"Found {len(targets)} nonsidereal targets.")
 
     targets = [ NonsiderealTarget(
-        name=TargetName("1971 UC1"),
+        name=TargetName("Beer"),
         des="1971 UC1",
         type=TargetType.BASE,
         magnitudes=frozenset(),
-        tag=TargetTag.MAJORBODY,
+        tag=TargetTag.ASTEROID,
     )]
 
     results = fetch_batch_ephemerides(
