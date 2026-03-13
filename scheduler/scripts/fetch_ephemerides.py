@@ -8,7 +8,7 @@ import io
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
-import boto3
+import aioboto3
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from botocore.exceptions import BotoCoreError, ClientError
@@ -95,7 +95,7 @@ def fetch_batch_ephemerides(
         return dict(target_coords)
 
 
-def pickle_and_upload_to_s3(
+async def pickle_and_upload_to_s3(
     coords: dict[str, dict[str, dict[datetime, SkyCoord]]],
     site: Site,
     start: datetime,
@@ -134,13 +134,14 @@ def pickle_and_upload_to_s3(
     pickle.dump(coords, buffer)
     buffer.seek(0)
 
+    session = aioboto3.Session(
+        aws_access_key_id=os.environ["CLOUDCUBE_ACCESS_KEY_ID"],
+        aws_secret_access_key=os.environ["CLOUDCUBE_SECRET_ACCESS_KEY"],
+    )
+
     try:
-        s3 = boto3.client(
-            "s3",
-            aws_access_key_id=os.environ["CLOUDCUBE_ACCESS_KEY_ID"],
-            aws_secret_access_key=os.environ["CLOUDCUBE_SECRET_ACCESS_KEY"],
-        )
-        s3.upload_fileobj(buffer, bucket, key)
+        async with session.client("s3") as s3:
+            await s3.upload_fileobj(buffer, bucket, key)
     except (BotoCoreError, ClientError) as exc:
         raise RuntimeError(
             f"Failed to upload ephemerides to s3://{bucket}/{key}: {exc}"
@@ -203,7 +204,7 @@ async def main():
         for site_name, datetimes in sites.items():
             print(f"  {t_name} @ {site_name}: {len(datetimes)} datetime(s)")
 
-    pickle_and_upload_to_s3(results, site, start, end)
+    await pickle_and_upload_to_s3(results, site, start, end)
 
 
 if __name__ == "__main__":

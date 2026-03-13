@@ -10,6 +10,7 @@ from scheduler.services.logger_factory import create_logger
 from scheduler.server.scheduler_process import SchedulerProcess
 from scheduler.engine import SchedulerParameters
 from scheduler.shared_queue import plan_response_queue
+from scheduler.services.ephemeris import EphemerisLookup
 
 _logger = create_logger(__name__, with_id=False)
 
@@ -64,13 +65,20 @@ class ProcessManager:
             del self.active_processes[process_id]
 
     async def set_operation_process(self, process_id: str):
-        # We add the process without parameters as those should be setup separately
+        # Add the process without parameters as those should be setup separately
+        from lucupy.minimodel import ALL_SITES
+
+        default_start = datetime.strptime("2026-03-01 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        default_end = datetime.strptime("2026-03-02 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+
+        for site in ALL_SITES:
+            await EphemerisLookup().load_from_s3(site,default_start, default_end)
 
         params = SchedulerParameters(
             #start=datetime.now(timezone.utc),
             #end=datetime.now(timezone.utc)+timedelta(days=5),
-            start=datetime.strptime("2026-01-20 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc),
-            end=datetime.strptime("2026-01-25 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc),
+            start=default_start,
+            end=default_end,
             semester_visibility=False,
             num_nights_to_schedule=1,
             programs_list=["p-cc9", "p-113"]
