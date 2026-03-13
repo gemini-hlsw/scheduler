@@ -5,6 +5,8 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from astropy.time import Time
 from typing import Dict, Optional
+
+from scheduler.config import config
 from scheduler.core.builder.modes import is_operation
 from scheduler.services.logger_factory import create_logger
 from scheduler.server.scheduler_process import SchedulerProcess
@@ -71,8 +73,9 @@ class ProcessManager:
         default_start = datetime.strptime("2026-03-01 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
         default_end = datetime.strptime("2026-03-02 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
 
-        for site in ALL_SITES:
-            await EphemerisLookup().load_from_s3(site,default_start, default_end)
+        if config.app.external_ephemerides:
+            for site in ALL_SITES:
+                await EphemerisLookup().load_from_s3(site,default_start, default_end)
 
         params = SchedulerParameters(
             #start=datetime.now(timezone.utc),

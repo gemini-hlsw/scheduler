@@ -4,7 +4,7 @@
 import io
 import os
 import pickle
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import final
 from urllib.parse import urlparse
@@ -35,7 +35,7 @@ class EphemerisLookup(metaclass=Singleton):
     """
 
     def __init__(self) -> None:
-        self._table: dict[str, dict[str, dict[datetime, SkyCoord]]] = {}
+        self._table: dict[str, dict[str, dict[date, SkyCoord]]] = {}
 
     async def load_from_s3(self, site: Site, start: datetime, end: datetime) -> None:
         """Download a pickle from S3 (CloudCube) and populate the lookup table.
@@ -51,7 +51,7 @@ class EphemerisLookup(metaclass=Singleton):
         bucket = cube_url.netloc.split(".")[0]
         key_prefix = cube_url.path.lstrip("/") + "/ephemerides/"
 
-        site_name = site.name if hasattr(site, "name") else str(site)
+        site_name = site.name
         start_str = start.strftime("%Y%m%d")
         end_str = end.strftime("%Y%m%d")
         key = f"{key_prefix}{site_name}_{start_str}_{end_str}.pkl"
@@ -89,18 +89,22 @@ class EphemerisLookup(metaclass=Singleton):
         self._merge(data)
         logger.info(f"Loaded {len(data)} target(s) from {path}")
 
-    def lookup(self, target_name: str, site_name: str, dt: datetime) -> SkyCoord:
-        """Return the SkyCoord for a given target, site, and datetime.
+    def lookup(self, target_name: str, site_name: str, dt: datetime | date) -> SkyCoord:
+        """Return the SkyCoord for a given target, site, and date.
+
+        Only the date portion (year/month/day) is used for matching;
+        hours, minutes, and seconds are ignored.
 
         Raises:
             KeyError: if the combination is not found in the table.
         """
+        key = dt.date() if isinstance(dt, datetime) else dt
         try:
-            return self._table[target_name][site_name][dt]
+            return self._table[target_name][site_name][key]
         except KeyError:
             raise KeyError(
                 f"No ephemeris found for target='{target_name}', "
-                f"site='{site_name}', datetime={dt}"
+                f"site='{site_name}', date={key}"
             )
 
     @property
@@ -109,7 +113,14 @@ class EphemerisLookup(metaclass=Singleton):
         return list(self._table.keys())
 
     def _merge(self, data: dict[str, dict[str, dict[datetime, SkyCoord]]]) -> None:
-        """Merge *data* into the existing table (additive)."""
+        """Merge *data* into the existing table.
+
+        Datetime keys are normalized to date-only so lookups match
+        regardless of the time component.
+        """
         for target, sites in data.items():
             for site, times in sites.items():
-                self._table.setdefault(target, {}).setdefault(site, {}).update(times)
+                dest = self._table.setdefault(target, {}).setdefault(site, {})
+                for dt, coord in times.items():
+                    key = dt.date() if isinstance(dt, datetime) else dt
+                    dest[key] = coord
