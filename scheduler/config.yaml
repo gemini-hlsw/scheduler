@@ -5,6 +5,7 @@ collector:
   with_redis: false
   parallel_viscalc: false
 
+
 optimizer:
   name: GREEDYMAX
 
@@ -18,3 +19,4 @@ server:
 
 app:
   mode: validation # validation | simulation | operation
+  external_ephemerides: false
