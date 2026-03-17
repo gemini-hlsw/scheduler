@@ -70,8 +70,8 @@ class ProcessManager:
         # Add the process without parameters as those should be setup separately
         from lucupy.minimodel import ALL_SITES
 
-        default_start = datetime.strptime("2026-03-01 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-        default_end = datetime.strptime("2026-03-02 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        default_start = datetime.strptime("2026-01-20 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        default_end = datetime.strptime("2026-01-25 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
 
         if config.app.external_ephemerides:
             for site in ALL_SITES:
