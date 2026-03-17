@@ -31,11 +31,6 @@ jobs:
           git lfs ls-files
           echo "Checking if LFS files exist locally:" 
           ls -la scheduler/services/horizons/data/
-      - name: Set app mode in config
-        run: |
-          sed -i 's/mode: .*/mode: ${{ matrix.app_mode }}/' scheduler/config.yaml
-          echo "Config updated to:"
-          cat scheduler/config.yaml
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
       - name: Login to Heroku Container registry
