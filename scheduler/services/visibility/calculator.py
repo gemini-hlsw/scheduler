@@ -146,12 +146,10 @@ def calculate_target_snapshot(night_idx: NightIndex,
                 eph_coord = eph_lookup_table.lookup(target.name, obs.site.name, date)
             except KeyError:
                 _logger.info(f'Lookup failed for {night_idx} no info for target: {target.name} at')
-                pass
-
-            eph_coord = EphemerisCalculator().calculate_coordinates(obs.site,
-                                                                    nonsidereal_target,
-                                                                    sunset,
-                                                                    sunrise)
+                eph_coord = EphemerisCalculator().calculate_coordinates(obs.site,
+                                                                        nonsidereal_target,
+                                                                        sunset,
+                                                                        sunrise)
 
             # Now trim the coords to the desired subset.
             int_time_slot_length = int(time_slot_length.to_datetime().total_seconds() / 60)
