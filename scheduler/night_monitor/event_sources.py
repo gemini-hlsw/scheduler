@@ -8,6 +8,8 @@ from enum import Enum
 from gql import Client, gql
 from gql.transport.aiohttp_websockets import AIOHTTPWebsocketsTransport
 from gql.transport.aiohttp import AIOHTTPTransport
+from urllib.parse import urlparse
+from os import environ
 
 __all__ = [
     "EventSourceType",
@@ -47,12 +49,12 @@ class WeatherEventSource(EventSource):
 
     def __init__(self, client):
         super().__init__(client, EventSourceType.WEATHER)
-        self.ws_transport = AIOHTTPWebsocketsTransport(
-            url="wss://weather-graphql-ec26c2063b75.herokuapp.com/"
-        )
-        self.transport = AIOHTTPTransport(
-            url="https://weather-graphql-ec26c2063b75.herokuapp.com/"
-        )
+        weather_url = environ.get('WEATHER_URL', "http://localhost:4000")
+        url_parsed = urlparse(weather_url)
+        ws_protocol = "wss" if url_parsed.scheme == "https" else "ws"
+        weather_ws_url = f"{ws_protocol}://{url_parsed.netloc}{url_parsed.path}"
+        self.ws_transport = AIOHTTPWebsocketsTransport(url=weather_ws_url)
+        self.transport = AIOHTTPTransport(url=weather_url)
 
         self.subscription = gql(
             """
