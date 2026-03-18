@@ -182,16 +182,15 @@ class EngineRT:
         try:
             # Run event loop while still in the same night
             while True:
-                # Wait for the next event
-                event, plan = await self.scheduler_queue.consume_events(self.compute_event_plan)
-                _logger.debug(f"Received scheduler event: {event}")
-
-                # Check if we have reached the end of the night
-                if isinstance(event, EndOfNightEvent):
-                    _logger.info("Night end event received, ending night scheduling loop.")
-                    break
-
                 try:
+                    # Wait for the next event
+                    event, plan = await self.scheduler_queue.consume_events(self.compute_event_plan)
+                    _logger.debug(f"Received scheduler event: {event}")
+
+                    # Check if we have reached the end of the night
+                    if isinstance(event, EndOfNightEvent):
+                        _logger.info("Night end event received, ending night scheduling loop.")
+                        break
                     # Plan is already computed by the callback in consume_events
                     await plan_response_queue[self.process_id].put(plan)
 

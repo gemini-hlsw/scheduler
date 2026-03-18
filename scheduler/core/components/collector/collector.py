@@ -555,6 +555,9 @@ class Collector(SchedulerComponent):
                 bad_program_count += 1
                 _logger.warning(f'Could not parse program: {e}')
 
+        if not parsed_observations:
+            raise Exception('No observations found after parsing programs.')
+
         if bad_program_count:
             _logger.error(f'Could not parse {bad_program_count} programs.')
 
