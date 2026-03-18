@@ -86,10 +86,13 @@ class SimulationBuilder(SchedulerBuilder):
         _logger.info("Fetching program data...")
         async_data = await gpp_program_data(program_list)
         data = [item async for item in async_data]
-        await collector.async_load_programs(
-            program_provider_class=GppProgramProvider,
-            data=data
-        )
+        try:
+            await collector.async_load_programs(
+                program_provider_class=GppProgramProvider,
+                data=data
+            )
+        except Exception as e:
+            raise Exception(f"Failed to load programs: {e}")
         
         return collector
 
