@@ -1,5 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
+import asyncio
 import os
 import uvicorn
 
@@ -9,8 +11,6 @@ from lucupy.observatory.abstract import ObservatoryProperties  # isort: skip
 from scheduler.app import app
 from scheduler.config import config
 
-from scheduler.server.process_manager import ProcessManager
-import asyncio
 
 
 heroku_port = os.environ.get("PORT")

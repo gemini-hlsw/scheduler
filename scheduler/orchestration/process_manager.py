@@ -2,21 +2,19 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-from datetime import datetime, timezone, timedelta
-from astropy.time import Time
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 from scheduler.config import config
 from scheduler.core.builder.modes import is_operation
 from scheduler.services.logger_factory import create_logger
-from scheduler.server.scheduler_process import SchedulerProcess
+from scheduler.orchestration.scheduler_process import SchedulerProcess
 from scheduler.engine import SchedulerParameters
-from scheduler.shared_queue import plan_response_queue
 from scheduler.services.ephemeris import EphemerisLookup
 
 _logger = create_logger(__name__, with_id=False)
 
-__all__ = ["ProcessManager"]
+__all__ = ["ProcessManager", "process_manager"]
 
 class ProcessManager:
     """
@@ -49,9 +47,6 @@ class ProcessManager:
                 process_id (str): A unique identifier for the scheduler process.
                 request_params (SchedulerParameters): The parameters for the scheduler process.
         """
-        # Register a response queue for this process_id so EngineRT can always find it
-        if process_id not in plan_response_queue:
-            plan_response_queue[process_id] = asyncio.Queue()
         self.active_processes[process_id] = SchedulerProcess(process_id, request_params)
         await self.active_processes[process_id].start_task()
 

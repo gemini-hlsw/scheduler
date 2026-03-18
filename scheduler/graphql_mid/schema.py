@@ -11,7 +11,7 @@ import strawberry # noqa
 from astropy.coordinates import Angle
 from astropy.time import Time
 import astropy.units as u
-from gpp_client.api import WhereProgram, WhereProposal, WhereEqProposalStatus, ProposalStatus
+from gpp_client.api import WhereProgram, WhereEqProposalStatus, ProposalStatus
 from lucupy.minimodel import TimeslotIndex, NightIndex, VariantSnapshot, ImageQuality, CloudCover
 from pydantic import ValidationError
 
@@ -19,9 +19,9 @@ from scheduler.context import schedule_id_var
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
-from scheduler.server.process_manager import process_manager
+from scheduler.orchestration import process_manager
 from scheduler.services.logger_factory import create_logger
-from scheduler.shared_queue import plan_response_queue
+from scheduler.shared_queue import plan_response_subscribers
 from scheduler.clients.scheduler_gpp_client import gpp_client_instance
 
 from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
@@ -77,59 +77,6 @@ class Query:
         return Version(version=environ['APP_VERSION'], changelog=[])
 
     @strawberry.field
-    async def schedule_rt(self, schedule_id: str, new_schedule_rt_input: CreateNewScheduleRTInput) -> str:
-        schedule_id_var.set(schedule_id)
-        start = datetime.fromisoformat(new_schedule_rt_input.start_time)
-        end = datetime.fromisoformat(new_schedule_rt_input.end_time)
-
-        ranker_params = RankerParameters(new_schedule_rt_input.thesis_factor,
-                                         new_schedule_rt_input.power,
-                                         new_schedule_rt_input.met_power,
-                                         new_schedule_rt_input.vis_power,
-                                         new_schedule_rt_input.wha_power,
-                                         new_schedule_rt_input.air_power)
-        
-        programs_list = None
-        if new_schedule_rt_input.programs:
-            if len(new_schedule_rt_input.programs) > 0:
-                programs_list = new_schedule_rt_input.programs
-
-        params = SchedulerParameters(start,
-                                     end,
-                                     new_schedule_rt_input.sites,
-                                     SchedulerModes.SIMULATION,
-                                     ranker_params,
-                                     False,
-                                     1,
-                                     programs_list)
-
-        # Operation specific inputs
-        # Get night start and end
-        night_start = Time(new_schedule_rt_input.night_start_time, format='iso', scale='utc')
-        night_end = Time(new_schedule_rt_input.night_end_time, format='iso', scale='utc')
-
-        # Get new weathes inputs
-        image_quality = ImageQuality(new_schedule_rt_input.image_quality)
-        cloud_cover = CloudCover(new_schedule_rt_input.cloud_cover)
-        wind_speed = new_schedule_rt_input.wind_speed
-        wind_direction = new_schedule_rt_input.wind_direction
-
-        initial_variant = VariantSnapshot(iq=image_quality,
-                                          cc=cloud_cover,
-                                          wind_dir=Angle(wind_direction, unit=u.deg),
-                                          wind_spd=wind_speed * (u.m / u.s))
-
-        task = asyncio.to_thread(sync_rt_schedule, params, night_start, night_end, initial_variant)
-        if schedule_id not in active_subscriptions:
-            queue = asyncio.Queue()
-            active_subscriptions[schedule_id] = queue
-        else:
-            queue = active_subscriptions[schedule_id]
-
-        await queue.put(task)
-        return f'Plan is on the queue! for {schedule_id}'
-
-    @strawberry.field
     async def schedule(self, schedule_id: str, new_schedule_input: CreateNewScheduleInput) -> str:
         schedule_id_var.set(schedule_id)
 
@@ -157,13 +104,17 @@ class Query:
 
         task = asyncio.to_thread(sync_schedule, params)
 
-        if schedule_id not in plan_response_queue:
-            queue = asyncio.Queue()
-            plan_response_queue[schedule_id] = queue
+        if schedule_id not in plan_response_subscribers:
+            plan_response_subscribers[schedule_id] = set()
+            client_queue = asyncio.Queue()
+            plan_response_subscribers[schedule_id].add(client_queue)
+            queues = plan_response_subscribers[schedule_id]
         else:
-            queue = plan_response_queue[schedule_id]
+            queues = plan_response_subscribers[schedule_id]
 
-        await queue.put(task)
+        # Is only one queue anyway as the process is subscribed by only one client.
+        for q in queues:
+            await q.put(task)
         _logger.info(f"Plan is on the queue! for: {schedule_id}\n{params}")
         return f'Plan is on the queue! for {schedule_id}'
 
@@ -200,21 +151,28 @@ class Query:
 class Subscription:
     @strawberry.subscription
     async def queue_schedule(self, schedule_id: str) -> AsyncGenerator[NightPlansResponseRT, None]:
-        if plan_response_queue.get(schedule_id) is None:
-            plan_response_queue[schedule_id] = asyncio.Queue()
-        queue = plan_response_queue[schedule_id]
+        if schedule_id not in plan_response_subscribers:
+            plan_response_subscribers[schedule_id] = set()
 
-        while True:
-            try:
-                _logger.info(f"Subscription: Waiting for plan response for {schedule_id}")
-                result = await queue.get()  # Wait for item from the queue
-                _logger.info(f"Subscription: Received plan response for {schedule_id}")
-                _logger.debug(f'Result: {result}')
-                yield result  # Yield item to the subscription
-            except Exception as e:
-                _logger.error(f'Error: {e}')
-                yield NightPlansError(error=f'Error: {e}')
-                raise
+        client_queue = asyncio.Queue()
+        plan_response_subscribers[schedule_id].add(client_queue)
+
+        try:
+            while True:
+                try:
+                    _logger.info(f"Subscription: Waiting for plan response for {schedule_id}")
+                    result = await client_queue.get()  # Wait for item from the queue
+                    _logger.info(f"Subscription: Received plan response for {schedule_id}")
+                    _logger.debug(f'Result: {result}')
+                    yield result  # Yield item to the subscription
+                except Exception as e:
+                    _logger.error(f'Error: {e}')
+                    yield NightPlansError(error=f'Error: {e}')
+                    raise
+        finally:
+            plan_response_subscribers[schedule_id].discard(client_queue)
+            if not plan_response_subscribers[schedule_id]:
+                del plan_response_subscribers[schedule_id]
 
 
 @strawberry.type

@@ -18,7 +18,6 @@ from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
 from scheduler.core.events.queue.events import EndOfNightEvent
 from scheduler.graphql_mid.types import NightPlansError
-from scheduler.shared_queue import plan_response_queue
 from scheduler.clients.scheduler_queue_client import SchedulerQueue, SchedulerEvent
 from scheduler.events import to_timeslot_idx
 from scheduler.graphql_mid.types import SPlans, NightPlansWithEvent
@@ -34,6 +33,7 @@ __all__ = [
 ]
 
 from ..core.components.ranker import DefaultRanker
+from ..shared_queue import plan_response_subscribers
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -193,11 +193,13 @@ class EngineRT:
 
                 try:
                     # Plan is already computed by the callback in consume_events
-                    await plan_response_queue[self.process_id].put(plan)
+                    for q in plan_response_subscribers.get(self.process_id, set()):
+                        await q.put(plan)
 
                 except Exception as e:
                     _logger.error(f"Error in scheduler process: {e}")
-                    await plan_response_queue[self.process_id].put(NightPlansError(error=str(e)))
+                    for q in plan_response_subscribers.get(self.process_id, set()):
+                        await q.put(NightPlansError(error=str(e)))
 
         except asyncio.CancelledError:
             _logger.info("Scheduler process was cancelled.")

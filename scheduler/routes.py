@@ -3,7 +3,7 @@
 from fastapi.responses import JSONResponse
 
 from scheduler.app import app
-from scheduler.server.process_manager import process_manager
+from scheduler.orchestration.process_manager import process_manager
 
 
 # Root API
