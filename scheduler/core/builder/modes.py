@@ -1,6 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-
+import os
 from enum import Enum
 from typing import final
 
@@ -37,7 +37,17 @@ class SchedulerModes(Enum):
     VALIDATION = 'validation'
 
 try:
-    app_mode = SchedulerModes(config.app.mode)
+    mode_env = os.environ.get("SCHEDULER_MODE")
+
+    match mode_env:
+        case "REALTIME":
+            app_mode = SchedulerModes.OPERATION
+        case "SIMULATION":
+            app_mode = SchedulerModes.SIMULATION
+        case "VALIDATION":
+            app_mode = SchedulerModes.VALIDATION
+        case _:
+            raise ValueError("Missing env var for SCHEDULER_MODE")
 except ValueError:
     app_mode = SchedulerModes.VALIDATION
 
