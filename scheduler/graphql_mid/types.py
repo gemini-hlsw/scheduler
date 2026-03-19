@@ -342,3 +342,7 @@ class BuildParametersInput:
             visibility_end=self.visibility_end,
             program_list=self.program_list
         )
+@strawberry.type
+class AvailableProgram:
+    id: str
+    ref_label: str

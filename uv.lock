@@ -835,7 +835,7 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "26.3.0"
+version = "26.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -847,9 +847,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/63/ee/729be58eb4f538165978a5d5253ede2896552c2f84019a03f43e03f4166d/gpp_client-26.3.0.tar.gz", hash = "sha256:7b9778934b56cbda02d7b05e9f3609e1af13bb0773e9b51fc87d996fe91e901b", size = 158936, upload-time = "2026-03-03T13:48:41.358Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/a6/9067dcebbf887b8d53b1a4361b22be8f5a685ff47153d0c788e90765b792/gpp_client-26.3.1.tar.gz", hash = "sha256:9e17ccb72deb94b5a8bf9f39fc693752c79542069ef763a890b87972b7a88b6e", size = 165357, upload-time = "2026-03-19T18:08:44.577Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/78/c8404f6d309df424eb2badc987947c5db781c02072390d4e22ceec4a7e1f/gpp_client-26.3.0-py3-none-any.whl", hash = "sha256:4d9bd7b721e6f4071a0f2e911c8e48406b30fe837004751cb040ee2723ac66ae", size = 194608, upload-time = "2026-03-03T13:48:39.676Z" },
+    { url = "https://files.pythonhosted.org/packages/c7/2b/91bab722d198a932fe1c1fd2d51b4e0c030bd45c48d544bf252778fb4197/gpp_client-26.3.1-py3-none-any.whl", hash = "sha256:f03e3f80c3131d008a64edbf06dbf3828e07ec72a6798af16ac9bb5a1d314ce5", size = 201399, upload-time = "2026-03-19T18:08:42.876Z" },
 ]
 
 [[package]]
@@ -2389,7 +2389,7 @@ requires-dist = [
     { name = "dask", specifier = ">=2025.10.0" },
     { name = "fastapi", specifier = ">=0.116.1" },
     { name = "gelidum", specifier = ">=0.5.9" },
-    { name = "gpp-client", specifier = "==26.3.0" },
+    { name = "gpp-client", specifier = "==26.3.1" },
     { name = "gql", specifier = ">=4.0.0" },
     { name = "hypothesis", specifier = ">=6.137.1" },
     { name = "joblib", specifier = ">=1.5.2" },

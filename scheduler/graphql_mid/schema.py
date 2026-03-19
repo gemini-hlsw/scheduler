@@ -25,7 +25,7 @@ from scheduler.shared_queue import plan_response_subscribers
 from scheduler.clients.scheduler_gpp_client import gpp_client_instance
 
 from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
-                    NewPlansRT, NightPlansResponseRT, BuildParametersInput)
+                    NewPlansRT, NightPlansResponseRT, BuildParametersInput, AvailableProgram)
 from .inputs import CreateNewScheduleInput, CreateNewScheduleRTInput
 
 from ..core.plans import NightStats
@@ -137,14 +137,13 @@ class Query:
         return f'Plan is on the queue in the Operation Process!'
 
     @strawberry.field
-    async def available_programs(self)-> list[str]:
-        client = gpp_client_instance.client
-        where = WhereProgram(proposal_status=WhereEqProposalStatus(
-            eq=ProposalStatus.ACCEPTED
-        ))
-        response = await client.program.get_all(where=where)
-        ids = [p["id"] for p in response['matches']]
-        return ids
+    async def available_programs(self)-> list[AvailableProgram]:
+        director = gpp_client_instance.director
+        results = await director.scheduler.program.get_all_reference_labels()
+
+        return [
+            AvailableProgram(id=p[1], ref_label=p[0]) for p in results
+        ]
 
 
 @strawberry.type
