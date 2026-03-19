@@ -6,7 +6,7 @@ from os import environ
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from scheduler.graphql_mid.server import graphql_server
-from scheduler.server.process_manager import process_manager
+from scheduler.orchestration.process_manager import process_manager
 from scheduler.services.visibility import visibility_calculator
 from scheduler.services.logger_factory import create_logger
 from scheduler.core.builder.modes import is_validation, is_operation
