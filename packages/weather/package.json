@@ -1,0 +1,33 @@
+{
+  "name": "weather",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsc && node ./dist/index.js",
+    "dev": "tsx watch ./src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.27.0",
+  "type": "module",
+  "dependencies": {
+    "@apollo/server": "^5.2.0",
+    "@as-integrations/express5": "^1.1.2",
+    "@graphql-tools/schema": "^10.0.30",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "graphql": "^16.12.0",
+    "graphql-subscriptions": "^3.0.0",
+    "graphql-ws": "^6.0.7",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.21.0"
+  }
+}

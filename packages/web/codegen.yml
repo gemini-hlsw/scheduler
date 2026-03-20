@@ -1,0 +1,12 @@
+overwrite: true
+schema:
+  - "../schema/*.graphql"
+documents: "src/**/*.{ts,tsx}"
+generates:
+  ../schema/web/:
+    preset: client
+    config:
+      withHooks: true
+      enumsAsTypes: true
+      futureProofEnums: true
+ignoreNoDocuments: true
