@@ -47,6 +47,7 @@ dev = [
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",
     "pytest-xdist>=3.8.0",
+    "strawberry-graphql[cli]>=0.278.1",
 ]
 docs = [
     "mkdocs-material>=9.6.16",
