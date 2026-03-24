@@ -709,19 +709,17 @@ class GppProgramProvider(ProgramProvider):
             pm_dec=pm_dec,
             epoch=epoch)
 
-    def parse_nonsidereal_target(self, data: dict) -> NonsiderealTarget:
+    def parse_nonsidereal_target(self, data: dict, targ_type: str) -> NonsiderealTarget:
         """
         TODO: Retrieve the Ephemeris data.
         TODO: Should we be doing this here, or in the Collector?
         """
-        name, magnitudes, target_type = self._parse_target_header(data)
-        des = data.get(GppProgramProvider._TargetKeys.DES, name)
-
-        # This is redundant: it is always 'nonsidereal'
-        # tag = data[GppProgramProvider._TargetKeys.TAG]
+        name, magnitudes = self._parse_target_header(data)
+        target_type = TargetType[targ_type]
+        des = data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.DES]
 
         # This is the tag information that we want: either MAJORBODY, COMET, or ASTEROID
-        tag_str = data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]
+        tag_str = data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]['keyType']
         tag = TargetTag[tag_str]
 
         # RA and dec will be looked up when determining target info in Collector.
@@ -1481,12 +1479,12 @@ class GppProgramProvider(ProgramProvider):
         sem = data['proposal']['call']['semester']  # Program.Proposal.call.semester
         semester = Semester(year=int(sem[0:4]), half=SemesterHalf(sem[-1]))
         program_type = None
-        gpp_prog_type = data['type']
+        gpp_prog_type = data['type_']
         if gpp_prog_type in ['CALIBRATION', 'ENGINEERING']:
             prog_type = gpp_prog_type[0:3]
         elif gpp_prog_type == 'SCIENCE':
             # TODO: switch to interfaces
-            gpp_prop_subtype = data['proposal']['type']['science_subtype']
+            gpp_prop_subtype = data['proposal']['type_']['science_subtype']
             prog_type = self._gpp_prop_type[gpp_prop_subtype]
 
         program_type = ProgramTypes[prog_type]  # Program.Proposal.type.science_subtype
