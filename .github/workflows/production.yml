@@ -44,7 +44,7 @@ jobs:
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
         run: |
-          heroku container:release -a ${{ secrets[matrix.app_secret] }} web
+          heroku container:release -a ${{ secrets[matrix.app_secret] }} scheduler
 
   web-deploy:
     name: Schedule UI Production Deploy
