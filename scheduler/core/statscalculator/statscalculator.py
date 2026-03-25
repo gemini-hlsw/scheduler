@@ -66,6 +66,8 @@ class StatCalculator:
                             # Check if program is on the table
                             metrics_per_program.setdefault(program.id, 0.0)
                             metrics_per_band.setdefault(obs.band.name, 0.0)
+                    # Workaround for band for calibrations
+                    metrics_per_band.setdefault('BAND1', 0.0)
 
                     # Calculate night stats for the plan
                     n_toos = 0
