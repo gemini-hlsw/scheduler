@@ -157,6 +157,5 @@ pnpm-debug.log*
 node_modules
 
 */**/.vite/
-
 *.local
 *.schema.json
