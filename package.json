@@ -1,0 +1,48 @@
+{
+  "name": "scheduler",
+  "description": "Monorepo for scheduler projects",
+  "version": "1.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.24.0",
+  "license": "BSD-3-Clause",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gemini-hlsw/scheduler.git"
+  },
+  "scripts": {
+    "frontend": "pnpm --filter frontend",
+    "all": "pnpm -r",
+    "build": "tsc -b",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@graphql-codegen/cli": "2.16.1",
+    "@graphql-codegen/client-preset": "1.2.3",
+    "@graphql-codegen/introspection": "2.2.3",
+    "@graphql-codegen/typescript-react-apollo": "^3.3.7",
+    "@graphql-typed-document-node/core": "^3.2.0",
+    "@graphql-eslint/eslint-plugin": "4.4.0",
+    "@tsconfig/node-ts": "23.6.2",
+    "@tsconfig/node24": "24.0.3",
+    "@tsconfig/strictest": "2.0.8",
+    "@tsconfig/vite-react": "7.0.2",
+    "@types/node": "25.5.0",
+    "eslint": "^9.39.2",
+    "eslint-import-resolver-typescript": "4.4.4",
+    "eslint-plugin-import-x": "4.16.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-simple-import-sort": "12.1.1",
+    "globals": "16.5.0",
+    "husky": "9.1.7",
+    "lint-staged": "16.2.7",
+    "prettier": "3.7.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.0"
+  },
+  "lint-staged": {
+    "*.{js,mjs,ts,tsx,jsx,css,md,json,yml,yaml}": "prettier --write",
+    "*.css": "stylelint --fix"
+  }
+}

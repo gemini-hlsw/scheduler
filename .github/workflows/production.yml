@@ -6,10 +6,28 @@ on:
       - "v*"
 
 jobs:
-  build:
+  get-version:
+    name: Calculate version tag
+    runs-on: ubuntu-latest
+    outputs:
+      version-tag: ${{ steps.set-version-tag.outputs.version-tag }}
+      get-heroku-api-key: ${{ steps.get-heroku-api-key.outputs.HEROKU_API_KEY }}
+    steps:
+      - name: Set version tag
+        id: set-version-tag
+        run: echo "version-tag=$(date +'%Y%m%d')_${{ github.ref_name }}" >> $GITHUB_OUTPUT
+      - name: Get heroku api key secret
+        id: get-heroku-api-key
+        run: echo "HEROKU_API_KEY=$(echo ${{ secrets.HEROKU_API_KEY }})" >> $GITHUB_ENV
+
+  backend:
     name: Scheduler Production Deploy
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    needs: get-version
+    env:
+      VERSION_TAG: ${{ needs.get-version.outputs.version-tag }}
+      HEROKU_API_KEY: ${{ needs.get-version.outputs.get-heroku-api-key }}
     strategy:
       matrix:
         include:
@@ -20,8 +38,6 @@ jobs:
             app_mode: validation
             app_secret: HEROKU_APP_NAME_MULTINIGHT_PRODUCTION
     steps:
-      - name: Set version tag
-        run: echo "VERSION_TAG=$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
       - uses: actions/checkout@v4
         with:
           lfs: "true"
@@ -29,19 +45,36 @@ jobs:
         run: git lfs checkout
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
-      - name: Login to Heroku Container registry
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      - name: Login heroku container registry
         run: heroku container:login
-      - name: Build and push
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      - name: Build and push container to Heroku registry
         run: |
-          heroku container:push -a ${{ secrets[matrix.app_secret] }} web \
+          heroku container:push -a ${{ secrets.HEROKU_PRODUCTION_APP_NAME }} backend \
+          --arg GH_PAT=${{ secrets.GH_PAT }} \
           --arg APP_VERSION=${{ env.VERSION_TAG }}-staging-${{ matrix.mode }}
-
-      - name: Release
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      - name: Release container on Heroku
         run: |
-          heroku container:release -a ${{ secrets[matrix.app_secret] }} web
+          heroku container:release -a ${{ secrets[matrix.app_secret] }} backend
+
+  frontend:
+    name: Schedule UI Production Deploy
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: get-version
+    env:
+      VERSION_TAG: ${{ needs.get-version.outputs.version-tag }}
+      HEROKU_API_KEY: ${{ needs.get-version.outputs.get-heroku-api-key }}
+    steps:
+      # Check-out your repository.
+      - uses: actions/checkout@v4
+      # Update the version in src/version.json
+      - name: Set version tag
+        run: sed -i "s/development/${VERSION_TAG}/" src/version.json
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+      - name: Build and push container to Heroku registry
+        run: |
+          heroku container:push -a ${{ secrets.HEROKU_FRONTEND_APP_NAME_PROD }} frontend
+      - name: Release container on Heroku
+        run: |
+          heroku container:release -a ${{ secrets.HEROKU_FRONTEND_APP_NAME_PROD }} frontend

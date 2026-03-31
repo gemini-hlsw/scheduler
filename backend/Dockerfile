@@ -2,7 +2,6 @@ FROM python:3.11-slim
 
 # Default app version is development
 ARG APP_VERSION="development"
-
 ENV APP_VERSION=$APP_VERSION
 
 WORKDIR /home

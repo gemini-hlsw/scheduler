@@ -1,0 +1,8 @@
+{
+  "version": "development",
+  "changelog": [
+    "Added about modal",
+    "Added versioning for server and UI",
+    "Fixed navbar display on small screens"
+  ]
+}
