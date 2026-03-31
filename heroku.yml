@@ -1,0 +1,8 @@
+build:
+  docker:
+    backend:
+      dockerfile: backend/Dockerfile
+      context: .
+    frontend:
+      dockerfile: frontend/Dockerfile
+      context: .

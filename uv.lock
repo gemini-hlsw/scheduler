@@ -8,6 +8,11 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 
+[manifest]
+members = [
+    "scheduler",
+]
+
 [[package]]
 name = "aioboto3"
 version = "15.5.0"
@@ -2485,7 +2490,7 @@ wheels = [
 [[package]]
 name = "scheduler"
 version = "0.1.10"
-source = { virtual = "." }
+source = { virtual = "backend" }
 dependencies = [
     { name = "aioboto3" },
     { name = "astropy" },

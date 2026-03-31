@@ -11,8 +11,7 @@
     "url": "git+https://github.com/gemini-hlsw/scheduler.git"
   },
   "scripts": {
-    "web": "pnpm --filter web",
-    "weather": "pnpm --filter weather",
+    "frontend": "pnpm --filter frontend",
     "all": "pnpm -r",
     "build": "tsc -b",
     "lint": "pnpm -r lint"

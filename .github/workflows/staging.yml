@@ -7,9 +7,27 @@ on:
       - main
 
 jobs:
+  get-version:
+    name: Calculate version tag
+    runs-on: ubuntu-latest
+    outputs:
+      version-tag: ${{ steps.set-version-tag.outputs.version-tag }}
+      get-heroku-api-key: ${{ steps.get-heroku-api-key.outputs.HEROKU_API_KEY }}
+    steps:
+      - name: Set version tag
+        id: set-version-tag
+        run: echo "version-tag=$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+      - name: Get heroku api key secret
+        id: get-heroku-api-key
+        run: echo "HEROKU_API_KEY=$(echo ${{ secrets.HEROKU_API_KEY }})" >> $GITHUB_ENV
+
   build-deploy-scheduler:
     name: Scheduler Staging Deploy (${{ matrix.mode }})
     runs-on: ubuntu-latest
+    needs: get-version
+    env:
+      VERSION_TAG: ${{ needs.get-version.outputs.version-tag }}
+      HEROKU_API_KEY: ${{ needs.get-version.outputs.get-heroku-api-key }}
     strategy:
       matrix:
         include:
@@ -20,8 +38,6 @@ jobs:
             app_mode: validation
             app_secret: HEROKU_APP_NAME_MULTINIGHT_STAGING
     steps:
-      - name: Set version tag
-        run: echo "VERSION_TAG=$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
       - uses: actions/checkout@v4
         with:
           lfs: true
@@ -34,51 +50,34 @@ jobs:
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
       - name: Login to Heroku Container registry
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
         run: heroku container:login
-      - name: Build and push
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      - name: Build and push container to Heroku registry
         run: |
-          heroku container:push -a ${{ secrets[matrix.app_secret] }} scheduler --recursive \
+          heroku container:push -a ${{ secrets[matrix.app_secret] }} backend \
           --arg APP_VERSION=${{ env.VERSION_TAG }}-staging-${{ matrix.mode }}
-
-      - name: Release
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      - name: Release container on Heroku
         run: |
-          heroku container:release -a ${{ secrets[matrix.app_secret] }} scheduler
+          heroku container:release -a ${{ secrets[matrix.app_secret] }} backend
 
-  build-deploy-web:
+  frontend:
     name: Schedule UI Staging Deploy
     runs-on: ubuntu-latest
+    needs: get-version
+    env:
+      VERSION_TAG: ${{ needs.get-version.outputs.version-tag }}
+      HEROKU_API_KEY: ${{ needs.get-version.outputs.get-heroku-api-key }}
     steps:
-      # Check-out your repository.
-      - name: Checkout
-        uses: actions/checkout@v3
-      # Update the version in src/version.json
+      - uses: actions/checkout@v4
       - name: Set version tag
-        run: sed -i "s/development/$(date +'%Y%m%d')_$(echo $GITHUB_SHA | cut -c1-7)/" packages/web/src/version.json
+        run: sed -i "s/development/${{ env.VERSION_TAG }}/" src/version.json
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
-      - name: Build, Push and Release a Docker container to Heroku.
-        uses: akhileshns/heroku-deploy@v3.12.12
-        with:
-          # Below you must provide variables for your Heroku app.
-
-          # The email address associated with your Heroku account.
-          # If you don't want to use repository secrets (which is recommended) you can do:
-          # email: my.email@example.com
-          heroku_email: ${{ secrets.HEROKU_EMAIL }}
-
-          # Heroku API key associated with provided user's email.
-          # Api Key is available under your Heroku account settings.
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-
-          # Name of the heroku application to which the build is to be sent.
-          heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
-          buildpack: heroku-community/nginx
+      - name: Build and push container to Heroku registry
+        run: |
+          heroku container:push -a ${{ secrets.HEROKU_FRONTEND_APP_NAME }} frontend
+      - name: Release container on Heroku
+        run: |
+          heroku container:release -a ${{ secrets.HEROKU_FRONTEND_APP_NAME }} frontend
 
   deploy-docs:
     name: Deploy Documentation
@@ -88,4 +87,4 @@ jobs:
       - uses: actions/checkout@v4
       - name: Deploy documentation
         run: |
-          pip install mkdocs-material mkdocs-mermaid2-plugin mkdocstrings-python && cd packages/scheduler && mkdocs gh-deploy --force --clean --verbose
+          pip install mkdocs-material mkdocs-mermaid2-plugin mkdocstrings-python && cd backend && mkdocs gh-deploy --force --clean --verbose
