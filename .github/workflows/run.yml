@@ -8,18 +8,15 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v2
-
+        uses: actions/checkout@v4
       - name: Setup Python environment
         uses: ./.github/actions/setup-uv
-
       - name: Add $PYTHONPATH
-        # run: echo "PYTHONPATH=/home/runner/work/scheduler/scheduler/packages/scheduler" >> $GITHUB_ENV
-        run: echo "PYTHONPATH=$(pwd)/packages/scheduler" >> $GITHUB_ENV
+        run: echo "PYTHONPATH=$(pwd)/backend/" >> $GITHUB_ENV
 
       - name: Run Greedymax
         env:
           REDISCLOUD_URL: ${{ secrets.REDISCLOUD_URL }}
           GPP_URL: ${{ secrets.GPP_URL }}
           GPP_KEY: ${{ secrets.GPP_KEY }}
-        run: uv run python packages/scheduler/scheduler/scripts/run.py
+        run: uv run python backend/scheduler/scripts/run.py
