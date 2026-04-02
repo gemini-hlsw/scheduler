@@ -315,6 +315,7 @@ class GppProgramProvider(ProgramProvider):
         # USER_TARGETS = 'userTargets'
 
     _constraint_to_value = {
+        'ZERO': 0.0,
         'POINT_ONE': 0.1,
         'POINT_TWO': 0.2,
         'POINT_THREE': 0.3,
@@ -1053,7 +1054,8 @@ class GppProgramProvider(ProgramProvider):
             setuptime_type = SetupTimeType.FULL
             # acq_overhead = timedelta(seconds=data['execution']['digest']['setup']['full']['seconds'])
             # GMOS longslit FULL acq overhead is 16 minutes
-            acq_overhead = timedelta(seconds=16*60)
+            # ToDo: the query needs to return this, otherwise set by the mode
+            # acq_overhead = timedelta(seconds=16*60)
 
             # Science band
             band_value = data.get(GppProgramProvider._ObsKeys.BAND)
@@ -1068,8 +1070,7 @@ class GppProgramProvider(ProgramProvider):
             # Constraints
             find_constraints = {
                 GppProgramProvider._ConstraintKeys.KEY: data[GppProgramProvider._ConstraintKeys.KEY],
-                GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[
-                    GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]}
+                GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]}
             # print(find_constraints)
             constraints = self.parse_constraints(find_constraints) if find_constraints else None
 
@@ -1083,6 +1084,18 @@ class GppProgramProvider(ProgramProvider):
             # print(f'\t\t wavelength: {wavelength}')
             # print(f'\t\t mode: {mode}')
             # print(f'\t\t calibration_role: {calibration_role}')
+
+            # Acq time from mode workaround
+            acq_overhead = ZeroTime
+            if 'GMOS' in mode:
+                if 'SLIT' in mode:
+                    acq_overhead = timedelta(seconds=16 * 60)
+                elif 'IMAGING' in mode:
+                    acq_overhead = timedelta(seconds=6 * 60)
+            elif 'FLAM' in mode:
+                if 'SLIT' in mode:
+                    acq_overhead = timedelta(seconds=20 * 60)
+            # print(f'\t\t acq_overhead: {acq_overhead}')
 
             # Atoms
             sequence = data[GppProgramProvider._ObsKeys.SEQUENCE]
@@ -1225,20 +1238,20 @@ class GppProgramProvider(ProgramProvider):
             delay_min = None
             delay_max = None
             group_option = AndOption.ANYORDER
-            # number_to_observe = len(data['elements'])
-            number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
             number_observed = 0
             elements_list = data[GppProgramProvider._GroupKeys.ELEMENTS]
+            number_to_observe = len(elements_list)
             parent_id = GROUP_NONE_ID
             # parent_id = UniqueGroupID(ROOT_GROUP_ID.id)
             parent_index = 0
             child_active=active
             system_group=False
         else:
+            # print(f"parsing group {group_id.id}")
             group_name = data[GppProgramProvider._GroupKeys.GROUP_NAME]
             group_delay_min = data.get(GppProgramProvider._GroupKeys.DELAY_MIN)
             group_delay_max = data[GppProgramProvider._GroupKeys.DELAY_MAX]
-            # print(group_id, group_name, group_delay_min, group_delay_max)
+            # print(group_id.id, group_name, group_delay_min, group_delay_max)
             if group_delay_min or group_delay_max:
                 if group_delay_min:
                     delay_min = timedelta(seconds=data[GppProgramProvider._GroupKeys.DELAY_MIN]["seconds"])
@@ -1319,6 +1332,8 @@ class GppProgramProvider(ProgramProvider):
         children = []
         observations = []
         obs_parent_indices = []
+
+        # print(f"parse_group {group_id}: num_to_observe {number_to_observe}, group_option: {group_option}")
 
         # Recursively process the group elements, reversing required to get the order
         # as in Explore
@@ -1462,6 +1477,7 @@ class GppProgramProvider(ProgramProvider):
         program_id = ProgramID(data[GppProgramProvider._ProgramKeys.ID]['label']) \
             if GppProgramProvider._ProgramKeys.ID in data.keys() else get_progid(data['root'])
             # if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
+        # print(f'parse_program: {program_id.id}')
 
         # Initialize split variables - not used by GPP
         split = True
@@ -1476,13 +1492,17 @@ class GppProgramProvider(ProgramProvider):
             return None
 
         # Extract the semester and program type
-        sem = data['proposal']['call']['semester']  # Program.Proposal.call.semester
+        try:
+            sem = data['proposal']['call']['semester']  # Program.Proposal.call.semester
+        except:
+            # For CAL/ENG programs, parse the program_id (G-YYYYS-ENG/CAL...)
+            sem = program_id.id[2:7]
         semester = Semester(year=int(sem[0:4]), half=SemesterHalf(sem[-1]))
         program_type = None
         gpp_prog_type = data['type_']
-        if gpp_prog_type in ['CALIBRATION', 'ENGINEERING']:
+        if gpp_prog_type.name in ['CALIBRATION', 'ENGINEERING']:
             prog_type = gpp_prog_type[0:3]
-        elif gpp_prog_type == 'SCIENCE':
+        elif gpp_prog_type.name == 'SCIENCE':
             # TODO: switch to interfaces
             gpp_prop_subtype = data['proposal']['type_']['science_subtype']
             prog_type = self._gpp_prop_type[gpp_prop_subtype]
