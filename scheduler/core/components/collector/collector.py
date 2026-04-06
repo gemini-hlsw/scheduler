@@ -351,6 +351,7 @@ class Collector(SchedulerComponent):
                 # 2. Program type cannot be determined from ID.
                 # 3. Program root group is empty.
                 if program is None:
+                    _logger.debug(f'Program {next_data["id"]} fails parsing')
                     continue
 
                 # TODO: improve this. Pass the semesters into the program_provider and return None as soon
@@ -533,9 +534,9 @@ class Collector(SchedulerComponent):
                 if program is None:
                     continue
 
-                if program.semester is None or program.semester not in self.semesters:
-                    _logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
-                    continue
+                #if program.semester is None or program.semester not in self.semesters:
+                #    _logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
+                #    continue
 
                 if program.program_awarded() == ZeroTime:
                     _logger.debug(f'Program {program.id} has awarded time of zero (skipping).')
@@ -567,13 +568,16 @@ class Collector(SchedulerComponent):
 
         _logger.info("Starting parallel processing in background thread...")
 
-        core_info = get_cores()
-        if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
-            n_jobs = core_info['performance']
+        if config.collector.parallel_viscalc:
+            # Get information about CPU cores, to avoid overloading
+            core_info = get_cores()
+            if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
+                n_jobs = core_info['performance']
+            else:
+                n_jobs = core_info['cores']
         else:
-            n_jobs = core_info['cores']
-        print([o.id.id for p,o in parsed_observations])
-        # Run the blocking parallel code in a thread
+            n_jobs = 1
+
         result = await asyncio.to_thread(
             self.calculate_parallel_visibility,
             parsed_observations,
