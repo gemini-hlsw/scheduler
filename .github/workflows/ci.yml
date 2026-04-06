@@ -1,0 +1,303 @@
+###############################################################################
+# CI Pipeline
+# Runs only the checks relevant to what changed:
+#   - backend/  → Python lint, test, Docker build (via uv)
+#   - frontend/ → Node lint, test, build
+#   - both      → all checks
+# Always runs: changelog fragment check, branch name, commit lint
+###############################################################################
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  # ── Detect what changed ──────────────────────────────────────────────────
+  changes:
+    name: Detect Changes
+    uses: ./.github/workflows/detect-changes.yml
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BACKEND
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  backend-lint:
+    name: "Backend: Lint & Format"
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.shared == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Ruff check
+        run: uv run ruff check backend/
+
+      - name: Ruff format check
+        run: uv run ruff format --check backend/
+
+      - name: Type check
+        run: uv run mypy --ignore-missing-imports backend/
+        continue-on-error: true
+
+      - name: GraphQL schema descriptions
+        run: uv run python scripts/lint-graphql-schema.py
+        continue-on-error: true
+
+  backend-test:
+    name: "Backend: Tests"
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.shared == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run tests
+        run: |
+          uv run pytest \
+            --cov=backend \
+            --cov-report=xml:backend/coverage.xml \
+            --cov-report=term-missing \
+            --junitxml=backend/test-results.xml \
+            -n auto \
+            -v \
+            backend/
+        env:
+          SCHEDULER_MODE: VALIDATION
+          CI: true
+
+      - name: Upload Coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v2
+        with:
+          file: ./coverage.xml
+
+  backend-build:
+    name: "Backend: Build Container"
+    runs-on: ubuntu-latest
+    needs: [changes, backend-lint, backend-test]
+    if: |
+      github.event_name == 'push' &&
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.shared == 'true')
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(python3 -c "
+          import tomllib
+          with open('pyproject.toml', 'rb') as f:
+              data = tomllib.load(f)
+          print(data['project']['version'])
+          " 2>/dev/null || python3 -c "from version import __version__; print(__version__)")
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHA_SHORT}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/backend:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}/backend:${{ steps.version.outputs.sha }}
+            ghcr.io/${{ github.repository }}/backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FRONTEND
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  frontend-lint:
+    name: "Frontend: Lint & Typecheck"
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-frontend
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: TypeScript check
+        run: pnpm tsc --noEmit
+
+  frontend-test:
+    name: "Frontend: Tests"
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-frontend
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run tests
+        run: pnpm test -- --ci
+        env:
+          CI: true
+
+  frontend-build:
+    name: "Frontend: Build"
+    runs-on: ubuntu-latest
+    needs: [ changes, frontend-lint, frontend-test ]
+    if: |
+      github.event_name == 'push' &&
+      needs.changes.outputs.frontend == 'true'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-frontend
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build
+        run: pnpm build
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PR CHECKS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  branch-check:
+    name: Branch Name
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Validate branch name
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          PATTERN="^((GSCHED-[0-9]+)([-/].+)?|release/.+|hotfix/.+|dependabot/.+)$"
+          
+          if [[ ! "$BRANCH" =~ $PATTERN ]]; then
+            echo "::error::Branch name '$BRANCH' doesn't include a Jira ticket ID."
+            echo ""
+            echo "Valid examples: GSCHED-190, GSCHED-190/add-feature, GSCHED-190-fix-timeout"
+            echo "Exceptions: release/*, hotfix/*, dependabot/*"
+            exit 1
+          fi
+          echo "✓ Branch '$BRANCH' is valid"
+
+  commit-lint:
+    name: Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          COMMITS=$(git log --no-merges --format="%s" \
+            origin/${{ github.base_ref }}..HEAD)
+          
+          PATTERN="^(feat|fix|chore|docs|refactor|test|ci|style|perf|build|revert)(\(.+\))?: .+"
+          FAILED=0
+          
+          while IFS= read -r MSG; do
+            [[ "$MSG" == *"[skip ci]"* ]] && continue
+            if [[ ! "$MSG" =~ $PATTERN ]]; then
+              echo "::error::Invalid commit message: '$MSG'"
+              FAILED=1
+            fi
+          done <<< "$COMMITS"
+          
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "Format: <type>[(<scope>)]: <description>"
+            echo "Scopes: backend, frontend, or omit"
+            echo "Examples:"
+            echo "  feat(backend): add new feature"
+            echo "  fix(frontend): resolve bug"
+            echo "  chore: update dependencies"
+            exit 1
+          fi
+          echo "✓ All commit messages are valid"
+
+  changelog-check:
+    name: Changelog Fragment
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changelog fragment
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          
+          SKIP_PATTERNS="^\.github/|^docs/|^README|^\.gitignore|^\.ruff"
+          MEANINGFUL_CHANGES=$(echo "$CHANGED" | grep -vE "$SKIP_PATTERNS" || true)
+          
+          if [ -z "$MEANINGFUL_CHANGES" ]; then
+            echo "✓ Only CI/docs changes — fragment not required"
+            exit 0
+          fi
+          
+          FRAGMENTS=$(echo "$CHANGED" | grep "^changelog.d/" | grep -v "README.md" | grep -v "_template" || true)
+          
+          if [ -z "$FRAGMENTS" ]; then
+            echo "::error::No changelog fragment found."
+            echo ""
+            echo "  ./scripts/changelog-fragment 'Description' feature"
+            echo "  ./scripts/changelog-fragment 'Description' fix"
+            echo "  ./scripts/changelog-fragment '' misc"
+            exit 1
+          fi
+          echo "✓ Fragment found: $FRAGMENTS"

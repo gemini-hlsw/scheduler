@@ -1,0 +1,253 @@
+###############################################################################
+# Promote to PRODUCTION
+# Manual trigger with approval gate.
+# ALWAYS deploys both backend and frontend (full promotion).
+#
+# GitHub Environments used:
+#   - prod-backend  → approval required, shows backend API URL
+#   - prod-frontend → approval required, shows frontend URL
+###############################################################################
+name: Promote to PROD
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: "Override version (leave empty to use current)"
+        required: false
+        type: string
+      skip_changelog:
+        description: "Skip changelog generation"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  # ── Pre-flight checks ────────────────────────────────────────────────────
+  preflight:
+    name: Pre-flight Checks
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.11"
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version_bump }}" ]; then
+            VERSION="${{ inputs.version_bump }}"
+          else
+            VERSION=$(uv run python -c "
+          try:
+              import tomllib
+              with open('pyproject.toml', 'rb') as f:
+                  data = tomllib.load(f)
+              print(data['project']['version'])
+          except:
+              from version import __version__
+              print(__version__)
+          ")
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Deploying version: ${VERSION}"
+
+      - name: Verify CI passed on main
+        run: |
+          CONCLUSION=$(gh run list \
+            --branch main \
+            --workflow ci.yml \
+            --limit 1 \
+            --json conclusion \
+            --jq '.[0].conclusion')
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "::error::CI has not passed on main. Aborting promotion."
+            exit 1
+          fi
+          echo "✓ CI passed on main"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build changelog (dry run)
+        id: changelog
+        if: ${{ !inputs.skip_changelog }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          CHANGELOG=$(uv run towncrier build --version "$VERSION" --draft 2>/dev/null || echo "No changelog fragments found.")
+          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+  # ── Deploy Backend ───────────────────────────────────────────────────────
+  deploy-backend:
+    name: "Deploy Backend → PROD"
+    runs-on: ubuntu-latest
+    needs: preflight
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.shared == 'true'
+    environment:
+      name: prod-backend
+    strategy:
+      matrix:
+        include:
+          - mode: realtime
+            app_mode: operation
+            app_secret: HEROKU_APP_NAME_REALTIME_PRODUCTION
+          - mode: multinight
+            app_mode: validation
+            app_secret: HEROKU_APP_NAME_MULTINIGHT_PRODUCTION
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Verify LFS files
+        run: |
+          echo "Checking LFS status:"
+          git lfs ls-files
+          echo "Checking if LFS files exist locally:" 
+          ls -la backend/scheduler/services/horizons/data/
+
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.11"
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(uv run python -c "
+          try:
+              import tomllib
+              with open('pyproject.toml', 'rb') as f:
+                  data = tomllib.load(f)
+              print(data['project']['version'])
+          except:
+              from version import __version__
+              print(__version__)
+          ")
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Login to Heroku Container registry
+        run: heroku container:login
+
+      - name: Build and push container to Heroku registry
+        run: |
+          heroku container:push -a ${{ secrets[matrix.app_secret] }} web \
+          --arg APP_VERSION=${{ steps.version.outputs.version }}-staging-${{ matrix.mode }}
+
+      - name: Release container on Heroku
+        run: |
+          heroku container:release -a ${{ secrets[matrix.app_secret] }} web
+
+
+  # ── Deploy Frontend ──────────────────────────────────────────────────────
+  deploy-frontend:
+    name: "Deploy Frontend → PROD"
+    runs-on: ubuntu-latest
+    needs: preflight
+    if: needs.changes.outputs.frontend == 'true'
+    environment:
+      name: prod-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set version tag
+        run: sed -i "s/development/${{ env.VERSION_TAG }}/" src/version.json
+
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Login to Heroku Container registry
+        run: heroku container:login
+
+      - name: Build and push container to Heroku registry
+        run: |
+          heroku container:push -a ${{ secrets.HEROKU_APP_NAME_FRONTEND_STAGING }} web
+
+      - name: Release container on Heroku
+        run: |
+          heroku container:release -a ${{ secrets.HEROKU_APP_NAME_FRONTEND_PRODUCTION }} web
+
+  # ── Tag & Release ────────────────────────────────────────────────────────
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [preflight, deploy-backend, deploy-frontend]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.11"
+
+      - name: Build changelog and consume fragments
+        run: |
+          VERSION="${{ needs.preflight.outputs.version }}"
+          uv run towncrier build --version "$VERSION" --yes
+
+      - name: Commit changelog and removed fragments
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md changelog.d/
+          git diff --cached --quiet || \
+            git commit -m "docs: update changelog for v${{ needs.preflight.outputs.version }} [skip ci]"
+          git push origin main
+
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ needs.preflight.outputs.version }}" \
+            -m "Release v${{ needs.preflight.outputs.version }}"
+          git push origin "v${{ needs.preflight.outputs.version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.preflight.outputs.version }}
+          name: v${{ needs.preflight.outputs.version }}
+          body: |
+            ## Release v${{ needs.preflight.outputs.version }}
+
+            **Deployed:** ${{ github.event.head_commit.timestamp || 'manual trigger' }}
+            **Deployed by:** ${{ github.actor }}
+
+            ### Deployed to
+            - ✅ Backend
+            - ✅ Frontend
+
+            ${{ needs.preflight.outputs.changelog }}
+
+            ---
+            _Full diff: [${{ github.event.before || 'previous' }}...${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/compare/${{ github.event.before || 'HEAD~1' }}...${{ github.sha }})_
+          draft: false
+          prerelease: false
+
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload: |
+            {
+              "text": "🚀 *PRODUCTION Release v${{ needs.preflight.outputs.version }}*\n✅ Backend + Frontend deployed\nBy: ${{ github.actor }}\n<${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ needs.preflight.outputs.version }}|View Release>"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

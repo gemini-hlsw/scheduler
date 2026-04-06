@@ -1,0 +1,107 @@
+###############################################################################
+# Detect Changes — reusable workflow
+# Determines which parts of the monorepo changed so downstream workflows
+# can skip unnecessary jobs.
+#
+# Outputs:
+#   backend  — "true" if backend/ changed
+#   frontend — "true" if frontend/ changed
+#   docs     — "true" if docs/ or mkdocs.yml changed
+#   ci       — "true" if .github/ changed
+#   shared   — "true" if root config files changed (affects both)
+###############################################################################
+name: Detect PR Changes
+
+on:
+  workflow_call:
+    outputs:
+      backend:
+        description: "Backend changed"
+        value: ${{ jobs.detect.outputs.backend }}
+      frontend:
+        description: "Frontend changed"
+        value: ${{ jobs.detect.outputs.frontend }}
+      docs:
+        description: "Docs changed"
+        value: ${{ jobs.detect.outputs.docs }}
+      ci:
+        description: "CI config changed"
+        value: ${{ jobs.detect.outputs.ci }}
+      shared:
+        description: "Shared/root config changed"
+        value: ${{ jobs.detect.outputs.shared }}
+
+jobs:
+  detect:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      docs: ${{ steps.changes.outputs.docs }}
+      ci: ${{ steps.changes.outputs.ci }}
+      shared: ${{ steps.changes.outputs.shared }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine changed paths
+        id: changes
+        run: |
+          # Compare against the base branch for PRs, or previous commit for pushes
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="${{ github.event.before }}"
+            # Handle first push (no previous commit)
+            if [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+              BASE="HEAD~1"
+            fi
+          fi
+
+          CHANGED=$(git diff --name-only "$BASE"...HEAD 2>/dev/null || git diff --name-only HEAD~1)
+
+          echo "Changed files:"
+          echo "$CHANGED"
+          echo ""
+
+          # Backend: anything in backend/ or root Python config
+          if echo "$CHANGED" | grep -qE "^backend/"; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            echo "→ Backend changes detected"
+          else
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Frontend: anything in frontend/
+          if echo "$CHANGED" | grep -qE "^frontend/"; then
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            echo "→ Frontend changes detected"
+          else
+            echo "frontend=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Docs: docs/, mkdocs.yml
+          if echo "$CHANGED" | grep -qE "^(docs/|mkdocs\.yml)"; then
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+            echo "→ Docs changes detected"
+          else
+            echo "docs=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # CI: .github/
+          if echo "$CHANGED" | grep -qE "^\.github/"; then
+            echo "ci=true" >> "$GITHUB_OUTPUT"
+            echo "→ CI changes detected"
+          else
+            echo "ci=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Shared: root-level files that affect both (CHANGELOG, version, Dockerfile, etc.)
+          if echo "$CHANGED" | grep -qE "^(CHANGELOG\.md|version\.py|\.pre-commit|pyproject\.toml|changelog\.d/)"; then
+            echo "shared=true" >> "$GITHUB_OUTPUT"
+            echo "→ Shared config changes detected"
+          else
+            echo "shared=false" >> "$GITHUB_OUTPUT"
+          fi
