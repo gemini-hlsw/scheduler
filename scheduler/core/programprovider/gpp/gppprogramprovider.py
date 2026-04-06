@@ -518,10 +518,14 @@ class GppProgramProvider(ProgramProvider):
                     try:
                         duration = timedelta(
                             seconds=duration_info[GppProgramProvider._TimingWindowKeys.AFTER]['seconds'])
-                        period_info = duration_info[GppProgramProvider._TimingWindowKeys.REPEAT] \
-                            [GppProgramProvider._TimingWindowKeys.PERIOD]['seconds']
-                        repeat_info = duration_info[GppProgramProvider._TimingWindowKeys.REPEAT] \
-                            [GppProgramProvider._TimingWindowKeys.TIMES]
+                        if duration_info[GppProgramProvider._TimingWindowKeys.REPEAT]:
+                            period_info = duration_info[GppProgramProvider._TimingWindowKeys.REPEAT] \
+                                [GppProgramProvider._TimingWindowKeys.PERIOD]['seconds']
+                            repeat_info = duration_info[GppProgramProvider._TimingWindowKeys.REPEAT] \
+                                [GppProgramProvider._TimingWindowKeys.TIMES]
+                        else:
+                            period_info = TimingWindow.NO_PERIOD
+                            repeat_info = TimingWindow.NON_REPEATING
                     except KeyError:
                         duration = None
                         period_info = TimingWindow.NO_PERIOD
@@ -1076,7 +1080,6 @@ class GppProgramProvider(ProgramProvider):
             find_constraints = {
                 GppProgramProvider._ConstraintKeys.KEY: data[GppProgramProvider._ConstraintKeys.KEY],
                 GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]}
-            # print(find_constraints)
             constraints = self.parse_constraints(find_constraints) if find_constraints else None
 
             # QA states, needed?
@@ -1088,7 +1091,7 @@ class GppProgramProvider(ProgramProvider):
             # print(f'\t\t resources: {resources}')
             # print(f'\t\t wavelength: {wavelength}')
             # print(f'\t\t mode: {mode}')
-            # print(f'\t\t calibration_role: {calibration_role}')
+            # # print(f'\t\t calibration_role: {calibration_role}')
 
             # Acq time from mode workaround
             acq_overhead = ZeroTime
@@ -1130,6 +1133,7 @@ class GppProgramProvider(ProgramProvider):
             if len(target_env_keys) > 1:
                 raise ValueError(f'Observation {obs_id} has multiple target environments. Cannot process.')
 
+            # print(target_env_keys)
             if not target_env_keys:
                 # No target environment. Use the empty target.
                 logger.warning(f'No target environment found for observation {obs_id}. Using empty base target.')
