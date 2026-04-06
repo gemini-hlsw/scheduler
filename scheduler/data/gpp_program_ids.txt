@@ -1,16 +1,16 @@
 # Test programs in dev
 # p-147
-##p-11d
+###p-11d
 ##p-cc9
 # p-d5d
 #p-113
 ##p-110
-# Includes nonsidereal
-##p-1154
+# G-2026A-0298-D, includes GN nonsidereal
+###p-1154
 # G-2026A-ENG-GMOSS-01
 ##p-108d
 # G-2026A-CAL-GMOSN-01
-##p-1196
+###p-1196
 # XT1 programs in production
 #p-58f
 #p-577
@@ -21,8 +21,23 @@
 #p-56b
 #p-590
 # XT3 programs in production
-p-751
-p-6ac
-p-7f7
-p-7f9
-p-7d6
+#p-751
+##p-6ac
+# G-2026A-0002-V (Lilly)
+#p-7f7
+#p-7f9
+#p-7d6
+# G-2026A-CAL-GMOSN-01
+#p-7d5
+# G-2026A-ENG-GMOSN-01
+p-794
+# G-2026A-0004-V (Hunter) - obs ready
+p-7fe
+# G-2026A-0005-V (Chiboucas) - nonsidereal ready
+p-7fb
+# G-2026A-0006-V (Stephens) - obs ready
+p-7ff
+# G-2026A-0007-V (Stephens/Li) - obs ready
+p-800
+# G-2026A-0008-V (Stephens/Lilly) -  several nonsidereal ready
+p-801

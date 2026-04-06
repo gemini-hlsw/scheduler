@@ -721,7 +721,12 @@ class GppProgramProvider(ProgramProvider):
 
         # This is the tag information that we want: either MAJORBODY, COMET, or ASTEROID
         tag_str = data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]['keyType']
+        # Map ASTEROID_NEW keyType to ASTEROID
+        if 'ASTEROID' in tag_str:
+            tag_str = 'ASTEROID'
         tag = TargetTag[tag_str]
+
+        # print(f"name: {name}, des: {des} tag_str: {tag_str}")
 
         # RA and dec will be looked up when determining target info in Collector.
         return NonsiderealTarget(
@@ -1146,6 +1151,7 @@ class GppProgramProvider(ProgramProvider):
                     target_info = explicit_base
 
                 # Get the target
+                # print(target_info)
                 try:
                     base = self.parse_target(target_info, targ_type='BASE')
                     targets.append(base)
