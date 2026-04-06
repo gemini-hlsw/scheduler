@@ -61,8 +61,8 @@ export default function BuildParameters({
   const [programs, updatePrograms] = useState([]);
   const [startTimeGN, setStartTimeGN] = useState<Date | undefined>(undefined);
   const [startTimeGS, setStartTimeGS] = useState<Date | undefined>(undefined);
-  const [endTimeGN, setEndTimeGN] = useState<Date | null>(null);
-  const [endTimeGS, setEndTimeGS] = useState<Date | null>(null);
+  const [endTimeGN, setEndTimeGN] = useState<Date | undefined>(undefined);
+  const [endTimeGS, setEndTimeGS] = useState<Date | undefined>(undefined);
 
   function setProgram(program: string, state: boolean) {
     const auxProgramList = [...programs];
