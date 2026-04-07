@@ -149,15 +149,27 @@ class EngineRT:
         #     sites_to_update = [event.site]
         await self.init_variant()
 
+        build_params = await build_params_store.get()
+        night_times = build_params.get_night_times()
+
         start_timeslot = {}
         for site in self.params.sites:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
             utc_night_start = night_start_time.utc.to_datetime(timezone=datetime.timezone.utc)
+
+            custom_start = night_times.get(site, (None, None))[0] if night_times else None
+            if custom_start is not None:
+                event_time = custom_start.utc.to_datetime(timezone=datetime.timezone.utc)
+            else:
+                event_time = utc_night_start
+
             event_timeslot = to_timeslot_idx(
-                event.time,
+                event_time,
                 utc_night_start,
                 self.scp.collector.time_slot_length.to_datetime()
             )
+            _logger.info(f"Start timeslot for {site.name}: event_time={event_time}, "
+                         f"utc_night_start={utc_night_start}, event_timeslot={event_timeslot}")
             start_timeslot[site] = {np.int64(0): event_timeslot}
 
         plans = self.scp.run_rt(start_timeslot)
