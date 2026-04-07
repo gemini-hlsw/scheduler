@@ -76,6 +76,8 @@ class EngineRT:
 
         build_params = await build_params_store.get()
         night_times = build_params.get_night_times()
+        _logger.info(
+            f"Build params: vis_start={build_params.visibility_start}, vis_end={build_params.visibility_end}, night_times={night_times}")
 
         vis_start = build_params.visibility_start or self.params.start
         vis_end = build_params.visibility_end or self.params.end_vis
@@ -147,16 +149,27 @@ class EngineRT:
         #     sites_to_update = [event.site]
         await self.init_variant()
 
+        build_params = await build_params_store.get()
+        night_times = build_params.get_night_times()
+
         start_timeslot = {}
         for site in self.params.sites:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
             utc_night_start = night_start_time.utc.to_datetime(timezone=datetime.timezone.utc)
+
+            custom_start = night_times.get(site, (None, None))[0] if night_times else None
+            if custom_start is not None:
+                event_time = custom_start.utc.to_datetime(timezone=datetime.timezone.utc)
+            else:
+                event_time = utc_night_start
+
             event_timeslot = to_timeslot_idx(
-                # event.time, all event need to happen in the test range for now
-                utc_night_start+datetime.timedelta(hours=3),
+                event_time,
                 utc_night_start,
                 self.scp.collector.time_slot_length.to_datetime()
             )
+            _logger.info(f"Start timeslot for {site.name}: event_time={event_time}, "
+                         f"utc_night_start={utc_night_start}, event_timeslot={event_timeslot}")
             start_timeslot[site] = {np.int64(0): event_timeslot}
 
         plans = self.scp.run_rt(start_timeslot)
