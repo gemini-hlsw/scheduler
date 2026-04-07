@@ -8,6 +8,9 @@ from lucupy.minimodel import NightIndex, Site, VariantSnapshot
 
 from .plan import Plan
 from scheduler.core.calculations.nightevents import NightEvents
+from scheduler.services.logger_factory import create_logger
+
+_logger = create_logger(__name__)
 
 __all__ = [
     'Plans',
@@ -29,11 +32,14 @@ class Plans:
         self.plans: Dict[Site, Plan] = {}
         for site, ne in night_events.items():
             if ne is not None:
-                self.plans[site] = Plan(ne.local_times[self.night_idx][0],
-                                        ne.local_times[self.night_idx][-1],
+                plan_start = ne.local_times[self.night_idx][0]
+                plan_end = ne.local_times[self.night_idx][-1]
+                num_slots = len(ne.times[self.night_idx])
+                self.plans[site] = Plan(plan_start,
+                                        plan_end,
                                         ne.time_slot_length.to_datetime(),
                                         site,
-                                        len(ne.times[self.night_idx]),
+                                        num_slots,
                                         self.night_conditions[site])
 
     def __getitem__(self, site: Site) -> Plan:
