@@ -145,16 +145,17 @@ class BuildParameters(BaseModel):
     visibility_end: datetime | None = None
     program_list: List[str] | None = None
 
-    def get_night_times(self) -> Dict[Site, Tuple[Time, Time]]:
+    def get_night_times(self) -> Dict[Site, Tuple[Time | None, Time | None]]:
         """
         Returns
-           Dict[Site, Tuple[Time, Time]]: the nights times for both sites in astropy time:
+           Dict[Site, Tuple[Time | None, Time | None]]: the night times for both sites in astropy time.
+           Either value can be None if not provided.
         """
         if self.night_times is None:
             return {}
         return {site: (
-                    self.night_times[site].start_time(),
-                    self.night_times[site].end_time()
+                    nt.start_time() if nt.night_start is not None else None,
+                    nt.end_time() if nt.night_end is not None else None
                 )
             for site, nt in self.night_times.items() if nt is not None
         }
