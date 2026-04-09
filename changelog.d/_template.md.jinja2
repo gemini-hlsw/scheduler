@@ -1,0 +1,19 @@
+{% for section, _ in sections.items() %}
+{% set underline = "#" %}
+{% if sections.keys()|list|length > 1 %}
+
+{{ versiondata.version }} ({{ versiondata.date }})
+{{ underline * ((versiondata.version ~ " (" ~ versiondata.date ~ ")")|length) }}
+{% else %}
+{% endif %}
+{% if sections.keys()|list|length > 1 %}{{ section }}
+{{ underline * section|length }}{% endif %}
+{% for category, val in definitions.items() if category in sections[section] %}
+
+### {{ definitions[category]['name'] }}
+
+{% for text, values in sections[section][category].items() %}
+- {% if text %}{{ text }}{% else %}{{ values|join(', ') }}{% endif %}
+{% endfor %}
+{% endfor %}
+{% endfor %}

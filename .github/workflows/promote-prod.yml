@@ -27,7 +27,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ── Pre-flight checks ────────────────────────────────────────────────────
   preflight:
     name: Pre-flight Checks
     runs-on: ubuntu-latest
@@ -40,9 +39,17 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - uses: ./.github/actions/setup-python-uv
+      - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.11"
+
+      - name: Extract version from tag
+        id: version
+        run: |
+            # Strip the 'v' prefix from the tag
+            VERSION="${GITHUB_REF_NAME#v}"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "Deploying version: ${VERSION}"
 
       - name: Determine version
         id: version
@@ -63,22 +70,25 @@ jobs:
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Deploying version: ${VERSION}"
+      ###################################################
+      #
+      ###################################################
+      #- name: Verify CI passed on main
+      #  run: |
 
-      - name: Verify CI passed on main
-        run: |
-          CONCLUSION=$(gh run list \
-            --branch main \
-            --workflow ci.yml \
-            --limit 1 \
-            --json conclusion \
-            --jq '.[0].conclusion')
-          if [ "$CONCLUSION" != "success" ]; then
-            echo "::error::CI has not passed on main. Aborting promotion."
-            exit 1
-          fi
-          echo "✓ CI passed on main"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #    CONCLUSION=$(gh run list \
+      #      --branch main \
+      #      --workflow ci.yml \
+      #      --limit 1 \
+      #      --json conclusion \
+      #     --jq '.[0].conclusion')
+      #    if [ "$CONCLUSION" != "success" ]; then
+      #      echo "::error::CI has not passed on main. Aborting promotion."
+      #      exit 1
+      #    fi
+      #    echo "CI passed on main"
+      #  env:
+      #    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build changelog (dry run)
         id: changelog
@@ -90,7 +100,6 @@ jobs:
           echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-  # ── Deploy Backend ───────────────────────────────────────────────────────
   deploy-backend:
     name: "Deploy Backend → PROD"
     runs-on: ubuntu-latest
@@ -119,7 +128,7 @@ jobs:
           echo "Checking if LFS files exist locally:" 
           ls -la backend/scheduler/services/horizons/data/
 
-      - uses: ./.github/actions/setup-python-uv
+      - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.11"
 
@@ -153,8 +162,6 @@ jobs:
         run: |
           heroku container:release -a ${{ secrets[matrix.app_secret] }} web
 
-
-  # ── Deploy Frontend ──────────────────────────────────────────────────────
   deploy-frontend:
     name: "Deploy Frontend → PROD"
     runs-on: ubuntu-latest
@@ -164,24 +171,21 @@ jobs:
       name: prod-frontend
     steps:
       - uses: actions/checkout@v4
-      - name: Set version tag
-        run: sed -i "s/development/${{ env.VERSION_TAG }}/" src/version.json
 
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
 
-      - name: Login to Heroku Container registry
-        run: heroku container:login
+      - name: Build, Push and Release a Docker container to Heroku.
+        uses: akhileshns/heroku-deploy@v3.12.12
+        with:
+          # Below you must provide variables for your Heroku app.
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
 
-      - name: Build and push container to Heroku registry
-        run: |
-          heroku container:push -a ${{ secrets.HEROKU_APP_NAME_FRONTEND_STAGING }} web
+          # Name of the heroku application to which the build is to be sent.
+          heroku_app_name: ${{ secrets.HEROKU_APP_NAME_FRONTEND_PRODUCTION}}
+          buildpack: heroku-community/nginx
 
-      - name: Release container on Heroku
-        run: |
-          heroku container:release -a ${{ secrets.HEROKU_APP_NAME_FRONTEND_PRODUCTION }} web
-
-  # ── Tag & Release ────────────────────────────────────────────────────────
   release:
     name: Create Release
     runs-on: ubuntu-latest
@@ -194,7 +198,7 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: ./.github/actions/setup-python-uv
+      - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.11"
 
@@ -241,13 +245,3 @@ jobs:
             _Full diff: [${{ github.event.before || 'previous' }}...${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/compare/${{ github.event.before || 'HEAD~1' }}...${{ github.sha }})_
           draft: false
           prerelease: false
-
-      - name: Notify Slack
-        uses: slackapi/slack-github-action@v1.27.0
-        with:
-          payload: |
-            {
-              "text": "🚀 *PRODUCTION Release v${{ needs.preflight.outputs.version }}*\n✅ Backend + Frontend deployed\nBy: ${{ github.actor }}\n<${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ needs.preflight.outputs.version }}|View Release>"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

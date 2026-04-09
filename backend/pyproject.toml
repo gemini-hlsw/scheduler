@@ -47,10 +47,57 @@ dev = [
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",
     "pytest-xdist>=3.8.0",
+    "ruff>=0.15.10",
     "strawberry-graphql[cli]>=0.278.1",
+    "towncrier>=25.8.0",
+    "ty>=0.0.29",
 ]
 docs = [
     "mkdocs-material>=9.6.16",
     "mkdocs-mermaid2-plugin>=1.2.1",
     "mkdocstrings-python>=1.16.12",
 ]
+
+
+[tool.towncrier]
+package = "version"
+package_dir = "."
+filename = "CHANGELOG.md"
+directory = "changelog.d"
+title_format = "## {version} ({project_date})"
+template = "changelog.d/_template.md.jinja2"
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fix"
+name = "Bug Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecation"
+name = "Deprecations"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "improvement"
+name = "Improvements"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Internal Changes"
+showcontent = false

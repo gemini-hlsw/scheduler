@@ -12,24 +12,20 @@ name: Deploy to DEV
 on:
   push:
     branches: [main]
+    tags-ignore: ['**']
 
 concurrency:
   group: deploy-dev
   cancel-in-progress: false
 
 env:
-  HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-  DEV_REALTIME_APP: ${{ secrets.HEROKU_APP_NAME_REALTIME_STAGING }}
-  DEV_MULTINIGHT_APP: ${{ HEROKU_APP_NAME_MULTINIGHT_STAGING }}
   DEV_FRONTEND_APP: ${{ secrets.HEROKU_APP_NAME_FRONTEND_STAGING }}
 
 jobs:
-  # ── Detect what changed ──────────────────────────────────────────────────
   changes:
     name: Detect Changes
     uses: ./.github/workflows/detect-changes.yml
 
-  # ── Deploy Backend ───────────────────────────────────────────────────────
   deploy-backend:
     name: "Deploy Backend → DEV"
     runs-on: ubuntu-latest
@@ -58,7 +54,7 @@ jobs:
           echo "Checking if LFS files exist locally:" 
           ls -la backend/scheduler/services/horizons/data/
 
-      - uses: ./.github/actions/setup-python-uv
+      - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.11"
 
@@ -92,7 +88,6 @@ jobs:
         run: |
           heroku container:release -a ${{ secrets[matrix.app_secret] }} web
 
-  # ── Deploy Frontend ──────────────────────────────────────────────────────
   deploy-frontend:
     name: "Deploy Frontend → DEV"
     runs-on: ubuntu-latest
@@ -102,58 +97,17 @@ jobs:
       name: dev-frontend
     steps:
       - uses: actions/checkout@v4
-      - name: Set version tag
-        run: sed -i "s/development/${{ env.VERSION_TAG }}/" src/version.json
 
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
 
-      - name: Login to Heroku Container registry
-        run: heroku container:login
-
-      - name: Build and push container to Heroku registry
-        run: |
-          heroku container:push -a ${{ secrets.HEROKU_APP_NAME_FRONTEND_STAGING }} web
-
-      - name: Release container on Heroku
-        run: |
-          heroku container:release -a ${{ secrets.HEROKU_APP_NAME_FRONTEND_STAGING }} web
-
-  # ── Notify ───────────────────────────────────────────────────────────────
-  notify:
-    name: Notify to Slack channel
-    runs-on: ubuntu-latest
-    needs: [changes, deploy-backend, deploy-frontend]
-    if: always() && (needs.deploy-backend.result != 'skipped' || needs.deploy-frontend.result != 'skipped')
-    steps:
-      - name: Build summary
-        id: summary
-        run: |
-          PARTS=""
-          if [ "${{ needs.deploy-backend.result }}" = "success" ]; then
-            PARTS="${PARTS}✅ Backend  "
-          elif [ "${{ needs.deploy-backend.result }}" = "failure" ]; then
-            PARTS="${PARTS}❌ Backend  "
-          else
-            PARTS="${PARTS}⏭️ Backend (skipped)  "
-          fi
-
-          if [ "${{ needs.deploy-frontend.result }}" = "success" ]; then
-            PARTS="${PARTS}✅ Frontend"
-          elif [ "${{ needs.deploy-frontend.result }}" = "failure" ]; then
-            PARTS="${PARTS}❌ Frontend"
-          else
-            PARTS="${PARTS}⏭️ Frontend (skipped)"
-          fi
-
-          echo "summary=${PARTS}" >> "$GITHUB_OUTPUT"
-
-      - name: Notify Slack
-        uses: slackapi/slack-github-action@v1.27.0
+      - name: Build, Push and Release a Docker container to Heroku.
+        uses: akhileshns/heroku-deploy@v3.12.12
         with:
-          payload: |
-            {
-              "text": "🚀 *DEV Deploy*\n${{ steps.summary.outputs.summary }}\nBy: ${{ github.actor }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          # Below you must provide variables for your Heroku app.
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+
+          # Name of the heroku application to which the build is to be sent.
+          heroku_app_name: ${{ env.DEV_FRONTEND_APP }}
+          buildpack: heroku-community/nginx

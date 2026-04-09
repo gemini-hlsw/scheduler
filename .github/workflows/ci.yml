@@ -20,7 +20,7 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.11"
-  NODE_VERSION: "20"
+  NODE_VERSION: "24"
 
 jobs:
   # ── Detect what changed ──────────────────────────────────────────────────
@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-python-uv
+      - uses: ./.github/actions/setup-uv
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -51,11 +51,11 @@ jobs:
         run: uv run ruff format --check backend/
 
       - name: Type check
-        run: uv run mypy --ignore-missing-imports backend/
+        run: uv run ty backend/
         continue-on-error: true
 
       - name: GraphQL schema descriptions
-        run: uv run python scripts/lint-graphql-schema.py
+        run: uv run python scripts/lint_graphql_schema.py
         continue-on-error: true
 
   backend-test:
@@ -66,7 +66,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-python-uv
+      - uses: ./.github/actions/setup-uv
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -158,7 +158,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-frontend
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -168,30 +168,31 @@ jobs:
       - name: TypeScript check
         run: pnpm tsc --noEmit
 
-  frontend-test:
-    name: "Frontend: Tests"
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
+  # Uncomment when testing is implemented
+  #frontend-test:
+  #  name: "Frontend: Tests"
+  # runs-on: ubuntu-latest
+  #  needs: changes
+  #  if: needs.changes.outputs.frontend == 'true'
+  #  defaults:
+  #    run:
+  #      working-directory: frontend
+  #  steps:
+  #    - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-frontend
-        with:
-          node-version: ${{ env.NODE_VERSION }}
+  #    - uses: ./.github/actions/setup-frontend
+  #      with:
+  #        node-version: ${{ env.NODE_VERSION }}
 
-      - name: Run tests
-        run: pnpm test -- --ci
-        env:
-          CI: true
+  #    - name: Run tests
+  #      run: pnpm test -- --ci
+  #      env:
+  #        CI: true
 
   frontend-build:
     name: "Frontend: Build"
     runs-on: ubuntu-latest
-    needs: [ changes, frontend-lint, frontend-test ]
+    needs: [ changes, frontend-lint] # todo: include fronted-test
     if: |
       github.event_name == 'push' &&
       needs.changes.outputs.frontend == 'true'
@@ -201,7 +202,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-frontend
+      - uses: ./.github/actions/setup-pnpm
         with:
           node-version: ${{ env.NODE_VERSION }}
 
