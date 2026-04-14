@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
 
 from scheduler.config import config
@@ -65,16 +65,21 @@ class ProcessManager:
         # Add the process without parameters as those should be setup separately
         from lucupy.minimodel import ALL_SITES
 
-        default_start = datetime.strptime("2026-01-20 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-        default_end = datetime.strptime("2026-01-25 08:00:00", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        # Calculate default date
+        current_ut = datetime.now(timezone.utc)
+        # Set date to yesterday if current time is before 7pm UTC, otherwise set it to tmo
+        if current_ut.hour < 19:
+            default_start = datetime.now(timezone.utc).replace(hour=8, minute=0, second=0, microsecond=0)
+            default_end = default_start + timedelta(days=14)
+        else:
+            default_start = datetime.now(timezone.utc).replace(hour=8, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            default_end = default_start + timedelta(days=14)
 
         if config.app.external_ephemerides:
             for site in ALL_SITES:
-                await EphemerisLookup().load_from_s3(site,default_start, default_end)
+                await EphemerisLookup().load_from_s3(site, default_start, default_end)
 
         params = SchedulerParameters(
-            #start=datetime.now(timezone.utc),
-            #end=datetime.now(timezone.utc)+timedelta(days=5),
             start=default_start,
             end=default_end,
             semester_visibility=False,
