@@ -1,0 +1,69 @@
+###############################################################################
+# Deploy Documentation
+# Builds MkDocs site and deploys to GitHub Pages
+###############################################################################
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "CHANGELOG.md"
+      - "**.py"  # Rebuild when source changes (mkdocstrings)
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.11"
+
+      - name: Export GraphQL schema
+        run: |
+          uv run python scripts/export_graphql_schema.py || echo "Schema export skipped (script not configured yet)"
+
+      - name: Build docs
+        run: uv run mkdocs build --strict
+        env:
+          PYTHONDONTWRITEBYTECODE: 1
+
+      - name: Upload artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/
+
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
