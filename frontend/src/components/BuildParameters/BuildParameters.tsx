@@ -12,11 +12,10 @@ import {
   tzDateToString,
   utcToLocal,
 } from "@/helpers/utcTime";
-import { useMutation, useQuery, useSubscription } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client";
 import { updateBuildParameters } from "./mutation";
 import { SiteNightTimesEntry } from "@/gql/graphql";
-import { buildParametersQuery, getProgramList } from "./query";
-import { buildParametersSubscription } from "./subscription";
+import { getProgramList } from "./query";
 import DisplayBuildParameters from "./DisplayBuildParameters";
 
 export default function BuildParameters({
@@ -34,7 +33,7 @@ export default function BuildParameters({
     {
       fetchPolicy: "no-cache",
       context: { clientName: "realtimeClient" },
-    },
+    }
   );
 
   useEffect(() => {
@@ -45,7 +44,7 @@ export default function BuildParameters({
           id: p.id,
           checked: true,
           disabled: false,
-        })),
+        }))
       );
     }
   }, [programList]);
@@ -57,7 +56,7 @@ export default function BuildParameters({
         id: p.id,
         checked: true,
         disabled: false,
-      })),
+      }))
     );
   }
 
@@ -123,14 +122,14 @@ export default function BuildParameters({
     <div
       className={cn(
         "border rounded-md flex flex-col gap-2 p-3 flex-wrap",
-        "dark:bg-white/20 bg-black/10",
+        "dark:bg-white/20 bg-black/10"
       )}
     >
       <div className="flex flex-row gap-2">
         <div
           className={cn(
             "flex gap-1 items-center",
-            vertical ? "flex-col" : "flex-row",
+            vertical ? "flex-col" : "flex-row"
           )}
         >
           <h1 className="font-bold self-start">Build Parameters</h1>
@@ -141,7 +140,7 @@ export default function BuildParameters({
             clearButton={
               <FaTrash
                 className={cn(
-                  date?.to || date?.from ? "text-red-500 cursor-pointer" : "",
+                  date?.to || date?.from ? "text-red-500 cursor-pointer" : ""
                 )}
                 onClick={() => setDate({ from: undefined, to: undefined })}
               />
@@ -157,8 +156,8 @@ export default function BuildParameters({
                   new Date(utcToLocal(new Date(), getSiteOffset("GN")))
                     .toISOString()
                     .split(".")[0]
-                    .replace("T", " "),
-                ),
+                    .replace("T", " ")
+                )
               );
             }}
             setToNowButton={true}
@@ -194,8 +193,8 @@ export default function BuildParameters({
                   new Date(utcToLocal(new Date(), getSiteOffset("GS")))
                     .toISOString()
                     .split(".")[0]
-                    .replace("T", " "),
-                ),
+                    .replace("T", " ")
+                )
               );
             }}
             setToNowButton={true}
@@ -217,7 +216,7 @@ export default function BuildParameters({
             clearButton={
               <FaTrash
                 className={cn(
-                  endTimeGS ? "text-red-500 cursor-pointer" : "left-auto",
+                  endTimeGS ? "text-red-500 cursor-pointer" : "left-auto"
                 )}
                 onClick={() => setEndTimeGS(undefined)}
               />

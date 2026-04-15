@@ -5,29 +5,25 @@ import {
   BuildParametersQuery,
   BuildParametersUpdatesSubscription,
 } from "@/gql/graphql";
-import {
-  getSiteOffset,
-  stringDateToLocalString,
-  utcToLocal,
-} from "@/helpers/utcTime";
+import { stringDateToLocalString } from "@/helpers/utcTime";
 import { cn } from "@/lib/utils";
 
 function getLatestData(
   queryData: BuildParametersQuery,
-  subscriptionData: BuildParametersUpdatesSubscription,
+  subscriptionData: BuildParametersUpdatesSubscription
 ) {
   if (subscriptionData) {
     const gnStart = subscriptionData.buildParametersUpdates?.nightTimes?.find(
-      (x) => x.site === "Gemini North",
+      (x) => x.site === "Gemini North"
     )?.start;
     const gnEnd = subscriptionData.buildParametersUpdates?.nightTimes?.find(
-      (x) => x.site === "Gemini North",
+      (x) => x.site === "Gemini North"
     )?.end;
     const gsStart = subscriptionData.buildParametersUpdates?.nightTimes?.find(
-      (x) => x.site === "Gemini South",
+      (x) => x.site === "Gemini South"
     )?.start;
     const gsEnd = subscriptionData.buildParametersUpdates?.nightTimes?.find(
-      (x) => x.site === "Gemini South",
+      (x) => x.site === "Gemini South"
     )?.end;
 
     return {
@@ -47,16 +43,16 @@ function getLatestData(
   } else {
     if (queryData) {
       const gnStart = queryData.buildParameters?.nightTimes?.find(
-        (x) => x.site === "Gemini North",
+        (x) => x.site === "Gemini North"
       )?.start;
       const gnEnd = queryData.buildParameters?.nightTimes?.find(
-        (x) => x.site === "Gemini North",
+        (x) => x.site === "Gemini North"
       )?.end;
       const gsStart = queryData.buildParameters?.nightTimes?.find(
-        (x) => x.site === "Gemini South",
+        (x) => x.site === "Gemini South"
       )?.start;
       const gsEnd = queryData.buildParameters?.nightTimes?.find(
-        (x) => x.site === "Gemini South",
+        (x) => x.site === "Gemini South"
       )?.end;
 
       return {
@@ -97,7 +93,7 @@ function TimeBadge({
       <span
         className={cn(
           "text-red-700 dark:text-red-200",
-          "py-1 px-2 rounded-full text-sm font-mono",
+          "py-1 px-2 rounded-full text-sm font-mono"
         )}
       >
         Default
@@ -109,7 +105,7 @@ function TimeBadge({
     <span
       className={cn(
         "text-blue-700 dark:text-blue-100",
-        "py-1 px-2 rounded-full text-sm font-mono",
+        "py-1 px-2 rounded-full text-sm font-mono"
       )}
     >
       {dateOnly
@@ -127,6 +123,9 @@ export default function DisplayBuildParameters() {
 
   const { data: subscriptionData } = useSubscription(
     buildParametersSubscription,
+    {
+      context: { clientName: "realtimeClient" },
+    }
   );
 
   const data = getLatestData(queryData, subscriptionData);
