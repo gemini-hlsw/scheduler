@@ -27,7 +27,7 @@ export function VisibilityRange({
     <Field orientation="horizontal" className={cn(vertical ? "" : "w-fit")}>
       <Label
         htmlFor="range"
-        className={cn("text-nowrap", vertical ? "w-32" : "w-fit")}
+        className={cn("text-nowrap", vertical ? "w-36 shrink-0" : "w-fit")}
       >
         UT Visibility
       </Label>

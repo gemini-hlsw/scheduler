@@ -39,7 +39,7 @@ export default function OnDemandControl({
       className={cn(
         "border rounded-md flex gap-2 p-3 flex-wrap",
         "dark:bg-white/20 bg-black/10",
-        vertical ? "flex-col grow" : "flex-row"
+        vertical ? "flex-col" : "flex-row",
       )}
     >
       <RunButton
@@ -50,7 +50,7 @@ export default function OnDemandControl({
             new Date(),
             new Date(),
             "GN",
-            programs
+            programs,
           )
         }
         isRunDisabled={loadingPlan}

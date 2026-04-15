@@ -8,3 +8,18 @@ export const getProgramList = graphql(`
     }
   }
 `);
+
+export const buildParametersQuery = graphql(`
+  query buildParameters {
+    buildParameters {
+      nightTimes {
+        site
+        start
+        end
+      }
+      visibilityStart
+      visibilityEnd
+      programList
+    }
+  }
+`);

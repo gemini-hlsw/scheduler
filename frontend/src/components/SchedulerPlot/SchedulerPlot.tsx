@@ -7,6 +7,7 @@ import HighchartMore from "highcharts/highcharts-more";
 HighchartMore(Highcharts);
 
 import { ThemeContext } from "../../theme/ThemeProvider";
+import { getSiteOffset, utcToLocal } from "@/helpers/utcTime";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const debounce = <F extends (...args: any[]) => void>(
@@ -46,19 +47,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   mornTwilight,
   site,
 }) => {
-  const getOffset = (timeZone = "UTC", date = new Date()) => {
-    const utcDate = new Date(date.toLocaleString("en-US", { timeZone: "UTC" }));
-    const tzDate = new Date(date.toLocaleString("en-US", { timeZone }));
-    return (tzDate.getTime() - utcDate.getTime()) / 6e4;
-  };
-  const INITIAL_TIMEZONE =
-    site === "GN"
-      ? getOffset("Pacific/Honolulu")
-      : getOffset("America/Santiago");
-
-  function getTzTime(date: Date) {
-    return date.getTime() + INITIAL_TIMEZONE * 60 * 1000;
-  }
+  const INITIAL_TIMEZONE = getSiteOffset(site);
 
   // Get theme context to modify chart values
   const { theme } = useContext(ThemeContext);
@@ -115,7 +104,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       type: "arearange",
       data: d.yPoints.map((y: number, i: number) => {
         return {
-          x: getTzTime(d.startDate) + i * 60 * 1000,
+          x: utcToLocal(d.startDate, INITIAL_TIMEZONE) + i * 60 * 1000,
           low: yMinArray[i],
           high: y,
         };
@@ -160,7 +149,10 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
 
     // Render custom labels for each section
     data.forEach((d) => {
-      const x = (getTzTime(d.startDate) + getTzTime(d.endDate)) / 2;
+      const x =
+        (utcToLocal(d.startDate, INITIAL_TIMEZONE) +
+          utcToLocal(d.endDate, INITIAL_TIMEZONE)) /
+        2;
       const y = Math.max(...d.yPoints) / 2;
 
       const xPos = chart.xAxis[0].toPixels(x, false);
@@ -238,15 +230,15 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
           color: textColor, // Change the color of y-axis tick labels
         },
       },
-      min: getTzTime(eveTwiDate),
-      max: getTzTime(mornTwiDate),
+      min: utcToLocal(eveTwiDate, INITIAL_TIMEZONE),
+      max: utcToLocal(mornTwiDate, INITIAL_TIMEZONE),
       tickPositioner: function () {
         const positions = [];
         const interval = 1 * 60 * 60 * 1000;
 
         for (
-          let i = getTzTime(eveTwiDate);
-          i <= getTzTime(mornTwiDate);
+          let i = utcToLocal(eveTwiDate, INITIAL_TIMEZONE);
+          i <= utcToLocal(mornTwiDate, INITIAL_TIMEZONE);
           i += interval
         ) {
           positions.push(i);

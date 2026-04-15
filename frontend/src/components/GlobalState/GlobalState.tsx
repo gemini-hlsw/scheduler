@@ -57,7 +57,7 @@ export default function GlobalStateProvider({
   });
   const [nightPlans, setNightPlans] = useState<NightPlanType[]>([]);
   const [rtPlan, setRtPlan] = useState<NightPlansWithEvent>(
-    {} as NightPlansWithEvent,
+    {} as NightPlansWithEvent
   );
   const [plansSummary, setPlansSummary] = useState<RunSummary>({
     summary: {},
@@ -80,7 +80,7 @@ export default function GlobalStateProvider({
       .toISOString()
       .substring(0, 16)
       .replaceAll("-", "")
-      .replace(":", ""),
+      .replace(":", "")
   );
 
   return (

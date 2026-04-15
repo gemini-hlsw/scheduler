@@ -35,7 +35,7 @@ export function DisplayWeather() {
           } else {
             return w;
           }
-        })
+        }),
       );
     }
   }, [data]);
@@ -43,11 +43,11 @@ export function DisplayWeather() {
   return (
     <div
       className={cn(
-        "border rounded-md flex flex-col gap-2 p-3 flex-wrap grow",
-        "dark:bg-white/20 bg-black/10"
+        "border rounded-md flex flex-col gap-2 p-3 flex-wrap",
+        "dark:bg-white/20 bg-black/10",
       )}
     >
-      <h1 className="font-bold flex justify-between">
+      <h1 className="font-bold flex justify-between gap-2">
         <span>Current Weather</span>
         <ConnectionBadge isOnline={isOnline} />
       </h1>
@@ -57,7 +57,7 @@ export function DisplayWeather() {
           <TableRow
             className={cn(
               "odd:bg-muted/50 *:px-2",
-              "dark:hover:bg-white/30 hover:bg-black/30"
+              "dark:hover:bg-white/30 hover:bg-black/30",
             )}
           >
             <TableCell>Site</TableCell>
@@ -68,7 +68,7 @@ export function DisplayWeather() {
           <TableRow
             className={cn(
               "odd:bg-muted/50 *:px-2",
-              "dark:hover:bg-white/30 hover:bg-black/30"
+              "dark:hover:bg-white/30 hover:bg-black/30",
             )}
           >
             <TableCell>Image Quality</TableCell>
@@ -77,13 +77,13 @@ export function DisplayWeather() {
                 <TableCell key={`imageQuality${data.site}`}>
                   {data.imageQuality}
                 </TableCell>
-              )
+              ),
             )}
           </TableRow>
           <TableRow
             className={cn(
               "odd:bg-muted/50 *:px-2",
-              "dark:hover:bg-white/30 hover:bg-black/30"
+              "dark:hover:bg-white/30 hover:bg-black/30",
             )}
           >
             <TableCell>Cloud Cover</TableCell>
@@ -96,7 +96,7 @@ export function DisplayWeather() {
           <TableRow
             className={cn(
               "odd:bg-muted/50 *:px-2",
-              "dark:hover:bg-white/30 hover:bg-black/30"
+              "dark:hover:bg-white/30 hover:bg-black/30",
             )}
           >
             <TableCell>Wind Direction</TableCell>
@@ -105,13 +105,13 @@ export function DisplayWeather() {
                 <TableCell key={`windDirection${data.site}`}>
                   {data.windDirection}
                 </TableCell>
-              )
+              ),
             )}
           </TableRow>
           <TableRow
             className={cn(
               "odd:bg-muted/50 *:px-2",
-              "dark:hover:bg-white/30 hover:bg-black/30"
+              "dark:hover:bg-white/30 hover:bg-black/30",
             )}
           >
             <TableCell>Wind Speed</TableCell>

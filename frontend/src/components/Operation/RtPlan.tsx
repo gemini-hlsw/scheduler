@@ -21,7 +21,6 @@ export default function RtPlan({ plan }: { plan: PlanPerSite }) {
       instrument: visit.instrument,
     }));
   }
-  const tz = plan.site === "GN" ? "Pacific/Honolulu" : "America/Santiago";
   const formatScore = (score: number) => {
     return score.toFixed(2);
   };
@@ -50,7 +49,7 @@ export default function RtPlan({ plan }: { plan: PlanPerSite }) {
 
   const obsCompletionBodyTemplate = (visit: Visit) => {
     return `${visit.completion} (${fractionToPercentage(
-      visit.completion
+      visit.completion,
     ).toFixed(0)}%)`;
   };
 
@@ -87,7 +86,7 @@ export default function RtPlan({ plan }: { plan: PlanPerSite }) {
               key={visit.obsId}
               className={cn(
                 "odd:bg-muted/50 *:p-0 *:px-2",
-                "dark:hover:bg-white/30 hover:bg-black/30"
+                "dark:hover:bg-white/30 hover:bg-black/30",
               )}
             >
               <TableCell>{visit.obsId}</TableCell>
@@ -96,7 +95,10 @@ export default function RtPlan({ plan }: { plan: PlanPerSite }) {
               </TableCell>
               <TableCell>
                 {new Date(visit.startTime).toLocaleString("en-UK", {
-                  timeZone: tz,
+                  timeZone:
+                    plan.site === "GN"
+                      ? "Pacific/Honolulu"
+                      : "America/Santiago",
                 })}
               </TableCell>
               <TableCell>{visit.atomStartIdx}</TableCell>

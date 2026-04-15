@@ -17,7 +17,7 @@ export function Result({ rtPlan }: { rtPlan: NightPlansWithEvent }) {
     <div
       className={cn(
         "border rounded-md flex flex-col gap-2 p-3 flex-wrap",
-        "dark:bg-white/20 bg-black/10",
+        "dark:bg-white/20 bg-black/10"
       )}
     >
       <h1 className="font-bold w-full">Plan result - {rtPlan.event}</h1>
@@ -33,7 +33,7 @@ export function Result({ rtPlan }: { rtPlan: NightPlansWithEvent }) {
                 "rounded-br-none rounded-bl-none border border-b-0",
                 "dark:border-white/20 border-black/20",
                 "dark:data-[state=active]:bg-black/40 data-[state=active]:bg-white/40",
-                "data-[state=active]:border-b-0 data-[state=active]:outline-0",
+                "data-[state=active]:border-b-0 data-[state=active]:outline-0"
               )}
             >
               {plan.site}
@@ -49,7 +49,7 @@ export function Result({ rtPlan }: { rtPlan: NightPlansWithEvent }) {
               "p-4 border w-full",
               "data-[state=active]:border-t-0 data-[state=active]:outline-0",
               "border-black/20 dark:border-white/20",
-              "rounded-tr-md rounded-tl-none rounded-br-md rounded-bl-md",
+              "rounded-tr-md rounded-tl-none rounded-br-md rounded-bl-md"
             )}
           >
             <RtPlan plan={plan} />

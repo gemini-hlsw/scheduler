@@ -29,7 +29,8 @@ export function DateTimePicker({
             id="date-picker-range"
             className={cn(
               "justify-start px-2.5 font-normal",
-              "border-r-0 rounded-br-none rounded-tr-none"
+              "border-r-0 rounded-br-none rounded-tr-none",
+              "w-32",
             )}
           >
             {date ? format(date, "MM/dd/yyyy") : "Select date"}
@@ -75,7 +76,8 @@ export function DateTimePicker({
           "bg-background appearance-none",
           "[&::-webkit-calendar-picker-indicator]:hidden",
           "[&::-webkit-calendar-picker-indicator]:appearance-none",
-          "rounded-tl-none rounded-bl-none"
+          "rounded-tl-none rounded-bl-none",
+          "w-24",
         )}
       />
     </div>
