@@ -316,7 +316,6 @@ class SiteNightTimesEntry:
     site: strawberry.enum(Site)
     night_times: NightTimesInput
 
-
 @strawberry.experimental.pydantic.input(model=BuildParameters)
 class BuildParametersInput:
     night_times: Optional[List[SiteNightTimesEntry]] = None
@@ -342,6 +341,21 @@ class BuildParametersInput:
             visibility_end=self.visibility_end,
             program_list=self.program_list
         )
+
+@strawberry.type
+class NightTimesResponse:
+    site: str
+    start: Optional[datetime]
+    end: Optional[datetime]
+
+@strawberry.type
+class BuildParametersResponse:
+    night_times: Optional[List[NightTimesResponse]]
+    visibility_start: Optional[datetime]
+    visibility_end: Optional[datetime]
+    program_list: Optional[List[str]]
+
+
 @strawberry.type
 class AvailableProgram:
     id: str

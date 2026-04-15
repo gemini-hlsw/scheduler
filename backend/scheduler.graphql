@@ -10,6 +10,13 @@ input BuildParametersInput {
   programList: [String!] = null
 }
 
+type BuildParametersResponse {
+  nightTimes: [NightTimesResponse!]
+  visibilityStart: DateTime
+  visibilityEnd: DateTime
+  programList: [String!]
+}
+
 input CreateNewScheduleInput {
   startTime: String!
   endTime: String!
@@ -82,11 +89,18 @@ input NightTimesInput {
   nightEnd: DateTime = null
 }
 
+type NightTimesResponse {
+  site: String!
+  start: DateTime
+  end: DateTime
+}
+
 type Query {
   version: Version!
   schedule(scheduleId: String!, newScheduleInput: CreateNewScheduleInput!): String!
   scheduleV2(newScheduleRtInput: CreateNewScheduleRTInput!): String!
   availablePrograms: [AvailableProgram!]!
+  buildParameters: BuildParametersResponse!
 }
 
 type SConditions {
@@ -178,6 +192,7 @@ scalar Sites
 
 type Subscription {
   queueSchedule(scheduleId: String!): NightPlansResponseRT!
+  buildParametersUpdates: BuildParametersResponse!
 }
 
 type TimelineEntriesBySite {

@@ -8,11 +8,8 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import strawberry # noqa
-from astropy.coordinates import Angle
 from astropy.time import Time
-import astropy.units as u
-from gpp_client.api import WhereProgram, WhereEqProposalStatus, ProposalStatus
-from lucupy.minimodel import TimeslotIndex, NightIndex, VariantSnapshot, ImageQuality, CloudCover
+from lucupy.minimodel import TimeslotIndex, NightIndex, VariantSnapshot
 from pydantic import ValidationError
 
 from scheduler.context import schedule_id_var
@@ -21,11 +18,11 @@ from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
 from scheduler.orchestration import process_manager
 from scheduler.services.logger_factory import create_logger
-from scheduler.shared_queue import plan_response_subscribers
+from scheduler.shared_queue import plan_response_subscribers, build_parameters_subscribers
 from scheduler.clients.scheduler_gpp_client import gpp_client_instance
 
 from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
-                    NewPlansRT, NightPlansResponseRT, BuildParametersInput, AvailableProgram)
+                    NewPlansRT, NightPlansResponseRT, NightTimesResponse, BuildParametersInput, BuildParametersResponse, AvailableProgram)
 from .inputs import CreateNewScheduleInput, CreateNewScheduleRTInput
 
 from ..core.plans import NightStats
@@ -144,6 +141,21 @@ class Query:
         return [
             AvailableProgram(id=p[1], ref_label=p[0]) for p in results
         ]
+    
+    @strawberry.field
+    async def build_parameters(self) -> BuildParametersResponse:
+        build_params = await build_params_store.get()
+
+        return BuildParametersResponse(
+            night_times=[NightTimesResponse(
+                            site=k.value[0],
+                            start=v.night_start if v.night_start else None,
+                            end=v.night_end if v.night_end else None
+                        ) for k, v in build_params.night_times.items()] if build_params.night_times else None,
+            visibility_start=build_params.visibility_start,
+            visibility_end=build_params.visibility_end,
+            program_list=build_params.program_list
+        )
 
 
 @strawberry.type
@@ -172,6 +184,40 @@ class Subscription:
             plan_response_subscribers[schedule_id].discard(client_queue)
             if not plan_response_subscribers[schedule_id]:
                 del plan_response_subscribers[schedule_id]
+    
+    @strawberry.subscription
+    async def build_parameters_updates(self) -> AsyncGenerator[BuildParametersResponse, None]:
+        client_queue = asyncio.Queue()
+        build_parameters_subscribers.add(client_queue)
+
+        try:
+            while True:
+                try:
+                    _logger.info(f"Subscription: Waiting for build parameters update")
+                    result = await client_queue.get()  # Wait for item from the queue
+                    _logger.info(f"Subscription: Received build parameters update")
+                    _logger.debug(f'Result: {result}')
+                    yield BuildParametersResponse(
+                        night_times=[NightTimesResponse(
+                            site=k.value[0],
+                            start=v.night_start if v.night_start else None,
+                            end=v.night_end if v.night_end else None
+                        ) for k, v in result.night_times.items()] if result.night_times else None,
+                        visibility_start=result.visibility_start,
+                        visibility_end=result.visibility_end,
+                        program_list=result.program_list
+                    )  # Yield item to the subscription
+                except Exception as e:
+                    _logger.error(f'Error: {e}')
+                    yield BuildParametersResponse(
+                        night_times=[],
+                        visibility_start=None,
+                        visibility_end=None,
+                        program_list=[]
+                    )
+                    raise
+        finally:
+            build_parameters_subscribers.discard(client_queue)
 
 
 @strawberry.type
@@ -182,6 +228,8 @@ class Mutation:
         try:
             build_params = build_params_input.to_pydantic()
             await build_params_store.set(build_params)
+            for queue in build_parameters_subscribers:
+                await queue.put(build_params)
             msg += f'Build Parameters updated successful'
         except ValidationError as e:
             msg+=f'Error: {e.errors()}'
