@@ -43,6 +43,10 @@ jobs:
       - name: Export GraphQL schema
         run: |
           uv run python scripts/export_graphql_schema.py || echo "Schema export skipped (script not configured yet)"
+        env:
+          REDISCLOUD_URL: ${{ secrets.REDISCLOUD_URL }}
+      - name: Install docs dependencies
+        run: uv sync --group docs
 
       - name: Build docs
         run: uv run mkdocs build --strict
