@@ -1,0 +1,78 @@
+services:
+
+  backend-realtime:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-development}
+    environment:
+      APP_VERSION: ${APP_VERSION:-development}
+      SCHEDULER_MODE: REALTIME
+      PORT: 8000
+      REDISCLOUD_URL: ${REDISCLOUD_URL:-}
+      CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}
+      CLOUDCUBE_ACCESS_KEY_ID: ${CLOUDCUBE_ACCESS_KEY_ID:-}
+      CLOUDCUBE_SECRET_ACCESS_KEY: ${CLOUDCUBE_SECRET_ACCESS_KEY:-}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/graphql')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  backend-validation:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-development}
+    environment:
+      APP_VERSION: ${APP_VERSION:-development}
+      SCHEDULER_MODE: VALIDATION
+      PORT: 8001
+      REDISCLOUD_URL: ${REDISCLOUD_URL:-}
+      CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}
+      CLOUDCUBE_ACCESS_KEY_ID: ${CLOUDCUBE_ACCESS_KEY_ID:-}
+      CLOUDCUBE_SECRET_ACCESS_KEY: ${CLOUDCUBE_SECRET_ACCESS_KEY:-}
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/graphql')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.compose
+      args:
+        VITE_API_URL: http://localhost:8001/graphql
+        VITE_REALTIME_API_URL: http://localhost:8000/graphql
+    ports:
+      - "80:80"
+    depends_on:
+      backend-realtime:
+        condition: service_healthy
+      backend-validation:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    profiles:
+      - redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

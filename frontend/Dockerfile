@@ -19,7 +19,6 @@ RUN pnpm install
 
 # Copy the rest of the application code
 COPY frontend/ frontend/
-COPY schema/ schema/
 
 # Build the Vite application for production
 RUN pnpm frontend build

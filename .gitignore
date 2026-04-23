@@ -86,7 +86,6 @@ celery.sqlite
 
 # Environments
 .env
-.env.*
 */.env
 */.env.*
 .venv
