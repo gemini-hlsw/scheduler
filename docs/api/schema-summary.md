@@ -1,0 +1,203 @@
+# GraphQL Schema Reference
+
+Auto-generated from the Strawberry schema. For interactive exploration,
+use the [GraphQL Playground](graphql.md).
+
+## SDL Schema
+
+```graphql
+type AvailableProgram {
+  id: String!
+  refLabel: String!
+}
+
+input BuildParametersInput {
+  nightTimes: [SiteNightTimesEntry!] = null
+  visibilityStart: DateTime = null
+  visibilityEnd: DateTime = null
+  programList: [String!] = null
+}
+
+input CreateNewScheduleInput {
+  startTime: String!
+  endTime: String!
+  sites: Sites!
+  mode: SchedulerModes!
+  semesterVisibility: Boolean! = true
+  numNightsToSchedule: Int = null
+  thesisFactor: Float = 1.1
+  power: Int = 2
+  metPower: Float = 1
+  visPower: Float = 1
+  whaPower: Float = 1
+  airPower: Float = 0
+  programs: [String!] = null
+}
+
+input CreateNewScheduleRTInput {
+  startTime: String!
+  endTime: String!
+  nightStartTime: String!
+  nightEndTime: String!
+  sites: Sites!
+  imageQuality: Float = null
+  cloudCover: Float = null
+  windSpeed: Float = null
+  windDirection: Float = null
+  thesisFactor: Float = 1.1
+  power: Int = 2
+  metPower: Float = 1
+  visPower: Float = 1
+  whaPower: Float = 1
+  airPower: Float = 0
+  programs: [String!] = null
+}
+
+"""Date with time (isoformat)"""
+scalar DateTime
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf).
+"""
+scalar JSON @specifiedBy(url: "https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf")
+
+type Mutation {
+  updateBuildParams(buildParamsInput: BuildParametersInput!): String!
+}
+
+type NewNightPlans {
+  nightPlans: SNightTimelines!
+  plansSummary: SRunSummary!
+}
+
+type NewPlansRT {
+  nightPlans: SPlans!
+}
+
+type NightPlansError {
+  error: String!
+}
+
+union NightPlansResponseRT = NewNightPlans | NightPlansError | NewPlansRT | NightPlansWithEvent
+
+type NightPlansWithEvent {
+  nightPlans: SPlans!
+  event: String!
+}
+
+input NightTimesInput {
+  nightStart: DateTime = null
+  nightEnd: DateTime = null
+}
+
+type Query {
+  version: Version!
+  schedule(scheduleId: String!, newScheduleInput: CreateNewScheduleInput!): String!
+  scheduleV2(newScheduleRtInput: CreateNewScheduleRTInput!): String!
+  availablePrograms: [AvailableProgram!]!
+}
+
+type SConditions {
+  iq: String!
+  cc: String!
+}
+
+type SNightInTimeline {
+  nightIndex: Int!
+  timeEntriesBySite: [TimelineEntriesBySite!]!
+}
+
+type SNightStats {
+  timeLoss: JSON!
+  planScore: Float!
+  nToos: Int!
+  completionFraction: JSON!
+  programCompletion: JSON!
+}
+
+type SNightTimelines {
+  nightTimeline: [SNightInTimeline!]!
+}
+
+"""ID of an Observation"""
+scalar SObservationID
+
+type SPlan {
+  site: Site!
+  startTime: DateTime!
+  endTime: DateTime!
+  visits: [SVisit!]!
+  nightStats: SNightStats!
+  nightConditions: SConditions!
+}
+
+type SPlans {
+  nightIdx: Int!
+  plansPerSite: [SPlan!]!
+}
+
+type SRunSummary {
+  summary: JSON!
+  metricsPerBand: JSON!
+}
+
+type STimelineEntry {
+  startTimeSlots: Int!
+  event: String!
+  plan: SPlan!
+}
+
+type SVisit {
+  startTime: DateTime!
+  endTime: DateTime!
+  obsId: SObservationID!
+  atomStartIdx: Int!
+  atomEndIdx: Int!
+  altitude: [Float!]!
+  instrument: String!
+  fpu: String!
+  disperser: String!
+  filters: [String!]!
+  requiredConditions: SConditions!
+  obsClass: String!
+  score: Float!
+  peakScore: Float!
+  completion: String!
+}
+
+enum SchedulerModes {
+  OPERATION
+  SIMULATION
+  VALIDATION
+}
+
+enum Site {
+  GN
+  GS
+}
+
+input SiteNightTimesEntry {
+  site: Site!
+  nightTimes: NightTimesInput!
+}
+
+"""Depiction of the sites that can be load to the collector"""
+scalar Sites
+
+type Subscription {
+  queueSchedule(scheduleId: String!): NightPlansResponseRT!
+}
+
+type TimelineEntriesBySite {
+  site: Site!
+  timeEntries: [STimelineEntry!]!
+  eveTwilight: DateTime!
+  mornTwilight: DateTime!
+  timeLosses: JSON!
+}
+
+type Version {
+  version: String!
+  changelog: [String!]!
+}
+```

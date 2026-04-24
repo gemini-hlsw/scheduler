@@ -57,6 +57,8 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
+          paths:
+            - backend
           inventories:
             - https://docs.python.org/3/objects.inv
             - https://docs.astropy.org/en/stable/objects.inv
