@@ -43,14 +43,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Extract version from tag
-        id: version
-        run: |
-            # Strip the 'v' prefix from the tag
-            VERSION="${GITHUB_REF_NAME#v}"
-            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-            echo "Deploying version: ${VERSION}"
-
       - name: Determine version
         id: version
         run: |
@@ -104,9 +96,10 @@ jobs:
     name: "Deploy Backend → PROD"
     runs-on: ubuntu-latest
     needs: preflight
-    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.shared == 'true'
     environment:
       name: prod-backend
+    env:
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
     strategy:
       matrix:
         include:
@@ -166,7 +159,6 @@ jobs:
     name: "Deploy Frontend → PROD"
     runs-on: ubuntu-latest
     needs: preflight
-    if: needs.changes.outputs.frontend == 'true'
     environment:
       name: prod-frontend
     steps:
@@ -174,6 +166,9 @@ jobs:
 
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Disable Git LFS pre-push hook (Heroku has no LFS server)
+        run: git lfs uninstall --skip-repo
 
       - name: Build, Push and Release a Docker container to Heroku.
         uses: akhileshns/heroku-deploy@v3.12.12
