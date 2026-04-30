@@ -33,6 +33,8 @@ jobs:
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.shared == 'true'
     environment:
       name: dev-backend
+    env:
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
     strategy:
       matrix:
         include:
@@ -101,13 +103,13 @@ jobs:
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
 
+      - name: Disable Git LFS pre-push hook (Heroku has no LFS server)
+        run: git lfs uninstall --skip-repo
+
       - name: Build, Push and Release a Docker container to Heroku.
         uses: akhileshns/heroku-deploy@v3.12.12
         with:
-          # Below you must provide variables for your Heroku app.
           heroku_email: ${{ secrets.HEROKU_EMAIL }}
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-
-          # Name of the heroku application to which the build is to be sent.
           heroku_app_name: ${{ env.DEV_FRONTEND_APP }}
           buildpack: heroku-community/nginx

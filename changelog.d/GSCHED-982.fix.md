@@ -1,0 +1,1 @@
+Fix deployment actions that were giving issue with Heroku auth (in the case of the backend) and lfs missmatching on the frontend (when the schema is created). Also removes the old legacy production action
