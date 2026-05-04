@@ -82,9 +82,11 @@ jobs:
         run: heroku container:login
 
       - name: Build and push container to Heroku registry
+        working-directory: backend
         run: |
           heroku container:push -a ${{ secrets[matrix.app_secret] }} web \
-          --arg APP_VERSION=${{ steps.version.outputs.version }}-staging-${{ matrix.mode }}
+            --context-path .. \
+            --arg APP_VERSION=${{ steps.version.outputs.version }}-staging-${{ matrix.mode }}
 
       - name: Release container on Heroku
         run: |
@@ -97,19 +99,23 @@ jobs:
     if: needs.changes.outputs.frontend == 'true'
     environment:
       name: dev-frontend
+    env:
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
 
-      - name: Disable Git LFS pre-push hook (Heroku has no LFS server)
-        run: git lfs uninstall --skip-repo
+      - name: Login to Heroku Container registry
+        run: heroku container:login
 
-      - name: Build, Push and Release a Docker container to Heroku.
-        uses: akhileshns/heroku-deploy@v3.12.12
-        with:
-          heroku_email: ${{ secrets.HEROKU_EMAIL }}
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: ${{ env.DEV_FRONTEND_APP }}
-          buildpack: heroku-community/nginx
+      - name: Build and push container to Heroku registry
+        working-directory: frontend
+        run: |
+          heroku container:push -a ${{ env.DEV_FRONTEND_APP }} web \
+            --context-path ..
+
+      - name: Release container on Heroku
+        run: |
+          heroku container:release -a ${{ env.DEV_FRONTEND_APP }} web
