@@ -17,7 +17,7 @@ from joblib import Parallel, delayed, parallel_config
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               Site, Target, TimeslotIndex, QAState, ObservationStatus,
-                              Group)
+                              Group, ResourceType)
 from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
 
@@ -41,6 +41,8 @@ __all__ = [
 ]
 
 from scheduler.time_accountant.time_accountant import TimeAccountant
+
+from scheduler.clients.sight_client import SightClient
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -407,6 +409,34 @@ class Collector(SchedulerComponent):
                 n_jobs = core_info['cores']
         else:
             n_jobs = 1
+
+        obs_with_resources: dict[NightIndex, list[Observation]] = {}
+        # First filter: is the observation instrument available or according to the program calendar?
+
+        for n_idx in range(self.num_nights_calculated):
+            night_idx = NightIndex(n_idx)
+            obs_with_resources.setdefault(night_idx, [])
+            for p_id, obs in parsed_observations:
+
+                if "GMOS" in obs.instrument().id:
+                    has_resources = all([resource in nc[obs.site][night_idx].resources for resource in obs.required_resources()])
+                else:
+                    has_resources = all([resource in nc[obs.site][night_idx].resources for resource in obs.required_resources() if
+                                         resource.type != ResourceType.FILTER and resource.type != ResourceType.DISPERSER and resource.type != ResourceType.FPU])
+
+                if not has_resources:
+                    continue
+
+                # Is the program excluded on a given night due to block scheduling
+                prog= self.get_program(p_id)
+                can_schedule = nc[obs.site][night_idx].filter.program_filter(prog)
+                if not can_schedule:
+                    continue
+
+                obs_with_resources[night_idx].append(obs)
+
+        for site in self.sites:
+            self._load_visibility_from_sight(obs_with_resources, nc, sem, vis_table)
 
         # parallel = Parallel(n_jobs=n_jobs, backend='loky')
         parallel = Parallel(n_jobs=n_jobs, backend='threading')
@@ -797,3 +827,137 @@ class Collector(SchedulerComponent):
                         obs.status = ObservationStatus.INACTIVE
 
                 # Evaluate tree here?
+
+
+    def _load_visibility_from_sight(
+        self,
+        filtered__observations: dict[NightIndex, list[Observation]],
+        sem: Semester,
+        vis_table: dict,
+    ) -> None:
+        """Load visibility data from the Sight API instead of computing locally.
+
+        Fetches pre-calculated visibility_slot_idx and visibility_time from the Sight
+        endpoint. Target snapshot data (coord, alt, az, hourangle, airmass) is fetched
+        from a separate endpoint (placeholder — falls back to local calculation if
+        the endpoint is unavailable).
+        """
+        sight = SightClient(config.collector.sight_api_url)
+
+        date_to_idx = [ ]
+
+        for night_index, observations in filtered__observations.items():
+
+            # 1. Filter observations via Sight: keep only those visible on start_date.
+            _logger.info(f'Filtering visible observations from Sight for {len(observations)} observations on night= {night_index}...')
+            try:
+                t0 = time.perf_counter()
+                visible_obs_ids = sight.get_visible_observations(observations, start_date)
+                elapsed_filter = time.perf_counter() - t0
+                _logger.info(f'Sight visible_observations call took {elapsed_filter:.3f}s.')
+            except Exception as e:
+                _logger.error(f'Failed to filter visible observations from Sight: {e}')
+                raise
+
+            visible_observations = [obs for obs in observations if obs.id.id in visible_obs_ids]
+            _logger.info(
+                f'Visibility filter: {len(visible_observations)}/{len(observations)} '
+                f'observations visible on {night_index}.'
+            )
+
+            if not visible_observations:
+                _logger.warning('No visible observations found, nothing to process.')
+                return
+
+            # Collect visible obs IDs, target names, and site IDs for bulk requests.
+            visible_ids = [obs.id.id for obs in visible_observations]
+            visible_target_names = list({obs.base_target().name for obs in visible_observations if obs.base_target() is not None})
+            visible_site_ids = list({obs.site.name for obs in visible_observations})
+
+            # 2. Fetch target snapshots from Sight for visible observations only.
+            target_snapshot_data = None
+            try:
+                _logger.info(f'Fetching target snapshots from Sight for {len(visible_target_names)} targets...')
+                t0 = time.perf_counter()
+                target_snapshot_data = sight.get_target_snapshots_bulk(
+                    visible_target_names, visible_site_ids, start_date, start_date
+                )
+                elapsed_snap = time.perf_counter() - t0
+                _logger.info(f'Sight target snapshots bulk call took {elapsed_snap:.3f}s for {len(visible_target_names)} targets.')
+            except Exception as e:
+                _logger.error(f'Failed to fetch target snapshots from Sight: {e}')
+                raise
+
+            # 3. Fetch cumulative remaining visibility from Sight.
+            cumulative_data = None
+            try:
+                _logger.info(f'Fetching cumulative visibility from Sight for {len(visible_ids)} observations...')
+                t0 = time.perf_counter()
+                cumulative_result = sight.get_cumulative_visibility(visible_ids, start_date, end_date)
+                cumulative_data = cumulative_result.get('observations', {})
+                elapsed_cum = time.perf_counter() - t0
+                _logger.info(f'Sight cumulative visibility call took {elapsed_cum:.3f}s for {len(visible_ids)} observations.')
+            except Exception as e:
+                _logger.error(f'Failed to fetch cumulative visibility from Sight: {e}')
+                raise
+
+            # 4. Process only visible observations: build VisibilitySnapshots and TargetInfo.
+            for obs in visible_observations:
+                base = obs.base_target()
+                if base is None:
+                    _logger.error(f'Could not find base target for {obs.id.id}.')
+                    continue
+
+                obs_id_str = obs.id.id
+
+                # Build empty visibility snapshots (slot indices and per-night visibility_time
+                # are not needed; rem_visibility_time comes from the cumulative endpoint).
+                vis_table_snap = {}
+                for jday in self.time_grid:
+                    day_str = str(int(jday.jd))
+                    vis_table_snap[day_str] = VisibilitySnapshot(
+                        visibility_slot_idx=np.array([], dtype=int),
+                        visibility_time=TimeDelta(0, format='sec'),
+                    )
+
+                # Get cumulative remaining minutes from the cumulative endpoint.
+                obs_cumulative = cumulative_data.get(obs_id_str, {}) if cumulative_data else {}
+                cum_target_data = obs_cumulative.get('targets', {}).get(base.name, {})
+                rem_visibility_minutes = cum_target_data.get('cumulative_remaining_minutes', 0)
+
+                if rem_visibility_minutes > 0:
+                    rem_visibility_frac = (obs.exec_time() - obs.total_used()).total_seconds()/(rem_visibility_minutes*60)
+
+                else:
+                    _logger.info(f'No cumulative remain for {obs.id}. This causes an issue as the observation was previously marked visible.')
+                    rem_visibility_frac = 0.0
+
+                # Build target snapshots from endpoint for each night.
+                target_snapshots: Dict[NightIndex, any] = {}
+                #print(target_snapshot_data)
+                target_snapshot_entry = (
+                    target_snapshot_data.get('targets').get(base.name) if target_snapshot_data else None
+                )
+
+                night_key = f"{obs.site.name}_{}"
+                ts = SightClient.parse_target_snapshot_for_night(target_snapshot_entry['nights'][night_key])
+
+                # All timeslot indices for the night (observation already passed the visibility filter).
+                n_slots = len(self.night_events[obs.site].times[night_index])
+                all_slot_idx = np.arange(n_slots, dtype=int)
+
+                # Build TargetInfo using target snapshots + cumulative rem_visibility_time.
+                ti = TargetInfo(coord=ts.coord,
+                           alt=ts.alt,
+                           az=ts.az,
+                           hourangle=ts.hourangle,
+                           airmass=ts.airmass,
+                           visibility_slot_idx=all_slot_idx,
+                           rem_visibility_frac=rem_visibility_frac
+                )
+
+                # Populate collector data structures.
+                vis_table[obs.id.id] = vis_table_snap
+                Collector._observations[obs.id] = obs, base
+                Collector._target_info[base.name, obs.id] =
+
