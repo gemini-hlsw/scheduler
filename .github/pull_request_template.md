@@ -18,7 +18,7 @@
     ./scripts/changelog-fragment "" misc
 
   Manual:
-    echo "Description" > changelog.d/REL-190.feature.md
+    echo "Description" > changelog.d/GSCHED-190.feature.md
 
   Types: feature, fix, breaking, deprecation, improvement, doc, misc
   CI will fail if no fragment is found (unless only CI/docs files changed).
@@ -28,7 +28,9 @@
 
 ## Jira
 
-<!-- Auto-linked from branch name (e.g. REL-190/description) -->
+<!-- JIRA:START -->
+<!-- Auto-linked from branch name (e.g. GSCHED-190/description) by the PR Jira Link workflow. -->
+<!-- JIRA:END -->
 
 ## Checklist
 
