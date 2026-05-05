@@ -28,7 +28,7 @@
 
 ## Jira
 
-<!-- Auto-linked from branch name (e.g. REL-190/description) -->
+<!-- Auto-linked from branch name (e.g. GSCHED-190/description) -->
 
 ## Checklist
 
