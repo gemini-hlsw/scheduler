@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { cn } from "../../../lib/utils";
+import { cn } from "@/lib/utils";
 
 interface MainTitleProps {
   title: string;
