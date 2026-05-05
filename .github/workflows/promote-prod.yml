@@ -166,6 +166,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
       - name: Disable Git LFS pre-push hook (Heroku has no LFS server)
         run: git lfs uninstall --skip-repo
 
