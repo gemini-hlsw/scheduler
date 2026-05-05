@@ -4,7 +4,7 @@ import { ThemeContext } from "../../../theme/ThemeProvider";
 import { About } from "./About";
 // import "./Header.scss";
 import { GlobalStateContext } from "../../GlobalState/GlobalState";
-import { cn } from "../../../lib/utils";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FaMoon, FaSun } from "react-icons/fa";
 import { ConnectionBadge } from "@/components/ui/connectionBadge";
@@ -19,7 +19,7 @@ export default function Header({ title }: { title: string }) {
         "flex flex-row items-center justify-between",
         "px-4 h-8 shrink-0 dark:bg-white/10 dark:text-white",
         "light:bg-black/10 light:text-black",
-        "border-b border-gray-200 dark:border-gray-700"
+        "border-b border-gray-200 dark:border-gray-700",
       )}
     >
       <div className={cn("flex flex-row items-center shrink")}>

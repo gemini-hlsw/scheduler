@@ -148,6 +148,9 @@ profiles/
 logs
 *.log
 
+# Do not ignore frontend lib folder
+!frontend/src/lib/
+
 # Node package managers
 npm-debug.log*
 yarn-debug.log*
