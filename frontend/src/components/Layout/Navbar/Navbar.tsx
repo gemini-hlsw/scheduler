@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 
 import type { JSX } from "react";
-import { cn } from "../../../lib/utils";
+import { cn } from "@/lib/utils";
 
 interface CustomLink {
   to: string;
@@ -33,13 +33,13 @@ export default function Navbar() {
             "md:[writing-mode:vertical-lr] [writing-mode:initial] md:-scale-100 px-2.5",
             "dark:hover:text-fuchsia-400 dark:hover:bg-black/60",
             "hover:text-fuchsia-800 hover:bg-white/60",
-            "transition-colors duration-300"
+            "transition-colors duration-300",
           )}
           to={button.to}
           key={`link_${j}`}
         >
           {button.name}
-        </Link>
+        </Link>,
       );
     });
     groups.push(
@@ -48,7 +48,7 @@ export default function Navbar() {
         key={`group_${i}`}
       >
         {buttons}
-      </div>
+      </div>,
     );
   });
 
@@ -57,7 +57,7 @@ export default function Navbar() {
       className={cn(
         "order-2 md:order-1",
         "dark:bg-white/20 bg-black/20",
-        "flex md:flex-col gap-5"
+        "flex md:flex-col gap-5",
       )}
     >
       {groups}

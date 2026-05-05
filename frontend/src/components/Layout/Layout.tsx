@@ -1,14 +1,14 @@
 import { ReactNode } from "react";
 import Header from "./Header/Header";
 import Navbar from "./Navbar/Navbar";
-import { cn } from "../../lib/utils";
+import { cn } from "@/lib/utils";
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div
       className={cn(
         "dark:bg-black bg-white dark:text-white text-black",
-        "flex flex-col h-screen overflow-y-auto w-full"
+        "flex flex-col h-screen overflow-y-auto w-full",
       )}
     >
       <Header title="schedule" />
