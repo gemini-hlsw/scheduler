@@ -20,17 +20,26 @@ jobs:
             const body = context.payload.pull_request.body || '';
             const START = '<!-- JIRA:START -->';
             const END = '<!-- JIRA:END -->';
-            if (!body.includes(START) || !body.includes(END)) return;
 
-            const replacement = match
+            const link = match
               ? `[${match[0]}](${process.env.JIRA_BASE_URL}/${match[0]})`
               : '_(no Jira ticket detected on branch name)_';
+            const section = `${START}\n${link}\n${END}`;
 
-            const regex = new RegExp(`${START}[\\s\\S]*?${END}`);
-            const newBody = body.replace(
-              regex,
-              `${START}\n${replacement}\n${END}`
-            );
+            let newBody;
+            if (body.includes(START) && body.includes(END)) {
+              const regex = new RegExp(`${START}[\\s\\S]*?${END}`);
+              newBody = body.replace(regex, section);
+            } else if (body.includes('## Jira')) {
+              // PR body has the heading but no markers — replace the heading's
+              // placeholder content (everything up to the next H2 or end of body).
+              const regex = /## Jira\n[\s\S]*?(?=\n## |\n*$)/;
+              newBody = body.replace(regex, `## Jira\n\n${section}\n`);
+            } else {
+              // No Jira section at all — append one.
+              newBody = `${body}\n\n## Jira\n\n${section}\n`;
+            }
+
             if (newBody === body) return;
 
             await github.rest.pulls.update({
