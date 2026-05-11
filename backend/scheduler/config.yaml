@@ -4,6 +4,11 @@ collector:
   time_slot_length: 1.0 # on minutes
   with_redis: false
   parallel_viscalc: false
+  # Visibility loading strategy used by the (sync) Collector.load_programs path.
+  # "sight" reads pre-computed Stage-1/Stage-2 from the sight service; "local"
+  # uses the in-process joblib calculator. The sight path automatically falls
+  # back to local on transport failure.
+  visibility_strategy: sight
 
 
 optimizer:
@@ -19,3 +24,10 @@ server:
 
 app:
   external_ephemerides: false
+
+sight:
+  # Base URL of the sight visibility service. Read by SightVisibilityLoader.
+  # Override via env-substituted config or by replacing this value in deployment.
+  api_url: http://localhost:9800/api/v1
+  # Per-request HTTP timeout in seconds for read-only bulk fetches.
+  timeout: 300
