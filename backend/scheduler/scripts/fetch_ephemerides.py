@@ -12,12 +12,12 @@ import aioboto3
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from botocore.exceptions import BotoCoreError, ClientError
-from gpp_client.api import WhereTarget, WhereOrderTargetId, WhereOrderProgramId, WhereProgram
+from gpp_client.generated.input_types import WhereTarget, WhereOrderProgramId, WhereProgram
 from lucupy.minimodel import Site, NonsiderealTarget, TargetType, TargetTag, TargetName
 
 from scheduler.services.ephemeris import EphemerisCalculator
 
-from scheduler.clients.scheduler_gpp_client import gpp_client_instance
+from scheduler.clients.gpp import gpp
 from threading import Lock
 
 from urllib.parse import urlparse
@@ -153,11 +153,10 @@ async def pickle_and_upload_to_s3(
 
 async def get_nonsidereal_targets():
 
-    client = gpp_client_instance.client
-    response = await client._client.get_scheduler_all_programs_id()
+    response = await gpp.client.scheduler.get_program_ids()
     program_ids = [p.id for p in response.programs.matches]
 
-    response = await client.target.get_all(
+    response = await gpp.client.target.get_all(
         where=WhereTarget(program=WhereProgram(id=WhereOrderProgramId(in_=program_ids)))
     )
     return [

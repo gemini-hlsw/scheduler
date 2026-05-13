@@ -10,9 +10,6 @@ from os import PathLike
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
 
-# from fontTools.ttLib.tables.otTables import DeltaSetIndexMap
-# from gpp_client.api import WhereProgram, WhereEqProposalStatus, ProposalStatus, WhereOrderProgramId
-# from gpp_client import GPPClient, GPPDirector
 
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
@@ -29,7 +26,7 @@ from lucupy.types import ZeroTime
 
 
 from definitions import ROOT_DIR
-from scheduler.clients.scheduler_gpp_client import  gpp_client_instance
+from scheduler.clients.gpp import gpp
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
@@ -100,11 +97,7 @@ async def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
         program_list = None
 
     try:
-        director = gpp_client_instance.director
-
-        ask_director = director.scheduler.program.get_all(programs_list=program_list)
-        result = await ask_director
-        programs = result
+        programs = await gpp.client.scheduler.get_all(programs_list=program_list)
 
         print(f"Adding {len(programs)} programs")
         # Pass the class information as a dictionary to mimic the OCS json format

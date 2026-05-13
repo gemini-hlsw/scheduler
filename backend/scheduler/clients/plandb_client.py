@@ -3,7 +3,7 @@
 
 import asyncio
 
-from scheduler_gpp_client.api.custom_fields import VisitFields
+from gpp_client.generated.custom_fields import VisitFields
 
 from scheduler.core.meta import AsyncSingleton
 
