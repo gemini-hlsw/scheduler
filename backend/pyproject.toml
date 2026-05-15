@@ -13,7 +13,6 @@ dependencies = [
     "dask>=2025.10.0",
     "fastapi>=0.116.1",
     "gelidum>=0.5.9",
-    "gpp-client==26.3.2",
     "gql>=4.0.0",
     "hypothesis>=6.137.1",
     "joblib>=1.5.2",
@@ -41,6 +40,8 @@ dependencies = [
 ]
 
 [dependency-groups]
+gpp-prod = ["gpp-client>=26.5.0"]
+gpp-dev = ["gpp-client>=26.5.1.dev0,<26.5.1a0"]
 dev = [
     "hypothesis>=6.137.1",
     "pytest>=8.4.1",
@@ -56,6 +57,11 @@ docs = [
     "mkdocs-material>=9.6.16",
     "mkdocs-mermaid2-plugin>=1.2.1",
     "mkdocstrings-python>=1.16.12",
+]
+
+[tool.uv]
+conflicts = [
+    [{ group = "gpp-prod" }, { group = "gpp-dev" }],
 ]
 
 

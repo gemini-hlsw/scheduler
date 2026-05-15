@@ -19,7 +19,7 @@ from scheduler.engine import Engine, SchedulerParameters
 from scheduler.orchestration import process_manager
 from scheduler.services.logger_factory import create_logger
 from scheduler.shared_queue import plan_response_subscribers, build_parameters_subscribers
-from scheduler.clients.scheduler_gpp_client import gpp_client_instance
+from scheduler.clients.gpp import gpp
 
 from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
                     NewPlansRT, NightPlansResponseRT, NightTimesResponse, BuildParametersInput, BuildParametersResponse, AvailableProgram)
@@ -135,8 +135,7 @@ class Query:
 
     @strawberry.field
     async def available_programs(self)-> list[AvailableProgram]:
-        director = gpp_client_instance.director
-        results = await director.scheduler.program.get_all_reference_labels()
+        results = await gpp.client.scheduler.get_all_reference_labels()
 
         return [
             AvailableProgram(id=p[1], ref_label=p[0]) for p in results

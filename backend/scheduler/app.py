@@ -5,6 +5,7 @@ import asyncio
 from os import environ
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from scheduler.clients.gpp import gpp
 from scheduler.graphql_mid.server import graphql_server
 from scheduler.orchestration.process_manager import process_manager
 from scheduler.services.visibility import visibility_calculator
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
     finally:
         _logger.info("Shutting down process manager...")
         await process_manager.stop()
+        await gpp.close()
 
 app = FastAPI(lifespan=lifespan)
 

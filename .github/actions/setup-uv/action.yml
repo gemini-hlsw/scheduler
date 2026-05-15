@@ -29,4 +29,5 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: uv sync --cache-dir /tmp/.uv-cache --all-groups
+      # TODO: For PROD promotion use gpp-prod, right now we are testing still with OCS.
+      run: uv sync --cache-dir /tmp/.uv-cache --group gpp-dev --group dev --no-group gpp-prod

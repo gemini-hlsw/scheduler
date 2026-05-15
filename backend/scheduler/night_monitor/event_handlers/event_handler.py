@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from typing import  Optional, Dict, Tuple, Callable
 
-from gpp_client.api.custom_fields import TargetEnvironmentFields, ConstraintSetFields, \
+from gpp_client.generated.custom_fields import TargetEnvironmentFields, ConstraintSetFields, \
     CalculatedObservationWorkflowFields, VisitFields
 
 from pydantic import BaseModel

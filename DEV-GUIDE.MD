@@ -66,6 +66,39 @@ Example: feat(backend): Add step count in ProgramProvider
 
 8. Dev auto-deploys (only changed components)
 
+## Working with `gpp-client` development versions
+
+`gpp-client` ships two parallel tracks on PyPI: stable releases (used by the GPP PRODUCTION environment) and `.devN` pre-releases (used by the GPP DEVELOPMENT environment). They are managed via two conflicting dependency groups in [backend/pyproject.toml](backend/pyproject.toml):
+
+- `gpp-prod = ["gpp-client>=X.Y.Z"]` — latest stable, used by CI and the Docker build.
+- `gpp-dev = ["gpp-client>=X.Y.Z.dev0,<X.Y.Z.a0"]` — restricts the resolver to `.devN` pre-releases of the current dev cycle `X.Y.Z`.
+
+You must pass `--group` explicitly; running plain `uv sync` from the workspace root does not pick these groups up:
+
+```sh
+# stable (matches CI/Docker)
+uv sync --group gpp-prod --no-group gpp-dev
+
+# switch local venv to the latest .devN of the current cycle
+uv sync --group gpp-dev --no-group gpp-prod
+
+# pull a newer .devN later
+uv sync --group gpp-dev --no-group gpp-prod --upgrade-package gpp-client
+```
+
+When the gpp-client team rolls a new dev cycle (e.g. `X.Y.Z` finalizes and `.devN` starts being published for the next version `X.Y.(Z+1)` or `X.(Y+1).0`), bump **both** numbers in the `gpp-dev` specifier together — `>=X.Y.Z.dev0,<X.Y.Za0`. If they diverge the range is empty and `uv sync` will fail.
+
+### Which version is used by each deployment
+
+The [backend/Dockerfile](backend/Dockerfile) accepts a `GPP_GROUP` build-arg that picks the track at image-build time:
+
+| Deployment | Workflow | `GPP_GROUP` | gpp-client track |
+| --- | --- | --- | --- |
+| Auto-deploy → DEV | [.github/workflows/deploy-dev.yml](.github/workflows/deploy-dev.yml) | `gpp-dev` | latest `.devN` of the current cycle (talks to GPP DEVELOPMENT) |
+| Promote → PROD | [.github/workflows/promote-prod.yml](.github/workflows/promote-prod.yml) | `gpp-prod` | latest stable (talks to GPP PRODUCTION) |
+
+The arg is passed via `heroku container:push --arg GPP_GROUP=…`. If you build the image locally without the arg, it defaults to `gpp-prod`.
+
 ## Promoting to Production
 
 1. Verify dev is working as expected
