@@ -86,8 +86,7 @@ jobs:
         run: |
           heroku container:push -a ${{ secrets[matrix.app_secret] }} web \
             --context-path .. \
-            --arg APP_VERSION=${{ steps.version.outputs.version }}-staging-${{ matrix.mode }} \
-            --arg GPP_GROUP=gpp-dev
+            --arg APP_VERSION=${{ steps.version.outputs.version }}-staging-${{ matrix.mode }},GPP_GROUP=gpp-dev
 
       - name: Release container on Heroku
         run: |
