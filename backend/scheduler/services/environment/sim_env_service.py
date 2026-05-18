@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import bz2
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, Final, FrozenSet, Optional
 
@@ -99,19 +99,22 @@ class SimEnvService(ExternalService):
     def get_initial_conditions(self,
                                site: Site,
                                night_date: date) -> Optional[VariantSnapshot]:
+        ut_night_date = night_date + timedelta(days=1)
 
-        df = self._initial_conditions[site] if site in self._initial_conditions else None
-        if not df.empty:
+        df = self._initial_conditions.get(site)
+        if df is None or df.empty:
+            return None
 
-            filtered_df = df[df[SimEnvService._night_time_col_initial].dt.date == night_date]
+        filtered_df = df[df[SimEnvService._night_time_col_initial].dt.date == ut_night_date]
+        if filtered_df.empty:
+            return None
 
-            df_iq = filtered_df[SimEnvService._iq_col_initial].iloc[0]
-            iq = ImageQuality.IQ70 if df_iq == 'na' else (ImageQuality(int(df_iq)/100) if df_iq != 'ANY' else ImageQuality.IQANY)
-            df_cc = filtered_df[SimEnvService._cc_col_initial].iloc[0]
-            cc = CloudCover.CC70 if df_cc == 'na' else (CloudCover(int(df_cc)/100) if df_cc != 'ANY' else CloudCover.CCANY)
+        df_iq = filtered_df[SimEnvService._iq_col_initial].iloc[0]
+        iq = ImageQuality.IQ70 if df_iq == 'na' else (ImageQuality(int(df_iq)/100) if df_iq != 'ANY' else ImageQuality.IQANY)
+        df_cc = filtered_df[SimEnvService._cc_col_initial].iloc[0]
+        cc = CloudCover.CC70 if df_cc == 'na' else (CloudCover(int(df_cc)/100) if df_cc != 'ANY' else CloudCover.CCANY)
 
-            return VariantSnapshot(iq=iq,
-                                   cc=cc,
-                                   wind_dir=Angle(292, unit=u.deg),
-                                   wind_spd=3 * (u.m / u.s))
-        return None
+        return VariantSnapshot(iq=iq,
+                               cc=cc,
+                               wind_dir=Angle(292, unit=u.deg),
+                               wind_spd=3 * (u.m / u.s))
