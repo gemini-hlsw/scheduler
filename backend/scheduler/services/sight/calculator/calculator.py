@@ -317,8 +317,6 @@ class Calculator:
             )
             visible.extend(r for r in response.results if r.remaining_minutes > 0)
 
-        print("visible? :", visible)
-
         return visible
 
     async def create_targets_bulk(

@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from lucupy.minimodel.site import ALL_SITES
+from lucupy.minimodel.site import ALL_SITES, Site
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
@@ -22,7 +22,7 @@ from scheduler.services.sight.database.connection import init_engine
 _logger = logger_factory.create_logger(__name__)
 
 def main(*,
-         programs_ids: Path = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt') -> None:
+         programs_ids: Path = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids_gs.redis.txt') -> None:
 
     # Set lucupy to Gemini
     ObservatoryProperties.set_properties(GeminiProperties)
@@ -33,13 +33,13 @@ def main(*,
         programs_list = [line.strip() for line in file if line.strip()[0] != '#']
 
     # Create Parameters
-    params = SchedulerParameters(start=datetime.fromisoformat("2018-10-01 08:00:00").replace(tzinfo=ZoneInfo("UTC")),
-                                 end=datetime.fromisoformat("2018-10-03 08:00:00").replace(tzinfo=ZoneInfo("UTC")),
-                                 sites=ALL_SITES,
+    params = SchedulerParameters(start=datetime.fromisoformat("2018-08-02 08:00:00").replace(tzinfo=ZoneInfo("UTC")),
+                                 end=datetime.fromisoformat("2019-01-31 08:00:00").replace(tzinfo=ZoneInfo("UTC")),
+                                 sites=frozenset([Site.GS]),
                                  mode=SchedulerModes.VALIDATION,
                                  ranker_parameters=RankerParameters(),
                                  semester_visibility=False,
-                                 num_nights_to_schedule=1,
+                                 num_nights_to_schedule=151,
                                  programs_list=programs_list)
     engine = Engine(params)
     plan_summary, timelines = engine.schedule()

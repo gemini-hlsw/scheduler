@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 from datetime import datetime, timedelta
@@ -59,19 +59,41 @@ def _obs_to_request(obs: Observation) -> ObservationRequest:
     )
 
 
-def _build_target_info(stage1_entry: dict, rem_visibility_frac: float) -> TargetInfo:
+def _resize_to(arr: np.ndarray, expected_length: int) -> np.ndarray:
+    """Pad (by repeating the last value) or truncate `arr` to `expected_length`.
+
+    Sight's Stage-1 arrays are sized from the timestamps stored in its
+    `night_events` rows, while the scheduler's `night_events.times[night_idx]`
+    is recomputed fresh from astropy each run. Slight rounding/ephemeris
+    differences can leave the lengths off by ±1, which downstream broadcasting
+    rejects. One-slot padding/truncation is acceptable: the fence values are
+    near twilight where astronomical visibility is already ~zero.
+    """
+    n = len(arr)
+    if n == expected_length:
+        return arr
+    if n > expected_length:
+        return arr[:expected_length]
+    pad = np.full(expected_length - n, arr[-1], dtype=arr.dtype)
+    return np.concatenate([arr, pad])
+
+
+def _build_target_info(stage1_entry: dict, rem_visibility_frac: float,
+                       expected_length: int) -> TargetInfo:
     """Construct a TargetInfo from a Sight Stage-1 night entry.
 
     Stage-1 returns ra/dec in degrees and alt/az/hourangle in radians; airmass
-    is unitless. The observation has already been confirmed visible for this
-    night, so visibility_slot_idx covers every timeslot.
+    is unitless. Arrays are resized to `expected_length` (the scheduler's
+    `len(night_events.times[night_idx])`) so downstream consumers that combine
+    target arrays with night_events-sized arrays (variants, wind, conditions)
+    don't crash on broadcasting mismatches.
     """
-    ra = np.asarray(stage1_entry['ra'])
-    dec = np.asarray(stage1_entry['dec'])
-    alt = np.asarray(stage1_entry['alt'])
-    az = np.asarray(stage1_entry['az'])
-    hourangle = np.asarray(stage1_entry['hourangle'])
-    airmass = np.asarray(stage1_entry['airmass'])
+    ra = _resize_to(np.asarray(stage1_entry['ra']), expected_length)
+    dec = _resize_to(np.asarray(stage1_entry['dec']), expected_length)
+    alt = _resize_to(np.asarray(stage1_entry['alt']), expected_length)
+    az = _resize_to(np.asarray(stage1_entry['az']), expected_length)
+    hourangle = _resize_to(np.asarray(stage1_entry['hourangle']), expected_length)
+    airmass = _resize_to(np.asarray(stage1_entry['airmass']), expected_length)
 
     coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame='icrs')
     return TargetInfo(
@@ -80,7 +102,7 @@ def _build_target_info(stage1_entry: dict, rem_visibility_frac: float) -> Target
         az=Angle(az, unit=u.rad),
         hourangle=Angle(hourangle, unit=u.rad),
         airmass=airmass,
-        visibility_slot_idx=np.arange(len(alt), dtype=int),
+        visibility_slot_idx=np.arange(expected_length, dtype=int),
         rem_visibility_frac=rem_visibility_frac,
     )
 
@@ -132,6 +154,11 @@ class Collector(SchedulerComponent):
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
     defer_night_events: bool = False  # If True, skip night_events initialization in __post_init__
+
+    # Per-instance per-night visibility map populated by _load_visibility_from_sight.
+    # Each Collector owns its own copy — never make this a ClassVar (would break
+    # concurrent sims by sharing state across instances).
+    _visible_obs_by_night: Dict[NightIndex, set[ObservationID]] = field(default_factory=dict)
 
     # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
     _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
@@ -360,6 +387,10 @@ class Collector(SchedulerComponent):
 
         # Purge the old programs and observations.
         Collector._programs = {}
+        Collector._observations = {}
+        Collector._observations_per_program = {}
+        Collector._target_info = {}
+        self._visible_obs_by_night = {}
 
         # Keep a list of the observations for parallel processing.
         parsed_observations: List[Tuple[ProgramID, Observation]] = []
@@ -461,8 +492,17 @@ class Collector(SchedulerComponent):
                 obs_with_resources[night_idx].append(obs)
 
         self._load_visibility_from_sight(obs_with_resources, sem)
+        for _p_id, _obs in parsed_observations:
+            base = _obs.base_target()
+            Collector._observations[_obs.id] = _obs, base
 
         _logger.info(f'Collected {len(Collector._observations)} observations: {[ o.id for o in Collector._observations.keys()]}.')
+
+    def get_visible_observations_for_night(self, night_idx: NightIndex) -> set[ObservationID]:
+        return self._visible_obs_by_night.get(night_idx, set())
+
+    def get_visible_nights_for_observation(self, obs_id: ObservationID) -> set[NightIndex]:
+        return {n for n, ids in self._visible_obs_by_night.items() if obs_id in ids}
 
     @staticmethod
     async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
@@ -478,6 +518,7 @@ class Collector(SchedulerComponent):
         Collector._observations = {}
         Collector._observations_per_program = {}
         Collector._target_info = {}
+        self._visible_obs_by_night = {}
 
         # Keep a list of the observations for parallel processing.
         parsed_observations: List[Tuple[ProgramID, Observation]] = []
@@ -538,7 +579,6 @@ class Collector(SchedulerComponent):
 
         sem, = self.semesters
 
-        # Resource + program-filter pass, mirroring sync load_programs.
         obs_with_resources: dict[NightIndex, list[Observation]] = {}
         for n_idx in range(self.num_nights_calculated):
             night_idx = NightIndex(n_idx)
@@ -564,6 +604,12 @@ class Collector(SchedulerComponent):
                 obs_with_resources[night_idx].append(obs)
 
         await asyncio.to_thread(self._load_visibility_from_sight, obs_with_resources, sem)
+
+        # Register every parsed observation so downstream lookups (e.g. change
+        # monitor for ToO events) succeed even when the observation has no base
+        # target or isn't visible on any night in the sim window.
+        for _p_id, _obs in parsed_observations:
+            Collector._observations[_obs.id] = _obs, _obs.base_target()
 
         _logger.info(
             f'Collected {len(Collector._observations)} observations: {[o.id for o in Collector._observations.keys()]}.'
@@ -779,6 +825,13 @@ class Collector(SchedulerComponent):
             self._fetch_sight_data(filtered_observations, start_date, end_date, site_ids)
         )
 
+        # Publish per-night visible observations for downstream consumers.
+        # Wrap str ids back into ObservationID to match the public getter signature.
+        self._visible_obs_by_night = {
+            night_index: {ObservationID(obs_id) for obs_id in visible_obs_ids}
+            for night_index, (visible_obs_ids, _stage1, _cumulative) in per_night.items()
+        }
+
         for night_index, observations in filtered_observations.items():
             visible_obs_ids, stage1, cumulative = per_night[night_index]
             visible_observations = [o for o in observations if o.id.id in visible_obs_ids]
@@ -817,7 +870,8 @@ class Collector(SchedulerComponent):
                     )
                     continue
 
-                ti = _build_target_info(stage1_entry, rem_visibility_frac)
+                expected_length = len(self.night_events[obs.site].times[night_index])
+                ti = _build_target_info(stage1_entry, rem_visibility_frac, expected_length)
                 target_info_map: TargetInfoNightIndexMap = (
                     Collector._target_info.setdefault((base.name, obs.id), {})
                 )
