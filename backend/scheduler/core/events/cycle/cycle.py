@@ -336,14 +336,13 @@ class EventCycle:
         update = None
         previous_event_timeslot = TimeslotIndex(0)
 
-        # Set the initial variant for the site for the night. This may have been set above by weather
-        # information obtained before or at the start of the night, and if not, then the lookup will give None,
-        # which will reset to the default values as defined in the Selector.
-        morn_twi_time = events_by_night.events[0].time
-        initial_variant = self.scp.collector.sources.origin.env.get_initial_conditions(
-            site,
-            morn_twi_time.date()
-        )
+        # Set the initial variant for the site for the night. The night key is the
+        # local civil date of evening twilight (same convention used by the engine
+        # for variant changes, closures, faults, and ToOs). If no row is found,
+        # `get_initial_conditions` returns None, which resets the Selector to its
+        # default variant values.
+        night_date = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone).date()
+        initial_variant = self.scp.collector.sources.origin.env.get_initial_conditions(site, night_date)
         self.scp.selector.update_site_variant(site, initial_variant)
         _logger.debug(f'Resetting {site.site_name} weather to initial values for night...')
 

@@ -7,7 +7,6 @@
 - [ ] Docs (`docs/`)
 - [ ] CI/Infra (`.github/`)
 
-## Changelog
 
 <!-- 
   REQUIRED: Add a changelog fragment file to this PR.
@@ -24,7 +23,6 @@
   CI will fail if no fragment is found (unless only CI/docs files changed).
 -->
 
-**Fragment:** `changelog.d/` <!-- auto-populated by PR Changelog Sync workflow -->
 
 ## Jira
 
