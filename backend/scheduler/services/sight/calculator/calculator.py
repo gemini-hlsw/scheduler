@@ -13,6 +13,7 @@ from scheduler.services.sight.database.repositories import (
 from scheduler.services.sight.calculations.night_events import calculate_night_events_for_night
 from scheduler.services.sight.calculations.stage2 import calculate_visibility, ObservationConstraints as Stage2Constraints
 from scheduler.services.sight.calculations.arrays import unpack_array
+from scheduler.services.sight.calculations.stage1 import calculate_stage1
 
 from .models import (
     ObservationRequest,
@@ -199,8 +200,6 @@ class Calculator:
         
         sites = await self.get_sites()
         site = sites[site_id]
-        
-        from calculations.stage1 import calculate_stage1
         
         arrays = calculate_stage1(target, site, night_event)
         

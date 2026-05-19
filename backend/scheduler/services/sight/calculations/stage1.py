@@ -1,3 +1,4 @@
+import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -7,12 +8,25 @@ import astropy.units as u
 from pydantic import BaseModel
 
 import lucupy.sky as sky
+from lucupy.minimodel import TargetTag
 
 from scheduler.services.sight.calculations.arrays import pack_array, unpack_array
 from scheduler.services.sight.calculations.night_events import site_to_earth_location
 
 if TYPE_CHECKING:
     from database.models import Site, Target, NightEvent
+
+
+# Maps sight's DB-stored string tags (Target.tag is `str | None`) to the
+# lucupy TargetTag enum that scheduler/services/horizons/horizons_client.py
+# dispatches on. Without this conversion, the scheduler's `case
+# TargetTag.MAJORBODY:` falls through to the `DES=...` default branch and
+# Horizons returns an error page.
+_TAG_STR_TO_ENUM = {
+    'majorbody': TargetTag.MAJORBODY,
+    'asteroid':  TargetTag.ASTEROID,
+    'comet':     TargetTag.COMET,
+}
 
 
 class Stage1Arrays(BaseModel):
@@ -233,25 +247,44 @@ def _calculate_nonsidereal_coordinates(
 
 
 class _HorizonsSiteAdapter:
-    """Adapter to match horizons_session expected site interface."""
-    
-    # Horizons observatory codes
+    """Adapter to match horizons_session expected site interface.
+
+    The scheduler's horizons client treats `site` as a lucupy Site enum and
+    reads `site.name` (which is "GN" / "GS") for the cache filename. Sight's
+    DB `Site.name` column stores the human-readable string ("Gemini North"),
+    so we map it to the lucupy short code here. Without this, the cache file
+    ends up named "Gemini North_<id>_*.eph" instead of "GN_<id>_*.eph".
+    """
+
+    # Horizons observatory codes, keyed by sight DB Site.name.
     _COORDINATE_CENTERS = {
         "Gemini North": "568@399",
         "Gemini South": "I11@399",
     }
-    
+
+    # Sight DB Site.name -> lucupy Site enum short name.
+    _DB_NAME_TO_SHORT = {
+        "Gemini North": "GN",
+        "Gemini South": "GS",
+    }
+
     def __init__(self, site: "Site"):
-        self.name = site.name
+        self.name = self._DB_NAME_TO_SHORT.get(site.name, site.name)
         self.location = site_to_earth_location(site)
         self.coordinate_center = self._COORDINATE_CENTERS.get(site.name, "500@399")
 
 
 class _HorizonsTargetAdapter:
     """Adapter to match horizons get_ephemerides expected target interface."""
-    
+
     def __init__(self, target: "Target"):
         self.name = target.name
         self.horizons_id = target.horizons_id
         self.des = target.horizons_id  # designation used by horizons
-        self.tag = target.tag
+        tag_str = (target.tag or '').lower()
+        self.tag = _TAG_STR_TO_ENUM.get(tag_str)
+        if self.tag is None and tag_str:
+            logging.getLogger(__name__).warning(
+                f'Unknown target tag {tag_str!r} for {target.name}; '
+                'falling back to DES= branch in horizons client.'
+            )

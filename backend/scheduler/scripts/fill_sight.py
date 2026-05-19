@@ -61,10 +61,10 @@ _logger = logger_factory.create_logger(__name__)
 START = datetime(2018, 8, 1, 8, 0, 0, tzinfo=timezone.utc)
 END = datetime(2019, 1, 31, 8, 0, 0, tzinfo=timezone.utc)
 
-PROGRAM_IDS_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.redis.txt'
+PROGRAM_IDS_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids_gn.redis.txt'
 
 # Sites to seed; sight stores per (target, site) so both must be precomputed.
-SITES_TO_SEED = ('GN', 'GS')
+SITES_TO_SEED = ('GN',)
 
 
 def _target_payload(target) -> Optional[TargetCreate]:

@@ -116,11 +116,24 @@ class HorizonsClient:
         night_str = self.end.strftime(self.date_format)
         ephemeris_path = self.path / f'{self.site.name}_{targ_name}_{night_str}UT.eph'
 
+        lines = None
         if not overwrite and ephemeris_path.exists() and ephemeris_path.is_file():
             logger.debug(f'Reading ephemerides file for {target.des}')
             with ephemeris_path.open('r') as f:
-                lines = [x.strip() for x in f.readlines()]
-        else:
+                cached_lines = [x.strip() for x in f.readlines()]
+            # Cached file is only usable if it contains the SOE/EOE markers.
+            # Old failed queries (e.g. from a wrong COMMAND param) leave error
+            # pages on disk; treat those as a cache miss and re-fetch instead
+            # of letting the parser raise.
+            if '$$SOE' in cached_lines and '$$EOE' in cached_lines:
+                lines = cached_lines
+            else:
+                logger.warning(
+                    f'Cached ephemerides for {target.des} at {ephemeris_path} '
+                    'is missing $$SOE/$$EOE markers; re-fetching from Horizons.'
+                )
+
+        if lines is None:
             logger.debug(f'Querying JPL/Horizons for {horizons_name}')
             res = self._query(horizons_name, step=f'{int(self.time_slot_length)}m')
             lines = res.text.splitlines()
