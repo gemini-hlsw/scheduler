@@ -44,28 +44,6 @@ logger = logger_factory.create_logger(__name__, with_id=False)
 DEFAULT_PROGRAM_ID_PATH = Path(ROOT_DIR) / 'scheduler' / 'data' / 'gpp_program_ids.txt'
 
 
-def camel_case(st):
-    """Convert to camel case
-       Based on https://stackoverflow.com/questions/8347048/how-to-convert-string-to-title-case-in-python
-    """
-    output = ''.join(x for x in st.replace('_', ' ').title() if x.isalnum())
-    return output[0].lower() + output[1:]
-
-# def get_progid(group):
-#     """Work around for gpp-client issue with program reference, get from the first observation group"""
-#
-#     def get_obsid(subgroup):
-#         if isinstance(subgroup.children, Observation):
-#             return subgroup.id.id
-#         else:
-#             for child in subgroup.children:
-#                 obsid = get_obsid(child)
-#                 if obsid is not None:
-#                     return obsid
-#
-#     obsid = get_obsid(group)
-#     return ProgramID(obsid[0:obsid.rfind('-')])
-
 def get_progid(group) -> ProgramID:
     """Work around for gpp-client issue with the program reference label, get it from the first observation group"""
 
@@ -232,10 +210,10 @@ class GppProgramProvider(ProgramProvider):
     class _ProgramKeys:
         ID = 'reference'
         INTERNAL_ID = 'id'
-        BAND = 'queueBand'
-        THESIS = 'isThesis'
-        MODE = 'programMode'
-        TOO_TYPE = 'tooType'
+        BAND = 'queue_band'
+        THESIS = 'is_thesis'
+        MODE = 'program_mode'
+        TOO_TYPE = 'too_type'
         TIME_ACCOUNT_ALLOCATION = 'allocations'
         TIME_CHARGE = 'time_charge'
 
@@ -243,7 +221,7 @@ class GppProgramProvider(ProgramProvider):
         # CATEGORIES = 'timeAccountAllocationCategories'
         CATEGORY = 'category'
         AWARDED_PROG_TIME = 'duration'
-        AWARDED_PART_TIME = 'awardedPartnerTime'
+        AWARDED_PART_TIME = 'awarded_partner_time'
         USED_PROG_TIME = 'program'
         USED_PART_TIME = 'partner'
         NOT_CHARGED_TIME = 'non_charged'
@@ -283,9 +261,9 @@ class GppProgramProvider(ProgramProvider):
         # TOO_OVERRIDE_RAPID = 'tooOverrideRapid'
 
     class _TargetKeys:
-        KEY = 'targetEnvironment'
+        KEY = 'target_environment'
         ASTERISM = 'asterism'
-        BASE = 'explicitBase'
+        BASE = 'explicit_base'
         TYPE = 'type'
         RA = 'ra'
         DEC = 'dec'
@@ -298,7 +276,7 @@ class GppProgramProvider(ProgramProvider):
         NAME = 'name'
 
     class _TargetEnvKeys:
-        GUIDE_GROUPS = 'guideEnvironments'
+        GUIDE_GROUPS = 'guide_environments'
         # GUIDE_GROUP_NAME = 'name'
         # GUIDE_GROUP_PRIMARY = 'primaryGroup'
         # GUIDE_PROBE = 'probe'
@@ -332,19 +310,19 @@ class GppProgramProvider(ProgramProvider):
     }
 
     class _ConstraintKeys:
-        KEY = 'constraintSet'
-        CC = 'cloudExtinction'
-        IQ = 'imageQuality'
-        SB = 'skyBackground'
-        WV = 'waterVapor'
-        ELEVATION = 'elevationRange'
-        AIRMASS_TYPE = 'airMass'
+        KEY = 'constraint_set'
+        CC = 'cloud_extinction'
+        IQ = 'image_quality'
+        SB = 'sky_background'
+        WV = 'water_vapor'
+        ELEVATION = 'elevation_range'
+        AIRMASS_TYPE = 'air_mass'
         AIRMASS_MIN = 'min'
         AIRMASS_MAX = 'max'
-        HA_TYPE = 'hourAngle'
-        HA_MIN = 'minHours'
-        HA_MAX = 'maxHours'
-        TIMING_WINDOWS = 'timingWindows'
+        HA_TYPE = 'hour_angle'
+        HA_MIN = 'min_hours'
+        HA_MAX = 'max_hours'
+        TIMING_WINDOWS = 'timing_windows'
 
     class _AtomKeys:
         ATOM = 'atom_idx'
@@ -359,17 +337,17 @@ class GppProgramProvider(ProgramProvider):
         EXPOSURE_TIME = 'exposure'
         # DATA_LABEL = ''
         # COADDS = ''
-        FILTER = 'filter'
+        FILTER = 'filter_'
         DISPERSER = 'grating'
-        OBSERVE_TYPE = 'type'
+        OBSERVE_TYPE = 'type_'
         # PREIMAGING = ''
 
     class _TimingWindowKeys:
         # TIMING_WINDOWS = 'timingWindows'
         INCLUSION = 'inclusion'
-        START = 'startUtc'
+        START = 'start_utc'
         DURATION = 'end'
-        ATUTC = 'atUtc'
+        ATUTC = 'at_utc'
         AFTER = 'after'
         REPEAT = 'repeat'
         TIMES = 'times'
@@ -388,7 +366,7 @@ class GppProgramProvider(ProgramProvider):
         GMOSS = 'fpu'
         # NIRI = 'instrument:mask'
         # NIFS = 'instrument:mask'
-        CUSTOM = 'fpuCustomMask'
+        CUSTOM = 'fpu_custom_mask'
 
     class _DISPKeys:
         GMOSN = 'grating'
@@ -397,9 +375,9 @@ class GppProgramProvider(ProgramProvider):
 
     class _InstrumentKeys:
         NAME = 'instrument:name'
-        DECKER = 'instrument:acquisitionMirror'
-        ACQ_MIRROR = 'instrument:acquisitionMirror'
-        CROSS_DISPERSED = 'instrument:crossDispersed'
+        DECKER = 'instrument:acquisition_mirror'
+        ACQ_MIRROR = 'instrument:acquisition_mirror'
+        CROSS_DISPERSED = 'instrument:cross_dispersed'
 
     FPU_FOR_INSTRUMENT = {
         # 'GSAOI': _FPUKeys.GSAOI,
@@ -909,10 +887,7 @@ class GppProgramProvider(ProgramProvider):
         instrument = GppProgramProvider._gpp_inst_to_ocs[data['instrument']]
         mode = data['mode']
 
-        # print(f'\t\t parse_observing_mode: instrument={instrument}, mode={mode} {camel_case(mode)}')
-        # print(data)
-        
-        instrument_config = data.get(camel_case(mode))
+        instrument_config = data.get(mode.title().lower())
         # print(instrument_config)
         # print(instrument_config.keys())
 
@@ -1080,7 +1055,7 @@ class GppProgramProvider(ProgramProvider):
             #              data[GppProgramProvider._ObsKeys.LOG]]
 
             # observing mode (instrument config)
-            resources, wavelength, mode = self.parse_observing_mode(data['observingMode'])
+            resources, wavelength, mode = self.parse_observing_mode(data['observing_mode'])
             # print(f'\t\t resources: {resources}')
             # print(f'\t\t wavelength: {wavelength}')
             # print(f'\t\t mode: {mode}')
