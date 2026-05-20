@@ -1,10 +1,3 @@
-"""Async SQLAlchemy engine + session lifecycle for the sight service.
-
-The engine is created lazily via ``init_engine()`` (called from the FastAPI
-lifespan in ``app.py``) so importing this module does not require ``DB_URL``
-to be set. Use ``session_scope()`` to obtain a session for any in-process
-caller; it commits on success and rolls back on exception.
-"""
 
 import json
 from collections.abc import AsyncGenerator
@@ -47,13 +40,21 @@ async def init_engine() -> None:
     if _engine is not None:
         return
     settings = get_db_settings()
+    url_str = str(settings.url)
+    connect_args: dict = {}
+    # Heroku Postgres hostnames live under *.amazonaws.com and require SSL.
+    # asyncpg doesn't honor `?sslmode=…` in the URL, so we pass it explicitly.
+    # Local containers (localhost / 127.0.0.1) skip SSL.
+    if "amazonaws.com" in url_str:
+        connect_args["ssl"] = "require"
     _engine = create_async_engine(
-        str(settings.url),
+        url_str,
         pool_size=settings.pool_size,
         max_overflow=settings.pool_overflow,
         echo=settings.echo_sql,
         pool_pre_ping=True,
         json_serializer=_jsonb_serializer,
+        connect_args=connect_args,
     )
     _session_factory = async_sessionmaker(
         bind=_engine,

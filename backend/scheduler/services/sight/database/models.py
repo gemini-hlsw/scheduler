@@ -21,7 +21,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from enum import Enum
 
-# Add the enum class before the Target class
 class TargetTag(str, Enum):
     """Type of non-sidereal target."""
     MAJORBODY = "majorbody"
@@ -37,8 +36,6 @@ class Base(DeclarativeBase):
 class Site(Base):
     """
     Observatory site.
-    
-    Fixed table with 2 rows — one per site.
     """
     __tablename__ = "sites"
 

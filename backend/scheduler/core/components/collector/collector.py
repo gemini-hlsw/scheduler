@@ -38,6 +38,15 @@ from scheduler.services.sight.calculator.models import (
     ObservationRequest,
 )
 from scheduler.services.sight.database.connection import session_scope
+from scheduler.services.sight.calculations.night_events import calculate_night_events_for_night
+from scheduler.services.sight.calculations.stage1 import calculate_stage1
+from scheduler.services.sight.calculations.stage2 import calculate_visibility as sight_calculate_visibility
+from scheduler.services.sight.calculations.arrays import unpack_array
+from scheduler.services.sight._temporary.lucupy_adapters import (
+    site_shim,
+    target_shim,
+    stage2_constraints,
+)
 
 __all__ = [
     'Collector',
@@ -603,11 +612,8 @@ class Collector(SchedulerComponent):
                     continue
                 obs_with_resources[night_idx].append(obs)
 
-        await asyncio.to_thread(self._load_visibility_from_sight, obs_with_resources, sem)
+        self._compute_visibility_locally(parsed_observations, obs_with_resources)
 
-        # Register every parsed observation so downstream lookups (e.g. change
-        # monitor for ToO events) succeed even when the observation has no base
-        # target or isn't visible on any night in the sim window.
         for _p_id, _obs in parsed_observations:
             Collector._observations[_obs.id] = _obs, _obs.base_target()
 
@@ -938,4 +944,134 @@ class Collector(SchedulerComponent):
         for night_index, visible_ids in visible_by_night.items():
             per_night[night_index] = (visible_ids, stage1, cumulative)
         return per_night
+
+    def _compute_visibility_locally(
+        self,
+        parsed_observations: List[Tuple[ProgramID, Observation]],
+        obs_with_resources: dict[NightIndex, list[Observation]],
+    ) -> None:
+        """RT-mode counterpart to ``_load_visibility_from_sight``.
+
+        Computes Stage 1 + Stage 2 in memory for the full window. no DB reads,
+        no DB writes. Sequential per (obs, night).
+
+        Uses adapters(shims) to match Sight models.
+        """
+        num_nights = self.num_nights_calculated
+        range_end_dt = self.end_vis_time
+
+        # Pre-resolve one site shim per site (doesn't change across nights).
+        site_shims = {site: site_shim(site) for site in self.sites}
+
+        # Cache night_events per (site, night_idx); same key is touched once
+        # per target otherwise.
+        night_event_cache: dict[tuple, object] = {}
+
+        def _night_event(site, night_idx: NightIndex):
+            key = (site, night_idx)
+            ne = night_event_cache.get(key)
+            if ne is None:
+                night_date = self.time_grid[int(night_idx)].to_datetime().date()
+                ne = calculate_night_events_for_night(site_shims[site], night_date)
+                night_event_cache[key] = ne
+            return ne
+
+        # obs_with_resources already encodes resource + program-filter pass for
+        # each night. Build per-night sets for O(1) "is this obs schedulable
+        # on this night" lookup.
+        schedulable_by_night = {
+            n_idx: {o.id.id for o in obs_list}
+            for n_idx, obs_list in obs_with_resources.items()
+        }
+
+        for _p_id, obs in parsed_observations:
+            base = obs.base_target()
+            if base is None:
+                continue
+            target = target_shim(base)
+            if target is None:
+                continue
+
+            site = obs.site
+            sshim = site_shims[site]
+            target_info_map: TargetInfoNightIndexMap = (
+                Collector._target_info.setdefault((base.name, obs.id), {})
+            )
+
+            # Stage 1 + Stage 2 per night. Hold results; rem_visibility_frac
+            # needs suffix-sum of remaining_minutes across the whole window.
+            per_night: dict[NightIndex, tuple] = {}
+            for n_idx in range(num_nights):
+                night_idx = NightIndex(n_idx)
+                ne = _night_event(site, night_idx)
+                s1 = calculate_stage1(target, sshim, ne)
+
+                has_resources = obs.id.id in schedulable_by_night.get(night_idx, set())
+                constraints = stage2_constraints(
+                    obs,
+                    has_resources=has_resources,
+                    can_schedule=has_resources,
+                    range_end=range_end_dt,
+                )
+
+                s2 = sight_calculate_visibility(
+                    alt_bytes=s1.alt,
+                    az_bytes=s1.az,
+                    airmass_bytes=s1.airmass,
+                    hourangle_bytes=s1.hourangle,
+                    ra_bytes=s1.ra,
+                    dec_bytes=s1.dec,
+                    sun_alt_bytes=ne.sun_alt,
+                    moon_alt_bytes=ne.moon_alt,
+                    moon_ra_bytes=ne.moon_ra,
+                    moon_dec_bytes=ne.moon_dec,
+                    sun_moon_ang_bytes=ne.sun_moon_ang,
+                    moon_dist=ne.moon_dist,
+                    night_start=ne.night_start,
+                    night_duration_minutes=ne.night_duration_minutes,
+                    constraints=constraints,
+                )
+                per_night[night_idx] = (ne, s1, s2)
+
+            # Suffix-sum of remaining_minutes for rem_visibility_frac
+            # (same pattern as sight/scripts/dump_sight_targetinfo.py:215-223).
+            rem_obs_seconds = (obs.exec_time() - obs.total_used()).total_seconds()
+            suffix_min = 0
+            suffix_by_night: dict[NightIndex, int] = {}
+            for n_idx in reversed(range(num_nights)):
+                night_idx = NightIndex(n_idx)
+                suffix_min += per_night[night_idx][2].remaining_minutes
+                suffix_by_night[night_idx] = suffix_min
+
+            for n_idx in range(num_nights):
+                night_idx = NightIndex(n_idx)
+                ne, s1, s2 = per_night[night_idx]
+                n = ne.night_duration_minutes
+
+                stage1_entry = {
+                    'ra':        unpack_array(s1.ra, n),
+                    'dec':       unpack_array(s1.dec, n),
+                    'alt':       unpack_array(s1.alt, n),
+                    'az':        unpack_array(s1.az, n),
+                    'hourangle': unpack_array(s1.hourangle, n),
+                    'airmass':   unpack_array(s1.airmass, n),
+                }
+                denom = suffix_by_night[night_idx]
+                rem_frac = (rem_obs_seconds / (denom * 60.0)) if denom > 0 else 0.0
+                expected_length = len(self.night_events[site].times[night_idx])
+                ti = _build_target_info(stage1_entry, rem_frac, expected_length)
+
+                # _build_target_info defaults visibility_slot_idx to np.arange
+                # (every slot visible) for the DB-backed path; override with
+                # the real Stage-2 mask here. Resize the mask too so it stays
+                # aligned with the (possibly padded) arrays.
+                mask = np.asarray(s2.visibility_mask, dtype=bool)
+                mask = _resize_to(mask.astype(int), expected_length).astype(bool)
+                ti.visibility_slot_idx = np.where(mask)[0]
+
+                if mask.any():
+                    self._visible_obs_by_night.setdefault(night_idx, set()).add(obs.id)
+                target_info_map[night_idx] = ti
+
+            Collector._observations[obs.id] = obs, base
 

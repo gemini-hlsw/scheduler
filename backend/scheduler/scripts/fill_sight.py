@@ -22,16 +22,15 @@ rows without touching existing ones.
 
 import asyncio
 import os
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 os.environ.setdefault('REDISCLOUD_URL', 'redis://mock:6379')
 
 from lucupy.minimodel import ObservationClass
 from lucupy.minimodel.semester import Semester
 from lucupy.minimodel.target import NonsiderealTarget, SiderealTarget
-from lucupy.minimodel.timingwindow import TimingWindow
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 from lucupy.types import ZeroTime
@@ -46,13 +45,13 @@ from scheduler.services.sight.calculator.models import (
     ObservationConstraints,
     ObservationRequest,
     TargetCreate,
-    TimingWindow as SightTimingWindow,
 )
 from scheduler.services.sight.database.connection import (
     dispose_engine,
     init_engine,
     session_scope,
 )
+from scheduler.services.sight._temporary.lucupy_adapters import expand_timing_windows
 
 
 _logger = logger_factory.create_logger(__name__)
@@ -95,42 +94,6 @@ def _target_payload(target) -> Optional[TargetCreate]:
     return None
 
 
-def _expand_timing_windows(windows, range_end: datetime) -> List[SightTimingWindow]:
-    """Expand lucupy TimingWindow repeats into flat {start, end} pairs."""
-    out: List[SightTimingWindow] = []
-    for tw in (windows or []):
-        if tw.start is None or tw.duration is None:
-            continue
-        tw_start = tw.start.to_datetime(timezone.utc) if hasattr(tw.start, 'to_datetime') else tw.start
-        if tw_start.tzinfo is None:
-            tw_start = tw_start.replace(tzinfo=timezone.utc)
-
-        if tw.repeat == TimingWindow.NON_REPEATING:
-            count = 1
-            period = None
-        elif tw.repeat == TimingWindow.FOREVER_REPEATING:
-            count = None
-            period = tw.period
-        else:
-            count = tw.repeat + 1
-            period = tw.period
-
-        idx = 0
-        while True:
-            offset = (period * idx) if (period is not None and idx > 0) else timedelta(0)
-            window_start = tw_start + offset
-            if count is None and window_start > range_end:
-                break
-            window_end = window_start + tw.duration
-            out.append(SightTimingWindow(start=window_start, end=window_end))
-            idx += 1
-            if count is not None and idx >= count:
-                break
-            if period is None:
-                break
-    return out
-
-
 def _constraints_payload(constraints, range_end: datetime) -> ObservationConstraints:
     if constraints is None:
         return ObservationConstraints()
@@ -141,7 +104,7 @@ def _constraints_payload(constraints, range_end: datetime) -> ObservationConstra
         elevation_type=ElevationType(constraints.elevation_type.name.lower()),
         elevation_min=float(constraints.elevation_min),
         elevation_max=float(constraints.elevation_max),
-        timing_windows=_expand_timing_windows(
+        timing_windows=expand_timing_windows(
             getattr(constraints, 'timing_windows', None), range_end
         ),
         has_resources=True,

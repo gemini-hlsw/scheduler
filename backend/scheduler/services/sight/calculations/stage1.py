@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from database.models import Site, Target, NightEvent
 
 
-# Maps sight's DB-stored string tags (Target.tag is `str | None`) to the
+# Maps Sight's DB-stored string tags (Target.tag is `str | None`) to the
 # lucupy TargetTag enum that scheduler/services/horizons/horizons_client.py
 # dispatches on. Without this conversion, the scheduler's `case
 # TargetTag.MAJORBODY:` falls through to the `DES=...` default branch and
@@ -111,11 +111,7 @@ def calculate_stage1(
     # Convert to numpy arrays
     ra_val = coord.ra.to(u.deg).value
     dec_val = coord.dec.to(u.deg).value
-    
-    # NOTE: For sidereal targets, ra/dec are constant across all time slots.
-    # We broadcast to arrays for uniform storage format with non-sidereal targets.
-    # If memory becomes an issue, consider storing ra/dec as scalars for sidereal
-    # targets and only as arrays for non-sidereal (requires schema change).
+
     if np.isscalar(ra_val):
         ra_deg = np.full(num_time_slots, ra_val, dtype=np.float64)
         dec_deg = np.full(num_time_slots, dec_val, dtype=np.float64)
