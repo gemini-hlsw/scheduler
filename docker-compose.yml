@@ -11,6 +11,7 @@ services:
       APP_VERSION: ${APP_VERSION:-development}
       SCHEDULER_MODE: REALTIME
       PORT: 8000
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://scheduler:scheduler_dev@postgres:5432/scheduler}
       CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}
       CLOUDCUBE_ACCESS_KEY_ID: ${CLOUDCUBE_ACCESS_KEY_ID:-}
       CLOUDCUBE_SECRET_ACCESS_KEY: ${CLOUDCUBE_SECRET_ACCESS_KEY:-}
@@ -37,13 +38,17 @@ services:
       APP_VERSION: ${APP_VERSION:-development}
       SCHEDULER_MODE: VALIDATION
       PORT: 8001
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://scheduler:scheduler_dev@postgres:5432/scheduler}
       CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}
       CLOUDCUBE_ACCESS_KEY_ID: ${CLOUDCUBE_ACCESS_KEY_ID:-}
       CLOUDCUBE_SECRET_ACCESS_KEY: ${CLOUDCUBE_SECRET_ACCESS_KEY:-}
     ports:
       - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/graphql')"]
       interval: 30s
       timeout: 10s
       retries: 5

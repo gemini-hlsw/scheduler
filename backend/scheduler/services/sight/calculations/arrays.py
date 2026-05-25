@@ -1,11 +1,6 @@
 import numpy as np
 import numpy.typing as npt
 
-
-# =============================================================================
-# Core Pack/Unpack
-# =============================================================================
-
 def pack_array(arr: npt.NDArray[np.float64]) -> bytes:
     """
     Pack a float64 numpy array into bytes for database storage.
@@ -39,10 +34,6 @@ def unpack_array(data: bytes, length: int | None = None) -> npt.NDArray[np.float
     return arr
 
 
-# =============================================================================
-# Binary Mask Pack/Unpack (for Stage 2 visibility results)
-# =============================================================================
-
 def pack_binary_mask(mask: npt.NDArray[np.bool_] | npt.NDArray[np.uint8]) -> bytes:
     """
     Pack a binary mask into bytes using bit-packing (8x compression).
@@ -74,11 +65,6 @@ def unpack_binary_mask(data: bytes, length: int) -> npt.NDArray[np.bool_]:
     unpacked = np.unpackbits(packed)[:length]
     return unpacked.astype(np.bool_)
 
-
-# =============================================================================
-# Angle Conversions
-# =============================================================================
-
 def radians_to_degrees(arr: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Convert radians to degrees."""
     return np.degrees(arr)
@@ -87,11 +73,6 @@ def radians_to_degrees(arr: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
 def degrees_to_radians(arr: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Convert degrees to radians."""
     return np.radians(arr)
-
-
-# =============================================================================
-# Convenience Classes
-# =============================================================================
 
 class ArrayPacker:
     """
@@ -172,11 +153,6 @@ class AngularArrayPacker:
             return arr
         else:
             raise ValueError(f"Unknown unit: {output_unit}")
-
-
-# =============================================================================
-# Validation Helpers
-# =============================================================================
 
 def validate_night_duration(duration: int, min_dur: int = 60, max_dur: int = 720) -> None:
     """

@@ -1,5 +1,4 @@
 from datetime import date, datetime, timezone, timedelta
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 import numpy as np
@@ -14,7 +13,7 @@ import lucupy.sky as sky
 from scheduler.services.sight.calculations.arrays import pack_array
 
 if TYPE_CHECKING:
-    from database.models import Site
+    from scheduler.services.sight.database.models import Site
 
 
 class NightEventArrays(BaseModel):

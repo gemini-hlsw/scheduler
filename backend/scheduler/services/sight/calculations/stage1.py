@@ -14,14 +14,9 @@ from scheduler.services.sight.calculations.arrays import pack_array, unpack_arra
 from scheduler.services.sight.calculations.night_events import site_to_earth_location
 
 if TYPE_CHECKING:
-    from database.models import Site, Target, NightEvent
+    from scheduler.services.sight.database.models import Site, Target, NightEvent
 
 
-# Maps Sight's DB-stored string tags (Target.tag is `str | None`) to the
-# lucupy TargetTag enum that scheduler/services/horizons/horizons_client.py
-# dispatches on. Without this conversion, the scheduler's `case
-# TargetTag.MAJORBODY:` falls through to the `DES=...` default branch and
-# Horizons returns an error page.
 _TAG_STR_TO_ENUM = {
     'majorbody': TargetTag.MAJORBODY,
     'asteroid':  TargetTag.ASTEROID,
@@ -244,12 +239,7 @@ def _calculate_nonsidereal_coordinates(
 
 class _HorizonsSiteAdapter:
     """Adapter to match horizons_session expected site interface.
-
-    The scheduler's horizons client treats `site` as a lucupy Site enum and
-    reads `site.name` (which is "GN" / "GS") for the cache filename. Sight's
-    DB `Site.name` column stores the human-readable string ("Gemini North"),
-    so we map it to the lucupy short code here. Without this, the cache file
-    ends up named "Gemini North_<id>_*.eph" instead of "GN_<id>_*.eph".
+    Sight uses "Gemini North_*", while the existing files are "GN_*"
     """
 
     # Horizons observatory codes, keyed by sight DB Site.name.
