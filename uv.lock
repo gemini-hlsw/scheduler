@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -188,7 +188,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -217,7 +217,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
     { name = "sniffio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f1/b4/636b3b65173d3ce9a38ef5f0522789614e590dab6a8d505340a4efe4c567/anyio-4.10.0.tar.gz", hash = "sha256:3f3fae35c96039744587aa5b8371e7e8e603c0702999535961dd336026973ba6", size = 213252, upload-time = "2025-08-04T08:54:26.451Z" }
 wheels = [
@@ -427,7 +427,7 @@ name = "click"
 version = "8.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/60/6c/8ca2efa64cf75a977a0d7fac081354553ebe483345c734fb6b6515d96bbc/click-8.2.1.tar.gz", hash = "sha256:27c491cc05d968d271d5a1db13e3b5a184636d9d930f148c50b038f0d0646202", size = 286342, upload-time = "2025-05-20T23:19:49.832Z" }
 wheels = [
@@ -1291,15 +1291,15 @@ wheels = [
 
 [[package]]
 name = "lucupy"
-version = "0.2.8"
+version = "0.2.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "gelidum" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/51/6d/138719e7ac2f0b5f9e57d7e502af42ecdfcfa80a3903f38c540cf5183b21/lucupy-0.2.8.tar.gz", hash = "sha256:242e45bcadbbf5db91d030523c76c49dd0023d6333bcc2b28359dc0a1fbf35a0", size = 47783, upload-time = "2025-10-03T20:32:45.771Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/c6/a4eed1bc61a78cf945b103e98f30985a675458774142c36dc0258491303f/lucupy-0.2.9.tar.gz", hash = "sha256:d4e9ffe8efe6fad28a84f9b9405c401a63093cf3a1d5327fed990e90e4eb669b", size = 47942, upload-time = "2026-05-25T15:46:23.172Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/f0/acd3d2e26753bf11c0661d1e8d72c1b14663988fc9cef5e38d34d385d6a8/lucupy-0.2.8-py3-none-any.whl", hash = "sha256:537c747a5ea300d53e1df033fc391119d03dc7d7976208ca20c985da32f83b2e", size = 69695, upload-time = "2025-10-03T20:32:44.426Z" },
+    { url = "https://files.pythonhosted.org/packages/53/80/3d5f177399ef3dd82802e2ef85934fcaa9d404b4126a65efda7a00f4f4ca/lucupy-0.2.9-py3-none-any.whl", hash = "sha256:3b86a514b5751fe7b604ff0561ddf850060f761b18bb3988b763e7944db1e986", size = 69801, upload-time = "2026-05-25T15:46:24.504Z" },
 ]
 
 [[package]]

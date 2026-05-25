@@ -25,6 +25,8 @@ class Visit:
     time_slots: int
     score: float
     peak_score: float
+    step_start_idx: Optional[int]
+    step_count: Optional[int]
     instrument: Optional[Resource]
     fpu: Optional[Resource]
     disperser: Optional[Resource]

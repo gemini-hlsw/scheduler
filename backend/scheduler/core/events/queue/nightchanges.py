@@ -182,8 +182,12 @@ class NightlyTimeline:
                         if entry.plan_generated is not None:
                             for visit in entry.plan_generated.visits:
                                 visit_time = rnd_min(visit.start_time).strftime(self._datetime_formatter)
+                                # Display 1-indexed start and end steps to match Explore/Observe
+                                step_start = visit.step_start_idx + 1 if visit.step_start_idx is not None else -1
+                                step_end = step_start + visit.step_count - 1 if visit.step_count is not None else -1
                                 print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
-                                      f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} {visit.start_time_slot:4d}'
+                                      f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} '
+                                      f'{step_start:4d} {step_end:4d} {visit.start_time_slot:4d}'
                                       f' {visit.start_time_slot+visit.time_slots:4d}', file=f)
                         print('\t+++++ END EVENT +++++', file=f)
                 print('', file=f)

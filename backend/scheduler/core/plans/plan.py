@@ -90,23 +90,39 @@ class Plan:
             start_time_slot: int,
             time_slots: int,
             score: float,
-            peak_score: float) -> None:
+            peak_score: float,) -> None:
 
-        visit = Visit(start,
-                      obs.id,
-                      obs.obs_class,
-                      obs.constraints.conditions,
-                      atom_start,
-                      atom_end,
-                      start_time_slot,
-                      time_slots,
-                      score,
-                      peak_score,
-                      obs.instrument(),
-                      obs.fpu(),
-                      obs.disperser(),
-                      obs.filters(),
-                      f'{atom_end+1}/{len(obs.sequence)}')
+        # Find step numbers
+        step_start = None
+        step_count = None
+        for atom in obs.sequence:
+            if atom_start <= atom.id <= atom_end:
+                if atom.step_start is not None:
+                    if step_start is None:
+                        step_start = atom.step_start
+                        step_count = 0
+                    step_count += atom.step_count
+                # print(atom.step_start, atom.step_count, step_start, step_count)
+
+        visit = Visit(
+            start,
+            obs.id,
+            obs.obs_class,
+            obs.constraints.conditions,
+            atom_start,
+            atom_end,
+            start_time_slot,
+            time_slots,
+            score,
+            peak_score,
+            step_start,
+            step_count,
+            obs.instrument(),
+            obs.fpu(),
+            obs.disperser(),
+            obs.filters(),
+            f"{atom_end + 1}/{len(obs.sequence)}",
+        )
         self.visits.append(visit)
         self._time_slots_left -= time_slots
 
