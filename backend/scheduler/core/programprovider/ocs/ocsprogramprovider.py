@@ -867,12 +867,15 @@ class OcsProgramProvider(ProgramProvider):
         has_cal = False if (any(instr in instrument for instr in ['GMOS']) and
                             mode != ObservationMode.IMAGING) else True
         # print(f'\tparse_atoms:')
+        step_start = 0
+        step_count = 0
         for step_id, step in enumerate(sequence):
             next_atom = False
             observe_class = step[OcsProgramProvider._AtomKeys.OBS_CLASS]
             atomstr = 'New atom for: '
             if observe_class.upper() not in [ObservationClass.ACQ.name, ObservationClass.ACQCAL.name]:
                 step_use += 1
+                step_count += 1
                 step_time = step[OcsProgramProvider._AtomKeys.TOTAL_TIME] / 1000
 
                 # Any wavelength/filter change is a new atom
@@ -974,7 +977,9 @@ class OcsProgramProvider(ProgramProvider):
                                       guide_state=False,
                                       resources=resources,
                                       wavelengths=frozenset(wavelengths),
-                                      obs_mode=mode))
+                                      obs_mode=mode,
+                                      step_start=step_id,
+                                      step_count=0))
 
                     if (step[OcsProgramProvider._AtomKeys.OBSERVE_TYPE].upper() not in OcsProgramProvider._CAL_OBSERVE_TYPES and
                             n_pattern == 0):
@@ -992,6 +997,7 @@ class OcsProgramProvider(ProgramProvider):
 
                 atoms[-1].exec_time += timedelta(seconds=step_time)
                 atom_id = n_atom
+                atoms[-1].step_count += 1
 
                 # TODO: Add Observe Class enum
                 if 'partnerCal' in observe_class:

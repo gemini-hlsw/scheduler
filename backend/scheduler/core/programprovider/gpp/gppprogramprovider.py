@@ -23,7 +23,7 @@ from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
-
+from pandas.core.common import fill_missing_names
 
 from definitions import ROOT_DIR
 from scheduler.clients.gpp import gpp
@@ -121,6 +121,9 @@ def parse_preimaging(sequence: List[dict]) -> bool:
 
     return preimaging
 
+# Return the basic name of a component, stripping off prefixes like GmosSouthFilter.
+def basic_name(full_name) -> str:
+    return full_name.split('.')[-1] if full_name else None
 
 class GppProgramProvider(ProgramProvider):
     """
@@ -255,19 +258,19 @@ class GppProgramProvider(ProgramProvider):
         # SETUPTIME = '' # obs_may5_grp.execution.digest.acquisition.time_estimate.total.hours
         # OBS_CLASS = 'obsClass'
         # PHASE2 = 'phase2Status'
-        ACTIVE = 'activeStatus'
-        BAND = 'scienceBand'
-        CALROLE = 'calibrationRole'
+        ACTIVE = 'active_status'
+        BAND = 'science_band'
+        CALROLE = 'calibration_role'
         # TOO_OVERRIDE_RAPID = 'tooOverrideRapid'
 
     class _TargetKeys:
         KEY = 'target_environment'
         ASTERISM = 'asterism'
         BASE = 'explicit_base'
-        TYPE = 'type'
+        TYPE = 'type_'
         RA = 'ra'
         DEC = 'dec'
-        PM = 'properMotion'
+        PM = 'proper_motion'
         EPOCH = 'epoch'
         DES = 'des'
         SIDEREAL_OBJECT_TYPE = 'sidereal'
@@ -340,6 +343,8 @@ class GppProgramProvider(ProgramProvider):
         FILTER = 'filter_'
         DISPERSER = 'grating'
         OBSERVE_TYPE = 'type_'
+        STEP_INDEX = 'step_index'
+        STEP_COUNT = 'step_count'
         # PREIMAGING = ''
 
     class _TimingWindowKeys:
@@ -517,7 +522,7 @@ class GppProgramProvider(ProgramProvider):
         # ToDo: determine how to handle exclusion windows
 
         return TimingWindow(
-            start=Time(start),
+            start=Time(start),  # make the same as in ocsprogramprovider and the calculator
             duration=duration,
             repeat=repeat,
             period=period)
@@ -659,16 +664,21 @@ class GppProgramProvider(ProgramProvider):
         # Convert RA/Dec to decimal degrees
         ra = sex2dec(ra_hhmmss, to_degree=True)
         dec = sex2dec(dec_ddmmss, to_degree=False)
+        # There is currently a bug in the DEC degrees, or we need to subtract 360 if dec > 90.
+        # ra = sidereal_object[GppProgramProvider._TargetKeys.RA]['degrees']
+        # dec = sidereal_object[GppProgramProvider._TargetKeys.DEC]['degrees']
+
+        # print(f'ra = {ra}, dec = {dec}')
 
         # Proper motion
         try:
-            pm_ra = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.RA]['milliarcsecondsPerYear']
-            pm_dec = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.DEC]['milliarcsecondsPerYear']
+            pm_ra = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.RA]['milliarcseconds_per_year']
+            pm_dec = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.DEC]['milliarcseconds_per_year']
             epoch_str = sidereal_object[GppProgramProvider._TargetKeys.EPOCH]
             # Strip off any leading letter, make float
             epoch = float(epoch_str[1:]) if epoch_str[0] in ['B', 'J'] else float(epoch_str)
-        except TypeError as e:
-            print(f'Target {name} is missing proper motion, setting to 0')
+        except:
+            # print(f'Target {name} is missing proper motion, setting to 0')
             pm_ra = 0.0
             pm_dec = 0.0
             epoch = 2000.0
@@ -695,7 +705,7 @@ class GppProgramProvider(ProgramProvider):
         des = data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE][GppProgramProvider._TargetKeys.DES]
 
         # This is the tag information that we want: either MAJORBODY, COMET, or ASTEROID
-        tag_str = data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]['keyType']
+        tag_str = basic_name(data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]['key_type'])
         # Map ASTEROID_NEW keyType to ASTEROID
         if 'ASTEROID' in tag_str:
             tag_str = 'ASTEROID'
@@ -823,11 +833,13 @@ class GppProgramProvider(ProgramProvider):
         all_classes = []
         for step in sequence:
             if step[GppProgramProvider._AtomKeys.OBS_CLASS] != 'ACQUISITION':
-                atom_id = step[GppProgramProvider._AtomKeys.ATOM]
+                atom_id = int(step[GppProgramProvider._AtomKeys.ATOM])
                 observe_class = step[GppProgramProvider._AtomKeys.OBS_CLASS]
                 step_time = int(step[GppProgramProvider._AtomKeys.TOTAL_TIME]) // 1000000 # transform to seconds
                 lamp_types = step['lamp_types']
                 step_types = step['step_types']
+                step_start = int(step['step_index'])
+                step_count = int(step['step_count'])
                 atoms.append(Atom(id=atom_id,
                                   exec_time=ZeroTime,
                                   prog_time=ZeroTime,
@@ -840,7 +852,9 @@ class GppProgramProvider(ProgramProvider):
                                   guide_state=False,
                                   resources=resources,
                                   wavelengths=frozenset([wavelength]),
-                                  obs_mode=mode))
+                                  obs_mode=mode,
+                                  step_start=step_start,
+                                  step_count=step_count,))
 
                 # Update atom
                 all_classes.append(observe_class)
@@ -876,7 +890,7 @@ class GppProgramProvider(ProgramProvider):
         elif data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]:
             return self.parse_nonsidereal_target(data, targ_type)
         else:
-            msg = f'Illegal target type.'
+            msg = f'Illegal object type.'
             raise ValueError(msg)
 
     def parse_observing_mode(self, data: dict) -> Tuple[FrozenSet[Resource], Wavelength, ObservationMode]:
@@ -885,7 +899,7 @@ class GppProgramProvider(ProgramProvider):
             return next(filter(lambda f: f in filter_input, filter_dict), None)
 
         instrument = GppProgramProvider._gpp_inst_to_ocs[data['instrument']]
-        mode = data['mode']
+        mode = basic_name(data['mode'])
 
         instrument_config = data.get(mode.title().lower())
         # print(instrument_config)
@@ -898,6 +912,7 @@ class GppProgramProvider(ProgramProvider):
                 fpu = instrument_config[GppProgramProvider._FPUKeys.CUSTOM]
             elif GppProgramProvider.FPU_FOR_INSTRUMENT[instrument] in instrument_config.keys():
                 fpu = instrument_config[GppProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
+        fpu = basic_name(fpu)
 
         # Disperser
         disperser = None
@@ -909,20 +924,21 @@ class GppProgramProvider(ProgramProvider):
             disperser = instrument_config[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
         elif 'GMOS' in instrument and 'IMAGING' in mode:
             disperser = 'Mirror'
+        disperser = basic_name(disperser)
 
         # Filters
         filters = []
         if GppProgramProvider._AtomKeys.FILTER in instrument_config.keys():
-            filters = [instrument_config[GppProgramProvider._AtomKeys.FILTER]]
+            filters = [basic_name(instrument_config[GppProgramProvider._AtomKeys.FILTER])]
         elif 'filters' in instrument_config.keys():  # for GMOS imaging
             for filt in instrument_config['filters']:
                 # Handle multiple-filter combos for GMOS
                 if 'GMOS' in instrument:
                     for f in self._gmos_filters[instrument]:
-                        if f in filt['filter']:
-                            filters.append(filt['filter'])
+                        if f in filt[GppProgramProvider._AtomKeys.FILTER]:
+                            filters.append(basic_name(filt[GppProgramProvider._AtomKeys.FILTER]))
                 else:
-                    filters.append(filt['filter'])
+                    filters.append(basic_name(filt[GppProgramProvider._AtomKeys.FILTER]))
         else:
             if instrument == 'GNIRS':
                 filters = [None]
@@ -931,8 +947,9 @@ class GppProgramProvider(ProgramProvider):
 
         if instrument == 'Flamingos2':
             wavelength = Wavelength(GppProgramProvider._F2_FILTER_WAVELENGTHS[filters[0]])
-        elif 'centralWavelength' in instrument_config.keys():
-            wavelength = Wavelength(float(instrument_config['centralWavelength']['nanometers'] / 1000.))
+        elif 'central_wavelength' in instrument_config.keys():
+            # assumes GMOS, so convert to microns
+            wavelength = Wavelength(float(instrument_config['central_wavelength']['nanometers'] / 1000.))
         else:
             wavelength = None
 
@@ -988,7 +1005,7 @@ class GppProgramProvider(ProgramProvider):
         # obs_id = f"{program_id.id}-{internal_id.replace('-', '')}"
         obs_id = data[GppProgramProvider._ObsKeys.ID]['label'] if GppProgramProvider._ObsKeys.ID in data.keys() \
             else f"{program_id.id}-{internal_id.replace('-', '')}"
-        # print(f'\t parse_observation {obs_id}')
+        # print(f'\n\t\t parse_observation {obs_id}')
 
         order = None
         obs_class = ObservationClass.NONE
@@ -1039,9 +1056,11 @@ class GppProgramProvider(ProgramProvider):
             # band = Band[band_value] if band_value is not None else None
             # Workaround until calibrations have a band assigned
             band = Band[band_value] if band_value is not None else Band['BAND1']
+            # print(f'\t\t band_value = {band_value}, band =  {band}')
 
             # Calibration role
             cal_role_value = data.get(GppProgramProvider._ObsKeys.CALROLE)
+            # print(f'\t\t cal_role_value = {cal_role_value}')
             calibration_role = CalibrationRole[cal_role_value] if cal_role_value is not None else None
 
             # Constraints
@@ -1049,7 +1068,7 @@ class GppProgramProvider(ProgramProvider):
                 GppProgramProvider._ConstraintKeys.KEY: data[GppProgramProvider._ConstraintKeys.KEY],
                 GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]}
             constraints = self.parse_constraints(find_constraints) if find_constraints else None
-
+            # print(f'\t\t constraints = {constraints}')
             # QA states, needed?
             # qa_states = [QAState[log_entry[GppProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
             #              data[GppProgramProvider._ObsKeys.LOG]]
@@ -1059,7 +1078,7 @@ class GppProgramProvider(ProgramProvider):
             # print(f'\t\t resources: {resources}')
             # print(f'\t\t wavelength: {wavelength}')
             # print(f'\t\t mode: {mode}')
-            # # print(f'\t\t calibration_role: {calibration_role}')
+            # print(f'\t\t calibration_role: {calibration_role}')
 
             # Acq time from mode workaround
             acq_overhead = ZeroTime
@@ -1113,23 +1132,23 @@ class GppProgramProvider(ProgramProvider):
                 # Use the explicit base if available, otherwise the first target in the asterism
 
                 explicit_base = target_env.get(GppProgramProvider._TargetKeys.BASE)
-                if explicit_base is None:
+                if explicit_base:
+                    target_info = explicit_base
+                else:
                     asterism = target_env.get(GppProgramProvider._TargetKeys.ASTERISM)
                     if asterism:
                         target_info = asterism[0]
                     else:
                         target_info = None
-                else:
-                    target_info = explicit_base
 
                 # Get the target
-                # print(target_info)
                 try:
                     base = self.parse_target(target_info, targ_type='BASE')
                     targets.append(base)
                 except KeyError:
                     logger.warning(f"No base target found for observation {obs_id}. Using empty base target.")
                     targets.append(GppProgramProvider._EMPTY_BASE_TARGET)
+                # print(f'\t\t base = {base}')
 
                 # Parse the guide stars if guide star data is supplied.
                 try:
@@ -1254,7 +1273,7 @@ class GppProgramProvider(ProgramProvider):
 
             # Set group_option from Ordered
             ordered = data[GppProgramProvider._GroupKeys.ORDERED]
-            # print(f"parse_group {group_id}: num_to_observe {number_to_observe}, ordered: {ordered}")
+            # print(f"parse_group {group_id}: group_name: {group_name}, num_to_observe: {number_to_observe}, ordered: {ordered}")
 
             # Special system group?
             system_group = data[GppProgramProvider._GroupKeys.SYSTEM]
@@ -1270,8 +1289,8 @@ class GppProgramProvider(ProgramProvider):
                 delay_max = None
                 # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
                 # print(f"Calibrations to observe {number_to_observe}")
-            # Telluric groups must not be ordered, override for now using the group name
-            elif 'telluric' in group_name:
+            # Telluric groups must not be ordered, override for now using the group name, OR groups have name None
+            elif group_name and 'telluric' in group_name:
                 group_option = AndOption.CONSEC_ANYORDER
                 number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
             elif delay_min is not None:
@@ -1285,6 +1304,8 @@ class GppProgramProvider(ProgramProvider):
                 else: # AND group
                     group_option = AndOption.CONSEC_ORDERED if ordered else AndOption.CONSEC_ANYORDER
                     number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+
+            # print(f'group_option: {group_option}, number_to_observe: {number_to_observe}')
 
             # Skip if number_to_observe is 0
             if number_to_observe == 0:
@@ -1311,7 +1332,7 @@ class GppProgramProvider(ProgramProvider):
         observations = []
         obs_parent_indices = []
 
-        # print(f"parse_group {group_id}: num_to_observe {number_to_observe}, group_option: {group_option}")
+        # print(f"\tparse_group {group_id}: num_to_observe {number_to_observe}, group_option: {group_option}")
 
         # Recursively process the group elements, reversing required to get the order
         # as in Explore
