@@ -756,10 +756,10 @@ class Collector(SchedulerComponent):
                             slot_atom_start = slot_atom_end - slot_atom_length
 
                         if slot_atom_end < end_timeslot_charge:
-
-                            atom_record = self.time_accountant.get_record(observation, obs_seq[atom_idx])
                             if charge_group:
                                 # Charge to program or partner
+                                atom_record = self.time_accountant.get_record(observation, obs_seq[atom_idx])
+
                                 obs_seq[atom_idx].program_used = obs_seq[atom_idx].prog_time
                                 obs_seq[atom_idx].partner_used = obs_seq[atom_idx].part_time
 
@@ -783,6 +783,8 @@ class Collector(SchedulerComponent):
 
                             elif not_charged:
                                 # charge to not_charged
+                                atom_record = self.time_accountant.get_record(observation, obs_seq[atom_idx])
+
                                 not_charged_time = (end_timeslot_charge -
                                                     slot_atom_start + 1) * self.time_slot_length.to_datetime()
                                 obs_seq[atom_idx].not_charged += not_charged_time
