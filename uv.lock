@@ -2602,7 +2602,7 @@ requires-dist = [
     { name = "gql", specifier = ">=4.0.0" },
     { name = "hypothesis", specifier = ">=6.137.1" },
     { name = "joblib", specifier = ">=1.5.2" },
-    { name = "lucupy", specifier = ">=0.2.8" },
+    { name = "lucupy", specifier = ">=0.2.9" },
     { name = "matplotlib", specifier = ">=3.10.5" },
     { name = "more-itertools", specifier = ">=10.7.0" },
     { name = "numpy", specifier = ">=2.3.2" },
