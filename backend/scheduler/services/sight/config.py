@@ -1,21 +1,28 @@
 import os
 from functools import lru_cache
+from typing import Optional
 
 from pydantic import Field, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def _resolve_db_url() -> str:
-    """Return the connection URL with the asyncpg driver scheme.
+def _resolve_db_url() -> Optional[str]:
+    """Return the connection URL with the asyncpg driver scheme, or None.
 
-    Heroku Postgres add-ons set DATABASE_URL with the legacy `postgres://`
-    scheme; SQLAlchemy 2.0 requires `postgresql://`, and the in-process
-    Calculator requires the async driver, so normalise to
-    `postgresql+asyncpg://`.
+    Heroku Postgres add-ons set DATABASE_URL with the legacy ``postgres://``
+    scheme; SQLAlchemy 2.0 requires ``postgresql://``, and the in-process
+    Calculator requires the async driver, so we normalise to
+    ``postgresql+asyncpg://``.
+
+    Returns None when DATABASE_URL is unset so that callers (scripts, the
+    RT/local-only validation path) can import this module without the env var
+    set. ``init_engine`` no-ops on None; ``session_scope`` raises lazily on
+    first DB use. Mirrors the same lazy-init pattern used by
+    ``services/redis_client/redis_client.py``.
     """
     url = os.environ.get("DATABASE_URL")
     if not url:
-        raise RuntimeError("DATABASE_URL is not set")
+        return None
     if url.startswith("postgres://"):
         return "postgresql+asyncpg://" + url[len("postgres://"):]
     if url.startswith("postgresql://") and not url.startswith("postgresql+"):
@@ -38,5 +45,13 @@ class DatabaseSettings(BaseSettings):
 
 
 @lru_cache
-def get_db_settings() -> DatabaseSettings:
-    return DatabaseSettings(url=_resolve_db_url())
+def get_db_settings() -> Optional[DatabaseSettings]:
+    """Returns DatabaseSettings, or None when DATABASE_URL is unset.
+
+    Callers must handle None — see ``init_engine`` in
+    ``services/sight/database/connection.py`` for the canonical pattern.
+    """
+    url = _resolve_db_url()
+    if url is None:
+        return None
+    return DatabaseSettings(url=url)

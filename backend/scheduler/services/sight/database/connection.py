@@ -1,5 +1,6 @@
 
 import json
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import date, datetime
@@ -14,6 +15,9 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from scheduler.services.sight.config import get_db_settings
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _jsonb_default(obj):
@@ -34,12 +38,22 @@ _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
-async def init_engine() -> None:
-    """Create the async engine and session factory. Idempotent."""
+async def init_db_engine() -> None:
+    """Create the async engine and session factory if DATABASE_URL is set.
+
+    No-op (with an info log) when DATABASE_URL is unset, so app boot and
+    scripts that don't touch the DB succeed. Any subsequent ``session_scope``
+    call will raise the deferred ``RuntimeError`` instead.
+    """
     global _engine, _session_factory
     if _engine is not None:
         return
     settings = get_db_settings()
+    if settings is None:
+        _logger.info(
+            "DATABASE_URL not set; Sight engine left uninitialised."
+        )
+        return
     url_str = str(settings.url)
     connect_args: dict = {}
     # Heroku Postgres hostnames live under *.amazonaws.com and require SSL.
@@ -75,10 +89,18 @@ async def dispose_engine() -> None:
 
 @asynccontextmanager
 async def session_scope() -> AsyncGenerator[AsyncSession, None]:
-    """Yield an AsyncSession; commits on success, rolls back on exception."""
+    """Yield an AsyncSession; commits on success, rolls back on exception.
+
+    Raises ``RuntimeError`` lazily when DATABASE_URL is unset — boot and
+    import paths stay quiet; only callers that actually want a session fail.
+    """
     if _session_factory is None:
-        await init_engine()
-    assert _session_factory is not None
+        await init_db_engine()
+    if _session_factory is None:
+        raise RuntimeError(
+            "DATABASE_URL is not set; sight DB features are unavailable. "
+            "Set DATABASE_URL or run with use_local_visibility=True."
+        )
     async with _session_factory() as session:
         try:
             yield session

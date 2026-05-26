@@ -48,7 +48,7 @@ from scheduler.services.sight.calculator.models import (
 )
 from scheduler.services.sight.database.connection import (
     dispose_engine,
-    init_engine,
+    init_db_engine,
     session_scope,
 )
 from scheduler.services.sight._temporary.lucupy_adapters import expand_timing_windows
@@ -199,7 +199,7 @@ async def _run() -> None:
         f'(skipped {skipped_no_target} with no base target).'
     )
 
-    await init_engine()
+    await init_db_engine()
     try:
         async with session_scope() as session:
             calc = Calculator(session)

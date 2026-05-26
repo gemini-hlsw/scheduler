@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from scheduler.clients.gpp import gpp
 from scheduler.graphql_mid.server import graphql_server
 from scheduler.orchestration.process_manager import process_manager
-from scheduler.services.sight.database.connection import init_engine, dispose_engine
+from scheduler.services.sight.database.connection import init_db_engine, dispose_engine
 from scheduler.services.logger_factory import create_logger
 from scheduler.core.builder.modes import is_validation, is_operation
 
@@ -18,7 +18,7 @@ _logger.info(f"Running scheduler server version {environ['APP_VERSION']}")
 
 async def lifespan(app: FastAPI):
     try:
-        await init_engine()
+        await init_db_engine()
         _logger.info("Sight DB engine initialized")
 
         # Start process manager as background task

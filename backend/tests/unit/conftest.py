@@ -23,13 +23,13 @@ from scheduler.core.builder.blueprint import CollectorBlueprint
 from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.sources.sources import Sources
 from scheduler.core.events.queue import EventQueue
-from scheduler.services.sight.database.connection import init_engine
+from scheduler.services.sight.database.connection import init_db_engine
 
 
 @pytest.fixture(scope="session")
 def visibility_calculator_fixture():
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(init_engine())
+    loop.run_until_complete(init_db_engine())
 
 
 @pytest.fixture(scope="module")

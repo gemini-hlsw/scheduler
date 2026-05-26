@@ -4,12 +4,12 @@ import asyncio
 
 from sqlalchemy import func, select
 
-from scheduler.services.sight.database.connection import init_engine, session_scope
+from scheduler.services.sight.database.connection import init_db_engine, session_scope
 from scheduler.services.sight.database.models import Site, Target, VisibilityData
 
 
 async def main():
-    await init_engine()
+    await init_db_engine()
     async with session_scope() as session:
         stmt = (
             select(

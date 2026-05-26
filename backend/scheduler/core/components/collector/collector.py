@@ -164,6 +164,13 @@ class Collector(SchedulerComponent):
     obs_classes: FrozenSet[ObservationClass]
     defer_night_events: bool = False  # If True, skip night_events initialization in __post_init__
 
+    # If True, VALIDATION/SIMULATION's sync `load_programs` routes visibility
+    # through the in-memory `_compute_visibility_locally` (same path RT uses)
+    # instead of the DB-backed `_load_visibility_from_sight`. Lets us run the
+    # full pipeline without a populated sight DB. Default False to preserve
+    # existing behaviour.
+    use_local_visibility: bool = False
+
     # Per-instance per-night visibility map populated by _load_visibility_from_sight.
     # Each Collector owns its own copy — never make this a ClassVar (would break
     # concurrent sims by sharing state across instances).
@@ -500,7 +507,11 @@ class Collector(SchedulerComponent):
 
                 obs_with_resources[night_idx].append(obs)
 
-        self._load_visibility_from_sight(obs_with_resources, sem)
+        if self.use_local_visibility:
+            # In-memory compute, no DB. Same code path async_load_programs uses.
+            self._compute_visibility_locally(parsed_observations, obs_with_resources)
+        else:
+            self._load_visibility_from_sight(obs_with_resources, sem)
         for _p_id, _obs in parsed_observations:
             base = _obs.base_target()
             Collector._observations[_obs.id] = _obs, base

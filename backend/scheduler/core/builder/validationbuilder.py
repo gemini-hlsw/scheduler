@@ -124,7 +124,8 @@ class ValidationBuilder(SchedulerBuilder):
                         semesters: FrozenSet[Semester],
                         blueprint: CollectorBlueprint,
                         night_times: Dict[Site, Tuple[Time, Time]],
-                        program_list: Optional[bytes] = None) -> Collector:
+                        program_list: Optional[bytes] = None,
+                        use_local_visibility: bool = False) -> Collector:
 
         ValidationBuilder.check_ephemerides()
         collector = super().build_collector(start,
@@ -133,7 +134,8 @@ class ValidationBuilder(SchedulerBuilder):
                                             sites,
                                             semesters,
                                             blueprint,
-                                            night_times)
+                                            night_times,
+                                            use_local_visibility=use_local_visibility)
         collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data(program_list))
         ValidationBuilder.reset_collector_observations(collector)
         return collector
