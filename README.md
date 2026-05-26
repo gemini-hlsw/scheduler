@@ -4,6 +4,40 @@
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 
+## Development
+
+### Environment variables
+
+To run a local development version first make sure your environment have the appropriate variables already set. This will change depending on the shell you are using. In bash and zsh you can copy the .env.example file to a new .env file, fill the secrets in this new .env file and run
+
+```bash
+source .env
+```
+
+Also the `PYTHONPATH` environment variable should be properly set to add the `backend` directory of this repository.
+
+### Backend
+
+```bash
+cd backend
+uv sync --group gpp-dev --no-group gpp-prod
+uv run python scheduler/main.py
+```
+
+### Frontend
+
+```bash
+pnpm install
+pnpm frontend dev
+```
+
+### Docs
+
+```bash
+uv sync --group docs
+uv run mkdocs serve
+```
+
 ## Local Deployment
 
 The full stack runs via Docker Compose: two backend instances (REALTIME on port 8000, VALIDATION on port 8001) and a React frontend on port 80.
@@ -33,11 +67,12 @@ docker compose build
 docker compose up
 ```
 
-| Service | URL | Mode |
-|---|---|---|
-| Frontend | http://localhost | — |
+| Service              | URL                           | Mode         |
+| -------------------- | ----------------------------- | ------------ |
+| Frontend             | http://localhost              | —            |
 | Backend (Validation) | http://localhost:8001/graphql | `VALIDATION` |
-| Backend (Realtime) | http://localhost:8000/graphql | `REALTIME` |
+| Backend (Realtime)   | http://localhost:8000/graphql | `REALTIME`   |
+| Weather              | http://localhost:4000         | —            |
 
 ### Optional: Redis
 
@@ -54,28 +89,4 @@ When the backend schema changes, regenerate `backend/scheduler.graphql` before r
 ```bash
 uv run python scripts/export_graphql_schema.py
 docker compose build frontend
-```
-
-## Development
-
-### Backend
-
-```bash
-cd backend
-uv sync --group dev
-uv run python scheduler/main.py
-```
-
-### Frontend
-
-```bash
-pnpm install
-pnpm frontend dev
-```
-
-### Docs
-
-```bash
-uv sync --group docs
-uv run mkdocs serve
 ```

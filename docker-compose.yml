@@ -6,6 +6,7 @@ services:
       dockerfile: backend/Dockerfile
       args:
         APP_VERSION: ${APP_VERSION:-development}
+    container_name: scheduler-realtime
     environment:
       APP_VERSION: ${APP_VERSION:-development}
       SCHEDULER_MODE: REALTIME
@@ -14,10 +15,12 @@ services:
       CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}
       CLOUDCUBE_ACCESS_KEY_ID: ${CLOUDCUBE_ACCESS_KEY_ID:-}
       CLOUDCUBE_SECRET_ACCESS_KEY: ${CLOUDCUBE_SECRET_ACCESS_KEY:-}
+      WEATHER_URL: http://weather:4000
+      GPP_DEVELOPMENT_TOKEN: ${GPP_DEVELOPMENT_TOKEN:-}
     ports:
       - "8000:8000"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/graphql')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000')"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -30,6 +33,7 @@ services:
       dockerfile: backend/Dockerfile
       args:
         APP_VERSION: ${APP_VERSION:-development}
+    container_name: scheduler-validation
     environment:
       APP_VERSION: ${APP_VERSION:-development}
       SCHEDULER_MODE: VALIDATION
@@ -41,12 +45,18 @@ services:
     ports:
       - "8001:8001"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/graphql')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001')"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 120s
     restart: unless-stopped
+
+  weather:
+    image: nlsoftware/scheduler-weather:latest
+    container_name: scheduler-weather
+    ports:
+      - "4000:4000"
 
   frontend:
     build:
@@ -55,6 +65,7 @@ services:
       args:
         VITE_API_URL: http://localhost:8001/graphql
         VITE_REALTIME_API_URL: http://localhost:8000/graphql
+    container_name: scheduler-frontend
     ports:
       - "80:80"
     depends_on:
@@ -66,6 +77,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: scheduler-redis
     profiles:
       - redis
     ports:
