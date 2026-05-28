@@ -456,6 +456,15 @@ class Selector(SchedulerComponent):
             logger.warning(f'Selector skipping observation {obs.id}: no conditions.')
             return group_data_map
 
+        # Restrict to nights this observation is actually visible on. Sight populates
+        # target_info only for visible (obs, night) pairs, so iterating night_indices
+        # blindly would KeyError on non-visible nights. Doing the restriction once at
+        # the entry keeps the inner loops simple and result dicts honestly sparse.
+        obs_nights = sorted(set(night_indices) & target_info.keys())
+        if not obs_nights:
+            logger.debug(f'Selector skipping {obs.id}: not visible in any scheduled night.')
+            return group_data_map
+
         mrc = obs.constraints.conditions
         is_splittable = len(obs.sequence) > 1
 
@@ -464,7 +473,7 @@ class Selector(SchedulerComponent):
         # TODO: We also filter on program here, but this would be better done in score_program.
         # TODO: That would require some thought as to how to do this there given the structure of a Selection.
         night_filtering: Dict[NightIndex, bool] = {}
-        for night_idx in night_indices:
+        for night_idx in obs_nights:
             night_filter = night_configurations[obs.site][night_idx].filter
             # NOTE: to only do group filtering, comment out the first line and use the second line.
             night_filtering[night_idx] = night_filter.program_filter(program) and night_filter.group_filter(group)
@@ -473,9 +482,9 @@ class Selector(SchedulerComponent):
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
             # If we are science or progcal, then the check if the first HA for the night is negative,
             # indicating that the target is rising
-            rising = {night_idx: target_info[night_idx].hourangle[0].value < 0 for night_idx in night_indices}
+            rising = {night_idx: target_info[night_idx].hourangle[0].value < 0 for night_idx in obs_nights}
         else:
-            rising = {night_idx: True for night_idx in night_indices}
+            rising = {night_idx: True for night_idx in obs_nights}
         too_type = obs.too_type
 
         # Calculate when the conditions are met and an adjustment array if the conditions are better than needed.
@@ -486,7 +495,7 @@ class Selector(SchedulerComponent):
         # We need the night_events for the night for timing information.
         night_events = self.collector.get_night_events(obs.site)
 
-        for night_idx in night_indices:
+        for night_idx in obs_nights:
             # Get the conditions for the night. We need values for every timeslot, but at the end, we will
             # zero out the timeslots that have already passed.
             total_timeslots_in_night = len(night_events.times[night_idx])
@@ -515,35 +524,31 @@ class Selector(SchedulerComponent):
         # 2. Resources available
         # 3. Conditions that are met
         schedulable_slot_indices = {}
-        for night_idx in night_indices:
+        for night_idx in obs_nights:
             vis_idx = target_info[night_idx].visibility_slot_idx
-            #print(f'len(vis_idx) = {len(vis_idx)}')
             if night_filtering[night_idx]:
                 schedulable_slot_indices[night_idx] = np.where(conditions_score[night_idx][vis_idx] > 0)[0]
             else:
                 schedulable_slot_indices[night_idx] = np.array([])
-        logger.debug(f'number schedulable slots night: {len(schedulable_slot_indices[night_idx])}')
 
         obs_scores = ranker.score_observation(program, obs, self.night_configurations, night_indices)
-        logger.debug(f'obs_scores: {max(obs_scores[night_idx])}')
 
         # Calculate the scores for the observation across all night indices across all timeslots.
         scores = {night_idx: np.multiply(
                 np.multiply(conditions_score[night_idx], obs_scores[night_idx]),
-                wind_score[night_idx]) for night_idx in night_indices}
+                wind_score[night_idx]) for night_idx in obs_nights}
 
         # Zero out the scores for the blocked timeslots.
         blocked_timeslots = self._blocked_timeslots[obs.site]
-        for night_idx in night_indices:
+        for night_idx in obs_nights:
             scores[night_idx][blocked_timeslots[night_idx]] = 0.0
 
         # Zero out the data for each night index's starting time slots prior to the value specified (if specified)
         # and the night index was included in scoring.
         starting_time_slots_for_site = starting_time_slots[obs.site]
         for night_idx, time_slot_idx in starting_time_slots_for_site.items():
-            if night_idx in night_indices:
+            if night_idx in obs_nights:
                 scores[night_idx][:time_slot_idx] = 0.0
-        logger.debug(f'scores: {max(scores[night_idx])}\n')
 
         # These scores might differ from the observation score in the ranker since they have been adjusted for
         # conditions and wind.

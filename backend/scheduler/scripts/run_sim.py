@@ -19,7 +19,7 @@ from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import SchedulerParameters, Engine
 from scheduler.services import logger_factory
-from scheduler.services.visibility import visibility_calculator
+from scheduler.services.sight.database.connection import init_db_engine
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -29,8 +29,8 @@ def main(*,
     # Set lucupy to Gemini
     ObservatoryProperties.set_properties(GeminiProperties)
 
-    # Grab visibility calculations from Reddit
-    asyncio.run(visibility_calculator.calculate())
+    # Initialize the sight DB engine (required by the in-process Calculator).
+    asyncio.run(init_db_engine())
 
     # Parsed program file (this replaces the program picker from Schedule)
     with open(programs_ids, 'r') as file:

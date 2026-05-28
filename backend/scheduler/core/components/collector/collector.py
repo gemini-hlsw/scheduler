@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 from datetime import datetime, timedelta
@@ -11,13 +11,13 @@ from concurrent.futures import ThreadPoolExecutor
 import astropy.units as u
 import numpy as np
 
+from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time, TimeDelta
-from joblib import Parallel, delayed, parallel_config
 
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               Site, Target, TimeslotIndex, QAState, ObservationStatus,
-                              Group)
+                              Group, ResourceType)
 from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
 
@@ -30,11 +30,23 @@ from scheduler.core.plans import Plans, Visit
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
-from scheduler.services.redis_client import RedisClient
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
-from scheduler.services.visibility.calculator import visibility_calculator
-from scheduler.services.visibility.calculator import VisibilitySnapshot, program_obs_vis, get_cores, safe_program_obs_vis, TargetVisibilityTable
+from scheduler.services.sight.calculator.calculator import Calculator
+from scheduler.services.sight.calculator.models import (
+    ObservationConstraints,
+    ObservationRequest,
+)
+from scheduler.services.sight.database.connection import session_scope
+from scheduler.services.sight.calculations.night_events import calculate_night_events_for_night
+from scheduler.services.sight.calculations.stage1 import calculate_stage1
+from scheduler.services.sight.calculations.stage2 import calculate_visibility as sight_calculate_visibility
+from scheduler.services.sight.calculations.arrays import unpack_array
+from scheduler.services.sight._temporary.lucupy_adapters import (
+    site_shim,
+    target_shim,
+    stage2_constraints,
+)
 
 __all__ = [
     'Collector',
@@ -43,6 +55,65 @@ __all__ = [
 from scheduler.time_accountant.time_accountant import TimeAccountant
 
 _logger = logger_factory.create_logger(__name__)
+
+
+def _obs_to_request(obs: Observation) -> ObservationRequest:
+    """Build a Sight ObservationRequest from a lucupy Observation."""
+    base = obs.base_target()
+    return ObservationRequest(
+        observation_id=obs.id.id,
+        target_name=base.name if base is not None else '',
+        site_id=obs.site.name,
+        constraints=ObservationConstraints(),
+    )
+
+
+def _resize_to(arr: np.ndarray, expected_length: int) -> np.ndarray:
+    """Pad (by repeating the last value) or truncate `arr` to `expected_length`.
+
+    Sight's Stage-1 arrays are sized from the timestamps stored in its
+    `night_events` rows, while the scheduler's `night_events.times[night_idx]`
+    is recomputed fresh from astropy each run. Slight rounding/ephemeris
+    differences can leave the lengths off by ±1, which downstream broadcasting
+    rejects. One-slot padding/truncation is acceptable: the fence values are
+    near twilight where astronomical visibility is already ~zero.
+    """
+    n = len(arr)
+    if n == expected_length:
+        return arr
+    if n > expected_length:
+        return arr[:expected_length]
+    pad = np.full(expected_length - n, arr[-1], dtype=arr.dtype)
+    return np.concatenate([arr, pad])
+
+
+def _build_target_info(stage1_entry: dict, rem_visibility_frac: float,
+                       expected_length: int) -> TargetInfo:
+    """Construct a TargetInfo from a Sight Stage-1 night entry.
+
+    Stage-1 returns ra/dec in degrees and alt/az/hourangle in radians; airmass
+    is unitless. Arrays are resized to `expected_length` (the scheduler's
+    `len(night_events.times[night_idx])`) so downstream consumers that combine
+    target arrays with night_events-sized arrays (variants, wind, conditions)
+    don't crash on broadcasting mismatches.
+    """
+    ra = _resize_to(np.asarray(stage1_entry['ra']), expected_length)
+    dec = _resize_to(np.asarray(stage1_entry['dec']), expected_length)
+    alt = _resize_to(np.asarray(stage1_entry['alt']), expected_length)
+    az = _resize_to(np.asarray(stage1_entry['az']), expected_length)
+    hourangle = _resize_to(np.asarray(stage1_entry['hourangle']), expected_length)
+    airmass = _resize_to(np.asarray(stage1_entry['airmass']), expected_length)
+
+    coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame='icrs')
+    return TargetInfo(
+        coord=coord,
+        alt=Angle(alt, unit=u.rad),
+        az=Angle(az, unit=u.rad),
+        hourangle=Angle(hourangle, unit=u.rad),
+        airmass=airmass,
+        visibility_slot_idx=np.arange(expected_length, dtype=int),
+        rem_visibility_frac=rem_visibility_frac,
+    )
 
 
 # TODO: Merge this if possible with Visit.
@@ -92,6 +163,18 @@ class Collector(SchedulerComponent):
     program_types: FrozenSet[ProgramTypes]
     obs_classes: FrozenSet[ObservationClass]
     defer_night_events: bool = False  # If True, skip night_events initialization in __post_init__
+
+    # If True, VALIDATION/SIMULATION's sync `load_programs` routes visibility
+    # through the in-memory `_compute_visibility_locally` (same path RT uses)
+    # instead of the DB-backed `_load_visibility_from_sight`. Lets us run the
+    # full pipeline without a populated sight DB. Default False to preserve
+    # existing behaviour.
+    use_local_visibility: bool = False
+
+    # Per-instance per-night visibility map populated by _load_visibility_from_sight.
+    # Each Collector owns its own copy — never make this a ClassVar (would break
+    # concurrent sims by sharing state across instances).
+    _visible_obs_by_night: Dict[NightIndex, set[ObservationID]] = field(default_factory=dict)
 
     # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
     _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
@@ -320,6 +403,10 @@ class Collector(SchedulerComponent):
 
         # Purge the old programs and observations.
         Collector._programs = {}
+        Collector._observations = {}
+        Collector._observations_per_program = {}
+        Collector._target_info = {}
+        self._visible_obs_by_night = {}
 
         # Keep a list of the observations for parallel processing.
         parsed_observations: List[Tuple[ProgramID, Observation]] = []
@@ -393,105 +480,51 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             _logger.error(f'Could not parse {bad_program_count} programs.')
 
-        if not self.with_redis:
-            vis_table = {}
-
-        # print(f'Collector: start {self.start_vis_time} {self.end_vis_time} {self.num_of_nights} {self.semesters}')
         sem, = self.semesters
-        if config.collector.parallel_viscalc:
-            # Get information about CPU cores, to avoid overloading
-            core_info = get_cores()
-            if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
-                n_jobs = core_info['performance']
-            else:
-                n_jobs = core_info['cores']
+
+        obs_with_resources: dict[NightIndex, list[Observation]] = {}
+        # First filter: is the observation instrument available or according to the program calendar?
+
+        for n_idx in range(self.num_nights_calculated):
+            night_idx = NightIndex(n_idx)
+            obs_with_resources.setdefault(night_idx, [])
+            for p_id, obs in parsed_observations:
+
+                if "GMOS" in obs.instrument().id:
+                    has_resources = all([resource in nc[obs.site][night_idx].resources for resource in obs.required_resources()])
+                else:
+                    has_resources = all([resource in nc[obs.site][night_idx].resources for resource in obs.required_resources() if
+                                         resource.type != ResourceType.FILTER and resource.type != ResourceType.DISPERSER and resource.type != ResourceType.FPU])
+
+                if not has_resources:
+                    continue
+
+                # Is the program excluded on a given night due to block scheduling
+                prog= self.get_program(p_id)
+                can_schedule = nc[obs.site][night_idx].filter.program_filter(prog)
+                if not can_schedule:
+                    continue
+
+                obs_with_resources[night_idx].append(obs)
+
+        if self.use_local_visibility:
+            # In-memory compute, no DB. Same code path async_load_programs uses.
+            self._compute_visibility_locally(parsed_observations, obs_with_resources)
         else:
-            n_jobs = 1
-
-        # parallel = Parallel(n_jobs=n_jobs, backend='loky')
-        parallel = Parallel(n_jobs=n_jobs, backend='threading')
-        # with parallel_config(backend="loky", inner_max_num_threads=1):
-        result = parallel(delayed(program_obs_vis)(program_id, obs, Collector.get_program(program_id), self.time_grid,
-                                                   self.time_slot_length, self.semesters, nc, self.night_events,
-                                                   None if not isinstance(visibility_calculator.vis_table, TargetVisibilityTable)  else
-                                                   VisibilitySnapshot.from_dict_days(visibility_calculator.vis_table.get_obs(sem, obs.id)))
-                          for program_id, obs in parsed_observations)
-        targ_info, base_targets, vis_tables = zip(*result)
-
-        ii = 0
-        for program_id, obs in parsed_observations:
-            # Read target information
-            ti = targ_info[ii]
-            if not self.with_redis:
-                # Record the observation and target for this obs id.
-                vis_table[obs.id.id] = vis_tables[ii]
-
-            Collector._observations[obs.id] = obs, base_targets[ii]
-            Collector._target_info[base_targets[ii].name, obs.id] = ti
-            ii += 1
-
-        if not self.with_redis:
-            sem, = self.semesters
-            visibility_calculator.vis_table = {sem: RedisClient.transform_to_json(vis_table)}
+            self._load_visibility_from_sight(obs_with_resources, sem)
+        for _p_id, _obs in parsed_observations:
+            base = _obs.base_target()
+            Collector._observations[_obs.id] = _obs, base
 
         _logger.info(f'Collected {len(Collector._observations)} observations: {[ o.id for o in Collector._observations.keys()]}.')
 
+    def get_visible_observations_for_night(self, night_idx: NightIndex) -> set[ObservationID]:
+        return self._visible_obs_by_night.get(night_idx, set())
+
+    def get_visible_nights_for_observation(self, obs_id: ObservationID) -> set[NightIndex]:
+        return {n for n, ids in self._visible_obs_by_night.items() if obs_id in ids}
+
     @staticmethod
-    def calculate_parallel_visibility(
-            parsed_observations,
-            time_grid,
-            time_slot_length,
-            semesters,
-            nc,
-            night_events,
-            sem,
-            n_jobs: int = -1,
-    ):
-        obs_list = list(parsed_observations)
-
-        if not obs_list:
-            _logger.warning("No observations to process")
-            return []
-
-        start_time = time.time()
-        try:
-            parallel = Parallel(
-                n_jobs=n_jobs,
-                backend='threading',
-                verbose=10,
-                timeout=300
-            )
-
-            results = parallel(
-                delayed(safe_program_obs_vis)(
-                    program_id,
-                    obs,
-                    Collector.get_program(program_id),
-                    time_grid,
-                    time_slot_length,
-                    semesters,
-                    nc,
-                    night_events,
-                    None
-                )
-                for program_id, obs in obs_list
-            )
-            elapsed = time.time() - start_time
-
-            valid_results = [r for r in results if r is not None]
-            failed_count = len(results) - len(valid_results)
-
-            _logger.info(
-                f"Parallel processing complete: "
-                f"{len(valid_results)}/{len(results)} successful, "
-                f"{failed_count} failed, "
-                f"took {elapsed:.2f}s"
-            )
-            return results
-
-        except Exception as e:
-            _logger.error(f"Parallel processing failed catastrophically: {e}", exc_info=True)
-
     async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         _logger.info("Starting async_load_programs...")
 
@@ -505,6 +538,7 @@ class Collector(SchedulerComponent):
         Collector._observations = {}
         Collector._observations_per_program = {}
         Collector._target_info = {}
+        self._visible_obs_by_night = {}
 
         # Keep a list of the observations for parallel processing.
         parsed_observations: List[Tuple[ProgramID, Observation]] = []
@@ -563,50 +597,36 @@ class Collector(SchedulerComponent):
             _logger.error(f'Could not parse {bad_program_count} programs.')
 
 
-        vis_table = {}
         sem, = self.semesters
 
-        _logger.info("Starting parallel processing in background thread...")
+        obs_with_resources: dict[NightIndex, list[Observation]] = {}
+        for n_idx in range(self.num_nights_calculated):
+            night_idx = NightIndex(n_idx)
+            obs_with_resources.setdefault(night_idx, [])
+            for p_id, obs in parsed_observations:
+                if "GMOS" in obs.instrument().id:
+                    has_resources = all(
+                        resource in nc[obs.site][night_idx].resources
+                        for resource in obs.required_resources()
+                    )
+                else:
+                    has_resources = all(
+                        resource in nc[obs.site][night_idx].resources
+                        for resource in obs.required_resources()
+                        if resource.type != ResourceType.FILTER
+                        and resource.type != ResourceType.DISPERSER
+                        and resource.type != ResourceType.FPU
+                    )
+                if not has_resources:
+                    continue
+                if not nc[obs.site][night_idx].filter.program_filter(self.get_program(p_id)):
+                    continue
+                obs_with_resources[night_idx].append(obs)
 
-        if config.collector.parallel_viscalc:
-            # Get information about CPU cores, to avoid overloading
-            core_info = get_cores()
-            if 'arm' in core_info['arch'] and 'Darwin' in core_info['sys']:
-                n_jobs = core_info['performance']
-            else:
-                n_jobs = core_info['cores']
-        else:
-            n_jobs = 1
+        self._compute_visibility_locally(parsed_observations, obs_with_resources)
 
-        result = await asyncio.to_thread(
-            self.calculate_parallel_visibility,
-            parsed_observations,
-            self.time_grid,
-            self.time_slot_length,
-            self.semesters,
-            nc,
-            self.night_events,
-            sem,
-            n_jobs
-        )
-
-        targ_info, base_targets, vis_tables = zip(*result)
-        # print(targ_info, base_targets, vis_tables)
-
-        ii = 0
-        for program_id, obs in parsed_observations:
-            # Read target information
-            ti = targ_info[ii]
-
-            # Record the observation and target for this obs id.
-            vis_table[obs.id.id] = vis_tables[ii]
-
-            Collector._observations[obs.id] = obs, base_targets[ii]
-            Collector._target_info[base_targets[ii].name, obs.id] = ti
-            ii += 1
-
-
-        visibility_calculator.vis_table = {sem: RedisClient.transform_to_json(vis_table)}
+        for _p_id, _obs in parsed_observations:
+            Collector._observations[_obs.id] = _obs, _obs.base_target()
 
         _logger.info(
             f'Collected {len(Collector._observations)} observations: {[o.id for o in Collector._observations.keys()]}.'
@@ -797,3 +817,272 @@ class Collector(SchedulerComponent):
                         obs.status = ObservationStatus.INACTIVE
 
                 # Evaluate tree here?
+
+
+    def _load_visibility_from_sight(
+        self,
+        filtered_observations: dict[NightIndex, list[Observation]],
+        sem: Semester,
+    ) -> None:
+        """Load visibility data from the in-process Sight calculator.
+
+        Calls Calculator.get_visible_observations once per night, then issues
+        bulk Stage-1 and cumulative-visibility queries spanning the full date
+        range. Builds the per-night ``TargetInfo`` consumed by the selector
+        and optimizer downstream.
+
+        Stays synchronous so it composes with the rest of the collector
+        pipeline; bridges to the async Calculator via ``asyncio.run``.
+        """
+        start_date = self.start_vis_time.date()
+        end_date = self.end_vis_time.date()
+        site_ids = sorted({s.name for s in self.sites})
+
+        per_night = asyncio.run(
+            self._fetch_sight_data(filtered_observations, start_date, end_date, site_ids)
+        )
+
+        # Publish per-night visible observations for downstream consumers.
+        # Wrap str ids back into ObservationID to match the public getter signature.
+        self._visible_obs_by_night = {
+            night_index: {ObservationID(obs_id) for obs_id in visible_obs_ids}
+            for night_index, (visible_obs_ids, _stage1, _cumulative) in per_night.items()
+        }
+
+        for night_index, observations in filtered_observations.items():
+            visible_obs_ids, stage1, cumulative = per_night[night_index]
+            visible_observations = [o for o in observations if o.id.id in visible_obs_ids]
+            _logger.info(
+                f'Visibility filter night={int(night_index)}: '
+                f'{len(visible_observations)}/{len(observations)} visible.'
+            )
+
+            for obs in visible_observations:
+                base = obs.base_target()
+                if base is None:
+                    _logger.error(f'Could not find base target for {obs.id.id}.')
+                    continue
+
+                cum_entry = (
+                    cumulative.get(obs.id.id, {}).get('targets', {}).get(base.name, {})
+                )
+                rem_minutes = cum_entry.get('cumulative_remaining_minutes', 0)
+                if rem_minutes > 0:
+                    rem_visibility_frac = (
+                        (obs.exec_time() - obs.total_used()).total_seconds()
+                        / (rem_minutes * 60)
+                    )
+                else:
+                    _logger.info(
+                        f'No cumulative remaining time for {obs.id} despite passing visibility filter.'
+                    )
+                    rem_visibility_frac = 0.0
+
+                night_date = self.time_grid[int(night_index)].to_datetime().date()
+                stage1_key = f'{obs.site.name}_{night_date.isoformat()}'
+                stage1_entry = stage1.get(base.name, {}).get('nights', {}).get(stage1_key)
+                if stage1_entry is None:
+                    _logger.warning(
+                        f'No Stage-1 data for {base.name} at {stage1_key}; skipping {obs.id.id}.'
+                    )
+                    continue
+
+                expected_length = len(self.night_events[obs.site].times[night_index])
+                ti = _build_target_info(stage1_entry, rem_visibility_frac, expected_length)
+                target_info_map: TargetInfoNightIndexMap = (
+                    Collector._target_info.setdefault((base.name, obs.id), {})
+                )
+                target_info_map[night_index] = ti
+                Collector._observations[obs.id] = obs, base
+
+    async def _fetch_sight_data(
+        self,
+        filtered_observations: dict[NightIndex, list[Observation]],
+        start_date,
+        end_date,
+        site_ids: list[str],
+    ) -> dict[NightIndex, tuple[set[str], dict, dict]]:
+        """Issue all required Sight Calculator queries inside one DB session."""
+        per_night: dict[NightIndex, tuple[set[str], dict, dict]] = {}
+        async with session_scope() as session:
+            calc = Calculator(session)
+
+            all_visible_ids: set[str] = set()
+            all_target_names: set[str] = set()
+            visible_by_night: dict[NightIndex, set[str]] = {}
+
+            for night_index, observations in filtered_observations.items():
+                if not observations:
+                    visible_by_night[night_index] = set()
+                    continue
+                requests = [_obs_to_request(o) for o in observations]
+                night_date = self.time_grid[int(night_index)].to_datetime().date()
+                t0 = time.perf_counter()
+                visible = await calc.get_visible_observations(requests, night_date)
+                _logger.info(
+                    f'Sight get_visible_observations night={int(night_index)} '
+                    f'({len(observations)} obs) took {time.perf_counter() - t0:.3f}s'
+                )
+                visible_ids = {r.observation_id for r in visible}
+                visible_by_night[night_index] = visible_ids
+                all_visible_ids.update(visible_ids)
+                for obs in observations:
+                    base = obs.base_target()
+                    if base is not None and obs.id.id in visible_ids:
+                        all_target_names.add(base.name)
+
+            if not all_visible_ids:
+                return {ni: (set(), {}, {}) for ni in filtered_observations}
+
+            t0 = time.perf_counter()
+            stage1 = await calc.get_stage1_greedymax_bulk(
+                sorted(all_target_names), site_ids, start_date, end_date
+            )
+            _logger.info(
+                f'Sight get_stage1_greedymax_bulk ({len(all_target_names)} targets) '
+                f'took {time.perf_counter() - t0:.3f}s'
+            )
+
+            t0 = time.perf_counter()
+            cumulative = await calc.get_cumulative_remaining_visibility(
+                sorted(all_visible_ids), start_date, end_date
+            )
+            _logger.info(
+                f'Sight get_cumulative_remaining_visibility ({len(all_visible_ids)} obs) '
+                f'took {time.perf_counter() - t0:.3f}s'
+            )
+
+        for night_index, visible_ids in visible_by_night.items():
+            per_night[night_index] = (visible_ids, stage1, cumulative)
+        return per_night
+
+    def _compute_visibility_locally(
+        self,
+        parsed_observations: List[Tuple[ProgramID, Observation]],
+        obs_with_resources: dict[NightIndex, list[Observation]],
+    ) -> None:
+        """RT-mode counterpart to ``_load_visibility_from_sight``.
+
+        Computes Stage 1 + Stage 2 in memory for the full window. no DB reads,
+        no DB writes. Sequential per (obs, night).
+
+        Uses adapters(shims) to match Sight models.
+        """
+        num_nights = self.num_nights_calculated
+        range_end_dt = self.end_vis_time
+
+        # Pre-resolve one site shim per site (doesn't change across nights).
+        site_shims = {site: site_shim(site) for site in self.sites}
+
+        # Cache night_events per (site, night_idx); same key is touched once
+        # per target otherwise.
+        night_event_cache: dict[tuple, object] = {}
+
+        def _night_event(site, night_idx: NightIndex):
+            key = (site, night_idx)
+            ne = night_event_cache.get(key)
+            if ne is None:
+                night_date = self.time_grid[int(night_idx)].to_datetime().date()
+                ne = calculate_night_events_for_night(site_shims[site], night_date)
+                night_event_cache[key] = ne
+            return ne
+
+        # obs_with_resources already encodes resource + program-filter pass for
+        # each night. Build per-night sets for O(1) "is this obs schedulable
+        # on this night" lookup.
+        schedulable_by_night = {
+            n_idx: {o.id.id for o in obs_list}
+            for n_idx, obs_list in obs_with_resources.items()
+        }
+
+        for _p_id, obs in parsed_observations:
+            base = obs.base_target()
+            if base is None:
+                continue
+            target = target_shim(base)
+            if target is None:
+                continue
+
+            site = obs.site
+            sshim = site_shims[site]
+            target_info_map: TargetInfoNightIndexMap = (
+                Collector._target_info.setdefault((base.name, obs.id), {})
+            )
+
+            # Stage 1 + Stage 2 per night. Hold results; rem_visibility_frac
+            # needs suffix-sum of remaining_minutes across the whole window.
+            per_night: dict[NightIndex, tuple] = {}
+            for n_idx in range(num_nights):
+                night_idx = NightIndex(n_idx)
+                ne = _night_event(site, night_idx)
+                s1 = calculate_stage1(target, sshim, ne)
+
+                has_resources = obs.id.id in schedulable_by_night.get(night_idx, set())
+                constraints = stage2_constraints(
+                    obs,
+                    has_resources=has_resources,
+                    can_schedule=has_resources,
+                    range_end=range_end_dt,
+                )
+
+                s2 = sight_calculate_visibility(
+                    alt_bytes=s1.alt,
+                    az_bytes=s1.az,
+                    airmass_bytes=s1.airmass,
+                    hourangle_bytes=s1.hourangle,
+                    ra_bytes=s1.ra,
+                    dec_bytes=s1.dec,
+                    sun_alt_bytes=ne.sun_alt,
+                    moon_alt_bytes=ne.moon_alt,
+                    moon_ra_bytes=ne.moon_ra,
+                    moon_dec_bytes=ne.moon_dec,
+                    sun_moon_ang_bytes=ne.sun_moon_ang,
+                    moon_dist=ne.moon_dist,
+                    night_start=ne.night_start,
+                    night_duration_minutes=ne.night_duration_minutes,
+                    constraints=constraints,
+                )
+                per_night[night_idx] = (ne, s1, s2)
+
+            # Suffix-sum of remaining_minutes for rem_visibility_frac
+            # (same pattern as sight/scripts/dump_sight_targetinfo.py:215-223).
+            rem_obs_seconds = (obs.exec_time() - obs.total_used()).total_seconds()
+            suffix_min = 0
+            suffix_by_night: dict[NightIndex, int] = {}
+            for n_idx in reversed(range(num_nights)):
+                night_idx = NightIndex(n_idx)
+                suffix_min += per_night[night_idx][2].remaining_minutes
+                suffix_by_night[night_idx] = suffix_min
+
+            for n_idx in range(num_nights):
+                night_idx = NightIndex(n_idx)
+                ne, s1, s2 = per_night[night_idx]
+                n = ne.night_duration_minutes
+
+                stage1_entry = {
+                    'ra':        unpack_array(s1.ra, n),
+                    'dec':       unpack_array(s1.dec, n),
+                    'alt':       unpack_array(s1.alt, n),
+                    'az':        unpack_array(s1.az, n),
+                    'hourangle': unpack_array(s1.hourangle, n),
+                    'airmass':   unpack_array(s1.airmass, n),
+                }
+                denom = suffix_by_night[night_idx]
+                rem_frac = (rem_obs_seconds / (denom * 60.0)) if denom > 0 else 0.0
+                expected_length = len(self.night_events[site].times[night_idx])
+                ti = _build_target_info(stage1_entry, rem_frac, expected_length)
+
+                # _build_target_info defaults visibility_slot_idx to np.arange
+                # (every slot visible) for the DB-backed path; override with
+                # the real Stage-2 mask here. Resize the mask too so it stays
+                # aligned with the (possibly padded) arrays.
+                mask = np.asarray(s2.visibility_mask, dtype=bool)
+                mask = _resize_to(mask.astype(int), expected_length).astype(bool)
+                ti.visibility_slot_idx = np.where(mask)[0]
+
+                if mask.any():
+                    self._visible_obs_by_night.setdefault(night_idx, set()).add(obs.id)
+                target_info_map[night_idx] = ti
+
+            Collector._observations[obs.id] = obs, base
+

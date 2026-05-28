@@ -23,9 +23,12 @@ RUN if [ "$GPP_GROUP" = "gpp-dev" ]; then \
 
 COPY ./backend/scheduler /home/scheduler
 COPY ./backend/definitions.py /home/definitions.py
+COPY ./backend/alembic /home/alembic
+COPY ./backend/alembic.ini /home/alembic.ini
 
 RUN apt-get update && apt-get install -y bzip2 && rm -rf /var/lib/apt/lists/*
 RUN tar -xjf /home/scheduler/services/horizons/data/ephemerides.tar.bz2 -C /home/scheduler/services/horizons/data
 
 ENV PYTHONPATH="${PYTHONPATH}:/scheduler"
-ENTRYPOINT ["uv", "run", "python", "/home/scheduler/main.py" ]
+
+CMD ["uv", "run", "python", "/home/scheduler/main.py"]

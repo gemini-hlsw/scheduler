@@ -46,10 +46,12 @@ class SimulationBuilder(SchedulerBuilder):
                         blueprint: CollectorBlueprint,
                         night_times: Dict[Site, Tuple[Time, Time]],
                         program_list: Optional[bytes] = None,
-                        defer_night_events: bool = False) -> Collector:
+                        defer_night_events: bool = False,
+                        use_local_visibility: bool = False) -> Collector:
 
         collector = super().build_collector(
-            start, end, num_of_nights, sites, semesters, blueprint, night_times
+            start, end, num_of_nights, sites, semesters, blueprint, night_times,
+            use_local_visibility=use_local_visibility,
         )
         async def fetch_data():
             async_gen = await gpp_program_data(program_list)

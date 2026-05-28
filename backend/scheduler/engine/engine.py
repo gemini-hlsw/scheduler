@@ -67,7 +67,8 @@ class Engine:
                                             semesters=self.params.semesters,
                                             blueprint=Blueprints.collector,
                                             night_times=night_times,
-                                            program_list=self.params.programs_list)
+                                            program_list=self.params.programs_list,
+                                            use_local_visibility=self.params.use_local_visibility)
 
         selector = builder.build_selector(collector=collector,
                                           num_nights_to_schedule=self.params.num_nights_to_schedule,

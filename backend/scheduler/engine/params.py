@@ -40,7 +40,7 @@ class SchedulerParameters:
             in the visibility period. Defaults to None.
         programs_list (List[str], optional):  A list of ProgramID that allows a specific selection of programs to run.
             Defaults to None. If None, the default programs list in scheduler/data would be used.
-
+        use_local_visibility: bool: Allow using local calculations instead of parameters
     Examples:
         ```python
 
@@ -63,6 +63,7 @@ class SchedulerParameters:
     semester_visibility: bool = True
     num_nights_to_schedule: Optional[int] = None
     programs_list: Optional[List[str]] = None
+    use_local_visibility: bool = False
 
     def __post_init__(self):
         if self.end is not None and self.end > self.start:

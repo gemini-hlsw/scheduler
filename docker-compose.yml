@@ -11,7 +11,7 @@ services:
       APP_VERSION: ${APP_VERSION:-development}
       SCHEDULER_MODE: REALTIME
       PORT: 8000
-      REDISCLOUD_URL: ${REDISCLOUD_URL:-}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://scheduler:scheduler_dev@postgres:5432/scheduler}
       CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}
       CLOUDCUBE_ACCESS_KEY_ID: ${CLOUDCUBE_ACCESS_KEY_ID:-}
       CLOUDCUBE_SECRET_ACCESS_KEY: ${CLOUDCUBE_SECRET_ACCESS_KEY:-}
@@ -38,14 +38,17 @@ services:
       APP_VERSION: ${APP_VERSION:-development}
       SCHEDULER_MODE: VALIDATION
       PORT: 8001
-      REDISCLOUD_URL: ${REDISCLOUD_URL:-}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://scheduler:scheduler_dev@postgres:5432/scheduler}
       CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}
       CLOUDCUBE_ACCESS_KEY_ID: ${CLOUDCUBE_ACCESS_KEY_ID:-}
       CLOUDCUBE_SECRET_ACCESS_KEY: ${CLOUDCUBE_SECRET_ACCESS_KEY:-}
     ports:
       - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/graphql')"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -88,3 +91,22 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+  postgres:
+    image: postgres:16-alpine
+    container_name: scheduler_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-scheduler}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-scheduler_dev}
+      POSTGRES_DB: ${DB_NAME:-scheduler}
+    ports:
+      - "5433:5432"
+    volumes:
+      - scheduler_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-scheduler}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+    scheduler_postgres_data:

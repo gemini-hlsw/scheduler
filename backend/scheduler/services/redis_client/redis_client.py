@@ -16,9 +16,23 @@ REDIS_URL = os.environ.get("REDISCLOUD_URL")
 
 class RedisClient(metaclass=Singleton):
     def __init__(self):
-        self._redis_client = aioredis.from_url(REDIS_URL, socket_timeout=600, socket_connect_timeout=30) if REDIS_URL else None
-        if not self._redis_client:
-            raise ValueError("REDISCLOUD_URL env var is not set up correctly.")
+        # Lazy connection: importing this module must always succeed even when
+        # REDISCLOUD_URL is unset. The check moves to _client() so that only
+        # callers that actually use Redis pay the price. Nothing in the
+        # post-sight-merge runtime path imports this; keeping it harmless on
+        # import means a stray future import won't crash app boot either.
+        self._redis_client = (
+            aioredis.from_url(REDIS_URL, socket_timeout=600, socket_connect_timeout=30)
+            if REDIS_URL
+            else None
+        )
+
+    def _client(self):
+        if self._redis_client is None:
+            raise ValueError(
+                "REDISCLOUD_URL is not set; Redis features are unavailable."
+            )
+        return self._redis_client
 
     @staticmethod
     def flatten_dict(d: dict, parent_key='', sep=':') -> dict:

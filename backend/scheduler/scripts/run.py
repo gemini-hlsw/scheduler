@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from lucupy.minimodel.site import ALL_SITES
+from lucupy.minimodel.site import ALL_SITES, Site
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
@@ -17,17 +17,16 @@ from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import SchedulerParameters, Engine
 from scheduler.services import logger_factory
-from scheduler.services.visibility import visibility_calculator
+from scheduler.services.sight.database.connection import init_db_engine
 
 _logger = logger_factory.create_logger(__name__)
 
 def main(*,
-         programs_ids: Path = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt') -> None:
+    programs_ids: Path = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt') -> None:
 
     # Set lucupy to Gemini
     ObservatoryProperties.set_properties(GeminiProperties)
-        # Grab visibility calculations from Reddit
-    # asyncio.run(visibility_calculator.calculate())
+    asyncio.run(init_db_engine())
 
     # Parsed program file (this replaces the program picker from Schedule)
     with open(programs_ids, 'r') as file:
@@ -41,7 +40,8 @@ def main(*,
                                  ranker_parameters=RankerParameters(),
                                  semester_visibility=False,
                                  num_nights_to_schedule=1,
-                                 programs_list=programs_list)
+                                 programs_list=programs_list,
+                                 use_local_visibility=True)
     engine = Engine(params)
     plan_summary, timelines = engine.schedule()
     # File output for future results comparison
