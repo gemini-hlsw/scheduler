@@ -54,7 +54,7 @@ class PercentageTimeBuffer(TimeBuffer):
     percentage: float
 
     def _calculate_time(self, p: Program) -> timedelta:
-        return p.program_awarded() * (1.0 + self.percentage)
+        return p.program_awarded() * self.percentage
 
 
 @final
@@ -84,7 +84,7 @@ def create_time_buffer(buffer_type_str: str,
             return NoTimeBuffer()
 
         case TimeBufferType.PERCENTAGE:
-            if buffer_amount is None or not (0 < buffer_amount < 1):
+            if buffer_amount is None or not (0 <= buffer_amount <= 1):
                 raise ConfigurationError('buffer_amount', str(buffer_amount))
             return PercentageTimeBuffer(buffer_amount)
 

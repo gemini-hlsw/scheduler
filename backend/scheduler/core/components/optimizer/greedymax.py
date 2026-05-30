@@ -809,6 +809,19 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     schedulable_group.group_info.scores = group_info.scores
                     # schedulable_group.group_info.scores[:] = group_info.scores[:]
                 # print(f"\tUpdated max score: {np.max(schedulable_group.group_info.scores[night_idx]):7.2f}")
+        else:
+            # All the time has been used, remove any remaining groups from this program
+            # ToDo: may need to check that all the necessary calibrations are taken, or do this check up front
+            #  (in the Ranker?)
+            # print(f'{program.id.id} is out of time')
+            logger.info(f'{program.id.id} is out of time')
+            for unique_group_id in self.group_ids:
+                # print(unique_group_id.id)
+                group_data = self.selection.schedulable_groups[unique_group_id]
+                if program.id == group_data.group.program_id and group_data in self.group_data_list:
+                    # print(f'\t Removing {unique_group_id.id}')
+                    logger.info(f'\t Removing {unique_group_id.id}')
+                    self.group_data_list.remove(group_data)
 
 
     def _update_group_list(self, max_group_info: MaxGroup, night_idx: NightIndex):
