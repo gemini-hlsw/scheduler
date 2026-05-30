@@ -1282,7 +1282,7 @@ class OcsProgramProvider(ProgramProvider):
             group_name = data[OcsProgramProvider._GroupKeys.GROUP_NAME]
         else:
             group_name = ROOT_GROUP_ID.id
-            group_option = AndOption.ANYORDER
+            group_option = AndOption.NONE
 
         # Parse notes for "do not split" information if not found previously
         notes = [(data[key][OcsProgramProvider._NoteKeys.TITLE], data[key][OcsProgramProvider._NoteKeys.TEXT])
