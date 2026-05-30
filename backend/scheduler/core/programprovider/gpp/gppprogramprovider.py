@@ -1234,7 +1234,7 @@ class GppProgramProvider(ProgramProvider):
             group_name = ROOT_GROUP_ID.id
             delay_min = None
             delay_max = None
-            group_option = AndOption.ANYORDER
+            group_option = AndOption.NONE  # Treat as a folder, which is an OR group with all observations needed
             number_observed = 0
             elements_list = data[GppProgramProvider._GroupKeys.ELEMENTS]
             number_to_observe = len(elements_list)
