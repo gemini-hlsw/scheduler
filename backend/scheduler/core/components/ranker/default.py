@@ -268,11 +268,15 @@ class DefaultRanker(Ranker):
         if target_info is None:
             return scores
 
-        # Remaining time in the observation
-        remaining = obs.exec_time() - obs.total_used()
+        # Restrict to nights this observation is actually visible on. Sight populates
+        # target_info only for visible (obs, night) pairs; iterating night_indices
+        # blindly would KeyError on the rest. `scores` is already pre-zero-padded
+        # for every night via _empty_obs_scores, so non-visible nights remain zero.
+        obs_nights = sorted(set(night_indices) & target_info.keys())
+        if not obs_nights:
+            return scores
 
-        # Completeness if the observation is done
-        # ToDo: consider whether we should be scheduling if cplt > 1 (buffer considered), may need a group check
+        remaining = obs.exec_time() - obs.total_used()
         # GPP supports allocated and used times by band, this should give the same results for OCS
         cplt = (program.total_used(obs.band) + remaining) / program.total_awarded(obs.band)
 
@@ -284,18 +288,18 @@ class DefaultRanker(Ranker):
         #       f"metric={metric[0]}")
 
         # Declination for the base target per night.
-        dec = {night_idx: target_info[night_idx].coord.dec for night_idx in night_indices}
+        dec = {night_idx: target_info[night_idx].coord.dec for night_idx in obs_nights}
 
         # Hour angle / airmass
-        ha = {night_idx: target_info[night_idx].hourangle for night_idx in night_indices}
-        airmass = {night_idx: target_info[night_idx].airmass for night_idx in night_indices}
+        ha = {night_idx: target_info[night_idx].hourangle for night_idx in obs_nights}
+        airmass = {night_idx: target_info[night_idx].airmass for night_idx in obs_nights}
 
         # Get the latitude associated with the site.
         site_latitude = obs.site.location.lat
         if site_latitude < 0. * u.deg:
-            dec_diff = {night_idx: np.abs(site_latitude - np.max(dec[night_idx])) for night_idx in night_indices}
+            dec_diff = {night_idx: np.abs(site_latitude - np.max(dec[night_idx])) for night_idx in obs_nights}
         else:
-            dec_diff = {night_idx: np.abs(np.min(dec[night_idx]) - site_latitude) for night_idx in night_indices}
+            dec_diff = {night_idx: np.abs(np.min(dec[night_idx]) - site_latitude) for night_idx in obs_nights}
 
         c = {night_idx: self.params.dec_diff_less_40 if angle < 40. * u.deg else self.params.dec_diff
              for night_idx, angle in dec_diff.items()}
@@ -304,19 +308,19 @@ class DefaultRanker(Ranker):
 
         wha = {night_idx: c[night_idx][0] + c[night_idx][1] * ha[night_idx] / u.hourangle
                + (c[night_idx][2] / u.hourangle ** 2) * ha[night_idx] ** 2
-               for night_idx in night_indices}
-        kk = {night_idx: np.where(wha[night_idx] <= 0.)[0] for night_idx in night_indices}
-        for night_idx in night_indices:
+               for night_idx in obs_nights}
+        kk = {night_idx: np.where(wha[night_idx] <= 0.)[0] for night_idx in obs_nights}
+        for night_idx in obs_nights:
             wha[night_idx][kk[night_idx]] = 0.
         # print(f'   max wha: {np.max(wha[0]):.2f}  visfrac: {target_info[0].rem_visibility_frac:.5f}')
 
         # Telescope altitude restrictions - set score to 0 if the altitude is outside the limits
-        targ_alt = {night_idx: target_info[night_idx].alt for night_idx in night_indices}
-        alt_include = {night_idx: np.ones(len(targ_alt[night_idx])) for night_idx in night_indices}
+        targ_alt = {night_idx: target_info[night_idx].alt for night_idx in obs_nights}
+        alt_include = {night_idx: np.ones(len(targ_alt[night_idx])) for night_idx in obs_nights}
         jj = {night_idx: np.where(np.logical_or(targ_alt[night_idx] < self.params.altitude_limits[obs.site][MinMax.MIN],
                                                  targ_alt[night_idx] > self.params.altitude_limits[obs.site][MinMax.MAX]))[0]
-              for night_idx in night_indices}
-        for night_idx in night_indices:
+              for night_idx in obs_nights}
+        for night_idx in obs_nights:
             alt_include[night_idx][jj[night_idx]] = 0.0
 
         # Scale factor terms: preimaging * user priority * ongoing * prog priority
@@ -342,7 +346,7 @@ class DefaultRanker(Ranker):
         nc = night_configurations[obs.site]
         program = self.collector.get_program(obs.id.program_id())
         prog_priority = {night_idx: self.params.program_priority if nc[night_idx].filter.program_priority_filter_any(program)
-                         else 1.0 for night_idx in night_indices}
+                         else 1.0 for night_idx in obs_nights}
         scale_factor *= prog_priority[night_idx]
 
         # Divide by the minimum airmass (mainly for cross-site scoring tests)
@@ -350,11 +354,11 @@ class DefaultRanker(Ranker):
                         (target_info[night_idx].rem_visibility_frac ** self.params.vis_power) *
                         (wha[night_idx] ** self.params.wha_power) * alt_include[night_idx] /
                         (np.min(airmass[night_idx]) ** self.params.air_power)
-             for night_idx in night_indices}
+             for night_idx in obs_nights}
 
         # Assign scores in p to all indices where visibility constraints are met.
         # They will otherwise be 0 as originally defined.
-        for night_idx in night_indices:
+        for night_idx in obs_nights:
             slot_indices = target_info[night_idx].visibility_slot_idx
             # if 'Q-224' in obs.id.id:
             #     print(obs.id.id, night_idx, np.max(p[night_idx]), priority_value, len(slot_indices))
