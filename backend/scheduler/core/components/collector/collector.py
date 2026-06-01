@@ -524,7 +524,6 @@ class Collector(SchedulerComponent):
     def get_visible_nights_for_observation(self, obs_id: ObservationID) -> set[NightIndex]:
         return {n for n, ids in self._visible_obs_by_night.items() if obs_id in ids}
 
-    @staticmethod
     async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         _logger.info("Starting async_load_programs...")
 
