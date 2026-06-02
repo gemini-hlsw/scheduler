@@ -12,7 +12,7 @@
 Schedule is the automatic scheduler for astronomical observations for the Gemini Program Platform.
 
 
-* Documentation: 
+* Documentation: https://gemini-hlsw.github.io/scheduler/
 * Go to the [Installation](https://gemini-hlsw.github.io/scheduler/installation/) page on instruction on how to install the Scheduler.
 * You can use the playground or a script to run the Scheduler. To learn go to [First steps](https://gemini-hlsw.github.io/scheduler/first-steps/).
 
