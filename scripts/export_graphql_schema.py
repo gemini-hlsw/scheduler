@@ -58,8 +58,7 @@ def write_docs(sdl: str) -> None:
     summary = "\n".join([
         "# GraphQL Schema Reference",
         "",
-        "Auto-generated from the Strawberry schema. For interactive exploration,",
-        "use the [GraphQL Playground](graphql.md).",
+        "Auto-generated from the Strawberry schema.",
         "",
         "## SDL Schema",
         "",

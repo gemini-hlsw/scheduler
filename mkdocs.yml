@@ -33,13 +33,18 @@ theme:
         name: Switch to system preference
 
 nav:
-  - Getting Started: getting-started.md
+  - Installation: installation.md
+  - Configuration: configuration.md
   - Architecture: architecture.md
   - Core Components:
       - core-components/events.md
   - External Services:
       - external-services/index.md
       - external-services/resource.md
+      - Sight: external-services/sight.md
+  - Development Guide: development-guide.md
+  - API:
+      - GraphQL Schema: api/schema-summary.md
 
 
 markdown_extensions:
