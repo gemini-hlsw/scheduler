@@ -3,7 +3,6 @@
 
 from typing import Dict, Tuple, Callable
 from lucupy.minimodel import ImageQuality, CloudCover, Site, VariantSnapshot
-from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from astropy.coordinates import Angle
 import astropy.units as u
 from scheduler.core.events.queue import WeatherChangeEvent
@@ -42,5 +41,5 @@ class WeatherEventHandler(EventHandler):
                                   site=site,
                                   description=f"weather changed in site {site.name}")
     
-    async def _on_weather_change(self, event: WeatherChangeEvent, scheduler_queue: SchedulerQueue):
-        await scheduler_queue.add_schedule_event(reason='Weather changed', event=event)
+    async def _on_weather_change(self, event: WeatherChangeEvent):
+        await self.scheduler_queue.add_schedule_event(reason='Weather changed', event=event)

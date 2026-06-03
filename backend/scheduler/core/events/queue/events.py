@@ -26,7 +26,8 @@ __all__ = [
     'FaultResolutionEvent',
     'WeatherClosureEvent',
     'WeatherClosureResolutionEvent',
-    'ToOActivationEvent'
+    'ToOActivationEvent',
+    'ObservationActivationEvent'
 ]
 
 
@@ -147,8 +148,6 @@ class WeatherChangeEvent(InterruptionEvent):
         variant_change (VariantSnapshot): The variant snapshot that changed.
     """
     variant_change: VariantSnapshot
-    site: Site
-    time: datetime
 
 
 @final
@@ -160,6 +159,21 @@ class ToOActivationEvent(InterruptionEvent):
         too_id (ObservationID): The observation ID for the ToO that was activated.
     """
     too_id: ObservationID
+
+
+@final
+@dataclass(frozen=True)
+class ObservationActivationEvent(InterruptionEvent):
+    """Change the status of a ToO from ON_HOLD to READY.
+
+    Attributes:
+        too_id (ObservationID): The observation ID for the ToO that was activated.
+    """
+    # Ignore the following until gpp-client provides the new constraint set in the event
+    # site: Site
+    # constraint_set: Constraints
+    observation_id: ObservationID
+
 
 @final
 @dataclass(frozen=True)

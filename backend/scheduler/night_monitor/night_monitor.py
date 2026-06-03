@@ -7,6 +7,7 @@ from typing import FrozenSet
 
 from lucupy.minimodel.site import Site
 
+from scheduler.clients.gpp import gpp
 from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor import EventListener, EventConsumer
 from scheduler.night_monitor.night_tracker import NightTracker
@@ -41,7 +42,7 @@ class NightMonitor:
 
         # There should be multiple connections depending on the service
         # even if there is only one client instance
-        client = None # TODO: Singleton
+        client = gpp.client
         self.listener = EventListener(client, self.event_queue, self._shutdown_event)
         self.consumer = EventConsumer(self.event_queue, self._shutdown_event, self.scheduler_queue)
         self.night_tracker = NightTracker(night+timedelta(days=1), sites, scheduler_queue)
