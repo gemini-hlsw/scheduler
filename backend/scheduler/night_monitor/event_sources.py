@@ -94,9 +94,11 @@ class WeatherEventSource(EventSource):
 
     def subscriptions(self) -> List[Tuple[str, callable, Any]]:
         return [
-            (WeatherEventSource.WEATHER_CHANGE,
-             lambda x: x.subscribe(self.subscription),
-             self.ws_weather_client)
+            (
+                WeatherEventSource.WEATHER_CHANGE,
+                lambda x: x.subscribe(self.subscription),
+                self.ws_weather_client
+            )
         ]
 
 class ODBEventSource(EventSource):
@@ -109,6 +111,14 @@ class ODBEventSource(EventSource):
 
     def subscriptions(self) -> List[Tuple[str ,callable]]:
         return [
-            (ODBEventSource.OBSERVATION_EDIT, lambda x: self._client.subscribe(ODBEventSource.OBSERVATION_EDIT), None),
-            (ODBEventSource.VISIT_EXECUTED, lambda x: self._client.subscribe(ODBEventSource.VISIT_EXECUTED), None)
+            # (
+            #     ODBEventSource.OBSERVATION_EDIT,
+            #     lambda x: self._client.subscribe(ODBEventSource.OBSERVATION_EDIT),
+            #     None
+            # ),
+            (
+                ODBEventSource.OBSERVATION_EDIT,
+                self._client.scheduler.subscribe_to_calculation_updates,
+                None
+            )
         ]

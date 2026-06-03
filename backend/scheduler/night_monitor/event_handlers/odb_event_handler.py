@@ -1,12 +1,15 @@
 # Copyright (c) 2016-2025 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from datetime import timedelta
+from datetime import timedelta, datetime, UTC
 from typing import ClassVar, Dict, Tuple, Callable
 
-from scheduler.clients.scheduler_queue_client import SchedulerQueue, SchedulerEvent
+from scheduler.core.events.queue import ObservationActivationEvent
 from scheduler.night_monitor.event_sources import ODBEventSource
-from .event_handler import EventHandler, MockObservationEdit, LastPlanMock
+from .event_handler import EventHandler, LastPlanMock
+from gpp_client.generated.scheduler_observations_updates import SchedulerObservationsUpdates, SchedulerObservationsUpdatesObscalcUpdate
+
+from lucupy.minimodel import ALL_SITES, Site
 
 
 class ODBEventHandler(EventHandler):
@@ -30,13 +33,13 @@ class ODBEventHandler(EventHandler):
             ),
         }
 
-    async def _on_created_edit(self, event: MockObservationEdit):
+    async def _on_created_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
         """
         A new observation was created. Check if the status is ready for this new observation.
         For ToOs we might want to interrupt so check that status as well.
 
         Args:
-            event (MockObservationEdit): The observation edit type created.
+            event (SchedulerObservationsUpdatesObscalcUpdate): The observation edit type created.
         """
         # If the observation is a ToO we trigger a new plan request
         if event.value.observation.workflow.state == 'READY':
@@ -46,11 +49,11 @@ class ODBEventHandler(EventHandler):
                 pass # Check the type of opportunity
 
             await self.scheduler_queue.add_schedule_event(
-                reason=f'New observation edit: {event.editType} for {event.observationId}',
+                reason=f'New observation edit: {event.edit_type} for {event.value.id}',
                 event=event
             )
 
-    async def _on_deleted_edit(self, event: MockObservationEdit):
+    async def _on_deleted_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
         """
         An observation was deleted. Check if is in the current plan to retrieve a new plan.
         Otherwise, we keep the current plan.
@@ -61,53 +64,60 @@ class ODBEventHandler(EventHandler):
         # Retrieve last plan
         last_plan = LastPlanMock() # plandb_client.get_last_plan()
 
-        if event.observationId in last_plan:
+        if event.value.id in last_plan:
             # TODO: If we keep the ObservationID wrapper this would require a modification
             await self.scheduler_queue.add_schedule_event(
-                reason=f'Observation {event.observationId} deleted from plan: {event.editType}',
+                reason=f'Observation {event.value.id} deleted from plan: {event.edit_type}',
                 event=event
             )
 
-    async def _on_updated_edit(self, event: MockObservationEdit):
+    async def _on_updated_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
         """
         An updated edit means the observation was modified.
         Check if the conditions in an observation was changed.
 
         Args:
-            event (MockObservationEdit): The observation edit type updated.
+            event (SchedulerObservationsUpdatesObscalcUpdate): The observation edit type updated.
+            scheduler_queue (SchedulerQueue): Use to send new schedule request to the Engine.
         """
 
 
         # Retrieve last plan
-        last_plan = LastPlanMock()
-        old_observation = last_plan.get_observation(event.observationId)
+        # last_plan = LastPlanMock()
+        # old_observation = last_plan.get_observation(event.value.id)
 
-        old_constraints = old_observation.constraints_set
-        new_constraints = event.value.constraint_set
+        # TODO: define when we want to trigger a new plan
+        # Recommended to check the workflow state (missing in the gpp-client event for now)
+        # Option 1: If the observation is not in the last plan, we trigger a new plan to check if we want to include it in the current schedule.
+        # Option 2: If the observation is in the last plan, we check if the constraints changed. If they did, we trigger a new plan to check if we need to update the
+        #   TODO get the new constraints in gpp-client
 
-        # TODO: This only work if we keep the pydantic model from gpp-client into the
-        # TODO: plan structure (currently we use minimodel Constraints).
-        # Constraints changed so we need to trigger a new plan
-        if old_constraints != new_constraints:
-            await self.scheduler_queue.add_schedule_event(
-                reason=f'Observation {event.observationId} updated from plan: {event.editType}',
-                event=event
+        # For now, we trigger a new plan for any update.
+        await self.scheduler_queue.add_schedule_event(
+            reason=f'Observation {event.value.id} updated from plan: {event.edit_type}',
+            event=ObservationActivationEvent(
+                site=ALL_SITES,
+                observation_id=event.value.id,
+                time=datetime.now(UTC),
+                description=f'Observation {event.value.id} updated from plan: {event.edit_type}'
             )
+        )
 
-    async def _on_observation_edit(self, event: MockObservationEdit):
+    async def _on_observation_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
         """
         Handles all modifications (edits) to existing observations.
 
         Args:
-            event (MockObservationEdit): The observation edit type.
+            event (SchedulerObservationsUpdatesObscalcUpdate): The observation edit type.
+            scheduler_queue (SchedulerQueue): Use to send new schedule request to the Engine.
         """
         # Check type of event
-        match event.editType:
-            case 'created':
+        match event.edit_type:
+            case 'CREATED':
                await self._on_created_edit(event)
-            case 'updated':
+            case 'UPDATED':
                 await self._on_updated_edit(event)
-            case 'hard_delete':
+            case 'HARD_DELETE':
                 await self._on_deleted_edit(event)
             case _:
                 raise NotImplementedError(f'Missing logic for this type of edit {event.editType}')
@@ -151,9 +161,8 @@ class ODBEventHandler(EventHandler):
         # TODO: PlanDB is not implemented yet, any code put here is just speculation.
 
     @staticmethod
-    def parse_observation_edit_event(raw_event: dict) -> MockObservationEdit:
-        event = MockObservationEdit.model_validate(raw_event) # Call pydantic model
-        return event
+    def parse_observation_edit_event(raw_event: SchedulerObservationsUpdates) -> SchedulerObservationsUpdatesObscalcUpdate:
+        return raw_event.obscalc_update
 
     @staticmethod
     def parse_visit_executed_event(raw_event: dict):

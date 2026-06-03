@@ -31,16 +31,6 @@ class MockObservation(BaseModel):
         'arbitrary_types_allowed': True
     }
 
-class MockObservationEdit(BaseModel):
-    """gpp client should have these base model
-     for now we used this until gpp client is hooked up """
-
-    editType: str
-    oldState: str
-    newState: str
-    observationId: str
-    value: MockObservation
-
 
 class LastPlanMock:
     visits = []
@@ -96,4 +86,4 @@ class EventHandler(ABC):
         event = parser(raw_event)
 
         # Handle the parsed event
-        await handler(event, self.scheduler_queue)
+        await handler(event)

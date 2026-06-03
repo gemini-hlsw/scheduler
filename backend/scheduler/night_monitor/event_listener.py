@@ -66,7 +66,9 @@ class EventListener:
         """
         try:
             # Create the actual session
-            if client is not None:
+            if source == EventSourceType.WEATHER:
+                if client is None:
+                    raise ValueError("Client is not initialized for WeatherEventSource.")
                 async with client as session:
                     sub_generator = subscription_factory(session)
                     async for data in sub_generator:
@@ -76,8 +78,22 @@ class EventListener:
 
                 if not self._shutdown_event.is_set():
                     raise SubscriptionEndedException(f"Subscription '{sub_name}' ended gracefully, retrying.")
+
             else:
-                print("No client provided")
+                print(f"Listening to {sub_name}")
+                async for data in subscription_factory():
+                    if self._shutdown_event.is_set():
+                        break
+
+                    print("Received ODB event:")
+                    print(data)
+                    await self.queue.put((source, sub_name, data))
+
+                if not self._shutdown_event.is_set():
+                    raise SubscriptionEndedException(f"Subscription '{sub_name}' ended gracefully, retrying.")
+
+        except ValueError as e:
+            raise e
 
         except asyncio.CancelledError:
             raise
