@@ -61,6 +61,7 @@ dev = [
 docs = [
     "mkdocs-material>=9.6.16",
     "mkdocs-mermaid2-plugin>=1.2.1",
+    "mkdocs-include-markdown-plugin>=7.0.0",
     "mkdocstrings-python>=1.16.12",
 ]
 
