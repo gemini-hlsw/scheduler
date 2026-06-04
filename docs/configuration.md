@@ -77,18 +77,21 @@ DATABASE_URL=postgresql://user:password@localhost:5432/scheduler
 
 ### Reference
 
-| Variable | Required | Description |
-|---|---|---|
-| `SCHEDULER_MODE` | **Yes** | Controls the runtime mode. See [Scheduler modes](#scheduler-modes) below. |
-| `PORT` | No | HTTP port for the server. Heroku sets this automatically; falls back to `server.port` in `config.yaml`. |
-| `REDISCLOUD_URL` | No | Redis connection URL (e.g. `redis://localhost:6379`). Required when `collector.with_redis: true`. |
-| `DATABASE_URL` | No | PostgreSQL connection URL for the Sight service database. Heroku Postgres sets this automatically; the `postgres://` scheme is normalised to `postgresql+asyncpg://` at startup. |
-| `DB_POOL_SIZE` | No | SQLAlchemy connection pool size (default `5`, max `20`). |
-| `DB_POOL_OVERFLOW` | No | SQLAlchemy max overflow connections (default `10`, max `20`). |
-| `DB_ECHO_SQL` | No | Set to `true` to log all SQL statements (default `false`). |
-| `CLOUDCUBE_URL` | No | S3-compatible bucket URL for ephemeris cube storage. Required when `app.external_ephemerides: true`. |
-| `CLOUDCUBE_ACCESS_KEY_ID` | No | AWS/CloudCube access key. Required together with `CLOUDCUBE_URL`. |
-| `CLOUDCUBE_SECRET_ACCESS_KEY` | No | AWS/CloudCube secret key. Required together with `CLOUDCUBE_URL`. |
+| Variable | Required | Description                                                                                                                                                                      |
+|---|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `SCHEDULER_MODE` | **Yes**  | Controls the runtime mode. See [Scheduler modes](#scheduler-modes) below.                                                                                                        |
+| `PORT` | No       | HTTP port for the server. Heroku sets this automatically; falls back to `server.port` in `config.yaml`.                                                                          |
+| `REDISCLOUD_URL` | No       | Redis connection URL (e.g. `redis://localhost:6379`). Required when `collector.with_redis: true`.                                                                                |
+| `DATABASE_URL` | No       | PostgreSQL connection URL for the Sight service database. Heroku Postgres sets this automatically; the `postgres://` scheme is normalised to `postgresql+asyncpg://` at startup. |
+| `DB_POOL_SIZE` | No       | SQLAlchemy connection pool size (default `5`, max `20`).                                                                                                                         |
+| `DB_POOL_OVERFLOW` | No       | SQLAlchemy max overflow connections (default `10`, max `20`).                                                                                                                    |
+| `DB_ECHO_SQL` | No       | Set to `true` to log all SQL statements (default `false`).                                                                                                                       |
+| `CLOUDCUBE_URL` | No       | S3-compatible bucket URL for ephemeris cube storage. Required when `app.external_ephemerides: true`.                                                                             |
+| `CLOUDCUBE_ACCESS_KEY_ID` | No       | AWS/CloudCube access key. Required together with `CLOUDCUBE_URL`.                                                                                                                |
+| `CLOUDCUBE_SECRET_ACCESS_KEY` | No       | AWS/CloudCube secret key. Required together with `CLOUDCUBE_URL`.                                                                                                                |
+| `GPP_TOKEN` | **Yes**  | Allows the Scheduler to connect to other GPP services like the ODB. If the development client is used add `GPP_DEVELOPMENT_TOKEN` instead                                        |
+| `WEATHER_URL` | **Yes** | Connects with the Weather service. Can be a Heroku URL or a local one set by Docker                                                                                              |
+|`VITE_WEATHER_URL` | **Yes**| Same as above but used by the frontend app |
 
 ### Scheduler modes
 
