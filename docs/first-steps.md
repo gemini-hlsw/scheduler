@@ -2,26 +2,22 @@
 
 There are two ways to run the Scheduler the `run.py` script and the GraphQL playground.
 
-## run.py Script
+### run.py Script
 
 To run the script do:
 ```shell
-$ python scheduler/scripts/run.py
+$ uv run python backend/scheduler/scripts/run.py
 ```
 That would run the default parameters inside the script to modify those you need to modify the [SchedulerParameters](architecture.md#scheduler-parameters).
 
-## GraphQL Playground
-To run the server do:
-```shell
-$ python scheduler/main.py
-```
+### GraphQL Playground
 
 To access the Graphql playground you can go to `http://localhost:8000/graphql`. 
 
 The Scheduler request work on two steps: the first one is a query sending the Scheduler Parameters and the request for a new plan and
 the second one is subscription that outputs the results. Both of these need to be in separate tabs in the browser to work properly.
 
-### Query Example
+#### Query Example
 
 ```
 query Schedule {
