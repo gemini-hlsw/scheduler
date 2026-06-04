@@ -11,6 +11,7 @@ from lucupy.minimodel.timingwindow import TimingWindow
 from scheduler.services.sight.calculator.models import (
     ElevationType as SightElevationType,
     ObservationConstraints as SightObservationConstraints,
+    TargetCreate as SightTargetCreate,
     TimingWindow as SightTimingWindow,
 )
 
@@ -60,6 +61,41 @@ def target_shim(target) -> Optional[SimpleNamespace]:
             pm_ra=None,
             pm_dec=None,
             epoch=2000.0,
+            horizons_id=str(target.des) if target.des is not None else None,
+            tag=target.tag.name.lower() if target.tag is not None else None,
+        )
+    return None
+
+
+def target_create(target) -> Optional[SightTargetCreate]:
+    """Build a sight ``TargetCreate`` payload from a lucupy Target.
+
+    Single home for the lucupy -> sight target mapping, shared by the
+    visibility-aggregator and ``scripts/fill_sight.py``. Returns None for an
+    unrecognised/None target. Non-sidereal targets are mapped too (with
+    placeholder base_ra/base_dec, since the schema requires them); callers that
+    only want sidereal targets check ``.is_sidereal``.
+    """
+    if target is None:
+        return None
+    if isinstance(target, SiderealTarget):
+        return SightTargetCreate(
+            name=str(target.name),
+            is_sidereal=True,
+            base_ra=float(target.ra),
+            base_dec=float(target.dec),
+            pm_ra=float(target.pm_ra) if target.pm_ra is not None else None,
+            pm_dec=float(target.pm_dec) if target.pm_dec is not None else None,
+            epoch=float(target.epoch) if target.epoch is not None else 2000.0,
+        )
+    if isinstance(target, NonsiderealTarget):
+        return SightTargetCreate(
+            name=str(target.name),
+            is_sidereal=False,
+            # Sight requires base_ra/base_dec; non-sidereal targets resolve via
+            # horizons_id, so we send neutral placeholders.
+            base_ra=0.0,
+            base_dec=0.0,
             horizons_id=str(target.des) if target.des is not None else None,
             tag=target.tag.name.lower() if target.tag is not None else None,
         )

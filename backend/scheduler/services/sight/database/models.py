@@ -285,4 +285,40 @@ class VisibilityData(Base):
 
     def __repr__(self) -> str:
         return f"<VisibilityData obs={self.observation_id} night={self.night_date}>"
+
+
+class SchedulerCoordination(Base):
+    """
+    Cross-process coordination state, shared via Postgres between the always-on
+    operation dyno and the one-off visibility-aggregator cron dyno.
+
+    One row per coordinated activity, keyed by ``name``:
+      - ``visibility_aggregator`` — set active while the aggregator runs so the
+        operation process blocks plan creation until it finishes.
+      - ``night_execution`` — set active while the operation process is computing
+        a plan, so the aggregator does not start work concurrently.
+
+    ``heartbeat_at`` plus a staleness threshold lets a consumer treat a crashed
+    holder's row as inactive instead of wedging the interlock forever.
+    """
+    __tablename__ = "scheduler_coordination"
+
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    holder: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True, comment="Dyno / process that owns the row"
+    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    heartbeat_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    detail: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<SchedulerCoordination {self.name} active={self.active}>"
         

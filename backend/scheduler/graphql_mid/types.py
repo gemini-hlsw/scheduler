@@ -360,3 +360,15 @@ class BuildParametersResponse:
 class AvailableProgram:
     id: str
     ref_label: str
+
+
+@strawberry.type
+class VisibilityAggregatorStatus:
+    """Current state of the background visibility-aggregator cron."""
+    active: bool
+    stale: bool
+    holder: Optional[str]
+    started_at: Optional[str]
+    heartbeat_at: Optional[str]
+    finished_at: Optional[str]
+    detail: Optional[str]  # JSON-encoded progress detail
