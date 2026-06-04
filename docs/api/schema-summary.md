@@ -1,7 +1,6 @@
 # GraphQL Schema Reference
 
-Auto-generated from the Strawberry schema. For interactive exploration,
-use the [GraphQL Playground](graphql.md).
+Auto-generated from the Strawberry schema.
 
 ## SDL Schema
 
