@@ -1,6 +1,8 @@
 # Copyright (c) 2016-2026 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import asyncio
+import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Awaitable, Callable, Optional
 
@@ -12,6 +14,7 @@ from lucupy.minimodel.semester import Semester
 from lucupy.types import ZeroTime
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from scheduler.config import config
 from scheduler.clients.gpp import gpp
 from scheduler.core.programprovider.gpp import GppProgramProvider, gpp_program_data
 from scheduler.core.sources.sources import Sources
@@ -41,6 +44,15 @@ _OBS_CLASSES = frozenset({
 def _as_utc_datetime(t: Time) -> datetime:
     """Astropy Time to a UTC datetime."""
     return np.atleast_1d(t.to_datetime(timezone=timezone.utc))[0]
+
+
+def _format_duration(seconds: float) -> str:
+    """Human-readable duration for ETA logging."""
+    if seconds < 90:
+        return f"{seconds:.0f}s"
+    if seconds < 5400:
+        return f"{seconds / 60:.1f}m"
+    return f"{seconds / 3600:.1f}h"
 
 
 def is_night_in_progress(now: Optional[datetime] = None) -> bool:
@@ -83,7 +95,15 @@ async def _collect_requests(program_ids: list[str], range_end: datetime):
     bad_programs = 0
 
     program_data = await gpp_program_data(program_ids)
+    processed = 0
     async for raw in program_data:
+        processed += 1
+        # Parsing is CPU-bound and the async-generator body has no awaits, so a
+        # large semester-start dump would otherwise block the event loop (and
+        # starve the runner's heartbeat task). Yield periodically so heartbeats
+        # keep firing and the coordination row stays fresh.
+        if processed % 25 == 0:
+            await asyncio.sleep(0)
         try:
             data = next(iter(raw.values())) if len(raw.keys()) == 1 else raw
             program = provider.parse_program(data)
@@ -149,6 +169,8 @@ async def _store_missing_visibility(
         return 0
 
     obs_ids = [r.observation_id for r in requests]
+    total_nights = (end_date - start_date).days + 1
+    loop_t0 = time.perf_counter()
     stored = 0
     current = start_date
     while current <= end_date:
@@ -159,9 +181,24 @@ async def _store_missing_visibility(
         missing = [r for r in requests if r.observation_id not in existing_ids]
 
         if missing:
+            t0 = time.perf_counter()
             result = await calc.store_visibility(missing, current, current)
-            stored += int(result.get("stored", 0))
             await calc.session.commit()
+            elapsed = time.perf_counter() - t0
+            night_stored = int(result.get("stored", 0))
+            stored += night_stored
+
+            # Moving ETA: measured seconds/night so far x nights remaining.
+            nights_done = (current - start_date).days + 1
+            eta = (time.perf_counter() - loop_t0) / nights_done * (
+                total_nights - nights_done
+            )
+            _logger.info(
+                f"Stage 2 {current.isoformat()} [{nights_done}/{total_nights}]: "
+                f"{len(missing)} missing obs, stored {night_stored} in {elapsed:.1f}s "
+                f"({elapsed / len(missing) * 1000:.0f} ms/obs); "
+                f"ETA ~{_format_duration(eta)}."
+            )
 
         if heartbeat is not None:
             await heartbeat({
@@ -184,6 +221,7 @@ async def run_aggregation(
     session (AsyncSession): is the compute session (its own connection).
     heartbeat (Optional[Heartbeat]): is an optional async callback used to keep the coordination row fresh.
     """
+    run_t0 = time.perf_counter()
     today = datetime.now(timezone.utc).date()
     semester = Semester.find_semester_from_date(today)
     start_date = semester.start_date()
@@ -197,12 +235,15 @@ async def run_aggregation(
         f"({start_date} .. {end_date})."
     )
 
+    parse_t0 = time.perf_counter()
     targets_by_name, requests, counts = await _collect_requests(
         program_ids, range_end
     )
+    parse_elapsed = time.perf_counter() - parse_t0
     _logger.info(
         f"Prepared {len(targets_by_name)} sidereal targets and {len(requests)} "
-        f"observations (skipped {counts['skipped_nonsidereal']} non-sidereal, "
+        f"observations in {parse_elapsed:.1f}s (skipped "
+        f"{counts['skipped_nonsidereal']} non-sidereal, "
         f"{counts['skipped_no_target']} without a usable base target)."
     )
     if heartbeat is not None:
@@ -215,35 +256,63 @@ async def run_aggregation(
 
     calc = Calculator(session)
     targets = list(targets_by_name.values())
+    batch_size = max(1, int(config.visibility_aggregator.target_batch_size))
 
-    # Stage 1: create new targets (sight skips ones that already exist) and
-    # pre-compute their position arrays for the range.
-    created = await calc.create_targets_bulk(targets, start_date, end_date)
-    await session.commit()
+    # Stage 1, in batches: create new targets (sight skips existing ones) and
+    # ensure position arrays exist for every night in the range — including
+    # gaps for targets that already existed (e.g. new semester nights).
+    #
+    # We commit per batch so a long semester-start backfill never holds one
+    # giant transaction, and so progress persists.
+    # A dyno killed mid-run just resumes from the remaining gaps on the next cron tick (every upsert is idempotent).
+    created_total = 0
+    stage1_t0 = time.perf_counter()
+    for offset in range(0, len(targets), batch_size):
+        chunk = targets[offset:offset + batch_size]
+        batch_t0 = time.perf_counter()
+        created = await calc.create_targets_bulk(chunk, start_date, end_date)
+        created_total += created.created
+        await calc.precompute_stage1(
+            start_date, end_date, target_names=[t.name for t in chunk]
+        )
+        await session.commit()
+        batch_elapsed = time.perf_counter() - batch_t0
+        done = min(offset + batch_size, len(targets))
+        _logger.info(
+            f"Stage 1 batch {offset // batch_size + 1}: {len(chunk)} targets in "
+            f"{batch_elapsed:.1f}s ({batch_elapsed / len(chunk):.2f}s/target); "
+            f"{done}/{len(targets)} done."
+        )
+        if heartbeat is not None:
+            await heartbeat({
+                "phase": "stage1",
+                "targets_done": done,
+                "targets_total": len(targets),
+                "created": created_total,
+            })
+    stage1_elapsed = time.perf_counter() - stage1_t0
+    avg_target = stage1_elapsed / len(targets) if targets else 0.0
     _logger.info(
-        f"Stage 1 targets: created={created.created} skipped/failed={created.failed}."
+        f"Stage 1 done: {created_total} new targets; {len(targets)} targets "
+        f"ensured over {start_date}..{end_date} in {stage1_elapsed:.1f}s "
+        f"({avg_target:.2f}s/target avg)."
     )
-    if heartbeat is not None:
-        await heartbeat({"phase": "stage1_targets", "created": created.created})
-
-    # Stage 1: ensure position arrays exist for every night in the range, also
-    # filling gaps for targets that already existed (e.g. new semester nights).
-    precompute = await calc.precompute_stage1(
-        start_date, end_date, target_names=list(targets_by_name.keys())
-    )
-    await session.commit()
-    _logger.info(
-        f"Stage 1 precompute: nights={precompute.get('nights')} "
-        f"computations={precompute.get('total_computations')}."
-    )
-    if heartbeat is not None:
-        await heartbeat({"phase": "stage1_precompute", **precompute})
 
     # Stage 2: store visibility for observations missing it on each night.
+    stage2_t0 = time.perf_counter()
     stored = await _store_missing_visibility(
         calc, requests, start_date, end_date, heartbeat
     )
-    _logger.info(f"Stage 2: stored {stored} new visibility rows.")
+    stage2_elapsed = time.perf_counter() - stage2_t0
+    _logger.info(f"Stage 2: stored {stored} new visibility rows in {stage2_elapsed:.1f}s.")
+
+    total_elapsed = time.perf_counter() - run_t0
+    _logger.info(
+        f"Aggregation timing: total={total_elapsed:.1f}s "
+        f"(parse={parse_elapsed:.1f}s, stage1={stage1_elapsed:.1f}s, "
+        f"stage2={stage2_elapsed:.1f}s); {len(targets)} targets, "
+        f"{stored} stage-2 rows inserted."
+    )
 
     return {
         "semester": str(semester),
@@ -251,8 +320,12 @@ async def run_aggregation(
         "end_date": end_date.isoformat(),
         "programs": len(program_ids),
         "targets": len(targets),
-        "targets_created": created.created,
+        "targets_created": created_total,
         "observations": len(requests),
         "stage2_stored": stored,
+        "elapsed_seconds": round(total_elapsed, 1),
+        "parse_seconds": round(parse_elapsed, 1),
+        "stage1_seconds": round(stage1_elapsed, 1),
+        "stage2_seconds": round(stage2_elapsed, 1),
         **counts,
     }

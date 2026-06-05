@@ -1,7 +1,7 @@
 # Visibility aggregator
 
 Background service that keeps the **Sight DB** current for the programs GPP
-reports as *available*. For the current semester it ensures:
+reports as *READY*. For the current semester it ensures:
 
 - **Stage 1** (`target_night_data`) exists for every **sidereal** target, and
 - **Stage 2** (`visibility_data`) exists for every observation,
@@ -21,7 +21,7 @@ It is a one-off process, intended for **Heroku Scheduler**:
 cd /home && uv run python -m scheduler.services.visibility_aggregator.runner
 ```
 
-Heroku Scheduler's minimum interval is 10 minutes; overlapping ticks are
+Heroku Scheduler's minimum interval is 1 hour; overlapping ticks are
 prevented by the coordination row (a second run exits if one is already active).
 Run it locally / manually the same way against a populated `DATABASE_URL`.
 
@@ -32,36 +32,11 @@ inherits all of the app's config vars — there is no separate env config for
 scheduler jobs. The only requirement is that the relevant vars are set on the app
 (the same one running the web/operation dyno):
 
-| Var | Source | Needed because |
-| --- | --- | --- |
-| `DATABASE_URL` | Heroku Postgres add-on (auto) | shared Sight DB + coordination. Must be the same DB as the web dyno. `postgres://` is normalised to `postgresql+asyncpg://` in `sight/config.py`. |
-| GPP credentials (e.g. `GPP_DEVELOPMENT_TOKEN`) | already set for the web dyno | the runner calls GPP. If the web app talks to GPP today, the cron inherits the same credential. |
-| `VIS_AGG_PLAN_WAIT_TIMEOUT` (optional) | you | caps how long plan creation blocks for a run (default: block until finished). |
+The aggregator's own knobs live in `config.yaml` (see **Tuning** below), not in
+env vars — only secrets/connection info come from the environment. `CLOUDCUBE_*`
+/ ephemerides are **not** required either: those are only for non-sidereal
+Horizons targets, which this runner skips for now.
 
-`CLOUDCUBE_*` / ephemerides are **not** required — those are only for
-non-sidereal Horizons targets, which this runner skips for now.
-
-```bash
-# 1. one-time: add the add-on
-heroku addons:create scheduler:standard -a <app>
-
-# 2. confirm the inherited config (DATABASE_URL + GPP creds present)
-heroku config -a <app>
-
-# 3. (optional) safety valve / set any missing var
-heroku config:set VIS_AGG_PLAN_WAIT_TIMEOUT=900 -a <app>
-
-# 4. add the job in the dashboard (command + interval: every 10 min / hourly / daily)
-heroku addons:open scheduler -a <app>
-#    Command:   cd /home && uv run python -m scheduler.services.visibility_aggregator.runner
-#    Dyno size: pick Standard-2X/Performance for the heavy first full-semester backfill.
-
-# 5. smoke-test once on a one-off dyno (also inherits config vars)
-heroku run "cd /home && uv run python -m scheduler.services.visibility_aggregator.runner" -a <app>
-```
-
-The `scheduler_coordination` table is created by the `009` Alembic migration,
-which runs automatically in the existing `heroku.yml` release phase on deploy.
 
 ## Coordination (interlock)
 
@@ -79,18 +54,52 @@ computed astronomically) or a plan is being computed. Liveness is a committed
 `heartbeat_at` plus a staleness threshold, so a crashed holder never wedges the
 interlock.
 
-## Tuning (env vars)
+## Tuning (config.yaml)
 
-- `VIS_AGG_PLAN_WAIT_TIMEOUT` (seconds) — cap how long plan creation blocks for
-  the aggregator. Default: unset = block until finished. Set this as an
-  operational safety valve if a long first-time backfill must not stall a night.
+All knobs live under the `visibility_aggregator` section of
+`scheduler/config.yaml`:
+
+- `plan_wait_timeout` (seconds) — cap how long plan creation blocks for the
+  aggregator. `null` = block until finished. Env-overridable per-deploy via
+  `VIS_AGG_PLAN_WAIT_TIMEOUT` (a safety valve if a long first-time backfill must
+  not stall a night).
+- `stale_after_seconds` — a coordination holder whose heartbeat is older than
+  this is treated as dead (so a crashed run never wedges the interlock).
+- `heartbeat_interval_seconds` — how often a run refreshes its heartbeat.
+- `idle_poll_interval_seconds` — how often the operation process polls while
+  blocked on a run.
+- `target_batch_size` — targets per committed Stage-1 batch.
+
+## Long runs, timeouts, and failures
+
+These three numbers are independent — `stale_after_seconds` is **not** a run
+timeout:
+
+- **`heartbeat_interval_seconds` (60s)** — a live run refreshes `heartbeat_at`
+  this often. The parse phase and each compute batch yield to the event loop, so
+  the heartbeat keeps firing even during a multi-minute backfill.
+- **`stale_after_seconds` (600s)** — how long *readers* wait without a heartbeat
+  before treating the holder as **dead**. It only matters if a run crashes; a
+  healthy run heartbeats 10× within this window and may run as long as it needs
+  (a ~30 min semester-start backfill is fine — the Heroku one-off/Scheduler dyno
+  has no such limit).
+- **`plan_wait_timeout` (null)** — how long the operation process blocks before
+  planning anyway. `null` = block until the run finishes. If a run *crashes*,
+  `stale_after_seconds` is the safety net: planning resumes within 600s instead
+  of blocking forever.
+
+**Resumability.** The work is committed per Stage-1 batch and per Stage-2 night,
+and every write is an idempotent upsert against the "what's already there" diff.
+So if a dyno is killed (cycling, deploy, SIGTERM, dropped connection), nothing is
+half-written: the next cron tick simply fills the remaining gaps. On `SIGTERM`
+the run cancels gracefully and releases the coordination row immediately;
+otherwise the row expires via `stale_after_seconds`.
+
+**Partial data is safe.** The scheduler only ever reads whatever Stage-1/Stage-2
+rows exist and skips the rest (its pre-existing behaviour). An incomplete run
+just means fewer gaps filled this tick, not corrupt or inconsistent data.
 
 ## Observability
 
 `query { visibilityAggregatorStatus { active stale holder heartbeatAt detail } }`
 reports the current run state.
-
-> **First run** is heavy (all sidereal targets × 2 sites × ~6 months). Every
-> later tick is cheap because it only fills gaps. Consider running the first
-> backfill in a daytime window (or manually) so it can't block the start of a
-> night.

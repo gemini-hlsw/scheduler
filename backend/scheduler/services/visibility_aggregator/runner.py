@@ -3,11 +3,13 @@
 
 import asyncio
 import os
+import signal
 import socket
 
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini.geminiproperties import GeminiProperties
 
+from scheduler.config import config
 from scheduler.services import logger_factory
 from scheduler.services.sight.database.connection import (
     dispose_engine,
@@ -24,7 +26,8 @@ _logger = logger_factory.create_logger(__name__, with_id=False)
 
 # Refresh the coordination heartbeat at least this often, independent of work
 # granularity, so the operation process's staleness check stays accurate.
-_HEARTBEAT_INTERVAL_SECONDS = 60.0
+# Configured in config.yaml under `visibility_aggregator`.
+_HEARTBEAT_INTERVAL_SECONDS = float(config.visibility_aggregator.heartbeat_interval_seconds)
 
 
 def _holder() -> str:
@@ -32,8 +35,30 @@ def _holder() -> str:
     return os.environ.get("DYNO") or socket.gethostname()
 
 
+def _install_signal_handlers() -> None:
+    """Cancel the run on SIGTERM/SIGINT so Heroku dyno shutdown releases the
+    coordination row cleanly instead of waiting out the staleness window."""
+    try:
+        loop = asyncio.get_running_loop()
+        main_task = asyncio.current_task()
+    except RuntimeError:  # pragma: no cover - no running loop
+        return
+
+    def _cancel() -> None:
+        _logger.warning("Shutdown signal received; stopping aggregation run.")
+        if main_task is not None:
+            main_task.cancel()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, _cancel)
+        except (NotImplementedError, RuntimeError):  # pragma: no cover
+            pass  # unsupported platform / not the main thread
+
+
 async def _run() -> int:
     ObservatoryProperties.set_properties(GeminiProperties)
+    _install_signal_handlers()
     await init_db_engine()
     try:
         # Never run while a night is being executed.
@@ -47,7 +72,7 @@ async def _run() -> int:
                     "Operation process is computing a plan; skipping cycle."
                 )
                 return 0
-            # (2) Atomically claim the aggregator row.
+            # Atomically claim the aggregator row.
             acquired = await coordination.acquire_aggregator(ctrl, _holder())
         if not acquired:
             _logger.info(
@@ -61,15 +86,41 @@ async def _run() -> int:
         try:
             async with session_scope() as work:
                 result = await run_aggregation(
-                    work, heartbeat=_make_detail_heartbeat()
+                    work,
+                    heartbeat=_make_detail_heartbeat()
                 )
             _logger.info(f"Aggregation complete: {result}")
         finally:
+            # Stop heartbeating and release the row even on cancellation, so the
+            # operation process can resume planning immediately. (Already-committed
+            # batches persist; a killed run resumes from the gaps next tick.)
             stop_heartbeat.set()
-            await heartbeat_task
-            async with session_scope() as release:
-                await coordination.release_aggregator(release)
+            heartbeat_task.cancel()
+            try:
+                await heartbeat_task
+            except asyncio.CancelledError:
+                pass
+            try:
+                async with session_scope() as release:
+                    await coordination.release_aggregator(release)
+            except Exception as exc:
+                _logger.warning(
+                    f"Could not release the coordination row cleanly ({exc}); "
+                    f"it will expire after stale_after_seconds."
+                )
         return 0
+    except asyncio.CancelledError:
+        _logger.warning(
+            "Aggregation run cancelled by shutdown signal; coordination row "
+            "released and progress committed up to the last batch."
+        )
+        return 0
+    except Exception as exc:
+        # e.g. a dropped Heroku Postgres connection mid-run. The row is already
+        # released by the inner finally; committed batches persist, so the next
+        # cron tick resumes from the remaining gaps.
+        _logger.error(f"Aggregation run failed: {exc}", exc_info=True)
+        return 1
     finally:
         await dispose_engine()
 

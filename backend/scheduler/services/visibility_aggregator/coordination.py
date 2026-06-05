@@ -19,12 +19,12 @@ Two rows:
 
 import asyncio
 import json
-import os
 from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from scheduler.config import config
 from scheduler.services.logger_factory import create_logger
 from scheduler.services.sight.database.connection import session_scope
 
@@ -48,14 +48,23 @@ __all__ = [
 AGGREGATOR_NAME = "visibility_aggregator"
 NIGHT_EXECUTION_NAME = "night_execution"
 
+# Tunables live in config.yaml under the `visibility_aggregator` section.
+_agg_config = config.visibility_aggregator
+
 # A holder whose heartbeat is older than this is treated as dead.
-STALE_AFTER_SECONDS = 300.0
+STALE_AFTER_SECONDS: float = float(_agg_config.stale_after_seconds)
+
+# Cadence the operation process polls at while blocked on a run.
+_IDLE_POLL_INTERVAL_SECONDS: float = float(_agg_config.idle_poll_interval_seconds)
 
 
 # --- low-level helpers (caller owns the transaction / commit) ----------------
 
-async def _acquire(session: AsyncSession, name: str, holder: str,
-                   stale_after: float) -> bool:
+async def _acquire(
+    session: AsyncSession,
+    name: str, holder: str,
+    stale_after: float
+) -> bool:
     """Atomically take ``name`` if it is inactive or its holder is stale.
 
     Returns True iff this caller now owns the row. Caller must commit.
@@ -113,7 +122,7 @@ async def _release(session: AsyncSession, name: str) -> None:
 
 async def _is_active(session: AsyncSession, name: str,
                      stale_after: float) -> bool:
-    """True iff ``name`` is active and its heartbeat is fresh."""
+    """True if ``name`` is active and its heartbeat is fresh."""
     stmt = text(
         """
         SELECT 1 FROM scheduler_coordination
@@ -126,7 +135,6 @@ async def _is_active(session: AsyncSession, name: str,
     return result.first() is not None
 
 
-# --- aggregator side (used by the cron runner, owns its session) -------------
 
 async def acquire_aggregator(session: AsyncSession, holder: str,
                              stale_after: float = STALE_AFTER_SECONDS) -> bool:
@@ -147,8 +155,6 @@ async def is_plan_in_progress(session: AsyncSession,
     return await _is_active(session, NIGHT_EXECUTION_NAME, stale_after)
 
 
-# --- operation side (used by EngineRT; manage their own short sessions) ------
-
 async def is_aggregator_active(session: AsyncSession,
                                stale_after: float = STALE_AFTER_SECONDS) -> bool:
     return await _is_active(session, AGGREGATOR_NAME, stale_after)
@@ -157,15 +163,15 @@ async def is_aggregator_active(session: AsyncSession,
 def _plan_wait_timeout() -> Optional[float]:
     """Cap on how long plan creation blocks for the aggregator.
 
-    Defaults to None ("block until finished", per the agreed hard interlock).
-    Set ``VIS_AGG_PLAN_WAIT_TIMEOUT`` (seconds) to cap it as an operational
-    safety valve.
+    Configured by ``visibility_aggregator.plan_wait_timeout`` in config.yaml;
+    None means "block until finished" (the agreed hard interlock). That key is
+    env-overridable per-deploy via ``VIS_AGG_PLAN_WAIT_TIMEOUT``.
     """
-    raw = os.environ.get("VIS_AGG_PLAN_WAIT_TIMEOUT")
-    return float(raw) if raw else None
+    value = config.visibility_aggregator.plan_wait_timeout
+    return float(value) if value is not None else None
 
 
-async def wait_until_aggregator_idle(poll_interval: float = 2.0,
+async def wait_until_aggregator_idle(poll_interval: float = _IDLE_POLL_INTERVAL_SECONDS,
                                      timeout: Optional[float] = None) -> bool:
     """Block until the aggregator row is inactive/stale (the hard interlock).
 
@@ -188,8 +194,15 @@ async def wait_until_aggregator_idle(poll_interval: float = 2.0,
                             f"proceeding with plan creation."
                         )
                     return True
-        except RuntimeError:
-            # DATABASE_URL not configured — nothing to coordinate with.
+        except Exception as exc:
+            # Fail open: a missing DATABASE_URL, a coordination table that hasn't
+            # been migrated yet (deploy window), or a transient DB error must
+            # never block plan creation. (CancelledError is a BaseException and
+            # is intentionally not caught here.)
+            _logger.warning(
+                f"Coordination check unavailable ({exc}); proceeding with plan "
+                f"creation without the aggregator interlock."
+            )
             return True
         if timeout is not None and waited >= timeout:
             _logger.warning(
@@ -214,8 +227,10 @@ async def signal_plan_in_progress(holder: str = "operation",
             await _acquire_unconditional(session, NIGHT_EXECUTION_NAME, holder)
             if detail is not None:
                 await _heartbeat(session, NIGHT_EXECUTION_NAME, detail)
-    except RuntimeError:
-        pass  # No DB configured; nothing to signal.
+    except Exception as exc:
+        # Best-effort signal; never let it interfere with planning (no DB,
+        # un-migrated table, or transient error).
+        _logger.debug(f"Could not signal plan-in-progress: {exc}")
 
 
 async def signal_plan_done() -> None:
@@ -223,8 +238,8 @@ async def signal_plan_done() -> None:
     try:
         async with session_scope() as session:
             await _release(session, NIGHT_EXECUTION_NAME)
-    except RuntimeError:
-        pass
+    except Exception as exc:
+        _logger.debug(f"Could not clear plan-in-progress: {exc}")
 
 
 async def get_aggregator_status() -> dict:
@@ -251,7 +266,10 @@ async def get_aggregator_status() -> dict:
             row = (await session.execute(
                 stmt, {"name": AGGREGATOR_NAME, "stale": STALE_AFTER_SECONDS}
             )).mappings().first()
-    except RuntimeError:
+    except Exception as exc:
+        # No DB / un-migrated table / transient error: report "not running"
+        # rather than failing the GraphQL query.
+        _logger.debug(f"Could not read aggregator status: {exc}")
         return empty
     if row is None:
         return empty

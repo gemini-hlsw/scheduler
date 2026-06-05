@@ -92,6 +92,18 @@ jobs:
         run: |
           heroku container:release -a ${{ secrets[matrix.app_secret] }} web
 
+      - name: Run DB migrations
+        if: matrix.mode == 'realtime'
+        run: |
+          APP="${{ secrets[matrix.app_secret] }}"
+          if [ -n "$(heroku config:get DATABASE_URL -a "$APP")" ]; then
+            echo "Running alembic upgrade head on $APP"
+            heroku run --exit-code -a "$APP" \
+              "cd /home && uv run alembic -c alembic.ini upgrade head"
+          else
+            echo "No DATABASE_URL on $APP; skipping migrations."
+          fi
+
   deploy-frontend:
     name: "Deploy Frontend → DEV"
     runs-on: ubuntu-latest
