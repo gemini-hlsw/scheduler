@@ -20,9 +20,11 @@ from scheduler.orchestration import process_manager
 from scheduler.services.logger_factory import create_logger
 from scheduler.shared_queue import plan_response_subscribers, build_parameters_subscribers
 from scheduler.clients.gpp import gpp
+from scheduler.services.visibility_aggregator import coordination
 
 from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
-                    NewPlansRT, NightPlansResponseRT, NightTimesResponse, BuildParametersInput, BuildParametersResponse, AvailableProgram)
+                    NewPlansRT, NightPlansResponseRT, NightTimesResponse, BuildParametersInput, BuildParametersResponse,
+                    AvailableProgram, VisibilityAggregatorStatus)
 from .inputs import CreateNewScheduleInput, CreateNewScheduleRTInput
 
 from ..core.plans import NightStats
@@ -140,7 +142,12 @@ class Query:
         return [
             AvailableProgram(id=p[1], ref_label=p[0]) for p in results
         ]
-    
+
+    @strawberry.field
+    async def visibility_aggregator_status(self) -> VisibilityAggregatorStatus:
+        status = await coordination.get_aggregator_status()
+        return VisibilityAggregatorStatus(**status)
+
     @strawberry.field
     async def build_parameters(self) -> BuildParametersResponse:
         build_params = await build_params_store.get()

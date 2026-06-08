@@ -100,6 +100,7 @@ type Query {
   schedule(scheduleId: String!, newScheduleInput: CreateNewScheduleInput!): String!
   scheduleV2(newScheduleRtInput: CreateNewScheduleRTInput!): String!
   availablePrograms: [AvailableProgram!]!
+  visibilityAggregatorStatus: VisibilityAggregatorStatus!
   buildParameters: BuildParametersResponse!
 }
 
@@ -206,4 +207,14 @@ type TimelineEntriesBySite {
 type Version {
   version: String!
   changelog: [String!]!
+}
+
+type VisibilityAggregatorStatus {
+  active: Boolean!
+  stale: Boolean!
+  holder: String
+  startedAt: String
+  heartbeatAt: String
+  finishedAt: String
+  detail: String
 }

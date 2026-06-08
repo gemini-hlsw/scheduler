@@ -22,6 +22,7 @@ from scheduler.clients.scheduler_queue_client import SchedulerQueue, SchedulerEv
 from scheduler.events import to_timeslot_idx
 from scheduler.graphql_mid.types import SPlans, NightPlansWithEvent
 from scheduler.night_monitor.event_sources import WeatherEventSource
+from scheduler.services.visibility_aggregator import coordination
 
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site
 from astropy.coordinates import Angle
@@ -128,8 +129,27 @@ class EngineRT:
 
     async def compute_event_plan(self, event: SchedulerEvent):
         """
+        Compute a new plan for the given event, gated by the aggregator interlock.
+
+        Hard interlock: we never create a plan while the visibility aggregator is
+        running, blocking until it finishes (it only starts when no night is being
+        executed). We then publish that a plan computation is in progress so a
+        cron tick won't begin aggregating concurrently, and clear it when done.
+        """
+        await coordination.wait_until_aggregator_idle()
+        await coordination.signal_plan_in_progress(
+            holder=self.process_id,
+            detail={"event": str(event.trigger_event)},
+        )
+        try:
+            return await self._compute_event_plan(event)
+        finally:
+            await coordination.signal_plan_done()
+
+    async def _compute_event_plan(self, event: SchedulerEvent):
+        """
         Compute a new plan based on the given event.
-        
+
         Args:
             event (Event): The event to compute the plan for.
         Returns:

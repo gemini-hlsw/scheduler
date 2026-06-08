@@ -31,3 +31,23 @@ sight:
   api_url: http://localhost:9800/api/v1
   # Per-request HTTP timeout in seconds for read-only bulk fetches.
   timeout: 300
+
+# Background visibility-aggregator cron (scheduler.services.visibility_aggregator).
+visibility_aggregator:
+  # How long EngineRT.compute_event_plan blocks while a run is active before
+  # proceeding anyway. null = block until the run finishes (the hard interlock).
+  # Overridable per-deploy via the VIS_AGG_PLAN_WAIT_TIMEOUT env var.
+  plan_wait_timeout: ${oc.decode:${oc.env:VIS_AGG_PLAN_WAIT_TIMEOUT,null}}
+  # A coordination holder whose heartbeat is older than this (seconds) is treated
+  # as dead, so a crashed run never wedges the interlock. This is NOT a run
+  # timeout: a healthy run heartbeats every `heartbeat_interval_seconds` and may
+  # run for as long as it needs (e.g. a ~30 min semester-start backfill). Keep
+  # this comfortably larger than the heartbeat interval (here ~10x).
+  stale_after_seconds: 600
+  # Cadence (seconds) at which a run refreshes its coordination heartbeat.
+  heartbeat_interval_seconds: 60
+  # Cadence (seconds) at which the operation process polls while blocked on a run.
+  idle_poll_interval_seconds: 2
+  # Targets processed per committed Stage-1 batch. Bounds transaction size on
+  # Heroku Postgres and lets a killed run resume from the next batch.
+  target_batch_size: 25
