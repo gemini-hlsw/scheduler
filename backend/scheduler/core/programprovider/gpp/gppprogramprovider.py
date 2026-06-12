@@ -875,7 +875,10 @@ class GppProgramProvider(ProgramProvider):
             obs_class = ObservationClass.DAYCAL
         # TODO: Do something if observation class is NIGHT_CAL
         # elif 'NIGHT_CAL' in all_classes:
-        #     obs_class = ObservationClass.NIGHTCAL
+        #     obs_class = ObservationClass.NIGHTCAL # Not currently in lucupy
+        # The next 2 lines should be modified when NIGHT_CAL is handled
+        elif 'NIGHT_CAL' in all_classes:
+            obs_class = ObservationClass.PROGCAL
 
         return atoms, obs_class
 
@@ -915,7 +918,7 @@ class GppProgramProvider(ProgramProvider):
 
         # Disperser
         disperser = None
-        if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
+        if instrument in ['IGRINS2', 'MAROON-X', 'GRACES']:
             disperser = instrument
         # elif GppProgramProvider._AtomKeys.DISPERSER in instrument_config.keys():
         #     disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]

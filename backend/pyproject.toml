@@ -45,8 +45,8 @@ dependencies = [
 ]
 
 [dependency-groups]
-gpp-prod = ["gpp-client>=26.5.0"]
-gpp-dev = ["gpp-client>=26.5.1.dev0,<26.5.1a0"]
+gpp-prod = ["gpp-client>=26.6.0.dev1"]
+gpp-dev = ["gpp-client>=26.6.0.dev1"]
 dev = [
     "hypothesis>=6.137.1",
     "pytest>=8.4.1",
