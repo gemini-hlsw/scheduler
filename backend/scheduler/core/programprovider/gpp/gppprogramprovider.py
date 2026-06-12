@@ -2,13 +2,11 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import traceback
-import asyncio
 from datetime import datetime, timedelta
 from dateutil.parser import parse as parsedt
 from astropy.time import Time
-from os import PathLike
 from pathlib import Path
-from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple, Dict
+from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
 
 
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
@@ -17,20 +15,18 @@ from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Con
                               Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
                               ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
                               Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
-                              TimingWindow, TooType, WaterVapor, Wavelength, Resource, UniqueGroupID, GROUP_NONE_ID,
+                              TimingWindow, TooType, WaterVapor, Wavelength, Resource, GROUP_NONE_ID,
                               CalibrationRole)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
-from pandas.core.common import fill_missing_names
 
 from definitions import ROOT_DIR
 from scheduler.clients.gpp import gpp
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
-
 
 __all__ = [
     'GppProgramProvider',
@@ -136,7 +132,7 @@ class GppProgramProvider(ProgramProvider):
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
-    _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS, 'FLAMINGOS2': Site.GS}
+    _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS, 'FLAMINGOS2': Site.GS, 'IGRINS2': Site.GN}
 
     _gmos_filters = {'GMOS-S': ['U_PRIME', 'G_PRIME', 'R_PRIME', 'I_PRIME', 'Z_PRIME', 'Z', 'Y', 'GG455', 'OG515',
                                     'RG610', 'CA_T', 'F396N', 'OIII', 'OIIIC', 'HE_II', 'HE_IIC', 'OVI', 'OVIC',
@@ -150,7 +146,7 @@ class GppProgramProvider(ProgramProvider):
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
 
     # Translate instrument names to use the OCS Resources
-    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2'}
+    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2', 'IGRINS2': 'IGRINS2'}
 
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
@@ -396,14 +392,14 @@ class GppProgramProvider(ProgramProvider):
     }
 
     DISPERSER_FOR_INSTRUMENT = {
-        # 'GSAOI': _FPUKeys.GSAOI,
-        # 'GPI': _FPUKeys.GPI,
+        # 'GSAOI': _DISPKeys.GSAOI,
+        # 'GPI': _DISPKeys.GPI,
         'Flamingos2': _DISPKeys.F2,
-        # 'NIFS': _FPUKeys.NIFS,
-        # 'GNIRS': _FPUKeys.GNIRS,
+        # 'NIFS': _DISPKeys.NIFS,
+        # 'GNIRS': _DISPKeys.GNIRS,
         'GMOS-N': _DISPKeys.GMOSN,
         'GMOS-S': _DISPKeys.GMOSS,
-        # 'NIRI': _FPUKeys.NIRI
+        # 'NIRI': _DISPKeys.NIRI
     }
 
     # An empty base target for when the target environment is empty for an Observation.
@@ -773,7 +769,7 @@ class GppProgramProvider(ProgramProvider):
 
         # Disperser
         disperser = None
-        if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
+        if instrument in ['IGRINS', 'MAROON-X', 'GRACES']: # TODO Should add IGRINS2?
             disperser = instrument
         elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT:
             disperser = data[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
@@ -877,6 +873,9 @@ class GppProgramProvider(ProgramProvider):
             obs_class = ObservationClass.PARTNERCAL
         elif 'DAY_CAL' in all_classes:
             obs_class = ObservationClass.DAYCAL
+        # TODO: Do something if observation class is NIGHT_CAL
+        # elif 'NIGHT_CAL' in all_classes:
+        #     obs_class = ObservationClass.NIGHTCAL
 
         return atoms, obs_class
 
@@ -979,7 +978,7 @@ class GppProgramProvider(ProgramProvider):
             instrument, resource_type=ResourceType.INSTRUMENT
         )])
 
-        resources = frozenset([r for r in instrument_resource | fpu_resources | disperser_resources | filter_resources])
+        resources = frozenset([r for r in instrument_resource | fpu_resources | disperser_resources | filter_resources if r is not None])
         # Remove any None values.
         # resources = frozenset([res for res in resources if res is not None])
         # print(f'resources: {resources}')
@@ -1216,11 +1215,14 @@ class GppProgramProvider(ProgramProvider):
 
         except KeyError as ex:
             logger.error(f'KeyError while reading {obs_id}: {ex} (skipping).')
+            traceback.print_exc()
         except ValueError as ex:
             logger.error(f'ValueError while reading {obs_id}: {ex} (skipping).')
+            traceback.print_exc()
 
         except Exception as ex:
             logger.error(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
+            traceback.print_exc()
         return None
 
     def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
