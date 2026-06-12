@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -188,7 +188,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -231,7 +231,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
     { name = "sniffio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f1/b4/636b3b65173d3ce9a38ef5f0522789614e590dab6a8d505340a4efe4c567/anyio-4.10.0.tar.gz", hash = "sha256:3f3fae35c96039744587aa5b8371e7e8e603c0702999535961dd336026973ba6", size = 213252, upload-time = "2025-08-04T08:54:26.451Z" }
 wheels = [
@@ -498,7 +498,7 @@ name = "click"
 version = "8.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/60/6c/8ca2efa64cf75a977a0d7fac081354553ebe483345c734fb6b6515d96bbc/click-8.2.1.tar.gz", hash = "sha256:27c491cc05d968d271d5a1db13e3b5a184636d9d930f148c50b038f0d0646202", size = 286342, upload-time = "2025-05-20T23:19:49.832Z" }
 wheels = [
@@ -917,7 +917,7 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "26.5.1.dev2"
+version = "26.6.0.dev1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -929,9 +929,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8c/db/6b1e69de1a2d0df858e5cb872fe5fcea0494c8c2e6cbad38e4cc61857989/gpp_client-26.5.1.dev2.tar.gz", hash = "sha256:8445bc92f1a2ab42d1fec98cd7df52790e0bfb990bb612b17d18e30de1234b2f", size = 176497, upload-time = "2026-05-13T19:11:43.718Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/56/3960bebca9573caa30156bef15fab7c2596b25ea5d91ff2dfaf02abfdc44/gpp_client-26.6.0.dev1.tar.gz", hash = "sha256:52123b45f466c9f72942f3caf3923c156e084527ac3129a4c32f3703a7dee186", size = 185030, upload-time = "2026-06-10T20:00:18.679Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/20/6e/b178dafc49ae8064599314c3ab206278c9320ad4338d788609fe350bf6e2/gpp_client-26.5.1.dev2-py3-none-any.whl", hash = "sha256:e760e05620cfbe3868cfaa59af77a85f71a3cc1241f117acc8ad6da247eae6f4", size = 214225, upload-time = "2026-05-13T19:11:42.301Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/17/decbf85769863585d630c07acc9785c9c3f80cc6b604b56ea39efdbb3151/gpp_client-26.6.0.dev1-py3-none-any.whl", hash = "sha256:084b345bcd0bf193c6ede5e2342d926c6ece63b85fd0615871377d14ccc7b491", size = 222674, upload-time = "2026-06-10T20:00:19.674Z" },
 ]
 
 [[package]]
@@ -2807,8 +2807,8 @@ docs = [
     { name = "mkdocs-mermaid2-plugin", specifier = ">=1.2.1" },
     { name = "mkdocstrings-python", specifier = ">=1.16.12" },
 ]
-gpp-dev = [{ name = "gpp-client", specifier = ">=26.5.1.dev0,<26.5.1a0" }]
-gpp-prod = [{ name = "gpp-client", specifier = ">=26.5.0" }]
+gpp-dev = [{ name = "gpp-client", specifier = ">=26.6.0.dev1" }]
+gpp-prod = [{ name = "gpp-client", specifier = ">=26.6.0.dev1" }]
 
 [[package]]
 name = "scipy"
