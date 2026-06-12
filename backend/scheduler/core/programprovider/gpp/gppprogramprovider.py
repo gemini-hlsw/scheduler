@@ -918,7 +918,7 @@ class GppProgramProvider(ProgramProvider):
 
         # Disperser
         disperser = None
-        if instrument in ['IGRINS2', 'MAROON-X', 'GRACES']:
+        if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
             disperser = instrument
         # elif GppProgramProvider._AtomKeys.DISPERSER in instrument_config.keys():
         #     disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]
