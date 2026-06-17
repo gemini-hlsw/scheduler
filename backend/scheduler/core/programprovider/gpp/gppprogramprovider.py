@@ -129,6 +129,7 @@ class GppProgramProvider(ProgramProvider):
     _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
     _F2_FILTER_WAVELENGTHS = {'Y': 1.02, 'J': 1.25, 'H': 1.63, 'Ks': 2.16, 'K-blue': 2.06, 'K-red': 2.31,
                               'JH': 1.34, 'HK': 1.9, 'Jlow': 1.12, 'K-long': 2.2}
+    _IGRINS2_WAVELENGTH = 1.6
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
@@ -146,7 +147,7 @@ class GppProgramProvider(ProgramProvider):
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
 
     # Translate instrument names to use the OCS Resources
-    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2', 'IGRINS2': 'IGRINS2'}
+    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2', 'IGRINS2': 'IGRINS-2'}
 
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
@@ -949,6 +950,8 @@ class GppProgramProvider(ProgramProvider):
 
         if instrument == 'Flamingos2':
             wavelength = Wavelength(GppProgramProvider._F2_FILTER_WAVELENGTHS[filters[0]])
+        elif instrument == 'IGRINS-2':
+            wavelength = Wavelength(GppProgramProvider._IGRINS2_WAVELENGTH)
         elif 'central_wavelength' in instrument_config.keys():
             # assumes GMOS, so convert to microns
             wavelength = Wavelength(float(instrument_config['central_wavelength']['nanometers'] / 1000.))
