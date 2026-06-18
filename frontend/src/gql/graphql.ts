@@ -137,6 +137,7 @@ export type Query = {
   schedule: Scalars['String'];
   scheduleV2: Scalars['String'];
   version: Version;
+  visibilityAggregatorStatus: VisibilityAggregatorStatus;
   weather?: Maybe<Array<Maybe<Weather>>>;
 };
 
@@ -264,6 +265,17 @@ export type Version = {
   __typename?: 'Version';
   changelog: Array<Scalars['String']>;
   version: Scalars['String'];
+};
+
+export type VisibilityAggregatorStatus = {
+  __typename?: 'VisibilityAggregatorStatus';
+  active: Scalars['Boolean'];
+  detail?: Maybe<Scalars['String']>;
+  finishedAt?: Maybe<Scalars['String']>;
+  heartbeatAt?: Maybe<Scalars['String']>;
+  holder?: Maybe<Scalars['String']>;
+  stale: Scalars['Boolean'];
+  startedAt?: Maybe<Scalars['String']>;
 };
 
 export type Weather = {
