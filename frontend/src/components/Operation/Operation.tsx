@@ -13,7 +13,6 @@ import {
 import { DisplayWeather } from "../WeatherConditions/DisplayWeather";
 import OnDemandControl from "../ControlPanel/OnDemandControl";
 import BuildParameters from "../BuildParameters/BuildParameters";
-import DisplayBuildParameters from "../BuildParameters/DisplayBuildParameters";
 
 export default function Operation() {
   const [scheduleV2] = useLazyQuery(scheduleV2Query, {
