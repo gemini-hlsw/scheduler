@@ -919,11 +919,11 @@ class GppProgramProvider(ProgramProvider):
 
         # Disperser
         disperser = None
-        if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
-            disperser = instrument
+        # if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:
+        #     disperser = instrument
         # elif GppProgramProvider._AtomKeys.DISPERSER in instrument_config.keys():
         #     disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]
-        elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT and 'SLIT' in mode:
+        if instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT and 'SLIT' in mode:
             disperser = instrument_config[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
         elif 'GMOS' in instrument and 'IMAGING' in mode:
             disperser = 'Mirror'
@@ -1095,6 +1095,9 @@ class GppProgramProvider(ProgramProvider):
             elif 'FLAM' in mode:
                 if 'SLIT' in mode:
                     acq_overhead = timedelta(seconds=20 * 60)
+            elif "IGRINS" in mode:
+                if "SLIT" in mode:
+                    acq_overhead = timedelta(seconds=7 * 60)
             # print(f'\t\t acq_overhead: {acq_overhead}')
 
             # Atoms
