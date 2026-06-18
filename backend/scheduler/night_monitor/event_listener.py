@@ -14,10 +14,11 @@ from .event_sources import (
     EventSourceType,
 )
 
+from scheduler.services import logger_factory
+_logger = logger_factory.create_logger(__name__)
+
 
 __all__ = ['EventListener', 'SubscriptionEndedException']
-
-from scheduler.clients.scheduler_queue_client import SchedulerQueue
 
 
 class SubscriptionEndedException(Exception): pass
@@ -72,6 +73,8 @@ class EventListener:
                 async with client as session:
                     sub_generator = subscription_factory(session)
                     async for data in sub_generator:
+                        _logger.debug("Received Weather event:")
+                        _logger.debug(data)
                         if self._shutdown_event.is_set():
                             break
                         await self.queue.put((source, sub_name, data))
@@ -80,13 +83,13 @@ class EventListener:
                     raise SubscriptionEndedException(f"Subscription '{sub_name}' ended gracefully, retrying.")
 
             else:
-                print(f"Listening to {sub_name}")
+                _logger.info(f"Listening to {sub_name}")
                 async for data in subscription_factory():
                     if self._shutdown_event.is_set():
                         break
 
-                    print("Received ODB event:")
-                    print(data)
+                    _logger.debug("Received ODB event:")
+                    _logger.debug(data)
                     await self.queue.put((source, sub_name, data))
 
                 if not self._shutdown_event.is_set():

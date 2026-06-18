@@ -3,95 +3,35 @@
 
 import asyncio
 import inspect
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Callable, Any
-
-from astropy.time import Time
-from lucupy.minimodel import Site, ALL_SITES
-from pydantic import BaseModel, field_serializer, field_validator
+from typing import Callable
 
 from scheduler.graphql_mid.types import NewPlansRT
-from scheduler.events import NightEvent, OnDemandScheduleEvent
 from scheduler.services import logger_factory
-from scheduler.core.events.queue import WeatherChangeEvent, ObservationActivationEvent
+from scheduler.core.events.queue import Event
 
-__all__ = ["SchedulerQueue", "SchedulerEvent"]
+__all__ = ["SchedulerQueue"]
 
 _logger = logger_factory.create_logger(__name__)
-
-@dataclass
-class SchedulerEvent:
-    trigger_event: str
-    event: Any | None = None
-    time: datetime | None = None
-    night_start: Time | None = None
-    night_end: Time | None = None
-    site: Site | None = None
-
 
 class SchedulerQueue:
 
     def __init__(self):
         self._queue = asyncio.Queue()
 
-    async def add_schedule_event(
-        self,
-        reason: str,
-        event: Any | None, # The type should be a collection of different events, a
-        night_start: datetime | None = None,
-        night_end: datetime | None = None,
-        priority: int = 0):
+    async def add_schedule_event(self, event: Event):
         """
         Publishes a scheduler event to the queue.
 
         Args:
-            reason (str): The reason for the event.
             event: The event that triggered the scheduler event.
-            priority: Priority level (0 = regular, 1 = on_demand)
         """
-        if event is not None:
-            if isinstance(event, NightEvent):
-                scheduler_event = SchedulerEvent(
-                    trigger_event=reason,
-                    time=event.time.to_datetime(),
-                    site=event.site,
-                )
-            elif isinstance(event, OnDemandScheduleEvent):
-                scheduler_event = SchedulerEvent(
-                    trigger_event=reason,
-                    time=event.time,
-                    night_start=night_start,
-                    site=None
-                )
-            elif isinstance(event, WeatherChangeEvent):
-                # TODO: Variant snapshot should be used to update weather before plan calculation
-                # Maybe the entire event should be passed to get the variants in the consume_events function
-                scheduler_event = SchedulerEvent(
-                    trigger_event=reason,
-                    event=event,
-                    time=event.time,
-                    site=event.site,
-                )
-            elif isinstance(event, ObservationActivationEvent):
-                scheduler_event = SchedulerEvent(
-                    trigger_event=reason,
-                    event=event,
-                    time=event.time,
-                    site=event.site,
-                )
-            else:
-                scheduler_event = SchedulerEvent(
-                    trigger_event=reason,
-                    time=event.time,
-                    site=event.observation.site,
-                )
-        else:
-            scheduler_event = SchedulerEvent(trigger_event=reason)
-        self._queue.put_nowait(scheduler_event)
-        _logger.info(f"Sent Scheduler event: {scheduler_event.trigger_event} ")
+        if event is None:
+            _logger.error("Attempted to add a None event to the scheduler queue. Event will be ignored.")
+            return
+        self._queue.put_nowait(event)
+        _logger.info(f"Sent Scheduler event: {event.description} ")
 
-    async def consume_events(self, callback: Callable[[SchedulerEvent], NewPlansRT]):
+    async def consume_events(self, callback: Callable[[Event], NewPlansRT]):
         """
         Starts consuming events from the queue.
 
@@ -99,9 +39,9 @@ class SchedulerQueue:
             callback: Async function to process each event
         """
 
+        event = await self._queue.get()
         try:
-            event = await self._queue.get()
-            _logger.info(f"Received Scheduler event: {event.trigger_event} at {event.time} ")
+            _logger.info(f"Received Scheduler event: {event.description} at {event.time} ")
 
             # Call the user's callback
             result = None
@@ -117,7 +57,7 @@ class SchedulerQueue:
             return event, result
 
         except Exception as e:
-            print(f"Error trying to consume event {event.trigger_event}: {e}")
+            _logger.error(f"Error trying to consume event {event.description}: {e}")
             raise
 
     async def close(self):

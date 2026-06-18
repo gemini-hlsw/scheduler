@@ -15,11 +15,13 @@ __all__ = [
     'UUIDIdentified',
     'UUIDReferenced',
     'Event',
+    'NightEvent',
     'RoutineEvent',
     'TwilightEvent',
     'EveningTwilightEvent',
     'MorningTwilightEvent',
     'InterruptionEvent',
+    'OnDemandScheduleEvent',
     'WeatherChangeEvent',
     'FaultEvent',
     'InterruptionResolutionEvent',
@@ -101,6 +103,13 @@ class RoutineEvent(Event, ABC):
 
 
 @dataclass(frozen=True)
+class NightEvent(RoutineEvent):
+    """An event indicating that a significant astronomical event has occurred during the night.
+    This includes the evening and morning twilight, as well as the end of night.
+    """
+    ...
+
+@dataclass(frozen=True)
 class TwilightEvent(RoutineEvent, ABC):
     """An event indicating that the 12 degree starting twilight
         for a night has been reached.
@@ -136,6 +145,13 @@ class InterruptionEvent(Event, ABC):
     2. Events that have a specified end time (e.g. engineering tasks, faults) and thus are paired together
        with an InterruptionResolutionEvent.
     """
+    ...
+
+
+@final
+@dataclass(frozen=True)
+class OnDemandScheduleEvent(InterruptionEvent):
+    """Event that is created when a new on-demand schedule is requested."""
     ...
 
 

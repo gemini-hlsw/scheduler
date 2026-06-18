@@ -2,21 +2,16 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-import zoneinfo
-from datetime import datetime, timedelta, timezone, UTC
+from datetime import datetime, timedelta, UTC
 from typing import FrozenSet, List
-
-from hypothesis import event
 from lucupy import sky
 from lucupy.minimodel import Site
 from astropy.time import Time
-from astropy import units as u
-
-
 from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.core.builder.modes import SchedulerModes, app_mode
-from scheduler.events import NightEvent
+from scheduler.core.events.queue.events import NightEvent, TwilightEvent, MorningTwilightEvent, EveningTwilightEvent
 from scheduler.services.logger_factory import create_logger
+
 _logger = create_logger(__name__)
 
 __all__ = ["NightTracker"]
@@ -46,23 +41,17 @@ class NightTracker:
 
     # Precompute night events for each site as an array of tuples
     all_events = []
-
-
     for site in sites:
       night_events = self.calculate_night_events(self.date, site)
       correct_night_events = self._get_correct_events(self.date, site, night_events)
       all_events.extend(correct_night_events)
 
-    print(f'For {self.date} this are the night events:')
-    for event in all_events:
-      print(f'\t{event.description}: {event.time.value}')
-    
     # Sort events by time
     self.sorted_night_events = sorted(all_events, key=lambda x: x.time)
 
     # Add end of night event
     self.sorted_night_events.append(
-      NightEvent(description="End of Night", time=self.sorted_night_events[-1].time + 5 * u.min, site="Both"),
+      NightEvent(description="End of Night", time=(self.sorted_night_events[-1].time + timedelta(minutes=5)), site="Both"),
     )
 
     # Debugging output
@@ -90,13 +79,13 @@ class NightTracker:
     )
 
     night_events = [
-      NightEvent(description=f"Midnight at {site.name}", time=midnight[0], site=site),
-      NightEvent(description=f"Sunset at {site.name}", time=sunset, site=site),
-      NightEvent(description=f"Sunrise at {site.name}", time=sunrise, site=site),
-      NightEvent(description=f"Evening 12° Twilight at {site.name}", time=even_12twi, site=site),
-      NightEvent(description=f"Morning 12° Twilight at {site.name}", time=morn_12twi, site=site),
-      NightEvent(description=f"Moonrise at {site.name}", time=moonrise, site=site),
-      NightEvent(description=f"Moonset at {site.name}", time=moonset, site=site),
+      NightEvent(description=f"Midnight at {site.name}", time=midnight[0].to_datetime(timezone=UTC), site=site),
+      TwilightEvent(description=f"Sunset at {site.name}", time=sunset.to_datetime(timezone=UTC), site=site),
+      TwilightEvent(description=f"Sunrise at {site.name}", time=sunrise.to_datetime(timezone=UTC), site=site),
+      EveningTwilightEvent(description=f"Evening 12° Twilight at {site.name}", time=even_12twi.to_datetime(timezone=UTC), site=site),
+      MorningTwilightEvent(description=f"Morning 12° Twilight at {site.name}", time=morn_12twi.to_datetime(timezone=UTC), site=site),
+      NightEvent(description=f"Moonrise at {site.name}", time=moonrise.to_datetime(timezone=UTC), site=site),
+      NightEvent(description=f"Moonset at {site.name}", time=moonset.to_datetime(timezone=UTC), site=site),
     ]
 
     return night_events
@@ -118,8 +107,8 @@ class NightTracker:
       List[NightEvent]: Original NightEvent list or the night events for the next day.
 
     """
-    evening_twilight = events[3].time.to_datetime(timezone=UTC)
-    morning_twilight = events[4].time.to_datetime(timezone=UTC)
+    evening_twilight = events[3].time
+    morning_twilight = events[4].time
 
     # If both twilights are in the past, we need the next night
     if morning_twilight < now:
@@ -168,15 +157,12 @@ class NightTracker:
       event (NightEvent): NightEvent to send.
 
     """
-    wait_time = (event.time.to_datetime(timezone=UTC) - now).total_seconds()
+    wait_time = (event.time - now).total_seconds()
     if wait_time > 0:
-      _logger.info(f'Event {event.description} set to trigger in {wait_time} seconds at {event.time.value}')
+      _logger.info(f'Event {event.description} set to trigger in {wait_time} seconds at {event.time}')
       try:
         await asyncio.sleep(wait_time)
-        await self.scheduler_queue.add_schedule_event(
-          reason=f'Night event {event.description}',
-          event=event
-        )
+        await self.scheduler_queue.add_schedule_event(event)
       except asyncio.CancelledError:
         _logger.warning(f'Night event {event.description} wasn\'t triggered and is not in the queue.')
 
@@ -197,10 +183,7 @@ class NightTracker:
       _logger.info("Starting non-real-time tracking of night events")
       for night_event in self.sorted_night_events:
         if self._should_trigger_plan(night_event):
-          await schedule_queue.add_schedule_event(
-            reason=f'Night event {night_event.description}',
-            event=night_event
-        )
+          await schedule_queue.add_schedule_event(night_event)
       return
 
     filtered_night_events = [ne for ne in self.sorted_night_events if self._should_trigger_plan(ne)]
@@ -226,10 +209,7 @@ class NightTracker:
     #    _logger.debug(f"Event Triggered: {next_night_event.description} at {current_time.iso}")
     #    self.sorted_night_events.pop(0)
     #    if self.should_trigger_plan(next_night_event):
-    #      await schedule_queue.add_schedule_event(
-    #        reason=f'Night event {next_night_event.description}',
-    #        event=next_night_event
-    #      )
+    #      await schedule_queue.add_schedule_event(next_night_event)
     #  else:
     #    await asyncio.sleep(self.CHECK_INTERVAL)  # Sleep for a while before checking again
 

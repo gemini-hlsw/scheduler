@@ -4,26 +4,22 @@
 import asyncio
 import datetime
 from time import time
-
+import traceback
 import numpy as np
-
-
 from .params import SchedulerParameters, build_params_store
-
 from scheduler.core.scp.scp import SCP
 from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
 from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
-from scheduler.core.events.queue.events import EndOfNightEvent
+from scheduler.core.events.queue.events import Event, EndOfNightEvent
 from scheduler.graphql_mid.types import NightPlansError
-from scheduler.clients.scheduler_queue_client import SchedulerQueue, SchedulerEvent
+from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.events import to_timeslot_idx
 from scheduler.graphql_mid.types import SPlans, NightPlansWithEvent
 from scheduler.night_monitor.event_sources import WeatherEventSource
 from scheduler.services.visibility_aggregator import coordination
-
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site
 from astropy.coordinates import Angle
 from astropy import units as u
@@ -127,7 +123,7 @@ class EngineRT:
             self.scp.selector.update_site_variant(Site[site_state["site"]], initial_variant)
         _logger.info("Initial weather variants successfully updated.")
 
-    async def compute_event_plan(self, event: SchedulerEvent):
+    async def compute_event_plan(self, event: Event):
         """
         Compute a new plan for the given event, gated by the aggregator interlock.
 
@@ -139,14 +135,14 @@ class EngineRT:
         await coordination.wait_until_aggregator_idle()
         await coordination.signal_plan_in_progress(
             holder=self.process_id,
-            detail={"event": str(event.trigger_event)},
+            detail={"event": str(event.description)},
         )
         try:
             return await self._compute_event_plan(event)
         finally:
             await coordination.signal_plan_done()
 
-    async def _compute_event_plan(self, event: SchedulerEvent):
+    async def _compute_event_plan(self, event: Event):
         """
         Compute a new plan based on the given event.
 
@@ -162,7 +158,6 @@ class EngineRT:
         # TODO: Specific logic for events
         # In theory this should be a shared process for all events.
         # Meaning the process of setup the SCP and run a schedule is independent from the type of event.
-        # Right now there is no get weather query so we would need to handle this specifically.
         # sites_to_update = self.params.sites
         # if 'Weather' in event.trigger_event:
         #     self.scp.selector.update_site_variant(event.site, event.event.variant_change)
@@ -172,6 +167,10 @@ class EngineRT:
         build_params = await build_params_store.get()
         night_times = build_params.get_night_times()
 
+        # The start timeslot for each site should be:
+        # - The event time if happens after the twilight and after the custom start
+        # - The custom start if defined and happens after the twilight
+        # - The twilight timeslot
         start_timeslot = {}
         for site in self.params.sites:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
@@ -206,7 +205,7 @@ class EngineRT:
                 plans.plans[site].alt_degs.append(alt_degs)
         splans = SPlans.from_computed_plans(plans, self.params.sites)
 
-        return NightPlansWithEvent(night_plans=splans, event=f"{event.trigger_event} {event.time}")
+        return NightPlansWithEvent(night_plans=splans, event=f"{event.description} {event.time}")
 
     async def run(self):
         """
@@ -229,6 +228,7 @@ class EngineRT:
                         await q.put(plan)
 
                 except Exception as e:
+                    traceback.print_exc()
                     _logger.error(f"Error in scheduler process: {e}")
                     for q in plan_response_subscribers.get(self.process_id, set()):
                         await q.put(NightPlansError(error=str(e)))

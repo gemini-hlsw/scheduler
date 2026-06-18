@@ -39,7 +39,7 @@ class WeatherEventHandler(EventHandler):
         return WeatherChangeEvent(variant_change=variant,
                                   time=datetime.now(UTC),
                                   site=site,
-                                  description=f"weather changed in site {site.name}")
+                                  description=f"Weather changed for site {site.name}")
     
     async def _on_weather_change(self, event: WeatherChangeEvent):
-        await self.scheduler_queue.add_schedule_event(reason='Weather changed', event=event)
+        await self.scheduler_queue.add_schedule_event(event)
