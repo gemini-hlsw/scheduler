@@ -1,14 +1,14 @@
-name: 'Setup Frontend with pnpm'
-description: 'Set up Node.js environment with pnpm, cache, and install dependencies'
+name: "Setup Frontend with pnpm"
+description: "Set up Node.js environment with pnpm, cache, and install dependencies"
 
 inputs:
   node-version:
-    description: 'Node.js version to install'
+    description: "Node.js version to install"
     required: false
-    default: '20'
+    default: "24"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Install pnpm
       uses: pnpm/action-setup@v4
