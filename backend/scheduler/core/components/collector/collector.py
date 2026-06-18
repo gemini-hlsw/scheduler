@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
 from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor
 
 import astropy.units as u
 import numpy as np

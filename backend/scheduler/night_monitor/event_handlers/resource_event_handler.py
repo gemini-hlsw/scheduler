@@ -162,10 +162,7 @@ class ResourceEventHandler(EventHandler):
 
     async def _disabled_callback(self, event: MockResourceEvent):
 
-        await self.scheduler_queue.add_schedule_event(
-            reason=f'Resource {event.resource_name} in plan ',
-            event=event
-        )
+        await self.scheduler_queue.add_schedule_event(event)
         print("Resource is still disabled after timeout")
 
     async def _on_resource_edit(self, event: MockResourceEvent):

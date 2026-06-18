@@ -1,24 +1,6 @@
-from dataclasses import dataclass
 from datetime import datetime, timedelta
-
-from astropy.time import Time
-from lucupy.minimodel import Site, TimeslotIndex
+from lucupy.minimodel import TimeslotIndex
 from lucupy.timeutils import time2slots
-
-
-@dataclass
-class NightEvent:
-  description: str
-  time: Time
-  site: Site
-
-
-@dataclass
-class OnDemandScheduleEvent:
-  description: str
-  time: datetime
-
-
 
 def to_timeslot_idx(
   time: datetime,

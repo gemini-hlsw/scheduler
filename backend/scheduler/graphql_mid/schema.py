@@ -29,7 +29,7 @@ from .inputs import CreateNewScheduleInput, CreateNewScheduleRTInput
 
 from ..core.plans import NightStats
 from ..engine.params import build_params_store
-from ..events import OnDemandScheduleEvent
+from scheduler.core.events.queue import OnDemandScheduleEvent
 
 _logger = create_logger(__name__)
 
@@ -124,14 +124,12 @@ class Query:
         op_process = process_manager.get_operation_process()
 
         utc_start = night_start.to_datetime(timezone=UTC)
-        event = OnDemandScheduleEvent(
-            description="On demand request",
-            # time=datetime.now(UTC)
-            time=utc_start,
-        )
         await op_process.scheduler_queue.add_schedule_event(
-            reason='On demand request',
-            event=event,
+            OnDemandScheduleEvent(
+                site=None,
+                description="On demand request",
+                time=utc_start,
+            )
         )
         return f'Plan is on the queue in the Operation Process!'
 
