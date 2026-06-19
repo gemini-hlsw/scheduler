@@ -1,15 +1,23 @@
 # Copyright (c) 2016-2025 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import time
 from datetime import timedelta, datetime, UTC
 from typing import ClassVar, Dict, Tuple, Callable
 
+from scheduler.clients.gpp import gpp
 from scheduler.core.events.queue import ObservationActivationEvent
 from scheduler.night_monitor.event_sources import ODBEventSource
 from .event_handler import EventHandler, LastPlanMock
+from .obscalc_visibility import calculate_and_store_visibility, site_key_from_instrument
+from gpp_client.generated.enums import ObservationWorkflowState
 from gpp_client.generated.scheduler_observations_updates import SchedulerObservationsUpdates, SchedulerObservationsUpdatesObscalcUpdate
 
-from lucupy.minimodel import ALL_SITES, Site
+from lucupy.minimodel import ALL_SITES
+
+from scheduler.services import logger_factory
+
+_logger = logger_factory.create_logger(__name__)
 
 
 class ODBEventHandler(EventHandler):
@@ -35,8 +43,10 @@ class ODBEventHandler(EventHandler):
 
     async def _on_created_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
         """
-        A new observation was created. Check if the status is ready for this new observation.
-        For ToOs we might want to interrupt so check that status as well.
+        A new observation was created. If it is READY, compute and store its
+        visibility for the program's active window (so the realtime collector can
+        see it before the next semester-wide aggregation run), then trigger a new
+        plan request.
 
         Args:
             event (SchedulerObservationsUpdatesObscalcUpdate): The observation edit type created.
@@ -101,7 +111,36 @@ class ODBEventHandler(EventHandler):
         # Recommended to check the workflow state (missing in the gpp-client event for now)
         # Option 1: If the observation is not in the last plan, we trigger a new plan to check if we want to include it in the current schedule.
         # Option 2: If the observation is in the last plan, we check if the constraints changed. If they did, we trigger a new plan to check if we need to update the
-        #   TODO get the new constraints in gpp-client
+
+        value = event.value
+        if value is None or value.workflow is None:
+            return
+        if value.workflow.value.state != ObservationWorkflowState.READY:
+            return
+
+        t0 = time.perf_counter()
+        try:
+            obs = await gpp.client.observation.get_by_id(value.id)
+        except Exception as exc:
+            _logger.error(f'Could not fetch observation {value.id} to resolve its site: {exc}')
+            obs = None
+
+        observation = obs.observation if obs else None
+        reference = observation.reference if observation else None
+        label = reference.label if reference else None
+        instrument = observation.instrument if observation else None
+        site_key = site_key_from_instrument(instrument)
+        if site_key is None or label is None:
+            _logger.warning(
+                f'Skipping visibility for observation {value.id}: could not resolve '
+                f'site/label (instrument={instrument!r}, label={label!r}).'
+            )
+        else:
+            _logger.info(
+                f'Resolved observation {value.id} -> {label} ({site_key}, {instrument!r}) '
+                f'in {time.perf_counter() - t0:.2f}s.'
+            )
+            await calculate_and_store_visibility(value, observation_id=label, site_key=site_key)
 
         # For now, we trigger a new plan for any update.
         await self.scheduler_queue.add_schedule_event(
@@ -122,6 +161,13 @@ class ODBEventHandler(EventHandler):
             scheduler_queue (SchedulerQueue): Use to send new schedule request to the Engine.
         """
         # Check type of event
+
+        _logger.info(
+            f'Recieved ObservationEditEvent:'
+            f' For observation {event.value.id} -> {event.edit_type}'
+            f' Old calculation: {event.old_calculation_state} New calculation: {event.new_calculation_state}'
+        )
+
         match event.edit_type:
             case 'CREATED':
                await self._on_created_edit(event)

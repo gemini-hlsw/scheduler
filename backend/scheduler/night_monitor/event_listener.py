@@ -87,9 +87,6 @@ class EventListener:
                 async for data in subscription_factory():
                     if self._shutdown_event.is_set():
                         break
-
-                    _logger.debug("Received ODB event:")
-                    _logger.debug(data)
                     await self.queue.put((source, sub_name, data))
 
                 if not self._shutdown_event.is_set():

@@ -163,12 +163,13 @@ class Collector(SchedulerComponent):
     obs_classes: FrozenSet[ObservationClass]
     defer_night_events: bool = False  # If True, skip night_events initialization in __post_init__
 
-    # If True, VALIDATION/SIMULATION's sync `load_programs` routes visibility
-    # through the in-memory `_compute_visibility_locally` (same path RT uses)
-    # instead of the DB-backed `_load_visibility_from_sight`. Lets us run the
-    # full pipeline without a populated sight DB. Default False to preserve
-    # existing behaviour.
-    use_local_visibility: bool = False
+    # Visibility-loading override. True routes visibility through the in-memory
+    # `_compute_visibility_locally`; False reads pre-computed data from the sight
+    # service (`_load_visibility_from_sight`). None (the default) defers to the
+    # global `collector.visibility_strategy` config. An explicit True/False wins
+    # over the config (e.g. scripts/run.py forces local). Resolved via
+    # `_use_local_visibility()`; both the sync and async load paths honour it.
+    use_local_visibility: Optional[bool] = None
 
     # Per-instance per-night visibility map populated by _load_visibility_from_sight.
     # Each Collector owns its own copy — never make this a ClassVar (would break
@@ -506,11 +507,17 @@ class Collector(SchedulerComponent):
 
                 obs_with_resources[night_idx].append(obs)
 
-        if self.use_local_visibility:
+        if self._use_local_visibility():
             # In-memory compute, no DB. Same code path async_load_programs uses.
             self._compute_visibility_locally(parsed_observations, obs_with_resources)
         else:
-            self._load_visibility_from_sight(obs_with_resources, sem)
+            try:
+                self._load_visibility_from_sight(obs_with_resources, sem)
+            except Exception as exc:
+                _logger.warning(
+                    f'Sight visibility load failed ({exc}); falling back to local computation.'
+                )
+                self._compute_visibility_locally(parsed_observations, obs_with_resources)
         for _p_id, _obs in parsed_observations:
             base = _obs.base_target()
             Collector._observations[_obs.id] = _obs, base
@@ -522,6 +529,17 @@ class Collector(SchedulerComponent):
 
     def get_visible_nights_for_observation(self, obs_id: ObservationID) -> set[NightIndex]:
         return {n for n, ids in self._visible_obs_by_night.items() if obs_id in ids}
+
+    def _use_local_visibility(self) -> bool:
+        """Resolve whether to compute visibility in-process vs. read from sight.
+
+        An explicit ``use_local_visibility`` (True/False) wins; otherwise defer to
+        the global ``collector.visibility_strategy`` config ('local' -> True,
+        anything else, e.g. 'sight' -> False).
+        """
+        if self.use_local_visibility is not None:
+            return self.use_local_visibility
+        return str(config.collector.visibility_strategy).strip().lower() == 'local'
 
     async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         _logger.info("Starting async_load_programs...")
@@ -621,7 +639,16 @@ class Collector(SchedulerComponent):
                     continue
                 obs_with_resources[night_idx].append(obs)
 
-        self._compute_visibility_locally(parsed_observations, obs_with_resources)
+        if self._use_local_visibility():
+            self._compute_visibility_locally(parsed_observations, obs_with_resources)
+        else:
+            try:
+                await self._async_load_visibility_from_sight(obs_with_resources, sem)
+            except Exception as exc:
+                _logger.warning(
+                    f'Sight visibility load failed ({exc}); falling back to local computation.'
+                )
+                self._compute_visibility_locally(parsed_observations, obs_with_resources)
 
         for _p_id, _obs in parsed_observations:
             Collector._observations[_obs.id] = _obs, _obs.base_target()
@@ -817,29 +844,52 @@ class Collector(SchedulerComponent):
                 # Evaluate tree here?
 
 
+    def _sight_date_args(self) -> tuple:
+        """(start_date, end_date, site_ids) args shared by the sight loaders."""
+        return (
+            self.start_vis_time.date(),
+            self.end_vis_time.date(),
+            sorted({s.name for s in self.sites}),
+        )
+
     def _load_visibility_from_sight(
         self,
         filtered_observations: dict[NightIndex, list[Observation]],
         sem: Semester,
     ) -> None:
-        """Load visibility data from the in-process Sight calculator.
+        """Load visibility data from the Sight service (sync entry point).
 
-        Calls Calculator.get_visible_observations once per night, then issues
-        bulk Stage-1 and cumulative-visibility queries spanning the full date
-        range. Builds the per-night ``TargetInfo`` consumed by the selector
-        and optimizer downstream.
-
-        Stays synchronous so it composes with the rest of the collector
-        pipeline; bridges to the async Calculator via ``asyncio.run``.
+        Bridges to the async Calculator via ``asyncio.run`` so it composes with
+        the synchronous ``load_programs`` pipeline. The async pipeline must use
+        ``_async_load_visibility_from_sight`` instead (no nested event loop).
         """
-        start_date = self.start_vis_time.date()
-        end_date = self.end_vis_time.date()
-        site_ids = sorted({s.name for s in self.sites})
-
         per_night = asyncio.run(
-            self._fetch_sight_data(filtered_observations, start_date, end_date, site_ids)
+            self._fetch_sight_data(filtered_observations, *self._sight_date_args())
         )
+        self._apply_sight_visibility(filtered_observations, per_night)
 
+    async def _async_load_visibility_from_sight(
+        self,
+        filtered_observations: dict[NightIndex, list[Observation]],
+        sem: Semester,
+    ) -> None:
+        """Async entry point: await the Sight fetch (no ``asyncio.run``) then
+        build the per-night ``TargetInfo`` exactly like the sync path."""
+        per_night = await self._fetch_sight_data(
+            filtered_observations, *self._sight_date_args()
+        )
+        self._apply_sight_visibility(filtered_observations, per_night)
+
+    def _apply_sight_visibility(
+        self,
+        filtered_observations: dict[NightIndex, list[Observation]],
+        per_night: dict,
+    ) -> None:
+        """Build per-night ``TargetInfo`` from fetched Sight data.
+
+        Shared by the sync and async sight loaders. Calculator queries already
+        ran (results in ``per_night``); this is pure CPU post-processing.
+        """
         # Publish per-night visible observations for downstream consumers.
         # Wrap str ids back into ObservationID to match the public getter signature.
         self._visible_obs_by_night = {
@@ -1083,4 +1133,3 @@ class Collector(SchedulerComponent):
                 target_info_map[night_idx] = ti
 
             Collector._observations[obs.id] = obs, base
-

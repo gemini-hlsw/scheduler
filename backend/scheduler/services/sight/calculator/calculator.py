@@ -532,6 +532,47 @@ class Calculator:
             "nights": nights,
         }
 
+    async def store_missing_visibility(
+        self,
+        requests: list[ObservationRequest],
+        start_date: date,
+        end_date: date,
+    ) -> dict:
+        """
+        Store Stage 2 only for (observation, night) pairs not already present.
+
+        Existence-aware counterpart to ``store_visibility``: for each night in
+        the range it checks which observations already have a stored row and
+        recomputes only the missing ones. Lets callers (e.g. the ODB event
+        handler) re-run over an observation's active window without recomputing
+        nights that are already there.
+
+        Does not commit; the caller's session/transaction owns that.
+        """
+        if not requests:
+            return {"stored": 0, "nights": 0, "already_present": 0}
+
+        obs_ids = [r.observation_id for r in requests]
+        stored = 0
+        already_present = 0
+        current_date = start_date
+        while current_date <= end_date:
+            existing = await self.visibility_repo.get_by_observation_ids_on_night(
+                obs_ids, current_date
+            )
+            existing_ids = {d.observation_id for d in existing}
+            missing = [r for r in requests if r.observation_id not in existing_ids]
+            already_present += len(requests) - len(missing)
+
+            if missing:
+                result = await self.store_visibility(missing, current_date, current_date)
+                stored += int(result.get("stored", 0))
+
+            current_date += timedelta(days=1)
+
+        nights = (end_date - start_date).days + 1
+        return {"stored": stored, "nights": nights, "already_present": already_present}
+
     async def get_precalculated_visibility(
         self,
         start_date: date,

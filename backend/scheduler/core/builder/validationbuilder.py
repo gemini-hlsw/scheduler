@@ -125,7 +125,7 @@ class ValidationBuilder(SchedulerBuilder):
                         blueprint: CollectorBlueprint,
                         night_times: Dict[Site, Tuple[Time, Time]],
                         program_list: Optional[bytes] = None,
-                        use_local_visibility: bool = False) -> Collector:
+                        use_local_visibility: Optional[bool] = None) -> Collector:
 
         ValidationBuilder.check_ephemerides()
         collector = super().build_collector(start,
