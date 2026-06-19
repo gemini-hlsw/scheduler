@@ -13,6 +13,7 @@ from gpp_client.generated.scheduler_observations_updates import (
     SchedulerObservationsUpdatesObscalcUpdateValue as ObscalcValue,
 )
 
+from scheduler.config import config
 from scheduler.services import logger_factory
 from scheduler.services.sight.calculator.calculator import Calculator
 from scheduler.services.sight.calculator.models import (
@@ -25,6 +26,7 @@ from scheduler.services.sight.calculator.models import (
 from scheduler.services.sight.database.connection import session_scope
 
 __all__ = [
+    "sight_visibility_enabled",
     "site_key_from_instrument",
     "build_target_create",
     "build_constraints",
@@ -33,6 +35,12 @@ __all__ = [
 ]
 
 _logger = logger_factory.create_logger(__name__)
+
+
+def sight_visibility_enabled() -> bool:
+    """Whether visibility goes through the Sight service.
+    """
+    return str(config.collector.visibility_strategy).strip().lower() != "local"
 
 # GPP SkyBackground -> Sight ``target_sb`` fraction. Same values the program
 # provider uses (``GppProgramProvider._constraint_to_value``).
@@ -62,13 +70,8 @@ _INSTRUMENT_TO_SITE_KEY = {
 
 
 def site_key_from_instrument(instrument) -> Optional[str]:
-    """Derive the Sight site key (``"GN"`` / ``"GS"``) from an observation's
-    instrument.
-
-    Reference labels no longer encode the site, so — like ``GppProgramProvider``
-    — the site comes from the instrument. Instruments whose enum name ends in
-    ``NORTH`` / ``SOUTH`` are mapped by suffix; the rest use an explicit table.
-    Returns ``None`` for an unknown/None instrument (caller skips + logs).
+    """Derive the Sight site key (``"GN"`` / ``"GS"``) from an
+    observation's instrument.
     """
     if instrument is None:
         return None
@@ -101,10 +104,6 @@ def _to_date(value) -> date:
 
 def _parse_epoch(value) -> float:
     """Parse a GPP epoch scalar to a float year.
-
-    GPP sends epochs like ``"J2000.000"`` / ``"B1950.000"``; strip the leading
-    ``B``/``J`` before converting. Mirrors ``GppProgramProvider`` and falls back
-    to 2000.0 on anything unexpected.
     """
     if value is None:
         return 2000.0
@@ -133,9 +132,6 @@ def build_target_create(value: ObscalcValue) -> Optional[TargetCreate]:
     if base.sidereal is None:
         # Non-sidereal (or no coords): skip for now, same as the aggregator.
         return None
-    # Parse the sexagesimal hms/dms strings (not the ``degrees`` fields):
-    # GPP's ``dec.degrees`` is buggy for negative declinations (returns 360+dec),
-    # so GppProgramProvider uses sex2dec on hms/dms and we mirror that.
     return TargetCreate(
         name=str(base.name),
         is_sidereal=True,
@@ -178,15 +174,6 @@ def build_constraints(value: ObscalcValue, range_end: datetime) -> ObservationCo
 
 def expand_event_timing_windows(windows, range_end: datetime) -> List[SightTimingWindow]:
     """Expand event timing windows into flat Sight ``TimingWindow`` pairs.
-
-    Event-shape variant of ``lucupy_adapters.expand_timing_windows``. Handles the
-    three GPP end shapes:
-      * ``end is None`` -> open-ended window, capped at ``range_end``;
-      * ``TimingWindowEndAt`` -> fixed ``[start, at_utc]``;
-      * ``TimingWindowEndAfter`` -> duration window, optionally repeated by period
-        (``repeat.times`` repeats after the first; ``times is None`` => forever,
-        expanded up to ``range_end``).
-    Exclusion windows are ignored for now (matches the program provider).
     """
     out: List[SightTimingWindow] = []
     for tw in (windows or []):
@@ -264,10 +251,7 @@ async def calculate_and_store_visibility(
     t0 = time.perf_counter()
     async with session_scope() as session:
         calc = Calculator(session)
-        # Ensure the target row exists. We create it directly (rather than via
-        # create_targets_bulk, which swallows errors and eagerly precomputes
-        # Stage-1 for both sites): store_missing_visibility -> calculate_visibility
-        # computes night events + Stage-1 on demand for the needed site/nights.
+        # Ensure the target row exists.
         target = await calc.target_repo.get_by_name(payload.name)
         target_existed = target is not None
         if target is None:
@@ -282,6 +266,7 @@ async def calculate_and_store_visibility(
                 horizons_id=payload.horizons_id,
                 tag=payload.tag,
             )
+        # computes night events + Stage-1 on demand for the needed site/nights.
         result = await calc.store_missing_visibility([request], start_date, end_date)
     elapsed = time.perf_counter() - t0
 

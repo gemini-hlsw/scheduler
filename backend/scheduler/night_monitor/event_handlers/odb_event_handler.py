@@ -9,7 +9,7 @@ from scheduler.clients.gpp import gpp
 from scheduler.core.events.queue import ObservationActivationEvent
 from scheduler.night_monitor.event_sources import ODBEventSource
 from .event_handler import EventHandler, LastPlanMock
-from .obscalc_visibility import calculate_and_store_visibility, site_key_from_instrument
+from .obscalc_visibility import calculate_and_store_visibility, site_key_from_instrument, sight_visibility_enabled
 from gpp_client.generated.enums import ObservationWorkflowState
 from gpp_client.generated.scheduler_observations_updates import SchedulerObservationsUpdates, SchedulerObservationsUpdatesObscalcUpdate
 
@@ -118,29 +118,33 @@ class ODBEventHandler(EventHandler):
         if value.workflow.value.state != ObservationWorkflowState.READY:
             return
 
-        t0 = time.perf_counter()
-        try:
-            obs = await gpp.client.observation.get_by_id(value.id)
-        except Exception as exc:
-            _logger.error(f'Could not fetch observation {value.id} to resolve its site: {exc}')
-            obs = None
+        if sight_visibility_enabled():
+            # Gated visibility calculation, if strategy set to ``local`` this process is skipped
+            # entirely as the local calculation would be stored when the query is done in the Collector side.
 
-        observation = obs.observation if obs else None
-        reference = observation.reference if observation else None
-        label = reference.label if reference else None
-        instrument = observation.instrument if observation else None
-        site_key = site_key_from_instrument(instrument)
-        if site_key is None or label is None:
-            _logger.warning(
-                f'Skipping visibility for observation {value.id}: could not resolve '
-                f'site/label (instrument={instrument!r}, label={label!r}).'
-            )
-        else:
-            _logger.info(
-                f'Resolved observation {value.id} -> {label} ({site_key}, {instrument!r}) '
-                f'in {time.perf_counter() - t0:.2f}s.'
-            )
-            await calculate_and_store_visibility(value, observation_id=label, site_key=site_key)
+            t0 = time.perf_counter()
+            try:
+                obs = await gpp.client.observation.get_by_id(value.id)
+            except Exception as exc:
+                _logger.error(f'Could not fetch observation {value.id} to resolve its site: {exc}')
+                obs = None
+
+            observation = obs.observation if obs else None
+            reference = observation.reference if observation else None
+            label = reference.label if reference else None
+            instrument = observation.instrument if observation else None
+            site_key = site_key_from_instrument(instrument)
+            if site_key is None or label is None:
+                _logger.warning(
+                    f'Skipping visibility for observation {value.id}: could not resolve '
+                    f'site/label (instrument={instrument!r}, label={label!r}).'
+                )
+            else:
+                _logger.info(
+                    f'Resolved observation {value.id} -> {label} ({site_key}, {instrument!r}) '
+                    f'in {time.perf_counter() - t0:.2f}s.'
+                )
+                await calculate_and_store_visibility(value, observation_id=label, site_key=site_key)
 
         # For now, we trigger a new plan for any update.
         await self.scheduler_queue.add_schedule_event(

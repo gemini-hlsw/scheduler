@@ -91,8 +91,9 @@ DATABASE_URL=postgresql://user:password@localhost:5432/scheduler
 | `CLOUDCUBE_SECRET_ACCESS_KEY` | No       | AWS/CloudCube secret key. Required together with `CLOUDCUBE_URL`.                                                                                                                |
 | `GPP_TOKEN` | **Yes**  | Allows the Scheduler to connect to other GPP services like the ODB. If the development client is used add `GPP_DEVELOPMENT_TOKEN` instead                                        |
 | `WEATHER_URL` | **Yes** | Connects with the Weather service. Can be a Heroku URL or a local one set by Docker                                                                                              |
-|`VITE_WEATHER_URL` | **Yes**| Same as above but used by the frontend app |
-
+|`VITE_WEATHER_URL` | **Yes**| Same as above but used by the frontend app                                                                                                                                       |
+|`COLLECTOR_VISIBILITY_STRATEGY` | No | Toggle between Sight and Local visibility calculation                                                                                                                            |
+|`VIS_AGG_INTERLOCK` | No | Unlocks the aggregator lock to work with Sight locally on daytime |
 ### Scheduler modes
 
 `SCHEDULER_MODE` determines how the scheduler behaves at startup:

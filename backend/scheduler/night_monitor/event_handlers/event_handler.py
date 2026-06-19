@@ -12,38 +12,21 @@ from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 
 __all__ = [
     'EventHandler',
-    'MockObservation',
     'LastPlanMock'
 ]
-
-class MockObservation(BaseModel):
-    """
-    gpp client should have these base model
-    for now we used this until gpp client is hooked up
-    In this case the model is similar to the minimodel but NOT the same.
-    """
-    id: str
-    target_environment: Optional[TargetEnvironmentFields]
-    constraint_set: Optional[ConstraintSetFields]
-    workflow: Optional[CalculatedObservationWorkflowFields]
-
-    model_config = {
-        'arbitrary_types_allowed': True
-    }
 
 
 class LastPlanMock:
     visits = []
 
     def get_observation(self, observationId):
-        return MockObservation
+        pass
 
     def current_visit(self):
-        """Pointer to the current visit. Gets updated when a new visit is executed"""
-        return VisitFields
+        pass
 
     def resources(self):
-        return []
+        pass
 
 
 class EventHandler(ABC):

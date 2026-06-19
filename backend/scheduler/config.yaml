@@ -36,7 +36,7 @@ visibility_aggregator:
   # VIS_AGG_INTERLOCK=false) to bypass it entirely: plan creation no longer waits
   # on or signals the aggregator and never touches the scheduler_coordination
   # table. Use for local runs without the aggregator cron / coordination table.
-  interlock_enabled: ${oc.decode:${oc.env:VIS_AGG_INTERLOCK,false}}
+  interlock_enabled: ${oc.decode:${oc.env:VIS_AGG_INTERLOCK,true}}
   # How long EngineRT.compute_event_plan blocks while a run is active before
   # proceeding anyway. null = block until the run finishes (the hard interlock).
   # Overridable per-deploy via the VIS_AGG_PLAN_WAIT_TIMEOUT env var.
