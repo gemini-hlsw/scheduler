@@ -48,7 +48,16 @@ class ODBEventHandler(EventHandler):
                 # TODO: For now we do nothing until we implement the logic for different types of ToOs.
                 pass # Check the type of opportunity
 
-            await self.scheduler_queue.add_schedule_event(event)
+            # TODO create an appropriate event to trigger a new plan, for now we just send
+            # an observation activation
+            await self.scheduler_queue.add_schedule_event(
+                ObservationActivationEvent(
+                    site=ALL_SITES,
+                    observation_id=event.value.id,
+                    time=datetime.now(UTC),
+                    description=f'Observation {event.value.id} created from plan: {event.edit_type}'
+                )
+            )
 
     async def _on_deleted_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
         """
@@ -63,9 +72,14 @@ class ODBEventHandler(EventHandler):
 
         if event.value.id in last_plan:
             # TODO: If we keep the ObservationID wrapper this would require a modification
+            # TODO: Create an appropriate event to trigger a new plan
             await self.scheduler_queue.add_schedule_event(
-                reason=f'Observation {event.value.id} deleted from plan: {event.edit_type}',
-                event=event
+                ObservationActivationEvent(
+                    site=ALL_SITES,
+                    observation_id=event.value.id,
+                    time=datetime.now(UTC),
+                    description=f'Observation {event.value.id} deleted from plan: {event.edit_type}'
+                )
             )
 
     async def _on_updated_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
@@ -135,7 +149,9 @@ class ODBEventHandler(EventHandler):
 
         if obs_id != current_visit_last_plan.observation().id:
             # Last executed visit differs from the plan. Do a new plan
-            await self.scheduler_queue.add_schedule_event(event)
+            # TODO: Create an appropriate event to trigger a new plan
+            # await self.scheduler_queue.add_schedule_event(VISIT_EXECUTED_EVENT)
+            pass
 
         new_visit_duration = event.visit.interval().duration().seconds
         current_plan_delta = (
@@ -144,7 +160,8 @@ class ODBEventHandler(EventHandler):
         )
         # Visit took longer that it should, putting it behind schedule.
         if new_visit_duration > current_plan_delta:
-            await self.scheduler_queue.add_schedule_event(event)
+            # TODO: Create an appropriate event to trigger a new plan
+            # await self.scheduler_queue.add_schedule_event(VISIT_TOO_LONG_EVENT)
             return
 
         # We are following the plan. Update last executed visit.
