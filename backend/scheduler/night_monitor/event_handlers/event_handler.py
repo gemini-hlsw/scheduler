@@ -8,7 +8,7 @@ from gpp_client.generated.custom_fields import TargetEnvironmentFields, Constrai
     CalculatedObservationWorkflowFields, VisitFields
 
 from pydantic import BaseModel
-from scheduler.clients.scheduler_queue_client import SchedulerQueue
+from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 
 __all__ = [
     'EventHandler',

@@ -6,7 +6,7 @@ from typing import Dict, Tuple, Callable
 
 from pydantic import BaseModel
 
-from scheduler.clients.scheduler_queue_client import SchedulerQueue
+from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from .event_handler import EventHandler, LastPlanMock
 
 __all__ = ['ResourceEventHandler', 'MockResourceEvent', 'PDRQueue']

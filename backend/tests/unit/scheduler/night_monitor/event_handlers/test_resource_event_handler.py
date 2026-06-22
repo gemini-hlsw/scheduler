@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
 
-from scheduler.clients.scheduler_queue_client import SchedulerEvent, SchedulerQueue
+from scheduler.core.events.queue.scheduler_queue_client import SchedulerEvent, SchedulerQueue
 from scheduler.night_monitor.event_handlers.resource_event_handler import MockResourceEvent, PDRQueue, ResourceEventHandler
 
 

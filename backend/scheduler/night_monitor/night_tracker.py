@@ -7,9 +7,9 @@ from typing import FrozenSet, List
 from lucupy import sky
 from lucupy.minimodel import Site
 from astropy.time import Time
-from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.core.builder.modes import SchedulerModes, app_mode
 from scheduler.core.events.queue.events import NightEvent, TwilightEvent, MorningTwilightEvent, EveningTwilightEvent
+from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.services.logger_factory import create_logger
 
 _logger = create_logger(__name__)
