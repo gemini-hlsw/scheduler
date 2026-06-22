@@ -8,7 +8,7 @@ from typing import FrozenSet
 from lucupy.minimodel.site import Site
 
 from scheduler.clients.gpp import gpp
-from scheduler.clients.scheduler_queue_client import SchedulerQueue
+from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor import EventListener, EventConsumer
 from scheduler.night_monitor.night_tracker import NightTracker
 

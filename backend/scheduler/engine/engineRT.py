@@ -14,8 +14,8 @@ from scheduler.core.sources import Sources
 from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
 from scheduler.core.events.queue.events import Event, EndOfNightEvent
+from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.graphql_mid.types import NightPlansError
-from scheduler.clients.scheduler_queue_client import SchedulerQueue
 from scheduler.events import to_timeslot_idx
 from scheduler.graphql_mid.types import SPlans, NightPlansWithEvent
 from scheduler.night_monitor.event_sources import WeatherEventSource
