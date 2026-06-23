@@ -331,6 +331,8 @@ async def test_on_updated_edit_ready_computes_and_replans():
 
     with patch("scheduler.night_monitor.event_handlers.odb_event_handler.gpp", mock_gpp), \
          patch("scheduler.night_monitor.event_handlers.odb_event_handler."
+               "sight_visibility_enabled", return_value=True), \
+         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
                "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
         await handler._on_updated_edit(event)
 
@@ -373,8 +375,30 @@ async def test_on_updated_edit_unresolvable_site_still_replans():
 
     with patch("scheduler.night_monitor.event_handlers.odb_event_handler.gpp", mock_gpp), \
          patch("scheduler.night_monitor.event_handlers.odb_event_handler."
+               "sight_visibility_enabled", return_value=True), \
+         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
                "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
         await handler._on_updated_edit(event)
 
+    mock_calc.assert_not_called()
+    handler.scheduler_queue.add_schedule_event.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_on_updated_edit_local_strategy_skips_sight():
+    """When the visibility strategy is local, the handler must not touch GPP/sight
+    but must still trigger a replan."""
+    handler = _handler()
+    value = _value(state=ObservationWorkflowState.READY, obs_id="o-3")
+    event = SimpleNamespace(value=value, edit_type="UPDATED")
+
+    with patch("scheduler.night_monitor.event_handlers.odb_event_handler.gpp") as mock_gpp, \
+         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
+               "sight_visibility_enabled", return_value=False), \
+         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
+               "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
+        await handler._on_updated_edit(event)
+
+    mock_gpp.client.observation.get_by_id.assert_not_called()
     mock_calc.assert_not_called()
     handler.scheduler_queue.add_schedule_event.assert_awaited_once()

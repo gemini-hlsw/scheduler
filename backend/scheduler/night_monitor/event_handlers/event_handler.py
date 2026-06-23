@@ -26,7 +26,7 @@ class LastPlanMock:
         pass
 
     def resources(self):
-        pass
+        return []
 
 
 class EventHandler(ABC):
@@ -58,7 +58,6 @@ class EventHandler(ABC):
         Args:
             sub_name (str): The subscription name/event type
             raw_event (dict): Raw JSON event data to parse and handle
-            scheduler_queue (SchedulerQueue): Scheduler queue from the SchedulerProcess.
         """
         try:
             parser, handler = self._DISPATCH_MAP[sub_name]
