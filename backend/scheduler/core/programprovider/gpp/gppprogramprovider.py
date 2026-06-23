@@ -244,6 +244,7 @@ class GppProgramProvider(ProgramProvider):
         # KEY = 'OBSERVATION_BASIC'
         ID = 'reference'
         INTERNAL_ID = 'id'
+        PROGRAM = 'program'
         # QASTATE = 'qaState'
         # LOG = 'obsLog'
         STATUS = 'state'
@@ -1008,7 +1009,7 @@ class GppProgramProvider(ProgramProvider):
         # ToDo: Eventually the obs_id should be the reference label, the id is the internal_id
         internal_id = data[GppProgramProvider._ObsKeys.INTERNAL_ID]
         # obs_id = f"{program_id.id}-{internal_id.replace('-', '')}"
-        obs_id = data[GppProgramProvider._ObsKeys.ID]['label'] if GppProgramProvider._ObsKeys.ID in data.keys() \
+        obs_id = data[GppProgramProvider._ObsKeys.ID]['label'] if data.get(GppProgramProvider._ObsKeys.ID) \
             else f"{program_id.id}-{internal_id.replace('-', '')}"
         # print(f'\n\t\t parse_observation {obs_id}')
 
@@ -1233,6 +1234,28 @@ class GppProgramProvider(ProgramProvider):
             logger.error(f'Unexpected exception while reading {obs_id}: {ex} (skipping).')
             traceback.print_exc()
         return None
+
+    def parse_standalone_observation(self, data: dict) -> Optional[Observation]:
+        """
+        Parse a single GPP observation outside the context of a full program query,
+        e.g. an incoming observation from an ODB event.
+
+        The data must have the same structure as the observation dictionaries returned
+        by the scheduler program query (gpp.client.scheduler.get_all), including the
+        atom digest list under 'sequence'.
+
+        The program id is taken from the observation reference label if available,
+        otherwise from the internal program id.
+        """
+        reference = data.get(GppProgramProvider._ObsKeys.ID)
+        label = reference.get('label') if reference else None
+        if label:
+            program_id = ObservationID(label).program_id()
+        else:
+            program_id = ProgramID(
+                data[GppProgramProvider._ObsKeys.PROGRAM][GppProgramProvider._ObsKeys.INTERNAL_ID])
+
+        return self.parse_observation(data, num=(0, 0), program_id=program_id)
 
     def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
                     split: bool, split_by_iterator: bool, active: bool = True) -> Optional[Group]:

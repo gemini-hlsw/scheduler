@@ -4,11 +4,12 @@ collector:
   time_slot_length: 1.0 # on minutes
   with_redis: false
   parallel_viscalc: false
-  # Visibility loading strategy used by the (sync) Collector.load_programs path.
-  # "sight" reads pre-computed Stage-1/Stage-2 from the sight service; "local"
-  # uses the in-process joblib calculator. The sight path automatically falls
-  # back to local on transport failure.
-  visibility_strategy: sight
+  # Global visibility-loading strategy for the Collector (sync and async paths).
+  # "sight" reads pre-computed Stage-1/Stage-2 from the sight service (needs a
+  # populated Sight DB / DATABASE_URL); "local" uses the in-process calculator.
+  # The sight path falls back to local on failure. Override per-env with
+  # COLLECTOR_VISIBILITY_STRATEGY (tests set it to "local" so CI needs no DB).
+  visibility_strategy: ${oc.env:COLLECTOR_VISIBILITY_STRATEGY,sight}
 
 
 optimizer:
@@ -26,14 +27,16 @@ app:
   external_ephemerides: false
 
 sight:
-  # Base URL of the sight visibility service. Read by SightVisibilityLoader.
-  # Override via env-substituted config or by replacing this value in deployment.
-  api_url: http://localhost:9800/api/v1
   # Per-request HTTP timeout in seconds for read-only bulk fetches.
   timeout: 300
 
 # Background visibility-aggregator cron (scheduler.services.visibility_aggregator).
 visibility_aggregator:
+  # Master switch for the aggregator coordination interlock. Set to false (or
+  # VIS_AGG_INTERLOCK=false) to bypass it entirely: plan creation no longer waits
+  # on or signals the aggregator and never touches the scheduler_coordination
+  # table. Use for local runs without the aggregator cron / coordination table.
+  interlock_enabled: ${oc.decode:${oc.env:VIS_AGG_INTERLOCK,true}}
   # How long EngineRT.compute_event_plan blocks while a run is active before
   # proceeding anyway. null = block until the run finishes (the hard interlock).
   # Overridable per-deploy via the VIS_AGG_PLAN_WAIT_TIMEOUT env var.

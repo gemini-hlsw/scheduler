@@ -47,7 +47,7 @@ class SimulationBuilder(SchedulerBuilder):
                         night_times: Dict[Site, Tuple[Time, Time]],
                         program_list: Optional[bytes] = None,
                         defer_night_events: bool = False,
-                        use_local_visibility: bool = False) -> Collector:
+                        use_local_visibility: Optional[bool] = None) -> Collector:
 
         collector = super().build_collector(
             start, end, num_of_nights, sites, semesters, blueprint, night_times,

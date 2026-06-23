@@ -5,7 +5,7 @@ import numpy as np
 from astropy.time import Time, TimeDelta
 from astropy.coordinates import SkyCoord, Angle
 import astropy.units as u
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 import lucupy.sky as sky
 from lucupy.minimodel import TargetTag
@@ -42,8 +42,7 @@ class Stage1Arrays(BaseModel):
     airmass: bytes
     par_ang: bytes | None  # radians
     
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 def calculate_stage1(

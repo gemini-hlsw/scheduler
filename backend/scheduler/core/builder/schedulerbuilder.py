@@ -43,7 +43,7 @@ class SchedulerBuilder(ABC):
                         night_times: Dict[Site, Tuple[Time, Time]],
                         program_list: Optional[bytes] = None,
                         defer_night_events: bool = False,
-                        use_local_visibility: bool = False) -> Collector:
+                        use_local_visibility: Optional[bool] = None) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
         collector = Collector(start,

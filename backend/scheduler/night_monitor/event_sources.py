@@ -118,7 +118,7 @@ class ODBEventSource(EventSource):
             # ),
             (
                 ODBEventSource.OBSERVATION_EDIT,
-                self._client.scheduler.subscribe_to_calculation_updates,
+                lambda x: self._client.scheduler.subscribe_to_calculation_updates(),
                 None
             )
         ]

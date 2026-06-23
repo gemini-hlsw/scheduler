@@ -58,6 +58,18 @@ STALE_AFTER_SECONDS: float = float(_agg_config.stale_after_seconds)
 _IDLE_POLL_INTERVAL_SECONDS: float = float(_agg_config.idle_poll_interval_seconds)
 
 
+def _interlock_enabled() -> bool:
+    """Whether the aggregator interlock is active.
+
+    Disabled (via ``visibility_aggregator.interlock_enabled`` /
+    ``VIS_AGG_INTERLOCK=false``) makes the operation-side calls
+    (``wait_until_aggregator_idle`` / ``signal_plan_in_progress`` /
+    ``signal_plan_done``) no-ops, so local runs never touch
+    ``scheduler_coordination``. Defaults to enabled if the key is absent.
+    """
+    return bool(getattr(_agg_config, "interlock_enabled", True))
+
+
 # --- low-level helpers (caller owns the transaction / commit) ----------------
 
 async def _acquire(
@@ -181,6 +193,8 @@ async def wait_until_aggregator_idle(poll_interval: float = _IDLE_POLL_INTERVAL_
     or set ``VIS_AGG_PLAN_WAIT_TIMEOUT`` to cap the wait. A missing DATABASE_URL
     is treated as "no aggregator" so local/in-memory runs are unaffected.
     """
+    if not _interlock_enabled():
+        return True
     if timeout is None:
         timeout = _plan_wait_timeout()
     waited = 0.0
@@ -222,6 +236,8 @@ async def wait_until_aggregator_idle(poll_interval: float = _IDLE_POLL_INTERVAL_
 async def signal_plan_in_progress(holder: str = "operation",
                                   detail: Optional[dict] = None) -> None:
     """Mark that the operation process is computing a plan (best-effort)."""
+    if not _interlock_enabled():
+        return
     try:
         async with session_scope() as session:
             await _acquire_unconditional(session, NIGHT_EXECUTION_NAME, holder)
@@ -235,6 +251,8 @@ async def signal_plan_in_progress(holder: str = "operation",
 
 async def signal_plan_done() -> None:
     """Clear the plan-in-progress flag (best-effort)."""
+    if not _interlock_enabled():
+        return
     try:
         async with session_scope() as session:
             await _release(session, NIGHT_EXECUTION_NAME)

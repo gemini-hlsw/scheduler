@@ -6,7 +6,7 @@ import numpy.typing as npt
 from astropy.time import Time, TimeDelta
 from astropy.coordinates import EarthLocation, SkyCoord
 import astropy.units as u
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 import lucupy.sky as sky
 
@@ -48,8 +48,7 @@ class NightEventArrays(BaseModel):
     sun_moon_ang: bytes
     local_sidereal_times: bytes
     
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 def site_to_earth_location(site: "Site") -> EarthLocation:

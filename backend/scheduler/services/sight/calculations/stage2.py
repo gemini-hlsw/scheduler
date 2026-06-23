@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import SkyCoord
 import astropy.units as u
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from lucupy.minimodel import SkyBackground
 import lucupy.sky as sky
@@ -50,8 +50,7 @@ class Stage2Result(BaseModel):
     remaining_minutes: int
     sky_brightness: list[float] | None = None
     
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 def calculate_visibility(

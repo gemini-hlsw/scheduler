@@ -188,7 +188,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -1419,15 +1419,15 @@ wheels = [
 
 [[package]]
 name = "lucupy"
-version = "0.2.10"
+version = "0.2.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "gelidum" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/26/94907f1d5b2944b9b4570011ae0e89996ea0b63194c294cc4cfbcad4654d/lucupy-0.2.10.tar.gz", hash = "sha256:9e0ef2e69892cfe52b6e3cbcd35c578cd11be63ef13184d441843c00784c7560", size = 47974, upload-time = "2026-06-18T13:30:22.637Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/c6/a4eed1bc61a78cf945b103e98f30985a675458774142c36dc0258491303f/lucupy-0.2.9.tar.gz", hash = "sha256:d4e9ffe8efe6fad28a84f9b9405c401a63093cf3a1d5327fed990e90e4eb669b", size = 47942, upload-time = "2026-05-25T15:46:23.172Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b1/3f/de7fd97dec930e3eced9072a4cbf64cbf77fc7c1b054964caf7e1e638934/lucupy-0.2.10-py3-none-any.whl", hash = "sha256:6c8f3379dc7e7e098e4128b7946a691dac0dc16de3078971cdb565afbc43a95b", size = 69844, upload-time = "2026-06-18T13:30:23.773Z" },
+    { url = "https://files.pythonhosted.org/packages/53/80/3d5f177399ef3dd82802e2ef85934fcaa9d404b4126a65efda7a00f4f4ca/lucupy-0.2.9-py3-none-any.whl", hash = "sha256:3b86a514b5751fe7b604ff0561ddf850060f761b18bb3988b763e7944db1e986", size = 69801, upload-time = "2026-05-25T15:46:24.504Z" },
 ]
 
 [[package]]

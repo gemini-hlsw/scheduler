@@ -63,7 +63,9 @@ class SchedulerParameters:
     semester_visibility: bool = True
     num_nights_to_schedule: Optional[int] = None
     programs_list: Optional[List[str]] = None
-    use_local_visibility: bool = False
+    # None defers to the global `collector.visibility_strategy` config; an
+    # explicit True/False overrides it.
+    use_local_visibility: Optional[bool] = None
 
     def __post_init__(self):
         if self.end is not None and self.end > self.start:

@@ -6,6 +6,10 @@ from unittest.mock import MagicMock
 
 import os
 os.environ["REDISCLOUD_URL"] = "redis://mock:6379"
+# Tests run without a Sight DB (no DATABASE_URL in CI), so default the Collector
+# to in-process visibility. setdefault lets a dev opt into the sight path by
+# exporting COLLECTOR_VISIBILITY_STRATEGY=sight with a real DATABASE_URL.
+os.environ.setdefault("COLLECTOR_VISIBILITY_STRATEGY", "local")
 
 import pytest
 
