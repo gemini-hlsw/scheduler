@@ -894,11 +894,11 @@ class Collector(SchedulerComponent):
         # Wrap str ids back into ObservationID to match the public getter signature.
         self._visible_obs_by_night = {
             night_index: {ObservationID(obs_id) for obs_id in visible_obs_ids}
-            for night_index, (visible_obs_ids, _stage1, _cumulative) in per_night.items()
+            for night_index, (visible_obs_ids, _stage1, _cumulative, _ranges) in per_night.items()
         }
 
         for night_index, observations in filtered_observations.items():
-            visible_obs_ids, stage1, cumulative = per_night[night_index]
+            visible_obs_ids, stage1, cumulative, ranges_by_obs = per_night[night_index]
             visible_observations = [o for o in observations if o.id.id in visible_obs_ids]
             _logger.info(
                 f'Visibility filter night={int(night_index)}: '
@@ -937,6 +937,23 @@ class Collector(SchedulerComponent):
 
                 expected_length = len(self.night_events[obs.site].times[night_index])
                 ti = _build_target_info(stage1_entry, rem_visibility_frac, expected_length)
+
+                # Restore the per-slot stage2 mask sight computed. Without this,
+                # visibility_slot_idx stays np.arange(expected_length) (the whole
+                # night), so the optimizer can place visits at any altitude,
+                # including below the elevation/airmass limit. Mirrors the local
+                # path's `ti.visibility_slot_idx = np.where(mask)[0]`.
+                # mask_to_ranges yields inclusive [start, end] ranges.
+                obs_ranges = ranges_by_obs.get(obs.id.id, [])
+                if obs_ranges:
+                    slot_idx = np.concatenate(
+                        [np.arange(start, end + 1) for start, end in obs_ranges]
+                    )
+                    slot_idx = slot_idx[(slot_idx >= 0) & (slot_idx < expected_length)]
+                    ti.visibility_slot_idx = slot_idx.astype(int)
+                else:
+                    ti.visibility_slot_idx = np.array([], dtype=int)
+
                 target_info_map: TargetInfoNightIndexMap = (
                     Collector._target_info.setdefault((base.name, obs.id), {})
                 )
@@ -958,10 +975,14 @@ class Collector(SchedulerComponent):
             all_visible_ids: set[str] = set()
             all_target_names: set[str] = set()
             visible_by_night: dict[NightIndex, set[str]] = {}
+            # Per (night, obs) stage2 visible ranges, so the per-slot mask survives
+            # into TargetInfo instead of defaulting to the whole night.
+            ranges_by_night: dict[NightIndex, dict[str, list]] = {}
 
             for night_index, observations in filtered_observations.items():
                 if not observations:
                     visible_by_night[night_index] = set()
+                    ranges_by_night[night_index] = {}
                     continue
                 requests = [_obs_to_request(o) for o in observations]
                 night_date = self.time_grid[int(night_index)].to_datetime().date()
@@ -973,6 +994,7 @@ class Collector(SchedulerComponent):
                 )
                 visible_ids = {r.observation_id for r in visible}
                 visible_by_night[night_index] = visible_ids
+                ranges_by_night[night_index] = {r.observation_id: r.visible_ranges for r in visible}
                 all_visible_ids.update(visible_ids)
                 for obs in observations:
                     base = obs.base_target()
@@ -980,7 +1002,7 @@ class Collector(SchedulerComponent):
                         all_target_names.add(base.name)
 
             if not all_visible_ids:
-                return {ni: (set(), {}, {}) for ni in filtered_observations}
+                return {ni: (set(), {}, {}, {}) for ni in filtered_observations}
 
             t0 = time.perf_counter()
             stage1 = await calc.get_stage1_greedymax_bulk(
@@ -1001,7 +1023,9 @@ class Collector(SchedulerComponent):
             )
 
         for night_index, visible_ids in visible_by_night.items():
-            per_night[night_index] = (visible_ids, stage1, cumulative)
+            per_night[night_index] = (
+                visible_ids, stage1, cumulative, ranges_by_night.get(night_index, {})
+            )
         return per_night
 
     def _compute_visibility_locally(

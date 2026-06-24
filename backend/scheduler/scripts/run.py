@@ -44,9 +44,6 @@ def main(*,
                                  use_local_visibility=True)
     engine = Engine(params)
     plan_summary, timelines = engine.schedule()
-    # File output for future results comparison
-    # timelines.display(output=os.path.join(os.environ['HOME'], 'Downloads', 'plans.txt'))
-    # Display to stdout
     timelines.display()
 
 if __name__ == '__main__':
