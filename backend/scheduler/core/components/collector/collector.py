@@ -938,12 +938,6 @@ class Collector(SchedulerComponent):
                 expected_length = len(self.night_events[obs.site].times[night_index])
                 ti = _build_target_info(stage1_entry, rem_visibility_frac, expected_length)
 
-                # Restore the per-slot stage2 mask sight computed. Without this,
-                # visibility_slot_idx stays np.arange(expected_length) (the whole
-                # night), so the optimizer can place visits at any altitude,
-                # including below the elevation/airmass limit. Mirrors the local
-                # path's `ti.visibility_slot_idx = np.where(mask)[0]`.
-                # mask_to_ranges yields inclusive [start, end] ranges.
                 obs_ranges = ranges_by_obs.get(obs.id.id, [])
                 if obs_ranges:
                     slot_idx = np.concatenate(
@@ -975,8 +969,6 @@ class Collector(SchedulerComponent):
             all_visible_ids: set[str] = set()
             all_target_names: set[str] = set()
             visible_by_night: dict[NightIndex, set[str]] = {}
-            # Per (night, obs) stage2 visible ranges, so the per-slot mask survives
-            # into TargetInfo instead of defaulting to the whole night.
             ranges_by_night: dict[NightIndex, dict[str, list]] = {}
 
             for night_index, observations in filtered_observations.items():
