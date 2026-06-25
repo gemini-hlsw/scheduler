@@ -1,6 +1,6 @@
 [project]
 name = "scheduler"
-version = "0.1.13"
+version = "0.1.14"
 description = "Gemini Observatory automated scheduler"
 readme = 'README.md'
 authors = [{ name = "NOIRLab" }]
@@ -16,7 +16,7 @@ dependencies = [
     "gql>=4.0.0",
     "hypothesis>=6.137.1",
     "joblib>=1.5.2",
-    "lucupy>=0.2.10",
+    "lucupy>=0.2.11",
     "matplotlib>=3.10.5",
     "more-itertools>=10.7.0",
     "numpy>=2.3.2",
@@ -45,8 +45,8 @@ dependencies = [
 ]
 
 [dependency-groups]
-gpp-prod = ["gpp-client>=26.6.0.dev1"]
-gpp-dev = ["gpp-client>=26.6.0.dev1"]
+gpp-prod = ["gpp-client>=26.6.0.dev3"]
+gpp-dev = ["gpp-client>=26.6.0.dev3"]
 dev = [
     "hypothesis>=6.137.1",
     "pytest>=8.4.1",

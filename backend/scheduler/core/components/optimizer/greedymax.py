@@ -13,7 +13,7 @@ import numpy as np
 import numpy.typing as npt
 from lucupy.minimodel import (Group, NightIndex, Observation, ObservationClass, ObservationID, ObservationStatus,
                               Program, QAState, Site, UniqueGroupID, Wavelengths, ObservationMode,
-                              unique_group_id, AndOption, GROUP_NONE_ID)
+                              unique_group_id, AndOption, GROUP_NONE_ID, TooType)
 
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.timeutils import time2slots
@@ -341,6 +341,9 @@ class GreedyMaxOptimizer(BaseOptimizer):
                             n_min_list.append(n_min)
                             n_std_list.append(n_std)
                             exec_nir_list.append(exec_time_nir)
+                            # If a rToO, break out of the loop over time intervals to schedule as early as possible
+                            if group_data.group.too_type() >= TooType.RAPID:
+                                break
 
         max_score: Optional[float] = None
         max_group: Optional[GroupData] = None
