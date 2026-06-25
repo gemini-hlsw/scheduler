@@ -14,6 +14,8 @@ from lucupy.timeutils import time2slots
 __all__ = [
     'UUIDIdentified',
     'UUIDReferenced',
+    'CustomStartOfNightEvent',
+    'EndOfNightEvent',
     'Event',
     'NightEvent',
     'RoutineEvent',
@@ -89,6 +91,8 @@ class Event(UUIDIdentified, ABC):
         Returns:
             TimeslotIndex: The timeslot offset relative to the twilight.
         """
+        if self.time is None:
+            return TimeslotIndex(0)
         time_from_twilight = self.time - twi_eve_time
         time_slots_from_twilight = time2slots(time_slot_length, time_from_twilight)
         return TimeslotIndex(time_slots_from_twilight)
@@ -273,7 +277,15 @@ class WeatherClosureResolutionEvent(InterruptionResolutionEvent, UUIDReferenced)
 
 @final
 @dataclass(frozen=True)
-class EndOfNightEvent(TwilightEvent):
+class CustomStartOfNightEvent(RoutineEvent):
+    """An event indicating that the night has started
+        for a site.
+    """
+    ...
+
+@final
+@dataclass(frozen=True)
+class EndOfNightEvent(RoutineEvent):
     """An event indicating that the night has ended
         for all sites.
     """
