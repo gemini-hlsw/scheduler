@@ -4,7 +4,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 from pydantic import BaseModel, ConfigDict, Field
 
-from lucupy.minimodel import SkyBackground
+from lucupy.minimodel import SkyBackground, Constraints
 import lucupy.sky as sky
 
 from scheduler.services.sight.calculations.arrays import unpack_array
@@ -33,8 +33,8 @@ class ObservationConstraints(BaseModel):
     
     # Elevation
     elevation_type: ElevationType = ElevationType.AIRMASS
-    elevation_min: float = 1.0
-    elevation_max: float = 2.05
+    elevation_min: float = Constraints.DEFAULT_AIRMASS_ELEVATION_MIN
+    elevation_max: float = Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
     
     # Timing windows
     timing_windows: list[TimingWindow] = Field(default_factory=list)
@@ -111,7 +111,8 @@ def calculate_visibility(
         mask &= (hourangle_deg >= constraints.elevation_min) & (hourangle_deg <= constraints.elevation_max)
     # NONE: use default airmass
     elif constraints.elevation_type == ElevationType.NONE:
-        mask &= (airmass >= 1.0) & (airmass <= 2.05)
+        mask &= ((airmass >= Constraints.DEFAULT_AIRMASS_ELEVATION_MIN) &
+                 (airmass <= Constraints.DEFAULT_AIRMASS_ELEVATION_MAX))
     
     # Step 3: Sky brightness constraint
     sky_brightness_arr = None

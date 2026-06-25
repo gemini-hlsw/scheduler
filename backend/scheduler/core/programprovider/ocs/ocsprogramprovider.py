@@ -1042,7 +1042,8 @@ class OcsProgramProvider(ProgramProvider):
                           program_id: ProgramID,
                           split: bool,
                           split_by_iterator: bool,
-                          band: Band) -> Optional[Observation]:
+                          band: Band,
+                          prg_too_type: TooType) -> Optional[Observation]:
         """
         Right now, obs_num contains an optional organizational folder number and
         a mandatory observation number, which may overlap with others in organizational folders.
@@ -1068,9 +1069,6 @@ class OcsProgramProvider(ProgramProvider):
             if obs_class not in self._obs_classes:
                 logger.debug(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
                 return None
-
-            # By default, assume ToOType of None unless otherwise indicated.
-            too_type: Optional[TooType] = None
 
             internal_id = data[OcsProgramProvider._ObsKeys.INTERNAL_ID]
             title = data[OcsProgramProvider._ObsKeys.TITLE]
@@ -1183,11 +1181,18 @@ class OcsProgramProvider(ProgramProvider):
                     user_target = self.parse_target(user_target_data)
                     targets.append(user_target)
 
-                # If the ToO override rapid setting is in place, set to RAPID.
-                # Otherwise, set as None, and we will propagate down from the groups.
-                if (OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and
-                        data[OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]):
-                    too_type = TooType.RAPID
+                # If the ToO override rapid setting is in place, then the default too_type for the program
+                # is overridden, i.e. it is a Standard ToO
+                if prg_too_type == TooType.RAPID:
+                    if (OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and
+                            data[OcsProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]) :
+                        too_type = TooType.STANDARD
+                    else:
+                        too_type = TooType.RAPID
+                elif prg_too_type == TooType.STANDARD:
+                    too_type = TooType.STANDARD
+                else:
+                    too_type = TooType.NONE
 
             return GeminiObservation(
                 id=ObservationID(obs_id),
@@ -1261,7 +1266,7 @@ class OcsProgramProvider(ProgramProvider):
     #     raise NotImplementedError('OCS does not support OR groups.')
 
     def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID, parent_id: GroupID,
-                    split: bool, split_by_iterator: bool, band: Band) -> Optional[Group]:
+                    split: bool, split_by_iterator: bool, band: Band, prg_too_type: TooType) -> Optional[Group]:
         """
         In the OCS, a SchedulingFolder or a program are AND groups.
         We do not allow nested groups in OCS, so this is relatively easy.
@@ -1302,7 +1307,7 @@ class OcsProgramProvider(ProgramProvider):
         for key in scheduling_group_keys:
             subgroup_id = GroupID(key.split('-')[-1])
             subgroup = self.parse_group(data[key], program_id, subgroup_id, group_id, split=split,
-                                            split_by_iterator=split_by_iterator, band=band)
+                                            split_by_iterator=split_by_iterator, band=band, prg_too_type=prg_too_type)
             if subgroup is not None:
                 children.append(subgroup)
 
@@ -1345,7 +1350,7 @@ class OcsProgramProvider(ProgramProvider):
         for *keys, obs_data in obs_data_blocks:
             obs_id = parse_unique_obs_id(*keys)
             obs = self.parse_observation(obs_data, obs_id, program_id, band=band,
-                                         split=split, split_by_iterator=split_by_iterator)
+                                         split=split, split_by_iterator=split_by_iterator, prg_too_type=prg_too_type)
             if obs is not None:
                 observations.append(obs)
 
@@ -1434,6 +1439,14 @@ class OcsProgramProvider(ProgramProvider):
             else:
                 band = Band(2)
 
+        # ToO type for the program
+        too_type = (
+            TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()]
+            if data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != "None"
+            else None
+        )
+        # print(f'Program {program_id.id} has too_type {"None" if too_type is None else too_type.name}.')
+
         # Now we parse the groups. For this, we need:
         # 1. A list of Observations at the root level.
         # 2. A list of Observations for each Scheduling Group.
@@ -1441,7 +1454,7 @@ class OcsProgramProvider(ProgramProvider):
         # We can treat (1) the same as (2) and (3) by simply passing all the JSON
         # data to the parse_and_group method.
         root_group = self.parse_group(data, program_id, ROOT_GROUP_ID, GROUP_NONE_ID, band=band,
-                                          split=split, split_by_iterator=split_by_iterator)
+                                          split=split, split_by_iterator=split_by_iterator, prg_too_type=too_type)
         if root_group is None:
             logger.debug(f'Program {program_id} has empty root group. Skipping.')
             print(f'Program {program_id} has empty root group. Skipping.')
@@ -1480,10 +1493,7 @@ class OcsProgramProvider(ProgramProvider):
         time_act_alloc = frozenset(self.parse_time_allocation(ta_data, band=band) for ta_data in time_act_alloc_data)
         time_used = frozenset(self.parse_time_used(ta_data, band=band) for ta_data in time_act_alloc_data)
 
-        too_type = TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
-            data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
-
-        # Propagate the ToO type down through the root group to get to the observation.
+        # The following is probably no longer needed, kept as a check
         OcsProgramProvider._check_too_type(program_id, too_type, root_group)
 
         return Program(
@@ -1543,15 +1553,22 @@ class OcsProgramProvider(ProgramProvider):
             if isinstance(pgroup.children, Observation):
                 observation: Observation = pgroup.children
 
-                # If the observation's ToO type is None, we set it from the program.
+                # Handle sToOs in rToO programs
+                # too_type_name = 'None' if too_type is None else too_type.name
+                # obs_too_type = 'None' if observation.too_type is None else observation.too_type.name
+                # print(f'observation {observation.id} {obs_too_type} {too_type_name}')
                 if observation.too_type is None:
                     observation.too_type = too_type
+                    # if too_type == TooType.RAPID:
+                    #     observation.too_type = TooType.STANDARD
+                    # else:
+                    #     observation.too_type = too_type
 
                 # Check compatibility between the observation's ToO type and the program's ToO type.
                 if not compatible(too_type):
                     nc_msg = f'Observation {observation.id} has illegal ToO type for its program.'
                     raise ValueError(nc_msg)
-                observation.too_type = too_type
+                    observation.too_type = too_type
             else:
                 for subgroup in pgroup.children:
                     process_group(subgroup)

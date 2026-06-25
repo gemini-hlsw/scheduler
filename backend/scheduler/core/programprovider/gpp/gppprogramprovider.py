@@ -8,6 +8,7 @@ from astropy.time import Time
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
 
+from urllib3.http2.probe import acquire_and_get
 
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
@@ -130,10 +131,12 @@ class GppProgramProvider(ProgramProvider):
     _F2_FILTER_WAVELENGTHS = {'Y': 1.02, 'J': 1.25, 'H': 1.63, 'Ks': 2.16, 'K-blue': 2.06, 'K-red': 2.31,
                               'JH': 1.34, 'HK': 1.9, 'Jlow': 1.12, 'K-long': 2.2}
     _IGRINS2_WAVELENGTH = 1.6
+    _GHOST_WAVELENGTH = 0.655
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
-    _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS, 'FLAMINGOS2': Site.GS, 'IGRINS2': Site.GN}
+    _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS, 'FLAMINGOS2': Site.GS, 'IGRINS2': Site.GN,
+                      'GHOST': Site.GS}
 
     _gmos_filters = {'GMOS-S': ['U_PRIME', 'G_PRIME', 'R_PRIME', 'I_PRIME', 'Z_PRIME', 'Z', 'Y', 'GG455', 'OG515',
                                     'RG610', 'CA_T', 'F396N', 'OIII', 'OIIIC', 'HE_II', 'HE_IIC', 'OVI', 'OVIC',
@@ -147,7 +150,8 @@ class GppProgramProvider(ProgramProvider):
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
 
     # Translate instrument names to use the OCS Resources
-    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2', 'IGRINS2': 'IGRINS-2'}
+    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2',
+                        'IGRINS2': 'IGRINS-2', 'GHOST': 'GHOST'}
 
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
@@ -375,6 +379,7 @@ class GppProgramProvider(ProgramProvider):
         GMOSN = 'grating'
         F2 = 'disperser'
         GMOSS = 'grating'
+        GHOST = 'resolution_mode'
 
     class _InstrumentKeys:
         NAME = 'instrument:name'
@@ -401,6 +406,7 @@ class GppProgramProvider(ProgramProvider):
         # 'GNIRS': _DISPKeys.GNIRS,
         'GMOS-N': _DISPKeys.GMOSN,
         'GMOS-S': _DISPKeys.GMOSS,
+        'GHOST': _DISPKeys.GHOST,
         # 'NIRI': _DISPKeys.NIRI
     }
 
@@ -953,6 +959,8 @@ class GppProgramProvider(ProgramProvider):
             wavelength = Wavelength(GppProgramProvider._F2_FILTER_WAVELENGTHS[filters[0]])
         elif instrument == 'IGRINS-2':
             wavelength = Wavelength(GppProgramProvider._IGRINS2_WAVELENGTH)
+        elif instrument == 'GHOST':
+            wavelength = Wavelength(GppProgramProvider._GHOST_WAVELENGTH)
         elif 'central_wavelength' in instrument_config.keys():
             # assumes GMOS, so convert to microns
             wavelength = Wavelength(float(instrument_config['central_wavelength']['nanometers'] / 1000.))
@@ -1034,7 +1042,7 @@ class GppProgramProvider(ProgramProvider):
             #     return None
 
             # By default, assume ToOType of None unless otherwise indicated.
-            too_type: Optional[TooType] = None
+            too_type: Optional[TooType] = TooType.NONE
 
             title = data[GppProgramProvider._ObsKeys.TITLE]
             # site = Site[data[GppProgramProvider._ObsKeys.ID].split('-')[0]]
@@ -1086,7 +1094,7 @@ class GppProgramProvider(ProgramProvider):
             # print(f'\t\t mode: {mode}')
             # print(f'\t\t calibration_role: {calibration_role}')
 
-            # Acq time from mode workaround
+            # Acq time from mode workaround based on mode
             acq_overhead = ZeroTime
             if 'GMOS' in mode:
                 if 'SLIT' in mode:
@@ -1099,6 +1107,8 @@ class GppProgramProvider(ProgramProvider):
             elif "IGRINS" in mode:
                 if "SLIT" in mode:
                     acq_overhead = timedelta(seconds=7 * 60)
+            elif "GHOST" in mode:
+                acq_overhead = timedelta(seconds=8 * 60)
             # print(f'\t\t acq_overhead: {acq_overhead}')
 
             # Atoms
