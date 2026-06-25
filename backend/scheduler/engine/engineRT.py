@@ -13,10 +13,9 @@ from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
 from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
-from scheduler.core.events.queue.events import Event, EndOfNightEvent
+from scheduler.core.events.queue.events import CustomStartOfNightEvent, Event, EndOfNightEvent
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.graphql_mid.types import NightPlansError
-from scheduler.events import to_timeslot_idx
 from scheduler.graphql_mid.types import SPlans, NightPlansWithEvent
 from scheduler.night_monitor.event_sources import WeatherEventSource
 from scheduler.services.visibility_aggregator import coordination
@@ -176,20 +175,35 @@ class EngineRT:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
             utc_night_start = night_start_time.utc.to_datetime(timezone=datetime.timezone.utc)
 
-            custom_start = night_times.get(site, (None, None))[0] if night_times else None
-            if custom_start is not None:
-                event_time = custom_start.utc.to_datetime(timezone=datetime.timezone.utc)
-            else:
-                event_time = utc_night_start
-
-            event_timeslot = to_timeslot_idx(
-                event_time,
+            event_timeslot = event.to_timeslot_idx(
                 utc_night_start,
                 self.scp.collector.time_slot_length.to_datetime()
             )
-            _logger.info(f"Start timeslot for {site.name}: event_time={event_time}, "
-                         f"utc_night_start={utc_night_start}, event_timeslot={event_timeslot}")
-            start_timeslot[site] = {np.int64(0): event_timeslot}
+
+            custom_start = night_times.get(site, (None, None))[0] if night_times else None
+            if custom_start is not None:
+                custom_start_timeslot = CustomStartOfNightEvent(
+                    site,
+                    custom_start.utc.to_datetime(timezone=datetime.timezone.utc),
+                    f"Custom start of night for site {site}"
+                ).to_timeslot_idx(
+                    utc_night_start,
+                    self.scp.collector.time_slot_length.to_datetime()
+                )
+
+                if event_timeslot < custom_start_timeslot:
+                    site_timeslot = custom_start
+                else:
+                    site_timeslot = event_timeslot
+            else:
+                if event_timeslot < 0:
+                    site_timeslot = 0
+                else:
+                    site_timeslot = event_timeslot
+
+            _logger.info(f"Computing plan for site {site.name} starting on timeslot: {site_timeslot}, "
+                         f"utc_night_start={utc_night_start}, event_time={event.time}")
+            start_timeslot[site] = {np.int64(0): site_timeslot}
 
         plans = self.scp.run_rt(start_timeslot)
 
@@ -205,7 +219,7 @@ class EngineRT:
                 plans.plans[site].alt_degs.append(alt_degs)
         splans = SPlans.from_computed_plans(plans, self.params.sites)
 
-        return NightPlansWithEvent(night_plans=splans, event=f"{event.description} {event.time}")
+        return NightPlansWithEvent(night_plans=splans, event=f"{event.description} @{event.time if event.time else 'Start of Night'}")
 
     async def run(self):
         """

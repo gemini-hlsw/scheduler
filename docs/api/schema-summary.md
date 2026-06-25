@@ -17,6 +17,13 @@ input BuildParametersInput {
   programList: [String!] = null
 }
 
+type BuildParametersResponse {
+  nightTimes: [NightTimesResponse!]
+  visibilityStart: DateTime
+  visibilityEnd: DateTime
+  programList: [String!]
+}
+
 input CreateNewScheduleInput {
   startTime: String!
   endTime: String!
@@ -24,25 +31,6 @@ input CreateNewScheduleInput {
   mode: SchedulerModes!
   semesterVisibility: Boolean! = true
   numNightsToSchedule: Int = null
-  thesisFactor: Float = 1.1
-  power: Int = 2
-  metPower: Float = 1
-  visPower: Float = 1
-  whaPower: Float = 1
-  airPower: Float = 0
-  programs: [String!] = null
-}
-
-input CreateNewScheduleRTInput {
-  startTime: String!
-  endTime: String!
-  nightStartTime: String!
-  nightEndTime: String!
-  sites: Sites!
-  imageQuality: Float = null
-  cloudCover: Float = null
-  windSpeed: Float = null
-  windDirection: Float = null
   thesisFactor: Float = 1.1
   power: Int = 2
   metPower: Float = 1
@@ -89,11 +77,20 @@ input NightTimesInput {
   nightEnd: DateTime = null
 }
 
+type NightTimesResponse {
+  site: String!
+  start: DateTime
+  end: DateTime
+}
+
 type Query {
   version: Version!
   schedule(scheduleId: String!, newScheduleInput: CreateNewScheduleInput!): String!
-  scheduleV2(newScheduleRtInput: CreateNewScheduleRTInput!): String!
+  scheduleV2: String!
+  onDemandSchedule: String!
   availablePrograms: [AvailableProgram!]!
+  visibilityAggregatorStatus: VisibilityAggregatorStatus!
+  buildParameters: BuildParametersResponse!
 }
 
 type SConditions {
@@ -185,6 +182,7 @@ scalar Sites
 
 type Subscription {
   queueSchedule(scheduleId: String!): NightPlansResponseRT!
+  buildParametersUpdates: BuildParametersResponse!
 }
 
 type TimelineEntriesBySite {
@@ -198,5 +196,15 @@ type TimelineEntriesBySite {
 type Version {
   version: String!
   changelog: [String!]!
+}
+
+type VisibilityAggregatorStatus {
+  active: Boolean!
+  stale: Boolean!
+  holder: String
+  startedAt: String
+  heartbeatAt: String
+  finishedAt: String
+  detail: String
 }
 ```

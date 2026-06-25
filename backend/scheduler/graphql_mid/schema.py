@@ -13,7 +13,6 @@ from lucupy.minimodel import TimeslotIndex, NightIndex, VariantSnapshot
 from pydantic import ValidationError
 
 from scheduler.context import schedule_id_var
-from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
 from scheduler.orchestration import process_manager
@@ -25,7 +24,7 @@ from scheduler.services.visibility_aggregator import coordination
 from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
                     NewPlansRT, NightPlansResponseRT, NightTimesResponse, BuildParametersInput, BuildParametersResponse,
                     AvailableProgram, VisibilityAggregatorStatus)
-from .inputs import CreateNewScheduleInput, CreateNewScheduleRTInput
+from .inputs import CreateNewScheduleInput
 
 from ..core.plans import NightStats
 from ..engine.params import build_params_store
@@ -118,17 +117,29 @@ class Query:
         return f'Plan is on the queue! for {schedule_id}'
 
     @strawberry.field
-    async def schedule_v2(self, new_schedule_rt_input: CreateNewScheduleRTInput)-> str:
-
-        night_start = Time(new_schedule_rt_input.night_start_time, format='iso', scale='utc')
+    async def schedule_v2(self)-> str:
         op_process = process_manager.get_operation_process()
 
-        utc_start = night_start.to_datetime(timezone=UTC)
+        # Schedule event with None time to compute the plan from start of the night
         await op_process.scheduler_queue.add_schedule_event(
             OnDemandScheduleEvent(
                 site=None,
                 description="On demand request",
-                time=utc_start,
+                time=None
+            )
+        )
+        return f'Plan is on the queue in the Operation Process!'
+
+    @strawberry.field
+    async def on_demand_schedule(self)-> str:
+        op_process = process_manager.get_operation_process()
+
+        # Compute plan starting from the current time
+        await op_process.scheduler_queue.add_schedule_event(
+            OnDemandScheduleEvent(
+                site=None,
+                description="On demand request",
+                time=datetime.now(UTC)
             )
         )
         return f'Plan is on the queue in the Operation Process!'
