@@ -1057,13 +1057,9 @@ class GppProgramProvider(ProgramProvider):
             #     print(f"Observation {obs_id} has invalid status {status.name}.")
                 return None
 
-            # ToDo: where to get the setup type?
-            # setuptime_type = SetupTimeType[data[GppProgramProvider._ObsKeys.SETUPTIME_TYPE]]
+            # ToDo: where to get the setuptime_type? Maybe currently not set?
             setuptime_type = SetupTimeType.FULL
-            # acq_overhead = timedelta(seconds=data['execution']['digest']['setup']['full']['seconds'])
-            # GMOS longslit FULL acq overhead is 16 minutes
-            # ToDo: the query needs to return this, otherwise set by the mode
-            # acq_overhead = timedelta(seconds=16*60)
+            acq_overhead = timedelta(seconds=data['execution']['digest']['value']['setup']['full']['seconds'])
 
             # Science band
             band_value = data.get(GppProgramProvider._ObsKeys.BAND)
@@ -1093,23 +1089,6 @@ class GppProgramProvider(ProgramProvider):
             # print(f'\t\t wavelength: {wavelength}')
             # print(f'\t\t mode: {mode}')
             # print(f'\t\t calibration_role: {calibration_role}')
-
-            # Acq time from mode workaround based on mode
-            acq_overhead = ZeroTime
-            if 'GMOS' in mode:
-                if 'SLIT' in mode:
-                    acq_overhead = timedelta(seconds=16 * 60)
-                elif 'IMAGING' in mode:
-                    acq_overhead = timedelta(seconds=6 * 60)
-            elif 'FLAM' in mode:
-                if 'SLIT' in mode:
-                    acq_overhead = timedelta(seconds=20 * 60)
-            elif "IGRINS" in mode:
-                if "SLIT" in mode:
-                    acq_overhead = timedelta(seconds=7 * 60)
-            elif "GHOST" in mode:
-                acq_overhead = timedelta(seconds=8 * 60)
-            # print(f'\t\t acq_overhead: {acq_overhead}')
 
             # Atoms
             sequence = data[GppProgramProvider._ObsKeys.SEQUENCE]
