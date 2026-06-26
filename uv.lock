@@ -917,7 +917,7 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "26.6.0.dev3"
+version = "26.6.0.dev4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -929,9 +929,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a7/8f/e208de025287c81682f66ae470ca89e4c2f175e22c759b624483afef0b76/gpp_client-26.6.0.dev3.tar.gz", hash = "sha256:9453d80f79b831783659e3a6f2a6638cf812dfd502bf05f173ff90ad75f86f33", size = 192638, upload-time = "2026-06-24T22:44:05.228Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/13/53c8c81b31482206fb1254e3d611d3664f10fff54db92b080d5fa77d054c/gpp_client-26.6.0.dev4.tar.gz", hash = "sha256:44527a2da776feb663623e57c851a30ae6055a1bd733acbc6fd35d635b89d052", size = 192238, upload-time = "2026-06-25T18:13:06.284Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/df/07/f14f403a015a7a8e6c897806dee6f6c422dcba50be9005f3a2dfadb3c2b9/gpp_client-26.6.0.dev3-py3-none-any.whl", hash = "sha256:acff88ff04d36603889d6f683b4bd8890b5bbc17460003ca02d69d2bafa0db79", size = 230438, upload-time = "2026-06-24T22:44:03.914Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/2a/4795c3d7653a8588744c30a7d5828cb5b84340ef6f6cd56beb2c1237cd6e/gpp_client-26.6.0.dev4-py3-none-any.whl", hash = "sha256:bba6235830694910ca4e2f89beffd818c32ef1deb3fa6c701f304bec16f3ad8e", size = 230124, upload-time = "2026-06-25T18:13:04.903Z" },
 ]
 
 [[package]]
@@ -2685,7 +2685,7 @@ wheels = [
 
 [[package]]
 name = "scheduler"
-version = "0.1.14"
+version = "0.1.15"
 source = { virtual = "backend" }
 dependencies = [
     { name = "aioboto3" },
@@ -2807,8 +2807,8 @@ docs = [
     { name = "mkdocs-mermaid2-plugin", specifier = ">=1.2.1" },
     { name = "mkdocstrings-python", specifier = ">=1.16.12" },
 ]
-gpp-dev = [{ name = "gpp-client", specifier = ">=26.6.0.dev3" }]
-gpp-prod = [{ name = "gpp-client", specifier = ">=26.6.0.dev3" }]
+gpp-dev = [{ name = "gpp-client", specifier = ">=26.6.0.dev4" }]
+gpp-prod = [{ name = "gpp-client", specifier = ">=26.6.0.dev4" }]
 
 [[package]]
 name = "scipy"
