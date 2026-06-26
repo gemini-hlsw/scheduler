@@ -1526,7 +1526,7 @@ class GppProgramProvider(ProgramProvider):
             prog_type = gpp_prog_type[0:3]
         elif gpp_prog_type.name == 'SCIENCE':
             # TODO: switch to interfaces
-            gpp_prop_subtype = data['proposal']['type_']['science_subtype']
+            gpp_prop_subtype = data['proposal']['gemini']['science_subtype']
             prog_type = self._gpp_prop_type[gpp_prop_subtype]
 
         program_type = ProgramTypes[prog_type]  # Program.Proposal.type.science_subtype
