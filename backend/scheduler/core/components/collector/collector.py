@@ -1059,13 +1059,14 @@ class Collector(SchedulerComponent):
             for n_idx, obs_list in obs_with_resources.items()
         }
 
-        for _p_id, obs in parsed_observations:
+        for p_id, obs in parsed_observations:
             base = obs.base_target()
             if base is None:
                 continue
             target = target_shim(base)
             if target is None:
                 continue
+            program = self.get_program(p_id)
 
             site = obs.site
             sshim = site_shims[site]
@@ -1087,6 +1088,8 @@ class Collector(SchedulerComponent):
                     has_resources=has_resources,
                     can_schedule=has_resources,
                     range_end=range_end_dt,
+                    program_start=program.start if program is not None else None,
+                    program_end=program.end if program is not None else None,
                 )
 
                 s2 = sight_calculate_visibility(

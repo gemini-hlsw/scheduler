@@ -184,8 +184,7 @@ def _calculate_sky_brightness_array(
     """
     Calculate sky brightness (as a SkyBackground fraction) for each time slot.
 
-    Vectorized the results so they can be applied ; the formula
-    needs an indexable length ``Distance``, so broadcast it with units.
+    Vectorized the results so they can be applied further down the process.
     """
     n = len(ra)
 
