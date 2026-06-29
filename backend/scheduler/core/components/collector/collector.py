@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 import astropy.units as u
 import numpy as np
 
-from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time, TimeDelta
 
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
@@ -22,7 +21,7 @@ from lucupy.types import Day, ZeroTime
 
 from scheduler.config import config
 from scheduler.core.calculations.nightevents import NightEvents
-from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
+from scheduler.core.calculations.targetinfo import TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.plans import Plans, Visit
@@ -46,6 +45,11 @@ from scheduler.services.sight._temporary.lucupy_adapters import (
     target_shim,
     stage2_constraints,
 )
+from scheduler.services.sight.helpers import (
+    build_target_info,
+    cumulative_remaining_by_night,
+    resize_to,
+)
 
 __all__ = [
     'Collector',
@@ -64,77 +68,6 @@ def _obs_to_request(obs: Observation) -> ObservationRequest:
         target_name=base.name if base is not None else '',
         site_id=obs.site.name,
         constraints=ObservationConstraints(),
-    )
-
-
-def _resize_to(arr: np.ndarray, expected_length: int) -> np.ndarray:
-    """Pad (by repeating the last value) or truncate `arr` to `expected_length`.
-
-    Sight's Stage-1 arrays are sized from the timestamps stored in its
-    `night_events` rows, while the scheduler's `night_events.times[night_idx]`
-    is recomputed fresh from astropy each run. Slight rounding/ephemeris
-    differences can leave the lengths off by ±1, which downstream broadcasting
-    rejects. One-slot padding/truncation is acceptable: the fence values are
-    near twilight where astronomical visibility is already ~zero.
-    """
-    n = len(arr)
-    if n == expected_length:
-        return arr
-    if n > expected_length:
-        return arr[:expected_length]
-    pad = np.full(expected_length - n, arr[-1], dtype=arr.dtype)
-    return np.concatenate([arr, pad])
-
-
-def _cumulative_remaining_by_night(
-    rem_min_by_night: dict[NightIndex, dict[str, int]],
-) -> dict[NightIndex, dict[str, int]]:
-    """Backward cumulative remaining minutes per observation, per night.
-
-    Reproduces the legacy ``get_target_visibility`` denominator: the value for an
-    observation on night ``n`` is the sum of its remaining minutes from night
-    ``n`` through the last night in the map. Input is expected to be already
-    resource/program gated (nights an observation cannot use are simply absent
-    and therefore contribute 0, exactly as the old code zeroed them). Only the
-    observations visible on a given night are kept in that night's entry.
-    """
-    cumulative_by_night: dict[NightIndex, dict[str, int]] = {}
-    running: dict[str, int] = {}
-    for night_index in sorted(rem_min_by_night, reverse=True):
-        for obs_id, rem in rem_min_by_night[night_index].items():
-            running[obs_id] = running.get(obs_id, 0) + rem
-        cumulative_by_night[night_index] = {
-            obs_id: running[obs_id] for obs_id in rem_min_by_night[night_index]
-        }
-    return cumulative_by_night
-
-
-def _build_target_info(stage1_entry: dict, rem_visibility_frac: float,
-                       expected_length: int) -> TargetInfo:
-    """Construct a TargetInfo from a Sight Stage-1 night entry.
-
-    Stage-1 returns ra/dec in degrees and alt/az/hourangle in radians; airmass
-    is unitless. Arrays are resized to `expected_length` (the scheduler's
-    `len(night_events.times[night_idx])`) so downstream consumers that combine
-    target arrays with night_events-sized arrays (variants, wind, conditions)
-    don't crash on broadcasting mismatches.
-    """
-    ra = _resize_to(np.asarray(stage1_entry['ra']), expected_length)
-    dec = _resize_to(np.asarray(stage1_entry['dec']), expected_length)
-    alt = _resize_to(np.asarray(stage1_entry['alt']), expected_length)
-    az = _resize_to(np.asarray(stage1_entry['az']), expected_length)
-    hourangle = _resize_to(np.asarray(stage1_entry['hourangle']), expected_length)
-    airmass = _resize_to(np.asarray(stage1_entry['airmass']), expected_length)
-
-    coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame='icrs')
-    return TargetInfo(
-        coord=coord,
-        alt=Angle(alt, unit=u.rad),
-        az=Angle(az, unit=u.rad),
-        hourangle=Angle(hourangle, unit=u.rad),
-        airmass=airmass,
-        visibility_slot_idx=np.arange(expected_length, dtype=int),
-        rem_visibility_frac=rem_visibility_frac,
     )
 
 
@@ -956,7 +889,7 @@ class Collector(SchedulerComponent):
                     continue
 
                 expected_length = len(self.night_events[obs.site].times[night_index])
-                ti = _build_target_info(stage1_entry, rem_visibility_frac, expected_length)
+                ti = build_target_info(stage1_entry, rem_visibility_frac, expected_length)
 
                 obs_ranges = ranges_by_obs.get(obs.id.id, [])
                 if obs_ranges:
@@ -1035,7 +968,7 @@ class Collector(SchedulerComponent):
         # The denominator of rem_visibility_frac at night n is the sum of (resource-gated) remaining
         # minutes from night n through the end of the period, so it shrinks toward
         # the end of the run.
-        cumulative_by_night = _cumulative_remaining_by_night(rem_min_by_night)
+        cumulative_by_night = cumulative_remaining_by_night(rem_min_by_night)
 
         for night_index, visible_ids in visible_by_night.items():
             per_night[night_index] = (
@@ -1161,14 +1094,14 @@ class Collector(SchedulerComponent):
                 denom = suffix_by_night[night_idx]
                 rem_frac = (rem_obs_seconds / (denom * 60.0)) if denom > 0 else 0.0
                 expected_length = len(self.night_events[site].times[night_idx])
-                ti = _build_target_info(stage1_entry, rem_frac, expected_length)
+                ti = build_target_info(stage1_entry, rem_frac, expected_length)
 
-                # _build_target_info defaults visibility_slot_idx to np.arange
+                # build_target_info defaults visibility_slot_idx to np.arange
                 # (every slot visible) for the DB-backed path; override with
                 # the real Stage-2 mask here. Resize the mask too so it stays
                 # aligned with the (possibly padded) arrays.
                 mask = np.asarray(s2.visibility_mask, dtype=bool)
-                mask = _resize_to(mask.astype(int), expected_length).astype(bool)
+                mask = resize_to(mask.astype(int), expected_length).astype(bool)
                 ti.visibility_slot_idx = np.where(mask)[0]
 
                 if mask.any():

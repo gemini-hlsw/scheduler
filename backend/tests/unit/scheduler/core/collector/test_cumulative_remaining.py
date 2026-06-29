@@ -9,9 +9,7 @@ the period.
 
 from lucupy.minimodel import NightIndex
 
-from scheduler.core.components.collector.collector import (
-    _cumulative_remaining_by_night,
-)
+from scheduler.services.sight.helpers import cumulative_remaining_by_night
 
 
 def _old_reference(per_night_minutes, num_nights, time_slot_seconds=60):
@@ -54,7 +52,7 @@ def test_backward_cumulative_matches_old_reference():
     }
     rem_min_by_night = _to_rem_min_by_night(per_night_minutes, num_nights)
 
-    got = _cumulative_remaining_by_night(rem_min_by_night)
+    got = cumulative_remaining_by_night(rem_min_by_night)
     expected = _old_reference(per_night_minutes, num_nights)
 
     # Compare only the (obs, night) pairs the obs is actually visible: those are
@@ -67,7 +65,7 @@ def test_backward_cumulative_matches_old_reference():
 def test_denominator_shrinks_toward_end_of_period():
     num_nights = 3
     rem_min_by_night = _to_rem_min_by_night({'o1': {0: 30, 1: 20, 2: 10}}, num_nights)
-    got = _cumulative_remaining_by_night(rem_min_by_night)
+    got = cumulative_remaining_by_night(rem_min_by_night)
     # night0 sees all 3 nights, night1 sees nights 1-2, night2 only itself.
     assert got[NightIndex(0)]['o1'] == 60
     assert got[NightIndex(1)]['o1'] == 30
@@ -78,11 +76,11 @@ def test_missing_nights_contribute_zero():
     num_nights = 4
     # o1 only visible on night 0; nights 1-3 absent (no resources).
     rem_min_by_night = _to_rem_min_by_night({'o1': {0: 45}}, num_nights)
-    got = _cumulative_remaining_by_night(rem_min_by_night)
+    got = cumulative_remaining_by_night(rem_min_by_night)
     # Only night 0 has an entry, equal to its own minutes (later nights are 0).
     assert got[NightIndex(0)]['o1'] == 45
     assert 'o1' not in got.get(NightIndex(1), {})
 
 
 def test_empty_input():
-    assert _cumulative_remaining_by_night({}) == {}
+    assert cumulative_remaining_by_night({}) == {}
