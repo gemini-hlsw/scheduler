@@ -86,6 +86,29 @@ def _resize_to(arr: np.ndarray, expected_length: int) -> np.ndarray:
     return np.concatenate([arr, pad])
 
 
+def _cumulative_remaining_by_night(
+    rem_min_by_night: dict[NightIndex, dict[str, int]],
+) -> dict[NightIndex, dict[str, int]]:
+    """Backward cumulative remaining minutes per observation, per night.
+
+    Reproduces the legacy ``get_target_visibility`` denominator: the value for an
+    observation on night ``n`` is the sum of its remaining minutes from night
+    ``n`` through the last night in the map. Input is expected to be already
+    resource/program gated (nights an observation cannot use are simply absent
+    and therefore contribute 0, exactly as the old code zeroed them). Only the
+    observations visible on a given night are kept in that night's entry.
+    """
+    cumulative_by_night: dict[NightIndex, dict[str, int]] = {}
+    running: dict[str, int] = {}
+    for night_index in sorted(rem_min_by_night, reverse=True):
+        for obs_id, rem in rem_min_by_night[night_index].items():
+            running[obs_id] = running.get(obs_id, 0) + rem
+        cumulative_by_night[night_index] = {
+            obs_id: running[obs_id] for obs_id in rem_min_by_night[night_index]
+        }
+    return cumulative_by_night
+
+
 def _build_target_info(stage1_entry: dict, rem_visibility_frac: float,
                        expected_length: int) -> TargetInfo:
     """Construct a TargetInfo from a Sight Stage-1 night entry.
@@ -911,10 +934,7 @@ class Collector(SchedulerComponent):
                     _logger.error(f'Could not find base target for {obs.id.id}.')
                     continue
 
-                cum_entry = (
-                    cumulative.get(obs.id.id, {}).get('targets', {}).get(base.name, {})
-                )
-                rem_minutes = cum_entry.get('cumulative_remaining_minutes', 0)
+                rem_minutes = cumulative.get(obs.id.id, 0)
                 if rem_minutes > 0:
                     rem_visibility_frac = (
                         (obs.exec_time() - obs.total_used()).total_seconds()
@@ -970,14 +990,19 @@ class Collector(SchedulerComponent):
             all_target_names: set[str] = set()
             visible_by_night: dict[NightIndex, set[str]] = {}
             ranges_by_night: dict[NightIndex, dict[str, list]] = {}
+            # Per-night, resource-gated remaining minutes per observation.
+            rem_min_by_night: dict[NightIndex, dict[str, int]] = {}
 
             for night_index, observations in filtered_observations.items():
                 if not observations:
                     visible_by_night[night_index] = set()
                     ranges_by_night[night_index] = {}
+                    rem_min_by_night[night_index] = {}
                     continue
                 requests = [_obs_to_request(o) for o in observations]
                 night_date = self.time_grid[int(night_index)].to_datetime().date()
+
+                # Calculate visible observations for the night.
                 t0 = time.perf_counter()
                 visible = await calc.get_visible_observations(requests, night_date)
                 _logger.info(
@@ -987,6 +1012,7 @@ class Collector(SchedulerComponent):
                 visible_ids = {r.observation_id for r in visible}
                 visible_by_night[night_index] = visible_ids
                 ranges_by_night[night_index] = {r.observation_id: r.visible_ranges for r in visible}
+                rem_min_by_night[night_index] = {r.observation_id: r.remaining_minutes for r in visible}
                 all_visible_ids.update(visible_ids)
                 for obs in observations:
                     base = obs.base_target()
@@ -1005,18 +1031,16 @@ class Collector(SchedulerComponent):
                 f'took {time.perf_counter() - t0:.3f}s'
             )
 
-            t0 = time.perf_counter()
-            cumulative = await calc.get_cumulative_remaining_visibility(
-                sorted(all_visible_ids), start_date, end_date
-            )
-            _logger.info(
-                f'Sight get_cumulative_remaining_visibility ({len(all_visible_ids)} obs) '
-                f'took {time.perf_counter() - t0:.3f}s'
-            )
+        # Per-night backward cumulative remaining minutes per observation.
+        # The denominator of rem_visibility_frac at night n is the sum of (resource-gated) remaining
+        # minutes from night n through the end of the period, so it shrinks toward
+        # the end of the run.
+        cumulative_by_night = _cumulative_remaining_by_night(rem_min_by_night)
 
         for night_index, visible_ids in visible_by_night.items():
             per_night[night_index] = (
-                visible_ids, stage1, cumulative, ranges_by_night.get(night_index, {})
+                visible_ids, stage1, cumulative_by_night.get(night_index, {}),
+                ranges_by_night.get(night_index, {})
             )
         return per_night
 
