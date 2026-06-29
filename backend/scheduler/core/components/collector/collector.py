@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 import astropy.units as u
 import numpy as np
 
-from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time, TimeDelta
 
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
@@ -22,7 +21,7 @@ from lucupy.types import Day, ZeroTime
 
 from scheduler.config import config
 from scheduler.core.calculations.nightevents import NightEvents
-from scheduler.core.calculations.targetinfo import TargetInfo, TargetInfoMap, TargetInfoNightIndexMap
+from scheduler.core.calculations.targetinfo import TargetInfoMap, TargetInfoNightIndexMap
 from scheduler.core.components.base import SchedulerComponent
 from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.plans import Plans, Visit
@@ -46,6 +45,11 @@ from scheduler.services.sight._temporary.lucupy_adapters import (
     target_shim,
     stage2_constraints,
 )
+from scheduler.services.sight.helpers import (
+    build_target_info,
+    cumulative_remaining_by_night,
+    resize_to,
+)
 
 __all__ = [
     'Collector',
@@ -64,54 +68,6 @@ def _obs_to_request(obs: Observation) -> ObservationRequest:
         target_name=base.name if base is not None else '',
         site_id=obs.site.name,
         constraints=ObservationConstraints(),
-    )
-
-
-def _resize_to(arr: np.ndarray, expected_length: int) -> np.ndarray:
-    """Pad (by repeating the last value) or truncate `arr` to `expected_length`.
-
-    Sight's Stage-1 arrays are sized from the timestamps stored in its
-    `night_events` rows, while the scheduler's `night_events.times[night_idx]`
-    is recomputed fresh from astropy each run. Slight rounding/ephemeris
-    differences can leave the lengths off by ±1, which downstream broadcasting
-    rejects. One-slot padding/truncation is acceptable: the fence values are
-    near twilight where astronomical visibility is already ~zero.
-    """
-    n = len(arr)
-    if n == expected_length:
-        return arr
-    if n > expected_length:
-        return arr[:expected_length]
-    pad = np.full(expected_length - n, arr[-1], dtype=arr.dtype)
-    return np.concatenate([arr, pad])
-
-
-def _build_target_info(stage1_entry: dict, rem_visibility_frac: float,
-                       expected_length: int) -> TargetInfo:
-    """Construct a TargetInfo from a Sight Stage-1 night entry.
-
-    Stage-1 returns ra/dec in degrees and alt/az/hourangle in radians; airmass
-    is unitless. Arrays are resized to `expected_length` (the scheduler's
-    `len(night_events.times[night_idx])`) so downstream consumers that combine
-    target arrays with night_events-sized arrays (variants, wind, conditions)
-    don't crash on broadcasting mismatches.
-    """
-    ra = _resize_to(np.asarray(stage1_entry['ra']), expected_length)
-    dec = _resize_to(np.asarray(stage1_entry['dec']), expected_length)
-    alt = _resize_to(np.asarray(stage1_entry['alt']), expected_length)
-    az = _resize_to(np.asarray(stage1_entry['az']), expected_length)
-    hourangle = _resize_to(np.asarray(stage1_entry['hourangle']), expected_length)
-    airmass = _resize_to(np.asarray(stage1_entry['airmass']), expected_length)
-
-    coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame='icrs')
-    return TargetInfo(
-        coord=coord,
-        alt=Angle(alt, unit=u.rad),
-        az=Angle(az, unit=u.rad),
-        hourangle=Angle(hourangle, unit=u.rad),
-        airmass=airmass,
-        visibility_slot_idx=np.arange(expected_length, dtype=int),
-        rem_visibility_frac=rem_visibility_frac,
     )
 
 
@@ -911,10 +867,7 @@ class Collector(SchedulerComponent):
                     _logger.error(f'Could not find base target for {obs.id.id}.')
                     continue
 
-                cum_entry = (
-                    cumulative.get(obs.id.id, {}).get('targets', {}).get(base.name, {})
-                )
-                rem_minutes = cum_entry.get('cumulative_remaining_minutes', 0)
+                rem_minutes = cumulative.get(obs.id.id, 0)
                 if rem_minutes > 0:
                     rem_visibility_frac = (
                         (obs.exec_time() - obs.total_used()).total_seconds()
@@ -936,7 +889,7 @@ class Collector(SchedulerComponent):
                     continue
 
                 expected_length = len(self.night_events[obs.site].times[night_index])
-                ti = _build_target_info(stage1_entry, rem_visibility_frac, expected_length)
+                ti = build_target_info(stage1_entry, rem_visibility_frac, expected_length)
 
                 obs_ranges = ranges_by_obs.get(obs.id.id, [])
                 if obs_ranges:
@@ -970,14 +923,19 @@ class Collector(SchedulerComponent):
             all_target_names: set[str] = set()
             visible_by_night: dict[NightIndex, set[str]] = {}
             ranges_by_night: dict[NightIndex, dict[str, list]] = {}
+            # Per-night, resource-gated remaining minutes per observation.
+            rem_min_by_night: dict[NightIndex, dict[str, int]] = {}
 
             for night_index, observations in filtered_observations.items():
                 if not observations:
                     visible_by_night[night_index] = set()
                     ranges_by_night[night_index] = {}
+                    rem_min_by_night[night_index] = {}
                     continue
                 requests = [_obs_to_request(o) for o in observations]
                 night_date = self.time_grid[int(night_index)].to_datetime().date()
+
+                # Calculate visible observations for the night.
                 t0 = time.perf_counter()
                 visible = await calc.get_visible_observations(requests, night_date)
                 _logger.info(
@@ -987,6 +945,7 @@ class Collector(SchedulerComponent):
                 visible_ids = {r.observation_id for r in visible}
                 visible_by_night[night_index] = visible_ids
                 ranges_by_night[night_index] = {r.observation_id: r.visible_ranges for r in visible}
+                rem_min_by_night[night_index] = {r.observation_id: r.remaining_minutes for r in visible}
                 all_visible_ids.update(visible_ids)
                 for obs in observations:
                     base = obs.base_target()
@@ -1005,18 +964,16 @@ class Collector(SchedulerComponent):
                 f'took {time.perf_counter() - t0:.3f}s'
             )
 
-            t0 = time.perf_counter()
-            cumulative = await calc.get_cumulative_remaining_visibility(
-                sorted(all_visible_ids), start_date, end_date
-            )
-            _logger.info(
-                f'Sight get_cumulative_remaining_visibility ({len(all_visible_ids)} obs) '
-                f'took {time.perf_counter() - t0:.3f}s'
-            )
+        # Per-night backward cumulative remaining minutes per observation.
+        # The denominator of rem_visibility_frac at night n is the sum of (resource-gated) remaining
+        # minutes from night n through the end of the period, so it shrinks toward
+        # the end of the run.
+        cumulative_by_night = cumulative_remaining_by_night(rem_min_by_night)
 
         for night_index, visible_ids in visible_by_night.items():
             per_night[night_index] = (
-                visible_ids, stage1, cumulative, ranges_by_night.get(night_index, {})
+                visible_ids, stage1, cumulative_by_night.get(night_index, {}),
+                ranges_by_night.get(night_index, {})
             )
         return per_night
 
@@ -1059,13 +1016,14 @@ class Collector(SchedulerComponent):
             for n_idx, obs_list in obs_with_resources.items()
         }
 
-        for _p_id, obs in parsed_observations:
+        for p_id, obs in parsed_observations:
             base = obs.base_target()
             if base is None:
                 continue
             target = target_shim(base)
             if target is None:
                 continue
+            program = self.get_program(p_id)
 
             site = obs.site
             sshim = site_shims[site]
@@ -1087,6 +1045,8 @@ class Collector(SchedulerComponent):
                     has_resources=has_resources,
                     can_schedule=has_resources,
                     range_end=range_end_dt,
+                    program_start=program.start if program is not None else None,
+                    program_end=program.end if program is not None else None,
                 )
 
                 s2 = sight_calculate_visibility(
@@ -1134,14 +1094,14 @@ class Collector(SchedulerComponent):
                 denom = suffix_by_night[night_idx]
                 rem_frac = (rem_obs_seconds / (denom * 60.0)) if denom > 0 else 0.0
                 expected_length = len(self.night_events[site].times[night_idx])
-                ti = _build_target_info(stage1_entry, rem_frac, expected_length)
+                ti = build_target_info(stage1_entry, rem_frac, expected_length)
 
-                # _build_target_info defaults visibility_slot_idx to np.arange
+                # build_target_info defaults visibility_slot_idx to np.arange
                 # (every slot visible) for the DB-backed path; override with
                 # the real Stage-2 mask here. Resize the mask too so it stays
                 # aligned with the (possibly padded) arrays.
                 mask = np.asarray(s2.visibility_mask, dtype=bool)
-                mask = _resize_to(mask.astype(int), expected_length).astype(bool)
+                mask = resize_to(mask.astype(int), expected_length).astype(bool)
                 ti.visibility_slot_idx = np.where(mask)[0]
 
                 if mask.any():

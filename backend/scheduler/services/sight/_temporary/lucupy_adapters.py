@@ -142,29 +142,62 @@ def expand_timing_windows(windows, range_end: datetime) -> List[SightTimingWindo
     return out
 
 
+def _to_utc_datetime(t) -> datetime:
+    """Coerce an astropy Time or datetime to a tz-aware UTC datetime."""
+    dt = t.to_datetime(timezone.utc) if hasattr(t, 'to_datetime') else t
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def program_window(
+    program_start, program_end,
+) -> List[SightTimingWindow]:
+    """Fallback timing window covering the program's active period.
+    """
+    if program_start is None or program_end is None:
+        return []
+    return [SightTimingWindow(
+        start=_to_utc_datetime(program_start),
+        end=_to_utc_datetime(program_end),
+    )]
+
+
 def stage2_constraints(
     obs,
     has_resources: bool,
     can_schedule: bool,
     range_end: datetime,
+    program_start=None,
+    program_end=None,
 ) -> SightObservationConstraints:
-    """Build sight Stage-2 constraints from a lucupy Observation."""
+    """Build sight Stage-2 constraints from a lucupy Observation.
+
+    When the observation has no explicit timing windows, fall back to a window
+    spanning the program's active period (program_start,program_end).
+    Without that fallback an unconstrained observation would be
+    considered visible across the whole semester.
+    """
     constraints = getattr(obs, 'constraints', None)
     if constraints is None:
         return SightObservationConstraints(
+            timing_windows=program_window(program_start, program_end),
             has_resources=has_resources,
             can_schedule=can_schedule,
         )
     cond = getattr(constraints, 'conditions', None)
     target_sb = float(cond.sb.value) if (cond is not None and cond.sb is not None) else 1.0
+    timing_windows = expand_timing_windows(
+        getattr(constraints, 'timing_windows', None), range_end,
+    )
+    if not timing_windows:
+        timing_windows = program_window(program_start, program_end)
     return SightObservationConstraints(
         target_sb=target_sb,
         elevation_type=SightElevationType(constraints.elevation_type.name.lower()),
         elevation_min=float(constraints.elevation_min),
         elevation_max=float(constraints.elevation_max),
-        timing_windows=expand_timing_windows(
-            getattr(constraints, 'timing_windows', None), range_end,
-        ),
+        timing_windows=timing_windows,
         has_resources=has_resources,
         can_schedule=can_schedule,
     )

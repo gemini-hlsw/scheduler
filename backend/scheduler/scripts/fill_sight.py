@@ -51,7 +51,10 @@ from scheduler.services.sight.database.connection import (
     init_db_engine,
     session_scope,
 )
-from scheduler.services.sight._temporary.lucupy_adapters import expand_timing_windows
+from scheduler.services.sight._temporary.lucupy_adapters import (
+    expand_timing_windows,
+    program_window,
+)
 
 
 _logger = logger_factory.create_logger(__name__)
@@ -94,26 +97,38 @@ def _target_payload(target) -> Optional[TargetCreate]:
     return None
 
 
-def _constraints_payload(constraints, range_end: datetime) -> ObservationConstraints:
+def _constraints_payload(
+    constraints, range_end: datetime, program_start=None, program_end=None
+) -> ObservationConstraints:
     if constraints is None:
-        return ObservationConstraints()
+        return ObservationConstraints(
+            timing_windows=program_window(program_start, program_end),
+        )
     cond = getattr(constraints, 'conditions', None)
     target_sb = float(cond.sb.value) if (cond is not None and cond.sb is not None) else 1.0
+    timing_windows = expand_timing_windows(
+        getattr(constraints, 'timing_windows', None), range_end
+    )
+    if not timing_windows:
+        timing_windows = program_window(program_start, program_end)
     return ObservationConstraints(
         target_sb=target_sb,
         elevation_type=ElevationType(constraints.elevation_type.name.lower()),
         elevation_min=float(constraints.elevation_min),
         elevation_max=float(constraints.elevation_max),
-        timing_windows=expand_timing_windows(
-            getattr(constraints, 'timing_windows', None), range_end
-        ),
+        timing_windows=timing_windows,
         has_resources=True,
         can_schedule=True,
     )
 
 
 def _load_observations(semesters, program_ids_path: Path) -> list:
-    """Parse the bundled OCS programs filtered by ``program_ids_path``."""
+    """Parse the bundled OCS programs filtered by ``program_ids_path``.
+
+    Returns a list of ``(observation, program_start, program_end)`` tuples so the
+    program's active period can bound observations without explicit timing
+    windows.
+    """
     obs_classes = frozenset({
         ObservationClass.SCIENCE,
         ObservationClass.PROGCAL,
@@ -136,7 +151,7 @@ def _load_observations(semesters, program_ids_path: Path) -> list:
             if program.program_awarded() == ZeroTime:
                 continue
             for obs in program.observations():
-                all_obs.append(obs)
+                all_obs.append((obs, program.start, program.end))
         except Exception as e:
             bad_programs += 1
             _logger.debug(f'Failed to parse program: {e}')
@@ -165,7 +180,7 @@ async def _run() -> None:
         raise SystemExit('No observations were parsed from the OCS programs.')
 
     by_site: Dict[str, int] = {}
-    for o in obs_list:
+    for o, _ps, _pe in obs_list:
         by_site[o.site.name] = by_site.get(o.site.name, 0) + 1
     _logger.info(
         f'Loaded {len(obs_list)} observations '
@@ -176,7 +191,7 @@ async def _run() -> None:
     requests: List[ObservationRequest] = []
     skipped_no_target = 0
 
-    for obs in obs_list:
+    for obs, prog_start, prog_end in obs_list:
         base = obs.base_target()
         if base is None:
             skipped_no_target += 1
@@ -190,7 +205,9 @@ async def _run() -> None:
             observation_id=obs.id.id,
             target_name=str(base.name),
             site_id=obs.site.name,
-            constraints=_constraints_payload(getattr(obs, 'constraints', None), END),
+            constraints=_constraints_payload(
+                getattr(obs, 'constraints', None), END, prog_start, prog_end
+            ),
         ))
 
     targets = list(targets_by_name.values())

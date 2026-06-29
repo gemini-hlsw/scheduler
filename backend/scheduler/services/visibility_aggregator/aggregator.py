@@ -137,6 +137,8 @@ async def _collect_requests(program_ids: list[str], range_end: datetime):
                         has_resources=True,
                         can_schedule=True,
                         range_end=range_end,
+                        program_start=program.start,
+                        program_end=program.end,
                     ),
                 ))
         except Exception as exc:

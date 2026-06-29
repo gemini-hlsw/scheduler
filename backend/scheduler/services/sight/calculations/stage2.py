@@ -1,17 +1,20 @@
 import numpy as np
 import numpy.typing as npt
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import Angle, SkyCoord
 import astropy.units as u
 from pydantic import BaseModel, ConfigDict, Field
 
 from lucupy.minimodel import SkyBackground, Constraints
 import lucupy.sky as sky
 
+from scheduler.services import logger_factory
 from scheduler.services.sight.calculations.arrays import unpack_array
 
 
 from datetime import datetime, timezone
 from enum import Enum
+
+_logger = logger_factory.create_logger(__name__)
 
 class ElevationType(str, Enum):
     NONE = "none"
@@ -179,35 +182,38 @@ def _calculate_sky_brightness_array(
     moon_dist: float,
 ) -> npt.NDArray[np.float64]:
     """
-    Calculate sky brightness for each time slot.
+    Calculate sky brightness (as a SkyBackground fraction) for each time slot.
+
+    Vectorized the results so they can be applied further down the process.
     """
     n = len(ra)
-    
+
     # Calculate target-moon angular separation
     target_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
     moon_coord = SkyCoord(ra=moon_ra * u.deg, dec=moon_dec * u.deg)
     target_moon_ang = target_coord.separation(moon_coord)
-    
-    # Convert to required units
-    moon_phase = 180.0 * u.deg - (sun_moon_ang * u.rad).to(u.deg)
-    moon_zenith = 90.0 * u.deg - (moon_alt * u.rad).to(u.deg)
-    target_zenith = 90.0 * u.deg - (alt * u.rad).to(u.deg)
-    sun_zenith = 90.0 * u.deg - (sun_alt * u.rad).to(u.deg)
-    
-    brightness = np.full(n, SkyBackground.SBANY, dtype=np.float64)
-    
-    for i in range(n):
-        try:
-            raw = sky.brightness.calculate_sky_brightness(
-                moon_phase[i],
-                target_moon_ang[i],
-                moon_dist,
-                moon_zenith[i],
-                target_zenith[i],
-                sun_zenith[i],
-            )
-            brightness[i] = sky.brightness.convert_to_sky_background(raw)
-        except Exception:
-            brightness[i] = SkyBackground.SBANY
-    
-    return brightness
+
+    # Convert to required units. lucupy's ztwilight (reached during twilight)
+    # calls ``alt.deg``, which only exists on Angle, so these must be Angle, not
+    # plain Quantity.
+    moon_phase = Angle(180.0 * u.deg - (sun_moon_ang * u.rad).to(u.deg))
+    moon_zenith = Angle(90.0 * u.deg - (moon_alt * u.rad).to(u.deg))
+    target_zenith = Angle(90.0 * u.deg - (alt * u.rad).to(u.deg))
+    sun_zenith = Angle(90.0 * u.deg - (sun_alt * u.rad).to(u.deg))
+    earth_moon_dist = np.full(n, moon_dist) * u.AU
+
+    try:
+        raw = sky.brightness.calculate_sky_brightness(
+            moon_phase,
+            target_moon_ang,
+            earth_moon_dist,
+            moon_zenith,
+            target_zenith,
+            sun_zenith,
+        )
+        return np.asarray(
+            sky.brightness.convert_to_sky_background(raw), dtype=np.float64
+        )
+    except Exception as exc:
+        _logger.warning(f"Sky brightness calculation failed, defaulting to SBANY: {exc}")
+        return np.full(n, float(SkyBackground.SBANY), dtype=np.float64)
