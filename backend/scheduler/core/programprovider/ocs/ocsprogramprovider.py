@@ -1443,7 +1443,7 @@ class OcsProgramProvider(ProgramProvider):
         too_type = (
             TooType[data[OcsProgramProvider._ProgramKeys.TOO_TYPE].upper()]
             if data[OcsProgramProvider._ProgramKeys.TOO_TYPE] != "None"
-            else None
+            else TooType.NONE
         )
         # print(f'Program {program_id.id} has too_type {"None" if too_type is None else too_type.name}.')
 
@@ -1542,9 +1542,10 @@ class OcsProgramProvider(ProgramProvider):
             If the Program is set up with a TooType, then its Observations can either not be, or have a
             type that is as stringent or less than the Program's.
             """
-            if too_type is None:
-                return sub_too_type is None
-            return sub_too_type is None or sub_too_type <= too_type
+            if too_type == TooType.NONE:
+                return sub_too_type == TooType.NONE
+
+            return sub_too_type == TooType.NONE or sub_too_type <= too_type
 
         def process_group(pgroup: Group):
             """
@@ -1557,12 +1558,8 @@ class OcsProgramProvider(ProgramProvider):
                 # too_type_name = 'None' if too_type is None else too_type.name
                 # obs_too_type = 'None' if observation.too_type is None else observation.too_type.name
                 # print(f'observation {observation.id} {obs_too_type} {too_type_name}')
-                if observation.too_type is None:
+                if observation.too_type == TooType.NONE:
                     observation.too_type = too_type
-                    # if too_type == TooType.RAPID:
-                    #     observation.too_type = TooType.STANDARD
-                    # else:
-                    #     observation.too_type = too_type
 
                 # Check compatibility between the observation's ToO type and the program's ToO type.
                 if not compatible(too_type):

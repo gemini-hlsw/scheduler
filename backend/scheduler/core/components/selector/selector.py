@@ -307,6 +307,7 @@ class Selector(SchedulerComponent):
         Otherwise, the data is bundled in a ProgramCalculations object.
         """
         # Check if there is any time left for the program, allowing for the time buffer. If not, skip it.
+        # print(f'awarded: {program.program_awarded()}, buffer: {self.time_buffer(program)}')
         if program.program_awarded() + self.time_buffer(program) <= program.program_used():
             logger.debug(f'Program {program.id.id} out of time: skipping.')
             return None
@@ -784,7 +785,7 @@ class Selector(SchedulerComponent):
         # This should work as we are adjusting structures that are passed by reference.
         def adjuster(array, value):
             better_idx = np.where(array < value)[0] if rising else np.array([])
-            if len(better_idx) > 0 and (too_status is None or too_status not in {TooType.RAPID, TooType.INTERRUPT}):
+            if len(better_idx) > 0 and (too_status < TooType.RAPID):
                 # cond_match[better_idx] = cond_match[better_idx] * array[better_idx] / value
                 cond_match[better_idx] = cond_match[better_idx] * (1.0 - (value - array[better_idx]))
 

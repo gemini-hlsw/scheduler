@@ -1564,7 +1564,7 @@ class GppProgramProvider(ProgramProvider):
         time_used = frozenset([self.parse_time_used(tc) for tc in data[GppProgramProvider._ProgramKeys.TIME_CHARGE]])
 
         # ToOs
-        too_type = None
+        too_type = TooType.NONE
         # too_type = TooType[data[GppProgramProvider._ProgramKeys.TOO_TYPE].upper()] if \
         #     data[GppProgramProvider._ProgramKeys.TOO_TYPE] != 'None' else None
 
@@ -1617,9 +1617,10 @@ class GppProgramProvider(ProgramProvider):
             If the Program is set up with a TooType, then its Observations can either not be, or have a
             type that is as stringent or less than the Program's.
             """
-            if too_type is None:
-                return sub_too_type is None
-            return sub_too_type is None or sub_too_type <= too_type
+            if too_type == TooType.NONE:
+                return sub_too_type == TooType.NONE
+
+            return sub_too_type == TooType.NONE or sub_too_type <= too_type
 
         def process_group(pgroup: Group):
             """
@@ -1629,7 +1630,7 @@ class GppProgramProvider(ProgramProvider):
                 observation: Observation = pgroup.children
 
                 # If the observation's ToO type is None, we set it from the program.
-                if observation.too_type is None:
+                if observation.too_type == TooType.NONE:
                     observation.too_type = too_type
 
                 # Check compatibility between the observation's ToO type and the program's ToO type.
