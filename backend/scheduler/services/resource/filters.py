@@ -5,7 +5,7 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Callable, FrozenSet, Optional, final
 
-from lucupy.minimodel import Group, Program, ProgramID, Resource, TimeAccountingCode, ResourceType
+from lucupy.minimodel import Group, Program, ProgramID, Resource, TimeAccountingCode, ResourceType, TooType
 
 __all__ = [
     'AbstractFilter',
@@ -211,7 +211,7 @@ class TooFilter(AbstractFilter):
     """
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
-        return lambda p: p.too_type is not None
+        return lambda p: p.too_type != TooType.NONE
 
 
 @final
