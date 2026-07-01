@@ -158,7 +158,6 @@ jobs:
           heroku container:release -a ${{ secrets[matrix.app_secret] }} web
 
       - name: Run DB migrations
-        if: matrix.mode == 'realtime'
         run: |
           APP="${{ secrets[matrix.app_secret] }}"
           if [ -n "$(heroku config:get DATABASE_URL -a "$APP")" ]; then
