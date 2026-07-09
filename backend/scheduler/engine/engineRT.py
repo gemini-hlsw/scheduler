@@ -2,18 +2,16 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-import datetime
 from time import time
 import traceback
-import numpy as np
 from .params import SchedulerParameters, build_params_store
+from .plan_computation import compute_event_plans
 from scheduler.core.scp.scp import SCP
 from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
-from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
-from scheduler.core.events.queue.events import CustomStartOfNightEvent, Event, EndOfNightEvent
+from scheduler.core.events.queue.events import Event, EndOfNightEvent
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.graphql_mid.types import NightPlansError
 from scheduler.graphql_mid.types import SPlans, NightPlansWithEvent
@@ -150,73 +148,15 @@ class EngineRT:
         Returns:
             NewPlansRT: The new plan for the event.
         """
-        # Get the timeslots associated with the sites with format
-        # {site: {0: current_timeslot}}
-
         await self.build()
-        # TODO: Specific logic for events
-        # In theory this should be a shared process for all events.
-        # Meaning the process of setup the SCP and run a schedule is independent from the type of event.
-        # sites_to_update = self.params.sites
-        # if 'Weather' in event.trigger_event:
-        #     self.scp.selector.update_site_variant(event.site, event.event.variant_change)
-        #     sites_to_update = [event.site]
         await self.init_variant()
 
         build_params = await build_params_store.get()
         night_times = build_params.get_night_times()
 
-        # The start timeslot for each site should be:
-        # - The event time if happens after the twilight and after the custom start
-        # - The custom start if defined and happens after the twilight
-        # - The twilight timeslot
-        start_timeslot = {}
-        for site in self.params.sites:
-            night_start_time = self.scp.collector.night_events[site].times[0][0]
-            utc_night_start = night_start_time.utc.to_datetime(timezone=datetime.timezone.utc)
+        # Pure sync computation (RT-22); runs in a worker process from RT-25 on.
+        plans = compute_event_plans(self.scp, self.params.sites, event, night_times)
 
-            event_timeslot = event.to_timeslot_idx(
-                utc_night_start,
-                self.scp.collector.time_slot_length.to_datetime()
-            )
-
-            custom_start = night_times.get(site, (None, None))[0] if night_times else None
-            if custom_start is not None:
-                custom_start_timeslot = CustomStartOfNightEvent(
-                    site,
-                    custom_start.utc.to_datetime(timezone=datetime.timezone.utc),
-                    f"Custom start of night for site {site}"
-                ).to_timeslot_idx(
-                    utc_night_start,
-                    self.scp.collector.time_slot_length.to_datetime()
-                )
-
-                if event_timeslot < custom_start_timeslot:
-                    site_timeslot = custom_start
-                else:
-                    site_timeslot = event_timeslot
-            else:
-                if event_timeslot < 0:
-                    site_timeslot = 0
-                else:
-                    site_timeslot = event_timeslot
-
-            _logger.info(f"Computing plan for site {site.name} starting on timeslot: {site_timeslot}, "
-                         f"utc_night_start={utc_night_start}, event_time={event.time}")
-            start_timeslot[site] = {np.int64(0): site_timeslot}
-
-        plans = self.scp.run_rt(start_timeslot)
-
-        for site in self.params.sites:
-            plans.plans[site].night_stats = NightStats({},0.0,0,{},{})
-            plans.plans[site].alt_degs = []
-            # Calculate altitude data
-            for visit in plans.plans[site].visits:
-                ti = self.scp.collector.get_target_info(visit.obs_id)
-                end_time_slot = visit.start_time_slot + visit.time_slots
-                values = ti[plans.night_idx].alt[visit.start_time_slot: end_time_slot]
-                alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
-                plans.plans[site].alt_degs.append(alt_degs)
         splans = SPlans.from_computed_plans(plans, self.params.sites)
 
         return NightPlansWithEvent(night_plans=splans, event=f"{event.description} @{event.time if event.time else 'Start of Night'}")
