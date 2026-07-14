@@ -3,15 +3,18 @@
 
 import asyncio
 import inspect
-from typing import Callable
+from typing import Awaitable, Callable, Tuple, TypeVar, Union
 
-from scheduler.graphql_mid.types import NewPlansRT
 from scheduler.services import logger_factory
 from scheduler.core.events.queue import Event
 
 __all__ = ["SchedulerQueue"]
 
 _logger = logger_factory.create_logger(__name__)
+
+# Whatever the consumer's callback produces (e.g. NightPlansWithEvent in the
+# RT engine); the queue itself is payload-agnostic.
+R = TypeVar("R")
 
 class SchedulerQueue:
 
@@ -31,12 +34,18 @@ class SchedulerQueue:
         self._queue.put_nowait(event)
         _logger.info(f"Sent Scheduler event: {event.description} ")
 
-    async def consume_events(self, callback: Callable[[Event], NewPlansRT]):
+    async def consume_events(
+        self,
+        callback: Union[Callable[[Event], Awaitable[R]], Callable[[Event], R]]
+    ) -> Tuple[Event, R]:
         """
         Starts consuming events from the queue.
 
         Args:
-            callback: Async function to process each event
+            callback: Sync or async function to process each event.
+
+        Returns:
+            The consumed event and the callback's result.
         """
 
         event = await self._queue.get()

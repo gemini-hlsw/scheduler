@@ -19,13 +19,13 @@ from scheduler.engine.params import BuildParameters, SchedulerParameters
 from scheduler.engine.plan_computation import compute_event_plans
 from scheduler.services import logger_factory
 
-__all__ = ['ComputePayload', 'PlanWorker', 'worker_build', 'worker_compute']
+__all__ = ['SchedulerComputePayload', 'PlanWorker', 'worker_build', 'worker_compute']
 
 _logger = logger_factory.create_logger(__name__)
 
 
 @dataclass(frozen=True)
-class ComputePayload:
+class SchedulerComputePayload:
     """Everything worker_compute needs for one plan, in picklable form."""
     event: Event
     sites: FrozenSet[Site]
@@ -93,7 +93,7 @@ class PlanWorker:
         _logger.info("Worker: SCP built and cached.")
         return True
 
-    def compute(self, payload: ComputePayload) -> Plans:
+    def compute(self, payload: SchedulerComputePayload) -> Plans:
         """Compute plans for one event against the cached SCP.
 
         Raises:
@@ -118,5 +118,5 @@ def worker_build(params: SchedulerParameters, build_params: BuildParameters) -> 
     return _worker.build(params, build_params)
 
 
-def worker_compute(payload: ComputePayload) -> Plans:
+def worker_compute(payload: SchedulerComputePayload) -> Plans:
     return _worker.compute(payload)

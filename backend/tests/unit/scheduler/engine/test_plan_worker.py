@@ -18,7 +18,7 @@ from astropy.time import Time
 from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantSnapshot
 
 from scheduler.engine import plan_worker
-from scheduler.engine.plan_worker import (ComputePayload, PlanWorker,
+from scheduler.engine.plan_worker import (SchedulerComputePayload, PlanWorker,
                                           worker_build, worker_compute)
 
 NIGHT_START = datetime(2025, 3, 1, 23, 0, 0, tzinfo=UTC)
@@ -46,7 +46,7 @@ def make_variant():
 
 
 def make_payload(rt_event_factory, variants=None):
-    return ComputePayload(
+    return SchedulerComputePayload(
         event=rt_event_factory.on_demand(time=NIGHT_START + timedelta(minutes=30)),
         sites=frozenset([SITE]),
         night_times=None,

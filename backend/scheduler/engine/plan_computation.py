@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 """Pure, synchronous plan computation for the real-time path.
 
-Extracted from EngineRT._compute_event_plan and kept free of strawberry types
+Extracted from EngineRT.compute_event_plan and kept free of strawberry types
 and event-loop state so it can run inside a worker process (RT-24/25). The
 SPlans/NightPlansWithEvent conversion stays with the caller.
 """
