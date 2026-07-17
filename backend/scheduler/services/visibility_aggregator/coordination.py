@@ -19,6 +19,7 @@ Two rows:
 
 import asyncio
 import json
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import text
@@ -33,6 +34,7 @@ _logger = create_logger(__name__, with_id=False)
 __all__ = [
     "AGGREGATOR_NAME",
     "NIGHT_EXECUTION_NAME",
+    "CHANGE_WATERMARK_NAME",
     "STALE_AFTER_SECONDS",
     "acquire_aggregator",
     "heartbeat_aggregator",
@@ -43,10 +45,16 @@ __all__ = [
     "signal_plan_done",
     "is_plan_in_progress",
     "get_aggregator_status",
+    "get_change_watermark",
+    "set_change_watermark",
 ]
 
 AGGREGATOR_NAME = "visibility_aggregator"
 NIGHT_EXECUTION_NAME = "night_execution"
+# Row holding the ODB visibility-changes sync watermark: the `since` value the
+# next aggregator run should query changes from. Never `active`; only `detail`
+# ({"since": iso}) is meaningful.
+CHANGE_WATERMARK_NAME = "odb_change_watermark"
 
 # Tunables live in config.yaml under the `visibility_aggregator` section.
 _agg_config = config.visibility_aggregator
@@ -146,6 +154,48 @@ async def _is_active(session: AsyncSession, name: str,
     result = await session.execute(stmt, {"name": name, "stale": stale_after})
     return result.first() is not None
 
+
+
+async def get_change_watermark(session: AsyncSession) -> Optional[datetime]:
+    """Read the ODB change-sync watermark, or None if absent/unparseable.
+
+    The caller decides the fallback `since` (config
+    ``changes_fallback_lookback_hours``) when None is returned.
+    """
+    stmt = text(
+        "SELECT detail->>'since' FROM scheduler_coordination WHERE name = :name"
+    )
+    result = await session.execute(stmt, {"name": CHANGE_WATERMARK_NAME})
+    row = result.first()
+    if row is None or row[0] is None:
+        return None
+    try:
+        return datetime.fromisoformat(row[0])
+    except ValueError:
+        _logger.warning(f"Unparseable ODB change watermark {row[0]!r}; ignoring it.")
+        return None
+
+
+async def set_change_watermark(session: AsyncSession, since: datetime) -> None:
+    """Persist ``since`` as the next run's changes query start. Caller commits.
+
+    Only called after a fully successful aggregation run, so a failed run
+    retries the same window (applying changes twice is idempotent).
+    """
+    stmt = text(
+        """
+        INSERT INTO scheduler_coordination (name, active, detail)
+        VALUES (:name, false, cast(:detail as jsonb))
+        ON CONFLICT (name) DO UPDATE SET detail = cast(:detail as jsonb)
+        """
+    )
+    await session.execute(
+        stmt,
+        {
+            "name": CHANGE_WATERMARK_NAME,
+            "detail": json.dumps({"since": since.isoformat()}),
+        },
+    )
 
 
 async def acquire_aggregator(session: AsyncSession, holder: str,
