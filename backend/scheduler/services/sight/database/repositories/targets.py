@@ -51,6 +51,31 @@ class TargetRepository(BaseRepository[Target]):
         await self.session.flush()
         await self.session.refresh(target)
         return target
+
+    async def update_fields(
+        self,
+        target: Target,
+        *,
+        base_ra: float | None,
+        base_dec: float | None,
+        pm_ra: float | None,
+        pm_dec: float | None,
+        epoch: float | None,
+    ) -> Target:
+        """Update a sidereal target's coordinate fields from fresh ODB values.
+
+        Bumps updated_at explicitly so Stage-1 rows become stale and get
+        recomputed even if every field value is unchanged.
+        """
+        target.base_ra = base_ra
+        target.base_dec = base_dec
+        target.pm_ra = pm_ra
+        target.pm_dec = pm_dec
+        target.epoch = epoch
+        target.updated_at = func.now()
+        await self.session.flush()
+        await self.session.refresh(target)
+        return target
     
     async def bulk_create(
         self,
