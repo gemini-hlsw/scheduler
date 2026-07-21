@@ -73,6 +73,10 @@ class SchedulerProcess:
         self._engine_task = None
         self.task = None
 
+        # Release the worker pool so its processes don't outlive us.
+        if self.engine is not None:
+            self.engine.shutdown_workers()
+
     async def start_task(self):
         """
         Start the scheduler process as an asyncio task

@@ -36,6 +36,20 @@ async def test_stop_process_cleans_up_everything():
 
 
 @pytest.mark.asyncio
+async def test_stop_process_shuts_down_worker_pool():
+    """stop_process must release the engine's worker pool (RT-27), so the
+    ProcessPoolExecutor processes don't outlive the scheduler process."""
+    process = SchedulerProcess("test", MagicMock())
+    process.engine = MagicMock()
+    process.engine.shutdown_workers = MagicMock()
+    process.running_event.set()
+
+    await process.stop_process()
+
+    process.engine.shutdown_workers.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_stop_process_before_start_does_not_crash():
     """Stopping a process that never started is a no-op, not a crash."""
     process = SchedulerProcess("test", MagicMock())

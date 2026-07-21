@@ -30,32 +30,46 @@ class NightTracker:
   def __init__(self, date: datetime, sites: FrozenSet[Site], scheduler_queue: SchedulerQueue):
     """
     Constructor for NightTracker.
+
     Args:
         date (datetime): The date for which to track night events.
         sites (Frozenset[site): List of site objects to track events for.
     """
     # Set night date
-    # self.date = date
     self.date = datetime.now(UTC)
+    self.sites = sites
     self.scheduler_queue = scheduler_queue
+    self.sorted_night_events: List[NightEvent] = []
 
-    # Precompute night events for each site as an array of tuples
+  def _compute_sorted_night_events(self) -> List[NightEvent]:
+    """Compute and sort every site's night events (blocking sky math).
+
+    Synchronous and CPU-bound.
+    """
+    #TODO: This are calculated in Sight. If the service is toggled on, a query might be faster
     all_events = []
-    for site in sites:
+    for site in self.sites:
       night_events = self.calculate_night_events(self.date, site)
       correct_night_events = self._get_correct_events(self.date, site, night_events)
       all_events.extend(correct_night_events)
 
-    # Sort events by time
-    self.sorted_night_events = sorted(all_events, key=lambda x: x.time)
+    sorted_events = sorted(all_events, key=lambda x: x.time)
 
     # Add end of night event
-    self.sorted_night_events.append(
-      NightEvent(description="End of Night", time=(self.sorted_night_events[-1].time + timedelta(minutes=5)), site="Both"),
+    sorted_events.append(
+      NightEvent(description="End of Night", time=(sorted_events[-1].time + timedelta(minutes=5)), site="Both"),
     )
+    return sorted_events
 
-    # Debugging output
-    _logger.debug(self)
+  async def prepare(self) -> None:
+    """Compute the night events off the event loop.
+
+    The ``sky.night_events`` computation is synchronous and heavy, so it runs
+    in a worker thread. Idempotent: a second call is a no-op.
+    """
+    if self.sorted_night_events:
+      return
+    self.sorted_night_events = await asyncio.to_thread(self._compute_sorted_night_events)
 
   @staticmethod
   def calculate_night_events(date: datetime, site: Site) -> List[NightEvent]:
@@ -176,6 +190,9 @@ class NightTracker:
     In RT should add events to the scheduler queue when an event time is reached
     In non-RT should add all events to the scheduler queue at once
     """
+    # Compute the night events off the loop before tracking them.
+    await self.prepare()
+
     schedule_queue = self.scheduler_queue
     now = datetime.now(UTC)
 
