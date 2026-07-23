@@ -412,7 +412,9 @@ async def run_aggregation(
 
     # What changed in the ODB since the last successful run? Fetched before the
     # program dump; applied after parsing (the fresh payloads are needed).
+    changes_t0 = time.perf_counter()
     changes, fetch_time = await _load_changes(session, now)
+    changes_elapsed = time.perf_counter() - changes_t0
     if heartbeat is not None:
         await heartbeat({
             "phase": "changes",
@@ -451,9 +453,11 @@ async def run_aggregation(
     # Apply the ODB-reported changes before the Stage-1/Stage-2 flow below, so
     # updated targets are recomputed as stale and invalidated observations are
     # refilled as missing.
+    apply_t0 = time.perf_counter()
     change_counts = await _apply_odb_changes(
         calc, changes, targets_by_name, requests, obs_gid_to_label
     )
+    apply_elapsed = time.perf_counter() - apply_t0
     if heartbeat is not None:
         await heartbeat({"phase": "changes_applied", **change_counts})
 
@@ -521,9 +525,16 @@ async def run_aggregation(
     total_elapsed = time.perf_counter() - run_t0
     _logger.info(
         f"Aggregation timing: total={total_elapsed:.1f}s "
-        f"(parse={parse_elapsed:.1f}s, stage1={stage1_elapsed:.1f}s, "
+        f"(changes={changes_elapsed:.1f}s, apply={apply_elapsed:.1f}s, "
+        f"parse={parse_elapsed:.1f}s, stage1={stage1_elapsed:.1f}s, "
         f"stage2={stage2_elapsed:.1f}s); {len(targets)} targets, "
-        f"{stored} stage-2 rows inserted."
+        f"{stored} stage-2 rows inserted; ODB changes: "
+        f"{len(changes.target_ids)} targets / {len(changes.observation_ids)} obs "
+        f"reported, {change_counts['targets_updated']} targets updated "
+        f"({change_counts['targets_skipped']} skipped), "
+        f"{change_counts['obs_invalidated']} obs invalidated "
+        f"({change_counts['stage2_rows_deleted']} stage-2 rows deleted, "
+        f"{change_counts['obs_unresolved']} unresolved)."
     )
 
     return {
@@ -536,6 +547,8 @@ async def run_aggregation(
         "observations": len(requests),
         "stage2_stored": stored,
         "elapsed_seconds": round(total_elapsed, 1),
+        "changes_seconds": round(changes_elapsed, 1),
+        "apply_seconds": round(apply_elapsed, 1),
         "parse_seconds": round(parse_elapsed, 1),
         "stage1_seconds": round(stage1_elapsed, 1),
         "stage2_seconds": round(stage2_elapsed, 1),

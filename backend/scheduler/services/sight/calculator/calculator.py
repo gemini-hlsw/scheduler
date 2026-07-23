@@ -407,10 +407,17 @@ class Calculator:
         # array payloads) and reused for every target and night.
         night_events: dict[tuple[int, date], NightEvent] | None = None
 
+        # One IN-clause query for the whole batch instead of one get_by_name
+        # per target; created targets are added below so a duplicate name
+        # later in the same batch is still caught.
+        existing_by_name = await self.target_repo.get_by_names(
+            [t.name for t in targets]
+        )
+
         for target_data in targets:
             try:
                 # Check if target already exists
-                existing = await self.target_repo.get_by_name(target_data.name)
+                existing = existing_by_name.get(target_data.name)
                 if existing:
                     errors.append(f"Target '{target_data.name}' already exists")
                     continue
@@ -434,6 +441,7 @@ class Calculator:
                     horizons_id=target_data.horizons_id,
                     tag=target_data.tag,
                 )
+                existing_by_name[target.name] = target
 
                 # Compute Stage 1 for the whole date range, then insert the
                 # rows in one bulk flush: the target was just created, so no
@@ -510,13 +518,11 @@ class Calculator:
         total_computations in the result counts only the (target, site,
         night) combinations actually computed.
         """
-        # Get targets
+        # Get targets (one IN-clause query; preserves input order, skips
+        # names that do not exist).
         if target_names:
-            targets = []
-            for name in target_names:
-                target = await self.target_repo.get_by_name(name)
-                if target:
-                    targets.append(target)
+            by_name = await self.target_repo.get_by_names(target_names)
+            targets = [by_name[n] for n in target_names if n in by_name]
         else:
             targets = await self.target_repo.get_all()
         
@@ -546,15 +552,17 @@ class Calculator:
         # missing or stale nights to compute.
         night_events_by_site: dict[int, dict[date, NightEvent]] = {}
 
+        # One dates-only query for the whole batch tells us which (target,
+        # site) pairs already have fresh Stage 1 rows on which nights; a fully
+        # seeded batch costs a single round trip instead of one per pair.
+        fresh_by_key = await self.target_data_repo.get_fresh_night_dates_for_targets(
+            targets, list(site_id_ints), start_date, end_date
+        )
+
         total = 0
         for target in targets:
             for site_id in site_id_ints:
-                # One dates-only query tells us which nights already have
-                # fresh Stage 1 rows; a fully seeded target costs a single
-                # round trip per site instead of a full-row fetch per night.
-                fresh_dates = await self.target_data_repo.get_fresh_night_dates(
-                    target, site_id, start_date, end_date
-                )
+                fresh_dates = fresh_by_key.get((target.id, site_id), set())
                 missing_dates = [d for d in all_dates if d not in fresh_dates]
                 if not missing_dates:
                     continue
