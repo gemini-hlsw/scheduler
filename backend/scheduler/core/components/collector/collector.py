@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, field
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import astropy.units as u
 import numpy as np
@@ -46,6 +46,7 @@ from scheduler.services.sight._temporary.lucupy_adapters import (
     stage2_constraints,
 )
 from scheduler.services.sight.helpers import (
+    align_to_start,
     build_target_info,
     cumulative_remaining_by_night,
     resize_to,
@@ -1061,7 +1062,7 @@ class Collector(SchedulerComponent):
                     moon_ra_bytes=ne.moon_ra,
                     moon_dec_bytes=ne.moon_dec,
                     sun_moon_ang_bytes=ne.sun_moon_ang,
-                    moon_dist=ne.moon_dist,
+                    moon_dist_bytes=ne.moon_dist,
                     night_start=ne.night_start,
                     night_duration_minutes=ne.night_duration_minutes,
                     constraints=constraints,
@@ -1094,14 +1095,26 @@ class Collector(SchedulerComponent):
                 denom = suffix_by_night[night_idx]
                 rem_frac = (rem_obs_seconds / (denom * 60.0)) if denom > 0 else 0.0
                 expected_length = len(self.night_events[site].times[night_idx])
-                ti = build_target_info(stage1_entry, rem_frac, expected_length)
+
+                sched_start = self.night_events[site].times[night_idx][0].to_datetime(timezone.utc)
+                start_offset_slots = round(
+                    (sched_start - ne.night_start).total_seconds() / 60.0
+                )
+                if start_offset_slots != 0:
+                    _logger.warning(
+                        f'Sight/scheduler night-start offset of {start_offset_slots} slot(s) '
+                        f'for {obs.id.id} night {int(night_idx)}; realigning arrays.'
+                    )
+                ti = build_target_info(stage1_entry, rem_frac, expected_length,
+                                       start_offset_slots=start_offset_slots)
 
                 # build_target_info defaults visibility_slot_idx to np.arange
                 # (every slot visible) for the DB-backed path; override with
-                # the real Stage-2 mask here. Resize the mask too so it stays
-                # aligned with the (possibly padded) arrays.
+                # the real Stage-2 mask here. Align and resize the mask too so
+                # it stays consistent with the (possibly shifted/padded) arrays.
                 mask = np.asarray(s2.visibility_mask, dtype=bool)
-                mask = resize_to(mask.astype(int), expected_length).astype(bool)
+                mask = align_to_start(mask.astype(int), start_offset_slots)
+                mask = resize_to(mask, expected_length).astype(bool)
                 ti.visibility_slot_idx = np.where(mask)[0]
 
                 if mask.any():

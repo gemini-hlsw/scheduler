@@ -298,7 +298,7 @@ class Calculator:
             moon_ra_bytes=night_event.moon_ra,
             moon_dec_bytes=night_event.moon_dec,
             sun_moon_ang_bytes=night_event.sun_moon_ang,
-            moon_dist=night_event.moon_dist,
+            moon_dist_bytes=night_event.moon_dist,
             night_start=night_event.night_start,
             night_duration_minutes=stage1_data.night_duration_minutes,
             constraints=stage2_constraints,
