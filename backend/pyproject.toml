@@ -47,7 +47,7 @@ dependencies = [
 [dependency-groups]
 gpp-prod = ["gpp-client>=26.7.1"]
 # Dev tracks the latest .dev release; When new cycle starts, bump the CalVer
-gpp-dev = ["gpp-client>=26.7.3.dev1,==26.7.3.*,!=26.7.3"]
+gpp-dev = ["gpp-client>=26.7.3.dev4,==26.7.3.*,!=26.7.3"]
 dev = [
     "hypothesis>=6.137.1",
     "pytest>=8.4.1",
