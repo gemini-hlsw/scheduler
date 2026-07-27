@@ -26,6 +26,12 @@ from scheduler.services.sight.calculations.stage2 import (
 from scheduler.services.sight.calculations.arrays import pack_array
 
 
+# Mean Earth-Moon distance in meters (~0.00257 AU). The moon distance is
+# per-slot in METERS, as lucupy's accurate_location returns it: lucupy
+# normalizes by EQUAT_RAD (meters), and an AU Quantity does not simplify.
+_MOON_DIST_M = 384_400_000.0
+
+
 def _moon_down_inputs(n: int, sun_alt_deg: float):
     """Arrays for a target overhead with the moon well below the horizon."""
     return dict(
@@ -37,7 +43,7 @@ def _moon_down_inputs(n: int, sun_alt_deg: float):
         moon_ra=np.full(n, 330.0),            # degrees (far from target/sun)
         moon_dec=np.full(n, 10.0),            # degrees
         sun_moon_ang=np.radians(np.full(n, 180.0)),
-        moon_dist=0.00257,                    # AU (~mean Earth-Moon distance)
+        moon_dist_m=np.full(n, _MOON_DIST_M),  # meters, per-slot
     )
 
 
@@ -100,7 +106,7 @@ def test_calculate_visibility_keeps_dark_constrained_observation():
         moon_ra_bytes=pack_array(ne["moon_ra"]),
         moon_dec_bytes=pack_array(ne["moon_dec"]),
         sun_moon_ang_bytes=pack_array(ne["sun_moon_ang"]),
-        moon_dist=ne["moon_dist"],
+        moon_dist_bytes=pack_array(ne["moon_dist_m"]),
         night_start=datetime(2026, 6, 26, 0, 0, tzinfo=timezone.utc),
         night_duration_minutes=n,
     )
@@ -112,3 +118,29 @@ def test_calculate_visibility_keeps_dark_constrained_observation():
     assert dark.remaining_minutes > 0
     assert dark.sky_brightness is not None
     assert not all(v == float(SkyBackground.SBANY) for v in dark.sky_brightness)
+
+
+def test_moon_up_far_separation_not_all_sbany():
+    """Moon-up slots must not uniformly classify as SBANY.
+
+    Regression for the AU-unit bug: the moon distance was passed as an AU
+    Quantity, lucupy's ``earth_moon_dist / (60.27 * EQUAT_RAD)`` (meters) kept
+    an un-simplified AU/m composite (raw value ~7e-12 instead of ~1.0), and
+    assigning the result into a plain ndarray stripped the unit — inflating the
+    lunar term by ~1e22 so EVERY slot with the moon above the horizon computed
+    as brighter than SBANY thresholds. A crescent moon at moderate altitude,
+    120 degrees from the target, must yield a sky darker than SBANY.
+    """
+    n = 30
+    inputs = _moon_down_inputs(n, sun_alt_deg=-30.0)
+    inputs.update(
+        moon_alt=np.radians(np.full(n, 30.0)),      # moon up
+        moon_ra=np.full(n, 270.0),                  # ~120 deg from target
+        moon_dec=np.full(n, 10.0),
+        sun_moon_ang=np.radians(np.full(n, 60.0)),  # phase 120 deg -> crescent
+    )
+    sb = _calculate_sky_brightness_array(**inputs)
+    assert np.all(np.isfinite(sb))
+    assert not np.all(sb == float(SkyBackground.SBANY)), (
+        "every moon-up slot classified SBANY (the AU-unit bug)"
+    )

@@ -34,9 +34,9 @@ class NightEventArrays(BaseModel):
     twilight_morning_12: datetime
     moonrise: datetime | None
     moonset: datetime | None
-    moon_dist: float  # AU
-    
+
     # Packed arrays (bytes)
+    moon_dist: bytes  # meters, shape (night_duration_minutes,)
     sun_alt: bytes
     sun_az: bytes
     sun_par_ang: bytes
@@ -131,13 +131,10 @@ def calculate_night_events_for_night(
         local_sidereal_times - moon_pos.ra,
         location.lat
     )
-    
-    # Extract moon distance in AU
-    moon_dist_au = moon_dist_obj.to(u.AU).value
-    if hasattr(moon_dist_au, '__len__'):
-        moon_dist_au = float(np.mean(moon_dist_au))
-    else:
-        moon_dist_au = float(moon_dist_au)
+
+    moon_dist_m = np.asarray(moon_dist_obj.to(u.m).value, dtype=np.float64)
+    if moon_dist_m.ndim == 0:
+        moon_dist_m = np.full(num_slots, float(moon_dist_m))
     
     # Sun-moon angular separation
     sun_moon_ang = sun_pos.separation(moon_pos)
@@ -169,7 +166,7 @@ def calculate_night_events_for_night(
         twilight_morning_12=astropy_time_to_datetime(twi_mor_0),
         moonrise=astropy_time_to_datetime(moonrise_0) if moonrise_0 is not None else None,
         moonset=astropy_time_to_datetime(moonset_0) if moonset_0 is not None else None,
-        moon_dist=moon_dist_au,
+        moon_dist=pack_array(moon_dist_m),
         sun_alt=pack_array(sun_alt_rad),
         sun_az=pack_array(sun_az_rad),
         sun_par_ang=pack_array(sun_par_ang_rad),
@@ -184,13 +181,18 @@ def calculate_night_events_for_night(
 
 
 def _round_minute(t: Time, up: bool = True) -> Time:
-    """Round astropy Time to nearest minute."""
+    """Round astropy Time down (truncate) or up to the whole minute.
+
+    Must match ``lucupy.helpers.round_minute``, which the scheduler's
+    NightEvents grid uses: it reads only the integer seconds (strftime '%S'),
+    so a time with seconds == 0 is NOT rounded up even if microseconds are
+    nonzero. Bumping on microseconds too made the two grids differ by one slot
+    whenever a twilight fell within the first second of a minute (measured: 5
+    of 184 GN 2018B nights).
+    """
     dt = t.to_datetime(timezone=timezone.utc)
-    if up:
-        if dt.second > 0 or dt.microsecond > 0:
-            dt = dt.replace(second=0, microsecond=0) + timedelta(minutes=1)
-        else:
-            dt = dt.replace(second=0, microsecond=0)
+    if up and dt.second > 0:
+        dt = dt.replace(second=0, microsecond=0) + timedelta(minutes=1)
     else:
         dt = dt.replace(second=0, microsecond=0)
     return Time(dt)

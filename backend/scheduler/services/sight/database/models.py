@@ -97,7 +97,7 @@ class NightEvent(Base):
     moon_par_ang: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
     moon_ra: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, comment="Degrees")
     moon_dec: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, comment="Degrees")
-    moon_dist: Mapped[float] = mapped_column(Float, nullable=False, comment="AU")
+    moon_dist: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, comment="Meters, shape (night_duration_minutes,)")
 
 
     # Sun-moon angular separation

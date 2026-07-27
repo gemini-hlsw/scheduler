@@ -34,6 +34,25 @@ def resize_to(arr: np.ndarray, expected_length: int) -> np.ndarray:
     return np.concatenate([arr, pad])
 
 
+def align_to_start(arr: np.ndarray, offset_slots: int) -> np.ndarray:
+    """Shift a sight per-slot array so index 0 matches the scheduler grid start.
+
+    Sight arrays always cover its own rounded twilight-to-twilight night; the
+    scheduler's grid for the same night can start later (a clipped first night
+    when a run begins mid-night, ``nightevents.py`` ``night_start_time``) or a
+    slot earlier/later (fence rounding). ``resize_to`` alone reconciles only the
+    END of the arrays, which silently misaligns every slot when the difference
+    is at the start — so trim leading slots for a positive offset and repeat
+    the first value for a negative one, then let ``resize_to`` fix the tail.
+    """
+    if offset_slots == 0:
+        return arr
+    if offset_slots > 0:
+        return arr[offset_slots:]
+    pad = np.full(-offset_slots, arr[0], dtype=arr.dtype)
+    return np.concatenate([pad, arr])
+
+
 def cumulative_remaining_by_night(
     rem_min_by_night: dict[NightIndex, dict[str, int]],
 ) -> dict[NightIndex, dict[str, int]]:
@@ -58,21 +77,28 @@ def cumulative_remaining_by_night(
 
 
 def build_target_info(stage1_entry: dict, rem_visibility_frac: float,
-                      expected_length: int) -> TargetInfo:
+                      expected_length: int, start_offset_slots: int = 0) -> TargetInfo:
     """Construct a TargetInfo from a Sight Stage-1 night entry.
 
     Stage-1 returns ra/dec in degrees and alt/az/hourangle in radians; airmass
-    is unitless. Arrays are resized to `expected_length` (the scheduler's
-    `len(night_events.times[night_idx])`) so downstream consumers that combine
-    target arrays with night_events-sized arrays (variants, wind, conditions)
-    don't crash on broadcasting mismatches.
+    is unitless. Arrays are first shifted by `start_offset_slots` (scheduler
+    grid start minus sight night start, in slots) and then resized to
+    `expected_length` (the scheduler's `len(night_events.times[night_idx])`)
+    so downstream consumers that combine target arrays with night_events-sized
+    arrays (variants, wind, conditions) don't crash on broadcasting mismatches.
     """
-    ra = resize_to(np.asarray(stage1_entry['ra']), expected_length)
-    dec = resize_to(np.asarray(stage1_entry['dec']), expected_length)
-    alt = resize_to(np.asarray(stage1_entry['alt']), expected_length)
-    az = resize_to(np.asarray(stage1_entry['az']), expected_length)
-    hourangle = resize_to(np.asarray(stage1_entry['hourangle']), expected_length)
-    airmass = resize_to(np.asarray(stage1_entry['airmass']), expected_length)
+    def _fit(key: str) -> np.ndarray:
+        return resize_to(
+            align_to_start(np.asarray(stage1_entry[key]), start_offset_slots),
+            expected_length,
+        )
+
+    ra = _fit('ra')
+    dec = _fit('dec')
+    alt = _fit('alt')
+    az = _fit('az')
+    hourangle = _fit('hourangle')
+    airmass = _fit('airmass')
 
     coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame='icrs')
     return TargetInfo(
