@@ -14,14 +14,15 @@ from lucupy.types import Instantiable
 from definitions import ROOT_DIR
 from scheduler.services.abstract import ExternalService
 from scheduler.services.logger_factory import create_logger
-from scheduler.services.environment import OcsEnvService, SimEnvService
-from scheduler.services.resource import OcsResourceService, SimResourceService
+from scheduler.services.environment import OcsEnvService, SimEnvService, OpsEnvService
+from scheduler.services.resource import OcsResourceService, SimResourceService, OpsResourceService
 
 
 __all__ = [
     'Origin',
     'OcsOrigin',
     'SimOrigin',
+    'OpsOrigin',
     'GppOrigin',
     'Origins',
 ]
@@ -123,11 +124,52 @@ class SimOrigin(Origin):
 
         return self
 
+
+@final
+class OpsOrigin(Origin):
+    """Operations (RT) mode GPP with file data origins"""
+    _env_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'opsenv.pickle'
+    _resource_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'opsresource.pickle'
+
+    def __init__(self):
+        super().__init__()
+        self._is_loaded = False
+
+    def load(self) -> OpsOrigin:
+        if not self._is_loaded:
+            try:
+                with open(OpsOrigin._resource_path, 'rb') as res_pickle:
+                    self.resource = pickle.load(res_pickle)
+                    logger.debug('Read Ops Resource service from pickle.')
+            except Exception:
+                logger.debug('Creating and pickling Ops Resource service.')
+                self.resource = OpsResourceService()
+                OpsOrigin._resource_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(OpsOrigin._resource_path, 'wb') as res_pickle:
+                    pickle.dump(self.resource, res_pickle)
+
+            try:
+                with open(OpsOrigin._env_path, 'rb') as res_env:
+                    self.env = pickle.load(res_env)
+                    logger.debug('Read Ops Env service from pickle.')
+            except Exception:
+                logger.debug('Creating and pickling Ops Env service.')
+                self.env = OpsEnvService()
+                OpsOrigin._env_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(OpsOrigin._env_path, 'wb') as env_pickle:
+                    pickle.dump(self.env, env_pickle)
+
+            self._is_loaded = True
+
+        return self
+
+
 @final
 class GppOrigin(Origin):
     """Real-time mode GPP data origins"""
     def load(self) -> NoReturn:
         raise NotImplementedError('GPP sources are not implemented')
+
 
 @final
 class FileOrigin(Origin):
@@ -141,3 +183,4 @@ class Origins(Instantiable[Origin], Enum):
     OCS = Instantiable(lambda: OcsOrigin())
     GPP = Instantiable(lambda: GppOrigin())
     SIM = Instantiable(lambda: SimOrigin())
+    OPS = Instantiable(lambda: OpsOrigin())

@@ -3,3 +3,4 @@
 
 from .ocs_env_service import *
 from .sim_env_service import *
+from .ops_env_service import *

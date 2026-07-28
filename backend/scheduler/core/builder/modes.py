@@ -7,7 +7,7 @@ from typing import final
 import strawberry  # noqa
 
 from scheduler.core.sources.sources import Sources
-from . import SimulationBuilder
+from .simulationbuilder import SimulationBuilder
 from .schedulerbuilder import SchedulerBuilder
 from .validationbuilder import ValidationBuilder
 from scheduler.core.events.queue import EventQueue
@@ -64,5 +64,5 @@ def dispatch_with(sources: Sources, events: EventQueue) -> SchedulerBuilder:
             sources.set_origin(Origins.SIM())
             return SimulationBuilder(sources, events)
         case SchedulerModes.OPERATION:
-            sources.set_origin(Origins.SIM())
+            sources.set_origin(Origins.OPS())
             return SimulationBuilder(sources, events)
