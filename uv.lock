@@ -917,7 +917,7 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "26.7.3.dev3"
+version = "26.7.3.dev4"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -935,9 +935,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c3/de/4ab9c622a1ea94607ed4466fe61e876c3c7a8c0f7878f548bfb73b5d09f8/gpp_client-26.7.3.dev3.tar.gz", hash = "sha256:3686fe62b4d72cc178a5f47bb07e375272c9d7fd6e82759c133f02e77701acd5", size = 200435, upload-time = "2026-07-22T17:20:56.571Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/36/a7/3cfee3c22c7ebdce763f7d1905879da11ab634a6f531826319dc053c715f/gpp_client-26.7.3.dev4.tar.gz", hash = "sha256:2cdfc7a12c15f44c7472c3d645209e0e52a758533a416c06c13b1abc83a8b8f5", size = 200921, upload-time = "2026-07-24T23:29:50.877Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d6/e1/9dd952afc4baf83a9f294df0b3664cf54042ca06b50f7472d47c7493e935/gpp_client-26.7.3.dev3-py3-none-any.whl", hash = "sha256:93359b340b5dac347b8fcaf12424e2e0266ae0afb03773d7a02a1635eb444318", size = 238789, upload-time = "2026-07-22T17:20:55.295Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/40/9210081c464ab07ab4d83a3fe9f341bf19058e21be5b93f9f7f9486aa584/gpp_client-26.7.3.dev4-py3-none-any.whl", hash = "sha256:692977a9a71ecf5c2ddb28d9e02bc91a620ef48d0cccc478ca213d3489a02432", size = 239301, upload-time = "2026-07-24T23:29:49.627Z" },
 ]
 
 [[package]]
@@ -2716,7 +2716,7 @@ wheels = [
 
 [[package]]
 name = "scheduler"
-version = "0.1.16"
+version = "0.1.18"
 source = { virtual = "backend" }
 dependencies = [
     { name = "aioboto3" },
@@ -2775,7 +2775,7 @@ docs = [
     { name = "mkdocstrings-python" },
 ]
 gpp-dev = [
-    { name = "gpp-client", version = "26.7.3.dev3", source = { registry = "https://pypi.org/simple" } },
+    { name = "gpp-client", version = "26.7.3.dev4", source = { registry = "https://pypi.org/simple" } },
 ]
 gpp-prod = [
     { name = "gpp-client", version = "26.7.3", source = { registry = "https://pypi.org/simple" } },

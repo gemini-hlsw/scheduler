@@ -13,6 +13,15 @@ from lucupy.minimodel import ALL_SITES, ObservationClass
 from lucupy.minimodel.semester import Semester
 from lucupy.types import ZeroTime
 from gpp_client.rest.models import VisibilityChanges
+from gpp_client.generated.input_types import (
+    ObservationWorkflowState,
+    WhereCalculatedObservationWorkflow,
+    WhereObservation,
+    WhereOrderObservationId,
+    WhereOrderObservationWorkflowState,
+    WhereOrderTargetId,
+    WhereTarget,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scheduler.config import config
@@ -45,10 +54,22 @@ _OBS_CLASSES = frozenset({
     ObservationClass.PARTNERCAL,
 })
 
+# Only these observations are schedulable, so only these are worth refreshing.
+# Same states gpp-client's SchedulerDomain.get_all filters the program dump to,
+# which is why every observation in this run's parse set is already one of them.
+_SCHEDULABLE_STATES = [
+    ObservationWorkflowState.READY,
+    ObservationWorkflowState.ONGOING,
+]
+
 # Backoff (seconds) between visibility-changes fetch attempts. A transient ODB
 # blip should not cost a whole Heroku Scheduler cycle (the next tick is an hour
 # away); a persistent outage still fails the run after the last attempt.
 _CHANGES_FETCH_BACKOFFS = (5.0, 15.0, 30.0)
+
+# Changed internal ids resolved per ODB query. `limit` is set to the chunk
+# size, so a chunk always fits in one page and no pagination is needed.
+_ODB_ID_CHUNK = 100
 
 
 def _as_utc_datetime(t: Time) -> datetime:
@@ -97,7 +118,7 @@ def is_night_in_progress(now: Optional[datetime] = None) -> bool:
 async def _collect_requests(program_ids: list[str], range_end: datetime):
     """Parse the available GPP programs into sidereal targets + obs requests.
 
-    Also returns a mapping of ODB observation GID (``o-…``, what the
+    Also returns a mapping of ODB observation internal id (``o-…``, what the
     visibility-changes endpoint reports) to the reference label Sight stores
     as ``observation_id``.
     """
@@ -105,7 +126,7 @@ async def _collect_requests(program_ids: list[str], range_end: datetime):
 
     targets_by_name: dict = {}
     requests: list[ObservationRequest] = []
-    obs_gid_to_label: dict[str, str] = {}
+    labels_by_internal_id: dict[str, str] = {}
     skipped_no_target = 0
     skipped_nonsidereal = 0
     bad_programs = 0
@@ -144,7 +165,7 @@ async def _collect_requests(program_ids: list[str], range_end: datetime):
                     continue
 
                 targets_by_name.setdefault(payload.name, payload)
-                obs_gid_to_label[str(obs.internal_id)] = obs.id.id
+                labels_by_internal_id[str(obs.internal_id)] = obs.id.id
                 requests.append(ObservationRequest(
                     observation_id=obs.id.id,
                     target_name=str(base.name),
@@ -168,7 +189,7 @@ async def _collect_requests(program_ids: list[str], range_end: datetime):
         "skipped_no_target": skipped_no_target,
         "skipped_nonsidereal": skipped_nonsidereal,
     }
-    return targets_by_name, requests, obs_gid_to_label, counts
+    return targets_by_name, requests, labels_by_internal_id, counts
 
 
 async def _load_changes(
@@ -221,12 +242,79 @@ async def _load_changes(
     return changes, fetch_time
 
 
+async def _resolve_target_names(internal_ids: list[str]) -> dict[str, str]:
+    """Map changed target internal ids to ODB names, one query per chunk.
+
+    A failed chunk is logged and leaves its internal ids unresolved; the
+    caller counts those as skipped rather than failing the run.
+    """
+    names: dict[str, str] = {}
+    for start in range(0, len(internal_ids), _ODB_ID_CHUNK):
+        chunk = internal_ids[start:start + _ODB_ID_CHUNK]
+        try:
+            response = await gpp.client.target.get_all(
+                where=WhereTarget(id=WhereOrderTargetId(in_=chunk)),
+                limit=len(chunk),
+            )
+        except Exception as exc:
+            _logger.warning(
+                f"Could not resolve a chunk of {len(chunk)} changed targets: {exc}"
+            )
+            continue
+        for match in response.targets.matches:
+            if match.name is not None:
+                names[str(match.id)] = str(match.name)
+    return names
+
+
+async def _resolve_schedulable_observation_labels(
+    internal_ids: list[str],
+) -> dict[str, str]:
+    """Map changed observation internal ids to labels, schedulable ones only.
+
+    The visibility-changes endpoint reports every observation whose visibility
+    inputs changed, regardless of workflow state, so the query filters to
+    READY/ONGOING (``_SCHEDULABLE_STATES``) — the same filter gpp-client
+    applies to the program dump. Internal ids in another state simply do not
+    come back and are left alone. One query per chunk.
+
+    Sight stores the reference label as ``observation_id``, while the endpoint
+    reports internal ids, hence the mapping.
+    """
+    labels: dict[str, str] = {}
+    for start in range(0, len(internal_ids), _ODB_ID_CHUNK):
+        chunk = internal_ids[start:start + _ODB_ID_CHUNK]
+        try:
+            response = await gpp.client.observation.get_all(
+                where=WhereObservation(
+                    id=WhereOrderObservationId(in_=chunk),
+                    workflow=WhereCalculatedObservationWorkflow(
+                        workflow_state=WhereOrderObservationWorkflowState(
+                            in_=_SCHEDULABLE_STATES
+                        )
+                    ),
+                ),
+                limit=len(chunk),
+            )
+        except Exception as exc:
+            _logger.warning(
+                f"Could not resolve a chunk of {len(chunk)} changed "
+                f"observations: {exc}"
+            )
+            continue
+        for match in response.observations.matches:
+            reference = match.reference
+            if reference is not None and reference.label:
+                labels[str(match.id)] = str(reference.label)
+    return labels
+
+
 async def _apply_odb_changes(
     calc: Calculator,
     changes: VisibilityChanges,
     targets_by_name: dict,
     requests: list[ObservationRequest],
-    obs_gid_to_label: dict[str, str],
+    labels_by_internal_id: dict[str, str],
 ) -> dict:
     """Refresh Sight rows for the entities the ODB reported as changed.
 
@@ -238,6 +326,12 @@ async def _apply_odb_changes(
     Changed observations: Stage 2 only — delete their visibility rows so
     ``_store_missing_visibility`` recomputes them with the fresh constraints.
     Stage 1 is untouched since the target did not move.
+
+    Both sets are filtered to schedulable work before anything is written: the
+    endpoint reports changes for observations in any workflow state, so
+    non-READY/ONGOING ones are dropped by the resolving query, and a changed
+    target only counts if it is in this run's parse set (itself built from
+    READY/ONGOING observations only).
 
     Per-item failures are logged and skipped; deletions are committed once at
     the end. Everything here is idempotent, so re-applying an overlap window
@@ -251,34 +345,58 @@ async def _apply_odb_changes(
 
     labels_to_invalidate: set[str] = set()
     targets_updated = 0
-    targets_skipped = 0
-    obs_unresolved = 0
+    # Skips are counted per reason: most are benign (a change the aggregator
+    # has no work for), so a single total would hide the ones that are not.
+    targets_unresolved = 0
+    targets_not_in_parse_set = 0
+    targets_pending_create = 0
+    targets_update_failed = 0
+    obs_skipped = 0
 
-    for gid in sorted(changes.target_ids):
-        try:
-            response = await gpp.client.target.get_by_id(gid)
-        except Exception as exc:
-            _logger.warning(f"Could not resolve changed target {gid}: {exc}")
-            targets_skipped += 1
-            continue
-        odb_target = response.target
-        name = str(odb_target.name) if odb_target is not None else None
-        payload = targets_by_name.get(name) if name else None
-        if payload is None:
-            # Deleted, renamed, non-sidereal, or from an inactive program: not
-            # in this run's parse set. A renamed target is re-created under the
-            # new name by the normal flow; the old-name rows stay behind.
+    # Resolve every changed target internal id in batched ODB queries, then
+    # load the matching Sight rows in a single query, so the cost stays flat
+    # as the change set grows.
+    names_by_internal_id = await _resolve_target_names(sorted(changes.target_ids))
+    internal_ids_by_name: dict[str, list[str]] = {}
+    for internal_id in sorted(changes.target_ids):
+        name = names_by_internal_id.get(internal_id)
+        if name is None:
+            # The ODB did not return it: deleted (the query excludes deleted
+            # targets), or its chunk query failed and warned above.
             _logger.info(
-                f"Changed target {gid} ({name!r}) not in this run's parse set; "
-                f"skipping."
+                f"Changed target {internal_id} could not be resolved in the "
+                f"ODB; skipping."
             )
-            targets_skipped += 1
+            targets_unresolved += 1
             continue
-        db_target = await calc.target_repo.get_by_name(name)
+        if name not in targets_by_name:
+            # Expected for most changes: the endpoint reports every changed
+            # target, while the parse set only holds sidereal base targets of
+            # READY/ONGOING observations in this run's programs. A renamed
+            # target is re-created under its new name by the normal flow; the
+            # old-name rows stay behind.
+            _logger.info(
+                f"Changed target {internal_id} ({name!r}) is not in this "
+                f"run's parse set; skipping."
+            )
+            targets_not_in_parse_set += 1
+            continue
+        internal_ids_by_name.setdefault(name, []).append(internal_id)
+
+    db_targets = await calc.target_repo.get_by_names(list(internal_ids_by_name))
+    for name, internal_ids in internal_ids_by_name.items():
+        db_target = db_targets.get(name)
         if db_target is None:
-            # Not in Sight yet; the Stage-1 loop creates it with fresh values.
-            targets_skipped += 1
+            # Relevant, but Sight has no row yet. The Stage-1 loop right after
+            # creates it from these same fresh coordinates, so there is
+            # nothing to update and nothing is lost.
+            _logger.info(
+                f"Changed target {name!r} is not in Sight yet; Stage 1 will "
+                f"create it."
+            )
+            targets_pending_create += len(internal_ids)
             continue
+        payload = targets_by_name[name]
         try:
             await calc.target_repo.update_fields(
                 db_target,
@@ -290,25 +408,34 @@ async def _apply_odb_changes(
             )
         except Exception as exc:
             _logger.warning(f"Could not update changed target {name!r}: {exc}")
-            targets_skipped += 1
+            targets_update_failed += len(internal_ids)
             continue
-        targets_updated += 1
+        targets_updated += len(internal_ids)
         labels_to_invalidate.update(labels_by_target.get(name, []))
 
-    for gid in sorted(changes.observation_ids):
-        label = obs_gid_to_label.get(gid)
+    # Internal ids this run already parsed are mapped for free and are
+    # schedulable by construction (the program dump uses the same workflow
+    # filter). Only the leftovers need an ODB round trip, which drops any that
+    # are not READY/ONGOING before their Stage 2 is touched.
+    unmapped = [
+        i for i in sorted(changes.observation_ids)
+        if i not in labels_by_internal_id
+    ]
+    resolved_labels = (
+        await _resolve_schedulable_observation_labels(unmapped) if unmapped else {}
+    )
+    for internal_id in sorted(changes.observation_ids):
+        label = (
+            labels_by_internal_id.get(internal_id)
+            or resolved_labels.get(internal_id)
+        )
         if label is None:
-            # Not in this run's parse set (e.g. no longer READY/ONGOING).
-            # Resolve the label anyway so stale Stage-2 rows do not linger.
-            try:
-                response = await gpp.client.observation.get_by_id(gid)
-                observation = response.observation if response else None
-                reference = observation.reference if observation else None
-                label = reference.label if reference else None
-            except Exception as exc:
-                _logger.warning(f"Could not resolve changed observation {gid}: {exc}")
-        if label is None:
-            obs_unresolved += 1
+            # Not schedulable, deleted, or without a reference label.
+            _logger.info(
+                f"Changed observation {internal_id} is not schedulable or "
+                f"could not be resolved; skipping."
+            )
+            obs_skipped += 1
             continue
         labels_to_invalidate.add(label)
 
@@ -317,18 +444,30 @@ async def _apply_odb_changes(
         stage2_deleted += await calc.visibility_repo.delete_by_observation(label)
     await calc.session.commit()
 
+    targets_skipped = (
+        targets_unresolved
+        + targets_not_in_parse_set
+        + targets_pending_create
+        + targets_update_failed
+    )
     counts = {
         "targets_updated": targets_updated,
         "targets_skipped": targets_skipped,
+        "targets_not_in_parse_set": targets_not_in_parse_set,
+        "targets_pending_create": targets_pending_create,
+        "targets_unresolved": targets_unresolved,
+        "targets_update_failed": targets_update_failed,
         "obs_invalidated": len(labels_to_invalidate),
-        "obs_unresolved": obs_unresolved,
+        "obs_skipped": obs_skipped,
         "stage2_rows_deleted": stage2_deleted,
     }
     _logger.info(
-        f"Applied ODB changes: {targets_updated} targets updated "
-        f"({targets_skipped} skipped), Stage 2 invalidated for "
-        f"{len(labels_to_invalidate)} observations ({stage2_deleted} rows; "
-        f"{obs_unresolved} unresolved)."
+        f"Applied ODB changes: {targets_updated} targets updated, "
+        f"{targets_skipped} skipped ({targets_not_in_parse_set} not in parse "
+        f"set, {targets_pending_create} awaiting Stage-1 create, "
+        f"{targets_unresolved} unresolved, {targets_update_failed} failed); "
+        f"Stage 2 invalidated for {len(labels_to_invalidate)} observations "
+        f"({stage2_deleted} rows; {obs_skipped} not schedulable/unresolved)."
     )
     return counts
 
@@ -351,15 +490,23 @@ async def _store_missing_visibility(
 
     obs_ids = [r.observation_id for r in requests]
     total_nights = (end_date - start_date).days + 1
+
+    # Which (observation, night) pairs already exist, for the whole range in
+    # one query. Checking night by night meant a query per night even when
+    # every night was already covered, each one dragging back full rows
+    # (visible_ranges and constraints JSONB) only to discard them.
+    stored_pairs = await calc.visibility_repo.get_stored_observation_nights(
+        obs_ids, start_date, end_date
+    )
+
     loop_t0 = time.perf_counter()
     stored = 0
     current = start_date
     while current <= end_date:
-        existing = await calc.visibility_repo.get_by_observation_ids_on_night(
-            obs_ids, current
-        )
-        existing_ids = {d.observation_id for d in existing}
-        missing = [r for r in requests if r.observation_id not in existing_ids]
+        missing = [
+            r for r in requests
+            if (r.observation_id, current) not in stored_pairs
+        ]
 
         if missing:
             t0 = time.perf_counter()
@@ -430,7 +577,7 @@ async def run_aggregation(
     )
 
     parse_t0 = time.perf_counter()
-    targets_by_name, requests, obs_gid_to_label, counts = await _collect_requests(
+    targets_by_name, requests, labels_by_internal_id, counts = await _collect_requests(
         program_ids, range_end
     )
     parse_elapsed = time.perf_counter() - parse_t0
@@ -455,7 +602,7 @@ async def run_aggregation(
     # refilled as missing.
     apply_t0 = time.perf_counter()
     change_counts = await _apply_odb_changes(
-        calc, changes, targets_by_name, requests, obs_gid_to_label
+        calc, changes, targets_by_name, requests, labels_by_internal_id
     )
     apply_elapsed = time.perf_counter() - apply_t0
     if heartbeat is not None:
@@ -531,10 +678,14 @@ async def run_aggregation(
         f"{stored} stage-2 rows inserted; ODB changes: "
         f"{len(changes.target_ids)} targets / {len(changes.observation_ids)} obs "
         f"reported, {change_counts['targets_updated']} targets updated "
-        f"({change_counts['targets_skipped']} skipped), "
+        f"({change_counts['targets_skipped']} skipped: "
+        f"{change_counts['targets_not_in_parse_set']} not in parse set, "
+        f"{change_counts['targets_pending_create']} awaiting Stage-1 create, "
+        f"{change_counts['targets_unresolved']} unresolved, "
+        f"{change_counts['targets_update_failed']} failed), "
         f"{change_counts['obs_invalidated']} obs invalidated "
         f"({change_counts['stage2_rows_deleted']} stage-2 rows deleted, "
-        f"{change_counts['obs_unresolved']} unresolved)."
+        f"{change_counts['obs_skipped']} not schedulable/unresolved)."
     )
 
     return {
