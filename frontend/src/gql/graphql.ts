@@ -12,6 +12,8 @@ export type Scalars = {
   Boolean: boolean;
   Int: number;
   Float: number;
+  /** Date (isoformat) */
+  Date: any;
   /** Date with time (isoformat) */
   DateTime: any;
   /** The `JSON` scalar type represents JSON values as specified by [ECMA-404](https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf). */
@@ -57,6 +59,16 @@ export type CreateNewScheduleInput = {
   thesisFactor?: InputMaybe<Scalars['Float']>;
   visPower?: InputMaybe<Scalars['Float']>;
   whaPower?: InputMaybe<Scalars['Float']>;
+};
+
+export type GroupCoverage = {
+  __typename?: 'GroupCoverage';
+  expected: Scalars['Int'];
+  key: Scalars['String'];
+  missing: Scalars['Int'];
+  pending: Scalars['Int'];
+  skipped: Scalars['Int'];
+  stored: Scalars['Int'];
 };
 
 export type Event = {
@@ -118,22 +130,74 @@ export type NightTimesResponse = {
   start?: Maybe<Scalars['DateTime']>;
 };
 
+export type ObservationCoverage = {
+  __typename?: 'ObservationCoverage';
+  observationId: Scalars['String'];
+  programLabel: Scalars['String'];
+  site?: Maybe<Scalars['String']>;
+  skipReason?: Maybe<Scalars['String']>;
+  status: ObservationStatus;
+  targetName?: Maybe<Scalars['String']>;
+};
+
+export type ObservationCoveragePage = {
+  __typename?: 'ObservationCoveragePage';
+  nightDate?: Maybe<Scalars['Date']>;
+  observations: Array<ObservationCoverage>;
+  odbReadAt?: Maybe<Scalars['DateTime']>;
+  total: Scalars['Int'];
+};
+
+export type ObservationStatus =
+  | 'MISSING'
+  | 'PENDING'
+  | 'SKIPPED'
+  | 'STORED';
+
 export type Query = {
   __typename?: 'Query';
   availablePrograms: Array<AvailableProgram>;
   buildParameters: BuildParametersResponse;
+  observationCoverage: ObservationCoveragePage;
   onDemandSchedule: Scalars['String'];
   schedule: Scalars['String'];
   scheduleV2: Scalars['String'];
   version: Version;
   visibilityAggregatorStatus: VisibilityAggregatorStatus;
+  visibilityCoverage: VisibilityCoverage;
+  visibleObservations: VisibleObservationsPage;
   weather?: Maybe<Array<Maybe<Weather>>>;
+};
+
+
+export type QueryObservationCoverageArgs = {
+  limit?: Scalars['Int'];
+  nightDate?: InputMaybe<Scalars['Date']>;
+  offset?: Scalars['Int'];
+  programLabel?: InputMaybe<Scalars['String']>;
+  search?: InputMaybe<Scalars['String']>;
+  site?: InputMaybe<Scalars['String']>;
+  status?: InputMaybe<ObservationStatus>;
 };
 
 
 export type QueryScheduleArgs = {
   newScheduleInput: CreateNewScheduleInput;
   scheduleId: Scalars['String'];
+};
+
+
+export type QueryVisibilityCoverageArgs = {
+  nightDate?: InputMaybe<Scalars['Date']>;
+};
+
+
+export type QueryVisibleObservationsArgs = {
+  limit?: Scalars['Int'];
+  minRemainingMinutes?: Scalars['Int'];
+  nightDate?: InputMaybe<Scalars['Date']>;
+  offset?: Scalars['Int'];
+  site: Scalars['String'];
 };
 
 export type SConditions = {
@@ -264,11 +328,58 @@ export type VisibilityAggregatorStatus = {
   __typename?: 'VisibilityAggregatorStatus';
   active: Scalars['Boolean'];
   detail?: Maybe<Scalars['String']>;
+  elapsedSeconds?: Maybe<Scalars['Float']>;
+  etaSeconds?: Maybe<Scalars['Float']>;
   finishedAt?: Maybe<Scalars['String']>;
   heartbeatAt?: Maybe<Scalars['String']>;
   holder?: Maybe<Scalars['String']>;
+  phase?: Maybe<Scalars['String']>;
+  progressCurrent?: Maybe<Scalars['Int']>;
+  progressTotal?: Maybe<Scalars['Int']>;
+  progressUnit?: Maybe<Scalars['String']>;
   stale: Scalars['Boolean'];
   startedAt?: Maybe<Scalars['String']>;
+};
+
+export type VisibilityCoverage = {
+  __typename?: 'VisibilityCoverage';
+  expected: Scalars['Int'];
+  isComplete: Scalars['Boolean'];
+  missing: Scalars['Int'];
+  nightDate?: Maybe<Scalars['Date']>;
+  odbReadAt?: Maybe<Scalars['DateTime']>;
+  pending: Scalars['Int'];
+  pendingKnown: Scalars['Boolean'];
+  perProgram: Array<GroupCoverage>;
+  perSite: Array<GroupCoverage>;
+  skipped: Scalars['Int'];
+  stored: Scalars['Int'];
+};
+
+export type VisibleInterval = {
+  __typename?: 'VisibleInterval';
+  end: Scalars['DateTime'];
+  start: Scalars['DateTime'];
+};
+
+export type VisibleObservation = {
+  __typename?: 'VisibleObservation';
+  intervals: Array<VisibleInterval>;
+  nightDate: Scalars['Date'];
+  observationId: Scalars['String'];
+  remainingMinutes: Scalars['Int'];
+  remainingMinutesFromNow: Scalars['Int'];
+  site: Scalars['String'];
+  targetName?: Maybe<Scalars['String']>;
+};
+
+export type VisibleObservationsPage = {
+  __typename?: 'VisibleObservationsPage';
+  nightDate: Scalars['Date'];
+  observations: Array<VisibleObservation>;
+  site: Scalars['String'];
+  total: Scalars['Int'];
+  totalRemainingMinutes: Scalars['Int'];
 };
 
 export type Weather = {
@@ -352,6 +463,42 @@ export type ScheduleQueryVariables = Exact<{
 
 export type ScheduleQuery = { __typename?: 'Query', schedule: string };
 
+export type VisibilityAggregatorStatusQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type VisibilityAggregatorStatusQuery = { __typename?: 'Query', visibilityAggregatorStatus: { __typename?: 'VisibilityAggregatorStatus', active: boolean, stale: boolean, holder?: string | null, startedAt?: string | null, heartbeatAt?: string | null, finishedAt?: string | null, phase?: string | null, progressCurrent?: number | null, progressTotal?: number | null, progressUnit?: string | null, elapsedSeconds?: number | null, etaSeconds?: number | null } };
+
+export type VisibilityCoverageQueryVariables = Exact<{
+  nightDate?: InputMaybe<Scalars['Date']>;
+}>;
+
+
+export type VisibilityCoverageQuery = { __typename?: 'Query', visibilityCoverage: { __typename?: 'VisibilityCoverage', nightDate?: any | null, odbReadAt?: any | null, expected: number, stored: number, pending: number, missing: number, skipped: number, isComplete: boolean, pendingKnown: boolean, perProgram: Array<{ __typename?: 'GroupCoverage', key: string, expected: number, stored: number, pending: number, missing: number, skipped: number }>, perSite: Array<{ __typename?: 'GroupCoverage', key: string, expected: number, stored: number, pending: number, missing: number, skipped: number }> } };
+
+export type ObservationCoverageQueryVariables = Exact<{
+  nightDate?: InputMaybe<Scalars['Date']>;
+  status?: InputMaybe<ObservationStatus>;
+  site?: InputMaybe<Scalars['String']>;
+  programLabel?: InputMaybe<Scalars['String']>;
+  search?: InputMaybe<Scalars['String']>;
+  limit: Scalars['Int'];
+  offset: Scalars['Int'];
+}>;
+
+
+export type ObservationCoverageQuery = { __typename?: 'Query', observationCoverage: { __typename?: 'ObservationCoveragePage', total: number, nightDate?: any | null, odbReadAt?: any | null, observations: Array<{ __typename?: 'ObservationCoverage', observationId: string, programLabel: string, site?: string | null, targetName?: string | null, status: ObservationStatus, skipReason?: string | null }> } };
+
+export type VisibleObservationsQueryVariables = Exact<{
+  site: Scalars['String'];
+  nightDate?: InputMaybe<Scalars['Date']>;
+  limit: Scalars['Int'];
+  offset: Scalars['Int'];
+  minRemainingMinutes: Scalars['Int'];
+}>;
+
+
+export type VisibleObservationsQuery = { __typename?: 'Query', visibleObservations: { __typename?: 'VisibleObservationsPage', site: string, nightDate: any, total: number, totalRemainingMinutes: number, observations: Array<{ __typename?: 'VisibleObservation', observationId: string, targetName?: string | null, remainingMinutes: number, remainingMinutesFromNow: number, intervals: Array<{ __typename?: 'VisibleInterval', start: any, end: any }> }> } };
+
 export type UpdateWeatherMutationVariables = Exact<{
   weatherInput?: InputMaybe<WeatherInput>;
 }>;
@@ -379,6 +526,10 @@ export const VersionDocument = {"kind":"Document","definitions":[{"kind":"Operat
 export const ScheduleV2Document = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"scheduleV2"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"scheduleV2"}}]}}]} as unknown as DocumentNode<ScheduleV2Query, ScheduleV2QueryVariables>;
 export const OnDemandQueryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"onDemandQuery"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"onDemandSchedule"}}]}}]} as unknown as DocumentNode<OnDemandQueryQuery, OnDemandQueryQueryVariables>;
 export const ScheduleDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"schedule"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"scheduleId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sites"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Sites"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"mode"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SchedulerModes"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"numNightsToSchedule"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"semesterVisibility"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"thesisFactor"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"power"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metPower"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"whaPower"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"airPower"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"visPower"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Float"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"programs"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"schedule"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"scheduleId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"scheduleId"}}},{"kind":"Argument","name":{"kind":"Name","value":"newScheduleInput"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"startTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"sites"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sites"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"mode"},"value":{"kind":"Variable","name":{"kind":"Name","value":"mode"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"endTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"thesisFactor"},"value":{"kind":"Variable","name":{"kind":"Name","value":"thesisFactor"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"power"},"value":{"kind":"Variable","name":{"kind":"Name","value":"power"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"metPower"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metPower"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"whaPower"},"value":{"kind":"Variable","name":{"kind":"Name","value":"whaPower"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"airPower"},"value":{"kind":"Variable","name":{"kind":"Name","value":"airPower"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"visPower"},"value":{"kind":"Variable","name":{"kind":"Name","value":"visPower"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"semesterVisibility"},"value":{"kind":"Variable","name":{"kind":"Name","value":"semesterVisibility"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"numNightsToSchedule"},"value":{"kind":"Variable","name":{"kind":"Name","value":"numNightsToSchedule"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"programs"},"value":{"kind":"Variable","name":{"kind":"Name","value":"programs"}}}]}}]}]}}]} as unknown as DocumentNode<ScheduleQuery, ScheduleQueryVariables>;
+export const VisibilityAggregatorStatusDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"visibilityAggregatorStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"visibilityAggregatorStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"active"}},{"kind":"Field","name":{"kind":"Name","value":"stale"}},{"kind":"Field","name":{"kind":"Name","value":"holder"}},{"kind":"Field","name":{"kind":"Name","value":"startedAt"}},{"kind":"Field","name":{"kind":"Name","value":"heartbeatAt"}},{"kind":"Field","name":{"kind":"Name","value":"finishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"phase"}},{"kind":"Field","name":{"kind":"Name","value":"progressCurrent"}},{"kind":"Field","name":{"kind":"Name","value":"progressTotal"}},{"kind":"Field","name":{"kind":"Name","value":"progressUnit"}},{"kind":"Field","name":{"kind":"Name","value":"elapsedSeconds"}},{"kind":"Field","name":{"kind":"Name","value":"etaSeconds"}}]}}]}}]} as unknown as DocumentNode<VisibilityAggregatorStatusQuery, VisibilityAggregatorStatusQueryVariables>;
+export const VisibilityCoverageDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"visibilityCoverage"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"nightDate"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Date"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"visibilityCoverage"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"nightDate"},"value":{"kind":"Variable","name":{"kind":"Name","value":"nightDate"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"nightDate"}},{"kind":"Field","name":{"kind":"Name","value":"odbReadAt"}},{"kind":"Field","name":{"kind":"Name","value":"expected"}},{"kind":"Field","name":{"kind":"Name","value":"stored"}},{"kind":"Field","name":{"kind":"Name","value":"pending"}},{"kind":"Field","name":{"kind":"Name","value":"missing"}},{"kind":"Field","name":{"kind":"Name","value":"skipped"}},{"kind":"Field","name":{"kind":"Name","value":"isComplete"}},{"kind":"Field","name":{"kind":"Name","value":"pendingKnown"}},{"kind":"Field","name":{"kind":"Name","value":"perProgram"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"expected"}},{"kind":"Field","name":{"kind":"Name","value":"stored"}},{"kind":"Field","name":{"kind":"Name","value":"pending"}},{"kind":"Field","name":{"kind":"Name","value":"missing"}},{"kind":"Field","name":{"kind":"Name","value":"skipped"}}]}},{"kind":"Field","name":{"kind":"Name","value":"perSite"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"expected"}},{"kind":"Field","name":{"kind":"Name","value":"stored"}},{"kind":"Field","name":{"kind":"Name","value":"pending"}},{"kind":"Field","name":{"kind":"Name","value":"missing"}},{"kind":"Field","name":{"kind":"Name","value":"skipped"}}]}}]}}]}}]} as unknown as DocumentNode<VisibilityCoverageQuery, VisibilityCoverageQueryVariables>;
+export const ObservationCoverageDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"observationCoverage"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"nightDate"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Date"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"status"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"ObservationStatus"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"site"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"programLabel"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"search"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"limit"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"offset"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"observationCoverage"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"nightDate"},"value":{"kind":"Variable","name":{"kind":"Name","value":"nightDate"}}},{"kind":"Argument","name":{"kind":"Name","value":"status"},"value":{"kind":"Variable","name":{"kind":"Name","value":"status"}}},{"kind":"Argument","name":{"kind":"Name","value":"site"},"value":{"kind":"Variable","name":{"kind":"Name","value":"site"}}},{"kind":"Argument","name":{"kind":"Name","value":"programLabel"},"value":{"kind":"Variable","name":{"kind":"Name","value":"programLabel"}}},{"kind":"Argument","name":{"kind":"Name","value":"search"},"value":{"kind":"Variable","name":{"kind":"Name","value":"search"}}},{"kind":"Argument","name":{"kind":"Name","value":"limit"},"value":{"kind":"Variable","name":{"kind":"Name","value":"limit"}}},{"kind":"Argument","name":{"kind":"Name","value":"offset"},"value":{"kind":"Variable","name":{"kind":"Name","value":"offset"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nightDate"}},{"kind":"Field","name":{"kind":"Name","value":"odbReadAt"}},{"kind":"Field","name":{"kind":"Name","value":"observations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"observationId"}},{"kind":"Field","name":{"kind":"Name","value":"programLabel"}},{"kind":"Field","name":{"kind":"Name","value":"site"}},{"kind":"Field","name":{"kind":"Name","value":"targetName"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"skipReason"}}]}}]}}]}}]} as unknown as DocumentNode<ObservationCoverageQuery, ObservationCoverageQueryVariables>;
+export const VisibleObservationsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"visibleObservations"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"site"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"nightDate"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Date"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"limit"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"offset"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"minRemainingMinutes"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"visibleObservations"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"site"},"value":{"kind":"Variable","name":{"kind":"Name","value":"site"}}},{"kind":"Argument","name":{"kind":"Name","value":"nightDate"},"value":{"kind":"Variable","name":{"kind":"Name","value":"nightDate"}}},{"kind":"Argument","name":{"kind":"Name","value":"limit"},"value":{"kind":"Variable","name":{"kind":"Name","value":"limit"}}},{"kind":"Argument","name":{"kind":"Name","value":"offset"},"value":{"kind":"Variable","name":{"kind":"Name","value":"offset"}}},{"kind":"Argument","name":{"kind":"Name","value":"minRemainingMinutes"},"value":{"kind":"Variable","name":{"kind":"Name","value":"minRemainingMinutes"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"site"}},{"kind":"Field","name":{"kind":"Name","value":"nightDate"}},{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"totalRemainingMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"observations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"observationId"}},{"kind":"Field","name":{"kind":"Name","value":"targetName"}},{"kind":"Field","name":{"kind":"Name","value":"remainingMinutes"}},{"kind":"Field","name":{"kind":"Name","value":"remainingMinutesFromNow"}},{"kind":"Field","name":{"kind":"Name","value":"intervals"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"start"}},{"kind":"Field","name":{"kind":"Name","value":"end"}}]}}]}}]}}]}}]} as unknown as DocumentNode<VisibleObservationsQuery, VisibleObservationsQueryVariables>;
 export const UpdateWeatherDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"updateWeather"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"weatherInput"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"WeatherInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateWeather"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"weatherInput"},"value":{"kind":"Variable","name":{"kind":"Name","value":"weatherInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"site"}},{"kind":"Field","name":{"kind":"Name","value":"imageQuality"}},{"kind":"Field","name":{"kind":"Name","value":"cloudCover"}},{"kind":"Field","name":{"kind":"Name","value":"windDirection"}},{"kind":"Field","name":{"kind":"Name","value":"windSpeed"}}]}}]}}]} as unknown as DocumentNode<UpdateWeatherMutation, UpdateWeatherMutationVariables>;
 export const GetWeatherDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"getWeather"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weather"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"site"}},{"kind":"Field","name":{"kind":"Name","value":"imageQuality"}},{"kind":"Field","name":{"kind":"Name","value":"cloudCover"}},{"kind":"Field","name":{"kind":"Name","value":"windDirection"}},{"kind":"Field","name":{"kind":"Name","value":"windSpeed"}}]}}]}}]} as unknown as DocumentNode<GetWeatherQuery, GetWeatherQueryVariables>;
 export const WeatherUpdatesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"weatherUpdates"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weatherUpdates"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"site"}},{"kind":"Field","name":{"kind":"Name","value":"imageQuality"}},{"kind":"Field","name":{"kind":"Name","value":"cloudCover"}},{"kind":"Field","name":{"kind":"Name","value":"windDirection"}},{"kind":"Field","name":{"kind":"Name","value":"windSpeed"}}]}}]}}]} as unknown as DocumentNode<WeatherUpdatesSubscription, WeatherUpdatesSubscriptionVariables>;

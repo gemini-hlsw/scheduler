@@ -16,6 +16,7 @@ from gpp_client.generated.scheduler_observations_updates import (
 from scheduler.config import config
 from scheduler.services import logger_factory
 from scheduler.services.sight.calculator.calculator import Calculator
+from scheduler.services.sight.calculator.constants import site_key_from_instrument
 from scheduler.services.sight.calculator.models import (
     ElevationType as SightElevationType,
     ObservationConstraints,
@@ -51,36 +52,10 @@ _SB_TO_FRACTION = {
     SkyBackground.BRIGHT: 1.0,
 }
 
-# GPP Instrument -> Sight site key, for instruments whose enum name does not end
-# in NORTH/SOUTH (those are handled by the suffix check below). Mirrors and
-# extends ``GppProgramProvider._site_for_inst``.
-_INSTRUMENT_TO_SITE_KEY = {
-    Instrument.FLAMINGOS2: "GS",
-    Instrument.GHOST: "GS",
-    Instrument.GPI: "GS",
-    Instrument.GSAOI: "GS",
-    Instrument.ZORRO: "GS",
-    Instrument.SCORPIO: "GS",
-    Instrument.GNIRS: "GN",
-    Instrument.NIRI: "GN",
-    Instrument.IGRINS2: "GN",
-    Instrument.ALOPEKE: "GN",
-    Instrument.MAROON_X: "GN",
-}
-
-
-def site_key_from_instrument(instrument) -> Optional[str]:
-    """Derive the Sight site key (``"GN"`` / ``"GS"``) from an
-    observation's instrument.
-    """
-    if instrument is None:
-        return None
-    name = getattr(instrument, "name", str(instrument)).upper()
-    if name.endswith("NORTH"):
-        return "GN"
-    if name.endswith("SOUTH"):
-        return "GS"
-    return _INSTRUMENT_TO_SITE_KEY.get(instrument)
+# The instrument -> site mapping moved to sight.calculator.constants so
+# consumers outside this package can use it: importing anything from
+# night_monitor runs its __init__, which cycles through graphql_mid/engine.
+# Re-exported here (see __all__) so existing callers are unaffected.
 
 
 def _to_utc_datetime(value) -> Optional[datetime]:

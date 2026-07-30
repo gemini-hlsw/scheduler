@@ -40,6 +40,9 @@ input CreateNewScheduleInput {
   programs: [String!] = null
 }
 
+"""Date (isoformat)"""
+scalar Date
+
 """Date with time (isoformat)"""
 scalar DateTime
 
@@ -47,6 +50,15 @@ type Event {
   site: Site!
   time: DateTime!
   description: String!
+}
+
+type GroupCoverage {
+  key: String!
+  expected: Int!
+  stored: Int!
+  pending: Int!
+  missing: Int!
+  skipped: Int!
 }
 
 """
@@ -89,6 +101,29 @@ type NightTimesResponse {
   end: DateTime
 }
 
+type ObservationCoverage {
+  observationId: String!
+  programLabel: String!
+  site: String
+  targetName: String
+  status: ObservationStatus!
+  skipReason: String
+}
+
+type ObservationCoveragePage {
+  observations: [ObservationCoverage!]!
+  total: Int!
+  nightDate: Date
+  odbReadAt: DateTime
+}
+
+enum ObservationStatus {
+  STORED
+  PENDING
+  MISSING
+  SKIPPED
+}
+
 type Query {
   version: Version!
   schedule(scheduleId: String!, newScheduleInput: CreateNewScheduleInput!): String!
@@ -96,6 +131,9 @@ type Query {
   onDemandSchedule: String!
   availablePrograms: [AvailableProgram!]!
   visibilityAggregatorStatus: VisibilityAggregatorStatus!
+  visibilityCoverage(nightDate: Date = null): VisibilityCoverage!
+  observationCoverage(nightDate: Date = null, status: ObservationStatus = null, site: String = null, programLabel: String = null, search: String = null, limit: Int! = 50, offset: Int! = 0): ObservationCoveragePage!
+  visibleObservations(site: String!, nightDate: Date = null, limit: Int! = 50, offset: Int! = 0, minRemainingMinutes: Int! = 1): VisibleObservationsPage!
   buildParameters: BuildParametersResponse!
 }
 
@@ -220,5 +258,48 @@ type VisibilityAggregatorStatus {
   heartbeatAt: String
   finishedAt: String
   detail: String
+  phase: String
+  progressCurrent: Int
+  progressTotal: Int
+  progressUnit: String
+  elapsedSeconds: Float
+  etaSeconds: Float
+}
+
+type VisibilityCoverage {
+  nightDate: Date
+  odbReadAt: DateTime
+  expected: Int!
+  stored: Int!
+  pending: Int!
+  missing: Int!
+  skipped: Int!
+  isComplete: Boolean!
+  pendingKnown: Boolean!
+  perProgram: [GroupCoverage!]!
+  perSite: [GroupCoverage!]!
+}
+
+type VisibleInterval {
+  start: DateTime!
+  end: DateTime!
+}
+
+type VisibleObservation {
+  observationId: String!
+  site: String!
+  targetName: String
+  nightDate: Date!
+  remainingMinutes: Int!
+  remainingMinutesFromNow: Int!
+  intervals: [VisibleInterval!]!
+}
+
+type VisibleObservationsPage {
+  site: String!
+  nightDate: Date!
+  observations: [VisibleObservation!]!
+  total: Int!
+  totalRemainingMinutes: Int!
 }
 ```

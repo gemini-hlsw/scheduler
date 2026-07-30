@@ -25,10 +25,8 @@ from gpp_client.generated.input_types import (
 )
 
 from scheduler.clients.gpp import gpp
-from scheduler.night_monitor.event_handlers.obscalc_visibility import (
-    site_key_from_instrument,
-)
 from scheduler.services import logger_factory
+from scheduler.services.sight.calculator.constants import site_key_from_instrument
 from scheduler.services.visibility_aggregator.aggregator import SCHEDULABLE_STATES
 
 _logger = logger_factory.create_logger(__name__)
