@@ -4,7 +4,7 @@
 import asyncio
 import time
 from datetime import date, datetime, timedelta, timezone
-from typing import Awaitable, Callable, Optional
+from typing import Awaitable, Callable, NamedTuple, Optional
 
 import numpy as np
 from astropy.time import Time
@@ -42,7 +42,15 @@ from scheduler.services.sight.calculator.models import ObservationRequest
 
 _logger = logger_factory.create_logger(__name__)
 
-__all__ = ["run_aggregation", "is_night_in_progress"]
+__all__ = [
+    "run_aggregation",
+    "is_night_in_progress",
+    "progress_detail",
+    "progress_eta_seconds",
+    "SCHEDULABLE_STATES",
+    "resolve_schedulable_observation_labels",
+    "LabelResolution",
+]
 
 # Heartbeat callback: an async fn the runner passes so it can refresh its
 # coordination row (and surface progress) between chunks of work.
@@ -57,7 +65,7 @@ _OBS_CLASSES = frozenset({
 # Only these observations are schedulable, so only these are worth refreshing.
 # Same states gpp-client's SchedulerDomain.get_all filters the program dump to,
 # which is why every observation in this run's parse set is already one of them.
-_SCHEDULABLE_STATES = [
+SCHEDULABLE_STATES = [
     ObservationWorkflowState.READY,
     ObservationWorkflowState.ONGOING,
 ]
@@ -84,6 +92,51 @@ def _format_duration(seconds: float) -> str:
     if seconds < 5400:
         return f"{seconds / 60:.1f}m"
     return f"{seconds / 3600:.1f}h"
+
+
+def progress_eta_seconds(
+    *, elapsed_seconds: float, done: int, total: int
+) -> Optional[float]:
+    """Seconds remaining, extrapolated from throughput measured so far.
+
+    Returns None when there is nothing to extrapolate from — no units finished
+    yet, or no work at all — so callers can report "estimating" rather than a
+    fabricated number. Returns 0.0 once the work is complete.
+    """
+    if total <= 0 or done <= 0:
+        return None
+    if done >= total:
+        return 0.0
+    return elapsed_seconds / done * (total - done)
+
+
+def progress_detail(
+    phase: str,
+    *,
+    done: int,
+    total: int,
+    unit: str,
+    elapsed_seconds: float,
+    **extra,
+) -> dict:
+    """Heartbeat payload describing where the run is and when it will finish.
+
+    ``runner.py`` commits this to the ``scheduler_coordination`` row, where the
+    Visibility tab reads it back, so every value has to be JSON-native — hence
+    the rounding rather than raw floats.
+    """
+    eta = progress_eta_seconds(
+        elapsed_seconds=elapsed_seconds, done=done, total=total
+    )
+    return {
+        "phase": phase,
+        "progress_current": done,
+        "progress_total": total,
+        "progress_unit": unit,
+        "elapsed_seconds": round(elapsed_seconds, 1),
+        "eta_seconds": None if eta is None else round(eta, 1),
+        **extra,
+    }
 
 
 def is_night_in_progress(now: Optional[datetime] = None) -> bool:
@@ -267,14 +320,26 @@ async def _resolve_target_names(internal_ids: list[str]) -> dict[str, str]:
     return names
 
 
-async def _resolve_schedulable_observation_labels(
+class LabelResolution(NamedTuple):
+    """Resolved labels plus how many chunks failed to come back.
+
+    The aggregator ignores ``failed_chunks`` (a missed label just means one less
+    invalidation this tick), but a read-only consumer needs to know its answer
+    is incomplete rather than reporting an empty result as authoritative.
+    """
+
+    labels: dict[str, str]
+    failed_chunks: int
+
+
+async def resolve_schedulable_observation_labels(
     internal_ids: list[str],
-) -> dict[str, str]:
+) -> LabelResolution:
     """Map changed observation internal ids to labels, schedulable ones only.
 
     The visibility-changes endpoint reports every observation whose visibility
     inputs changed, regardless of workflow state, so the query filters to
-    READY/ONGOING (``_SCHEDULABLE_STATES``) — the same filter gpp-client
+    READY/ONGOING (``SCHEDULABLE_STATES``) — the same filter gpp-client
     applies to the program dump. Internal ids in another state simply do not
     come back and are left alone. One query per chunk.
 
@@ -282,6 +347,7 @@ async def _resolve_schedulable_observation_labels(
     reports internal ids, hence the mapping.
     """
     labels: dict[str, str] = {}
+    failed_chunks = 0
     for start in range(0, len(internal_ids), _ODB_ID_CHUNK):
         chunk = internal_ids[start:start + _ODB_ID_CHUNK]
         try:
@@ -290,13 +356,14 @@ async def _resolve_schedulable_observation_labels(
                     id=WhereOrderObservationId(in_=chunk),
                     workflow=WhereCalculatedObservationWorkflow(
                         workflow_state=WhereOrderObservationWorkflowState(
-                            in_=_SCHEDULABLE_STATES
+                            in_=SCHEDULABLE_STATES
                         )
                     ),
                 ),
                 limit=len(chunk),
             )
         except Exception as exc:
+            failed_chunks += 1
             _logger.warning(
                 f"Could not resolve a chunk of {len(chunk)} changed "
                 f"observations: {exc}"
@@ -306,7 +373,7 @@ async def _resolve_schedulable_observation_labels(
             reference = match.reference
             if reference is not None and reference.label:
                 labels[str(match.id)] = str(reference.label)
-    return labels
+    return LabelResolution(labels=labels, failed_chunks=failed_chunks)
 
 
 async def _apply_odb_changes(
@@ -421,8 +488,11 @@ async def _apply_odb_changes(
         i for i in sorted(changes.observation_ids)
         if i not in labels_by_internal_id
     ]
+    # A failed chunk is ignored here on purpose: one unresolved label means one
+    # less invalidation this tick, and the next run retries the same window.
     resolved_labels = (
-        await _resolve_schedulable_observation_labels(unmapped) if unmapped else {}
+        (await resolve_schedulable_observation_labels(unmapped)).labels
+        if unmapped else {}
     )
     for internal_id in sorted(changes.observation_ids):
         label = (
@@ -478,6 +548,7 @@ async def _store_missing_visibility(
     start_date: date,
     end_date: date,
     heartbeat: Optional[Heartbeat],
+    started_at: str,
 ) -> int:
     """Store Stage 2 only for (observation, night) pairs not already present.
 
@@ -507,6 +578,8 @@ async def _store_missing_visibility(
             r for r in requests
             if (r.observation_id, current) not in stored_pairs
         ]
+        nights_done = (current - start_date).days + 1
+        loop_elapsed = time.perf_counter() - loop_t0
 
         if missing:
             t0 = time.perf_counter()
@@ -516,24 +589,31 @@ async def _store_missing_visibility(
             night_stored = int(result.get("stored", 0))
             stored += night_stored
 
+            loop_elapsed = time.perf_counter() - loop_t0
             # Moving ETA: measured seconds/night so far x nights remaining.
-            nights_done = (current - start_date).days + 1
-            eta = (time.perf_counter() - loop_t0) / nights_done * (
-                total_nights - nights_done
+            eta = progress_eta_seconds(
+                elapsed_seconds=loop_elapsed,
+                done=nights_done,
+                total=total_nights,
             )
             _logger.info(
                 f"Stage 2 {current.isoformat()} [{nights_done}/{total_nights}]: "
                 f"{len(missing)} missing obs, stored {night_stored} in {elapsed:.1f}s "
                 f"({elapsed / len(missing) * 1000:.0f} ms/obs); "
-                f"ETA ~{_format_duration(eta)}."
+                f"ETA ~{'unknown' if eta is None else _format_duration(eta)}."
             )
 
         if heartbeat is not None:
-            await heartbeat({
-                "phase": "stage2",
-                "night": current.isoformat(),
-                "stored": stored,
-            })
+            await heartbeat(progress_detail(
+                "stage2",
+                done=nights_done,
+                total=total_nights,
+                unit="nights",
+                elapsed_seconds=loop_elapsed,
+                started_at=started_at,
+                night=current.isoformat(),
+                stored=stored,
+            ))
         current += timedelta(days=1)
 
     return stored
@@ -551,6 +631,7 @@ async def run_aggregation(
     """
     run_t0 = time.perf_counter()
     now = datetime.now(timezone.utc)
+    started_at = now.isoformat()
     today = now.date()
     semester = Semester.find_semester_from_date(today)
     start_date = semester.start_date()
@@ -565,6 +646,7 @@ async def run_aggregation(
     if heartbeat is not None:
         await heartbeat({
             "phase": "changes",
+            "started_at": started_at,
             "changed_observations": len(changes.observation_ids),
             "changed_targets": len(changes.target_ids),
         })
@@ -590,6 +672,7 @@ async def run_aggregation(
     if heartbeat is not None:
         await heartbeat({
             "phase": "parsed",
+            "started_at": started_at,
             "programs": len(program_ids),
             "targets": len(targets_by_name),
             "observations": len(requests),
@@ -606,7 +689,9 @@ async def run_aggregation(
     )
     apply_elapsed = time.perf_counter() - apply_t0
     if heartbeat is not None:
-        await heartbeat({"phase": "changes_applied", **change_counts})
+        await heartbeat({
+            "phase": "changes_applied", "started_at": started_at, **change_counts
+        })
 
     targets = list(targets_by_name.values())
     batch_size = max(1, int(config.visibility_aggregator.target_batch_size))
@@ -631,18 +716,27 @@ async def run_aggregation(
         await session.commit()
         batch_elapsed = time.perf_counter() - batch_t0
         done = min(offset + batch_size, len(targets))
+        loop_elapsed = time.perf_counter() - stage1_t0
+        # Same moving ETA as Stage 2: measured seconds/target x targets left.
+        eta = progress_eta_seconds(
+            elapsed_seconds=loop_elapsed, done=done, total=len(targets)
+        )
         _logger.info(
             f"Stage 1 batch {offset // batch_size + 1}: {len(chunk)} targets in "
             f"{batch_elapsed:.1f}s ({batch_elapsed / len(chunk):.2f}s/target); "
-            f"{done}/{len(targets)} done."
+            f"{done}/{len(targets)} done; "
+            f"ETA ~{'unknown' if eta is None else _format_duration(eta)}."
         )
         if heartbeat is not None:
-            await heartbeat({
-                "phase": "stage1",
-                "targets_done": done,
-                "targets_total": len(targets),
-                "created": created_total,
-            })
+            await heartbeat(progress_detail(
+                "stage1",
+                done=done,
+                total=len(targets),
+                unit="targets",
+                elapsed_seconds=loop_elapsed,
+                started_at=started_at,
+                created=created_total,
+            ))
     stage1_elapsed = time.perf_counter() - stage1_t0
     avg_target = stage1_elapsed / len(targets) if targets else 0.0
     _logger.info(
@@ -654,7 +748,7 @@ async def run_aggregation(
     # Stage 2: store visibility for observations missing it on each night.
     stage2_t0 = time.perf_counter()
     stored = await _store_missing_visibility(
-        calc, requests, start_date, end_date, heartbeat
+        calc, requests, start_date, end_date, heartbeat, started_at
     )
     stage2_elapsed = time.perf_counter() - stage2_t0
     _logger.info(f"Stage 2: stored {stored} new visibility rows in {stage2_elapsed:.1f}s.")

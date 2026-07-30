@@ -1,7 +1,8 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from enum import Enum
 from typing import List, FrozenSet, Optional
 from zoneinfo import ZoneInfo
 
@@ -417,3 +418,199 @@ class VisibilityAggregatorStatus:
     heartbeat_at: Optional[str]
     finished_at: Optional[str]
     detail: Optional[str]  # JSON-encoded progress detail
+    # Parsed out of `detail`. All null outside the phases that report progress.
+    phase: Optional[str] = None
+    progress_current: Optional[int] = None
+    progress_total: Optional[int] = None
+    progress_unit: Optional[str] = None  # "targets" / "nights"
+    elapsed_seconds: Optional[float] = None
+    eta_seconds: Optional[float] = None
+
+    @staticmethod
+    def from_service(status) -> 'VisibilityAggregatorStatus':
+        return VisibilityAggregatorStatus(
+            active=status.active,
+            stale=status.stale,
+            holder=status.holder,
+            started_at=status.started_at,
+            heartbeat_at=status.heartbeat_at,
+            finished_at=status.finished_at,
+            detail=status.detail,
+            phase=status.phase,
+            progress_current=status.progress_current,
+            progress_total=status.progress_total,
+            progress_unit=status.progress_unit,
+            elapsed_seconds=status.elapsed_seconds,
+            eta_seconds=status.eta_seconds,
+        )
+
+
+# --- Visibility coverage ----------------------------------------------------
+#
+# Only reference labels (`G-…`) appear on the wire. The ODB GIDs (`o-…`, `p-…`)
+# are matching keys internal to the visibility_status services: an operator
+# cannot look one up, so no field here exposes one.
+
+@strawberry.enum
+class ObservationStatus(Enum):
+    """Whether an observation's visibility is stored, stale, absent, or N/A."""
+    STORED = "STORED"
+    PENDING = "PENDING"    # ODB inputs changed; awaiting recomputation
+    MISSING = "MISSING"
+    SKIPPED = "SKIPPED"    # can never be stored (e.g. non-sidereal)
+
+
+@strawberry.type
+class GroupCoverage:
+    """Coverage counts for one group.
+
+    ``key`` is the program label under `perProgram` and the site key under
+    `perSite`.
+    """
+    key: str
+    expected: int
+    stored: int
+    pending: int
+    missing: int
+    skipped: int
+
+    @staticmethod
+    def from_service(group) -> 'GroupCoverage':
+        return GroupCoverage(
+            key=group.key,
+            expected=group.expected,
+            stored=group.stored,
+            pending=group.pending,
+            missing=group.missing,
+            skipped=group.skipped,
+        )
+
+
+@strawberry.type
+class VisibilityCoverage:
+    """Whether the Sight DB holds visibility for everything the ODB expects."""
+    night_date: Optional[date]
+    odb_read_at: Optional[datetime]
+    expected: int
+    stored: int
+    pending: int
+    missing: int
+    skipped: int
+    is_complete: bool
+    # False when the ODB change probe failed, so `pending` is not authoritative.
+    pending_known: bool
+    per_program: List[GroupCoverage]
+    per_site: List[GroupCoverage]
+
+    @staticmethod
+    def from_service(summary) -> 'VisibilityCoverage':
+        return VisibilityCoverage(
+            night_date=summary.night_date,
+            odb_read_at=summary.odb_read_at,
+            expected=summary.expected,
+            stored=summary.stored,
+            pending=summary.pending,
+            missing=summary.missing,
+            skipped=summary.skipped,
+            is_complete=summary.is_complete,
+            pending_known=summary.pending_known,
+            per_program=[GroupCoverage.from_service(g) for g in summary.per_program],
+            per_site=[GroupCoverage.from_service(g) for g in summary.per_site],
+        )
+
+
+@strawberry.type
+class ObservationCoverage:
+    """One observation's coverage on the night being examined."""
+    observation_id: str      # reference label, e.g. G-2026A-0001-Q-0001
+    program_label: str
+    site: Optional[str]
+    target_name: Optional[str]
+    status: ObservationStatus
+    skip_reason: Optional[str]
+
+    @staticmethod
+    def from_service(row) -> 'ObservationCoverage':
+        return ObservationCoverage(
+            observation_id=row.observation_id,
+            program_label=row.program_label,
+            site=row.site,
+            target_name=row.target_name,
+            status=ObservationStatus(row.status),
+            skip_reason=row.skip_reason,
+        )
+
+
+@strawberry.type
+class ObservationCoveragePage:
+    observations: List[ObservationCoverage]
+    total: int
+    night_date: Optional[date]
+    odb_read_at: Optional[datetime]
+
+    @staticmethod
+    def from_service(page) -> 'ObservationCoveragePage':
+        return ObservationCoveragePage(
+            observations=[
+                ObservationCoverage.from_service(o) for o in page.observations
+            ],
+            total=page.total,
+            night_date=page.night_date,
+            odb_read_at=page.odb_read_at,
+        )
+
+
+@strawberry.type
+class VisibleInterval:
+    """A contiguous window of visibility, in UTC."""
+    start: datetime
+    end: datetime
+
+
+@strawberry.type
+class VisibleObservation:
+    """What is observable for one observation on one night."""
+    observation_id: str
+    site: str
+    target_name: Optional[str]
+    night_date: date
+    remaining_minutes: int             # over the whole night
+    remaining_minutes_from_now: int    # only what is still ahead
+    intervals: List[VisibleInterval]
+
+    @staticmethod
+    def from_service(observation) -> 'VisibleObservation':
+        return VisibleObservation(
+            observation_id=observation.observation_id,
+            site=observation.site,
+            target_name=observation.target_name,
+            night_date=observation.night_date,
+            remaining_minutes=observation.remaining_minutes,
+            remaining_minutes_from_now=observation.remaining_minutes_from_now,
+            intervals=[
+                VisibleInterval(start=i.start, end=i.end)
+                for i in observation.intervals
+            ],
+        )
+
+
+@strawberry.type
+class VisibleObservationsPage:
+    site: str
+    night_date: date
+    observations: List[VisibleObservation]
+    total: int
+    # Summed over this page only, not the whole night.
+    total_remaining_minutes: int
+
+    @staticmethod
+    def from_service(page) -> 'VisibleObservationsPage':
+        return VisibleObservationsPage(
+            site=page.site,
+            night_date=page.night_date,
+            observations=[
+                VisibleObservation.from_service(o) for o in page.observations
+            ],
+            total=page.total,
+            total_remaining_minutes=page.total_remaining_minutes,
+        )

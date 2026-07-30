@@ -5,7 +5,7 @@ from sqlalchemy import select, delete, and_, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scheduler.services.sight.database.models import VisibilityData
+from scheduler.services.sight.database.models import Target, VisibilityData
 
 
 # Rows per executemany chunk in bulk_upsert: bounds per-statement bind
@@ -121,6 +121,83 @@ class VisibilityDataRepository:
         ).distinct()
         result = await self.session.execute(stmt)
         return {(observation_id, night_date) for observation_id, night_date in result.all()}
+
+    async def get_visible_on_night(
+        self,
+        night_date: date,
+        site_id: int,
+        min_remaining_minutes: int = 0,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> Sequence[tuple[VisibilityData, str]]:
+        """Rows for one night at one site, paired with their target name.
+
+        Filtering on (night_date, site_id) hits ix_visibility_night_site;
+        without it this scans a table holding one JSONB-carrying row per
+        observation per night of the semester. The target name is joined in
+        the same statement rather than looked up per row, which would be an
+        N+1 across the page.
+        """
+        stmt = (
+            select(VisibilityData, Target.name)
+            .join(Target, Target.id == VisibilityData.target_id)
+            .where(
+                and_(
+                    VisibilityData.night_date == night_date,
+                    VisibilityData.site_id == site_id,
+                    VisibilityData.remaining_minutes >= min_remaining_minutes,
+                )
+            )
+            .order_by(
+                VisibilityData.remaining_minutes.desc(),
+                VisibilityData.observation_id,
+            )
+            .offset(offset)
+        )
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.session.execute(stmt)
+        return [(row[0], row[1]) for row in result.all()]
+
+    async def count_visible_on_night(
+        self,
+        night_date: date,
+        site_id: int,
+        min_remaining_minutes: int = 0,
+    ) -> int:
+        """How many rows ``get_visible_on_night`` would return unpaginated.
+
+        No join and no LIMIT: the page total is just a number, and either would
+        make it slower or wrong.
+        """
+        stmt = select(func.count()).select_from(VisibilityData).where(
+            and_(
+                VisibilityData.night_date == night_date,
+                VisibilityData.site_id == site_id,
+                VisibilityData.remaining_minutes >= min_remaining_minutes,
+            )
+        )
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one() or 0)
+
+    async def get_stored_observation_ids_on_night(
+        self,
+        night_date: date,
+        site_id: int | None = None,
+    ) -> set[str]:
+        """Observation ids with visibility stored for a night.
+
+        Ids only — the coverage check never needs the JSONB payloads, and
+        dragging them back would dominate the query cost.
+        """
+        conditions = [VisibilityData.night_date == night_date]
+        if site_id is not None:
+            conditions.append(VisibilityData.site_id == site_id)
+        stmt = select(VisibilityData.observation_id).where(
+            and_(*conditions)
+        ).distinct()
+        result = await self.session.execute(stmt)
+        return {row[0] for row in result.all()}
 
     async def upsert(
         self,

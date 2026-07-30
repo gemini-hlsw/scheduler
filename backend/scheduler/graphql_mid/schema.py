@@ -1,8 +1,8 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
-from typing import AsyncGenerator, Dict
-from datetime import datetime, UTC
+from typing import AsyncGenerator, Dict, Optional
+from datetime import date, datetime, UTC
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -18,12 +18,22 @@ from scheduler.orchestration import process_manager
 from scheduler.services.logger_factory import create_logger
 from scheduler.shared_queue import plan_response_subscribers, build_parameters_subscribers
 from scheduler.clients.gpp import gpp
-from scheduler.services.visibility_aggregator import coordination
+from scheduler.services.sight.database.connection import session_scope
+from scheduler.services.visibility_status.coverage import (
+    get_coverage_summary,
+    list_observation_coverage,
+)
+from scheduler.services.visibility_status.status import (
+    get_aggregator_status as get_typed_aggregator_status,
+)
+from scheduler.services.visibility_status.tonight import list_visible_observations
 from scheduler.version import get_app_version
 
 from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
                     NewPlansRT, NightPlansResponseRT, NightTimesResponse, BuildParametersInput, BuildParametersResponse,
-                    AvailableProgram, VisibilityAggregatorStatus)
+                    AvailableProgram, VisibilityAggregatorStatus, VisibilityCoverage,
+                    ObservationCoveragePage, ObservationStatus,
+                    VisibleObservationsPage)
 from .inputs import CreateNewScheduleInput
 
 from ..core.plans import NightStats
@@ -169,8 +179,76 @@ class Query:
 
     @strawberry.field
     async def visibility_aggregator_status(self) -> VisibilityAggregatorStatus:
-        status = await coordination.get_aggregator_status()
-        return VisibilityAggregatorStatus(**status)
+        """Is the aggregator running, and when will it finish?
+
+        Reads Postgres only, so this is the one Visibility field cheap enough
+        to poll.
+        """
+        status = await get_typed_aggregator_status()
+        return VisibilityAggregatorStatus.from_service(status)
+
+    @strawberry.field
+    async def visibility_coverage(
+        self, night_date: Optional[date] = None
+    ) -> VisibilityCoverage:
+        """Does the Sight DB hold visibility for everything the ODB expects?
+
+        Reads the ODB live (a paginated sweep), so this takes seconds — fetch it
+        on demand, never on a poll. ``nightDate`` defaults to the current night.
+        """
+        async with session_scope() as session:
+            summary = await get_coverage_summary(session, night_date)
+        return VisibilityCoverage.from_service(summary)
+
+    @strawberry.field
+    async def observation_coverage(
+        self,
+        night_date: Optional[date] = None,
+        status: Optional[ObservationStatus] = None,
+        site: Optional[str] = None,
+        program_label: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> ObservationCoveragePage:
+        """Which observations are missing or being updated, one page at a time."""
+        async with session_scope() as session:
+            page = await list_observation_coverage(
+                session,
+                night_date=night_date,
+                status=status.value if status is not None else None,
+                site=site,
+                program_label=program_label,
+                search=search,
+                limit=limit,
+                offset=offset,
+            )
+        return ObservationCoveragePage.from_service(page)
+
+    @strawberry.field
+    async def visible_observations(
+        self,
+        site: str,
+        night_date: Optional[date] = None,
+        limit: int = 50,
+        offset: int = 0,
+        min_remaining_minutes: int = 1,
+    ) -> VisibleObservationsPage:
+        """What is visible at a site tonight, and for how long.
+
+        ``nightDate`` defaults to that site's current night — GN and GS roll
+        over at different instants, so each resolves its own.
+        """
+        async with session_scope() as session:
+            page = await list_visible_observations(
+                session,
+                site=site,
+                night_date=night_date,
+                limit=limit,
+                offset=offset,
+                min_remaining_minutes=min_remaining_minutes,
+            )
+        return VisibleObservationsPage.from_service(page)
 
     @strawberry.field
     async def build_parameters(self) -> BuildParametersResponse:
