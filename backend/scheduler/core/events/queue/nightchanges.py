@@ -11,7 +11,7 @@ from lucupy.minimodel import TimeslotIndex, NightIndex, Site, ObservationID
 from pandas.io.stata import excessive_string_length_error
 
 from scheduler.core.events.queue import Event, InterruptionResolutionEvent, FaultResolutionEvent, \
-    WeatherClosureResolutionEvent, MorningTwilightEvent
+    WeatherClosureResolutionEvent, MorningTwilightEvent, FaultEvent, WeatherClosureEvent
 from scheduler.core.plans import Plan
 
 
@@ -20,6 +20,12 @@ __all__ = [
     'NightlyTimeline'
 ]
 
+@dataclass
+class TimeLossWindow:
+    start: TimeslotIndex
+    end: Optional[TimeslotIndex]
+    type: str
+
 
 @dataclass
 class TimelineEntry:
@@ -27,6 +33,24 @@ class TimelineEntry:
     event: Event
     plan_generated: Optional[Plan]
     accounted_observations: Optional[List[ObservationID]]
+    closure_windows: List[TimeLossWindow]
+
+    def closure_windows_end(self, open_event: Event) -> None:
+        # Find the event type of the open event
+        match open_event:
+            case FaultResolutionEvent() | FaultEvent():
+                event_type = "fault"
+            case WeatherClosureResolutionEvent() | WeatherClosureEvent():
+                event_type = "weather"
+            case _:
+                event_type = ""
+
+        # Find the windows without an end time of the same type and
+        # add the end time of the open event
+        for window in reversed(self.closure_windows):
+            if window.end is None and window.type == event_type:
+                
+                window.end = open_event.timeslot
 
 
 @dataclass
@@ -35,6 +59,7 @@ class NightlyTimeline:
     A collection of timeline entries per night and site.
     """
     timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
+    stitched_timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
     time_losses: Dict[NightIndex, Dict[Site, Dict[str, int]]] = field(init=False, default_factory=dict)
     _datetime_formatter: ClassVar[str] = field(init=False, default='%Y-%m-%d %H:%M')
 
@@ -44,11 +69,52 @@ class NightlyTimeline:
             time_slot: TimeslotIndex,
             event: Event,
             plan_generated: Optional[Plan],
-            accounted_observations: List[ObservationID] = []) -> None:
+            accounted_observations: List[ObservationID] = [],
+            close_event: Optional[Event] = None,
+            open_event: Optional[Event] = None) -> None:
         entry = TimelineEntry(
-            time_slot, event, plan_generated, accounted_observations
+            time_slot, event, plan_generated, accounted_observations,
+            [TimeLossWindow(start=time_slot, end=None, type=close_event.type)] if close_event is not None else []
         )
         self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
+
+        self.set_stitched_timeline(night_idx, site, time_slot, event, open_event)
+
+    def set_stitched_timeline(self,
+                              night_idx: NightIndex,
+                              site: Site,
+                              time_slot: TimeslotIndex,
+                              event: Event,
+                              open_event: Optional[Event]) -> None:
+        """
+        Create a stitched plan for every partial plan added
+
+        It should take the last partial plan generated and stitch it to the previous stitched plan
+        replacing all observations starting from the timeslot of the last partial plan
+        """
+
+        if open_event is not None:
+            # Try to get previous stitched timelines
+            if night_idx in self.stitched_timeline and site in self.stitched_timeline[night_idx]:
+                last_entry = self.stitched_timeline[night_idx][site][-1]
+
+
+        # If no stitched_timeline yet initialize it as the last timeline
+        if night_idx not in self.stitched_timeline:
+            self.stitched_timeline[night_idx] = deepcopy(self.timeline[night_idx])
+            return
+
+        # If site not in stitched_timeline yet initialize it as the last timeline
+        if site not in self.stitched_timeline[night_idx]:
+            self.stitched_timeline[night_idx][site] = deepcopy(self.timeline[night_idx][site])
+            return
+
+        plan = self.get_final_plan(night_idx, site, True)
+        entry = TimelineEntry(
+            time_slot, event, plan, accounted_observations=[]
+        )
+
+        self.stitched_timeline[night_idx][site].append(entry)
 
     def get_final_plan(self,
                        night_idx: NightIndex,

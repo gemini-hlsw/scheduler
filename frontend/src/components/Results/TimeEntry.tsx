@@ -67,11 +67,13 @@ export default function TimeEntry({
 
   const obsCompletionBodyTemplate = (visit: Visit) => {
     return `${visit.completion} (${fractionToPercentage(
-      visit.completion
+      visit.completion,
     ).toFixed(0)}%)`;
   };
 
   if (!timeEntry || !timeEntry.plan) return <div>No plan found</div>;
+
+  console.log(timeEntry);
 
   return (
     <Accordion
@@ -83,13 +85,14 @@ export default function TimeEntry({
         <AccordionTrigger className="p-0">
           <NightPlanSummary
             nightState={timeEntry.plan.nightStats}
-            nightTitle={timeEntry.event}
+            nightTitle={timeEntry.event.description}
             nightConditions={timeEntry.plan.nightConditions}
           />
         </AccordionTrigger>
         <AccordionContent className="py-2 flex flex-col gap-2">
           <AltAzPlot
             data={parseToVisitForPlot(timeEntry.plan.visits)}
+            event={timeEntry.event}
             eveTwilight={eveTwilight}
             mornTwilight={mornTwilight}
             site={site}
@@ -99,7 +102,7 @@ export default function TimeEntry({
               <TableRow
                 className={cn(
                   "dark:bg-white/20 bg-black/20",
-                  "*:h-6 *:font-bold"
+                  "*:h-6 *:font-bold",
                 )}
               >
                 <TableHead>Observation Id</TableHead>
@@ -121,10 +124,10 @@ export default function TimeEntry({
             <TableBody>
               {timeEntry.plan.visits.map((visit: Visit) => (
                 <TableRow
-                  key={visit.obsId}
+                  key={visit.startTime}
                   className={cn(
                     "odd:bg-black/10 dark:odd:bg-white/10 *:p-0 *:px-2",
-                    "dark:hover:bg-white/30 hover:bg-black/30"
+                    "dark:hover:bg-white/30 hover:bg-black/30",
                   )}
                 >
                   <TableCell>{visit.obsId}</TableCell>
@@ -156,7 +159,7 @@ export default function TimeEntry({
               <TableRow
                 className={cn(
                   "dark:bg-white/20 bg-black/20",
-                  "*:h-6 *:font-bold"
+                  "*:h-6 *:font-bold",
                 )}
               >
                 <TableHead>Program Id</TableHead>
@@ -172,7 +175,7 @@ export default function TimeEntry({
                       key={progId}
                       className={cn(
                         "odd:bg-muted/50 *:p-0 *:px-2",
-                        "dark:hover:bg-white/30 hover:bg-black/30"
+                        "dark:hover:bg-white/30 hover:bg-black/30",
                       )}
                     >
                       <TableCell>{progId}</TableCell>
@@ -180,13 +183,13 @@ export default function TimeEntry({
                         {timeEntry.plan.nightStats.programCompletion[progId]}
                       </TableCell>
                     </TableRow>
-                  )
+                  ),
                 )
               ) : (
                 <TableRow
                   className={cn(
                     "odd:bg-muted/50 *:p-0 *:px-2",
-                    "dark:hover:bg-white/30 hover:bg-black/30"
+                    "dark:hover:bg-white/30 hover:bg-black/30",
                   )}
                 >
                   <TableCell>No available options</TableCell>

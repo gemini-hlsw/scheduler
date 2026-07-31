@@ -258,7 +258,6 @@ class TestEventCycle:
 
         # Mock the methods we'll call
         event_cycle._perform_time_accounting = MagicMock()
-        event_cycle._get_final_plan = MagicMock(return_value=MagicMock(spec=Plan))
 
         result_plans = event_cycle._handle_updates(
             site, night_idx, current_timeslot, next_update, plans, nightly_timeline
