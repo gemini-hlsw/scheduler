@@ -128,8 +128,9 @@ class GppProgramProvider(ProgramProvider):
     """
 
     _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
-    _F2_FILTER_WAVELENGTHS = {'Y': 1.02, 'J': 1.25, 'H': 1.63, 'Ks': 2.16, 'K-blue': 2.06, 'K-red': 2.31,
-                              'JH': 1.34, 'HK': 1.9, 'Jlow': 1.12, 'K-long': 2.2}
+    _F2_FILTER_WAVELENGTHS = {'Y': 1.02, 'J': 1.25, 'H': 1.63, 'JH': 1.34, 'HK': 1.9,
+                              'J_LOW': 1.12, 'K_LONG': 2.2, 'K_SHORT': 2.16,
+                              'K_BLUE': 2.06, 'K_RED': 2.31}
     _IGRINS2_WAVELENGTH = 1.6
     _GHOST_WAVELENGTH = 0.655
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
