@@ -29,8 +29,14 @@ export interface TimeEntriesBySite {
 
 export interface TimeEntryType {
   startTimeSlots: number;
-  event: string;
+  event: Event;
   plan: Plan;
+}
+
+export interface Event {
+  time: string;
+  site: string;
+  description: string;
 }
 
 export interface Plan {

@@ -2,20 +2,17 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from datetime import datetime, timedelta
-from typing import List, FrozenSet, Optional, Dict
+from typing import List, FrozenSet, Optional
 from zoneinfo import ZoneInfo
 
 import strawberry  # noqa
 from typing import Annotated, Union
-import astropy.units as u
-from astropy.coordinates import Angle
 from strawberry.scalars import JSON  # noqa
 
 from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantSnapshot, Conditions
 
 from scheduler.core.events.queue import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
-from scheduler.core.events.queue import WeatherChangeEvent
 from scheduler.core.statscalculator import RunSummary
 from scheduler.graphql_mid.scalars import SObservationID
 from scheduler.config import config
@@ -147,11 +144,16 @@ class SPlans:
             night_idx=self.night_idx,
             plans_per_site=[plans for plans in self.plans_per_site if plans is not None and plans.site == site])
 
+@strawberry.type
+class Event:
+    site: Site
+    time: datetime
+    description: str
 
 @strawberry.type
 class STimelineEntry:
     start_time_slots: int
-    event: str
+    event: Event
     plan: SPlan
 
 
@@ -188,7 +190,9 @@ class SNightTimelines:
                     if entry.plan_generated is None:
                         continue
                     e = STimelineEntry(start_time_slots=int(entry.start_time_slot),
-                                       event=entry.event.description,
+                                       event=Event(site=entry.event.site,
+                                                   time=entry.event.time,
+                                                   description=entry.event.description),
                                        plan=SPlan.from_computed_plan(entry.plan_generated))
                     s_entries.append(e)
                 te = TimelineEntriesBySite(site=site,
@@ -196,6 +200,35 @@ class SNightTimelines:
                                            eve_twilight=eve_twi,
                                            morn_twilight=morn_twi,
                                            time_losses=time_losses)
+                s_timeline_entries.append(te)
+            sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
+            timelines.append(sn)
+        return SNightTimelines(night_timeline=timelines)
+
+    @staticmethod
+    def from_computed_stitched_timelines(timeline: NightlyTimeline) -> 'SNightTimelines':
+        timelines = []
+        for n_idx in timeline.stitched_timeline:
+            s_timeline_entries = []
+            for site in timeline.stitched_timeline[n_idx]:
+                s_entries = []
+                eve_twi = timeline.stitched_timeline[n_idx][site][0].event.time
+                morn_twi = timeline.stitched_timeline[n_idx][site][-1].event.time
+                time_losses = timeline.time_losses[n_idx][site]
+                for entry in timeline.stitched_timeline[n_idx][site]:
+                    if entry.plan_generated is None:
+                        continue
+                    e = STimelineEntry(start_time_slots=int(entry.start_time_slot),
+                                        event=Event(site=entry.event.site,
+                                                    time=entry.event.time,
+                                                    description=entry.event.description),
+                                        plan=SPlan.from_computed_plan(entry.plan_generated))
+                    s_entries.append(e)
+                te = TimelineEntriesBySite(site=site,
+                                            time_entries=s_entries,
+                                            eve_twilight=eve_twi,
+                                            morn_twilight=morn_twi,
+                                            time_losses=time_losses)
                 s_timeline_entries.append(te)
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
             timelines.append(sn)

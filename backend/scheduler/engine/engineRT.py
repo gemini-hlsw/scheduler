@@ -13,6 +13,7 @@ from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
 from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
+from scheduler.core.events.queue import NightlyTimeline
 from scheduler.core.events.queue.events import CustomStartOfNightEvent, Event, EndOfNightEvent
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.graphql_mid.types import NightPlansError
@@ -141,36 +142,24 @@ class EngineRT:
         finally:
             await coordination.signal_plan_done()
 
-    async def _compute_event_plan(self, event: Event):
+    async def _compute_event_start_timeslot(self, event: Event):
         """
-        Compute a new plan based on the given event.
+        Compute the start timeslot for the given event.
+        The start timeslot for each site should be:
+        - The event time if happens after the twilight and after the custom start
+        - The custom start if defined and happens after the twilight
+        - The twilight timeslot
 
         Args:
-            event (Event): The event to compute the plan for.
-        Returns:
-            NewPlansRT: The new plan for the event.
-        """
-        # Get the timeslots associated with the sites with format
-        # {site: {0: current_timeslot}}
+            event (Event): The event to compute the start timeslot for.
 
-        await self.build()
-        # TODO: Specific logic for events
-        # In theory this should be a shared process for all events.
-        # Meaning the process of setup the SCP and run a schedule is independent from the type of event.
-        # sites_to_update = self.params.sites
-        # if 'Weather' in event.trigger_event:
-        #     self.scp.selector.update_site_variant(event.site, event.event.variant_change)
-        #     sites_to_update = [event.site]
-        await self.init_variant()
+        Returns:
+            Timeslot: The start timeslot for the event.
+        """
+        start_timeslot = {}
 
         build_params = await build_params_store.get()
         night_times = build_params.get_night_times()
-
-        # The start timeslot for each site should be:
-        # - The event time if happens after the twilight and after the custom start
-        # - The custom start if defined and happens after the twilight
-        # - The twilight timeslot
-        start_timeslot = {}
         for site in self.params.sites:
             night_start_time = self.scp.collector.night_events[site].times[0][0]
             utc_night_start = night_start_time.utc.to_datetime(timezone=datetime.timezone.utc)
@@ -205,6 +194,32 @@ class EngineRT:
                          f"utc_night_start={utc_night_start}, event_time={event.time}")
             start_timeslot[site] = {np.int64(0): site_timeslot}
 
+        return start_timeslot
+
+    async def _compute_event_plan(self, event: Event):
+        """
+        Compute a new plan based on the given event.
+
+        Args:
+            event (Event): The event to compute the plan for.
+        Returns:
+            NewPlansRT: The new plan for the event.
+        """
+        # Get the timeslots associated with the sites with format
+        # {site: {0: current_timeslot}}
+
+        await self.build()
+        # TODO: Specific logic for events
+        # In theory this should be a shared process for all events.
+        # Meaning the process of setup the SCP and run a schedule is independent from the type of event.
+        # sites_to_update = self.params.sites
+        # if 'Weather' in event.trigger_event:
+        #     self.scp.selector.update_site_variant(event.site, event.event.variant_change)
+        #     sites_to_update = [event.site]
+        await self.init_variant()
+
+        start_timeslot = await self._compute_event_start_timeslot(event)
+
         plans = self.scp.run_rt(start_timeslot)
 
         for site in self.params.sites:
@@ -217,6 +232,8 @@ class EngineRT:
                 values = ti[plans.night_idx].alt[visit.start_time_slot: end_time_slot]
                 alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
                 plans.plans[site].alt_degs.append(alt_degs)
+
+            self.nightly_timeline.add(plans.night_idx, site, start_timeslot[site][0], plans.plans[site])
         splans = SPlans.from_computed_plans(plans, self.params.sites)
 
         return NightPlansWithEvent(night_plans=splans, event=f"{event.description} @{event.time if event.time else 'Start of Night'}")
@@ -226,7 +243,8 @@ class EngineRT:
         Run the EngineRT process throughout the set of nights.
         """
         try:
-            # Run event loop while still in the same night
+            # Create night timeline and run event loop while still in the same night
+            self.nightly_timeline = NightlyTimeline()
             while True:
                 try:
                     # Wait for the next event
