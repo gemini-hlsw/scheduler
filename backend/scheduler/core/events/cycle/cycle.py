@@ -108,8 +108,9 @@ class EventCycle:
                 plans[site]
             )
         else:
-            # The site is blocked, add a None plan
+            # the site becomes unblocked
             _logger.debug(f'Site {site.site_name} for {night_idx} blocked at timeslot {current_timeslot}.')
+            import pdb; pdb.set_trace()
             nightly_timeline.add(
                 NightIndex(night_idx),
                 site,
@@ -182,19 +183,17 @@ class EventCycle:
             # Process event and remove it from the queue
             events_by_night.pop_next_event()
             update = self.change_monitor.process_event(site, event, plans, night_idx)
+            return update, current_timeslot
 
         # Subsequent events
-        else:
-            # Previous event is not processed yet and should be done before the new event
-            if previous_event_timeslot < update.timeslot_idx <= current_timeslot:
-                current_timeslot = update.timeslot_idx
+        # Previous event is not processed yet and should be done before the new event
+        if previous_event_timeslot < update.timeslot_idx <= current_timeslot:
+            return update, update.timeslot_idx
 
-            # Previous event should be discarded since new event is processed before it
-            else:
-                # Process event and remove it from the queue
-                events_by_night.pop_next_event()
-                update = self.change_monitor.process_event(site, event, plans, night_idx)
-
+        # Previous event should be discarded since new event is processed before it
+        # Process event and remove it from the queue
+        events_by_night.pop_next_event()
+        update = self.change_monitor.process_event(site, event, plans, night_idx)
         return update, current_timeslot
 
     def _handle_updates(self,
@@ -235,6 +234,7 @@ class EventCycle:
             # If the night is done, get a final plan and add it to the timeline.
             # Otherwise, get a new selection and request a new plan
             if update.done:
+                # TODO: Not needded if the system returns only stitched plans
                 _logger.debug('Night done. Wrapping up final plan')
                 final_plan = self._get_final_plan(site, night_idx, nightly_timeline)
                 # final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx),
@@ -301,8 +301,6 @@ class EventCycle:
 
         p.visits = accounted_visits
         return p
-
-
 
 
     def run(self, site: Site, night_idx: NightIndex, nightly_timeline: NightlyTimeline):

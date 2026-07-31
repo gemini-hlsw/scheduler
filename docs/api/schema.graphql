@@ -36,6 +36,12 @@ input CreateNewScheduleInput {
 """Date with time (isoformat)"""
 scalar DateTime
 
+type Event {
+  site: Site!
+  time: DateTime!
+  description: String!
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf).
 """
@@ -132,7 +138,7 @@ type SRunSummary {
 
 type STimelineEntry {
   startTimeSlots: Int!
-  event: String!
+  event: Event!
   plan: SPlan!
 }
 

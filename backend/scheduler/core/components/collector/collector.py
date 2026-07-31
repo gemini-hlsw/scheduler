@@ -437,8 +437,6 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             _logger.error(f'Could not parse {bad_program_count} programs.')
 
-        sem, = self.semesters
-
         obs_with_resources: dict[NightIndex, list[Observation]] = {}
         # First filter: is the observation instrument available or according to the program calendar?
 
@@ -469,7 +467,7 @@ class Collector(SchedulerComponent):
             self._compute_visibility_locally(parsed_observations, obs_with_resources)
         else:
             try:
-                self._load_visibility_from_sight(obs_with_resources, sem)
+                self._load_visibility_from_sight(obs_with_resources)
             except Exception as exc:
                 _logger.warning(
                     f'Sight visibility load failed ({exc}); falling back to local computation.'
@@ -569,9 +567,6 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             _logger.error(f'Could not parse {bad_program_count} programs.')
 
-
-        sem, = self.semesters
-
         obs_with_resources: dict[NightIndex, list[Observation]] = {}
         for n_idx in range(self.num_nights_calculated):
             night_idx = NightIndex(n_idx)
@@ -600,7 +595,7 @@ class Collector(SchedulerComponent):
             self._compute_visibility_locally(parsed_observations, obs_with_resources)
         else:
             try:
-                await self._async_load_visibility_from_sight(obs_with_resources, sem)
+                await self._async_load_visibility_from_sight(obs_with_resources)
             except Exception as exc:
                 _logger.warning(
                     f'Sight visibility load failed ({exc}); falling back to local computation.'
@@ -812,7 +807,6 @@ class Collector(SchedulerComponent):
     def _load_visibility_from_sight(
         self,
         filtered_observations: dict[NightIndex, list[Observation]],
-        sem: Semester,
     ) -> None:
         """Load visibility data from the Sight service (sync entry point).
 
@@ -828,7 +822,6 @@ class Collector(SchedulerComponent):
     async def _async_load_visibility_from_sight(
         self,
         filtered_observations: dict[NightIndex, list[Observation]],
-        sem: Semester,
     ) -> None:
         """Async entry point: await the Sight fetch (no ``asyncio.run``) then
         build the per-night ``TargetInfo`` exactly like the sync path."""

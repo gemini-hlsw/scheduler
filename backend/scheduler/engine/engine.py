@@ -193,6 +193,12 @@ class Engine:
                                                               self.params.sites,
                                                               scp.collector,
                                                               scp.ranker)
+
+        run_summary = StatCalculator.calculate_stitched_timeline_stats(nightly_timeline,
+                                                              self.params.night_indices,
+                                                              self.params.sites,
+                                                              scp.collector,
+                                                              scp.ranker)
         
         _logger.info(f'Plan calculated in {time() - self.start_time}')
 

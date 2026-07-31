@@ -8,11 +8,12 @@ HighchartMore(Highcharts);
 
 import { ThemeContext } from "../../theme/ThemeProvider";
 import { getSiteOffset, utcToLocal } from "@/helpers/utcTime";
+import { Event } from "@/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const debounce = <F extends (...args: any[]) => void>(
   func: F,
-  delay: number
+  delay: number,
 ) => {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -36,6 +37,7 @@ interface Visit {
 
 interface AltAzPlotProps {
   data: Visit[];
+  event: Event;
   eveTwilight: string;
   mornTwilight: string;
   site: string;
@@ -43,6 +45,7 @@ interface AltAzPlotProps {
 
 const AltAzPlot: React.FC<AltAzPlotProps> = ({
   data,
+  event,
   eveTwilight,
   mornTwilight,
   site,
@@ -62,7 +65,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   const colorsOption = Highcharts.getOptions().colors;
   const colors = colorsOption
     ? colorsOption.filter(
-        (color): color is Highcharts.ColorString => typeof color === "string"
+        (color): color is Highcharts.ColorString => typeof color === "string",
       )
     : [];
 
@@ -83,7 +86,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   };
   const createMap = (
     keys: string[],
-    colors: Highcharts.ColorString[]
+    colors: Highcharts.ColorString[],
   ): ColorMap => {
     const map: ColorMap = {};
 
@@ -171,6 +174,16 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
         .add();
 
       labelRef.current.push(lbl);
+    });
+
+    chart.xAxis[0].removePlotLine("event");
+
+    chart.xAxis[0].addPlotLine({
+      id: "event",
+      color: "var(--color-blue-500)",
+      width: 2,
+      value: utcToLocal(new Date(event.time), INITIAL_TIMEZONE),
+      zIndex: 100,
     });
 
     chart.redraw();

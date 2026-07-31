@@ -32,7 +32,7 @@ export function TimelineBullets({
         className={cn(
           "border absolute top-2 w-[calc(100%-24px)]",
           "group-hover:border-blue-500 dark:group-hover:border-blue-500",
-          "transition-colors"
+          "transition-colors",
         )}
       >
         {timeline.map((en) => {
@@ -49,12 +49,12 @@ export function TimelineBullets({
                     ? "bg-blue-500 dark:bg-blue-500"
                     : "bg-gray-400 dark:bg-gray-600",
                   "hover:bg-blue-500 dark:hover:bg-blue-500",
-                  "transition-colors cursor-pointer"
+                  "transition-colors cursor-pointer",
                 )}
                 style={{ left: `${pos}%` }}
               />
               <TooltipContent>
-                <p>{en.event}</p>
+                <p>{en.event.description}</p>
               </TooltipContent>
             </Tooltip>
           );
