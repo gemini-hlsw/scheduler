@@ -150,11 +150,19 @@ class Event:
     time: datetime
     description: str
 
+
+@strawberry.type
+class STimeLossWindow:
+    start: datetime
+    end: Optional[datetime]
+    type: str
+
 @strawberry.type
 class STimelineEntry:
     start_time_slots: int
     event: Event
     plan: SPlan
+    timeloss_windows: List[STimeLossWindow]
 
 
 @strawberry.type
@@ -193,7 +201,8 @@ class SNightTimelines:
                                        event=Event(site=entry.event.site,
                                                    time=entry.event.time,
                                                    description=entry.event.description),
-                                       plan=SPlan.from_computed_plan(entry.plan_generated))
+                                       plan=SPlan.from_computed_plan(entry.plan_generated),
+                                       timeloss_windows=entry.timeloss_windows)
                     s_entries.append(e)
                 te = TimelineEntriesBySite(site=site,
                                            time_entries=s_entries,
@@ -222,7 +231,8 @@ class SNightTimelines:
                                         event=Event(site=entry.event.site,
                                                     time=entry.event.time,
                                                     description=entry.event.description),
-                                        plan=SPlan.from_computed_plan(entry.plan_generated))
+                                        plan=SPlan.from_computed_plan(entry.plan_generated),
+                                        timeloss_windows=entry.timeloss_windows)
                     s_entries.append(e)
                 te = TimelineEntriesBySite(site=site,
                                             time_entries=s_entries,

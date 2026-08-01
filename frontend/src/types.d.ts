@@ -31,6 +31,13 @@ export interface TimeEntryType {
   startTimeSlots: number;
   event: Event;
   plan: Plan;
+  timelossWindows: TimeLossWindow[];
+}
+
+export interface TimeLossWindow {
+  start: string;
+  end: string | null | undefined;
+  type: string;
 }
 
 export interface Event {
