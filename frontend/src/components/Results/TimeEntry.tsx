@@ -96,6 +96,7 @@ export default function TimeEntry({
             eveTwilight={eveTwilight}
             mornTwilight={mornTwilight}
             site={site}
+            closureWindows={timeEntry.timelossWindows}
           />
           <Table>
             <TableHeader>

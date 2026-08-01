@@ -54,6 +54,11 @@ export const subscriptionQueueSchedule = graphql(`
                     programCompletion
                   }
                 }
+                timelossWindows {
+                  start
+                  end
+                  type
+                }
               }
             }
           }

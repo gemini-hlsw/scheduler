@@ -143,10 +143,17 @@ type SRunSummary {
   metricsPerBand: JSON!
 }
 
+type STimeLossWindow {
+  start: DateTime!
+  end: DateTime
+  type: String!
+}
+
 type STimelineEntry {
   startTimeSlots: Int!
   event: Event!
   plan: SPlan!
+  timelossWindows: [STimeLossWindow!]!
 }
 
 type SVisit {
