@@ -8,7 +8,7 @@ HighchartMore(Highcharts);
 
 import { ThemeContext } from "../../theme/ThemeProvider";
 import { getSiteOffset, utcToLocal } from "@/helpers/utcTime";
-import { Event } from "@/types";
+import { Event, TimeLossWindow } from "@/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const debounce = <F extends (...args: any[]) => void>(
@@ -41,6 +41,7 @@ interface AltAzPlotProps {
   eveTwilight: string;
   mornTwilight: string;
   site: string;
+  closureWindows: TimeLossWindow[];
 }
 
 const AltAzPlot: React.FC<AltAzPlotProps> = ({
@@ -49,6 +50,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   eveTwilight,
   mornTwilight,
   site,
+  closureWindows,
 }) => {
   const INITIAL_TIMEZONE = getSiteOffset(site);
 
@@ -176,8 +178,12 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       labelRef.current.push(lbl);
     });
 
-    chart.xAxis[0].removePlotLine("event");
-
+    // Draw event line to recognize the time when it occurs
+    chart.xAxis[0].update({
+      plotBands: [],
+      plotLines: [],
+    });
+    // chart.xAxis[0].removePlotLine("event");
     chart.xAxis[0].addPlotLine({
       id: "event",
       color: "var(--color-blue-500)",
@@ -185,6 +191,30 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       value: utcToLocal(new Date(event.time), INITIAL_TIMEZONE),
       zIndex: 100,
     });
+
+    // Add possible closure zones
+    closureWindows.forEach((window) => {
+      chart.xAxis[0].addPlotBand({
+        id: `${window.type}-${window.start}`,
+        from: utcToLocal(new Date(window.start), INITIAL_TIMEZONE),
+        to: window.end
+          ? utcToLocal(new Date(window.end), INITIAL_TIMEZONE)
+          : chart.xAxis[0].max,
+        color:
+          window.type === "weather"
+            ? "rgba(170, 170, 0, 0.3)"
+            : "rgba(200, 0, 0, 0.3)",
+        zIndex: 10,
+        label: {
+          text: window.type,
+          align: "center",
+          style: {
+            color: textColor,
+          },
+        },
+      });
+    });
+    chart.xAxis[0].addPlotBand({});
 
     chart.redraw();
   }

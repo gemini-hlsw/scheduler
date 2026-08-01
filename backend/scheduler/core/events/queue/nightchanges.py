@@ -33,24 +33,7 @@ class TimelineEntry:
     event: Event
     plan_generated: Optional[Plan]
     accounted_observations: Optional[List[ObservationID]]
-    closure_windows: List[TimeLossWindow]
-
-    def closure_windows_end(self, open_event: Event) -> None:
-        # Find the event type of the open event
-        match open_event:
-            case FaultResolutionEvent() | FaultEvent():
-                event_type = "fault"
-            case WeatherClosureResolutionEvent() | WeatherClosureEvent():
-                event_type = "weather"
-            case _:
-                event_type = ""
-
-        # Find the windows without an end time of the same type and
-        # add the end time of the open event
-        for window in reversed(self.closure_windows):
-            if window.end is None and window.type == event_type:
-                
-                window.end = open_event.timeslot
+    timeloss_windows: List[TimeLossWindow]
 
 
 @dataclass
@@ -69,36 +52,38 @@ class NightlyTimeline:
             time_slot: TimeslotIndex,
             event: Event,
             plan_generated: Optional[Plan],
-            accounted_observations: List[ObservationID] = [],
-            close_event: Optional[Event] = None,
-            open_event: Optional[Event] = None) -> None:
-        entry = TimelineEntry(
-            time_slot, event, plan_generated, accounted_observations,
-            [TimeLossWindow(start=time_slot, end=None, type=close_event.type)] if close_event is not None else []
-        )
-        self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
+            accounted_observations: List[ObservationID] = []) -> None:
+        timeloss_windows = []
+        closure_end = None
+        match event:
+            case FaultEvent():
+                timeloss_windows = [TimeLossWindow(start=event.time, end=None, type="fault")]
+            case WeatherClosureEvent():
+                timeloss_windows = [TimeLossWindow(start=event.time, end=None, type="weather")]
+            case FaultResolutionEvent():
+                closure_end = ["fault", event.time]
+            case WeatherClosureResolutionEvent():
+                closure_end = ["weather", event.time]
+            case _:
+                pass
 
-        self.set_stitched_timeline(night_idx, site, time_slot, event, open_event)
+        entry = TimelineEntry(time_slot, event, plan_generated, accounted_observations, timeloss_windows)
+        self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
+        self.set_stitched_timeline(night_idx, site, time_slot, plan_generated, event, closure_end)
 
     def set_stitched_timeline(self,
                               night_idx: NightIndex,
                               site: Site,
                               time_slot: TimeslotIndex,
+                              plan_generated: Plan,
                               event: Event,
-                              open_event: Optional[Event]) -> None:
+                              closure_end: Optional[tuple[str, TimeslotIndex]]) -> None:
         """
         Create a stitched plan for every partial plan added
 
         It should take the last partial plan generated and stitch it to the previous stitched plan
         replacing all observations starting from the timeslot of the last partial plan
         """
-
-        if open_event is not None:
-            # Try to get previous stitched timelines
-            if night_idx in self.stitched_timeline and site in self.stitched_timeline[night_idx]:
-                last_entry = self.stitched_timeline[night_idx][site][-1]
-
-
         # If no stitched_timeline yet initialize it as the last timeline
         if night_idx not in self.stitched_timeline:
             self.stitched_timeline[night_idx] = deepcopy(self.timeline[night_idx])
@@ -109,9 +94,52 @@ class NightlyTimeline:
             self.stitched_timeline[night_idx][site] = deepcopy(self.timeline[night_idx][site])
             return
 
-        plan = self.get_final_plan(night_idx, site, True)
+        # If closure_end is not None, find the timeloss_window of the same type and without end time,
+        # it should exist already, and set the end time
+        new_timeloss_windows = deepcopy(self.stitched_timeline[night_idx][site][-1].timeloss_windows)
+        if len(self.timeline[night_idx][site][-1].timeloss_windows) > 0:
+            new_timeloss_windows.append(self.timeline[night_idx][site][-1].timeloss_windows[-1])
+
+        if closure_end is not None:
+            for window in reversed(new_timeloss_windows):
+                if window.type == closure_end[0] and window.end is None:
+                    window.end = closure_end[1]
+                    break
+
+        # Now from last stitched timeline get all visits until reaching the current timeslot
+        # and join them with the last partial plan created
+        last_plan_generated = None
+        timeline_index = len(self.stitched_timeline[night_idx][site]) - 1
+        while last_plan_generated is None and timeline_index >= 0:
+            last_plan_generated = self.stitched_timeline[night_idx][site][timeline_index].plan_generated
+            timeline_index -= 1
+
+        if last_plan_generated is None:
+            print(f"No last plan generated found for night {night_idx} and site {site}")
+            return
+
+        new_plan_visits = []
+        for visit in last_plan_generated.visits:
+            if visit.start_time_slot < time_slot:
+                new_plan_visits.append(visit)
+            else:
+                break
+
+        if plan_generated is not None:
+            plan = last_plan_generated
+            for visit in plan_generated.visits:
+                new_plan_visits.append(visit)
+
+        plan = Plan(start=last_plan_generated.start,
+                    end=plan_generated.end if plan_generated else last_plan_generated.end,
+                    time_slot_length=last_plan_generated.time_slot_length,
+                    site=site,
+                    _time_slots_left=0,
+                    conditions=plan_generated.conditions if plan_generated else last_plan_generated.conditions,)
+        plan.visits = new_plan_visits
+
         entry = TimelineEntry(
-            time_slot, event, plan, accounted_observations=[]
+            time_slot, event, plan, accounted_observations=[], timeloss_windows=new_timeloss_windows
         )
 
         self.stitched_timeline[night_idx][site].append(entry)
