@@ -35,14 +35,14 @@ __all__ = [
     "ExpectedObservation",
     "get_expected_observations",
     "SKIP_NON_SIDEREAL",
-    "SKIP_NO_TARGET",
     "SKIP_NO_SITE",
 ]
 
-# Why an observation can never appear in visibility_data. Surfaced in the UI so
-# a permanent gap reads as "not applicable" rather than "broken".
+# Why an observation that *is* a visibility subject still cannot appear in
+# visibility_data. Surfaced in the UI so a permanent gap reads as "not
+# applicable" rather than "broken". Targetless observations are not in this list
+# — they are dropped outright in `_classify`, not counted and explained.
 SKIP_NON_SIDEREAL = "NON_SIDEREAL"
-SKIP_NO_TARGET = "NO_TARGET"
 SKIP_NO_SITE = "NO_SITE"
 
 # Observations per ODB page. Large enough to keep the round-trip count down on a
@@ -72,11 +72,22 @@ class ExpectedObservation:
 
 
 def _classify(match, program_label: str) -> Optional[ExpectedObservation]:
-    """Build an ExpectedObservation, or None when there is nothing to key on.
+    """Build an ExpectedObservation, or None when it is not a visibility subject.
 
-    An observation without a reference label cannot be matched against
-    ``visibility_data`` in either direction, so it is dropped rather than
-    reported as missing.
+    Two cases drop out of the expected set entirely rather than being reported:
+
+    - **No reference label.** It cannot be matched against ``visibility_data``
+      in either direction, so it can be neither confirmed nor reported missing.
+    - **No target.** Visibility is a property of a target; an observation
+      without one is not something visibility can be computed for, so it does
+      not belong in the totals at all. The ODB still returns these (the query
+      filters on workflow state, not on the target environment), so they are
+      dropped here rather than by narrowing the query.
+
+    Observations that *have* a target but that the aggregator cannot handle yet
+    (non-sidereal) or cannot place (no resolvable site) are kept and marked with
+    a ``skip_reason``: those are real observations with a real reason, worth
+    showing as "not applicable" instead of vanishing.
     """
     reference = getattr(match, "reference", None)
     label = getattr(reference, "label", None) if reference is not None else None
@@ -86,14 +97,18 @@ def _classify(match, program_label: str) -> Optional[ExpectedObservation]:
 
     asterism = getattr(match.target_environment, "asterism", None) or []
     base = asterism[0] if asterism else None
-
     target_name = str(base.name) if base is not None and base.name else None
-    is_sidereal = base is not None and base.sidereal is not None
-    site = site_key_from_instrument(match.instrument)
 
     if base is None or target_name is None:
-        skip_reason = SKIP_NO_TARGET
-    elif not is_sidereal:
+        _logger.debug(
+            f"Observation {label} has no target; not a visibility subject."
+        )
+        return None
+
+    is_sidereal = base.sidereal is not None
+    site = site_key_from_instrument(match.instrument)
+
+    if not is_sidereal:
         skip_reason = SKIP_NON_SIDEREAL
     elif site is None:
         skip_reason = SKIP_NO_SITE
