@@ -1,4 +1,6 @@
 import React, { useContext, useEffect, useRef } from "react";
+import { FaCloudMoonRain, FaCog } from "react-icons/fa";
+import { renderToString } from "react-dom/server";
 import Highcharts, { SVGRenderer, SeriesArearangeOptions } from "highcharts";
 import HighchartsReact, {
   HighchartsReactRefObject,
@@ -53,6 +55,16 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   closureWindows,
 }) => {
   const INITIAL_TIMEZONE = getSiteOffset(site);
+
+  const weatherLossIconHtml = renderToString(
+    <FaCloudMoonRain
+      style={{ width: "577px", height: "512px" }}
+      width={10}
+      className="tex-cyan-500 scale-5 absolute top-[-240px] left-[-274px] origin-center"
+    />,
+  );
+
+  const faultLossIconHtml = renderToString(<FaCog className="" />);
 
   // Get theme context to modify chart values
   const { theme } = useContext(ThemeContext);
@@ -195,22 +207,19 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
     // Add possible closure zones
     closureWindows.forEach((window) => {
       chart.xAxis[0].addPlotBand({
-        id: `${window.type}-${window.start}`,
+        id: `${window.lossType}-${window.start}`,
         from: utcToLocal(new Date(window.start), INITIAL_TIMEZONE),
         to: window.end
           ? utcToLocal(new Date(window.end), INITIAL_TIMEZONE)
           : chart.xAxis[0].max,
         color:
-          window.type === "weather"
-            ? "rgba(170, 170, 0, 0.3)"
+          window.lossType === "weather"
+            ? "rgba(50, 200, 230, 0.3)"
             : "rgba(200, 0, 0, 0.3)",
         zIndex: 10,
         label: {
-          text: window.type,
-          align: "center",
-          style: {
-            color: textColor,
-          },
+          useHTML: true,
+          text: `<div style="width: 30px; height: 30px;">${window.lossType === "weather" ? weatherLossIconHtml : faultLossIconHtml}</div>`,
         },
       });
     });

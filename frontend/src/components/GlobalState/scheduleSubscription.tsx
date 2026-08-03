@@ -57,7 +57,7 @@ export const subscriptionQueueSchedule = graphql(`
                 timelossWindows {
                   start
                   end
-                  type
+                  lossType
                 }
               }
             }

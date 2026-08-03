@@ -24,7 +24,7 @@ __all__ = [
 class TimeLossWindow:
     start: TimeslotIndex
     end: Optional[TimeslotIndex]
-    type: str
+    loss_type: str
 
 
 @dataclass
@@ -57,9 +57,9 @@ class NightlyTimeline:
         closure_end = None
         match event:
             case FaultEvent():
-                timeloss_windows = [TimeLossWindow(start=event.time, end=None, type="fault")]
+                timeloss_windows = [TimeLossWindow(start=event.time, end=None, loss_type="fault")]
             case WeatherClosureEvent():
-                timeloss_windows = [TimeLossWindow(start=event.time, end=None, type="weather")]
+                timeloss_windows = [TimeLossWindow(start=event.time, end=None, loss_type="weather")]
             case FaultResolutionEvent():
                 closure_end = ["fault", event.time]
             case WeatherClosureResolutionEvent():
@@ -102,7 +102,7 @@ class NightlyTimeline:
 
         if closure_end is not None:
             for window in reversed(new_timeloss_windows):
-                if window.type == closure_end[0] and window.end is None:
+                if window.loss_type == closure_end[0] and window.end is None:
                     window.end = closure_end[1]
                     break
 

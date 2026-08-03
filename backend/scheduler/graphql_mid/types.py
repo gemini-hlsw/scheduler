@@ -155,7 +155,7 @@ class Event:
 class STimeLossWindow:
     start: datetime
     end: Optional[datetime]
-    type: str
+    loss_type: str
 
 @strawberry.type
 class STimelineEntry:
