@@ -168,17 +168,51 @@ def is_night_in_progress(now: Optional[datetime] = None) -> bool:
     return False
 
 
-async def _collect_requests(program_ids: list[str], range_end: datetime):
+def target_windows(
+    requests: list[ObservationRequest],
+    windows: dict[str, tuple[date, date]],
+) -> dict[str, tuple[date, date]]:
+    """Night range each target needs: the union over the observations using it.
+
+    Stage 1 is per target, not per observation, so a target shared by two
+    programs with different active periods needs positions covering both.
+    """
+    out: dict[str, tuple[date, date]] = {}
+    for request in requests:
+        window = windows.get(request.observation_id)
+        if window is None:
+            continue
+        current = out.get(request.target_name)
+        out[request.target_name] = window if current is None else (
+            min(current[0], window[0]), max(current[1], window[1])
+        )
+    return out
+
+
+def program_window(program_start: datetime, program_end: datetime) -> tuple[date, date]:
+    """The night range an observation of this program needs, as dates.
+
+    ``program.start`` / ``program.end`` are the ODB's ``active`` dates widened
+    by ``Program.FUZZY_BOUNDARY``, so this is the period the program can
+    actually be observed in — which is what bounds visibility, not the calendar
+    semester. It may be shorter than a semester, or span several.
+    """
+    return program_start.date(), program_end.date()
+
+
+async def _collect_requests(program_ids: list[str]):
     """Parse the available GPP programs into sidereal targets + obs requests.
 
-    Also returns a mapping of ODB observation internal id (``o-…``, what the
-    visibility-changes endpoint reports) to the reference label Sight stores
-    as ``observation_id``.
+    Also returns, per observation, the night window its program is active for
+    (``windows``), and a mapping of ODB observation internal id (``o-…``, what
+    the visibility-changes endpoint reports) to the reference label Sight
+    stores as ``observation_id``.
     """
     provider = GppProgramProvider(_OBS_CLASSES, Sources())
 
     targets_by_name: dict = {}
     requests: list[ObservationRequest] = []
+    windows: dict[str, tuple[date, date]] = {}
     labels_by_internal_id: dict[str, str] = {}
     skipped_no_target = 0
     skipped_nonsidereal = 0
@@ -219,6 +253,7 @@ async def _collect_requests(program_ids: list[str], range_end: datetime):
 
                 targets_by_name.setdefault(payload.name, payload)
                 labels_by_internal_id[str(obs.internal_id)] = obs.id.id
+                windows[obs.id.id] = program_window(program.start, program.end)
                 requests.append(ObservationRequest(
                     observation_id=obs.id.id,
                     target_name=str(base.name),
@@ -227,7 +262,9 @@ async def _collect_requests(program_ids: list[str], range_end: datetime):
                         obs,
                         has_resources=True,
                         can_schedule=True,
-                        range_end=range_end,
+                        # Open-ended timing windows are clipped to the program's
+                        # own end, not to a calendar semester.
+                        range_end=program.end,
                         program_start=program.start,
                         program_end=program.end,
                     ),
@@ -242,7 +279,7 @@ async def _collect_requests(program_ids: list[str], range_end: datetime):
         "skipped_no_target": skipped_no_target,
         "skipped_nonsidereal": skipped_nonsidereal,
     }
-    return targets_by_name, requests, labels_by_internal_id, counts
+    return targets_by_name, requests, windows, labels_by_internal_id, counts
 
 
 async def _load_changes(
@@ -545,41 +582,53 @@ async def _apply_odb_changes(
 async def _store_missing_visibility(
     calc: Calculator,
     requests: list[ObservationRequest],
-    start_date: date,
-    end_date: date,
+    windows: dict[str, tuple[date, date]],
     heartbeat: Optional[Heartbeat],
     started_at: str,
 ) -> int:
-    """Store Stage 2 only for (observation, night) pairs not already present.
+    """Store Stage 2 for (observation, night) pairs not already present.
 
-    This is the "add only the ones not there" step: without it,
-    ``store_visibility`` would recompute the whole semester on every cron tick.
+    Each observation is only computed for the nights its own program is active
+    for (``windows``), so a short program costs a few nights and a multi-semester
+    one is not truncated at a calendar boundary. The loop walks the union of all
+    windows and, for each night, considers only the observations due that night.
+
+    This is also the "add only the ones not there" step: without it,
+    ``store_visibility`` would recompute every night on every cron tick.
     Commits per night to bound transaction size and persist progress.
     """
     if not requests:
         return 0
 
-    obs_ids = [r.observation_id for r in requests]
-    total_nights = (end_date - start_date).days + 1
+    due_requests = [r for r in requests if r.observation_id in windows]
+    if not due_requests:
+        return 0
 
-    # Which (observation, night) pairs already exist, for the whole range in
-    # one query. Checking night by night meant a query per night even when
-    # every night was already covered, each one dragging back full rows
-    # (visible_ranges and constraints JSONB) only to discard them.
-    stored_pairs = await calc.visibility_repo.get_stored_observation_nights(
-        obs_ids, start_date, end_date
-    )
+    start_date = min(windows[r.observation_id][0] for r in due_requests)
+    end_date = max(windows[r.observation_id][1] for r in due_requests)
+    total_nights = (end_date - start_date).days + 1
 
     loop_t0 = time.perf_counter()
     stored = 0
     current = start_date
     while current <= end_date:
-        missing = [
-            r for r in requests
-            if (r.observation_id, current) not in stored_pairs
-        ]
         nights_done = (current - start_date).days + 1
         loop_elapsed = time.perf_counter() - loop_t0
+
+        due = [
+            r for r in due_requests
+            if windows[r.observation_id][0] <= current <= windows[r.observation_id][1]
+        ]
+        if due:
+            # One indexed lookup per night rather than one set spanning the whole
+            # union: with per-program windows that range can cover years, and the
+            # whole-range pair set would be millions of tuples held in memory.
+            stored_ids = await calc.visibility_repo.get_stored_observation_ids_on_night(
+                current
+            )
+            missing = [r for r in due if r.observation_id not in stored_ids]
+        else:
+            missing = []
 
         if missing:
             t0 = time.perf_counter()
@@ -624,7 +673,14 @@ async def run_aggregation(
     *,
     heartbeat: Optional[Heartbeat] = None,
 ) -> dict:
-    """Bring the Sight DB up to date for the current semester (sidereal only).
+    """Bring the Sight DB up to date (sidereal only).
+
+    Each observation is computed over the nights its own program is active for,
+    taken from the ODB's ``active`` dates plus ``Program.FUZZY_BOUNDARY`` — not
+    over a fixed calendar semester. A program shorter than a semester costs only
+    its own nights, one spanning several is not truncated at the boundary, and
+    the semester rollover stops being a cliff where the whole range turns over
+    at once.
 
     session (AsyncSession): is the compute session (its own connection).
     heartbeat (Optional[Heartbeat]): is an optional async callback used to keep the coordination row fresh.
@@ -633,10 +689,8 @@ async def run_aggregation(
     now = datetime.now(timezone.utc)
     started_at = now.isoformat()
     today = now.date()
+    # Reported for context only; it no longer bounds any of the work below.
     semester = Semester.find_semester_from_date(today)
-    start_date = semester.start_date()
-    end_date = semester.end_date()
-    range_end = datetime.combine(end_date, datetime.min.time(), tzinfo=timezone.utc)
 
     # What changed in the ODB since the last successful run? Fetched before the
     # program dump; applied after parsing (the fresh payloads are needed).
@@ -654,19 +708,20 @@ async def run_aggregation(
     labels = await gpp.client.scheduler.get_all_reference_labels()
     program_ids = [label[1] for label in labels]
     _logger.info(
-        f"{len(program_ids)} available programs; semester {semester} "
-        f"({start_date} .. {end_date})."
+        f"{len(program_ids)} available programs; current semester {semester} "
+        f"(reported only — work is bounded per program)."
     )
 
     parse_t0 = time.perf_counter()
-    targets_by_name, requests, labels_by_internal_id, counts = await _collect_requests(
-        program_ids, range_end
-    )
+    (targets_by_name, requests, windows,
+     labels_by_internal_id, counts) = await _collect_requests(program_ids)
     parse_elapsed = time.perf_counter() - parse_t0
+    start_date = min((w[0] for w in windows.values()), default=today)
+    end_date = max((w[1] for w in windows.values()), default=today)
     _logger.info(
         f"Prepared {len(targets_by_name)} sidereal targets and {len(requests)} "
-        f"observations in {parse_elapsed:.1f}s (skipped "
-        f"{counts['skipped_nonsidereal']} non-sidereal, "
+        f"observations in {parse_elapsed:.1f}s spanning {start_date}..{end_date} "
+        f"(skipped {counts['skipped_nonsidereal']} non-sidereal, "
         f"{counts['skipped_no_target']} without a usable base target)."
     )
     if heartbeat is not None:
@@ -703,52 +758,70 @@ async def run_aggregation(
     # We commit per batch so a long semester-start backfill never holds one
     # giant transaction, and so progress persists.
     # A dyno killed mid-run just resumes from the remaining gaps on the next cron tick (every upsert is idempotent).
+    # Targets sharing an active period are batched together, so this collapses
+    # to roughly one group per distinct program window rather than a call per
+    # target.
+    windows_by_target = target_windows(requests, windows)
+    groups: dict[tuple[date, date], list] = {}
+    for target in targets:
+        window = windows_by_target.get(target.name)
+        if window is None:
+            continue
+        groups.setdefault(window, []).append(target)
+
+    total_targets = sum(len(group) for group in groups.values())
     created_total = 0
+    done = 0
+    batch_number = 0
     stage1_t0 = time.perf_counter()
-    for offset in range(0, len(targets), batch_size):
-        chunk = targets[offset:offset + batch_size]
-        batch_t0 = time.perf_counter()
-        created = await calc.create_targets_bulk(chunk, start_date, end_date)
-        created_total += created.created
-        await calc.precompute_stage1(
-            start_date, end_date, target_names=[t.name for t in chunk]
-        )
-        await session.commit()
-        batch_elapsed = time.perf_counter() - batch_t0
-        done = min(offset + batch_size, len(targets))
-        loop_elapsed = time.perf_counter() - stage1_t0
-        # Same moving ETA as Stage 2: measured seconds/target x targets left.
-        eta = progress_eta_seconds(
-            elapsed_seconds=loop_elapsed, done=done, total=len(targets)
-        )
-        _logger.info(
-            f"Stage 1 batch {offset // batch_size + 1}: {len(chunk)} targets in "
-            f"{batch_elapsed:.1f}s ({batch_elapsed / len(chunk):.2f}s/target); "
-            f"{done}/{len(targets)} done; "
-            f"ETA ~{'unknown' if eta is None else _format_duration(eta)}."
-        )
-        if heartbeat is not None:
-            await heartbeat(progress_detail(
-                "stage1",
-                done=done,
-                total=len(targets),
-                unit="targets",
-                elapsed_seconds=loop_elapsed,
-                started_at=started_at,
-                created=created_total,
-            ))
+    for (window_start, window_end), group in sorted(groups.items()):
+        for offset in range(0, len(group), batch_size):
+            chunk = group[offset:offset + batch_size]
+            batch_t0 = time.perf_counter()
+            created = await calc.create_targets_bulk(chunk, window_start, window_end)
+            created_total += created.created
+            await calc.precompute_stage1(
+                window_start, window_end, target_names=[t.name for t in chunk]
+            )
+            await session.commit()
+            batch_elapsed = time.perf_counter() - batch_t0
+            done += len(chunk)
+            batch_number += 1
+            loop_elapsed = time.perf_counter() - stage1_t0
+            # Same moving ETA as Stage 2: measured seconds/target x targets left.
+            eta = progress_eta_seconds(
+                elapsed_seconds=loop_elapsed, done=done, total=total_targets
+            )
+            _logger.info(
+                f"Stage 1 batch {batch_number} [{window_start}..{window_end}]: "
+                f"{len(chunk)} targets in {batch_elapsed:.1f}s "
+                f"({batch_elapsed / len(chunk):.2f}s/target); "
+                f"{done}/{total_targets} done; "
+                f"ETA ~{'unknown' if eta is None else _format_duration(eta)}."
+            )
+            if heartbeat is not None:
+                await heartbeat(progress_detail(
+                    "stage1",
+                    done=done,
+                    total=total_targets,
+                    unit="targets",
+                    elapsed_seconds=loop_elapsed,
+                    started_at=started_at,
+                    created=created_total,
+                ))
     stage1_elapsed = time.perf_counter() - stage1_t0
-    avg_target = stage1_elapsed / len(targets) if targets else 0.0
+    avg_target = stage1_elapsed / total_targets if total_targets else 0.0
     _logger.info(
-        f"Stage 1 done: {created_total} new targets; {len(targets)} targets "
-        f"ensured over {start_date}..{end_date} in {stage1_elapsed:.1f}s "
+        f"Stage 1 done: {created_total} new targets; {total_targets} targets "
+        f"ensured across {len(groups)} program windows in {stage1_elapsed:.1f}s "
         f"({avg_target:.2f}s/target avg)."
     )
 
-    # Stage 2: store visibility for observations missing it on each night.
+    # Stage 2: store visibility for observations missing it on each night of
+    # their own program's window.
     stage2_t0 = time.perf_counter()
     stored = await _store_missing_visibility(
-        calc, requests, start_date, end_date, heartbeat, started_at
+        calc, requests, windows, heartbeat, started_at
     )
     stage2_elapsed = time.perf_counter() - stage2_t0
     _logger.info(f"Stage 2: stored {stored} new visibility rows in {stage2_elapsed:.1f}s.")

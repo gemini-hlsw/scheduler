@@ -40,8 +40,7 @@ __all__ = [
 
 # Why an observation that *is* a visibility subject still cannot appear in
 # visibility_data. Surfaced in the UI so a permanent gap reads as "not
-# applicable" rather than "broken". Targetless observations are not in this list
-# — they are dropped outright in `_classify`, not counted and explained.
+# applicable" rather than "broken".
 SKIP_NON_SIDEREAL = "NON_SIDEREAL"
 SKIP_NO_SITE = "NO_SITE"
 
