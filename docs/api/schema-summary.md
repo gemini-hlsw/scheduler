@@ -146,7 +146,7 @@ type SRunSummary {
 type STimeLossWindow {
   start: DateTime!
   end: DateTime
-  type: String!
+  lossType: String!
 }
 
 type STimelineEntry {
