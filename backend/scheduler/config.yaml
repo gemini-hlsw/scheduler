@@ -55,3 +55,10 @@ visibility_aggregator:
   # Targets processed per committed Stage-1 batch. Bounds transaction size on
   # Heroku Postgres and lets a killed run resume from the next batch.
   target_batch_size: 25
+  # `since` fallback (hours before now) when no odb_change_watermark row exists
+  # yet (first run, or the row was deleted).
+  changes_fallback_lookback_hours: 1
+  # Safety overlap (seconds) subtracted from a run's fetch time when advancing
+  # the watermark, so clock skew between ODB and scheduler never skips changes.
+  # Re-processing an already-applied change is idempotent.
+  changes_overlap_seconds: 300

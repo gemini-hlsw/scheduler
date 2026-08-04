@@ -137,7 +137,7 @@ class GppProgramProvider(ProgramProvider):
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
     _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS, 'FLAMINGOS2': Site.GS, 'IGRINS2': Site.GN,
-                      'GHOST': Site.GS}
+                      'GHOST': Site.GS, 'GNIRS': Site.GN}
 
     _gmos_filters = {'GMOS-S': ['U_PRIME', 'G_PRIME', 'R_PRIME', 'I_PRIME', 'Z_PRIME', 'Z', 'Y', 'GG455', 'OG515',
                                     'RG610', 'CA_T', 'F396N', 'OIII', 'OIIIC', 'HE_II', 'HE_IIC', 'OVI', 'OVIC',
@@ -152,7 +152,7 @@ class GppProgramProvider(ProgramProvider):
 
     # Translate instrument names to use the OCS Resources
     _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2',
-                        'IGRINS2': 'IGRINS-2', 'GHOST': 'GHOST'}
+                        'IGRINS2': 'IGRINS-2', 'GHOST': 'GHOST', 'GNIRS': 'GNIRS'}
 
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
@@ -393,7 +393,7 @@ class GppProgramProvider(ProgramProvider):
         # 'GPI': _FPUKeys.GPI,
         'Flamingos2': _FPUKeys.F2,
         # 'NIFS': _FPUKeys.NIFS,
-        # 'GNIRS': _FPUKeys.GNIRS,
+        #'GNIRS': _FPUKeys.GNIRS,
         'GMOS-N': _FPUKeys.GMOSN,
         'GMOS-S': _FPUKeys.GMOSS,
         # 'NIRI': _FPUKeys.NIRI

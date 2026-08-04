@@ -92,6 +92,36 @@ class VisibilityDataRepository:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
+    async def get_stored_observation_nights(
+        self,
+        observation_ids: list[str],
+        start_date: date,
+        end_date: date,
+    ) -> set[tuple[str, date]]:
+        """
+        Get the (observation_id, night_date) pairs already stored in a range.
+
+        One dates-only query for the whole range, so a caller checking
+        coverage night by night does not need a query per night, and no
+        JSONB payloads are transferred. Duplicate rows for the same
+        observation and night (the unique constraint also spans target and
+        site) collapse into a single pair.
+        """
+        if not observation_ids:
+            return set()
+        stmt = select(
+            VisibilityData.observation_id,
+            VisibilityData.night_date,
+        ).where(
+            and_(
+                VisibilityData.observation_id.in_(observation_ids),
+                VisibilityData.night_date >= start_date,
+                VisibilityData.night_date <= end_date,
+            )
+        ).distinct()
+        result = await self.session.execute(stmt)
+        return {(observation_id, night_date) for observation_id, night_date in result.all()}
+
     async def upsert(
         self,
         observation_id: str,

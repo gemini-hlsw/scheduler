@@ -95,6 +95,50 @@ class TargetNightDataRepository(BaseRepository[TargetNightData]):
         result = await self.session.execute(stmt)
         return set(result.scalars().all())
 
+    async def get_fresh_night_dates_for_targets(
+        self,
+        targets: Sequence[Target],
+        site_ids: Sequence[int],
+        start_date: date,
+        end_date: date,
+    ) -> dict[tuple[int, int], set[date]]:
+        """
+        Fresh (non-stale) night dates per (target_id, site_id), one query.
+
+        Batched variant of `get_fresh_night_dates`: replaces one round trip
+        per target x site with a single dates-only query for a whole batch.
+        Staleness is compared against the targets table's updated_at column
+        via a JOIN (not the in-memory attribute), so callers must have flushed
+        any pending updated_at bumps — true for `touch`/`update_fields`, which
+        flush before returning.
+
+        Pairs with no fresh rows are absent from the result.
+        """
+        if not targets:
+            return {}
+        stmt = (
+            select(
+                TargetNightData.target_id,
+                TargetNightData.site_id,
+                TargetNightData.night_date,
+            )
+            .join(Target, Target.id == TargetNightData.target_id)
+            .where(
+                and_(
+                    TargetNightData.target_id.in_([t.id for t in targets]),
+                    TargetNightData.site_id.in_(site_ids),
+                    TargetNightData.night_date >= start_date,
+                    TargetNightData.night_date <= end_date,
+                    TargetNightData.target_updated_at >= Target.updated_at,
+                )
+            )
+        )
+        result = await self.session.execute(stmt)
+        fresh_by_key: dict[tuple[int, int], set[date]] = {}
+        for target_id, site_id, night_date in result.all():
+            fresh_by_key.setdefault((target_id, site_id), set()).add(night_date)
+        return fresh_by_key
+
     async def get_stale_for_target(
         self,
         target: Target,

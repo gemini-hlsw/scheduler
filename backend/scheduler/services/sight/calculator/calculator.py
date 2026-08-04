@@ -55,24 +55,25 @@ class Calculator:
         self,
         requests: list[ObservationRequest],
         night_date: date,
+        targets_by_name: dict | None = None,
     ) -> CalculationResponse:
         """
         Calculate visibility for a list of observation requests.
+
+        Pass targets_by_name when the caller already loaded the targets (e.g.
+        store_visibility looping over a date range) to skip re-loading them for
+        every night; omit it and they are fetched in one query.
         """
         if not requests:
             return CalculationResponse(results=[], night_date=night_date)
-        
+
         # Convert site keys to IDs
         site_ids = set(SITE_KEY_TO_ID[r.site_id] for r in requests)
-        target_names = set(r.target_name for r in requests)
-        
-        # Load targets by name
-        targets_by_name = {}
-        for name in target_names:
-            target = await self.target_repo.get_by_name(name)
-            if target:
-                targets_by_name[name] = target
-        
+
+        if targets_by_name is None:
+            target_names = set(r.target_name for r in requests)
+            targets_by_name = await self.target_repo.get_by_names(list(target_names))
+
         target_ids = set(t.id for t in targets_by_name.values())
         
         await self._ensure_night_events(site_ids, night_date)
@@ -210,19 +211,29 @@ class Calculator:
         site_ids: set[int],
         night_date: date,
     ) -> None:
-        """Ensure Stage 1 data exists for all required targets at all sites."""
+        """Ensure Stage 1 data exists for all required targets at all sites.
+
+        Existing rows are fetched one batch per site rather than one query per
+        (target, site): the check runs for every night of a range, so the
+        per-pair version cost targets x sites round trips per night.
+        """
+        if not target_ids:
+            return
         targets = {t.id: t for t in await self.target_repo.get_many(list(target_ids))}
-        
-        for target_id in target_ids:
-            target = targets.get(target_id)
-            if target is None:
-                continue
-            
-            for site_id in site_ids:
-                data = await self.target_data_repo.get_by_target_site_night(
-                    target_id, site_id, night_date
+
+        for site_id in site_ids:
+            existing = {
+                data.target_id: data
+                for data in await self.target_data_repo.get_for_targets_on_night(
+                    list(target_ids), site_id, night_date
                 )
-                
+            }
+            for target_id in target_ids:
+                target = targets.get(target_id)
+                if target is None:
+                    continue
+
+                data = existing.get(target_id)
                 if data is None or data.is_stale(target):
                     await self._calculate_and_store_stage1(
                         target, site_id, night_date
@@ -407,10 +418,17 @@ class Calculator:
         # array payloads) and reused for every target and night.
         night_events: dict[tuple[int, date], NightEvent] | None = None
 
+        # One IN-clause query for the whole batch instead of one get_by_name
+        # per target; created targets are added below so a duplicate name
+        # later in the same batch is still caught.
+        existing_by_name = await self.target_repo.get_by_names(
+            [t.name for t in targets]
+        )
+
         for target_data in targets:
             try:
                 # Check if target already exists
-                existing = await self.target_repo.get_by_name(target_data.name)
+                existing = existing_by_name.get(target_data.name)
                 if existing:
                     errors.append(f"Target '{target_data.name}' already exists")
                     continue
@@ -434,6 +452,7 @@ class Calculator:
                     horizons_id=target_data.horizons_id,
                     tag=target_data.tag,
                 )
+                existing_by_name[target.name] = target
 
                 # Compute Stage 1 for the whole date range, then insert the
                 # rows in one bulk flush: the target was just created, so no
@@ -471,16 +490,22 @@ class Calculator:
         Calculate visibility for observations across a date range.
         """
         results_by_date: dict[str, list[VisibilityResult]] = {}
-        
+
+        # Loaded once for the range rather than per night.
+        targets_by_name = await self.target_repo.get_by_names(
+            list(set(r.target_name for r in requests))
+        ) if requests else {}
+
         current_date = start_date
         while current_date <= end_date:
             date_str = current_date.isoformat()
-            
+
             response = await self.calculate_visibility(
                 requests=requests,
                 night_date=current_date,
+                targets_by_name=targets_by_name,
             )
-            
+
             results_by_date[date_str] = response.results
             current_date += timedelta(days=1)
         
@@ -510,13 +535,11 @@ class Calculator:
         total_computations in the result counts only the (target, site,
         night) combinations actually computed.
         """
-        # Get targets
+        # Get targets (one IN-clause query; preserves input order, skips
+        # names that do not exist).
         if target_names:
-            targets = []
-            for name in target_names:
-                target = await self.target_repo.get_by_name(name)
-                if target:
-                    targets.append(target)
+            by_name = await self.target_repo.get_by_names(target_names)
+            targets = [by_name[n] for n in target_names if n in by_name]
         else:
             targets = await self.target_repo.get_all()
         
@@ -546,15 +569,17 @@ class Calculator:
         # missing or stale nights to compute.
         night_events_by_site: dict[int, dict[date, NightEvent]] = {}
 
+        # One dates-only query for the whole batch tells us which (target,
+        # site) pairs already have fresh Stage 1 rows on which nights; a fully
+        # seeded batch costs a single round trip instead of one per pair.
+        fresh_by_key = await self.target_data_repo.get_fresh_night_dates_for_targets(
+            targets, list(site_id_ints), start_date, end_date
+        )
+
         total = 0
         for target in targets:
             for site_id in site_id_ints:
-                # One dates-only query tells us which nights already have
-                # fresh Stage 1 rows; a fully seeded target costs a single
-                # round trip per site instead of a full-row fetch per night.
-                fresh_dates = await self.target_data_repo.get_fresh_night_dates(
-                    target, site_id, start_date, end_date
-                )
+                fresh_dates = fresh_by_key.get((target.id, site_id), set())
                 missing_dates = [d for d in all_dates if d not in fresh_dates]
                 if not missing_dates:
                     continue
@@ -589,13 +614,14 @@ class Calculator:
         """
         stored = 0
 
-        # Load targets by name
+        # Loaded once for the whole range and passed into calculate_visibility,
+        # which would otherwise re-query them for every night.
         target_names = set(r.target_name for r in requests)
-        targets_by_name = {}
-        for name in target_names:
-            target = await self.target_repo.get_by_name(name)
-            if target:
-                targets_by_name[name] = target
+        targets_by_name = await self.target_repo.get_by_names(list(target_names))
+
+        # Constraints are looked up per stored result; a dict avoids rescanning
+        # the request list for every one.
+        requests_by_obs_id = {r.observation_id: r for r in requests}
 
         current_date = start_date
         while current_date <= end_date:
@@ -603,34 +629,35 @@ class Calculator:
             response = await self.calculate_visibility(
                 requests=requests,
                 night_date=current_date,
+                targets_by_name=targets_by_name,
             )
-            
-            # Store each result
+
+            # Collect this night's rows and write them in one bulk upsert
+            # instead of a SELECT plus a write per row.
+            rows = []
             for result in response.results:
                 target = targets_by_name.get(result.target_name)
                 if not target:
                     continue
-                
-                site_id = SITE_KEY_TO_ID[result.site]
-                
-                # Find the original request to get constraints
-                original_request = next(
-                    (r for r in requests if r.observation_id == result.observation_id),
-                    None
+
+                original_request = requests_by_obs_id.get(result.observation_id)
+                constraints_dict = (
+                    original_request.constraints.model_dump(mode="json")
+                    if original_request else {}
                 )
-                constraints_dict = original_request.constraints.model_dump(mode="json") if original_request else {}
-                
-                await self.visibility_repo.upsert(
+
+                rows.append(dict(
                     observation_id=result.observation_id,
                     target_id=target.id,
-                    site_id=site_id,
+                    site_id=SITE_KEY_TO_ID[result.site],
                     night_date=result.night_date,
                     remaining_minutes=result.remaining_minutes,
                     visible_ranges=result.visible_ranges,
-                    constraints=constraints_dict
-                )
-                stored += 1
-            
+                    constraints=constraints_dict,
+                ))
+
+            stored += await self.visibility_repo.bulk_upsert(rows)
+
             current_date += timedelta(days=1)
 
         nights = (end_date - start_date).days + 1
@@ -661,15 +688,19 @@ class Calculator:
             return {"stored": 0, "nights": 0, "already_present": 0}
 
         obs_ids = [r.observation_id for r in requests]
+        # Coverage for the whole range in one query instead of one per night.
+        stored_pairs = await self.visibility_repo.get_stored_observation_nights(
+            obs_ids, start_date, end_date
+        )
+
         stored = 0
         already_present = 0
         current_date = start_date
         while current_date <= end_date:
-            existing = await self.visibility_repo.get_by_observation_ids_on_night(
-                obs_ids, current_date
-            )
-            existing_ids = {d.observation_id for d in existing}
-            missing = [r for r in requests if r.observation_id not in existing_ids]
+            missing = [
+                r for r in requests
+                if (r.observation_id, current_date) not in stored_pairs
+            ]
             already_present += len(requests) - len(missing)
 
             if missing:
