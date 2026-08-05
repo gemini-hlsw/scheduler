@@ -152,7 +152,7 @@ class GppProgramProvider(ProgramProvider):
 
     # Translate instrument names to use the OCS Resources
     _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2',
-                        'IGRINS2': 'IGRINS-2', 'GHOST': 'GHOST', 'GNIRS': 'GNIRS'}
+                        'IGRINS2': 'IGRINS-2', 'GHOST': 'GHOST', 'GNIRS': 'GNIRS',}
 
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
@@ -367,7 +367,7 @@ class GppProgramProvider(ProgramProvider):
 
     class _FPUKeys:
         # GSAOI = 'instrument:utilityWheel'
-        # GNIRS = 'instrument:slitWidth'
+        GNIRS = 'fpu'
         GMOSN = 'fpu'
         # GPI = 'instrument:observingMode'
         F2 = 'fpu'
@@ -381,6 +381,7 @@ class GppProgramProvider(ProgramProvider):
         F2 = 'disperser'
         GMOSS = 'grating'
         GHOST = 'resolution_mode'
+        GNIRS = 'grating'
 
     class _InstrumentKeys:
         NAME = 'instrument:name'
@@ -389,26 +390,18 @@ class GppProgramProvider(ProgramProvider):
         CROSS_DISPERSED = 'instrument:cross_dispersed'
 
     FPU_FOR_INSTRUMENT = {
-        # 'GSAOI': _FPUKeys.GSAOI,
-        # 'GPI': _FPUKeys.GPI,
-        'Flamingos2': _FPUKeys.F2,
-        # 'NIFS': _FPUKeys.NIFS,
-        #'GNIRS': _FPUKeys.GNIRS,
+        # 'Flamingos2': _FPUKeys.F2,
+        # 'GNIRS': _FPUKeys.GNIRS,  # uncomment once we have the FPU availability
         'GMOS-N': _FPUKeys.GMOSN,
         'GMOS-S': _FPUKeys.GMOSS,
-        # 'NIRI': _FPUKeys.NIRI
     }
 
     DISPERSER_FOR_INSTRUMENT = {
-        # 'GSAOI': _DISPKeys.GSAOI,
-        # 'GPI': _DISPKeys.GPI,
-        'Flamingos2': _DISPKeys.F2,
-        # 'NIFS': _DISPKeys.NIFS,
-        # 'GNIRS': _DISPKeys.GNIRS,
+        # 'Flamingos2': _DISPKeys.F2,
+        # 'GNIRS': _DISPKeys.GNIRS,  # uncomment once we have the disperser availability
         'GMOS-N': _DISPKeys.GMOSN,
         'GMOS-S': _DISPKeys.GMOSS,
-        'GHOST': _DISPKeys.GHOST,
-        # 'NIRI': _DISPKeys.NIRI
+        # 'GHOST': _DISPKeys.GHOST,
     }
 
     # An empty base target for when the target environment is empty for an Observation.
@@ -483,7 +476,7 @@ class GppProgramProvider(ProgramProvider):
         repeat_info = TimingWindow.NON_REPEATING
         period_info = TimingWindow.NO_PERIOD
 
-        if data[GppProgramProvider._TimingWindowKeys.INCLUSION] == 'INCLUDE':
+        if 'INCLUDE' in data[GppProgramProvider._TimingWindowKeys.INCLUSION]:
             # Start
             start = parsedt(data[GppProgramProvider._TimingWindowKeys.START] + '+00:00')
 
@@ -522,9 +515,12 @@ class GppProgramProvider(ProgramProvider):
             else:
                 period = timedelta(seconds=period_info)
 
-        # else:
-        #     continue
-        # ToDo: determine how to handle exclusion windows
+        else:
+            # ToDo: determine how to handle exclusion windows
+            start = parsedt("2025-01-01 00:00:00.000000+00:00")
+            repeat = TimingWindow.NON_REPEATING
+            period = TimingWindow.NO_PERIOD
+            duration = timedelta(seconds=500000000)
 
         return TimingWindow(
             start=Time(start),  # make the same as in ocsprogramprovider and the calculator
@@ -912,9 +908,14 @@ class GppProgramProvider(ProgramProvider):
         instrument = GppProgramProvider._gpp_inst_to_ocs[data['instrument']]
         mode = basic_name(data['mode'])
 
-        instrument_config = data.get(mode.title().lower())
-        # print(instrument_config)
-        # print(instrument_config.keys())
+        # For GNIRS spectroscopy (SLIT and IFU) the config is in 'gnirs_spectroscopy',
+        # hopefully this will be changed to be like the other instruments
+        if instrument == 'GNIRS' and 'IMAGING' not in mode:
+            instrument_config = data.get('gnirs_spectroscopy')
+        else:
+            instrument_config = data.get(mode.title().lower())
+        if not instrument_config:
+            print('No instrument config found for mode', mode)
 
         fpu = None
         if instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
@@ -941,7 +942,7 @@ class GppProgramProvider(ProgramProvider):
         filters = []
         if GppProgramProvider._AtomKeys.FILTER in instrument_config.keys():
             filters = [basic_name(instrument_config[GppProgramProvider._AtomKeys.FILTER])]
-        elif 'filters' in instrument_config.keys():  # for GMOS imaging
+        elif 'filters' in instrument_config.keys(): # if multiple filters can be selected
             for filt in instrument_config['filters']:
                 # Handle multiple-filter combos for GMOS
                 if 'GMOS' in instrument:
@@ -951,10 +952,7 @@ class GppProgramProvider(ProgramProvider):
                 else:
                     filters.append(basic_name(filt[GppProgramProvider._AtomKeys.FILTER]))
         else:
-            if instrument == 'GNIRS':
-                filters = [None]
-            else:
-                filters = ['Unknown']
+            filters = ['Unknown']
 
         if instrument == 'Flamingos2':
             wavelength = Wavelength(GppProgramProvider._F2_FILTER_WAVELENGTHS[filters[0]])
@@ -963,13 +961,14 @@ class GppProgramProvider(ProgramProvider):
         elif instrument == 'GHOST':
             wavelength = Wavelength(GppProgramProvider._GHOST_WAVELENGTH)
         elif 'central_wavelength' in instrument_config.keys():
-            # assumes GMOS, so convert to microns
+            # convert to microns, for GMOS and GNIRS
             wavelength = Wavelength(float(instrument_config['central_wavelength']['nanometers'] / 1000.))
         else:
             wavelength = None
 
         # print(f'\t\t parse_observing_mode: fpu={fpu} disp={disperser}, filters={filters}')
 
+        # Note, for now we just compare filter resources for GMOS, F2 filters used to get the wavelength
         if 'GMOS' in instrument:
         # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
         # sets, but we filter below to remove them.
@@ -980,19 +979,18 @@ class GppProgramProvider(ProgramProvider):
                 )])
             else:
                 fpu_resources = frozenset()
-            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(
-                disperser.split('_')[0], resource_type=ResourceType.DISPERSER
-            )])
+            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0],
+                                    resource_type=ResourceType.DISPERSER)])
+            filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt,
+                                    resource_type=ResourceType.FILTER) for filt in filters
+                                    if filt is not None and filt != 'Unknown'])
         else:
             fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU)])
             disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser, resource_type=ResourceType.DISPERSER)])
-
-        filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER)
-                                      for filt in filters if filt is not None and filt != 'Unknown'])
+            filter_resources = frozenset([])
 
         instrument_resource = frozenset([self._sources.origin.resource.lookup_resource(
-            instrument, resource_type=ResourceType.INSTRUMENT
-        )])
+                                instrument, resource_type=ResourceType.INSTRUMENT)])
 
         resources = frozenset([r for r in instrument_resource | fpu_resources | disperser_resources | filter_resources if r is not None])
         # Remove any None values.
@@ -1064,9 +1062,8 @@ class GppProgramProvider(ProgramProvider):
 
             # Science band
             band_value = data.get(GppProgramProvider._ObsKeys.BAND)
-            # band = Band[band_value] if band_value is not None else None
-            # Workaround until calibrations have a band assigned
-            band = Band[band_value] if band_value is not None else Band['BAND1']
+            # Workaround if no band assigned
+            band = Band[band_value] if band_value is not None else Band['BAND2']
             # print(f'\t\t band_value = {band_value}, band =  {band}')
 
             # Calibration role
@@ -1119,7 +1116,6 @@ class GppProgramProvider(ProgramProvider):
             if len(target_env_keys) > 1:
                 raise ValueError(f'Observation {obs_id} has multiple target environments. Cannot process.')
 
-            # print(target_env_keys)
             if not target_env_keys:
                 # No target environment. Use the empty target.
                 logger.warning(f'No target environment found for observation {obs_id}. Using empty base target.')
@@ -1138,7 +1134,7 @@ class GppProgramProvider(ProgramProvider):
                     if asterism:
                         target_info = asterism[0]
                     else:
-                        target_info = None
+                        target_info = {GppProgramProvider._TargetKeys.NAME: GppProgramProvider._EMPTY_BASE_TARGET}
 
                 # Get the target
                 try:
@@ -1261,7 +1257,8 @@ class GppProgramProvider(ProgramProvider):
             group_option = AndOption.NONE  # Treat as a folder, which is an OR group with all observations needed
             number_observed = 0
             elements_list = data[GppProgramProvider._GroupKeys.ELEMENTS]
-            number_to_observe = len(elements_list)
+            # number_to_observe = len(elements_list)
+            number_to_observe = None
             parent_id = GROUP_NONE_ID
             # parent_id = UniqueGroupID(ROOT_GROUP_ID.id)
             parent_index = 0
@@ -1314,20 +1311,20 @@ class GppProgramProvider(ProgramProvider):
                 # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
                 # print(f"Calibrations to observe {number_to_observe}")
             # Telluric groups must not be ordered, override for now using the group name, OR groups have name None
-            elif group_name and 'telluric' in group_name:
+            elif group_name and 'calibration' in group_name:
                 group_option = AndOption.CONSEC_ANYORDER
-                number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+                # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
             elif delay_min is not None:
                 group_option = AndOption.CUSTOM
                 # ordered = True
-                number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+                # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
             else:
-                if (number_to_observe is not None and
-                        number_to_observe < len(data[GppProgramProvider._GroupKeys.ELEMENTS])): # OR group
+                if number_to_observe is not None: # and
+                        # number_to_observe < len(data[GppProgramProvider._GroupKeys.ELEMENTS])): # OR group
                     group_option = AndOption.NONE
                 else: # AND group
                     group_option = AndOption.CONSEC_ORDERED if ordered else AndOption.CONSEC_ANYORDER
-                    number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
+                    # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
 
             # print(f'group_option: {group_option}, number_to_observe: {number_to_observe}')
 
@@ -1370,9 +1367,10 @@ class GppProgramProvider(ProgramProvider):
                 obs = self.parse_observation(element['observation'], program_id=program_id, num=(0, 0),
                                              split=split, split_by_iterator=split_by_iterator)
                 if obs is not None:
-                    # Ignore Twilight observations for now, no sequences
+                    # Ignore Twilight and Day Cal observations for now
                     # ToDo: extend timeline to include twilights
-                    if obs.calibration_role != CalibrationRole.TWILIGHT:
+                    # print(f'\t{obs.calibration_role}')
+                    if obs.calibration_role not in [CalibrationRole.TWILIGHT, CalibrationRole.DAYTIME_PINHOLE]:
                         observations.append(obs)
                         obs_parent_indices.append(elem_parent_index)
             elif element['group']:
@@ -1407,14 +1405,15 @@ class GppProgramProvider(ProgramProvider):
         children.extend(trivial_groups)
         # [children.insert(0, child) for child in trivial_groups]
 
+        # Account for removed twilights, day cals, or other unreadable observations
+        # Also, compare number of children with provided number_to_observe (in case not all are Ready)
+        if number_to_observe is None or len(children) < number_to_observe:
+            number_to_observe = len(children)
+        # print(f'\tfinal num_to_observe {number_to_observe}')
         # If there are no children to observe, terminate with None
         if len(children) == 0:
             logger.warning(f"Program {program_id} group {group_id} has no candidate children. Skipping.")
             return None
-
-        # Account for removed twilights or other unreadable observations
-        if group_name in ['Calibrations', ROOT_GROUP_ID.id]:
-            number_to_observe = len(children)
 
         # Get previous/next groups in children
         if group_option in [AndOption.CUSTOM, AndOption.CONSEC_ORDERED]:
@@ -1473,7 +1472,11 @@ class GppProgramProvider(ProgramProvider):
         # partner_used = timedelta(hours=data[GppProgramProvider._TAKeys.USED_PART_TIME]['hours'])
         partner_used = ZeroTime
         not_charged = timedelta(hours=data["time"][GppProgramProvider._TAKeys.NOT_CHARGED_TIME]['hours'])
-        sciband = Band(int(data[GppProgramProvider._TAKeys.USED_BAND].value[-1]))
+        if data[GppProgramProvider._TAKeys.USED_BAND] is None:
+            # Workaround for time charged to no band
+            sciband = Band(5)
+        else:
+            sciband = Band(int(data[GppProgramProvider._TAKeys.USED_BAND].value[-1]))
 
         return TimeUsed(
             program_used=program_used,
@@ -1521,13 +1524,13 @@ class GppProgramProvider(ProgramProvider):
             # For CAL/ENG programs, parse the program_id (G-YYYYS-ENG/CAL...)
             sem = program_id.id[2:7]
         semester = Semester(year=int(sem[0:4]), half=SemesterHalf(sem[-1]))
-        program_type = None
+        # program_type = None
         gpp_prog_type = data['type_']
         if gpp_prog_type.name in ['CALIBRATION', 'ENGINEERING']:
             prog_type = gpp_prog_type[0:3]
         elif gpp_prog_type.name == 'SCIENCE':
             # TODO: switch to interfaces
-            gpp_prop_subtype = data['proposal']['gemini']['science_subtype']
+            gpp_prop_subtype = data["proposal"]["gemini"]["science_subtype"]
             prog_type = self._gpp_prop_type[gpp_prop_subtype]
 
         program_type = ProgramTypes[prog_type]  # Program.Proposal.type.science_subtype
@@ -1560,6 +1563,7 @@ class GppProgramProvider(ProgramProvider):
         # time_act_alloc = None # Program.allocations
         time_act_alloc_data = data[GppProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
         time_act_alloc = frozenset(self.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
+        # print(f'time_act_alloc: {time_act_alloc}')
 
         # Parse time previously used by previously observed observations not in the query
         time_used = frozenset([self.parse_time_used(tc) for tc in data[GppProgramProvider._ProgramKeys.TIME_CHARGE]])
