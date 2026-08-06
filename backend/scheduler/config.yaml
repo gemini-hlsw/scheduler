@@ -27,6 +27,12 @@ server:
 app:
   external_ephemerides: false
 
+
+operation:
+  # Overridable via the PLAN_TIMEOUT_SECONDS env var, which is re-read on
+  # every plan, so it can be changed dynamically.
+  plan_timeout_seconds: ${oc.decode:${oc.env:PLAN_TIMEOUT_SECONDS,60}}
+
 sight:
   # Per-request HTTP timeout in seconds for read-only bulk fetches.
   timeout: 300

@@ -2,18 +2,16 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-import datetime
+from concurrent.futures import Executor, ProcessPoolExecutor
 from time import time
 import traceback
-import numpy as np
+from typing import Callable, Dict, Optional
+
 from .params import SchedulerParameters, build_params_store
-from scheduler.core.scp.scp import SCP
-from scheduler.core.builder.modes import dispatch_with
-from scheduler.core.builder import Blueprints, SimulationBuilder
-from scheduler.core.sources import Sources
-from scheduler.core.plans import NightStats
+from .plan_worker import SchedulerComputePayload, worker_build, worker_compute
+from scheduler.config import config
 from scheduler.services import logger_factory
-from scheduler.core.events.queue.events import CustomStartOfNightEvent, Event, EndOfNightEvent
+from scheduler.core.events.queue.events import Event, EndOfNightEvent
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.graphql_mid.types import NightPlansError
 from scheduler.graphql_mid.types import SPlans, NightPlansWithEvent
@@ -28,7 +26,6 @@ __all__ = [
     'EngineRT'
 ]
 
-from ..core.components.ranker import DefaultRanker
 from ..shared_queue import plan_response_subscribers
 
 _logger = logger_factory.create_logger(__name__)
@@ -41,86 +38,77 @@ class EngineRT:
         params: SchedulerParameters,
         scheduler_queue: SchedulerQueue,
         process_id: str,
-        weather_source: WeatherEventSource
+        weather_source: WeatherEventSource,
+        executor_factory: Optional[Callable[[], Executor]] = None
     ):
         """
         Initializes the EngineRT with the given parameters.
-        
+
         Args:
             params (SchedulerParameters): Parameters for the scheduler.
             scheduler_queue (SchedulerQueue): Queue for the scheduler.
             process_id (str): Unique process ID from SchedulerProcess
+            executor_factory (Callable, optional): Creates the plan-worker
+                executor (also after a recycle); defaults to a single-worker
+                process pool.
         """
         _logger.debug("Initializing real-time engine...")
         self.params = params
         self.scheduler_queue = scheduler_queue
-        self.scp = None
         self.process_id = process_id
         self.weather_source = weather_source
-        self.sources = Sources()
         self.start_time = time()
+        self._executor_factory = executor_factory or (lambda: ProcessPoolExecutor(max_workers=1))
+        self._executor: Optional[Executor] = None
 
-    async def build(self) -> None:
+    def _get_executor(self) -> Executor:
+        """The worker executor, created on first use (and after a recycle).
+
+        A single warm worker owns the SCP (built via worker_build); the main
+        process only ships picklable payloads, so CPU-bound plan computation
+        never blocks the event loop.
         """
-        Creates a Scheduler Core Pipeline based on the parameters.
-        Also initialize both the Event Queue , both needed for the scheduling process.
+        if self._executor is None:
+            self._executor = self._executor_factory()
+        return self._executor
+
+    def shutdown_workers(self) -> None:
+        """Shut down the worker pool. Safe to call when nothing was started.
+
+        A hung worker never finishes its task, so shutdown() alone would leave
+        the OS process alive; kill the pool's processes explicitly (private
+        attribute, but there is no public kill on ProcessPoolExecutor).
         """
-        # Create builder based in the mode to create SCP
-        builder = dispatch_with(self.sources, None)
-        if not isinstance(builder, SimulationBuilder):
-            raise RuntimeError("Builder must be Simulation to use async build method.")
+        if self._executor is not None:
+            processes = dict(getattr(self._executor, "_processes", None) or {})
+            self._executor.shutdown(wait=False, cancel_futures=True)
+            for process in processes.values():
+                process.kill()
+            self._executor = None
 
-        build_params = await build_params_store.get()
-        night_times = build_params.get_night_times()
-        _logger.info(
-            f"Build params: vis_start={build_params.visibility_start}, vis_end={build_params.visibility_end}, night_times={night_times}")
+    @staticmethod
+    def _plan_timeout() -> float:
+        """Seconds one plan (worker build + compute) may take.
 
-        vis_start = build_params.visibility_start or self.params.start
-        vis_end = build_params.visibility_end or self.params.end_vis
-        programs_list = build_params.program_list or self.params.programs_list
-
-        collector = await builder.async_build_collector(
-            start=vis_start,
-            end=vis_end,
-            num_of_nights=self.params.num_nights_to_schedule,
-            sites=self.params.sites,
-            semesters=self.params.semesters,
-            blueprint=Blueprints.collector,
-            night_times=night_times,
-            program_list=programs_list
-        )
-
-
-        selector = builder.build_selector(collector=collector,
-                                          num_nights_to_schedule=self.params.num_nights_to_schedule,
-                                          blueprint=Blueprints.selector)
-
-        optimizer = builder.build_optimizer(Blueprints.optimizer)
-        ranker = DefaultRanker(collector,
-                               self.params.night_indices,
-                               self.params.sites,
-                               params=self.params.ranker_parameters)
-
-        self.scp = SCP(collector, selector, optimizer, ranker)
-        _logger.info("SCP successfully built.")
-
-    async def init_variant(self) -> None:
+        Config key operation.plan_timeout_seconds; the PLAN_TIMEOUT_SECONDS
+        env var is resolved on every read, so it can be changed dynamically.
         """
-        Initialize site variants with default values.
-        If a new variant is presented via event, set to those.
-        """
+        return float(config.operation.plan_timeout_seconds)
 
-        _logger.info("Updating initial variants...")
+    async def _fetch_variants(self) -> Dict[Site, VariantSnapshot]:
+        """Current weather variant per site, fetched in the parent process
+        (async GPP call) and shipped to the worker in the compute payload."""
+        _logger.info("Fetching current weather variants...")
         current_state = await self.weather_source.get_current_state()
+        variants = {}
         for site_state in current_state:
-            initial_variant = VariantSnapshot(iq=ImageQuality(site_state["imageQuality"]),
-                                          cc=CloudCover(site_state["cloudCover"]),
-                                          wind_dir=Angle(site_state["windDirection"], unit=u.deg),
-                                          wind_spd=site_state["windSpeed"] * (u.m / u.s))
-
-            _logger.info(f"Initial variant for site {site_state['site']} is {initial_variant}")
-            self.scp.selector.update_site_variant(Site[site_state["site"]], initial_variant)
-        _logger.info("Initial weather variants successfully updated.")
+            variant = VariantSnapshot(iq=ImageQuality(site_state["imageQuality"]),
+                                      cc=CloudCover(site_state["cloudCover"]),
+                                      wind_dir=Angle(site_state["windDirection"], unit=u.deg),
+                                      wind_spd=site_state["windSpeed"] * (u.m / u.s))
+            _logger.info(f"Variant for site {site_state['site']} is {variant}")
+            variants[Site[site_state["site"]]] = variant
+        return variants
 
     async def compute_event_plan(self, event: Event):
         """
@@ -130,6 +118,15 @@ class EngineRT:
         running, blocking until it finishes (it only starts when no night is being
         executed). We then publish that a plan computation is in progress so a
         cron tick won't begin aggregating concurrently, and clear it when done.
+
+        The computation itself runs in the worker process: the parent gathers
+        the async inputs (build params, weather variants) and ships picklable
+        commands, so the event loop stays responsive.
+
+        Args:
+            event (Event): The event to compute the plan for.
+        Returns:
+            NightPlansWithEvent: The new plan for the event.
         """
         await coordination.wait_until_aggregator_idle()
         await coordination.signal_plan_in_progress(
@@ -137,89 +134,41 @@ class EngineRT:
             detail={"event": str(event.description)},
         )
         try:
-            return await self._compute_event_plan(event)
+            build_params = await build_params_store.get()
+            variants = await self._fetch_variants()
+
+            timeout = self._plan_timeout()
+            try:
+                plans = await asyncio.wait_for(
+                    self._run_plan_in_worker(event, build_params, variants),
+                    timeout=timeout,
+                )
+            except TimeoutError:
+                _logger.error(f"Plan computation for '{event.description}' exceeded the "
+                              f"{timeout:.0f}s budget; recycling the worker pool.")
+                self.shutdown_workers()
+                raise TimeoutError(f"Plan computation exceeded the {timeout:.0f}s budget; "
+                                   f"the worker pool was recycled.") from None
+
+            splans = SPlans.from_computed_plans(plans, self.params.sites)
+
+            return NightPlansWithEvent(night_plans=splans,
+                                       event=f"{event.description} @{event.time if event.time else 'Start of Night'}")
         finally:
             await coordination.signal_plan_done()
 
-    async def _compute_event_plan(self, event: Event):
-        """
-        Compute a new plan based on the given event.
+    async def _run_plan_in_worker(self, event: Event, build_params, variants):
+        """Ship the build command and compute payload to the worker process."""
+        loop = asyncio.get_running_loop()
+        executor = self._get_executor()
 
-        Args:
-            event (Event): The event to compute the plan for.
-        Returns:
-            NewPlansRT: The new plan for the event.
-        """
-        # Get the timeslots associated with the sites with format
-        # {site: {0: current_timeslot}}
+        await loop.run_in_executor(executor, worker_build, self.params, build_params)
 
-        await self.build()
-        # TODO: Specific logic for events
-        # In theory this should be a shared process for all events.
-        # Meaning the process of setup the SCP and run a schedule is independent from the type of event.
-        # sites_to_update = self.params.sites
-        # if 'Weather' in event.trigger_event:
-        #     self.scp.selector.update_site_variant(event.site, event.event.variant_change)
-        #     sites_to_update = [event.site]
-        await self.init_variant()
-
-        build_params = await build_params_store.get()
-        night_times = build_params.get_night_times()
-
-        # The start timeslot for each site should be:
-        # - The event time if happens after the twilight and after the custom start
-        # - The custom start if defined and happens after the twilight
-        # - The twilight timeslot
-        start_timeslot = {}
-        for site in self.params.sites:
-            night_start_time = self.scp.collector.night_events[site].times[0][0]
-            utc_night_start = night_start_time.utc.to_datetime(timezone=datetime.timezone.utc)
-
-            event_timeslot = event.to_timeslot_idx(
-                utc_night_start,
-                self.scp.collector.time_slot_length.to_datetime()
-            )
-
-            custom_start = night_times.get(site, (None, None))[0] if night_times else None
-            if custom_start is not None:
-                custom_start_timeslot = CustomStartOfNightEvent(
-                    site,
-                    custom_start.utc.to_datetime(timezone=datetime.timezone.utc),
-                    f"Custom start of night for site {site}"
-                ).to_timeslot_idx(
-                    utc_night_start,
-                    self.scp.collector.time_slot_length.to_datetime()
-                )
-
-                if event_timeslot < custom_start_timeslot:
-                    site_timeslot = custom_start
-                else:
-                    site_timeslot = event_timeslot
-            else:
-                if event_timeslot < 0:
-                    site_timeslot = 0
-                else:
-                    site_timeslot = event_timeslot
-
-            _logger.info(f"Computing plan for site {site.name} starting on timeslot: {site_timeslot}, "
-                         f"utc_night_start={utc_night_start}, event_time={event.time}")
-            start_timeslot[site] = {np.int64(0): site_timeslot}
-
-        plans = self.scp.run_rt(start_timeslot)
-
-        for site in self.params.sites:
-            plans.plans[site].night_stats = NightStats({},0.0,0,{},{})
-            plans.plans[site].alt_degs = []
-            # Calculate altitude data
-            for visit in plans.plans[site].visits:
-                ti = self.scp.collector.get_target_info(visit.obs_id)
-                end_time_slot = visit.start_time_slot + visit.time_slots
-                values = ti[plans.night_idx].alt[visit.start_time_slot: end_time_slot]
-                alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
-                plans.plans[site].alt_degs.append(alt_degs)
-        splans = SPlans.from_computed_plans(plans, self.params.sites)
-
-        return NightPlansWithEvent(night_plans=splans, event=f"{event.description} @{event.time if event.time else 'Start of Night'}")
+        payload = SchedulerComputePayload(event=event,
+                                          sites=self.params.sites,
+                                          night_times=build_params.get_night_times(),
+                                          variants=variants)
+        return await loop.run_in_executor(executor, worker_compute, payload)
 
     async def run(self):
         """
