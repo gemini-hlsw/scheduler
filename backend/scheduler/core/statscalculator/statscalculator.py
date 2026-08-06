@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from collections import Counter
-from datetime import timedelta
 from typing import Dict, FrozenSet
 
 import numpy as np
@@ -10,8 +9,6 @@ from lucupy.minimodel import Band, ProgramID, NightIndex, Program
 
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.ranker import Ranker
-from scheduler.core.events.queue import InterruptionResolutionEvent, FaultResolutionEvent, WeatherClosureResolutionEvent, \
-    InterruptionEvent, FaultEvent, WeatherClosureEvent
 from scheduler.core.events.queue import NightlyTimeline
 from scheduler.core.plans import NightStats
 from scheduler.core.statscalculator.run_summary import RunSummary, Summary

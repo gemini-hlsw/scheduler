@@ -48,6 +48,7 @@ class ObsPlanData:
     atom_end: int
     visit_score: float
     peak_score: float
+    atom_times: List[int]
 
 
 @final
@@ -1019,6 +1020,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # type inspector cannot infer that cumul_seq[idx] is a timedelta.
         # noinspection PyTypeChecker
         visit_length = self._length_visit(obs.acq_overhead, cumul_seq[atom_end])
+        atom_times = [visit_length]
         next_atom = atom_end + 1
         # TODO: review the following logic with split sequences in GPP
         while (next_atom <= len(cumul_seq) - 1 and
@@ -1026,6 +1028,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             atom_end += 1
             # noinspection PyTypeChecker
             visit_length = self._length_visit(obs.acq_overhead, cumul_seq[atom_end])
+            atom_times.append(visit_length)
             next_atom = atom_end + 1
 
         n_slots_filled += visit_length
@@ -1049,6 +1052,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             atom_end=atom_end,
             visit_score=visit_score,
             peak_score=peak_score,
+            atom_times=atom_times
         )
 
         # pseudo (internal) time charging
@@ -1218,6 +1222,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                                              start_time_slot,
                                              obs_in_plan.obs_len,
                                              obs_in_plan.visit_score,
-                                             obs_in_plan.peak_score)
+                                             obs_in_plan.peak_score,
+                                             obs_in_plan.atom_times)
                     plans[timeline.site].update_time_slots(timeline.slots_unscheduled())
             # print('')

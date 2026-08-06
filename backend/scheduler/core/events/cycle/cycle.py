@@ -235,23 +235,7 @@ class EventCycle:
 
             # If the night is done, get a final plan and add it to the timeline.
             # Otherwise, get a new selection and request a new plan
-            if update.done:
-                # TODO: Not needded if the system returns only stitched plans
-                _logger.debug('Night done. Wrapping up final plan')
-                final_plan = self._get_final_plan(site, night_idx, nightly_timeline)
-                # final_plan = nightly_timeline.get_final_plan(NightIndex(night_idx),
-                #                                             site,
-                #                                             self.change_monitor.is_site_unblocked(site))
-
-                nightly_timeline.add(
-                    NightIndex(night_idx),
-                    site,
-                    current_timeslot,
-                    update.event,
-                    final_plan,
-                )
-                
-            else:
+            if not update.done:
                 plans = self._create_new_plan(
                     site,
                     night_idx,
@@ -259,6 +243,18 @@ class EventCycle:
                     update,
                     plans,
                     nightly_timeline
+                )
+            else:
+                # TODO: Not needded if the system returns only stitched plans
+                _logger.debug('Night done. Adding last empty plan to compute night stats.')
+                # final_plan = self._get_final_plan(site, night_idx, nightly_timeline)
+
+                nightly_timeline.add(
+                    NightIndex(night_idx),
+                    site,
+                    current_timeslot,
+                    update.event,
+                    None
                 )
         
         return plans

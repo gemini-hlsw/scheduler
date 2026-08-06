@@ -36,6 +36,7 @@ export default function TimeEntry({
       yPoints: visit.altitude,
       label: visit.obsId,
       instrument: visit.instrument,
+      atomTimes: visit.atomTimes,
     }));
   }
   const tz = site === "GN" ? "Pacific/Honolulu" : "America/Santiago";

@@ -38,7 +38,6 @@ _logger = create_logger(__name__)
 def sync_schedule(params: SchedulerParameters) -> NewNightPlans:
     engine = Engine(params)
     plan_summary, timelines = engine.schedule()
-    # s_timelines = SNightTimelines.from_computed_timelines(timelines)
     s_timelines = SNightTimelines.from_computed_stitched_timelines(timelines)
     s_plan_summary = SRunSummary.from_computed_run_summary(plan_summary)
     return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)

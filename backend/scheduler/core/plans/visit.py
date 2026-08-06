@@ -32,3 +32,5 @@ class Visit:
     disperser: Optional[Resource]
     filters: Optional[FrozenSet[Resource]]
     completion: str
+    observation_atoms: int  # Number of atoms in the observation
+    atom_times: List[int]  # List of times for each atom in the visit, in slots
