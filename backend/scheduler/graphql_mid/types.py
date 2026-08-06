@@ -77,6 +77,7 @@ class SVisit:
     score: float
     peak_score: float
     completion: str
+    atom_times: List[int]
 
     @staticmethod
     def from_computed_visit(visit: Visit, alt_degs: List[float]) -> 'SVisit':
@@ -96,7 +97,8 @@ class SVisit:
                       score=visit.score,
                       peak_score=visit.peak_score,
                       obs_class=visit.obs_class.name,
-                      completion=visit.completion)
+                      completion=visit.completion,
+                      atom_times=visit.atom_times)
 
 
 @strawberry.type

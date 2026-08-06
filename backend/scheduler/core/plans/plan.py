@@ -90,7 +90,8 @@ class Plan:
             start_time_slot: int,
             time_slots: int,
             score: float,
-            peak_score: float,) -> None:
+            peak_score: float,
+            atom_times: List[int]) -> None:
 
         # Find step numbers
         step_start = None
@@ -124,6 +125,8 @@ class Plan:
             # Completion as planned. Collector.time_accounting restates this from the atoms that
             # were actually observed, since an event can cut the visit short of atom_end.
             f"{atom_end + 1}/{len(obs.sequence)}",
+            len(obs.sequence),
+            atom_times
         )
         self.visits.append(visit)
         self._time_slots_left -= time_slots

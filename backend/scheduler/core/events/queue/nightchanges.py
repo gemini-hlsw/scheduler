@@ -4,11 +4,10 @@ import sys
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import final, ClassVar, Dict, List, Optional
+from typing import ClassVar, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site, ObservationID
-from pandas.io.stata import excessive_string_length_error
 
 from scheduler.core.events.queue import Event, InterruptionResolutionEvent, FaultResolutionEvent, \
     WeatherClosureResolutionEvent, MorningTwilightEvent, FaultEvent, WeatherClosureEvent
@@ -106,8 +105,7 @@ class NightlyTimeline:
                     window.end = closure_end[1]
                     break
 
-        # Now from last stitched timeline get all visits until reaching the current timeslot
-        # and join them with the last partial plan created
+        # Find the last plan generated different from None
         last_plan_generated = None
         timeline_index = len(self.stitched_timeline[night_idx][site]) - 1
         while last_plan_generated is None and timeline_index >= 0:
@@ -118,10 +116,26 @@ class NightlyTimeline:
             print(f"No last plan generated found for night {night_idx} and site {site}")
             return
 
+        # Now from last stitched timeline get all visits until reaching the current timeslot
+        # and join them with the last partial plan created
         new_plan_visits = []
         for visit in last_plan_generated.visits:
             if visit.start_time_slot < time_slot:
-                new_plan_visits.append(visit)
+                if visit.start_time_slot + visit.time_slots < time_slot:
+                    new_plan_visits.append(visit)
+                else:
+                    # Check were the visit should be split
+                    aux_visit = deepcopy(visit)
+                    aux_visit.atom_times = []
+                    for atom in visit.atom_times:
+                        if atom + visit.start_time_slot <= time_slot:
+                            aux_visit.atom_times.append(atom)
+                        else:
+                            break
+                    if len(aux_visit.atom_times) > 0:
+                        aux_visit.time_slots = aux_visit.atom_times[-1]
+                        aux_visit.completion = f"{len(aux_visit.atom_times)}/{aux_visit.observation_atoms}"
+                        new_plan_visits.append(aux_visit)
             else:
                 break
 

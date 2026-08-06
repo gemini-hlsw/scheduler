@@ -35,6 +35,7 @@ interface Visit {
   yPoints: number[];
   label: string;
   instrument: string;
+  atomTimes: number[];
 }
 
 interface AltAzPlotProps {
@@ -60,11 +61,17 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
     <FaCloudMoonRain
       style={{ width: "577px", height: "512px" }}
       width={10}
-      className="tex-cyan-500 scale-5 absolute top-[-240px] left-[-274px] origin-center"
+      className="tex-cyan-500 scale-5 absolute -top-60 -left-68.5 origin-center"
     />,
   );
 
-  const faultLossIconHtml = renderToString(<FaCog className="" />);
+  const faultLossIconHtml = renderToString(
+    <FaCog
+      style={{ width: "577px", height: "512px" }}
+      width={10}
+      className="tex-cyan-500 scale-5 absolute -top-60 -left-68.5 origin-center"
+    />,
+  );
 
   // Get theme context to modify chart values
   const { theme } = useContext(ThemeContext);
@@ -115,10 +122,29 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   const mornTwiDate = new Date(mornTwilight);
 
   const seriesData: Array<SeriesArearangeOptions> = data.map((d: Visit) => {
+    const zones = [];
+    for (let i = 0; i < d.atomTimes.length; i++) {
+      const atomTime = d.atomTimes[i];
+      const atomX = utcToLocal(
+        new Date(d.startDate.getTime() + atomTime * 60 * 1000),
+        INITIAL_TIMEZONE,
+      );
+      zones.push({
+        value: atomX,
+        color: colorMap[d.instrument],
+        fillColor:
+          i % 2 === 0
+            ? `${colorMap[d.instrument]}66`
+            : `${colorMap[d.instrument]}33`, // 20% opacity for even atoms, 0% for odd
+      });
+    }
+
     const yMinArray = d.yPoints.map(() => 0);
     return {
       name: d.instrument,
       type: "arearange",
+      zoneAxis: "x",
+      zones: zones,
       data: d.yPoints.map((y: number, i: number) => {
         return {
           x: utcToLocal(d.startDate, INITIAL_TIMEZONE) + i * 60 * 1000,
@@ -161,6 +187,12 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       series: seriesData,
     });
 
+    // Draw event line to recognize the time when it occurs
+    chart.xAxis[0].update({
+      plotBands: [],
+      plotLines: [],
+    });
+
     // Remove old labels
     labelRef.current.forEach((lbl: SVGRenderer) => lbl.destroy());
 
@@ -176,7 +208,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       const yPos = chart.yAxis[0].toPixels(y, false);
 
       const lbl = chart.renderer
-        .text(d.label, xPos + 4.5, yPos)
+        .text(d.label, xPos + 4.5, 350)
         .attr({
           rotation: -90,
           textAlign: "center",
@@ -190,11 +222,6 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       labelRef.current.push(lbl);
     });
 
-    // Draw event line to recognize the time when it occurs
-    chart.xAxis[0].update({
-      plotBands: [],
-      plotLines: [],
-    });
     // chart.xAxis[0].removePlotLine("event");
     chart.xAxis[0].addPlotLine({
       id: "event",

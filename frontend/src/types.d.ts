@@ -71,6 +71,7 @@ export interface Visit {
   filters: string[];
   score: number;
   completion: string;
+  atomTimes: number[];
   obsClass: string;
   peakScore: number;
   requiredConditions: NightConditions;
