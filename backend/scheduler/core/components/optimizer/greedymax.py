@@ -126,7 +126,6 @@ class GreedyMaxOptimizer(BaseOptimizer):
         """
         n_std = 0
 
-        # TODO: need mode or other info to distinguish imaging from spectroscopy
         if mode == ObservationMode.IMAGING:
             time_per_standard = timedelta(hours=2.0)
         else:
@@ -136,7 +135,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 time_per_standard = timedelta(hours=1.0)
 
         if time_per_standard > ZeroTime:
-            n_std = max(1, int(exec_sci // time_per_standard))  # TODO: confirm this
+            # n_std = max(1, int(exec_sci // time_per_standard))
+            n_std = int(exec_sci // time_per_standard) + 1  # match Explore calculations
+
+        # print(f'num_nir_standards: n_std={n_std}, exec_sci={exec_sci}, time_per_standard={time_per_standard}')
 
         return n_std
 
@@ -158,7 +160,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         exec_sci_min = exec_sci_nir = ZeroTime
         exec_prt = ZeroTime
-        time_per_standard = ZeroTime
+        # time_per_standard = ZeroTime
         sci_times = ZeroTime
         n_std = 0
         n_slots_remaining = 0
@@ -170,7 +172,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
             cumul_seq = obs.cumulative_exec_times()
             if verbose:
                 print(f"\t Obs: {obs.id.id} {obs.exec_time()} {obs.obs_class.name} {obs.site.name} "
-                      f"{next(iter(obs.wavelengths()))} {cumul_seq[-1]}")
+                      f"{next(iter(obs.wavelengths()))} {cumul_seq}")
             #               f"{next(iter(obs.required_resources())).id} {next(iter(obs.wavelengths()))}")
 
             if cumul_seq[-1] > ZeroTime:
@@ -211,10 +213,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
         elif nsci == 1:
             exec_sci_min = sci_times_min[0]
 
-        # How many standards are needed?
-        # TODO: need mode or other info to distinguish imaging from spectroscopy
+        # How many standards are needed? Use just the science time to match GPP
         if exec_sci_nir > ZeroTime and len(part_times) > 0:
-            n_std = self.num_nir_standards(exec_sci_nir, wavelengths=group.wavelengths(), mode=group.obs_mode())
+            n_std = self.num_nir_standards(exec_sci_nir - obs.acq_overhead, wavelengths=group.wavelengths(),
+                                           mode=group.obs_mode())
 
         # if only partner standards, set n_std to the number of standards in group (e.g. specphots)
         # ToDo: review this... can cause problems depending on use of n_std
@@ -232,7 +234,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         exec_remain_min = exec_sci_min + exec_prt
 
         if verbose:
-            print(f"\t nsci = {nsci} {exec_sci} {exec_prt} nprt = {nprt} time_per_std = {time_per_standard}"
+            print(f"\t nsci = {nsci} {exec_sci} {exec_prt} nprt = {nprt}"
                   f" n_std = {n_std} n_slots_remaining = {n_slots_remaining}")
         #     print(f"\t n_std = {n_std} exec_remain = {exec_remain} exec_remain_min = {exec_remain_min}")
 

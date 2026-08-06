@@ -3,6 +3,7 @@
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+# from enum import Enum, IntEnum
 from typing import final, ClassVar, Dict, FrozenSet, Optional, TypeAlias
 
 import astropy.units as u
@@ -308,7 +309,7 @@ class Selector(SchedulerComponent):
         """
         # Check if there is any time left for the program, allowing for the time buffer. If not, skip it.
         # print(f'awarded: {program.program_awarded()}, buffer: {self.time_buffer(program)}')
-        if program.program_awarded() + self.time_buffer(program) <= program.program_used():
+        if program.program_used() >= (program.program_awarded() + self.time_buffer(program)):
             logger.debug(f'Program {program.id.id} out of time: skipping.')
             return None
 
@@ -662,6 +663,15 @@ class Selector(SchedulerComponent):
 
         # Calculate the scores for the group across all nights across all timeslots.
         scores = ranker.score_group(group, group_data_map)
+
+        # Check if executing the rest of the group would cause the program to run over the allocated time per band
+        # If so, set the scores to 0.
+        for band in group.bands():
+            if program.program_used(band=band) + group.prog_time(band=band) - group.program_used(band=band) > \
+                (program.program_awarded(band=band) + self.time_buffer(program)):
+                # print(f'Group {group.unique_id.id} would exceed {program.program_awarded(band=band)} in band {band}.')
+                for night_idx in night_indices:
+                    scores[night_idx] *= 0.0
 
         group_info = GroupInfo(
             minimum_conditions=mrc,
