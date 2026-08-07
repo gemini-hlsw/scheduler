@@ -1,0 +1,1 @@
+Fix observations interrupted by a weather closure or fault being marked as fully observed, which stopped their remaining atoms from ever being rescheduled, and report the completion of an interrupted visit as the atoms it actually observed rather than the atoms it was planned to reach

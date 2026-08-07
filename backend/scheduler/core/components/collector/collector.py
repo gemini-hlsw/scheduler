@@ -696,11 +696,18 @@ class Collector(SchedulerComponent):
                     # For now, only charge a scheduling group if it can be done fully
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.end_time_slot()
                 else:
-                    observation = self.get_observation(grpvisit.visits[0].obs_id)
-                    n_slots_acq = time2slots(time_slot_length, observation.acq_overhead)
-                    # This should probably be the first unobserved atom, not the first in the sequence.
-                    n_slots_atom0 = time2slots(time_slot_length, observation.sequence[0].exec_time)
-                    slot_atom0_end = grpvisit.visits[0].start_time_slot + n_slots_atom0 - 1 + n_slots_acq
+                    # A non-scheduling group holds exactly one visit. Measure the atom that visit
+                    # will actually run: an observation resumed from an earlier night starts partway
+                    # into the sequence, and its leading atoms will not be repeated. Converting once,
+                    # from atom_start_idx, makes this the same expression the atom loop applies to
+                    # that atom, so the gate is exactly "its first atom finished before the bound".
+                    first_visit = grpvisit.visits[0]
+                    observation = self.get_observation(first_visit.obs_id)
+                    cumul_seq = observation.cumulative_exec_times()
+                    n_slots_atom0 = time2slots(time_slot_length,
+                                               observation.acq_overhead
+                                               + cumul_seq[first_visit.atom_start_idx])  # noqa
+                    slot_atom0_end = first_visit.start_time_slot + n_slots_atom0 - 1
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > slot_atom0_end
 
                 # Charge if the end slot is less than this
@@ -718,40 +725,34 @@ class Collector(SchedulerComponent):
                 # prog_obs = grpvisit.group.program_observations()
                 part_obs = grpvisit.group.partner_observations()
 
+                visit_observations: Dict[ObservationID, Observation] = {}
+                atoms_charged: Dict[ObservationID, int] = {}
+
                 for visit in grpvisit.visits:
                     # Observation information
                     observation = self.get_observation(visit.obs_id)
-
-                    # Number of slots in acquisition
-                    n_slots_acq = time2slots(time_slot_length, observation.acq_overhead)
+                    visit_observations.setdefault(observation.id, observation)
+                    atoms_charged.setdefault(observation.id, 0)
 
                     # Cumulative exec_times of unobserved atoms
                     cumul_seq = observation.cumulative_exec_times()
                     obs_seq = observation.sequence
 
-                    if charge_group:
-                        # Check if the Observation has been completely observed.
-                        if visit.atom_end_idx == len(obs_seq) - 1:
-                            _logger.debug(f'Marking observation complete: {observation.id.id}')
-                            observation.status = ObservationStatus.OBSERVED
-                            grpvisit.group.number_observed += 1
-                            if observation in part_obs:
-                                part_obs.remove(observation)
-                        else:
-                            _logger.debug(f'Marking observation ongoing: {observation.id.id}')
-                            observation.status = ObservationStatus.ONGOING
-
                     # Loop over atoms
                     for atom_idx in range(visit.atom_start_idx, visit.atom_end_idx + 1):
-                        # calculate end time slot for each atom and compare with end_timeslot_charge
-                        slot_length_visit = n_slots_acq + time2slots(time_slot_length, cumul_seq[atom_idx])  # noqa
+                        # Slots from the start of the visit through this atom.
+                        # These boundaries are the ones GreedyMax._length_visit used to size the visit.
+                        slot_length_visit = time2slots(time_slot_length,
+                                                       observation.acq_overhead + cumul_seq[atom_idx])  # noqa
                         slot_atom_end = visit.start_time_slot + slot_length_visit - 1
 
                         if atom_idx == visit.atom_start_idx:
                             slot_atom_length = slot_length_visit
                         else:
-                            time_slots = time2slots(time_slot_length, cumul_seq[atom_idx-1])  # noqa
-                            slot_atom_length = slot_length_visit - n_slots_acq - time_slots
+                            prev_slot_length_visit = time2slots(time_slot_length,
+                                                                observation.acq_overhead
+                                                                + cumul_seq[atom_idx - 1])  # noqa
+                            slot_atom_length = slot_length_visit - prev_slot_length_visit
                         if slot_atom_length > 0:
                             slot_atom_start = slot_atom_end - slot_atom_length + 1
                         else:
@@ -782,6 +783,7 @@ class Collector(SchedulerComponent):
                                 obs_seq[atom_idx].qa_state = QAState.PASS
 
                                 atom_record.observed = True
+                                atoms_charged[observation.id] += 1
 
                             elif not_charged:
                                 # charge to not_charged
@@ -792,8 +794,31 @@ class Collector(SchedulerComponent):
                                 obs_seq[atom_idx].not_charged += not_charged_time
                                 atom_record.not_charged += not_charged_time
 
-                # If charging the groups, set remaining partner cals to INACTIVE
+                    visit.completion = f'{sum(1 for atom in obs_seq if atom.observed)}/{len(obs_seq)}'
+
                 if charge_group:
+                    # Set the status from what was executed, not from what was planned. An
+                    # observation with any atom left unobserved must not be marked OBSERVED:
+                    # the Selector skips OBSERVED observations, so doing would strand its
+                    # remaining atoms for the rest of the run.
+                    for observation in visit_observations.values():
+                        if atoms_charged[observation.id] == 0:
+                            # The bound fell before any atom of this visit could finish, so
+                            # nothing was executed and the status is not ours to change.
+                            _logger.debug(f'No atoms charged for {observation.id.id}: '
+                                          f'leaving status {observation.status.name}.')
+                        elif all(atom.observed for atom in observation.sequence):
+                            _logger.debug(f'Marking observation complete: {observation.id.id}')
+                            if observation.status != ObservationStatus.OBSERVED:
+                                grpvisit.group.number_observed += 1
+                            observation.status = ObservationStatus.OBSERVED
+                            if observation in part_obs:
+                                part_obs.remove(observation)
+                        else:
+                            _logger.debug(f'Marking observation ongoing: {observation.id.id}')
+                            observation.status = ObservationStatus.ONGOING
+
+                    # Set remaining partner cals to INACTIVE
                     for obs in part_obs:
                         _logger.debug(f'\tTime_accounting setting {obs.unique_id.id} to INACTIVE.')
                         obs.status = ObservationStatus.INACTIVE
