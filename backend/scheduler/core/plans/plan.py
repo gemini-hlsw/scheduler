@@ -121,6 +121,8 @@ class Plan:
             obs.fpu(),
             obs.disperser(),
             obs.filters(),
+            # Completion as planned. Collector.time_accounting restates this from the atoms that
+            # were actually observed, since an event can cut the visit short of atom_end.
             f"{atom_end + 1}/{len(obs.sequence)}",
         )
         self.visits.append(visit)

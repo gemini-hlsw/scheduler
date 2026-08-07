@@ -696,11 +696,18 @@ class Collector(SchedulerComponent):
                     # For now, only charge a scheduling group if it can be done fully
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > grpvisit.end_time_slot()
                 else:
-                    observation = self.get_observation(grpvisit.visits[0].obs_id)
-                    n_slots_acq = time2slots(time_slot_length, observation.acq_overhead)
-                    # This should probably be the first unobserved atom, not the first in the sequence.
-                    n_slots_atom0 = time2slots(time_slot_length, observation.sequence[0].exec_time)
-                    slot_atom0_end = grpvisit.visits[0].start_time_slot + n_slots_atom0 - 1 + n_slots_acq
+                    # A non-scheduling group holds exactly one visit. Measure the atom that visit
+                    # will actually run: an observation resumed from an earlier night starts partway
+                    # into the sequence, and its leading atoms will not be repeated. Converting once,
+                    # from atom_start_idx, makes this the same expression the atom loop applies to
+                    # that atom, so the gate is exactly "its first atom finished before the bound".
+                    first_visit = grpvisit.visits[0]
+                    observation = self.get_observation(first_visit.obs_id)
+                    cumul_seq = observation.cumulative_exec_times()
+                    n_slots_atom0 = time2slots(time_slot_length,
+                                               observation.acq_overhead
+                                               + cumul_seq[first_visit.atom_start_idx])  # noqa
+                    slot_atom0_end = first_visit.start_time_slot + n_slots_atom0 - 1
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > slot_atom0_end
 
                 # Charge if the end slot is less than this
@@ -787,10 +794,12 @@ class Collector(SchedulerComponent):
                                 obs_seq[atom_idx].not_charged += not_charged_time
                                 atom_record.not_charged += not_charged_time
 
+                    visit.completion = f'{sum(1 for atom in obs_seq if atom.observed)}/{len(obs_seq)}'
+
                 if charge_group:
                     # Set the status from what was executed, not from what was planned. An
                     # observation with any atom left unobserved must not be marked OBSERVED:
-                    # the Selector skips OBSERVED observations, so doing so would strand its
+                    # the Selector skips OBSERVED observations, so doing would strand its
                     # remaining atoms for the rest of the run.
                     for observation in visit_observations.values():
                         if atoms_charged[observation.id] == 0:
