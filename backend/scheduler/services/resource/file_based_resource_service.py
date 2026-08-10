@@ -6,7 +6,7 @@ import re
 from copy import copy
 from datetime import date, datetime, time, timedelta
 from io import BytesIO, StringIO
-from typing import Callable, Dict, Final, List, Optional, Set, Type, TypeVar, Union
+from typing import Callable, Dict, Final, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 from astropy.time import Time
 from openpyxl.reader.excel import load_workbook
@@ -590,60 +590,59 @@ class FileBasedResourceService(ResourceService):
         except FileNotFoundError:
             logger.error(f'Faults file not available: {path}')
 
+    @staticmethod
+    def _twilights(site: Site, night_date: date) -> Tuple[datetime, datetime]:
+        """
+        The local 12 degree evening and morning twilights of the night that starts on night_date.
+        """
+
+        #The query is anchored at 14:00 local.
+        # The anchor has to be timezone-aware, otherwise the night returned depends on
+        # the timezone of the machine running the service.
+        anchor = Time(datetime.combine(night_date, time(hour=14), tzinfo=site.timezone))
+        eve_twi, morn_twi = night_events(anchor, site.location, site.timezone)[3:5]
+        return eve_twi.to_datetime(site.timezone), morn_twi.to_datetime(site.timezone)
+
     def _load_toos(self, site: Site, name: str) -> None:
         """
-        Load the too activations from the specified .txt file.
+        Load the ToOs activations from the specified .txt file.
         """
         path = self._subdir / name
         try:
             with open(path, 'r') as input_file:
                 too_activations = self._too_activations[site]
                 for line in input_file:
-                    if line.strip()[0] != '#':  # ignore lines that are commented out
-                        too_id, too_date, too_time = line.split()
+                    # ignore blank lines and lines that are commented out
+                    if not line.strip() or line.strip()[0] == '#':
+                        continue
 
-                        # UTC dates
-                        too_date_str = too_date+' '+too_time.rstrip('\n')+' +0000'
-                        too_datetime = datetime.strptime(too_date_str, '%Y-%m-%d %H:%M:%S.%f %z')
+                    too_id, too_date, too_time = line.split()
 
-                        local_datetime = too_datetime.astimezone(site.timezone)
+                    # UTC dates
+                    too_date_str = too_date+' '+too_time.rstrip('\n')+' +0000'
+                    too_datetime = datetime.strptime(too_date_str, '%Y-%m-%d %H:%M:%S.%f %z')
+                    local_datetime = too_datetime.astimezone(site.timezone)
+
+                    if local_datetime.time() < FileBasedResourceService._noon:
+                        local_night_date = local_datetime.date() - FileBasedResourceService._day
+                    else:
                         local_night_date = local_datetime.date()
+                    eve_twi, morn_twi = FileBasedResourceService._twilights(site, local_night_date)
 
-                        # Twilight for events happening before or after
-                        new_ut_time = time(14, 0)
-                        astropy_time = Time(
-                            datetime.combine(local_night_date, new_ut_time).astimezone(
-                                site.timezone))
+                    if local_datetime > morn_twi:
+                        # Triggered in the morning after that night ended: it belongs to the next night.
+                        local_night_date = local_datetime.date()
+                        eve_twi, morn_twi = FileBasedResourceService._twilights(site, local_night_date)
 
-                        # Get the twilights and localize them.
-                        eve_twi, morn_twi = night_events(astropy_time, site.location, site.timezone)[3:5]
-                        eve_twi = eve_twi.to_datetime(site.timezone)
-                        morn_twi = morn_twi.to_datetime(site.timezone)
+                    if local_datetime < eve_twi:
+                        # Triggered before the night started, so activate once it does.
+                        local_datetime = eve_twi + timedelta(seconds=25)  # small offset
 
-                        if eve_twi > local_datetime:
-                            # belong to that day but is before the eve twi
-                            local_datetime = eve_twi + timedelta(seconds=25) # small offset
+                    too_activation = ToOActivation(site=site,
+                                                   too_id=ObservationID(too_id),
+                                                   start_time=local_datetime)
 
-                        if morn_twi < local_datetime:
-                            # belongs to the next day after the eve twi
-                            next_eve_twi, next_morn_twi = night_events(astropy_time + timedelta(days=1), site.location, site.timezone)[3:5]
-                            next_eve_twi = next_eve_twi.to_datetime(site.timezone)
-
-                            if next_eve_twi > local_datetime:
-                                local_datetime = next_eve_twi + timedelta(seconds=25)  # small offset
-
-                        if local_datetime < morn_twi and site == Site.GN:
-                            # belongs to day before but it happens after midnight.
-                            local_night_date = local_datetime.date() - timedelta(days=1)
-                        else:
-                            local_night_date = local_datetime.date()
-                        too_activations.setdefault(local_night_date, set())
-
-                        too_activation = ToOActivation(site=site,
-                                                       too_id=ObservationID(too_id),
-                                                       start_time=local_datetime)
-
-                        too_activations[local_night_date].add(too_activation)
+                    too_activations.setdefault(local_night_date, set()).add(too_activation)
 
         except FileNotFoundError:
             logger.error(f'Too Activation file not available: {path}')
