@@ -54,7 +54,7 @@ async def test_async_sight_loader_awaits_and_applies():
     obj._apply_sight_visibility = MagicMock()
 
     filtered = {}
-    await obj._async_load_visibility_from_sight(filtered, sem=None)
+    await obj._async_load_visibility_from_sight(filtered)
 
     obj._fetch_sight_data.assert_awaited_once()
     # _fetch_sight_data(filtered_observations, start_date, end_date, site_ids)
