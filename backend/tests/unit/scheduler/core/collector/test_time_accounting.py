@@ -160,7 +160,9 @@ def _visit(obs: Observation,
                  fpu=None,
                  disperser=None,
                  filters=None,
-                 completion=f'{atom_end + 1}/{len(obs.sequence)}')
+                 completion=f'{atom_end + 1}/{len(obs.sequence)}',
+                 observation_atoms=len(obs.sequence),
+                 atom_times=[])
 
 
 def _plans(visits: List[Visit], slot_minutes: float = 1.0) -> Plans:
