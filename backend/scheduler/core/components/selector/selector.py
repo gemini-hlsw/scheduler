@@ -470,15 +470,26 @@ class Selector(SchedulerComponent):
         mrc = obs.constraints.conditions
         is_splittable = len(obs.sequence) > 1
 
+        # An activated rapid ToO overrides program-level block scheduling (partner, PV and classical
+        # blocks): in operations a rapid trigger interrupts whoever's block the night belongs to.
+        # Standard ToOs stay tied to their program's calendar filter. The override only applies on
+        # nights that accept ToOs (too_status is also False on closed / engineering nights), and the
+        # group filter, which carries resource availability, still applies below.
+        is_activated_rapid_too = (obs.too_type is TooType.RAPID
+                                  and obs.status in {ObservationStatus.READY, ObservationStatus.ONGOING})
+
         # Calculate a numpy array of bool indexed by night to determine when the group can be added to the plan
         # based on the night configuration filtering.
         # TODO: We also filter on program here, but this would be better done in score_program.
         # TODO: That would require some thought as to how to do this there given the structure of a Selection.
         night_filtering: Dict[NightIndex, bool] = {}
         for night_idx in obs_nights:
-            night_filter = night_configurations[obs.site][night_idx].filter
+            night_configuration = night_configurations[obs.site][night_idx]
+            night_filter = night_configuration.filter
+            program_filtering = (night_filter.program_filter(program)
+                                 or (is_activated_rapid_too and night_configuration.too_status))
             # NOTE: to only do group filtering, comment out the first line and use the second line.
-            night_filtering[night_idx] = night_filter.program_filter(program) and night_filter.group_filter(group)
+            night_filtering[night_idx] = program_filtering and night_filter.group_filter(group)
             # night_filtering[night_idx] = night_filter.group_filter(group)
 
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
