@@ -15,7 +15,7 @@ from astropy.time import Time, TimeDelta
 from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
                               Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
                               Site, Target, TimeslotIndex, QAState, ObservationStatus,
-                              Group, ResourceType)
+                              Group, ResourceType, TooType)
 from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
 
@@ -457,8 +457,13 @@ class Collector(SchedulerComponent):
                     continue
 
                 # Is the program excluded on a given night due to block scheduling
+                # A rapid ToO can be triggered on any night, including one where its program is
+                # blocked, so block scheduling must not drop it from the visibility calculation:
+                # without TargetInfo the Selector cannot schedule it once it is activated. The
+                # Selector re-applies the night filter, and the rapid override, per night.
                 prog= self.get_program(p_id)
-                can_schedule = nc[obs.site][night_idx].filter.program_filter(prog)
+                can_schedule = (obs.too_type is TooType.RAPID
+                                or nc[obs.site][night_idx].filter.program_filter(prog))
                 if not can_schedule:
                     continue
 
@@ -592,7 +597,10 @@ class Collector(SchedulerComponent):
                     )
                 if not has_resources:
                     continue
-                if not nc[obs.site][night_idx].filter.program_filter(self.get_program(p_id)):
+                # Rapid ToOs bypass block scheduling here so that they always have visibility
+                # data available for activation. See the note in load_programs.
+                if (obs.too_type is not TooType.RAPID
+                        and not nc[obs.site][night_idx].filter.program_filter(self.get_program(p_id))):
                     continue
                 obs_with_resources[night_idx].append(obs)
 
