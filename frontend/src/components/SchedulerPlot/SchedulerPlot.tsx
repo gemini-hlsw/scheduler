@@ -202,7 +202,6 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
         (utcToLocal(d.startDate, INITIAL_TIMEZONE) +
           utcToLocal(d.endDate, INITIAL_TIMEZONE)) /
         2;
-      const y = Math.max(...d.yPoints) / 2;
 
       const xPos = chart.xAxis[0].toPixels(x, false);
 
@@ -221,7 +220,6 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       labelRef.current.push(lbl);
     });
 
-    // chart.xAxis[0].removePlotLine("event");
     chart.xAxis[0].addPlotLine({
       id: "event",
       color: "var(--color-blue-500)",
