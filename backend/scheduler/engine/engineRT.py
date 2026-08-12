@@ -233,7 +233,7 @@ class EngineRT:
                 alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
                 plans.plans[site].alt_degs.append(alt_degs)
 
-            self.nightly_timeline.add(plans.night_idx, site, start_timeslot[site][0], plans.plans[site])
+            self.nightly_timeline.add(plans.night_idx, site, start_timeslot[site][0], event, plans.plans[site])
         splans = SPlans.from_computed_plans(plans, self.params.sites)
 
         return NightPlansWithEvent(night_plans=splans, event=f"{event.description} @{event.time if event.time else 'Start of Night'}")
