@@ -119,7 +119,7 @@ def parse_preimaging(sequence: List[dict]) -> bool:
     return preimaging
 
 # Return the basic name of a component, stripping off prefixes like GmosSouthFilter.
-def basic_name(full_name) -> str:
+def basic_name(full_name):
     return full_name.split('.')[-1] if full_name else None
 
 class GppProgramProvider(ProgramProvider):
@@ -1007,8 +1007,10 @@ class GppProgramProvider(ProgramProvider):
                           data: dict,
                           num: Tuple[Optional[int], int],
                           program_id: ProgramID,
+                          time_allocation: TimeAllocation,
                           split: bool = True,
-                          split_by_iterator: bool = False) -> Optional[Observation]:
+                          split_by_iterator: bool = False
+                          ) -> Optional[Observation]:
         """
         Parse GPP observation query dictionary into the minimodel observation
         """
@@ -1065,10 +1067,15 @@ class GppProgramProvider(ProgramProvider):
             acq_overhead = timedelta(seconds=data['execution']['digest']['value']['setup']['full']['seconds'])
 
             # Science band
-            band_value = data.get(GppProgramProvider._ObsKeys.BAND)
-            # Workaround if no band assigned
-            band = Band[band_value] if band_value is not None else Band['BAND2']
-            # print(f'\t\t band_value = {band_value}, band =  {band}')
+            band_value = basic_name(data.get(GppProgramProvider._ObsKeys.BAND))
+            # Workaround if no band assigned, use the highest Band with assigned time - this should come from the ODB
+            if band_value is None:
+                band = Band.BAND5
+                for time_alloc in time_allocation:
+                    band = time_alloc.band if time_alloc.band < band else band
+            else:
+                band = Band[band_value]
+            print(f'\t\t band_value = {band_value}, band =  {band}')
 
             # Calibration role
             cal_role_value = data.get(GppProgramProvider._ObsKeys.CALROLE)
@@ -1245,9 +1252,15 @@ class GppProgramProvider(ProgramProvider):
             program_id = ProgramID(
                 data[GppProgramProvider._ObsKeys.PROGRAM][GppProgramProvider._ObsKeys.INTERNAL_ID])
 
-        return self.parse_observation(data, num=(0, 0), program_id=program_id)
+        # Parse the time accounting allocation data - but this info isn't available in the observation only.
+        # ToDo: Bands must be assigned to all calibrations in the ODB before this method can be used
+        # time_act_alloc_data = data[GppProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
+        # time_act_alloc = frozenset(self.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
+
+        return self.parse_observation(data, num=(0, 0), program_id=program_id, time_allocation=None)
 
     def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
+                    time_allocation: TimeAllocation,
                     split: bool, split_by_iterator: bool, active: bool = True) -> Optional[Group]:
         """
         This method parses group information from GPP
@@ -1369,6 +1382,7 @@ class GppProgramProvider(ProgramProvider):
                 # Note, this seems to result in reverse order, so maybe not useful...
                 elem_parent_index += 1
                 obs = self.parse_observation(element['observation'], program_id=program_id, num=(0, 0),
+                                             time_allocation=time_allocation,
                                              split=split, split_by_iterator=split_by_iterator)
                 if obs is not None:
                     # Ignore Twilight and Day Cal observations for now
@@ -1380,6 +1394,7 @@ class GppProgramProvider(ProgramProvider):
             elif element['group']:
                 subgroup_id = GroupID(element['group']['id'])
                 subgroup = self.parse_group(element['group'], program_id, subgroup_id, split=split,
+                                            time_allocation=time_allocation,
                                             split_by_iterator=split_by_iterator, active=child_active)
                 if subgroup is not None:
                     children.append(subgroup)
@@ -1509,14 +1524,23 @@ class GppProgramProvider(ProgramProvider):
             # if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
         # print(f'parse_program: {program_id.id}')
 
+        # Parse the time accounting allocation data.
+        # time_act_alloc = None # Program.allocations
+        time_act_alloc_data = data[GppProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
+        time_act_alloc = frozenset(self.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
+        # print(f'time_act_alloc: {time_act_alloc}')
+
+        # Parse time previously used by previously observed observations not in the query
+        time_used = frozenset([self.parse_time_used(tc) for tc in data[GppProgramProvider._ProgramKeys.TIME_CHARGE]])
+
         # Initialize split variables - not used by GPP
         split = True
         split_by_iterator = False
 
         # Now we parse the groups.
         # root_group = GppProgramProvider._EMPTY_ROOT_GROUP
-        root_group = self.parse_group(data['root'], program_id, ROOT_GROUP_ID,
-                                      split=split, split_by_iterator=split_by_iterator)
+        root_group = self.parse_group(data['root'], program_id, ROOT_GROUP_ID, time_allocation=time_act_alloc,
+                                      split=split, split_by_iterator=split_by_iterator, )
         if root_group is None:
             logger.warning(f'Program {program_id} has empty root group. Skipping.')
             return None
@@ -1562,15 +1586,6 @@ class GppProgramProvider(ProgramProvider):
                       - Program.FUZZY_BOUNDARY)
         end_date = (datetime.fromisoformat(data['active']['end'] + 'T00:00:00')
                     + Program.FUZZY_BOUNDARY)
-
-        # Parse the time accounting allocation data.
-        # time_act_alloc = None # Program.allocations
-        time_act_alloc_data = data[GppProgramProvider._ProgramKeys.TIME_ACCOUNT_ALLOCATION]
-        time_act_alloc = frozenset(self.parse_time_allocation(ta_data) for ta_data in time_act_alloc_data)
-        # print(f'time_act_alloc: {time_act_alloc}')
-
-        # Parse time previously used by previously observed observations not in the query
-        time_used = frozenset([self.parse_time_used(tc) for tc in data[GppProgramProvider._ProgramKeys.TIME_CHARGE]])
 
         # ToOs
         too_type = TooType.NONE
