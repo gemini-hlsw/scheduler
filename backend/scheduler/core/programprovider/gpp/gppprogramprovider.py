@@ -961,8 +961,12 @@ class GppProgramProvider(ProgramProvider):
         elif instrument == 'GHOST':
             wavelength = Wavelength(GppProgramProvider._GHOST_WAVELENGTH)
         elif 'central_wavelength' in instrument_config.keys():
-            # convert to microns, for GMOS and GNIRS
+            # convert to microns, for GMOS
             wavelength = Wavelength(float(instrument_config['central_wavelength']['nanometers'] / 1000.))
+        elif 'central_wavelengths' in instrument_config.keys():
+            # convert to microns, for GNIRS
+            wavelength = Wavelength(float(instrument_config['central_wavelengths'][0]\
+                                          ['central_wavelength']['nanometers'] / 1000.))
         else:
             wavelength = None
 
