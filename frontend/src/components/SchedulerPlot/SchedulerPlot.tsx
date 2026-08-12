@@ -205,7 +205,6 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       const y = Math.max(...d.yPoints) / 2;
 
       const xPos = chart.xAxis[0].toPixels(x, false);
-      const yPos = chart.yAxis[0].toPixels(y, false);
 
       const lbl = chart.renderer
         .text(d.label, xPos + 4.5, 350)
