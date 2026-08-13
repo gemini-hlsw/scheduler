@@ -33,8 +33,9 @@ def main(*,
     asyncio.run(init_db_engine())
 
     # Parsed program file (this replaces the program picker from Schedule)
-    with open(programs_ids, 'r') as file:
-        programs_list = [line.strip() for line in file if line.strip()[0] != '#']
+    # with open(programs_ids, 'r') as file:
+    #     programs_list = [line.strip() for line in file if line.strip()[0] != '#']
+    programs_list = ['p-1260']
 
     # Create Parameters
     # params = SchedulerParameters(start=Time("2025-09-30 08:00:00", format='iso', scale='utc'),

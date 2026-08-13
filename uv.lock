@@ -2716,7 +2716,7 @@ wheels = [
 
 [[package]]
 name = "scheduler"
-version = "0.1.20"
+version = "0.1.21"
 source = { virtual = "backend" }
 dependencies = [
     { name = "aioboto3" },
@@ -2838,7 +2838,7 @@ docs = [
     { name = "mkdocs-mermaid2-plugin", specifier = ">=1.2.1" },
     { name = "mkdocstrings-python", specifier = ">=1.16.12" },
 ]
-gpp-dev = [{ name = "gpp-client", specifier = ">=26.7.3.dev6,==26.7.3.*,!=26.7.3" }]
+gpp-dev = [{ name = "gpp-client", specifier = ">=26.7.3.dev7,==26.7.3.*,!=26.7.3" }]
 gpp-prod = [{ name = "gpp-client", specifier = ">=26.7.1" }]
 
 [[package]]
