@@ -1,5 +1,4 @@
 import { TimeEntryType, Visit } from "../../types";
-import NightPlanSummary from "./NightPlanSummary";
 import AltAzPlot from "../SchedulerPlot/SchedulerPlot";
 import {
   Table,
@@ -121,7 +120,7 @@ function VisitRow({
   );
 }
 
-export default function TimeEntry({
+export default function RealTimeEntry({
   timeEntry,
   mornTwilight,
   eveTwilight,
@@ -223,11 +222,11 @@ export default function TimeEntry({
 
   return (
     <div>
-      <NightPlanSummary
+      {/* <NightPlanSummary
         nightState={timeEntry.plan.nightStats}
         nightTitle={timeEntry.event.description}
         nightConditions={timeEntry.plan.nightConditions}
-      />
+      /> */}
       <AltAzPlot
         data={parseToVisitForPlot(timeEntry.plan.visits)}
         event={timeEntry.event}

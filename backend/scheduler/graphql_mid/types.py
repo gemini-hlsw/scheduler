@@ -223,23 +223,23 @@ class SNightTimelines:
             s_timeline_entries = []
             for site in timeline.stitched_timeline[n_idx]:
                 s_entries = []
-                eve_twi = timeline.stitched_timeline[n_idx][site][0].event.time
-                morn_twi = timeline.stitched_timeline[n_idx][site][-1].event.time
+                # eve_twi = timeline.stitched_timeline[n_idx][site][0].event.time
+                # morn_twi = timeline.stitched_timeline[n_idx][site][-1].event.time
                 time_losses = timeline.time_losses[n_idx][site]
                 for entry in timeline.stitched_timeline[n_idx][site]:
                     if entry.plan_generated is None:
                         continue
                     e = STimelineEntry(start_time_slots=int(entry.start_time_slot),
-                                        event=Event(site=entry.event.site,
-                                                    time=entry.event.time,
+                                        event=Event(site=entry.event.site if entry.event.site is not None else site,
+                                                    time=entry.event.time if entry.event.time is not None else timeline.night_length[n_idx][site].start,
                                                     description=entry.event.description),
                                         plan=SPlan.from_computed_plan(entry.plan_generated),
                                         timeloss_windows=entry.timeloss_windows)
                     s_entries.append(e)
                 te = TimelineEntriesBySite(site=site,
                                             time_entries=s_entries,
-                                            eve_twilight=eve_twi,
-                                            morn_twilight=morn_twi,
+                                            eve_twilight=timeline.night_length[n_idx][site].start,
+                                            morn_twilight=timeline.night_length[n_idx][site].end,
                                             time_losses=time_losses)
                 s_timeline_entries.append(te)
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)

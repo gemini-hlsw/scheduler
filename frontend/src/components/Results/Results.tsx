@@ -29,7 +29,7 @@ export default function Results({ plans }: { plans: NightPlanType[] }) {
     <div
       className={cn(
         "border rounded-md flex flex-col gap-2 p-3 flex-wrap",
-        "dark:bg-white/20 bg-black/10"
+        "dark:bg-white/20 bg-black/10",
       )}
     >
       <h1 className="font-bold w-full">Results</h1>
@@ -50,13 +50,13 @@ export default function Results({ plans }: { plans: NightPlanType[] }) {
         <CarouselPrevious
           className="absolute -left-2 h-20 w-5 rounded-md"
           onClick={goToSlide(
-            currentSlide - 1 < 0 ? plans.length - 1 : currentSlide - 1
+            currentSlide - 1 < 0 ? plans.length - 1 : currentSlide - 1,
           )}
         />
         <CarouselNext
           className="absolute -right-2.5 h-20 w-6 rounded-md"
           onClick={goToSlide(
-            currentSlide + 1 > plans.length - 1 ? 0 : currentSlide + 1
+            currentSlide + 1 > plans.length - 1 ? 0 : currentSlide + 1,
           )}
         />
       </Carousel>
@@ -80,14 +80,14 @@ export default function Results({ plans }: { plans: NightPlanType[] }) {
                     "hover:bg-blue-500 dark:hover:bg-blue-500",
                     "hover:w-24",
                     "group",
-                    "transition-all"
+                    "transition-all",
                   )}
                   onClick={goToSlide(idx)}
                 >
                   <p
                     className={cn(
                       !isSelected && "group-hover:block hidden",
-                      "text-white"
+                      "text-white",
                     )}
                   >
                     {timelineDate}

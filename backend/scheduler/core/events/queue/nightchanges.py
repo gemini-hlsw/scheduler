@@ -36,6 +36,11 @@ class TimelineEntry:
 
 
 @dataclass
+class NightLength:
+    start: datetime
+    end: datetime
+
+@dataclass
 class NightlyTimeline:
     """
     A collection of timeline entries per night and site.
@@ -43,7 +48,15 @@ class NightlyTimeline:
     timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
     stitched_timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
     time_losses: Dict[NightIndex, Dict[Site, Dict[str, int]]] = field(init=False, default_factory=dict)
+    night_length: Dict[NightIndex, Dict[Site, NightLength]] = field(init=False, default_factory=dict)
     _datetime_formatter: ClassVar[str] = field(init=False, default='%Y-%m-%d %H:%M')
+
+    def set_night_length(self, night_idx: NightIndex, site: Site, start: datetime, end: datetime) -> None:
+        if night_idx not in self.night_length:
+            self.night_length[night_idx] = {}
+        if site not in self.night_length[night_idx]:
+            self.night_length[night_idx][site] = {}
+        self.night_length[night_idx][site] = NightLength(start=start, end=end)
 
     def add(self,
             night_idx: NightIndex,
@@ -250,7 +263,7 @@ class NightlyTimeline:
 
         weather = 0
         fault = 0
-        for entry in self.timeline[night_idx][site]:
+        for entry in self.stitched_timeline[night_idx][site]:
             event = entry.event
             if isinstance(event, InterruptionResolutionEvent):
                 match event:
@@ -261,7 +274,7 @@ class NightlyTimeline:
                         weather += int(event.time_loss.total_seconds() // 60)
 
         # This is to ensure no matter what order the ResolutionEvents are we get all at them accounted.
-        for entry in self.timeline[night_idx][site]:
+        for entry in self.stitched_timeline[night_idx][site]:
             event = entry.event
             if isinstance(event, MorningTwilightEvent):
                 if entry.plan_generated is not None:

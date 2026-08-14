@@ -50,7 +50,7 @@ export default function Validation() {
     site: string,
     programs: ProgramListType[],
     numNight: number,
-    semesterVisibility: boolean
+    semesterVisibility: boolean,
   ) {
     setLoadingPlan(true);
     schedule({
@@ -82,7 +82,6 @@ export default function Validation() {
         validationMode={true}
       />
       <RankerTweaker />
-      {/* <InputsPanel /> */}
       <SummaryTable plansSummary={plansSummary} />
       <Results plans={nightPlans} />
     </div>
