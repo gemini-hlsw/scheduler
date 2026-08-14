@@ -39,8 +39,13 @@ class ResourceEventSource(EventSource):
         return
 
     def subscriptions(self) -> List[Tuple[str ,callable]]:
-        return[
-            (ResourceEventSource.RESOURCE_EDIT, lambda x: self._client.subscribe(ResourceEventSource.RESOURCE_EDIT), None)
+        # No subscriptions yet!
+        return [
+            # (
+            #     ResourceEventSource.RESOURCE_EDIT,
+            #     lambda x: self._client.subscribe(ResourceEventSource.RESOURCE_EDIT),
+            #     None
+            # )
         ]
 
 class WeatherEventSource(EventSource):
