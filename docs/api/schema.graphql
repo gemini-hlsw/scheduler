@@ -100,7 +100,7 @@ type ObservationCoverage {
   site: String
   targetName: String
   status: ObservationStatus!
-  skipReason: String
+  reason: String
 }
 
 type ObservationCoveragePage {

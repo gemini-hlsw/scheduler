@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/table";
 import type { ObservationStatus } from "@/gql/graphql";
 import { observationCoverageQuery, REALTIME_CONTEXT } from "./query";
-import { SITES } from "./format";
+import { SITES, formatReason } from "./format";
 
 const PAGE_SIZE = 50;
 
@@ -30,7 +30,7 @@ type CoverageRow = {
   site?: string | null;
   targetName?: string | null;
   status: ObservationStatus;
-  skipReason?: string | null;
+  reason?: string | null;
 };
 
 const STATUSES: { value: ObservationStatus | "ALL"; label: string }[] = [
@@ -226,7 +226,7 @@ export default function CoverageList() {
                             <StatusBadge status={row.status} />
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">
-                            {row.skipReason ?? ""}
+                            {formatReason(row.reason)}
                           </TableCell>
                         </TableRow>
                       ))}

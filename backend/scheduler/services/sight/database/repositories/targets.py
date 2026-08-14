@@ -27,6 +27,18 @@ class TargetRepository(BaseRepository[Target]):
         result = await self.session.execute(stmt)
         return {t.name: t for t in result.scalars().all()}
     
+    async def get_ids_by_names(self, names: list[str]) -> dict[str, int]:
+        """Ids of the targets whose name is in `names`, keyed by name.
+
+        Ids and names only, for callers checking whether a target exists;
+        `get_by_names` fetches every column of every matching row.
+        """
+        if not names:
+            return {}
+        stmt = select(Target.name, Target.id).where(Target.name.in_(set(names)))
+        result = await self.session.execute(stmt)
+        return {name: id_ for name, id_ in result.all()}
+
     async def get_sidereal(self) -> Sequence[Target]:
         """Get all sidereal targets."""
         stmt = select(Target).where(Target.is_sidereal == True)

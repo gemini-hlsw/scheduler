@@ -47,3 +47,26 @@ export function formatAgo(value: string | null | undefined): string {
 
 export const SITES = ["GN", "GS"] as const;
 export type SiteKey = (typeof SITES)[number];
+
+/**
+ * Coverage reason tokens in words. The backend sends tokens
+ * (see services/visibility_status/reasons.py); wording lives here.
+ */
+const REASON_LABELS: Record<string, string> = {
+  NON_SIDEREAL: "Non-sidereal target, not computed yet",
+  NO_SITE: "Instrument does not resolve to a site",
+  UNSUPPORTED_TARGET: "Target is neither sidereal nor non-sidereal",
+  NO_COORDINATES: "Target has no coordinates in the ODB",
+  ODB_CHANGED: "Changed in the ODB since the last run",
+  NIGHT_NOT_COMPUTED: "Night not computed for this site yet",
+  TARGET_NOT_IN_SIGHT: "Target not stored — parse failure, or not created yet",
+  STAGE1_MISSING: "Target positions for this night are missing",
+  PROBABLY_PARSER_ERROR: "Probably a parser error — check the aggregator log",
+  UNKNOWN: "Unknown — could not read the visibility database",
+};
+
+/** A reason token in words, falling back to the token for anything new. */
+export function formatReason(reason: string | null | undefined): string {
+  if (!reason) return "";
+  return REASON_LABELS[reason] ?? reason;
+}

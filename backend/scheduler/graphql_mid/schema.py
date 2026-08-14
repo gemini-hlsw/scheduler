@@ -192,12 +192,10 @@ class Query:
         self, night_date: Optional[date] = None
     ) -> VisibilityCoverage:
         """Does the Sight DB hold visibility for everything the ODB expects?
+        Reads the ODB live. ``nightDate`` defaults to the current night.
 
-        Reads the ODB live (a paginated sweep), so this takes seconds — fetch it
-        on demand, never on a poll. ``nightDate`` defaults to the current night.
         """
-        async with session_scope() as session:
-            summary = await get_coverage_summary(session, night_date)
+        summary = await get_coverage_summary(night_date)
         return VisibilityCoverage.from_service(summary)
 
     @strawberry.field
@@ -212,17 +210,15 @@ class Query:
         offset: int = 0,
     ) -> ObservationCoveragePage:
         """Which observations are missing or being updated, one page at a time."""
-        async with session_scope() as session:
-            page = await list_observation_coverage(
-                session,
-                night_date=night_date,
-                status=status.value if status is not None else None,
-                site=site,
-                program_label=program_label,
-                search=search,
-                limit=limit,
-                offset=offset,
-            )
+        page = await list_observation_coverage(
+            night_date=night_date,
+            status=status.value if status is not None else None,
+            site=site,
+            program_label=program_label,
+            search=search,
+            limit=limit,
+            offset=offset,
+        )
         return ObservationCoveragePage.from_service(page)
 
     @strawberry.field

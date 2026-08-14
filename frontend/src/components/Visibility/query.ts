@@ -94,7 +94,7 @@ export const observationCoverageQuery = graphql(`
         site
         targetName
         status
-        skipReason
+        reason
       }
     }
   }

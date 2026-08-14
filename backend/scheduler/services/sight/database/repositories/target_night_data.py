@@ -68,6 +68,29 @@ class TargetNightDataRepository(BaseRepository[TargetNightData]):
         result = await self.session.execute(stmt)
         return result.scalars().all()
     
+    async def get_target_ids_on_night(
+        self,
+        site_id: int,
+        night_date: date,
+        target_ids: list[int] | None = None,
+    ) -> set[int]:
+        """Ids of the targets with Stage-1 data for a site on a night.
+
+        Ids only: the rows carry per-minute arrays, so a membership check that
+        fetches them pulls hundreds of megabytes for a semester's targets.
+        """
+        conditions = [
+            TargetNightData.site_id == site_id,
+            TargetNightData.night_date == night_date,
+        ]
+        if target_ids is not None:
+            if not target_ids:
+                return set()
+            conditions.append(TargetNightData.target_id.in_(target_ids))
+        stmt = select(TargetNightData.target_id).where(and_(*conditions)).distinct()
+        result = await self.session.execute(stmt)
+        return set(result.scalars().all())
+
     async def get_fresh_night_dates(
         self,
         target: Target,

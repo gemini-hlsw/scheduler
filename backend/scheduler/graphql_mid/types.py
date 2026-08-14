@@ -527,7 +527,9 @@ class ObservationCoverage:
     site: Optional[str]
     target_name: Optional[str]
     status: ObservationStatus
-    skip_reason: Optional[str]
+    # Why the status is what it is, as a token the UI renders in words (see
+    # services/visibility_status/reasons.py). Null only for STORED.
+    reason: Optional[str]
 
     @staticmethod
     def from_service(row) -> 'ObservationCoverage':
@@ -537,7 +539,7 @@ class ObservationCoverage:
             site=row.site,
             target_name=row.target_name,
             status=ObservationStatus(row.status),
-            skip_reason=row.skip_reason,
+            reason=row.reason,
         )
 
 

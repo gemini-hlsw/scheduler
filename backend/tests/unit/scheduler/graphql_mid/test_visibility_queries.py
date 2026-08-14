@@ -116,7 +116,7 @@ async def test_observation_coverage_is_paginated_and_label_keyed(
             ObservationCoverage(
                 observation_id="G-2026A-0001-Q-0001",
                 program_label="G-2026A-0001", site="GN", target_name="Vega",
-                status="MISSING", skip_reason=None,
+                status="MISSING", reason="PROBABLY_PARSER_ERROR",
             ),
         ],
         total=137, night_date=_NIGHT, odb_read_at=_READ_AT,
@@ -128,7 +128,7 @@ async def test_observation_coverage_is_paginated_and_label_keyed(
                 total
                 nightDate
                 observations {
-                    observationId programLabel site targetName status skipReason
+                    observationId programLabel site targetName status reason
                 }
             }
         }
@@ -140,6 +140,8 @@ async def test_observation_coverage_is_paginated_and_label_keyed(
     row = page["observations"][0]
     assert row["observationId"] == "G-2026A-0001-Q-0001"
     assert row["status"] == "MISSING"
+    # The reason travels with the row, so a gap arrives explained.
+    assert row["reason"] == "PROBABLY_PARSER_ERROR"
     # The reference label, never the o- GID.
     assert row["observationId"].startswith("G-")
 
