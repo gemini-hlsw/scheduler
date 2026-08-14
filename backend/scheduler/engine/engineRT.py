@@ -16,8 +16,10 @@ from scheduler.services import logger_factory
 from scheduler.core.events.queue import NightlyTimeline
 from scheduler.core.events.queue.events import CustomStartOfNightEvent, Event, EndOfNightEvent
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
-from scheduler.graphql_mid.types import NightPlansError
-from scheduler.graphql_mid.types import SPlans, NightPlansWithEvent
+from scheduler.core.statscalculator import StatCalculator
+from scheduler.graphql_mid.types import NewNightPlans, SNightTimelines, SRunSummary
+from scheduler.graphql_mid.types import NightPlansError, SPlans
+from scheduler.graphql_mid.types import NightPlansWithEvent
 from scheduler.night_monitor.event_sources import WeatherEventSource
 from scheduler.services.visibility_aggregator import coordination
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site
@@ -157,42 +159,18 @@ class EngineRT:
             Timeslot: The start timeslot for the event.
         """
         start_timeslot = {}
-
-        build_params = await build_params_store.get()
-        night_times = build_params.get_night_times()
         for site in self.params.sites:
-            night_start_time = self.scp.collector.night_events[site].times[0][0]
-            utc_night_start = night_start_time.utc.to_datetime(timezone=datetime.timezone.utc)
+            night_start, night_end = self.scp.collector.get_night_length(site, 0)
+            self.nightly_timeline.set_night_length(0, site, night_start, night_end)
 
             event_timeslot = event.to_timeslot_idx(
-                utc_night_start,
+                night_start,
                 self.scp.collector.time_slot_length.to_datetime()
             )
 
-            custom_start = night_times.get(site, (None, None))[0] if night_times else None
-            if custom_start is not None:
-                custom_start_timeslot = CustomStartOfNightEvent(
-                    site,
-                    custom_start.utc.to_datetime(timezone=datetime.timezone.utc),
-                    f"Custom start of night for site {site}"
-                ).to_timeslot_idx(
-                    utc_night_start,
-                    self.scp.collector.time_slot_length.to_datetime()
-                )
-
-                if event_timeslot < custom_start_timeslot:
-                    site_timeslot = custom_start
-                else:
-                    site_timeslot = event_timeslot
-            else:
-                if event_timeslot < 0:
-                    site_timeslot = 0
-                else:
-                    site_timeslot = event_timeslot
-
-            _logger.info(f"Computing plan for site {site.name} starting on timeslot: {site_timeslot}, "
-                         f"utc_night_start={utc_night_start}, event_time={event.time}")
-            start_timeslot[site] = {np.int64(0): site_timeslot}
+            _logger.info(f"Computing plan for site {site.name} starting on timeslot: {event_timeslot if event_timeslot > 0 else 0}, "
+                         f"night_start={night_start}, event_time={event.time}")
+            start_timeslot[site] = {np.int64(0): event_timeslot if event_timeslot > 0 else 0}
 
         return start_timeslot
 
@@ -223,20 +201,16 @@ class EngineRT:
         plans = self.scp.run_rt(start_timeslot)
 
         for site in self.params.sites:
-            plans.plans[site].night_stats = NightStats({},0.0,0,{},{})
-            plans.plans[site].alt_degs = []
-            # Calculate altitude data
-            for visit in plans.plans[site].visits:
-                ti = self.scp.collector.get_target_info(visit.obs_id)
-                end_time_slot = visit.start_time_slot + visit.time_slots
-                values = ti[plans.night_idx].alt[visit.start_time_slot: end_time_slot]
-                alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
-                plans.plans[site].alt_degs.append(alt_degs)
-
             self.nightly_timeline.add(plans.night_idx, site, start_timeslot[site][0], event, plans.plans[site])
-        splans = SPlans.from_computed_plans(plans, self.params.sites)
-
-        return NightPlansWithEvent(night_plans=splans, event=f"{event.description} @{event.time if event.time else 'Start of Night'}")
+            self.nightly_timeline.calculate_time_losses(plans.night_idx, site)
+        run_summary = StatCalculator.calculate_stitched_timeline_stats(self.nightly_timeline,
+                                                                      self.params.night_indices,
+                                                                      self.params.sites,
+                                                                      self.scp.collector,
+                                                                      self.scp.ranker)
+        s_timelines = SNightTimelines.from_computed_stitched_timelines(self.nightly_timeline)
+        s_plan_summary = SRunSummary.from_computed_run_summary(run_summary)
+        return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
 
     async def run(self):
         """

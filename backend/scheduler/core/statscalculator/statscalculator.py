@@ -140,14 +140,15 @@ class StatCalculator:
 
         for night_idx in nights:
             for site in sites:
-                for entry in timeline.stitched_timeline[night_idx][site]:
+                for entry_idx in range(len(timeline.stitched_timeline[night_idx][site])):
+                    entry = timeline.stitched_timeline[night_idx][site][entry_idx]
                     # Some plans are shown empty if the telescope is closed.
                     if entry.plan_generated is None:
                         continue
 
                     plan = entry.plan_generated  # Update last plan
 
-                    if 'Morning' in entry.event.description:
+                    if entry_idx == len(timeline.stitched_timeline[night_idx][site]) - 1:
                         for v in plan.visits:
                             obs = collector.get_observation(v.obs_id)
                             program = collector.get_program(obs.belongs_to)

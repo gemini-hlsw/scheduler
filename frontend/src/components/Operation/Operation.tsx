@@ -1,14 +1,14 @@
 import { useContext } from "react";
 import { GlobalStateContext } from "../GlobalState/GlobalState";
 import WeatherConditions from "../WeatherConditions/WeatherConditions";
-import { Result } from "./Result";
+import Result from "./Result";
 import { cn } from "@/lib/utils";
 import { DisplayWeather } from "../WeatherConditions/DisplayWeather";
 import OnDemandControl from "../ControlPanel/OnDemandControl";
 import BuildParameters from "../BuildParameters/BuildParameters";
 
 export default function Operation() {
-  const { rtPlan } = useContext(GlobalStateContext);
+  const { nightPlans } = useContext(GlobalStateContext);
 
   return (
     <div className="flex flex-col gap-2">
@@ -20,7 +20,7 @@ export default function Operation() {
           <DisplayWeather />
         </div>
       </div>
-      <Result rtPlan={rtPlan} />
+      <Result plans={nightPlans} />
     </div>
   );
 }

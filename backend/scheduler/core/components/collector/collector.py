@@ -251,6 +251,13 @@ class Collector(SchedulerComponent):
             )
         _logger.info("Night events initialized asynchronously")
 
+    def get_night_length(self, site: Site, night_index: NightIndex) -> TimeDelta:
+        night_start = self.night_events[site].times[night_index][0]
+        night_end = self.night_events[site].times[night_index][-1]
+        utc_night_start = night_start.utc.to_datetime(timezone=timezone.utc)
+        utc_night_end = night_end.utc.to_datetime(timezone=timezone.utc)
+        return utc_night_start, utc_night_end
+
     def get_night_events(self, site: Site) -> NightEvents:
 
         night_start_time = None

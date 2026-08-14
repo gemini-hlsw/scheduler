@@ -917,7 +917,7 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "26.7.3.dev5"
+version = "26.7.3.dev7"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -935,9 +935,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/11/66/68a1a6a003641748305b2ab5c1dcd30d213cb0fbf72a21c33ca6450e2a4d/gpp_client-26.7.3.dev5.tar.gz", hash = "sha256:0f2a8b398348b78d16f78f278292f425041821be6d7a930c403f563e144383a7", size = 208808, upload-time = "2026-08-03T23:20:59.384Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/32/de5c1fb11625bcc996c50ae070fe693886a4ce9fc07ea87ed07ddad59753/gpp_client-26.7.3.dev7.tar.gz", hash = "sha256:7d7b773b49fdedc7e96efe6f135715d992c91e1276d9d6afcf2c711ba6751afc", size = 158525, upload-time = "2026-08-12T20:10:40.758Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/49/827035a92c9317d4a0ded5be12bc973eda3f2e4289e87e2cedfa5ce77fa8/gpp_client-26.7.3.dev5-py3-none-any.whl", hash = "sha256:aa34b509aa433526954a087074c0a2c2fdbfd4701e542c5078fb5a21b8dc19ce", size = 247151, upload-time = "2026-08-03T23:20:58.17Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/06/3b7f5e18065539ef39026f7bf6ee438c3a9443141d1ad85a96b7cfef8209/gpp_client-26.7.3.dev7-py3-none-any.whl", hash = "sha256:22ce7724837970cf2dadd0a562d6500b26aeab15845726ceb2dfc551deb42a26", size = 196802, upload-time = "2026-08-12T20:10:39.726Z" },
 ]
 
 [[package]]
@@ -2775,7 +2775,7 @@ docs = [
     { name = "mkdocstrings-python" },
 ]
 gpp-dev = [
-    { name = "gpp-client", version = "26.7.3.dev5", source = { registry = "https://pypi.org/simple" } },
+    { name = "gpp-client", version = "26.7.3.dev7", source = { registry = "https://pypi.org/simple" } },
 ]
 gpp-prod = [
     { name = "gpp-client", version = "26.7.3", source = { registry = "https://pypi.org/simple" } },
@@ -2838,7 +2838,7 @@ docs = [
     { name = "mkdocs-mermaid2-plugin", specifier = ">=1.2.1" },
     { name = "mkdocstrings-python", specifier = ">=1.16.12" },
 ]
-gpp-dev = [{ name = "gpp-client", specifier = ">=26.7.3.dev5,==26.7.3.*,!=26.7.3" }]
+gpp-dev = [{ name = "gpp-client", specifier = ">=26.7.3.dev7,==26.7.3.*,!=26.7.3" }]
 gpp-prod = [{ name = "gpp-client", specifier = ">=26.7.1" }]
 
 [[package]]
