@@ -36,7 +36,7 @@ export interface TimeEntryType {
 
 export interface TimeLossWindow {
   start: string;
-  end: string | null | undefined;
+  end?: string | null | undefined;
   lossType: string;
 }
 
