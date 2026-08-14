@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { type RunSummary } from "./types";
 
 function App() {
-  const { setNightPlans, setPlansSummary, setLoadingPlan, setRtPlan, uuid } =
+  const { setNightPlans, setPlansSummary, setLoadingPlan, uuid } =
     useContext(GlobalStateContext);
 
   const {
