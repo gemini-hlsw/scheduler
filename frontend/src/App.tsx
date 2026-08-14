@@ -54,10 +54,6 @@ function App() {
         ) {
           // Deprecated
           console.log("Deprecated method");
-          setRtPlan({
-            nightPlans: scheduleData.queueSchedule.nightPlans,
-            event: "Schedule Data",
-          });
         } else {
           toast.error(
             error?.message ??
@@ -65,7 +61,7 @@ function App() {
             {
               closeButton: true,
               duration: Infinity,
-            }
+            },
           );
           setNightPlans([]);
           setPlansSummary({} as RunSummary);
@@ -94,15 +90,14 @@ function App() {
           setNightPlans([]);
           setPlansSummary({} as RunSummary);
         } else if (rtData && rtData.queueSchedule.__typename === "NewPlansRT") {
-          setRtPlan({
-            nightPlans: rtData.queueSchedule.nightPlans,
-            event: "RTPlan",
-          });
+          // Deprecated
+          console.log("Deprecated method");
         } else if (
           rtData &&
           rtData.queueSchedule.__typename === "NightPlansWithEvent"
         ) {
-          setRtPlan(rtData.queueSchedule);
+          // Deprecated
+          console.log("Deprecated method");
         } else {
           toast.error(
             rtError?.message ??
@@ -110,7 +105,7 @@ function App() {
             {
               closeButton: true,
               duration: Infinity,
-            }
+            },
           );
           setNightPlans([]);
           setPlansSummary({} as RunSummary);
