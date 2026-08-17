@@ -11,6 +11,7 @@ import Validation from "./components/Validation/Validation";
 import GlobalStateProvider from "./components/GlobalState/GlobalState";
 import Operation from "./components/Operation/Operation";
 import { Simulation } from "./components/Simulation/Simulation";
+import Visibility from "./components/Visibility/Visibility";
 import "./global.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
@@ -24,6 +25,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 <Route path="/" element={<App />}>
                   <Route index element={<Home />} />
                   <Route path="operation" element={<Operation />} />
+                  <Route path="visibility" element={<Visibility />} />
                   <Route path="validation" element={<Validation />} />
                   <Route path="simulation" element={<Simulation />} />
                   <Route path="link1" element={<h1>link1</h1>} />

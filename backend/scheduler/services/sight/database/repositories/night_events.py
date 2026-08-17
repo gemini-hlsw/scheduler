@@ -1,5 +1,5 @@
 
-from datetime import date
+from datetime import date, datetime
 from typing import Sequence
 
 from sqlalchemy import select, and_
@@ -29,6 +29,43 @@ class NightEventRepository(BaseRepository[NightEvent]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
     
+    async def get_window_containing(
+        self,
+        site_id: int,
+        moment: datetime,
+    ) -> NightEvent | None:
+        """The night whose observing window brackets ``moment``, if any.
+
+        Returns None during the day, when no window is in progress.
+        """
+        stmt = select(NightEvent).where(
+            and_(
+                NightEvent.site_id == site_id,
+                NightEvent.night_start <= moment,
+                NightEvent.night_end >= moment,
+            )
+        ).order_by(NightEvent.night_start.desc()).limit(1)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_next_after(
+        self,
+        site_id: int,
+        moment: datetime,
+    ) -> NightEvent | None:
+        """The earliest night starting after ``moment``.
+
+        Used to answer "tonight" during the day, when no window is in progress.
+        """
+        stmt = select(NightEvent).where(
+            and_(
+                NightEvent.site_id == site_id,
+                NightEvent.night_start > moment,
+            )
+        ).order_by(NightEvent.night_start).limit(1)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_by_site_and_date_range(
         self,
         site_id: int,

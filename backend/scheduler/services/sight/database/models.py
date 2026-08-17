@@ -253,6 +253,10 @@ class VisibilityData(Base):
         ),
         Index("ix_visibility_target_date", "target_id", "night_date"),
         Index("ix_visibility_observation", "observation_id"),
+        # Serves the night+site reads: the "visible tonight" list and the
+        # per-night coverage check. The two indexes above lead with target_id
+        # and observation_id, so neither helps that access path.
+        Index("ix_visibility_night_site", "night_date", "site_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

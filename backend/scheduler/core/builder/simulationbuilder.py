@@ -12,6 +12,7 @@ from .blueprint import CollectorBlueprint
 from .schedulerbuilder import SchedulerBuilder
 from scheduler.core.components.collector import Collector
 from scheduler.core.sources.sources import Sources
+from scheduler.clients.gpp import gpp
 from scheduler.core.programprovider.gpp import gpp_program_data, GppProgramProvider
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.core.events.queue import EventQueue
@@ -54,8 +55,11 @@ class SimulationBuilder(SchedulerBuilder):
             use_local_visibility=use_local_visibility,
         )
         async def fetch_data():
-            async_gen = await gpp_program_data(program_list)
-            return [item async for item in async_gen]
+            try:
+                async_gen = await gpp_program_data(program_list)
+                return [item async for item in async_gen]
+            finally:
+                await gpp.close()
 
         collector.load_programs(
             program_provider_class=GppProgramProvider,
