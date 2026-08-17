@@ -66,15 +66,12 @@ class GPPClientInstance(metaclass=Singleton):
 
     async def close(self) -> None:
         """Close the running loop's client, if it has one.
-
-        Per loop, because that is the only client whose sockets this loop can
-        close. A loop that used the client should call this before it goes away
-        (see `SimulationBuilder.build_collector`); the process-wide shutdown in
-        `scheduler.app` closes the server loop's client.
         """
         loop = asyncio.get_running_loop()
-        entry = self._clients.pop(id(loop), None)
-        if entry is not None:
+        key = id(loop)
+        entry = self._clients.get(key)
+        if entry is not None and entry[0]() is loop:
+            del self._clients[key]
             await entry[1].close()
         self._drop_finished_loops()
 
