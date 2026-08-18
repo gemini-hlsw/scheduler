@@ -2,10 +2,11 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-from typing import Dict, Tuple, Callable
+from typing import Dict, Optional, Tuple, Callable
 
 from pydantic import BaseModel
 
+from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from .event_handler import EventHandler, LastPlanMock
 
@@ -143,8 +144,10 @@ class ResourceEventHandler(EventHandler):
     Resources can be disabled or enabled and updates are received here.
     """
 
-    def __init__(self, scheduler_queue: SchedulerQueue):
-        super().__init__(scheduler_queue)
+    def __init__(self,
+                 scheduler_queue: SchedulerQueue,
+                 nightly_timeline_store: Optional[NightlyTimelineStore] = None):
+        super().__init__(scheduler_queue, nightly_timeline_store)
         self.pdr = PDRQueue()
 
 

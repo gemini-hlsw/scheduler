@@ -13,7 +13,7 @@ from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
 from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
-from scheduler.core.events.queue import NightlyTimeline
+from scheduler.core.events.queue import NightlyTimelineStore
 from scheduler.core.events.queue.events import CustomStartOfNightEvent, Event, EndOfNightEvent
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.core.statscalculator import StatCalculator
@@ -44,19 +44,24 @@ class EngineRT:
         params: SchedulerParameters,
         scheduler_queue: SchedulerQueue,
         process_id: str,
-        weather_source: WeatherEventSource
+        weather_source: WeatherEventSource,
+        nightly_timeline_store: NightlyTimelineStore
     ):
         """
         Initializes the EngineRT with the given parameters.
-        
+
         Args:
             params (SchedulerParameters): Parameters for the scheduler.
             scheduler_queue (SchedulerQueue): Queue for the scheduler.
             process_id (str): Unique process ID from SchedulerProcess
+            weather_source (WeatherEventSource): Source for the current weather state.
+            nightly_timeline_store (NightlyTimelineStore): Shared store for the nightly timeline,
+                read by the Night Monitor to know the plan currently in effect.
         """
         _logger.debug("Initializing real-time engine...")
         self.params = params
         self.scheduler_queue = scheduler_queue
+        self.nightly_timeline_store = nightly_timeline_store
         self.scp = None
         self.process_id = process_id
         self.weather_source = weather_source
@@ -159,18 +164,19 @@ class EngineRT:
             Timeslot: The start timeslot for the event.
         """
         start_timeslot = {}
-        for site in self.params.sites:
-            night_start, night_end = self.scp.collector.get_night_length(site, 0)
-            self.nightly_timeline.set_night_length(0, site, night_start, night_end)
+        async with self.nightly_timeline_store.mutate() as nightly_timeline:
+            for site in self.params.sites:
+                night_start, night_end = self.scp.collector.get_night_length(site, 0)
+                nightly_timeline.set_night_length(0, site, night_start, night_end)
 
-            event_timeslot = event.to_timeslot_idx(
-                night_start,
-                self.scp.collector.time_slot_length.to_datetime()
-            )
+                event_timeslot = event.to_timeslot_idx(
+                    night_start,
+                    self.scp.collector.time_slot_length.to_datetime()
+                )
 
-            _logger.info(f"Computing plan for site {site.name} starting on timeslot: {event_timeslot if event_timeslot > 0 else 0}, "
-                         f"night_start={night_start}, event_time={event.time}")
-            start_timeslot[site] = {np.int64(0): event_timeslot if event_timeslot > 0 else 0}
+                _logger.info(f"Computing plan for site {site.name} starting on timeslot: {event_timeslot if event_timeslot > 0 else 0}, "
+                             f"night_start={night_start}, event_time={event.time}")
+                start_timeslot[site] = {np.int64(0): event_timeslot if event_timeslot > 0 else 0}
 
         return start_timeslot
 
@@ -200,15 +206,18 @@ class EngineRT:
 
         plans = self.scp.run_rt(start_timeslot)
 
-        for site in self.params.sites:
-            self.nightly_timeline.add(plans.night_idx, site, start_timeslot[site][0], event, plans.plans[site])
-            self.nightly_timeline.calculate_time_losses(plans.night_idx, site)
-        run_summary = StatCalculator.calculate_stitched_timeline_stats(self.nightly_timeline,
-                                                                      self.params.night_indices,
-                                                                      self.params.sites,
-                                                                      self.scp.collector,
-                                                                      self.scp.ranker)
-        s_timelines = SNightTimelines.from_computed_stitched_timelines(self.nightly_timeline)
+        # The start timeslot section above already released the lock, so the Night Monitor
+        # readers are only blocked while the timeline is actually being updated.
+        async with self.nightly_timeline_store.mutate() as nightly_timeline:
+            for site in self.params.sites:
+                nightly_timeline.add(plans.night_idx, site, start_timeslot[site][0], event, plans.plans[site])
+                nightly_timeline.calculate_time_losses(plans.night_idx, site)
+            run_summary = StatCalculator.calculate_stitched_timeline_stats(nightly_timeline,
+                                                                          self.params.night_indices,
+                                                                          self.params.sites,
+                                                                          self.scp.collector,
+                                                                          self.scp.ranker)
+            s_timelines = SNightTimelines.from_computed_stitched_timelines(nightly_timeline)
         s_plan_summary = SRunSummary.from_computed_run_summary(run_summary)
         return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
 
@@ -217,8 +226,7 @@ class EngineRT:
         Run the EngineRT process throughout the set of nights.
         """
         try:
-            # Create night timeline and run event loop while still in the same night
-            self.nightly_timeline = NightlyTimeline()
+            # Run the event loop while still in the same night
             while True:
                 try:
                     # Wait for the next event
@@ -228,6 +236,9 @@ class EngineRT:
                     # Check if we have reached the end of the night
                     if isinstance(event, EndOfNightEvent):
                         _logger.info("Night end event received, ending night scheduling loop.")
+                        # The night is over, so its timeline must not be served as the plan in
+                        # effect to whatever runs next.
+                        await self.nightly_timeline_store.reset()
                         break
                     # Plan is already computed by the callback in consume_events
                     for q in plan_response_subscribers.get(self.process_id, set()):
