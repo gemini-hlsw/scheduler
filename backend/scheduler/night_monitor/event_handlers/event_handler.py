@@ -8,6 +8,7 @@ from gpp_client.generated.custom_fields import TargetEnvironmentFields, Constrai
     CalculatedObservationWorkflowFields, VisitFields
 
 from pydantic import BaseModel
+from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 
 __all__ = [
@@ -36,9 +37,19 @@ class EventHandler(ABC):
 
     _DISPATCH_MAP: Dict[str, Tuple[callable, callable]]
 
-    def __init__(self, scheduler_queue: SchedulerQueue):
+    def __init__(self,
+                 scheduler_queue: SchedulerQueue,
+                 nightly_timeline_store: Optional[NightlyTimelineStore] = None):
+        """
+        Args:
+            scheduler_queue (SchedulerQueue): Use to send new schedule requests to the Engine.
+            nightly_timeline_store (Optional[NightlyTimelineStore]): Shared store holding the
+                timeline the Engine writes. Read it to check the plan in effect before deciding
+                that an event deserves a new schedule.
+        """
         self._DISPATCH_MAP = self._build_dispatch_map()
         self.scheduler_queue = scheduler_queue
+        self.nightly_timeline_store = nightly_timeline_store
 
     @abstractmethod
     def _build_dispatch_map(self) -> Dict[str, Tuple[Callable, Callable]]:

@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from astropy.time import Time
 
+from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.graphql_mid.types import NightPlansError
 from scheduler.night_monitor.night_monitor import NightMonitor
@@ -39,6 +40,7 @@ class SchedulerProcess:
 
         self.process_id = process_id
         self.scheduler_queue = SchedulerQueue()
+        self.nightly_timeline_store = NightlyTimelineStore()
         self.params = params
         self.running_event = asyncio.Event()
         self.engine = None
@@ -97,7 +99,10 @@ class SchedulerProcess:
         night_index = 0
         current_night = self.params.start + timedelta(days=night_index)
         # Initialize the night monitor
-        self.night_monitor = NightMonitor(current_night, self.params.sites, self.scheduler_queue)
+        self.night_monitor = NightMonitor(current_night,
+                                          self.params.sites,
+                                          self.scheduler_queue,
+                                          self.nightly_timeline_store)
 
         # Start night monitor
         await self.night_monitor.start()
@@ -107,7 +112,11 @@ class SchedulerProcess:
         weather_source = self.night_monitor.get_weather_source()
 
         # Initialize Real Time Engine
-        self.engine = EngineRT(self.params, self.scheduler_queue, self.process_id, weather_source=weather_source)
+        self.engine = EngineRT(self.params,
+                               self.scheduler_queue,
+                               self.process_id,
+                               weather_source=weather_source,
+                               nightly_timeline_store=self.nightly_timeline_store)
 
         # Initialize the engine variants
         self._engine_task = asyncio.create_task(self.engine.run())

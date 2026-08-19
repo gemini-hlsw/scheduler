@@ -8,7 +8,8 @@ from lucupy import sky
 from lucupy.minimodel import Site
 from astropy.time import Time
 from scheduler.core.builder.modes import SchedulerModes, app_mode
-from scheduler.core.events.queue.events import NightEvent, TwilightEvent, MorningTwilightEvent, EveningTwilightEvent
+from scheduler.core.events.queue.events import NightEvent, TwilightEvent, MorningTwilightEvent, \
+  EveningTwilightEvent, EndOfNightEvent
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.services.logger_factory import create_logger
 
@@ -51,7 +52,7 @@ class NightTracker:
 
     # Add end of night event
     self.sorted_night_events.append(
-      NightEvent(description="End of Night", time=(self.sorted_night_events[-1].time + timedelta(minutes=5)), site="Both"),
+      EndOfNightEvent(description="End of Night", time=(self.sorted_night_events[-1].time + timedelta(minutes=5)), site="Both"),
     )
 
     # Debugging output

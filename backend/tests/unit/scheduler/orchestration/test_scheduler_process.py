@@ -53,7 +53,7 @@ async def test_night_monitor_shutdown_cancels_night_tracker():
          patch('scheduler.night_monitor.night_monitor.EventListener'), \
          patch('scheduler.night_monitor.night_monitor.EventConsumer'), \
          patch('scheduler.night_monitor.night_monitor.NightTracker'):
-        monitor = NightMonitor(MagicMock(), frozenset(), MagicMock())
+        monitor = NightMonitor(MagicMock(), frozenset(), MagicMock(), MagicMock())
 
     monitor._listener_task = asyncio.create_task(_sleep_forever())
     monitor._consumer_task = asyncio.create_task(_sleep_forever())

@@ -8,6 +8,7 @@ from typing import FrozenSet
 from lucupy.minimodel.site import Site
 
 from scheduler.clients.gpp import gpp
+from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor import EventListener, EventConsumer
 from scheduler.night_monitor.night_tracker import NightTracker
@@ -26,17 +27,24 @@ class NightMonitor:
         scheduler_queue (SchedulerQueue): Client to interact with the Scheduler Queue that commands new schedules.
         listener (EventListener): Event listener handles all subscriptions connections and messages.
         consumer (EventConsumer): Event Consumer that receives serialized events from subscriptions.
+        nightly_timeline_store (NightlyTimelineStore): Shared store holding the timeline the engine
+            writes, so handlers can check the plan in effect before requesting a new schedule.
 
         _shutdown_event (asyncio.Event): Signals shutting down for all subcomponents.
         _listener_task (asyncio.Task): Holds the Event listener process.
         _consumer_task (asyncio.Task): Holds the Event Consumer process.
 
     """
-    def __init__(self, night: datetime, sites: FrozenSet[Site], scheduler_queue: SchedulerQueue):
+    def __init__(self,
+                 night: datetime,
+                 sites: FrozenSet[Site],
+                 scheduler_queue: SchedulerQueue,
+                 nightly_timeline_store: NightlyTimelineStore):
         _logger.debug("Initializing Night Monitor...")
         # The shared queue for events
         self.event_queue = asyncio.Queue()
         self.scheduler_queue = scheduler_queue
+        self.nightly_timeline_store = nightly_timeline_store
 
         self._shutdown_event = asyncio.Event()
 
@@ -44,7 +52,12 @@ class NightMonitor:
         # even if there is only one client instance
         client = gpp.client
         self.listener = EventListener(client, self.event_queue, self._shutdown_event)
-        self.consumer = EventConsumer(self.event_queue, self._shutdown_event, self.scheduler_queue)
+        self.consumer = EventConsumer(
+            self.event_queue,
+            self._shutdown_event,
+            self.scheduler_queue,
+            self.nightly_timeline_store
+        )
         self.night_tracker = NightTracker(night+timedelta(days=1), sites, scheduler_queue)
 
         self._listener_task: asyncio.Task | None = None
