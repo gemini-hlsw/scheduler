@@ -77,20 +77,25 @@ class ODBEventHandler(EventHandler):
         Args:
             event (MockObservationEdit): The observation edit type deleted.
         """
-        # Retrieve last plan
-        last_plan = LastPlanMock() # plandb_client.get_last_plan()
+        # Visits stores ObservationIDs, no internal ids
+        deleted_obs = event.value.reference.label
 
-        if event.value.id in last_plan:
-            # TODO: If we keep the ObservationID wrapper this would require a modification
-            # TODO: Create an appropriate event to trigger a new plan
-            await self.scheduler_queue.add_schedule_event(
-                ObservationActivationEvent(
-                    site=ALL_SITES,
-                    observation_id=event.value.id,
-                    time=datetime.now(UTC),
-                    description=f'Observation {event.value.id} deleted from plan: {event.edit_type}'
+        # TODO: OR GROUP support. how do we know an observation belongs two too sites.
+        # If is correctly added then it should appear in the other site
+
+        for site in ALL_SITES:
+            # Retrieve last plan observations IDs
+            obs_ids = await self.nightly_timeline_store.planned_observation_ids(site)
+            if deleted_obs in obs_ids:
+                await self.scheduler_queue.add_schedule_event(
+                    ObservationActivationEvent(
+                        site=site,
+                        observation_id=event.value.id,
+                        time=datetime.now(UTC),
+                        description=f'Observation {deleted_obs} deleted from plan'
+                    )
                 )
-            )
+                break # to not trigger two events
 
     async def _on_updated_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
         """
@@ -102,10 +107,13 @@ class ODBEventHandler(EventHandler):
             scheduler_queue (SchedulerQueue): Use to send new schedule request to the Engine.
         """
 
+        # An observation was set
+        if event.value.workflow.value.state == 'ONGOING':
+            pass
 
-        # Retrieve last plan
-        # last_plan = LastPlanMock()
-        # old_observation = last_plan.get_observation(event.value.id)
+        # Do we know get this at somepoint if executableOnly=true?
+        if event.value.workflow.value.state == 'COMPLETED':
+            pass
 
         # TODO: define when we want to trigger a new plan
         # Recommended to check the workflow state (missing in the gpp-client event for now)
@@ -123,16 +131,8 @@ class ODBEventHandler(EventHandler):
             # entirely as the local calculation would be stored when the query is done in the Collector side.
 
             t0 = time.perf_counter()
-            try:
-                obs = await gpp.client.observation.get_by_id(value.id)
-            except Exception as exc:
-                _logger.error(f'Could not fetch observation {value.id} to resolve its site: {exc}')
-                obs = None
-
-            observation = obs.observation if obs else None
-            reference = observation.reference if observation else None
-            label = reference.label if reference else None
-            instrument = observation.instrument if observation else None
+            label = value.reference.label if value else None
+            instrument = value.instrument if value else None
             site_key = site_key_from_instrument(instrument)
             if site_key is None or label is None:
                 _logger.warning(
@@ -167,7 +167,7 @@ class ODBEventHandler(EventHandler):
         # Check type of event
 
         _logger.info(
-            f'Recieved ObservationEditEvent:'
+            f'Received ObservationEditEvent:'
             f' For observation {event.value.id} -> {event.edit_type}'
             f' Old calculation: {event.old_calculation_state} New calculation: {event.new_calculation_state}'
         )

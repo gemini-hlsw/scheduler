@@ -52,11 +52,6 @@ _SB_TO_FRACTION = {
     SkyBackground.BRIGHT: 1.0,
 }
 
-# The instrument -> site mapping moved to sight.calculator.constants so
-# consumers outside this package can use it: importing anything from
-# night_monitor runs its __init__, which cycles through graphql_mid/engine.
-# Re-exported here (see __all__) so existing callers are unaffected.
-
 
 def _to_utc_datetime(value) -> Optional[datetime]:
     """Coerce a GPP datetime scalar (str or datetime) to a tz-aware UTC datetime."""
