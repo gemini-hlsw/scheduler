@@ -279,7 +279,7 @@ class EventCycle:
         for entry in relevant_entries:
             accounted_observations = entry.accounted_observations
             for v in entry.plan_generated.visits:
-                if v.obs_id in accounted_observations:
+                if v.observation.id in accounted_observations:
                     accounted_visits.append(v)
 
         end = relevant_entries[-1].plan_generated.end

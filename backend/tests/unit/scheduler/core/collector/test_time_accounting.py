@@ -145,9 +145,7 @@ def _visit(obs: Observation,
            start_time_slot: int,
            time_slots: int) -> Visit:
     return Visit(start_time=_START,
-                 obs_id=obs.id,
-                 obs_class=obs.obs_class,
-                 obs_conditions=None,
+                 observation=obs,
                  atom_start_idx=atom_start,
                  atom_end_idx=atom_end,
                  start_time_slot=start_time_slot,
@@ -156,12 +154,7 @@ def _visit(obs: Observation,
                  peak_score=1.0,
                  step_start_idx=None,
                  step_count=None,
-                 instrument=None,
-                 fpu=None,
-                 disperser=None,
-                 filters=None,
                  completion=f'{atom_end + 1}/{len(obs.sequence)}',
-                 observation_atoms=len(obs.sequence),
                  atom_times=[])
 
 

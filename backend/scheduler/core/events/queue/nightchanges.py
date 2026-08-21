@@ -147,7 +147,7 @@ class NightlyTimeline:
                             break
                     if len(aux_visit.atom_times) > 0:
                         aux_visit.time_slots = aux_visit.atom_times[-1]
-                        aux_visit.completion = f"{len(aux_visit.atom_times)}/{aux_visit.observation_atoms}"
+                        aux_visit.completion = f"{len(aux_visit.atom_times)}/{len(aux_visit.observation.sequence)}"
                         new_plan_visits.append(aux_visit)
             else:
                 break
@@ -306,7 +306,7 @@ class NightlyTimeline:
                                 # Display 1-indexed start and end steps to match Explore/Observe
                                 step_start = visit.step_start_idx + 1 if visit.step_start_idx is not None else -1
                                 step_end = step_start + visit.step_count - 1 if visit.step_count is not None else -1
-                                print(f'\t{visit_time}   {visit.obs_id.id:20} {visit.score:8.2f} '
+                                print(f'\t{visit_time}   {visit.observation.id.id:20} {visit.score:8.2f} '
                                       f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} '
                                       f'{step_start:4d} {step_end:4d} {visit.start_time_slot:4d}'
                                       f' {visit.start_time_slot+visit.time_slots:4d}', file=f)
@@ -331,12 +331,12 @@ class NightlyTimeline:
                                            'visits': [{"starTime": v.start_time.astimezone(utc).strftime(self._datetime_formatter),
                                                        "endTime": (v.start_time+
                                                                    v.time_slots*te.plan_generated.time_slot_length).strftime(self._datetime_formatter),
-                                                       "obsId": v.obs_id.id,
+                                                       "obsId": v.observation.id.id,
                                                        "atomStartIdx": v.atom_start_idx,
                                                        "atomEndIdx": v.atom_end_idx,
                                                        "altitude": alt,
-                                                       "instrument": v.instrument.id if v.instrument else '',
-                                                       "obs_class": v.obs_class.name,
+                                                       "instrument": inst.id if (inst := v.observation.instrument()) else '',
+                                                       "obs_class": v.observation.obs_class.name,
                                                        "score": v.score,
                                                        "peakScore": v.peak_score,
                                                        "completion": v.completion}

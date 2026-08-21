@@ -84,20 +84,25 @@ class SVisit:
     def from_computed_visit(visit: Visit, alt_degs: List[float]) -> 'SVisit':
         utc = ZoneInfo('UTC')
         end_time = visit.start_time + timedelta(minutes=visit.time_slots * config.collector.time_slot_length)
+        # Each accessor rescans the sequence's resources, so resolve them once.
+        instrument = visit.observation.instrument()
+        fpu = visit.observation.fpu()
+        disperser = visit.observation.disperser()
+        filters = visit.observation.filters()
         return SVisit(start_time=visit.start_time.astimezone(utc),
                       end_time=end_time.astimezone(utc),
-                      obs_id=visit.obs_id,
+                      obs_id=visit.observation.id,
                       atom_start_idx=visit.atom_start_idx,
                       atom_end_idx=visit.atom_end_idx,
                       altitude=alt_degs,
-                      instrument=visit.instrument.id if visit.instrument is not None else 'None',
-                      fpu=visit.fpu.id if visit.fpu is not None else 'None',
-                      disperser=visit.disperser.id if visit.disperser is not None else 'None',
-                      filters=[f.id for f in visit.filters] if visit.filters is not None else [],
-                      required_conditions=SConditions.from_computed_conditions(visit.obs_conditions),
+                      instrument=instrument.id if instrument is not None else 'None',
+                      fpu=fpu.id if fpu is not None else 'None',
+                      disperser=disperser.id if disperser is not None else 'None',
+                      filters=[f.id for f in filters] if filters is not None else [],
+                      required_conditions=SConditions.from_computed_conditions(visit.observation.constraints.conditions),
                       score=visit.score,
                       peak_score=visit.peak_score,
-                      obs_class=visit.obs_class.name,
+                      obs_class=visit.observation.obs_class.name,
                       completion=visit.completion,
                       atom_times=visit.atom_times)
 

@@ -65,7 +65,7 @@ def sync_rt_schedule(params: SchedulerParameters, night_start_time: Time, night_
     plans.plans[site].alt_degs = []
     # Calculate altitude data
     for visit in plans.plans[site].visits:
-        ti = scp.collector.get_target_info(visit.obs_id)
+        ti = scp.collector.get_target_info(visit.observation.id)
         end_time_slot = visit.start_time_slot + visit.time_slots
         values = ti[plans.night_idx].alt[visit.start_time_slot: end_time_slot]
         alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]

@@ -77,7 +77,7 @@ class NightlyTimelineStore:
             entry = self._last_entry_with_plan(site)
             if entry is None:
                 return frozenset()
-            return frozenset(visit.obs_id for visit in entry.plan_generated.visits)
+            return frozenset(visit.observation.id for visit in entry.plan_generated.visits)
 
     def _last_entry_with_plan(self, site: Site) -> Optional[TimelineEntry]:
         """

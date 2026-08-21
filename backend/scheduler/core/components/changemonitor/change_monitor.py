@@ -209,7 +209,7 @@ class ChangeMonitor(SchedulerComponent):
 
                 # TODO: This should be more complicated to allow for splitting and to meet requirements.
                 # TODO: Talk to Bryan about how to go about this.
-                obs = Collector.get_observation(visit.obs_id)
+                obs = Collector.get_observation(visit.observation.id)
 
                 # Most restrictive conditions.
                 mrc = obs.constraints.conditions
@@ -280,7 +280,7 @@ class ChangeMonitor(SchedulerComponent):
                     return TimeCoordinateRecord(event=event,
                                                 timeslot_idx=event_timeslot)
 
-                past_obs = self.collector.get_observation(visit.obs_id)
+                past_obs = self.collector.get_observation(visit.observation.id)
                 program = self.collector.get_program(past_obs.belongs_to)
 
                 # If the visit we are interrupting is Band4, interrupt the visit.
