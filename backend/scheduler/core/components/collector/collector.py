@@ -692,7 +692,7 @@ class Collector(SchedulerComponent):
             # Restore this if we actually need ii, but seems it was just being used to check that grpvisits nonempty.
             # for ii, visit in enumerate(sorted(plan.visits, key=lambda v: v.start_time_slot)):
             for visit in sorted(plan.visits, key=lambda v: v.start_time_slot):
-                obs = self.get_observation(visit.obs_id)
+                obs = self.get_observation(visit.observation.id)
                 group = self._get_group(obs)
                 # print(f'time_accounting: {obs.id.id} {group.id.id} {group.unique_id.id}')
                 if grpvisits and group.is_scheduling_group() and group == grpvisits[-1].group:
@@ -712,7 +712,7 @@ class Collector(SchedulerComponent):
                     # from atom_start_idx, makes this the same expression the atom loop applies to
                     # that atom, so the gate is exactly "its first atom finished before the bound".
                     first_visit = grpvisit.visits[0]
-                    observation = self.get_observation(first_visit.obs_id)
+                    observation = self.get_observation(first_visit.observation.id)
                     cumul_seq = observation.cumulative_exec_times()
                     n_slots_atom0 = time2slots(time_slot_length,
                                                observation.acq_overhead
@@ -740,7 +740,7 @@ class Collector(SchedulerComponent):
 
                 for visit in grpvisit.visits:
                     # Observation information
-                    observation = self.get_observation(visit.obs_id)
+                    observation = self.get_observation(visit.observation.id)
                     visit_observations.setdefault(observation.id, observation)
                     atoms_charged.setdefault(observation.id, 0)
 

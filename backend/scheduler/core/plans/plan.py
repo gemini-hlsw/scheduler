@@ -107,9 +107,7 @@ class Plan:
 
         visit = Visit(
             start,
-            obs.id,
-            obs.obs_class,
-            obs.constraints.conditions,
+            obs,
             atom_start,
             atom_end,
             start_time_slot,
@@ -118,14 +116,9 @@ class Plan:
             peak_score,
             step_start,
             step_count,
-            obs.instrument(),
-            obs.fpu(),
-            obs.disperser(),
-            obs.filters(),
             # Completion as planned. Collector.time_accounting restates this from the atoms that
             # were actually observed, since an event can cut the visit short of atom_end.
             f"{atom_end + 1}/{len(obs.sequence)}",
-            len(obs.sequence),
             atom_times
         )
         self.visits.append(visit)
@@ -163,4 +156,4 @@ class Plan:
             return plan
 
     def __contains__(self, obs: Observation) -> bool:
-        return any(visit.obs_id == obs.id for visit in self.visits)
+        return any(visit.observation.id == obs.id for visit in self.visits)

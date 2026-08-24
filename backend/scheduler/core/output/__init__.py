@@ -137,7 +137,7 @@ def print_plans(all_plans: List[Plans]) -> None:
             for visit in plan.visits:
                 start_time_str = visit.start_time.strftime('%Y-%m-%d %H:%M')
                 end_time_str = (visit.start_time + timedelta(minutes=visit.time_slots)).strftime('%Y-%m-%d %H:%M')
-                print(f'{start_time_str} to {end_time_str}   {visit.obs_id.id:20} {visit.score:8.2f}  '
+                print(f'{start_time_str} to {end_time_str}   {visit.observation.id.id:20} {visit.score:8.2f}  '
                       f'{visit.atom_start_idx:9d}  {visit.atom_end_idx:9d}  {visit.start_time_slot:9d}  '
                       f' {(visit.start_time_slot + visit.time_slots - 1):9d} {visit.time_slots:9d}')
         else:
@@ -152,13 +152,13 @@ def plans_table(all_plans: List[Plans]) -> List[Dict[Site, DataFrame]]:
         for plan in plans:
             new_entry = {'Start': [v.start_time for v in plan.visits],
                          'End': [v.start_time+timedelta(minutes=v.time_slots) for v in plan.visits],
-                         'Observation': [v.obs_id.id for v in plan.visits],
-                         'Class': [v.obs_class.name for v in plan.visits],
+                         'Observation': [v.observation.id.id for v in plan.visits],
+                         'Class': [v.observation.obs_class.name for v in plan.visits],
                          'Atom start': [v.atom_start_idx for v in plan.visits],
                          'Atom end': [v.atom_end_idx for v in plan.visits],
                          'Length': [v.time_slots for v in plan.visits],
                          'Score': [v.score for v in plan.visits],
-                         'Instrument': [v.instrument.id for v in plan.visits]}
+                         'Instrument': [v.observation.instrument().id for v in plan.visits]}
             df = DataFrame(new_entry)
             per_site[plan.site] = df
         per_night.append(per_site)

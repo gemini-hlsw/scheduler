@@ -57,7 +57,7 @@ class StatCalculator:
 
                     if 'Morning' in entry.event.description:
                         for v in plan.visits:
-                            obs = collector.get_observation(v.obs_id)
+                            obs = collector.get_observation(v.observation.id)
                             program = collector.get_program(obs.belongs_to)
 
                             # Check if program is on the table
@@ -76,7 +76,7 @@ class StatCalculator:
                     completion_fraction: Counter[Band] = Counter({b: 0 for b in Band})
 
                     for visit in plan.visits:
-                        obs = collector.get_observation(visit.obs_id)
+                        obs = collector.get_observation(visit.observation.id)
                         # check if obs is a too
                         if obs.too_type is not None:
                             n_toos += 1
@@ -91,7 +91,7 @@ class StatCalculator:
                         completion_fraction[obs.band] += 1
 
                         # Calculate altitude data
-                        ti = collector.get_target_info(visit.obs_id)
+                        ti = collector.get_target_info(visit.observation.id)
                         end_time_slot = visit.start_time_slot + visit.time_slots
                         values = ti[night_idx].alt[visit.start_time_slot: end_time_slot]
                         alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
@@ -150,7 +150,7 @@ class StatCalculator:
 
                     if entry_idx == len(timeline.stitched_timeline[night_idx][site]) - 1:
                         for v in plan.visits:
-                            obs = collector.get_observation(v.obs_id)
+                            obs = collector.get_observation(v.observation.id)
                             program = collector.get_program(obs.belongs_to)
 
                             # Check if program is on the table
@@ -169,7 +169,7 @@ class StatCalculator:
                     completion_fraction: Counter[Band] = Counter({b: 0 for b in Band})
 
                     for visit in plan.visits:
-                        obs = collector.get_observation(visit.obs_id)
+                        obs = collector.get_observation(visit.observation.id)
                         # check if obs is a too
                         if obs.too_type is not None:
                             n_toos += 1
@@ -184,7 +184,7 @@ class StatCalculator:
                         completion_fraction[obs.band] += 1
 
                         # Calculate altitude data
-                        ti = collector.get_target_info(visit.obs_id)
+                        ti = collector.get_target_info(visit.observation.id)
                         end_time_slot = visit.start_time_slot + visit.time_slots
                         values = ti[night_idx].alt[visit.start_time_slot: end_time_slot]
                         alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]

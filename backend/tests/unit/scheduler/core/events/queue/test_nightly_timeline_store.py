@@ -14,7 +14,7 @@ NIGHT_IDX = NightIndex(0)
 
 def fake_plan(*obs_ids):
     """A stand-in for Plan: the store only ever reads visits and deep-copies the whole thing."""
-    return SimpleNamespace(visits=[SimpleNamespace(obs_id=ObservationID(obs_id)) for obs_id in obs_ids])
+    return SimpleNamespace(visits=[SimpleNamespace(observation=SimpleNamespace(id=ObservationID(obs_id))) for obs_id in obs_ids])
 
 
 def entry(plan):
@@ -44,7 +44,7 @@ async def test_mutate_exposes_the_live_timeline():
         timeline.timeline[NIGHT_IDX] = {Site.GN: [entry(fake_plan('GN-1'))]}
 
     async with store.mutate() as same_timeline:
-        assert same_timeline.timeline[NIGHT_IDX][Site.GN][0].plan_generated.visits[0].obs_id == ObservationID('GN-1')
+        assert same_timeline.timeline[NIGHT_IDX][Site.GN][0].plan_generated.visits[0].observation.id == ObservationID('GN-1')
 
 
 @pytest.mark.asyncio
@@ -72,7 +72,7 @@ async def test_last_plan_prefers_the_stitched_timeline():
 
     plan = await store.last_plan(Site.GN)
 
-    assert [v.obs_id for v in plan.visits] == [ObservationID('GN-stitched')]
+    assert [v.observation.id for v in plan.visits] == [ObservationID('GN-stitched')]
 
 
 @pytest.mark.asyncio
@@ -82,7 +82,7 @@ async def test_last_plan_falls_back_to_the_raw_timeline():
 
     plan = await store.last_plan(Site.GN)
 
-    assert [v.obs_id for v in plan.visits] == [ObservationID('GN-raw')]
+    assert [v.observation.id for v in plan.visits] == [ObservationID('GN-raw')]
 
 
 @pytest.mark.asyncio
@@ -92,7 +92,7 @@ async def test_last_plan_skips_entries_without_a_plan():
 
     plan = await store.last_plan(Site.GN)
 
-    assert [v.obs_id for v in plan.visits] == [ObservationID('GN-1')]
+    assert [v.observation.id for v in plan.visits] == [ObservationID('GN-1')]
 
 
 @pytest.mark.asyncio
