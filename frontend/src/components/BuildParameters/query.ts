@@ -1,8 +1,8 @@
 import { graphql } from "@/gql";
 
 export const getProgramList = graphql(`
-  query availablePrograms {
-    availablePrograms {
+  query availablePrograms($nightDate: Date) {
+    availablePrograms(nightDate: $nightDate) {
       id
       refLabel
     }

@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import final, Optional, FrozenSet, List, Dict, Tuple
 
@@ -148,10 +148,25 @@ class BuildParameters(BaseModel):
     visibility_end: datetime | None = None
     program_list: List[str] | None = None
 
+    def program_date(self) -> date | None:
+        """
+        The night these build parameters target, used to filter programs by the
+        date they were active instead of by today.
+
+        Returns
+            date | None: `visibility_start` if given, else the earliest night start,
+            else None when nothing was set (callers should fall back to today).
+        """
+        if self.visibility_start is not None:
+            return self.visibility_start.date()
+        night_starts = [nt.night_start for nt in (self.night_times or {}).values()
+                        if nt is not None and nt.night_start is not None]
+        return min(night_starts).date() if night_starts else None
+
     def get_night_times(self) -> Dict[Site, Tuple[Time | None, Time | None]]:
         """
         Returns
-           Dict[Site, Tuple[Time | None, Time | None]]: the night times for both sites in astropy time.
+           Dict[Site, Tuple[Time | None, Time | None]]: the nighttime for both sites in astropy time.
            Either value can be None if not provided.
         """
         if self.night_times is None:
