@@ -8,6 +8,7 @@ import { DateRange } from "react-day-picker";
 import { FaCog, FaTrash } from "react-icons/fa";
 import {
   getSiteOffset,
+  toDateOnlyString,
   toUtcIsoString,
   tzDateToString,
   utcToLocal,
@@ -28,9 +29,28 @@ export default function BuildParameters({
     context: { clientName: "realtimeClient" },
   });
 
+  const [date, setDate] = useState<DateRange | undefined>({
+    from: undefined,
+    to: undefined,
+  });
+  const [programs, updatePrograms] = useState([]);
+  const [startTimeGN, setStartTimeGN] = useState<Date | undefined>(undefined);
+  const [startTimeGS, setStartTimeGS] = useState<Date | undefined>(undefined);
+  const [endTimeGN, setEndTimeGN] = useState<Date | undefined>(undefined);
+  const [endTimeGS, setEndTimeGS] = useState<Date | undefined>(undefined);
+
+  // The list must match the night being built, not today. Same order the
+  // backend uses: visibility start first, then the earliest night start.
+  const nightDate =
+    date?.from ??
+    [startTimeGN, startTimeGS]
+      .filter((d): d is Date => Boolean(d))
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+
   const { data: programList, loading: programListLoading } = useQuery(
     getProgramList,
     {
+      variables: { nightDate: nightDate ? toDateOnlyString(nightDate) : null },
       fetchPolicy: "no-cache",
       context: { clientName: "realtimeClient" },
     }
@@ -38,14 +58,17 @@ export default function BuildParameters({
 
   useEffect(() => {
     if (programList) {
-      updatePrograms(
-        programList.availablePrograms.map((p) => ({
+      updatePrograms((current) => {
+        // A refetch (new night, reconnect) must not silently re-check what the
+        // operator unchecked: keep their picks, default unseen programs to on.
+        const picked = new Map(current.map((p) => [p.id, p.checked]));
+        return programList.availablePrograms.map((p) => ({
           label: p.refLabel,
           id: p.id,
-          checked: true,
+          checked: picked.get(p.id) ?? true,
           disabled: false,
-        }))
-      );
+        }));
+      });
     }
   }, [programList]);
 
@@ -59,16 +82,6 @@ export default function BuildParameters({
       }))
     );
   }
-
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: undefined,
-    to: undefined,
-  });
-  const [programs, updatePrograms] = useState([]);
-  const [startTimeGN, setStartTimeGN] = useState<Date | undefined>(undefined);
-  const [startTimeGS, setStartTimeGS] = useState<Date | undefined>(undefined);
-  const [endTimeGN, setEndTimeGN] = useState<Date | undefined>(undefined);
-  const [endTimeGS, setEndTimeGS] = useState<Date | undefined>(undefined);
 
   function setProgram(program: string, state: boolean) {
     const auxProgramList = [...programs];
@@ -233,7 +246,12 @@ export default function BuildParameters({
           <RunButton
             loadingPlan={false}
             run={sendBuildParams}
-            isRunDisabled={false}
+            // An empty programList reads as "no filter" and the build loads every
+            // program of the current day, so never send one.
+            isRunDisabled={
+              programListLoading ||
+              programs.filter((p) => p.checked).length === 0
+            }
             title="Send Parameters"
             icon={<FaCog />}
             full={true}

@@ -540,6 +540,15 @@ class Collector(SchedulerComponent):
                 np.arange(self.num_nights_calculated)
             )
 
+            _logger.info(
+                f'Night configurations for {site.name}: '
+                + ', '.join(
+                    f'night={int(n_idx)} local_date={c.local_date} '
+                    f'resources={len(c.resources)} lgs={c.is_lgs} too={c.too_status}'
+                    for n_idx, c in nc[site].items()
+                )
+            )
+
         for next_program in data:
             try:
                 if len(next_program.keys()) == 1:
@@ -583,28 +592,42 @@ class Collector(SchedulerComponent):
         for n_idx in range(self.num_nights_calculated):
             night_idx = NightIndex(n_idx)
             obs_with_resources.setdefault(night_idx, [])
+
+            dropped_resources = 0
+            dropped_by_filter = 0
+            missing_resources = set()
             for p_id, obs in parsed_observations:
+                night_resources = nc[obs.site][night_idx].resources
                 if "GMOS" in obs.instrument().id:
-                    has_resources = all(
-                        resource in nc[obs.site][night_idx].resources
-                        for resource in obs.required_resources()
-                    )
+                    required = list(obs.required_resources())
                 else:
-                    has_resources = all(
-                        resource in nc[obs.site][night_idx].resources
+                    required = [
+                        resource
                         for resource in obs.required_resources()
                         if resource.type != ResourceType.FILTER
                         and resource.type != ResourceType.DISPERSER
                         and resource.type != ResourceType.FPU
-                    )
-                if not has_resources:
+                    ]
+                missing = [r for r in required if r not in night_resources]
+                if missing:
+                    dropped_resources += 1
+                    missing_resources.update(r.id for r in missing)
                     continue
                 # Rapid ToOs bypass block scheduling here so that they always have visibility
                 # data available for activation. See the note in load_programs.
                 if (obs.too_type is not TooType.RAPID
                         and not nc[obs.site][night_idx].filter.program_filter(self.get_program(p_id))):
+                    dropped_by_filter += 1
                     continue
                 obs_with_resources[night_idx].append(obs)
+
+            _logger.info(
+                f'Night configuration filter night={int(night_idx)}: '
+                f'{len(obs_with_resources[night_idx])}/{len(parsed_observations)} schedulable '
+                f'({dropped_resources} missing resources, {dropped_by_filter} blocked by program filter)'
+                + (f'; resources not available: {sorted(missing_resources)}'
+                   if missing_resources else '')
+            )
 
         if self._use_local_visibility():
             self._compute_visibility_locally(parsed_observations, obs_with_resources)
@@ -623,10 +646,6 @@ class Collector(SchedulerComponent):
         _logger.info(
             f'Collected {len(Collector._observations)} observations: {[o.id for o in Collector._observations.keys()]}.'
         )
-
-    # def load_target_info_for_too(self, obs: Observation, target: Target) -> None:
-    #     ti = self._calculate_target_info(obs, target)
-    #     Collector._target_info[target.name, obs.id] = ti
 
     def night_configurations(self,
                              site: Site,
@@ -1042,13 +1061,15 @@ class Collector(SchedulerComponent):
                 night_event_cache[key] = ne
             return ne
 
-        # obs_with_resources already encodes resource + program-filter pass for
-        # each night. Build per-night sets for O(1) "is this obs schedulable
-        # on this night" lookup.
         schedulable_by_night = {
             n_idx: {o.id.id for o in obs_list}
             for n_idx, obs_list in obs_with_resources.items()
         }
+
+        computed_counts = {NightIndex(n): 0 for n in range(num_nights)}
+        visible_counts = {NightIndex(n): 0 for n in range(num_nights)}
+        no_resource_counts = {NightIndex(n): 0 for n in range(num_nights)}
+        visible_slot_totals = {NightIndex(n): 0 for n in range(num_nights)}
 
         for p_id, obs in parsed_observations:
             base = obs.base_target()
@@ -1150,8 +1171,22 @@ class Collector(SchedulerComponent):
                 mask = resize_to(mask, expected_length).astype(bool)
                 ti.visibility_slot_idx = np.where(mask)[0]
 
+                computed_counts[night_idx] += 1
+                if obs.id.id not in schedulable_by_night.get(night_idx, set()):
+                    no_resource_counts[night_idx] += 1
                 if mask.any():
+                    visible_counts[night_idx] += 1
+                    visible_slot_totals[night_idx] += int(mask.sum())
                     self._visible_obs_by_night.setdefault(night_idx, set()).add(obs.id)
                 target_info_map[night_idx] = ti
 
             Collector._observations[obs.id] = obs, base
+
+        for n_idx in range(num_nights):
+            night_idx = NightIndex(n_idx)
+            _logger.info(
+                f'Local visibility night={n_idx}: '
+                f'{visible_counts[night_idx]}/{computed_counts[night_idx]} observations visible, '
+                f'{visible_slot_totals[night_idx]} visible timeslots in total '
+                f'({no_resource_counts[night_idx]} forced empty by the night configuration)'
+            )

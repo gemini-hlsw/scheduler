@@ -170,8 +170,19 @@ class Query:
         return f'Plan is on the queue in the Operation Process!'
 
     @strawberry.field
-    async def available_programs(self)-> list[AvailableProgram]:
-        results = await gpp.client.scheduler.get_all_reference_labels()
+    async def available_programs(self, night_date: Optional[date] = None)-> list[AvailableProgram]:
+        """Programs active on a given night.
+
+        ``nightDate`` defaults to the night the stored build parameters target,
+        so an older build shows the programs of that night and not of today.
+        """
+        if night_date is None:
+            build_params = await build_params_store.get()
+            night_date = build_params.program_date()
+
+        results = await gpp.client.scheduler.get_all_reference_labels(
+            date=night_date.isoformat() if night_date is not None else None
+        )
 
         return [
             AvailableProgram(id=p[1], ref_label=p[0]) for p in results

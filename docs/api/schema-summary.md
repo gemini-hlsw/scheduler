@@ -107,7 +107,7 @@ type ObservationCoverage {
   site: String
   targetName: String
   status: ObservationStatus!
-  skipReason: String
+  reason: String
 }
 
 type ObservationCoveragePage {
@@ -129,7 +129,7 @@ type Query {
   schedule(scheduleId: String!, newScheduleInput: CreateNewScheduleInput!): String!
   scheduleV2: String!
   onDemandSchedule: String!
-  availablePrograms: [AvailableProgram!]!
+  availablePrograms(nightDate: Date = null): [AvailableProgram!]!
   visibilityAggregatorStatus: VisibilityAggregatorStatus!
   visibilityCoverage(nightDate: Date = null): VisibilityCoverage!
   observationCoverage(nightDate: Date = null, status: ObservationStatus = null, site: String = null, programLabel: String = null, search: String = null, limit: Int! = 50, offset: Int! = 0): ObservationCoveragePage!

@@ -87,6 +87,10 @@ class EngineRT:
         vis_end = build_params.visibility_end or self.params.end_vis
         programs_list = build_params.program_list or self.params.programs_list
 
+        _logger.info(
+            f"Program list for this build: "
+            f"{len(programs_list) if programs_list else 'all programs active today'}")
+
         collector = await builder.async_build_collector(
             start=vis_start,
             end=vis_end,

@@ -4,6 +4,10 @@ export function toUtcIsoString(date: Date) {
   return utcDate.toISOString().split(".")[0].replace("T", " ");
 }
 
+export function toDateOnlyString(date: Date) {
+  return toUtcIsoString(date).split(" ")[0];
+}
+
 export function getOffset(timeZone = "UTC", date = new Date()) {
   const utcDate = new Date(date.toLocaleString("en-US", { timeZone: "UTC" }));
   const tzDate = new Date(date.toLocaleString("en-US", { timeZone }));
