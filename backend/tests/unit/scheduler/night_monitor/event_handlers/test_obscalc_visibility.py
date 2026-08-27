@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -61,9 +61,12 @@ def _tw(start_utc, end, inclusion=TimingWindowInclusion.INCLUDE):
 
 def _value(asterism=None, air_mass=None, hour_angle=None, sb=SkyBackground.DARK,
            timing_windows=None, start="2025-02-01", end="2025-02-05",
-           state=ObservationWorkflowState.READY, obs_id="o-123"):
+           state=ObservationWorkflowState.READY, obs_id="o-123",
+           instrument=Instrument.GMOS_SOUTH, label="G-2026A-0397-D-0067"):
     return SimpleNamespace(
         id=obs_id,
+        instrument=instrument,
+        reference=SimpleNamespace(label=label) if label is not None else None,
         workflow=SimpleNamespace(value=SimpleNamespace(state=state)),
         target_environment=SimpleNamespace(asterism=asterism or [], explicit_base=None),
         constraint_set=SimpleNamespace(
@@ -307,36 +310,61 @@ async def test_calculate_and_store_visibility_skips_non_sidereal():
 
 # --- _on_updated_edit handler ---------------------------------------------------------------
 
-def _handler():
-    return ODBEventHandler(scheduler_queue=AsyncMock())
+def _plan(visits=(), found=None):
+    """
+    Stand-in for the Plan the handler reads out of the NightlyTimelineStore.
 
-
-def _obs_response(label, instrument=Instrument.GMOS_SOUTH):
-    ref = SimpleNamespace(label=label) if label is not None else None
+    ``found`` is what ``Plan.find`` returns: the observation as the last plan knew it, or None
+    when the observation is not in the plan.
+    """
     return SimpleNamespace(
-        observation=SimpleNamespace(reference=ref, instrument=instrument)
+        visits=list(visits),
+        time_slot_length=timedelta(minutes=1),
+        find=lambda obs_id: found,
     )
+
+
+def _handler(last_plan=None):
+    """
+    Handler wired to a stubbed timeline store. ``last_plan=None`` means no plan has been
+    generated for the site yet, so there is nothing to compare the event against.
+    """
+    store = MagicMock()
+    store.last_plan = AsyncMock(return_value=last_plan)
+    store.planned_observation_ids = AsyncMock(return_value=frozenset())
+    return ODBEventHandler(scheduler_queue=AsyncMock(), nightly_timeline_store=store)
+
+
+@pytest.fixture
+def handler_factory():
+    """Builds handlers and disarms their timers, so no pending wake-up outlives the test."""
+    built = []
+
+    def make(last_plan=None):
+        handler = _handler(last_plan)
+        built.append(handler)
+        return handler
+
+    yield make
+
+    for handler in built:
+        for timer in (*handler.idle_timer.values(), *handler.observation_execution_timer.values()):
+            timer.cancel()
 
 
 @pytest.mark.asyncio
-async def test_on_updated_edit_ready_computes_and_replans():
-    handler = _handler()
+async def test_on_updated_edit_ready_computes_and_replans(handler_factory):
+    # READY and absent from the plan: a new observation, so compute visibility and replan.
+    handler = handler_factory(_plan(found=None))
     value = _value(state=ObservationWorkflowState.READY, obs_id="o-1")
     event = SimpleNamespace(value=value, edit_type="UPDATED")
 
-    mock_gpp = MagicMock()
-    mock_gpp.client.observation.get_by_id = AsyncMock(
-        return_value=_obs_response("G-2026A-0397-D-0067", Instrument.GMOS_SOUTH)
-    )
-
-    with patch("scheduler.night_monitor.event_handlers.odb_event_handler.gpp", mock_gpp), \
-         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
+    with patch("scheduler.night_monitor.event_handlers.odb_event_handler."
                "sight_visibility_enabled", return_value=True), \
          patch("scheduler.night_monitor.event_handlers.odb_event_handler."
                "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
         await handler._on_updated_edit(event)
 
-    mock_gpp.client.observation.get_by_id.assert_awaited_once_with("o-1")
     mock_calc.assert_awaited_once()
     assert mock_calc.await_args.kwargs == {
         "observation_id": "G-2026A-0397-D-0067",
@@ -346,59 +374,69 @@ async def test_on_updated_edit_ready_computes_and_replans():
 
 
 @pytest.mark.asyncio
-async def test_on_updated_edit_not_ready_is_noop():
-    handler = _handler()
+async def test_on_updated_edit_not_ready_is_noop(handler_factory):
+    handler = handler_factory(_plan(found=None))
     value = _value(state=ObservationWorkflowState.DEFINED)
     event = SimpleNamespace(value=value, edit_type="UPDATED")
 
-    with patch("scheduler.night_monitor.event_handlers.odb_event_handler.gpp") as mock_gpp, \
-         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
+    with patch("scheduler.night_monitor.event_handlers.odb_event_handler."
                "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
         await handler._on_updated_edit(event)
 
-    mock_gpp.client.observation.get_by_id.assert_not_called()
     mock_calc.assert_not_called()
     handler.scheduler_queue.add_schedule_event.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_on_updated_edit_unresolvable_site_still_replans():
-    handler = _handler()
-    value = _value(state=ObservationWorkflowState.READY, obs_id="o-2")
+async def test_on_updated_edit_without_instrument_is_dropped(handler_factory):
+    # No instrument means no site, and without a site the observation cannot be scheduled,
+    # so there is nothing to replan for.
+    handler = handler_factory(_plan(found=None))
+    value = _value(state=ObservationWorkflowState.READY, obs_id="o-2", instrument=None)
     event = SimpleNamespace(value=value, edit_type="UPDATED")
 
-    mock_gpp = MagicMock()
-    # Reference label present but instrument missing -> site unresolved.
-    mock_gpp.client.observation.get_by_id = AsyncMock(
-        return_value=_obs_response("G-2026A-0397-D-0067", instrument=None)
-    )
-
-    with patch("scheduler.night_monitor.event_handlers.odb_event_handler.gpp", mock_gpp), \
-         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
+    with patch("scheduler.night_monitor.event_handlers.odb_event_handler."
                "sight_visibility_enabled", return_value=True), \
          patch("scheduler.night_monitor.event_handlers.odb_event_handler."
                "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
         await handler._on_updated_edit(event)
 
     mock_calc.assert_not_called()
-    handler.scheduler_queue.add_schedule_event.assert_awaited_once()
+    handler.nightly_timeline_store.last_plan.assert_not_called()
+    handler.scheduler_queue.add_schedule_event.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_on_updated_edit_local_strategy_skips_sight():
-    """When the visibility strategy is local, the handler must not touch GPP/sight
+async def test_on_updated_edit_no_plan_in_effect_is_dropped(handler_factory):
+    # No plan has been generated for the site yet, so the event has nothing to be compared
+    # against and the handler leaves it alone.
+    handler = handler_factory(last_plan=None)
+    value = _value(state=ObservationWorkflowState.READY, obs_id="o-4")
+    event = SimpleNamespace(value=value, edit_type="UPDATED")
+
+    with patch("scheduler.night_monitor.event_handlers.odb_event_handler."
+               "sight_visibility_enabled", return_value=True), \
+         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
+               "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
+        await handler._on_updated_edit(event)
+
+    mock_calc.assert_not_called()
+    handler.scheduler_queue.add_schedule_event.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_on_updated_edit_local_strategy_skips_sight(handler_factory):
+    """When the visibility strategy is local, the handler must not touch sight
     but must still trigger a replan."""
-    handler = _handler()
+    handler = handler_factory(_plan(found=None))
     value = _value(state=ObservationWorkflowState.READY, obs_id="o-3")
     event = SimpleNamespace(value=value, edit_type="UPDATED")
 
-    with patch("scheduler.night_monitor.event_handlers.odb_event_handler.gpp") as mock_gpp, \
-         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
+    with patch("scheduler.night_monitor.event_handlers.odb_event_handler."
                "sight_visibility_enabled", return_value=False), \
          patch("scheduler.night_monitor.event_handlers.odb_event_handler."
                "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
         await handler._on_updated_edit(event)
 
-    mock_gpp.client.observation.get_by_id.assert_not_called()
     mock_calc.assert_not_called()
     handler.scheduler_queue.add_schedule_event.assert_awaited_once()

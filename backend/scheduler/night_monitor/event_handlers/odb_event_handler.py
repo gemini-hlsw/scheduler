@@ -6,7 +6,6 @@ from datetime import timedelta, datetime, UTC
 from functools import partial
 from typing import ClassVar, Dict, Tuple, Callable, Awaitable, Optional
 
-from scheduler.clients.gpp import gpp
 from scheduler.core.events.queue import (Event, NightlyTimelineStore, ObservationActivationEvent,
                                          OnDemandScheduleEvent)
 from scheduler.night_monitor.event_sources import ODBEventSource
@@ -87,8 +86,6 @@ class ODBEventHandler(EventHandler):
         self.idle_timer: Dict[Site, SchedulerIdleTimer] = {
             site: SchedulerIdleTimer() for site in ALL_SITES
         }
-
-    # --- Timers ----------------------------------------------------------------------------
 
     @staticmethod
     def _sites_of(event: Event) -> Tuple[Site, ...]:
@@ -238,7 +235,10 @@ class ODBEventHandler(EventHandler):
         Args:
             event (SchedulerObservationsUpdatesObscalcUpdate): The observation edit type updated.
         """
-        instrument = event.value.instrument
+        instrument = event.value.instrument if event.value.instrument else None
+        if instrument is None:
+            _logger.warning("Observation without instruments can't be selected!")
+            return
         site_key = site_key_from_instrument(instrument)
         site = Site.GN if site_key in 'GN' else Site.GS
 
