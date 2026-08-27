@@ -917,7 +917,7 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "26.7.3.dev9"
+version = "26.7.3.dev10"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -935,9 +935,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/32/63/c217e37ed7fc5c41f6eeb1ee81a514e78f8efa7a58c5d665daa9af858d18/gpp_client-26.7.3.dev9.tar.gz", hash = "sha256:9adee21dcedfc579c9af47c0a67b2c13eb5bacb6cb918a2d0ae25141365e77de", size = 221715, upload-time = "2026-08-20T18:20:01.24Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/77/e7/3f557022c4af44734cc1e7618bfedd96f9aa3bc281c0b81ea23a80a0a946/gpp_client-26.7.3.dev10.tar.gz", hash = "sha256:f4b8b263b5419cccb9ee067397a6495956d2b97935288d09f946d3e38cd599f7", size = 226977, upload-time = "2026-08-27T18:58:02.617Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/c3/1eb660b8ff88eb0fdf9070af17f4322238c608287ca3c93a5f6e93911d86/gpp_client-26.7.3.dev9-py3-none-any.whl", hash = "sha256:6303bd8856294ef62803aa470a535f0d1068657fe33b58ea8846b81d22814a79", size = 260036, upload-time = "2026-08-20T18:19:59.645Z" },
+    { url = "https://files.pythonhosted.org/packages/15/6f/135be292c01d70f08401b9bafd269d5addbcce1e21ead5cfa6cb400c572e/gpp_client-26.7.3.dev10-py3-none-any.whl", hash = "sha256:fd68ca41bc6fb7f69e9053f7aa0fc8543b9d63ca1fb1bc70610a44bad90448e5", size = 265498, upload-time = "2026-08-27T18:58:01.329Z" },
 ]
 
 [[package]]
@@ -2775,7 +2775,7 @@ docs = [
     { name = "mkdocstrings-python" },
 ]
 gpp-dev = [
-    { name = "gpp-client", version = "26.7.3.dev9", source = { registry = "https://pypi.org/simple" } },
+    { name = "gpp-client", version = "26.7.3.dev10", source = { registry = "https://pypi.org/simple" } },
 ]
 gpp-prod = [
     { name = "gpp-client", version = "26.7.3", source = { registry = "https://pypi.org/simple" } },
