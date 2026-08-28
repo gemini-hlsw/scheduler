@@ -11,6 +11,7 @@ export const buildParametersSubscription = graphql(`
       visibilityStart
       visibilityEnd
       programList
+      simulatedNow
     }
   }
 `);

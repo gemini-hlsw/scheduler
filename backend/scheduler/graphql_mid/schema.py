@@ -269,7 +269,8 @@ class Query:
                         ) for k, v in build_params.night_times.items()] if build_params.night_times else None,
             visibility_start=build_params.visibility_start,
             visibility_end=build_params.visibility_end,
-            program_list=build_params.program_list
+            program_list=build_params.program_list,
+            simulated_now=build_params.simulated_now
         )
 
 
@@ -320,7 +321,8 @@ class Subscription:
                         ) for k, v in result.night_times.items()] if result.night_times else None,
                         visibility_start=result.visibility_start,
                         visibility_end=result.visibility_end,
-                        program_list=result.program_list
+                        program_list=result.program_list,
+                        simulated_now=result.simulated_now
                     )  # Yield item to the subscription
                 except Exception as e:
                     _logger.error(f'Error: {e}')

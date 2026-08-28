@@ -4,6 +4,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from copy import deepcopy
+from datetime import datetime
 from typing import AsyncIterator, Dict, FrozenSet, List, Optional
 
 from lucupy.minimodel import NightIndex, ObservationID, Site
@@ -68,6 +69,17 @@ class NightlyTimelineStore:
         async with self._lock:
             entry = self._last_entry_with_plan(site)
             return deepcopy(entry.plan_generated) if entry is not None else None
+
+    async def night_start(self, site: Site) -> Optional[datetime]:
+        """
+        When the night the current timeline covers begins at the site, as the engine recorded it.
+
+        This is the night the plan in effect was built for, which is not today's night when the
+        build parameters point at another date. None until the engine has computed a plan.
+        """
+        async with self._lock:
+            length = self._timeline.night_length.get(NightIndex(0), {}).get(site)
+            return length.start if length is not None else None
 
     async def planned_observation_ids(self, site: Site) -> FrozenSet[ObservationID]:
         """

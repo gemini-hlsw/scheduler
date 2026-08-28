@@ -373,6 +373,7 @@ class BuildParametersInput:
     visibility_start: strawberry.auto
     visibility_end: strawberry.auto
     program_list: strawberry.auto
+    simulated_now: strawberry.auto
 
     def to_pydantic(self) -> BuildParameters:
         """Convert to Pydantic model"""
@@ -386,11 +387,14 @@ class BuildParametersInput:
                 for entry in self.night_times
             }
 
+        # `set_at` is deliberately not taken from the input: it is stamped now, so
+        # `simulated_now` advances from the moment these parameters were submitted.
         return BuildParameters(
             night_times=night_times_dict,
             visibility_start=self.visibility_start,
             visibility_end=self.visibility_end,
-            program_list=self.program_list
+            program_list=self.program_list,
+            simulated_now=self.simulated_now
         )
 
 @strawberry.type
@@ -405,6 +409,9 @@ class BuildParametersResponse:
     visibility_start: Optional[datetime]
     visibility_end: Optional[datetime]
     program_list: Optional[List[str]]
+    # The anchor as submitted. `reference_time` advances past it, so reading this back
+    # tells you what was set, not what the handler currently considers "now".
+    simulated_now: Optional[datetime] = None
 
 
 @strawberry.type

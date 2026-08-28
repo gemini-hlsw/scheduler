@@ -92,6 +92,38 @@ class ODBEventHandler(EventHandler):
         """The sites an event applies to. Some are raised for every site at once (ALL_SITES)."""
         return tuple(event.site) if isinstance(event.site, (frozenset, set)) else (event.site,)
 
+    async def _reference_time(self, site: Optional[Site] = None) -> datetime:
+        """
+        Returns the time referenced from the build parameters to help simulate the night
+        when this one are in place.
+        """
+        build_params = await build_params_store.get()
+        if not build_params.is_customized():
+            return datetime.now(UTC)
+
+        anchor = build_params.simulated_now
+        if anchor is None:
+            anchor = await self._plan_night_start(site)
+            if anchor is None:
+                # The engine has not recorded a night yet, so there is nothing to anchor to.
+                return datetime.now(UTC)
+
+        return anchor + (datetime.now(UTC) - build_params.set_at)
+
+    async def _plan_night_start(self, site: Optional[Site]) -> Optional[datetime]:
+        """
+        Evening twilight of the night the plan in effect covers.
+
+        ``site`` is None for events raised for every site at once; any site that has a night
+        recorded will do there, since both are the same night.
+        """
+        sites = (site,) if site is not None else tuple(ALL_SITES)
+        for candidate in sites:
+            night_start = await self.nightly_timeline_store.night_start(candidate)
+            if night_start is not None:
+                return night_start
+        return None
+
     async def _request_new_plan(self, event: Event) -> None:
         """
         Ask the Engine for a new plan.
@@ -145,7 +177,7 @@ class ODBEventHandler(EventHandler):
         await self._request_new_plan(
             OnDemandScheduleEvent(
                 site=site,
-                time=datetime.now(UTC),
+                time=await self._reference_time(site),
                 description=f'Scheduler idle at {site.name} for {ODBEventHandler.WAITING_THRESHOLD}. Recalculate...'
             )
         )
@@ -157,7 +189,7 @@ class ODBEventHandler(EventHandler):
             ObservationActivationEvent(
                 site=site,
                 observation_id=obs_id,
-                time=datetime.now(UTC),
+                time=await self._reference_time(site),
                 description=f'Observation {obs_id.id} did not complete within its estimated execution time. '
                             f'Recalculate...'
             )
@@ -194,7 +226,7 @@ class ODBEventHandler(EventHandler):
                 ObservationActivationEvent(
                     site=ALL_SITES,
                     observation_id=event.value.id,
-                    time=datetime.now(UTC),
+                    time=await self._reference_time(),
                     description=f'Observation {event.value.id} created from plan: {event.edit_type}'
                 )
             )
@@ -221,7 +253,7 @@ class ODBEventHandler(EventHandler):
                     ObservationActivationEvent(
                         site=site,
                         observation_id=event.value.id,
-                        time=datetime.now(UTC),
+                        time=await self._reference_time(site),
                         description=f'Observation {deleted_obs} deleted from plan'
                     )
                 )
@@ -242,11 +274,8 @@ class ODBEventHandler(EventHandler):
         site_key = site_key_from_instrument(instrument)
         site = Site.GN if site_key in 'GN' else Site.GS
 
-        # Time control variables to check when the event happened
-        build_params = await build_params_store.get()
-        now = datetime.now(UTC)
-        when = datetime.combine(build_params.visibility_start.date(), now.time(),
-                                tzinfo=UTC) if build_params.visibility_start else now
+        # When the event happened, as far as the plan is concerned.
+        when = await self._reference_time(site)
 
 
         updated_obs = event.value
@@ -281,7 +310,7 @@ class ODBEventHandler(EventHandler):
                         ObservationActivationEvent(
                             site=site,
                             observation_id=updated_obs.id,
-                            time=now,
+                            time=when,
                             description=f'Plan was expecting {expecting} but got {label}. Recalculate...'
                         )
                     )
@@ -305,7 +334,7 @@ class ODBEventHandler(EventHandler):
                     ObservationActivationEvent(
                         site=site,
                         observation_id=updated_obs.id,
-                        time=datetime.now(UTC),
+                        time=await self._reference_time(site),
                         description=f'Observation {label} is currently being executed. {msg}'
                     )
                 )
@@ -320,7 +349,7 @@ class ODBEventHandler(EventHandler):
                         ObservationActivationEvent(
                             site=site,
                             observation_id=updated_obs.id,
-                            time=datetime.now(UTC),
+                            time=await self._reference_time(site),
                             description=f'Observation {label} was modified.'
                         )
                     )
@@ -348,7 +377,7 @@ class ODBEventHandler(EventHandler):
                     ObservationActivationEvent(
                         site=site,
                         observation_id=event.value.id,
-                        time=datetime.now(UTC),
+                        time=await self._reference_time(site),
                         description=f'New observation in the ODB: {updated_obs.reference.label}'
                     )
                 )
@@ -386,7 +415,7 @@ class ODBEventHandler(EventHandler):
             case 'HARD_DELETE':
                 await self._on_deleted_edit(event)
             case _:
-                raise NotImplementedError(f'Missing logic for this type of edit {event.editType}')
+                raise NotImplementedError(f'Missing logic for this type of edit {event.edit_type}')
 
 
     @staticmethod
