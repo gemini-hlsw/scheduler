@@ -12,15 +12,6 @@ export const subscriptionQueueSchedule = graphql(`
               site
               mornTwilight
               eveTwilight
-              timestats {
-                nightLength
-                observed
-                scheduled
-                weather
-                fault
-                closed
-                unscheduled
-              }
               timeEntries {
                 startTimeSlots
                 event {
@@ -56,7 +47,6 @@ export const subscriptionQueueSchedule = graphql(`
                     }
                   }
                   nightStats {
-                    timeLoss
                     planScore
                     nToos
                     completionFraction
@@ -125,7 +115,6 @@ export const subscriptionQueueSchedule = graphql(`
               nToos
               planScore
               programCompletion
-              timeLoss
             }
           }
         }
@@ -167,7 +156,6 @@ export const subscriptionQueueSchedule = graphql(`
               nToos
               planScore
               programCompletion
-              timeLoss
             }
           }
         }

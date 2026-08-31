@@ -13,6 +13,7 @@ import { ObsClassBadge } from "./ObsClassBadge";
 import { FaCheck } from "react-icons/fa";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { IoHourglassOutline } from "react-icons/io5";
+import NightPlanSummary from "./NightPlanSummary";
 
 function VisitRow({
   visit,
@@ -222,11 +223,12 @@ export default function RealTimeEntry({
 
   return (
     <div>
-      {/* <NightPlanSummary
+      <NightPlanSummary
+        timestats={timeEntry.timestats}
         nightState={timeEntry.plan.nightStats}
         nightTitle={timeEntry.event.description}
         nightConditions={timeEntry.plan.nightConditions}
-      /> */}
+      />
       <AltAzPlot
         data={parseToVisitForPlot(timeEntry.plan.visits)}
         event={timeEntry.event}

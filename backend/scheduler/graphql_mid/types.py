@@ -23,7 +23,6 @@ from scheduler.config import config
 class SNightStats:
     """Night stats to display in the UI
     """
-    time_loss: JSON
     plan_score: float
     n_toos: int
     completion_fraction: JSON
@@ -31,8 +30,7 @@ class SNightStats:
 
     @staticmethod
     def from_computed_night_stats(ns: NightStats) -> 'SNightStats':
-        return SNightStats(time_loss=ns.time_loss,
-                           plan_score=ns.plan_score,
+        return SNightStats(plan_score=ns.plan_score,
                            n_toos=ns.n_toos,
                            completion_fraction=ns.completion_fraction,
                            program_completion=ns.program_completion)
@@ -190,7 +188,6 @@ class TimelineEntriesBySite:
     time_entries: List[STimelineEntry]
     eve_twilight: datetime
     morn_twilight: datetime
-    timestats: STimestats
 
 
 @strawberry.type
@@ -202,37 +199,6 @@ class SNightInTimeline:
 @strawberry.type
 class SNightTimelines:
     night_timeline: List[SNightInTimeline]
-
-    @staticmethod
-    def from_computed_timelines(timeline: NightlyTimeline) -> 'SNightTimelines':
-        timelines = []
-        for n_idx in timeline.timeline:
-            s_timeline_entries = []
-            for site in timeline.timeline[n_idx]:
-                s_entries = []
-                eve_twi = timeline.timeline[n_idx][site][0].event.time
-                morn_twi = timeline.timeline[n_idx][site][-1].event.time
-                # time_losses = timeline.time_losses[n_idx][site]
-                for entry in timeline.timeline[n_idx][site]:
-                    if entry.plan_generated is None:
-                        continue
-                    e = STimelineEntry(start_time_slots=int(entry.start_time_slot),
-                                       event=Event(site=entry.event.site,
-                                                   time=entry.event.time,
-                                                   description=entry.event.description),
-                                       plan=SPlan.from_computed_plan(entry.plan_generated),
-                                       timeloss_windows=entry.timeloss_windows,
-                                       timestats=entry.timestats)
-                    s_entries.append(e)
-                te = TimelineEntriesBySite(site=site,
-                                           time_entries=s_entries,
-                                           eve_twilight=eve_twi,
-                                           morn_twilight=morn_twi,
-                                           timestats=timeline.timeline[n_idx][site][-1].timestats)
-                s_timeline_entries.append(te)
-            sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
-            timelines.append(sn)
-        return SNightTimelines(night_timeline=timelines)
 
     @staticmethod
     def from_computed_stitched_timelines(timeline: NightlyTimeline) -> 'SNightTimelines':
@@ -258,8 +224,7 @@ class SNightTimelines:
                 te = TimelineEntriesBySite(site=site,
                                             time_entries=s_entries,
                                             eve_twilight=timeline.night_length[n_idx][site].start,
-                                            morn_twilight=timeline.night_length[n_idx][site].end,
-                                            timestats=timeline.stitched_timeline[n_idx][site][-1].timestats)
+                                            morn_twilight=timeline.night_length[n_idx][site].end)
                 s_timeline_entries.append(te)
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
             timelines.append(sn)
