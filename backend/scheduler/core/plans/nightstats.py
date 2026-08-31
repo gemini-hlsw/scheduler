@@ -16,7 +16,6 @@ from scheduler.core.types import TimeLossType
 @final
 @dataclass(frozen=True)
 class NightStats:
-    time_loss: Dict[TimeLossType, int]
     plan_score: float
     n_toos: int
     completion_fraction: Dict[Band, int]

@@ -29,36 +29,6 @@ export default function EntryBySite({
   return (
     <div className="flex flex-col gap-2">
       <h4 className="font-bold">Timeline {timelineDate}</h4>
-      <div className="flex flex-row gap-2">
-        <Badge className={"text-white text-sm bg-gray-500"}>
-          <FaClock />
-          Total night time: {entryBySite.timestats.nightLength.toFixed(0)}
-        </Badge>
-        <Badge className={"text-white text-sm bg-green-500"}>
-          <FaClock />
-          Observed time: {entryBySite.timestats.observed.toFixed(0)}
-        </Badge>
-        <Badge className={"text-white text-sm bg-yellow-500"}>
-          <FaClock />
-          Scheduled time: {entryBySite.timestats.scheduled.toFixed(0)}
-        </Badge>
-        <Badge className={"text-white text-sm bg-orange-500"}>
-          <FaCog />
-          Faults time: {entryBySite.timestats.fault.toFixed(0)}
-        </Badge>
-        <Badge className={"text-white text-sm bg-blue-500"}>
-          <FaCloud />
-          Weather time: {entryBySite.timestats.weather.toFixed(0)}
-        </Badge>
-        <Badge className={"text-white text-sm bg-red-500"}>
-          <TbTelescopeOff />
-          Telescope closed time: {entryBySite.timestats.closed.toFixed(0)}
-        </Badge>
-        <Badge className={"text-white text-sm bg-purple-500"}>
-          <LuTimerOff />
-          Unscheduled time: {entryBySite.timestats.unscheduled.toFixed(0)}
-        </Badge>
-      </div>
       <TimelineBullets
         date={timelineDate}
         timeline={entryBySite?.timeEntries}

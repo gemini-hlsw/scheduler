@@ -150,7 +150,6 @@ type SNightInTimeline {
 }
 
 type SNightStats {
-  timeLoss: JSON!
   planScore: Float!
   nToos: Int!
   completionFraction: JSON!
@@ -255,7 +254,6 @@ type TimelineEntriesBySite {
   timeEntries: [STimelineEntry!]!
   eveTwilight: DateTime!
   mornTwilight: DateTime!
-  timestats: STimestats!
 }
 
 type Version {
