@@ -122,7 +122,6 @@ class Plan:
             atom_times
         )
         self.visits.append(visit)
-        self._time_slots_left -= time_slots
 
     def time_left(self) -> int:
         return self._time_slots_left

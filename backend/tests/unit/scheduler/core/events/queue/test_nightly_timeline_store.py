@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 from lucupy.minimodel import NightIndex, ObservationID, Site, TimeslotIndex
 
-from scheduler.core.events.queue import NightlyTimeline, NightlyTimelineStore, TimelineEntry
+from scheduler.core.events.queue import NightlyTimeline, NightlyTimelineStore, TimelineEntry, TimeStats
 
 NIGHT_IDX = NightIndex(0)
 
@@ -22,7 +22,8 @@ def entry(plan):
                          event=SimpleNamespace(description='test event'),
                          plan_generated=plan,
                          accounted_observations=[],
-                         timeloss_windows=[])
+                         timeloss_windows=[],
+                         timestats=TimeStats(0, 0, 0, 0, 0, 0, 0))
 
 
 def store_with(site=Site.GN, timeline_plans=(), stitched_plans=()):

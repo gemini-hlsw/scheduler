@@ -83,7 +83,6 @@ function VisitRow({
 
   return (
     <TableRow
-      key={visit.startTime}
       className={cn(
         beingExecuted
           ? "dark:bg-blue-700/50 bg-blue-400/50"
@@ -165,7 +164,7 @@ export default function TimeEntry({
     if (i === executedVisits.length - 1) {
       visitRows.push(
         <VisitRow
-          key={`executed-visit-${i}`}
+          key={executedVisits[i].startTime}
           visit={executedVisits[i]}
           site={site}
           state="executed"
@@ -175,7 +174,7 @@ export default function TimeEntry({
     } else {
       visitRows.push(
         <VisitRow
-          key={`executed-visit-${i}`}
+          key={executedVisits[i].startTime}
           visit={executedVisits[i]}
           site={site}
           state="executed"
@@ -187,7 +186,7 @@ export default function TimeEntry({
   for (let i = 0; i < beingExecutedVisits.length; i++) {
     visitRows.push(
       <VisitRow
-        key={`current-visit-${i}`}
+        key={beingExecutedVisits[i].startTime}
         visit={beingExecutedVisits[i]}
         site={site}
         state="executing"
@@ -200,7 +199,7 @@ export default function TimeEntry({
     if (i === 0) {
       visitRows.push(
         <VisitRow
-          key={`scheduled-visit-${i}`}
+          key={scheduledVisits[i].startTime}
           visit={scheduledVisits[i]}
           site={site}
           state="scheduled"
@@ -212,7 +211,7 @@ export default function TimeEntry({
     } else {
       visitRows.push(
         <VisitRow
-          key={`scheduled-visit-${i}`}
+          key={scheduledVisits[i].startTime}
           visit={scheduledVisits[i]}
           site={site}
           state="scheduled"
@@ -224,6 +223,7 @@ export default function TimeEntry({
   return (
     <div>
       <NightPlanSummary
+        timestats={timeEntry.timestats}
         nightState={timeEntry.plan.nightStats}
         nightTitle={timeEntry.event.description}
         nightConditions={timeEntry.plan.nightConditions}
@@ -275,7 +275,7 @@ export default function TimeEntry({
             Object.keys(timeEntry.plan.nightStats.programCompletion).map(
               (progId: string) => (
                 <TableRow
-                  key={progId}
+                  key={`${timeEntry.plan.startTime}-${progId}`}
                   className={cn(
                     "odd:bg-muted/50 *:p-0 *:px-2",
                     "dark:hover:bg-white/30 hover:bg-black/30",

@@ -16,15 +16,33 @@ from scheduler.core.plans import Plan
 
 __all__ = [
     'TimelineEntry',
-    'NightlyTimeline'
+    'NightlyTimeline',
+    'TimeStats'
 ]
+
+def time_range_to_timeslots(start: datetime, end: datetime) -> int:
+    return int((end - start).total_seconds() / 60)
 
 @dataclass
 class TimeLossWindow:
-    start: TimeslotIndex
-    end: Optional[TimeslotIndex]
+    start: datetime
+    end: Optional[datetime]
     loss_type: str
 
+    def get_timeslots(self, night_end: datetime) -> int:
+        if self.end is None:
+            return time_range_to_timeslots(self.start, night_end)
+        return time_range_to_timeslots(self.start, self.end)
+
+@dataclass
+class TimeStats:
+    night_length: int
+    observed: int
+    scheduled: int
+    weather: int
+    fault: int
+    closed: int
+    unscheduled: int
 
 @dataclass
 class TimelineEntry:
@@ -33,12 +51,15 @@ class TimelineEntry:
     plan_generated: Optional[Plan]
     accounted_observations: Optional[List[ObservationID]]
     timeloss_windows: List[TimeLossWindow]
-
+    timestats: TimeStats
 
 @dataclass
 class NightLength:
     start: datetime
     end: datetime
+
+    def get_timeslots(self) -> int:
+        return time_range_to_timeslots(self.start, self.end)
 
 @dataclass
 class NightlyTimeline:
@@ -79,7 +100,21 @@ class NightlyTimeline:
             case _:
                 pass
 
-        entry = TimelineEntry(time_slot, event, plan_generated, accounted_observations, timeloss_windows)
+        # Compute initial timeloss / should be considered only for the first entry
+        total_timeslots = self.night_length[night_idx][site].get_timeslots()
+        scheduled_timeslots = 0
+        if plan_generated is not None:
+            for visit in plan_generated.visits:
+                scheduled_timeslots += visit.time_slots
+        timestats = TimeStats(night_length=total_timeslots,
+                            observed=0,
+                            scheduled=scheduled_timeslots,
+                            weather=0,
+                            fault=0,
+                            closed=0,
+                            unscheduled=total_timeslots - scheduled_timeslots)
+
+        entry = TimelineEntry(time_slot, event, plan_generated, accounted_observations, timeloss_windows, timestats)
         self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
         self.set_stitched_timeline(night_idx, site, time_slot, plan_generated, event, closure_end)
 
@@ -129,12 +164,28 @@ class NightlyTimeline:
             print(f"No last plan generated found for night {night_idx} and site {site}")
             return
 
+        # Compute timeslots
+        #   total_timeslots is the number of timeslots for the full night
+        #   observed_timeslots is the number of timeslots observed in the last plan
+        #   scheduled_timeslots is the number of timeslots scheduled in the incoming plan
+        #   weather_timeslots is the number of timeslots that are weather closures
+        #   fault_timeslots is the number of timeslots that are faults
+        #   closed_timeslots is the number of timeslots that telescope is closed (both weather and fault) / windows may be overlapping
+        #   unscheduled_timeslots is the number of timeslots that are unscheduled
+        total_timeslots = self.night_length[night_idx][site].get_timeslots()
+        observed_timeslots = 0
+        scheduled_timeslots = 0
+        weather_timeslots = 0
+        fault_timeslots = 0
+        closed_timeslots = 0
+
         # Now from last stitched timeline get all visits until reaching the current timeslot
         # and join them with the last partial plan created
         new_plan_visits = []
         for visit in last_plan_generated.visits:
             if visit.start_time_slot < time_slot:
                 if visit.start_time_slot + visit.time_slots < time_slot:
+                    observed_timeslots += visit.time_slots
                     new_plan_visits.append(visit)
                 else:
                     # Check were the visit should be split
@@ -147,6 +198,7 @@ class NightlyTimeline:
                             break
                     if len(aux_visit.atom_times) > 0:
                         aux_visit.time_slots = aux_visit.atom_times[-1]
+                        observed_timeslots += aux_visit.time_slots
                         aux_visit.completion = f"{len(aux_visit.atom_times)}/{len(aux_visit.observation.sequence)}"
                         new_plan_visits.append(aux_visit)
             else:
@@ -155,7 +207,31 @@ class NightlyTimeline:
         if plan_generated is not None:
             plan = last_plan_generated
             for visit in plan_generated.visits:
+                scheduled_timeslots += visit.time_slots
                 new_plan_visits.append(visit)
+
+        # Get weather, fault and closed timeslots
+        merged_windows = []
+        for window in new_timeloss_windows:
+            if len(merged_windows) == 0:
+                merged_windows.append((window.start, window.end))
+            else:
+                if merged_windows[-1][1] is not None:
+                    if window.start > merged_windows[-1][1]:
+                        # New window will be added, then previous window time can be accounted
+                        closed_timeslots += time_range_to_timeslots(merged_windows[-1][0], merged_windows[-1][1])
+                        merged_windows.append((window.start, window.end))
+                    else:
+                        merged_windows[-1] = (merged_windows[-1][0], window.end)
+
+            if window.loss_type == 'weather':
+                weather_timeslots += window.get_timeslots(self.night_length[night_idx][site].end)
+            elif window.loss_type == 'fault':
+                fault_timeslots += window.get_timeslots(self.night_length[night_idx][site].end)
+        # Account the last window, use night end to close last window if it is not closed
+        if len(merged_windows) > 0:
+            closed_timeslots += time_range_to_timeslots(merged_windows[-1][0],
+                                                        merged_windows[-1][1] if merged_windows[-1][1] is not None else self.night_length[night_idx][site].end)
 
         plan = Plan(start=last_plan_generated.start,
                     end=plan_generated.end if plan_generated else last_plan_generated.end,
@@ -165,9 +241,11 @@ class NightlyTimeline:
                     conditions=plan_generated.conditions if plan_generated else last_plan_generated.conditions,)
         plan.visits = new_plan_visits
 
-        entry = TimelineEntry(
-            time_slot, event, plan, accounted_observations=[], timeloss_windows=new_timeloss_windows
-        )
+        # Compute unscheduled timeslots
+        unscheduled_timeslots = total_timeslots - observed_timeslots - scheduled_timeslots - closed_timeslots
+        timestats = TimeStats(total_timeslots, observed_timeslots, scheduled_timeslots, weather_timeslots, fault_timeslots, closed_timeslots, unscheduled_timeslots)
+
+        entry = TimelineEntry(time_slot, event, plan, [], new_timeloss_windows, timestats)
 
         self.stitched_timeline[night_idx][site].append(entry)
 

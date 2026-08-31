@@ -160,6 +160,16 @@ class Event:
 
 
 @strawberry.type
+class STimestats:
+    night_length: int
+    observed: int
+    scheduled: int
+    weather: int
+    fault: int
+    closed: int
+    unscheduled: int
+
+@strawberry.type
 class STimeLossWindow:
     start: datetime
     end: Optional[datetime]
@@ -171,6 +181,7 @@ class STimelineEntry:
     event: Event
     plan: SPlan
     timeloss_windows: List[STimeLossWindow]
+    timestats: STimestats
 
 
 @strawberry.type
@@ -179,7 +190,7 @@ class TimelineEntriesBySite:
     time_entries: List[STimelineEntry]
     eve_twilight: datetime
     morn_twilight: datetime
-    time_losses: JSON
+    timestats: STimestats
 
 
 @strawberry.type
@@ -201,7 +212,7 @@ class SNightTimelines:
                 s_entries = []
                 eve_twi = timeline.timeline[n_idx][site][0].event.time
                 morn_twi = timeline.timeline[n_idx][site][-1].event.time
-                time_losses = timeline.time_losses[n_idx][site]
+                # time_losses = timeline.time_losses[n_idx][site]
                 for entry in timeline.timeline[n_idx][site]:
                     if entry.plan_generated is None:
                         continue
@@ -210,13 +221,14 @@ class SNightTimelines:
                                                    time=entry.event.time,
                                                    description=entry.event.description),
                                        plan=SPlan.from_computed_plan(entry.plan_generated),
-                                       timeloss_windows=entry.timeloss_windows)
+                                       timeloss_windows=entry.timeloss_windows,
+                                       timestats=entry.timestats)
                     s_entries.append(e)
                 te = TimelineEntriesBySite(site=site,
                                            time_entries=s_entries,
                                            eve_twilight=eve_twi,
                                            morn_twilight=morn_twi,
-                                           time_losses=time_losses)
+                                           timestats=timeline.timeline[n_idx][site][-1].timestats)
                 s_timeline_entries.append(te)
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
             timelines.append(sn)
@@ -231,7 +243,7 @@ class SNightTimelines:
                 s_entries = []
                 # eve_twi = timeline.stitched_timeline[n_idx][site][0].event.time
                 # morn_twi = timeline.stitched_timeline[n_idx][site][-1].event.time
-                time_losses = timeline.time_losses[n_idx][site]
+                # time_losses = timeline.time_losses[n_idx][site]
                 for entry in timeline.stitched_timeline[n_idx][site]:
                     if entry.plan_generated is None:
                         continue
@@ -240,13 +252,14 @@ class SNightTimelines:
                                                     time=entry.event.time if entry.event.time is not None else timeline.night_length[n_idx][site].start,
                                                     description=entry.event.description),
                                         plan=SPlan.from_computed_plan(entry.plan_generated),
-                                        timeloss_windows=entry.timeloss_windows)
+                                        timeloss_windows=entry.timeloss_windows,
+                                        timestats=entry.timestats)
                     s_entries.append(e)
                 te = TimelineEntriesBySite(site=site,
                                             time_entries=s_entries,
                                             eve_twilight=timeline.night_length[n_idx][site].start,
                                             morn_twilight=timeline.night_length[n_idx][site].end,
-                                            time_losses=time_losses)
+                                            timestats=timeline.stitched_timeline[n_idx][site][-1].timestats)
                 s_timeline_entries.append(te)
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)
             timelines.append(sn)
