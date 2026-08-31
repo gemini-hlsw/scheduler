@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import { TimeEntriesBySite, TimeEntryType } from "../../types";
 import TimeEntry from "./TimeEntry";
-import { FaClock, FaCloud, FaCog } from "react-icons/fa";
-import { TbTelescopeOff } from "react-icons/tb";
-import { LuTimerOff } from "react-icons/lu";
-import { Badge } from "@/components/ui/badge";
 import { TimelineBullets } from "./TimelineBullets";
 
 export default function EntryBySite({
