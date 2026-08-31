@@ -38,7 +38,9 @@ export function TimelineBullets({
         {timeline.map((en) => {
           const pos = ((en.startTimeSlots - startSlot) / w) * 100;
           return (
-            <Tooltip key={`${en.event}${date}${en.startTimeSlots}`}>
+            <Tooltip
+              key={`${en.event.site}${en.event.description}${date}${en.startTimeSlots}`}
+            >
               <TooltipTrigger
                 key={en.startTimeSlots}
                 onClick={() => setSelectedEntry(en)}

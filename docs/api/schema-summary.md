@@ -194,6 +194,17 @@ type STimelineEntry {
   event: Event!
   plan: SPlan!
   timelossWindows: [STimeLossWindow!]!
+  timestats: STimestats!
+}
+
+type STimestats {
+  nightLength: Int!
+  observed: Int!
+  scheduled: Int!
+  weather: Int!
+  fault: Int!
+  closed: Int!
+  unscheduled: Int!
 }
 
 type SVisit {
@@ -244,7 +255,7 @@ type TimelineEntriesBySite {
   timeEntries: [STimelineEntry!]!
   eveTwilight: DateTime!
   mornTwilight: DateTime!
-  timeLosses: JSON!
+  timestats: STimestats!
 }
 
 type Version {

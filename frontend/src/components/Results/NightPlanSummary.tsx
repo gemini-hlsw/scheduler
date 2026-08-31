@@ -1,12 +1,14 @@
-import { NightConditions, NightStats } from "../../types";
+import { NightConditions, NightStats, TimeStats } from "../../types";
 import { Badge } from "../ui/badge";
 
 export default function NightPlanSummary({
   nightState,
+  timestats,
   nightConditions,
   nightTitle,
 }: {
   nightState: NightStats;
+  timestats: TimeStats;
   nightConditions: NightConditions;
   nightTitle: string;
 }) {
@@ -16,13 +18,22 @@ export default function NightPlanSummary({
       <h4 className="font-bold">{nightTitle}</h4>
       <div className="flex flex-row flex-wrap gap-2">
         <Badge className="text-sm">
-          Faults time: {nightState.timeLoss.fault.toFixed(2)}
+          Observed time: {timestats.observed.toFixed(0)}
         </Badge>
         <Badge className="text-sm">
-          Weather time: {nightState.timeLoss.weather.toFixed(2)}
+          Scheduled time: {timestats.scheduled.toFixed(0)}
         </Badge>
         <Badge className="text-sm">
-          Unscheduled time: {nightState.timeLoss.unschedule.toFixed(2)}
+          Faults time: {timestats.fault.toFixed(0)}
+        </Badge>
+        <Badge className="text-sm">
+          Weather time: {timestats.weather.toFixed(0)}
+        </Badge>
+        <Badge className="text-sm">
+          Telescope closed time: {timestats.closed.toFixed(0)}
+        </Badge>
+        <Badge className="text-sm">
+          Unscheduled time: {timestats.unscheduled.toFixed(0)}
         </Badge>
         <Badge className="text-sm">Cloud Cover: {nightConditions.cc}</Badge>
         <Badge className="text-sm">Image Quality: {nightConditions.iq}</Badge>

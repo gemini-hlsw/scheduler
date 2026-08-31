@@ -12,7 +12,15 @@ export const subscriptionQueueSchedule = graphql(`
               site
               mornTwilight
               eveTwilight
-              timeLosses
+              timestats {
+                nightLength
+                observed
+                scheduled
+                weather
+                fault
+                closed
+                unscheduled
+              }
               timeEntries {
                 startTimeSlots
                 event {
@@ -59,6 +67,15 @@ export const subscriptionQueueSchedule = graphql(`
                   start
                   end
                   lossType
+                }
+                timestats {
+                  nightLength
+                  observed
+                  scheduled
+                  weather
+                  fault
+                  closed
+                  unscheduled
                 }
               }
             }

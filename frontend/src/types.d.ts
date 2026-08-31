@@ -19,12 +19,22 @@ export interface PlanPerSite {
   nightStats: NightStats;
 }
 
+export interface TimeStats {
+  nightLength: number;
+  observed: number;
+  scheduled: number;
+  weather: number;
+  fault: number;
+  closed: number;
+  unscheduled: number;
+}
+
 export interface TimeEntriesBySite {
   site: string;
   eveTwilight: string;
   mornTwilight: string;
   timeEntries: TimeEntryType[];
-  timeLosses: { fault: number; weather: number; unschedule: number };
+  timestats: TimeStats;
 }
 
 export interface TimeEntryType {
@@ -32,6 +42,7 @@ export interface TimeEntryType {
   event: Event;
   plan: Plan;
   timelossWindows: TimeLossWindow[];
+  timestats: TimeStats;
 }
 
 export interface TimeLossWindow {
@@ -78,7 +89,6 @@ export interface Visit {
 }
 
 export interface NightStats {
-  timeLoss: { fault: number; unschedule: number; weather: number };
   planScore: number;
   nToos: number;
   completionFraction: number[];

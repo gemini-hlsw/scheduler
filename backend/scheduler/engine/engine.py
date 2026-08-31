@@ -180,10 +180,10 @@ class Engine:
         for night_idx in sorted(self.params.night_indices):
             # print(f'Engine: starting night {night_idx + 1}: {scp.collector.time_grid[night_idx]}')
             for site in sorted(self.params.sites, key=lambda site: site.name):
-                event_cycle.run(site, night_idx, nightly_timeline)
-                nightly_timeline.calculate_time_losses(night_idx, site)
                 night_start, night_end = scp.collector.get_night_length(site, night_idx)
                 nightly_timeline.set_night_length(night_idx, site, night_start, night_end)
+                event_cycle.run(site, night_idx, nightly_timeline)
+                nightly_timeline.calculate_time_losses(night_idx, site)
 
             # tn1 = time()
             # print(f'Night {night_idx + 1} scheduled in {(tn1 - tn0) / 60.} min')
