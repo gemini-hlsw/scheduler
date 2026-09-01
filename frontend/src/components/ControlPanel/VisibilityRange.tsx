@@ -42,11 +42,11 @@ export function VisibilityRange({
             {date?.from ? (
               date.to ? (
                 <>
-                  {format(date.from, "MM/dd/yyyy")} -{" "}
-                  {format(date.to, "MM/dd/yyyy")}
+                  {format(date.from, "yyyy-MM-dd")} —{" "}
+                  {format(date.to, "yyyy-MM-dd")}
                 </>
               ) : (
-                format(date.from, "MM/dd/yyyy")
+                format(date.from, "yyyy-MM-dd")
               )
             ) : (
               <span>Pick a date</span>
