@@ -10,9 +10,13 @@ from scheduler.core.events.queue import (Event, NightlyTimelineStore, Observatio
                                          OnDemandScheduleEvent)
 from scheduler.night_monitor.event_sources import ODBEventSource
 from .event_handler import EventHandler, LastPlanMock
-from .obscalc_visibility import calculate_and_store_visibility, site_key_from_instrument, sight_visibility_enabled
+from .obscalc_visibility import (build_conditions, calculate_and_store_visibility, get_visibility_changes,
+                                refresh_visibility_if_changed, site_key_from_instrument,
+                                sight_visibility_enabled)
 from gpp_client.generated.enums import ObservationWorkflowState
-from gpp_client.generated.scheduler_observations_updates import SchedulerObservationsUpdates, SchedulerObservationsUpdatesObscalcUpdate
+from gpp_client.generated.scheduler_observations_updates import (SchedulerObservationsUpdates,
+                                                                SchedulerObservationsUpdatesObscalcUpdate,
+                                                                SchedulerObservationsUpdatesObscalcUpdateValue)
 
 from lucupy.minimodel import ALL_SITES, Site, Observation, ObservationID, ObservationStatus
 
@@ -341,16 +345,61 @@ class ODBEventHandler(EventHandler):
         if updated_obs.workflow.value.state == 'READY':
 
             if is_in_the_plan:
-                # READY -> READY
-                # Observation must have changed in some way. Check constraints.
-                # We are not saving current conditions yet
+                # READY -> READY: the observation was edited while still pending.
                 if last_obs.status is ObservationStatus.READY:
+                    # What changed, as far as the plan cares. The plan is requested either way:
+                    # the obscalc update also fires on edits we do not inspect here (sequence,
+                    # execution digest), so this describes the change rather than gating it.
+                    found = []
+
+                    try:
+                    # Transform from GPP to OCS
+                        required = build_conditions(updated_obs)
+                    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+                        _logger.warning(f'Could not read the constraints of {label}: {exc}')
+                        required = None
+
+                    if required is not None:
+                        planned = last_obs.constraints.conditions if last_obs.constraints is not None else None
+                        if planned is not None and required != planned:
+                            found.append(
+                                f'constraints cc={planned.cc.name}, iq={planned.iq.name}, '
+                                f'sb={planned.sb.name}, wv={planned.wv.name} -> '
+                                f'cc={required.cc.name}, iq={required.iq.name}, '
+                                f'sb={required.sb.name}, wv={required.wv.name}'
+                            )
+
+                        # The sky the plan was built against. Tighter constraints than that mean the
+                        # observation no longer belongs where the plan put it.
+                        sky = last_plan.conditions
+                        if sky is not None and not (sky.cc <= required.cc and sky.iq <= required.iq):
+                            found.append(f'no longer fits the conditions the plan assumed '
+                                         f'(cc={sky.cc.name}, iq={sky.iq.name})')
+
+                    if sight_visibility_enabled():
+                        # With the local strategy nothing is stored ahead of time, so there is
+                        # nothing to invalidate: the Collector computes visibility as it queries.
+                        # The refresh runs before the plan is requested, so the Engine reads the
+                        # recomputed rows instead of the ones just invalidated.
+                        try:
+                            changes = await get_visibility_changes(when)
+                            refreshed = await refresh_visibility_if_changed(
+                                updated_obs, observation_id=str(label), site_key=site_key, changes=changes
+                            )
+                            if refreshed is not None:
+                                found.append(f'visibility recomputed for {refreshed.get("stored", 0)} night(s)')
+                        except Exception as exc:
+                            # An ODB or Sight blip must not stop the plan request.
+                            _logger.warning(f'Could not refresh the visibility of {label}: {exc}')
+
+                    changed = '; '.join(found) if found else 'no plan-relevant change detected'
+
                     await self._request_new_plan(
                         ObservationActivationEvent(
                             site=site,
                             observation_id=updated_obs.id,
                             time=await self._reference_time(site),
-                            description=f'Observation {label} was modified.'
+                            description=f'Observation {label} was modified: {changed}.'
                         )
                     )
             else:
