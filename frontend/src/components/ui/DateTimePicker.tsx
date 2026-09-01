@@ -6,7 +6,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { ChevronDownIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,25 @@ export function DateTimePicker({
   setDate: (date: Date) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [timeText, setTimeText] = useState(date ? format(date, "HH:mm") : "");
+
+  useEffect(() => {
+    setTimeText(date ? format(date, "HH:mm") : "");
+  }, [date]);
+
+  const commitTime = (value: string) => {
+    const match = value.match(/^([01]?\d|2[0-3]):([0-5]?\d)$/);
+    if (match) {
+      const [, hoursStr, minutesStr] = match;
+      const newDate = new Date(date);
+      newDate.setHours(Number(hoursStr));
+      newDate.setMinutes(Number(minutesStr));
+      newDate.setSeconds(0);
+      setDate(newDate);
+    } else {
+      setTimeText(date ? format(date, "HH:mm") : "");
+    }
+  };
 
   return (
     <div className="flex flex-row">
@@ -33,7 +52,7 @@ export function DateTimePicker({
               "w-32",
             )}
           >
-            {date ? format(date, "MM/dd/yyyy") : "Select date"}
+            {date ? format(date, "yyyy-MM-dd") : "Select date"}
             <ChevronDownIcon />
           </Button>
         </PopoverTrigger>
@@ -55,29 +74,22 @@ export function DateTimePicker({
         </PopoverContent>
       </Popover>
       <Input
-        type="time"
-        id="time-end"
-        step="60"
-        max="23:59"
-        min="00:00"
-        value={date ? format(date, "HH:mm") : ""}
-        onChange={(e) => {
-          const timeParts = e.target.value.split(":");
-          if (timeParts.length === 2) {
-            const [hours, minutes] = timeParts.map(Number);
-            const newDate = new Date(date);
-            newDate.setHours(hours);
-            newDate.setMinutes(minutes);
-            newDate.setSeconds(0);
-            setDate(newDate);
+        type="text"
+        inputMode="numeric"
+        placeholder="00:00"
+        value={timeText}
+        onChange={(e) => setTimeText(e.target.value)}
+        onBlur={(e) => commitTime(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            commitTime(e.currentTarget.value);
+            e.currentTarget.blur();
           }
         }}
         className={cn(
-          "bg-background appearance-none",
-          "[&::-webkit-calendar-picker-indicator]:hidden",
-          "[&::-webkit-calendar-picker-indicator]:appearance-none",
+          "bg-background",
           "rounded-tl-none rounded-bl-none",
-          "w-24",
+          "w-18",
         )}
       />
     </div>
