@@ -34,7 +34,6 @@ export interface TimeEntriesBySite {
   eveTwilight: string;
   mornTwilight: string;
   timeEntries: TimeEntryType[];
-  timestats: TimeStats;
 }
 
 export interface TimeEntryType {
