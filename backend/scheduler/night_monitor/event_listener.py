@@ -6,7 +6,7 @@ from functools import partial
 
 import stamina
 from aiohttp import ClientError
-from websockets import ConnectionClosedError, InvalidStatus
+from websockets import ConnectionClosedError, ConnectionClosedOK, InvalidStatus
 from typing import Any
 
 from .event_sources import (
@@ -24,9 +24,15 @@ __all__ = ['EventListener', 'SubscriptionEndedException']
 
 
 class SubscriptionEndedException(Exception): pass
+# SubscriptionEndedException is raised below when a subscription ends without an
+# error, which is what a server-side `complete` frame looks like from here: the
+# gpp-client closes the socket and the async-for simply runs out. That and a
+# clean 1000 close (ConnectionClosedOK) are ordinary events for a long-lived
+# subscription, so both must reconnect rather than end the night.
 RETRYABLE_EXCEPTIONS = (
     ConnectionError, asyncio.TimeoutError,
-    ClientError, ConnectionClosedError, InvalidStatus,
+    ClientError, ConnectionClosedError, ConnectionClosedOK, InvalidStatus,
+    SubscriptionEndedException,
 )
 
 
@@ -48,8 +54,17 @@ class EventListener:
         ]
         self._shutdown_event = shutdown_event
 
+    # attempts/timeout are None on purpose. stamina's defaults (10 attempts,
+    # 45s) measure from when the call first started, not from the first failure,
+    # so a subscription that has been streaming for longer than 45s gets zero
+    # reconnect attempts: the first dropped socket ends it for the rest of the
+    # night. A subscription must keep reconnecting for as long as the night
+    # monitor is up; wait_max caps the backoff so an ODB that is down for hours
+    # is retried every 10s rather than spun on.
     @stamina.retry(
         on=RETRYABLE_EXCEPTIONS,
+        attempts=None,
+        timeout=None,
         wait_initial=1.0,
         wait_max=10.0,
     )
@@ -98,6 +113,15 @@ class EventListener:
             raise e
 
         except asyncio.CancelledError:
+            raise
+
+        except RETRYABLE_EXCEPTIONS as e:
+            # Retries are now unbounded, so a subscription that can never connect
+            # would reconnect silently forever. Say so on every attempt: this is
+            # the only trace left of a subscription that is up but not delivering.
+            _logger.warning(
+                f"Subscription '{sub_name}' dropped ({type(e).__name__}: {e}); reconnecting."
+            )
             raise
 
     @staticmethod

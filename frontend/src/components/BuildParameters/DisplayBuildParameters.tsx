@@ -39,6 +39,10 @@ function getLatestData(
         ? stringDateToLocalString(gsStart + "Z", "GS")
         : "Default",
       gsEnd: gsEnd ? stringDateToLocalString(gsEnd + "Z", "GS") : "Default",
+      // Shown as submitted, in UT. The backend advances it with the real clock,
+      // so this is where the simulated night started, not where it is now.
+      simulatedNow:
+        subscriptionData.buildParametersUpdates?.simulatedNow ?? "Default",
     };
   } else {
     if (queryData) {
@@ -67,6 +71,7 @@ function getLatestData(
           ? stringDateToLocalString(gsStart + "Z", "GS")
           : "Default",
         gsEnd: gsEnd ? stringDateToLocalString(gsEnd + "Z", "GS") : "Default",
+        simulatedNow: queryData.buildParameters?.simulatedNow ?? "Default",
       };
     } else {
       return {
@@ -76,6 +81,7 @@ function getLatestData(
         gnEnd: "Default",
         gsStart: "Default",
         gsEnd: "Default",
+        simulatedNow: "Default",
       };
     }
   }
@@ -149,6 +155,9 @@ export default function DisplayBuildParameters() {
       </div>
       <div className="h-9 text-nowrap flex flex-row items-center">
         <TimeBadge time={data.gsEnd} />
+      </div>
+      <div className="h-9 text-nowrap flex flex-row items-center">
+        <TimeBadge time={data.simulatedNow} />
       </div>
     </div>
   );

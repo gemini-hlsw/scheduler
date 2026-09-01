@@ -2,13 +2,13 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import final, Optional, FrozenSet, List, Dict, Tuple
 
 from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, Semester, NightIndex
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
@@ -142,11 +142,52 @@ class BuildParameters(BaseModel):
     visibility_start (datetime): Date the visibility calculation start. Inclusive.
     visibility_end (datetime): Date the visibility calculation end. Inclusive.
         Max date should be the semester end.
+    simulated_now (datetime): Pretend the clock reads this instant. Leave unset outside
+        testing; see `reference_time`.
     """
     night_times: Dict[Site, NightTimes] | None = None
     visibility_start: datetime | None = None
     visibility_end: datetime | None = None
     program_list: List[str] | None = None
+    simulated_now: datetime | None = None
+    # Stamped when these parameters are built, which is what `simulated_now` advances from.
+    # Not settable through the API: it is the anchor, not an input.
+    set_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    def is_customized(self) -> bool:
+        """
+        Whether anything here points the build away from a plain real-time run tonight.
+
+        When nothing is set the scheduler runs against the real clock. Once something is,
+        the plan covers a night that is not the one the clock is in, and consumers must take
+        their sense of "now" from these parameters instead (see
+        ODBEventHandler._reference_time). ``set_at`` is excluded: it is stamped on every
+        construction and says nothing about intent.
+        """
+        return any((
+            self.night_times,
+            self.visibility_start,
+            self.visibility_end,
+            self.program_list,
+            self.simulated_now,
+        ))
+
+    def reference_time(self) -> datetime | None:
+        """
+        ``simulated_now`` advanced by the real time elapsed since it was set, or None when it
+        was not set.
+
+        Scheduling a past night from a live ODB is otherwise untestable: the plan's visits
+        sit in that night while the clock reads today, so nothing the ODB reports ever lines
+        up with what the plan expects, and events stamped with the real time land tens of
+        thousands of timeslots past evening twilight.
+
+        The instant advances rather than freezing, so a READY -> ONGOING -> COMPLETED sequence
+        spread over real minutes moves through that night by those same minutes.
+        """
+        if self.simulated_now is None:
+            return None
+        return self.simulated_now + (datetime.now(UTC) - self.set_at)
 
     def program_date(self) -> date | None:
         """

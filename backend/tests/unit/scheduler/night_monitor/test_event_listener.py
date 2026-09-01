@@ -6,7 +6,10 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 import asyncio
 
+from websockets import ConnectionClosedError, ConnectionClosedOK
+
 from scheduler.night_monitor import EventListener, SubscriptionEndedException
+from scheduler.night_monitor.event_listener import RETRYABLE_EXCEPTIONS
 from scheduler.night_monitor.event_sources import EventSourceType
 
 async def mock_subscription_generator(data_list):
@@ -27,9 +30,24 @@ def event_listener(mock_client_async):
     """Provides an EventListener instance initialized with the async mock client."""
     return EventListener(mock_client_async, asyncio.Queue(), asyncio.Event())
 
-@patch('scheduler.night_monitor.event_listener.stamina.retry', lambda **kwargs: lambda f: f) # Disable stamina
+
+@pytest.fixture
+def no_retry():
+    """
+    Run producers without the retry wrapper, for tests about what a producer does rather
+    than about reconnecting.
+
+    Patching ``stamina.retry`` does not work: the decorator is applied at import time, so
+    replacing the name afterwards leaves the already-wrapped function in place. Retries are
+    unbounded by design, so a producer whose subscription ends never returns unless it is
+    unwrapped here.
+    """
+    with patch.object(EventListener, '_producer', EventListener._producer.__wrapped__):
+        yield
+
+
 @pytest.mark.asyncio
-async def test_produce_success(event_listener, mock_client_async):
+async def test_produce_success(no_retry, event_listener, mock_client_async):
     """Test the _producer method successfully reeds from subscription"""
 
     # Mock subscription factory - must return generator directly, not a coroutine
@@ -51,9 +69,8 @@ async def test_produce_success(event_listener, mock_client_async):
     assert await event_listener.queue.get() == (source_type, 'resource_edit', 'data2')
 
 
-@patch('scheduler.night_monitor.event_listener.stamina.retry', lambda **kwargs: lambda f: f) # Disable stamina
 @pytest.mark.asyncio
-async def test_producer_ends_gracefully(event_listener,  mock_client_async):
+async def test_producer_ends_gracefully(no_retry, event_listener,  mock_client_async):
     """Test that the producer correctly raises SubscriptionEndedException."""
     mock_data = ['data1']
     mock_sub_factory = MagicMock(side_effect=lambda session: mock_subscription_generator(mock_data))
@@ -72,21 +89,24 @@ async def test_producer_ends_gracefully(event_listener,  mock_client_async):
 @pytest.mark.asyncio
 async def test_producer_retry(mock_sleep, event_listener):
     """Test the producer's retry logic via stamina."""
-    mock_data = ['data1']
-    # Mock factory that fails once with a retryable exception, then succeeds
     mock_sub_factory = MagicMock()
 
+    # Shutting down is the only clean way out of a live producer: a subscription that
+    # merely ends is itself retryable, so without this it would reconnect forever.
+    async def last_generator(session):
+        yield 'data1'
+        event_listener._shutdown_event.set()
+
+    # Mock factory that fails once with a retryable exception, then succeeds
     mock_sub_factory.side_effect = [
         ConnectionError("Simulated connection error"),
-        mock_subscription_generator(mock_data)
+        last_generator(None)
     ]
 
     source_type = EventSourceType.WEATHER
 
     client = AsyncMock()
-    # It should eventually succeed and then raise SubscriptionEndedException
-    with pytest.raises(SubscriptionEndedException):
-        await event_listener._producer(source_type, 'weather_edit', mock_sub_factory, client)
+    await event_listener._producer(source_type, 'weather_edit', mock_sub_factory, client)
 
     # 1 fail, 1 success
     assert mock_sub_factory.call_count == 2
@@ -99,9 +119,51 @@ async def test_producer_retry(mock_sleep, event_listener):
     mock_sleep.assert_called_once()
 
 
-@patch('scheduler.night_monitor.event_listener.stamina.retry', lambda **kwargs: lambda f: f)
+@patch('asyncio.sleep', new_callable=AsyncMock)  # Patch sleep to speed up retry
 @pytest.mark.asyncio
-async def test_listen(event_listener, mock_client_async):
+async def test_producer_reconnects_after_a_graceful_end(mock_sleep, event_listener):
+    """
+    A subscription that ends without an error must reconnect, not end the night.
+
+    This is what a server-side `complete` frame looks like from here: the client closes the
+    socket and the async-for simply runs out. Before, that raised a SubscriptionEndedException
+    that nothing retried, and the ODB events stopped arriving until the process restarted.
+    """
+    async def ends_immediately(session):
+        return
+        yield  # pragma: no cover - makes this an async generator
+
+    async def then_delivers(session):
+        yield 'data1'
+        event_listener._shutdown_event.set()
+
+    mock_sub_factory = MagicMock()
+    mock_sub_factory.side_effect = [ends_immediately(None), then_delivers(None)]
+
+    await event_listener._producer(
+        EventSourceType.ODB, 'observation_edit', mock_sub_factory, AsyncMock()
+    )
+
+    assert mock_sub_factory.call_count == 2, "a graceful end must reconnect"
+    assert await event_listener.queue.get() == (EventSourceType.ODB, 'observation_edit', 'data1')
+
+
+@pytest.mark.asyncio
+async def test_graceful_end_and_clean_close_are_retryable():
+    """
+    Pins the two closures that end a healthy subscription.
+
+    The elapsed-time half of this fix (stamina's default `timeout=45.0`, measured from when
+    the call first started) cannot be asserted here without a >45s test; it is covered by the
+    decorator's explicit `timeout=None`.
+    """
+    assert SubscriptionEndedException in RETRYABLE_EXCEPTIONS
+    assert ConnectionClosedOK in RETRYABLE_EXCEPTIONS
+    assert ConnectionClosedError in RETRYABLE_EXCEPTIONS
+
+
+@pytest.mark.asyncio
+async def test_listen(no_retry, event_listener, mock_client_async):
     """Test the main listen() method to ensure all producers are gathered."""
 
     mock_resource_source = MagicMock()
@@ -163,9 +225,12 @@ async def test_listen(event_listener, mock_client_async):
         f"Queue items don't match. Got: {items_in_queue}, Expected: {expected_items}"
 
 @pytest.mark.asyncio
-async def test_listen_logs_producer_failure(event_listener, mock_client_async):
-    """A producer that dies with an unretryable error must be logged, not
-    silently swallowed by the gather."""
+async def test_listen_logs_producer_failure(no_retry, event_listener, mock_client_async):
+    """A producer that dies must be logged, not silently swallowed by the gather.
+
+    Unwrapped, because with retries in place a producer only reaches the done-callback once
+    stamina has given up, which for a retryable error is never.
+    """
     mock_source = MagicMock()
     mock_source.source_type = EventSourceType.ODB
 

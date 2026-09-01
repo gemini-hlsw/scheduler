@@ -38,6 +38,9 @@ export default function BuildParameters({
   const [startTimeGS, setStartTimeGS] = useState<Date | undefined>(undefined);
   const [endTimeGN, setEndTimeGN] = useState<Date | undefined>(undefined);
   const [endTimeGS, setEndTimeGS] = useState<Date | undefined>(undefined);
+  // Optional. Left empty, the backend starts the simulated clock at the built
+  // night's evening twilight; set it to jump straight into the night instead.
+  const [simulatedNow, setSimulatedNow] = useState<Date | undefined>(undefined);
 
   // The list must match the night being built, not today. Same order the
   // backend uses: visibility start first, then the earliest night start.
@@ -126,6 +129,7 @@ export default function BuildParameters({
           programList: programs.filter((p) => p.checked).map((p) => p.id),
           visibilityEnd: date?.to ? toUtcIsoString(date.to) : undefined,
           visibilityStart: date?.from ? toUtcIsoString(date.from) : undefined,
+          simulatedNow: simulatedNow ? toUtcIsoString(simulatedNow) : undefined,
         },
       },
     });
@@ -232,6 +236,20 @@ export default function BuildParameters({
                   endTimeGS ? "text-red-500 cursor-pointer" : "left-auto"
                 )}
                 onClick={() => setEndTimeGS(undefined)}
+              />
+            }
+          />
+          <DateTimeSelector
+            title="Simulated Now (UT)"
+            dateTime={simulatedNow!}
+            setDateTime={setSimulatedNow}
+            setToNow={() => {}}
+            setToNowButton={false}
+            vertical={vertical}
+            clearButton={
+              <FaTrash
+                className={cn(simulatedNow ? "text-red-500 cursor-pointer" : "")}
+                onClick={() => setSimulatedNow(undefined)}
               />
             }
           />

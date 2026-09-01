@@ -15,6 +15,7 @@ input BuildParametersInput {
   visibilityStart: DateTime = null
   visibilityEnd: DateTime = null
   programList: [String!] = null
+  simulatedNow: DateTime = null
 }
 
 type BuildParametersResponse {
@@ -22,6 +23,7 @@ type BuildParametersResponse {
   visibilityStart: DateTime
   visibilityEnd: DateTime
   programList: [String!]
+  simulatedNow: DateTime
 }
 
 input CreateNewScheduleInput {

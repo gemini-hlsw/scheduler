@@ -20,6 +20,7 @@ export const buildParametersQuery = graphql(`
       visibilityStart
       visibilityEnd
       programList
+      simulatedNow
     }
   }
 `);

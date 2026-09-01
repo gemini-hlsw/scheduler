@@ -155,5 +155,15 @@ class Plan:
                            start <= x <= stop]
             return plan
 
+    def find(self, obs_id: ObservationID) -> Optional[Observation]:
+        """
+        Finds an observation by observation ID if it belongs to a visit in the plan.
+        Returns None otherwise.
+        """
+        for visit in self.visits:
+            if visit.observation.id == obs_id:
+                return visit.observation
+        return None
+
     def __contains__(self, obs: Observation) -> bool:
         return any(visit.observation.id == obs.id for visit in self.visits)
