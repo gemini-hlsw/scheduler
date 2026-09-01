@@ -14,6 +14,8 @@ import { ObsClassBadge } from "./ObsClassBadge";
 import { FaCheck } from "react-icons/fa";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { IoHourglassOutline } from "react-icons/io5";
+import { format } from "date-fns";
+import { tz } from "@date-fns/tz";
 
 function VisitRow({
   visit,
@@ -30,7 +32,7 @@ function VisitRow({
   drawTopBorder?: boolean;
   drawBotBorder?: boolean;
 }) {
-  const tz = site === "GN" ? "Pacific/Honolulu" : "America/Santiago";
+  const timeZone = site === "GN" ? "Pacific/Honolulu" : "America/Santiago";
 
   function fractionToPercentage(fraction: string): number {
     const parts = fraction.split("/");
@@ -100,9 +102,9 @@ function VisitRow({
       <TableCell>
         <ObsClassBadge obsClass={visit.obsClass} />
       </TableCell>
-      <TableCell>
-        {new Date(visit.startTime).toLocaleString("en-UK", {
-          timeZone: tz,
+      <TableCell className="font-mono">
+        {format(new Date(visit.startTime), "yyyy-MM-dd HH:mm:ss", {
+          in: tz(timeZone),
         })}
       </TableCell>
       <TableCell>{visit.atomStartIdx}</TableCell>
