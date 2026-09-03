@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import dateutil.parser
 from pathlib import Path
 from definitions import ROOT_DIR
+from scheduler.services.horizons.coordinates import Coordinates
 import matplotlib.pyplot as plt
 
 from lucupy.helpers import dms2rad, hms2rad
@@ -13,52 +14,6 @@ from lucupy.helpers import dms2rad, hms2rad
 import numpy as np
 from numpy import arctan2, cos, sin, sqrt
 from scipy.interpolate import CubicSpline
-
-
-@dataclass(frozen=True)
-class Coordinates:
-    """
-    Both ra and dec must be in radians.
-    """
-    ra: float
-    dec: float
-
-    def angular_distance(self, other: 'Coordinates') -> float:
-        delta_ra = other.ra - self.ra
-        delta_dec = other.dec - self.dec
-        a = sin(delta_dec / 2) ** 2 + cos(self.dec) * cos(other.dec) * sin(delta_ra / 2) ** 2
-        dist = 2 * arctan2(sqrt(a), sqrt(1 - a))
-        return dist
-
-    def interpolate(self, other: 'Coordinates', ratio: float) -> 'Coordinates':
-        """
-        Interpolate between self and other for a ratio in [0.0, 1.0].
-        """
-        delta = self.angular_distance(other)
-        if delta == 0:
-            return self
-        a = sin((1 - ratio) * delta) / sin(delta)
-        b = sin(ratio * delta) / sin(delta)
-        x = a * cos(self.dec) * cos(self.ra) + b * cos(other.dec) * cos(other.ra)
-        y = a * cos(self.dec) * sin(self.ra) + b * cos(other.dec) * sin(other.ra)
-        z = a * sin(self.dec) + b * sin(other.dec)
-        phi_i = arctan2(z, sqrt(x * x + y * y))
-        lambda_i = arctan2(y, x)
-        return Coordinates(lambda_i, phi_i)
-
-    def interpolate_array(self, other: 'Coordinates', self_time: datetime, other_time: datetime, timeslot_length: timedelta) -> list['Coordinates']:
-        """
-        Interpolate between self and other to have coordinates for every timeslot between self_time and other_time.
-        """
-        times = []
-        coords = []
-        time_between = other_time - self_time
-        for i in range((time_between // timeslot_length)):
-            ratio = i / (time_between // timeslot_length)
-            times.append(self_time + i * timeslot_length)
-            coords.append(self.interpolate(other, ratio))
-
-        return times, coords
 
 def interpolate_coords(time2: list[datetime], coords2: list[Coordinates], timeslot_length: timedelta = timedelta(minutes=1.0)):
     """
@@ -167,11 +122,18 @@ for t in range(len(time2)):
         break
 
 
+plt.figure(1)
 plt.plot(time, [coord.ra for coord in coords], label='jpl 1m')
 plt.plot(time2[first_sem_time:last_sem_time], [coord.ra for coord in coords2[first_sem_time:last_sem_time]], label='jpl 4h')
 plt.plot(interpolated_times[first_time:last_time], [coord.ra for coord in interpolated_coords[first_time:last_time]], label='interpolated')
-# plt.plot(time, [coord.dec for coord in coords], label='jpl')
-# plt.plot(interpolated_times[first_time:last_time], [coord.dec for coord in interpolated_coords[first_time:last_time]], label='interpolated')
 plt.legend()
 plt.title('RA comparison')
+
+plt.figure(2)
+plt.plot(time, [coord.dec for coord in coords], label='jpl')
+plt.plot(time2[first_sem_time:last_sem_time], [coord.dec for coord in coords2[first_sem_time:last_sem_time]], label='jpl 4h')
+plt.plot(interpolated_times[first_time:last_time], [coord.dec for coord in interpolated_coords[first_time:last_time]], label='interpolated')
+plt.legend()
+plt.title('Dec comparison')
+
 plt.show()
