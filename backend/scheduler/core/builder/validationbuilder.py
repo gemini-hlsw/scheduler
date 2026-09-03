@@ -127,7 +127,7 @@ class ValidationBuilder(SchedulerBuilder):
                         program_list: Optional[bytes] = None,
                         use_local_visibility: Optional[bool] = None) -> Collector:
 
-        ValidationBuilder.check_ephemerides()
+        # ValidationBuilder.check_ephemerides()
         collector = super().build_collector(start,
                                             end,
                                             num_of_nights,
