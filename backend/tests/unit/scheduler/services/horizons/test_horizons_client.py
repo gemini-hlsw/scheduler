@@ -167,5 +167,5 @@ def test_horizons_client_query(target: NonsiderealTarget,
         eph = client.get_ephemerides(target)
 
         # Note: these are in radians.
-        assert eph.coordinates[0].ra == 4.476586331426079
+        assert eph.coordinates[0].ra == -1.8065989757535077
         assert eph.coordinates[0].dec == -0.3880237049946405
