@@ -5,14 +5,17 @@ import contextlib
 import dateutil.parser
 import requests
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
+import time as time_module
 from pathlib import Path
 from typing import final, ContextManager, Dict, Final
 
 import numpy as np
 from lucupy.helpers import dms2rad, hms2rad
-from lucupy.minimodel import NonsiderealTarget, TargetTag, Site
+from lucupy.minimodel import NonsiderealTarget, Semester, TargetTag, Site
 
+from numpy import arctan2, cos, sin, sqrt
+from scipy.interpolate import CubicSpline
 from .coordinates import Coordinates
 from .ephemeris_coordinates import EphemerisCoordinates
 from definitions import ROOT_DIR
@@ -60,6 +63,8 @@ class HorizonsClient:
 
     def _query(self,
                target: str,
+               start: str,
+               stop: str,
                step: str = '1m',
                make_ephem: str = 'YES',
                cal_format: str = 'CAL',
@@ -78,8 +83,8 @@ class HorizonsClient:
             'MAKE_EPHEM': make_ephem,
             'EPHEM_TYPE': 'OBSERVER',
             'CENTER': center,
-            'START_TIME': self.start.strftime("'%Y-%b-%d %H:%M'"),
-            'STOP_TIME': self.end.strftime("'%Y-%b-%d %H:%M'"),
+            'START_TIME': start,
+            'STOP_TIME': stop,
             'STEP_SIZE': f"'{step}'",
             'QUANTITIES': quantities,
             'REF_SYSTEM': 'J2000',
@@ -100,6 +105,68 @@ class HorizonsClient:
         # Skipping the section of heliocentric ecliptic osculating elements.
         return requests.get(self.url, params=params)
 
+    def get_coords_table(self, lines: list[str]):
+        time = []
+        coords = []
+        firstline = lines.index('$$SOE') + 1
+        lastline = lines.index('$$EOE') - 1
+
+        for line in lines[firstline:lastline + 1]:
+            if line and line[7:15] != 'Daylight' and line[7:14] != 'Airmass':
+                values = line.split(' ')
+                rah = int(values[-6])
+                ram = int(values[-5])
+                ras = float(values[-4])
+                decg = values[-3][0]  # sign
+                decd = int(values[-3][1:3])
+                decm = int(values[-2])
+                decs = float(values[-1])
+
+                time.append(dateutil.parser.parse(line[0:17]))
+                coords.append(Coordinates(hms2rad(rah, ram, ras), dms2rad(decd, decm, decs, decg)))
+
+        return time, coords
+
+    def interpolate_coords(self, time_list: list[datetime], coord_list: list[Coordinates], timeslot_length: timedelta = timedelta(minutes=1.0)):
+        """
+        Interpolate coord_list at every timeslot between the first and last entry of time_list.
+
+        Fits a cubic spline through the unit vectors of the whole coord_list sequence (rather than
+        linearly/spherically interpolating each consecutive pair in isolation), so the result
+        follows the curvature of the target's actual path instead of a piecewise-linear one.
+        """
+        times64 = np.array(time_list, dtype='datetime64[us]')
+        step_us = int(timeslot_length / timedelta(microseconds=1))
+        gaps_us = (np.diff(times64) / np.timedelta64(1, 'us')).astype(np.int64)
+        n_per_segment = gaps_us // step_us
+
+        total = int(n_per_segment.sum())
+        starts = np.concatenate(([0], np.cumsum(n_per_segment)[:-1]))
+        step_index = np.arange(total) - np.repeat(starts, n_per_segment)
+
+        seg_start_times = np.repeat(times64[:-1], n_per_segment)
+        interpolated_times64 = seg_start_times + (step_index * step_us).astype('timedelta64[us]')
+
+        knot_us = (times64.astype(np.int64) - times64[0].astype(np.int64)).astype(np.float64)
+        query_us = (interpolated_times64.astype(np.int64) - times64[0].astype(np.int64)).astype(np.float64)
+
+        ra = np.array([c.ra for c in coord_list])
+        dec = np.array([c.dec for c in coord_list])
+        unit_vectors = np.stack([cos(dec) * cos(ra), cos(dec) * sin(ra), sin(dec)], axis=1)
+
+        spline = CubicSpline(knot_us, unit_vectors, axis=0)
+        interpolated_vectors = spline(query_us)
+        interpolated_vectors /= np.linalg.norm(interpolated_vectors, axis=1, keepdims=True)
+
+        x, y, z = interpolated_vectors[:, 0], interpolated_vectors[:, 1], interpolated_vectors[:, 2]
+        new_ra = arctan2(y, x)
+        new_dec = arctan2(z, sqrt(x ** 2 + y ** 2))
+
+        interpolated_coords = [Coordinates(float(r), float(d)) for r, d in zip(new_ra, new_dec)]
+        interpolated_times = interpolated_times64.astype('datetime64[us]').astype(datetime).tolist()
+
+        return interpolated_times, interpolated_coords
+
     def get_ephemerides(self,
                         target: NonsiderealTarget,
                         overwrite: bool = False) -> EphemerisCoordinates:
@@ -113,8 +180,8 @@ class HorizonsClient:
 
         targ_name = target.des.replace(' ', '_').replace('/','')
         # end is the UT date, the same for both Gemini sites
-        night_str = self.end.strftime(self.date_format)
-        ephemeris_path = self.path / f'{self.site.name}_{targ_name}_{night_str}UT.eph'
+        semester = Semester.find_semester_from_date(self.start)
+        ephemeris_path = self.path / f'{self.site.name}_{targ_name}_{str(semester)}.eph'
 
         lines = None
         if not overwrite and ephemeris_path.exists() and ephemeris_path.is_file():
@@ -134,32 +201,24 @@ class HorizonsClient:
                 )
 
         if lines is None:
+            semester_start = semester.start_date().strftime("'%Y-%b-%d %H:%M'")
+            semester_end = semester.end_date().strftime("'%Y-%b-%d %H:%M'")
             logger.debug(f'Querying JPL/Horizons for {horizons_name}')
-            res = self._query(horizons_name, step=f'{int(self.time_slot_length)}m')
+            res = self._query(horizons_name,
+                              semester_start,
+                              semester_end,
+                              daytime=True,
+                              step='4h')
             lines = res.text.splitlines()
             with ephemeris_path.open('w') as f:
                 f.write(res.text)
 
-        time = []
-        coords = []
-
         try:
-            firstline = lines.index('$$SOE') + 1
-            lastline = lines.index('$$EOE') - 1
-
-            for line in lines[firstline:lastline + 1]:
-                if line and line[7:15] != 'Daylight' and line[7:14] != 'Airmass':
-                    values = line.split(' ')
-                    rah = int(values[-6])
-                    ram = int(values[-5])
-                    ras = float(values[-4])
-                    decg = values[-3][0]  # sign
-                    decd = int(values[-3][1:3])
-                    decm = int(values[-2])
-                    decs = float(values[-1])
-
-                    time.append(dateutil.parser.parse(line[1:18]))
-                    coords.append(Coordinates(hms2rad(rah, ram, ras), dms2rad(decd, decm, decs, decg)))
+            time, coords = self.get_coords_table(lines)
+            start_index = max(0, next(i for i, t in enumerate(time) if t >= self.start) - 1)
+            end_index = next(i for i, t in enumerate(time) if t >= self.end)
+            time, coords = time[start_index:end_index], coords[start_index:end_index]
+            time, coords = self.interpolate_coords(time, coords, timedelta(minutes=self.time_slot_length))
 
         except ValueError as e:
             logger.error(f'Error parsing ephemerides file for {target.des} at: {ephemeris_path}')
