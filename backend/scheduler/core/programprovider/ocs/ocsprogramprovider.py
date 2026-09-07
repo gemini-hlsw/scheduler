@@ -802,15 +802,19 @@ class OcsProgramProvider(ProgramProvider):
                                              for disperser in dispersers])
             # Adding filters to resources
             filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER) for filt in filters])
-            resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources | filter_resources])
         else:
-            fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU) for fpu in fpus if fpu is not None])
-            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0] if "_" in disperser else disperser, resource_type=ResourceType.DISPERSER)
-                                             for disperser in dispersers if disperser is not None])
-            filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER) for filt in filters if filt is not None and filt != 'Unknown'])
-            resources = frozenset([r for r in instrument_resources | fpu_resources | disperser_resources | filter_resources])
+            # Uncomment the following once Resource has these components
+            # fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU) for fpu in fpus if fpu is not None])
+            # disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0] if "_" in disperser else disperser, resource_type=ResourceType.DISPERSER)
+            #                                  for disperser in dispersers if disperser is not None])
+            # filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER) for filt in filters if filt is not None and filt != 'Unknown'])
+            fpu_resources = frozenset([])
+            disperser_resources = frozenset([])
+            filter_resources = frozenset([])
 
-        # Remove the None values.
+        resources = frozenset([r for r in fpu_resources | disperser_resources | instrument_resources | filter_resources])
+
+        # Remove any None values.
         resources = frozenset([res for res in resources if res is not None])
         mode = determine_mode(instrument)
         # print(f'\t Instrument: {instrument}, Mode: {mode}')

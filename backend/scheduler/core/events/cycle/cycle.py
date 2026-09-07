@@ -11,7 +11,7 @@ from scheduler.core.plans import Plans, Plan
 from scheduler.core.scp import SCP
 from scheduler.services import logger_factory
 
-_logger = logger_factory.create_logger(__name__)
+logger = logger_factory.create_logger(__name__)
 
 NextUpdate = Dict[Site, Optional[TimeCoordinateRecord]]
 
@@ -58,7 +58,7 @@ class EventCycle:
         else:
             ta_description = f'up to timeslot {current_timeslot}.'
 
-        _logger.info(f'Time accounting: site {site.site_name} for night {night_idx} {ta_description}')
+        logger.info(f'Time accounting: site {site.site_name} for night {night_idx} {ta_description}')
 
         self.scp.collector.time_accountant.set_current(site, night_idx)
         self.scp.collector.time_accountant.clear_all_dirty()
@@ -92,7 +92,7 @@ class EventCycle:
         """
         night_indices = np.array([night_idx])
 
-        _logger.info(
+        logger.info(
             f'Retrieving selection for {site.site_name} for night {night_idx} '
             f'starting at time slot {current_timeslot}.'
         )
@@ -109,7 +109,7 @@ class EventCycle:
             )
         else:
             # the site becomes unblocked
-            _logger.debug(f'Site {site.site_name} for {night_idx} blocked at timeslot {current_timeslot}.')
+            logger.debug(f'Site {site.site_name} for {night_idx} blocked at timeslot {current_timeslot}.')
             # import pdb
             # pdb.set_trace()
             # pdb.set_trace = lambda: None
@@ -146,7 +146,7 @@ class EventCycle:
         while events_by_night.has_more_events():
             event = events_by_night.pop_next_event()
             event.to_timeslot_idx(eve_twi_time, time_slot_length)
-            _logger.warning(f'Site {site.site_name} on night {night_idx} has event after morning twilight: {event}')
+            logger.warning(f'Site {site.site_name} on night {night_idx} has event after morning twilight: {event}')
 
             self.change_monitor.process_event(site, event, None, night_idx)
 
@@ -246,7 +246,7 @@ class EventCycle:
                 )
             else:
                 # TODO: Not needded if the system returns only stitched plans
-                _logger.debug('Night done. Adding last empty plan to compute night stats.')
+                logger.debug('Night done. Adding last empty plan to compute night stats.')
                 # final_plan = self._get_final_plan(site, night_idx, nightly_timeline)
 
                 nightly_timeline.add(
@@ -340,7 +340,7 @@ class EventCycle:
         night_date = night_events.twilight_evening_12[night_idx].to_datetime(site.timezone).date()
         initial_variant = self.scp.collector.sources.origin.env.get_initial_conditions(site, night_date)
         self.scp.selector.update_site_variant(site, initial_variant)
-        _logger.debug(f'Resetting {site.site_name} weather to initial values for night...')
+        logger.debug(f'Resetting {site.site_name} weather to initial values for night...')
 
         # Loop through events until there are no more events
         while events_by_night.has_more_events():
@@ -380,4 +380,4 @@ class EventCycle:
 
         # The site should no longer be blocked.
         if not self.change_monitor.is_site_unblocked(site):
-            _logger.warning(f'Site {site.site_name} is still blocked after all events on night {night_idx} processed.')
+            logger.warning(f'Site {site.site_name} is still blocked after all events on night {night_idx} processed.')

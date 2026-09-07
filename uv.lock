@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -188,7 +188,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -231,7 +231,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
     { name = "sniffio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f1/b4/636b3b65173d3ce9a38ef5f0522789614e590dab6a8d505340a4efe4c567/anyio-4.10.0.tar.gz", hash = "sha256:3f3fae35c96039744587aa5b8371e7e8e603c0702999535961dd336026973ba6", size = 213252, upload-time = "2025-08-04T08:54:26.451Z" }
 wheels = [
@@ -498,7 +498,7 @@ name = "click"
 version = "8.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/60/6c/8ca2efa64cf75a977a0d7fac081354553ebe483345c734fb6b6515d96bbc/click-8.2.1.tar.gz", hash = "sha256:27c491cc05d968d271d5a1db13e3b5a184636d9d930f148c50b038f0d0646202", size = 286342, upload-time = "2025-05-20T23:19:49.832Z" }
 wheels = [
@@ -917,7 +917,7 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "26.7.3.dev10"
+version = "26.7.3.dev11"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -935,9 +935,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/77/e7/3f557022c4af44734cc1e7618bfedd96f9aa3bc281c0b81ea23a80a0a946/gpp_client-26.7.3.dev10.tar.gz", hash = "sha256:f4b8b263b5419cccb9ee067397a6495956d2b97935288d09f946d3e38cd599f7", size = 226977, upload-time = "2026-08-27T18:58:02.617Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/64/84/642de2468c72fd9071bb21e9ffcee919c2779f3e4928447bba65fdff83ea/gpp_client-26.7.3.dev11.tar.gz", hash = "sha256:af267cdc2d47cbe4faf7e5dd5779123fe1ca1c6482b6f4a96ebe1d7a24e4031a", size = 234366, upload-time = "2026-09-03T21:40:38.131Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/6f/135be292c01d70f08401b9bafd269d5addbcce1e21ead5cfa6cb400c572e/gpp_client-26.7.3.dev10-py3-none-any.whl", hash = "sha256:fd68ca41bc6fb7f69e9053f7aa0fc8543b9d63ca1fb1bc70610a44bad90448e5", size = 265498, upload-time = "2026-08-27T18:58:01.329Z" },
+    { url = "https://files.pythonhosted.org/packages/71/35/b38ec3b3176a02abe517efb73e869cd6aaa797c6b34f3a790c1f0cc1edec/gpp_client-26.7.3.dev11-py3-none-any.whl", hash = "sha256:678a8ef9c0912b3364a2b356a85a74c6e2275ab7a9e38e634290780128dc4c43", size = 273112, upload-time = "2026-09-03T21:40:36.625Z" },
 ]
 
 [[package]]
@@ -1450,15 +1450,15 @@ wheels = [
 
 [[package]]
 name = "lucupy"
-version = "0.2.12"
+version = "0.2.13"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "gelidum" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/5e/aaff61ac75d3d603ad7fd2ee5b665a3ac48124a98a9972e7afaea5b78ebc/lucupy-0.2.12.tar.gz", hash = "sha256:e1bec41e168eec4648dab3e34fa3eb2d1b909d7730cfc8b004b5dabe6e222b73", size = 48232, upload-time = "2026-08-05T16:56:35.145Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/5e/6afb66dfb9c7ca3e7e439678c6945fdbf4afef771baa379e728cd30376af/lucupy-0.2.13.tar.gz", hash = "sha256:861561409ab56ef354c53123970d363a05c912745c9edb135b27473e47cd7473", size = 48591, upload-time = "2026-09-05T17:42:01.087Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d4/fe/1dac1bcae6c908eb933a0d1989e6d5d3812074ccc8531ef7d9e3ed711d30/lucupy-0.2.12-py3-none-any.whl", hash = "sha256:7dfc210f4445143a6a1875cea96176cd427211ec0feda22e7f254ee988197715", size = 70121, upload-time = "2026-08-05T16:56:36.185Z" },
+    { url = "https://files.pythonhosted.org/packages/12/73/bae51a5e1af82a580b5cff090d27a6e92e282bbc1afbd4da2b8c56f06e23/lucupy-0.2.13-py3-none-any.whl", hash = "sha256:fd4ec5dded9db4c05e10a0ffeede0ac62bcec7bcb437677067dee5dd5cb20f02", size = 70480, upload-time = "2026-09-05T17:42:02.15Z" },
 ]
 
 [[package]]
@@ -2775,7 +2775,7 @@ docs = [
     { name = "mkdocstrings-python" },
 ]
 gpp-dev = [
-    { name = "gpp-client", version = "26.7.3.dev10", source = { registry = "https://pypi.org/simple" } },
+    { name = "gpp-client", version = "26.7.3.dev11", source = { registry = "https://pypi.org/simple" } },
 ]
 gpp-prod = [
     { name = "gpp-client", version = "26.7.3", source = { registry = "https://pypi.org/simple" } },
@@ -2795,7 +2795,7 @@ requires-dist = [
     { name = "greenlet", specifier = ">=3.3.1" },
     { name = "hypothesis", specifier = ">=6.137.1" },
     { name = "joblib", specifier = ">=1.5.2" },
-    { name = "lucupy", specifier = ">=0.2.12" },
+    { name = "lucupy", specifier = ">=0.2.13" },
     { name = "matplotlib", specifier = ">=3.10.5" },
     { name = "more-itertools", specifier = ">=10.7.0" },
     { name = "numpy", specifier = ">=2.3.2" },
@@ -2838,7 +2838,7 @@ docs = [
     { name = "mkdocs-mermaid2-plugin", specifier = ">=1.2.1" },
     { name = "mkdocstrings-python", specifier = ">=1.16.12" },
 ]
-gpp-dev = [{ name = "gpp-client", specifier = ">=26.7.3.dev7,==26.7.3.*,!=26.7.3" }]
+gpp-dev = [{ name = "gpp-client", specifier = ">=26.7.3.dev11,==26.7.3.*,!=26.7.3" }]
 gpp-prod = [{ name = "gpp-client", specifier = ">=26.7.1" }]
 
 [[package]]

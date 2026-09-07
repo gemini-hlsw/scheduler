@@ -294,7 +294,11 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         # Make a list of scores in the remaining groups
         for group_data in self.group_data_list:
+            # print(f'_find_max_group: {group_data.group.id.id} num schedulable slots: {len(group_data.group_info.schedulable_slot_indices)}')
+            logger.debug(f'\n\t\t\t_find_max_group: {group_data.group.id.id}, num schedulable slots: '
+                         f'{len(group_data.group_info.schedulable_slot_indices)}')
             site = group_data.group.observations()[0].site
+            # logger.debug(f'\n\t\t\tgreedymax._find_max_group open_intervals {open_intervals[site]}')
             if not self.timelines[plans.night_idx][site].is_full and group_data.group.active:
                 for interval_idx, interval in enumerate(open_intervals[site]):
                     # print(f'Interval: {iint}')
@@ -795,8 +799,10 @@ class GreedyMaxOptimizer(BaseOptimizer):
 
         if self.verbose:
             print(f"Starting _update_score for {program.id.id}")
+        logger.debug(f"\n\tgreedymax._update_score: updating {program.id.id}")
 
         program_calculations = self.selection.score_program(program)
+        logger.debug(f"\n\tgreedymax._update_score: done")
 
         if program_calculations is not None:
             # print("Re-score incomplete schedulable_groups")
@@ -972,7 +978,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 #     plan.is_full = True
                 # TODO NOTE: Does this really mean the timeline is full?
                 for timeline in self.timelines[plans.night_idx]:
-                    logger.warning(f'Setting timelines corresponding to {plans.night_idx} to full (no max_group_info).')
+                    logger.warning(f'Setting timelines corresponding to night {plans.night_idx} to full (no max_group_info).')
                     timeline.is_full = True
 
         if self.show_plots:
@@ -1091,6 +1097,16 @@ class GreedyMaxOptimizer(BaseOptimizer):
                   f"number observed = {max_group_info.group_data.group.number_observed}, "
                   f"n_std = {max_group_info.n_std}")
             print(f"\tInterval start end: {max_group_info.interval[0]} {max_group_info.interval[-1]}")
+        logger.debug(
+            f"\ngreedymax.add group {max_group_info.group_data.group.unique_id.id} "+
+              f"with max score{max_group_info.max_score:8.4f}\n"+
+            f"\tTimeline slots remaining = {timeline.slots_unscheduled()}, "+
+              f"n_slots_remaining = {max_group_info.n_slots_remaining}\n"+
+            f"\tNumber to observe={max_group_info.group_data.group.number_to_observe}, "
+              f"number observed = {max_group_info.group_data.group.number_observed}, "
+              f"n_std = {max_group_info.n_std}\n"+
+            f"\tInterval start end: {max_group_info.interval[0]} {max_group_info.interval[-1]}"
+                     )
 
         if not timeline.is_full:
             # Find the best location in timeline for the group
@@ -1152,6 +1168,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # Reserve space for the cals, otherwise the science observes will fill the interval
                 n_slots_filled = n_slots_cal
                 # print(f"Adding science: {obs.to_unique_group_id} {obs.id.id}")
+                logger.debug(f"\n\tgreedymax.add: including sci observation: {obs.to_unique_group_id} {obs.id.id}")
                 n_slots_filled, start = self._add_visit(night_idx, obs, max_group_info, best_interval, n_slots_filled)
                 start_time = start if start_time is None else start_time
                 # ToDo: eventually check whether any are split, for now we consider it observed

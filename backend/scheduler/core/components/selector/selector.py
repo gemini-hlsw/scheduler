@@ -11,10 +11,11 @@ import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import Angle
 from astropy.units import Quantity
+import lucupy.sky as sky
 from lucupy.helpers import is_contiguous
 from lucupy.minimodel import (Group, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
                               ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, TimeslotIndex,
-                              UniqueGroupID, Variant, VariantSnapshot, AndOption)
+                              UniqueGroupID, Variant, VariantSnapshot, AndOption, ElevationType)
 from lucupy.minimodel import CloudCover, ImageQuality
 from lucupy.timeutils import time2slots
 
@@ -289,6 +290,35 @@ class Selector(SchedulerComponent):
             _program_scorer=self.score_program
         )
 
+    def is_rising(self, obs, target_info):
+        """Determine if an observation is rising"""
+
+        logger.debug(f'\nis_rising for {obs.id.id} with {obs.constraints.elevation_type}'
+                     f'\nelevation_max = {obs.constraints.elevation_max}')
+
+        # Get Hour Angle constraints
+        if obs.constraints.elevation_type == ElevationType.AIRMASS:
+            # Find HA for airmass, this is symmetrical, so can be pos or neg
+            alt_airmass_max = sky.airmass_to_alt(obs.constraints.elevation_max)
+            ha_airmass_max = sky.alt_to_hour_angle(target_info.coord.dec[0], obs.site.location.lat, alt_airmass_max)
+            # If +-1000, then no good
+            ha_airmass_max = 0.0 * u.rad if abs(ha_airmass_max.value) == 1000.0 else ha_airmass_max
+
+            # Corresponding hour angles
+            halim_min = -1.0 * ha_airmass_max
+            halim_max = ha_airmass_max
+        else:
+            halim_min = obs.constraints.elevation_min * u.hourangle
+            halim_max = obs.constraints.elevation_max * u.hourangle
+
+        # Hour angles that match the constraints
+        ha_match = np.where(np.logical_and(halim_min <= target_info.hourangle, target_info.hourangle <= halim_max))[0]
+        # print(hourangle[ha_match[0]] if len(ha_match) > 0 else 'No match')
+
+        # If no match, then not visible, can assume rising for the purposes of the scheduler scoring
+        # Target is rising if the first HA that meets constraints is negative
+        return True if len(ha_match) == 0 or target_info.hourangle[ha_match[0]] < 0 else False
+
     def score_program(self,
                       program: Program,
                       sites: FrozenSet[Site],
@@ -466,8 +496,10 @@ class Selector(SchedulerComponent):
         if not obs_nights:
             logger.debug(f'Selector skipping {obs.id}: not visible in any scheduled night.')
             return group_data_map
-
+        
+        # Conditions constraints
         mrc = obs.constraints.conditions
+        # ToDo: check this
         is_splittable = len(obs.sequence) > 1
 
         # An activated rapid ToO overrides program-level block scheduling (partner, PV and classical
@@ -475,7 +507,7 @@ class Selector(SchedulerComponent):
         # Standard ToOs stay tied to their program's calendar filter. The override only applies on
         # nights that accept ToOs (too_status is also False on closed / engineering nights), and the
         # group filter, which carries resource availability, still applies below.
-        is_activated_rapid_too = (obs.too_type is TooType.RAPID
+        is_activated_rapid_too = (obs.too_type >= TooType.RAPID
                                   and obs.status in {ObservationStatus.READY, ObservationStatus.ONGOING})
 
         # Calculate a numpy array of bool indexed by night to determine when the group can be added to the plan
@@ -493,9 +525,9 @@ class Selector(SchedulerComponent):
             # night_filtering[night_idx] = night_filter.group_filter(group)
 
         if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
-            # If we are science or progcal, then the check if the first HA for the night is negative,
-            # indicating that the target is rising
-            rising = {night_idx: target_info[night_idx].hourangle[0].value < 0 for night_idx in obs_nights}
+            # If we are science or progcal, then the check whether the target is rising
+            # rising = {night_idx: target_info[night_idx].hourangle[0].value < 0 for night_idx in obs_nights}
+            rising = {night_idx: self.is_rising(obs, target_info[night_idx]) for night_idx in obs_nights}
         else:
             rising = {night_idx: True for night_idx in obs_nights}
         too_type = obs.too_type
@@ -527,9 +559,10 @@ class Selector(SchedulerComponent):
                 f'\nSelector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}\n'+
                 f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}\n'+
                 f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}\n'+
-                f'rising: {rising[night_idx]}, Too: {too_type}\n'+
+                f'rising: {rising[night_idx]}, Too: {too_type.name}\n'+
                 f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}\n'
             )
+            # print(f'_calc_observation_group conditions: {conditions_score[night_idx]}')
 
         # Calculate the schedulable slot indices.
         # These are the indices where the observation has:
@@ -600,12 +633,14 @@ class Selector(SchedulerComponent):
 
         if verbose:
             print(f'\t_calculate_and_group: {group.unique_id.id}')
+        logger.debug(f'\n\t_calculate_and_group: {group.unique_id.id}')
 
         # Process all subgroups and then process this group directly.
         # Ignore the return values here: they will just accumulate in group_info_map.
         for subgroup in group.children:
             if verbose:
                 print(f'\t\tsubgroup: {subgroup.unique_id.id}')
+            logger.debug(f'\n\t\tsubgroup: {subgroup.unique_id.id}')
             self._calculate_group(program, subgroup, sites, night_indices, starting_time_slots, night_configurations,
                                   ranker, group_data_map)
 
@@ -630,6 +665,7 @@ class Selector(SchedulerComponent):
         mrc = Conditions.most_restrictive_conditions(subgroup_conditions)
 
         # This group will always be splittable unless we have some bizarre nesting.
+        # ToDo: Check this logic, it seems backwards from the original intent
         is_splittable = len(group.observations()) > 1 or len(group.observations()[0].sequence) > 1
 
         # The group is filtered in for a night_idx if all its subgroups are filtered in for that night_idx.
@@ -637,13 +673,17 @@ class Selector(SchedulerComponent):
                                   group_data_map[sg.unique_id].group_info.night_filtering[night_idx]
                                   for sg in group.children
         ) for night_idx in night_indices}
+        # print(f'night_filtering\n{night_filtering[night_indices[0]]}')
 
         # The conditions score is the product of the conditions scores for each subgroup across each night.
         conditions_score = {}
         for night_idx in night_indices:
+            # for sg in group.children:
+            #     logger.debug(f'\n{sg.unique_id.id} {group_data_map[sg.unique_id].group_info.conditions_score[night_idx]}')
             conditions_scores_for_night = [group_data_map[sg.unique_id].group_info.conditions_score[night_idx]
                                            for sg in group.children]
             conditions_score[night_idx] = np.multiply.reduce(conditions_scores_for_night)
+        # logger.debug(f'\nconditions_score\n{conditions_score[night_indices[0]]}')
 
         # The wind score is the product of the wind scores for each subgroup across each night.
         wind_score = {}
@@ -651,6 +691,7 @@ class Selector(SchedulerComponent):
             wind_scores_for_night = [group_data_map[sg.unique_id].group_info.wind_score[night_idx]
                                      for sg in group.children]
             wind_score[night_idx] = np.multiply.reduce(wind_scores_for_night)
+        # print(f'wind_score\n{wind_score[night_indices[0]]}')
 
         # The schedulable slot indices are the unions of the schedulable slot indices for each subgroup
         # across each night.
@@ -683,6 +724,11 @@ class Selector(SchedulerComponent):
                 # print(f'Group {group.unique_id.id} would exceed {program.program_awarded(band=band)} in band {band}.')
                 for night_idx in night_indices:
                     scores[night_idx] *= 0.0
+
+        if verbose:
+            print(f'\t\tmax group score: {np.max(scores[night_indices[0]])}')
+            print(f'\t\tschedulable_slot_indices {len(schedulable_slot_indices)}')
+            # print(scores[night_indices[0]])
 
         group_info = GroupInfo(
             minimum_conditions=mrc,
@@ -794,11 +840,17 @@ class Selector(SchedulerComponent):
                              f'and {required_conditions}')
 
         # Determine the positions where the actual conditions are worse than the requirements.
+        # print(f'match_conditions')
+        # print(f'actual_iq: {actual_iq}')
+        # print(f'required_iq: {required_conditions.iq.value}')
+        # print(f'actual_cc: {actual_cc}')
+        # print(f'required_cc: {required_conditions.cc.value}')
         bad_iq = actual_iq > required_conditions.iq
         bad_cc = actual_cc > required_conditions.cc
         bad_cond_idx = np.where(np.logical_or(bad_iq, bad_cc))[0]
         cond_match = np.ones(length)
         cond_match[bad_cond_idx] = 0
+        # print(f'len(bad_cond_idx) {len(bad_cond_idx)}')
 
         # Penalize for using IQ / CC that is better than needed:
         # Multiply the weights by actual value / value where value is better than required and target
@@ -811,7 +863,9 @@ class Selector(SchedulerComponent):
                 cond_match[better_idx] = cond_match[better_idx] * (1.0 - (value - array[better_idx]))
 
         adjuster(actual_iq, required_conditions.iq)
+        # print(f'IQ adjustor: {cond_match}')
         adjuster(actual_cc, required_conditions.cc)
+        # print(f'CC adjustor: {cond_match}')
 
         if scalar_input:
             cond_match = np.squeeze(cond_match)

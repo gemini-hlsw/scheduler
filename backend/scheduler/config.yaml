@@ -14,11 +14,15 @@ collector:
 optimizer:
   name: GREEDYMAX
 
+ranker:
+#  name: ADDITIVE
+  name: DEFAULT
+
 selector:
 #  buffer_type: PERCENTAGE
 #  buffer_amount: 0.05
   buffer_type: FLAT_MINUTES
-  buffer_amount: 30.0
+  buffer_amount: 20.0
 
 server:
   port: 8000

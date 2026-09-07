@@ -2,4 +2,5 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from .default import RankerParameters, RankerBandParameters, DefaultRanker
+from .additive import AdditiveRanker
 from .base import Ranker

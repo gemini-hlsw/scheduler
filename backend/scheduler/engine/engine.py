@@ -9,6 +9,7 @@ from lucupy.timeutils import time2slots
 
 from .params import SchedulerParameters
 from scheduler.core.scp.scp import SCP
+from scheduler.config import config, ConfigurationError
 
 from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints
@@ -25,13 +26,14 @@ __all__ = [
     'Engine'
 ]
 
-from ..core.components.ranker import DefaultRanker
+from ..core.components.ranker import DefaultRanker, AdditiveRanker
 
 from ..core.events.cycle.cycle import EventCycle
+# from ..core.output import print_collector_info
 
 from ..core.statscalculator.run_summary import RunSummary
 
-_logger = logger_factory.create_logger(__name__)
+logger = logger_factory.create_logger(__name__)
 
 
 class Engine:
@@ -60,6 +62,7 @@ class Engine:
             for site in self.params.sites
         }
 
+        t0 = time()
         collector = builder.build_collector(start=self.params.start,
                                             end=self.params.end_vis,
                                             num_of_nights=self.params.num_nights_to_schedule,
@@ -69,16 +72,51 @@ class Engine:
                                             night_times=night_times,
                                             program_list=self.params.programs_list,
                                             use_local_visibility=self.params.use_local_visibility)
+        t1 = time()
+        logger.debug(f'\nCollector built in {(t1 - t0) / 60.} min')
+        # print(f'Collector built in {(t1 - t0) / 60.} min')
+
+        from lucupy.minimodel import ProgramID, Band, Site
+        # print_collector_info(collector)
+        # nc = collector.night_configurations(Site.GS, [2])
+        # # print(f'\n GS 2: {nc}')
+        # nc = collector.night_configurations(Site.GN, [0])
+        # print(f'\n GN 0: {nc}')
+
+        # progids = collector.get_program_ids()
+        # print(progids)
+        p = None
+        # if ProgramID('GN-2018B-Q-134') in progids:
+        #     p = collector.get_program(ProgramID('GN-2018B-Q-134'))
+        # if ProgramID('GN-2018B-Q-111') in progids:
+        #     p = collector.get_program(ProgramID('GN-2018B-Q-111'))
+        # if ProgramID('G-2026B-ENG-GMOSN-01') in progids:
+        #     p = collector.get_program(ProgramID('G-2026B-ENG-GMOSN-01'))
+        if p is not None:
+            print(f"Program awarded: {p.program_awarded()}, Band 1: {p.program_awarded(Band(1))}")
+            print(f"Program used: {p.program_used()}, Band 1: {p.program_used(Band(1))}")
+            p.show()
 
         selector = builder.build_selector(collector=collector,
                                           num_nights_to_schedule=self.params.num_nights_to_schedule,
                                           blueprint=Blueprints.selector)
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
-        ranker = DefaultRanker(collector,
+
+        # Simple selection of different rankers, for now they must use the same parameters
+        match config.ranker.name.upper():
+            case 'DEFAULT':
+                ranker = DefaultRanker(collector,
                                self.params.night_indices,
                                self.params.sites,
-                               params=self.params.ranker_parameters)
+                               params = self.params.ranker_parameters,)
+            case 'ADDITIVE':
+                ranker = AdditiveRanker(collector,
+                               self.params.night_indices,
+                               self.params.sites,
+                               params = self.params.ranker_parameters,)
+            case _:
+                raise ConfigurationError('Ranker', config.ranker.name)
 
         return SCP(collector, selector, optimizer, ranker)
 
@@ -124,12 +162,12 @@ class Engine:
                     # The closer to the first time slot, the more accurate, and the ordering on them will overwrite
                     # the previous values.
                     if variant_timeslot <= 0:
-                        _logger.debug(f'WeatherChange for site {site.name}, night {night_idx}, occurs before '
+                        logger.debug(f'WeatherChange for site {site.name}, night {night_idx}, occurs before '
                                       '0: ignoring.')
                         continue
 
                     if variant_timeslot >= morn_twi_slot:
-                        _logger.debug(f'WeatherChange for site {site.name}, night {night_idx}, occurs after '
+                        logger.debug(f'WeatherChange for site {site.name}, night {night_idx}, occurs after '
                                       f'{morn_twi_slot}: ignoring.')
                         continue
 
@@ -186,7 +224,7 @@ class Engine:
                 nightly_timeline.calculate_time_losses(night_idx, site)
 
             # tn1 = time()
-            # print(f'Night {night_idx + 1} scheduled in {(tn1 - tn0) / 60.} min')
+            # print(f'Night {night_idx + 1} scheduled in {(tn1 - tn0)} sec \n')
             # nightly_timeline.display(night_idx_sel=night_idx)
             # tn0 = tn1
 
@@ -197,6 +235,6 @@ class Engine:
                                                               scp.collector,
                                                               scp.ranker)
         
-        _logger.info(f'Plan calculated in {time() - self.start_time}')
+        logger.info(f'Plan calculated in {time() - self.start_time}')
 
         return run_summary, nightly_timeline

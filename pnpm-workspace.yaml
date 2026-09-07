@@ -1,3 +1,8 @@
 packages:
   - frontend
   - weather
+
+onlyBuiltDependencies:
+  - esbuild
+  - msw
+  - unrs-resolver
