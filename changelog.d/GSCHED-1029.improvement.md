@@ -1,0 +1,1 @@
+Remove Collector ClassVar to attributes so the mutable state belongs to each process instead of a global state
