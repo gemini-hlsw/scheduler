@@ -108,6 +108,8 @@ function VisitRow({
       </TableCell>
       <TableCell>{visit.atomStartIdx}</TableCell>
       <TableCell>{visit.atomEndIdx}</TableCell>
+      <TableCell>{visit.stepStart}</TableCell>
+      <TableCell>{visit.stepEnd}</TableCell>
       <TableCell>{visit.instrument}</TableCell>
       <TableCell>{visit.fpu}</TableCell>
       <TableCell>{visit.disperser}</TableCell>
@@ -243,11 +245,36 @@ export default function RealTimeEntry({
             className={cn("dark:bg-white/20 bg-black/20", "*:h-6 *:font-bold")}
           >
             <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead className="text-center" colSpan={2}>
+              Atom
+            </TableHead>
+            <TableHead className="text-center" colSpan={2}>
+              Step
+            </TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
+          </TableRow>
+          <TableRow
+            className={cn("dark:bg-white/20 bg-black/20", "*:h-6 *:font-bold")}
+          >
+            <TableHead></TableHead>
             <TableHead>Observation Id</TableHead>
             <TableHead>Observation Class</TableHead>
             <TableHead>Start Time</TableHead>
-            <TableHead>Atom Start</TableHead>
-            <TableHead>Atom End</TableHead>
+            <TableHead>Start</TableHead>
+            <TableHead>End</TableHead>
+            <TableHead>Start</TableHead>
+            <TableHead>End</TableHead>
             <TableHead>Instrument</TableHead>
             <TableHead>FPU</TableHead>
             <TableHead>Grating</TableHead>

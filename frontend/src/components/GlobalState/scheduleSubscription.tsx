@@ -40,6 +40,8 @@ export const subscriptionQueueSchedule = graphql(`
                     obsClass
                     completion
                     atomTimes
+                    stepStart
+                    stepEnd
                     peakScore
                     requiredConditions {
                       iq

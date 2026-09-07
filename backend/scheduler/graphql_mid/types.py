@@ -77,6 +77,8 @@ class SVisit:
     peak_score: float
     completion: str
     atom_times: List[int]
+    step_start: Optional[int]
+    step_end: Optional[int]
 
     @staticmethod
     def from_computed_visit(visit: Visit, alt_degs: List[float]) -> 'SVisit':
@@ -87,6 +89,9 @@ class SVisit:
         fpu = visit.observation.fpu()
         disperser = visit.observation.disperser()
         filters = visit.observation.filters()
+
+        step_start = visit.step_start_idx + 1 if visit.step_start_idx is not None else -1
+        step_end = step_start + visit.step_count - 1 if visit.step_count is not None else -1
         return SVisit(start_time=visit.start_time.astimezone(utc),
                       end_time=end_time.astimezone(utc),
                       obs_id=visit.observation.id,
@@ -102,7 +107,9 @@ class SVisit:
                       peak_score=visit.peak_score,
                       obs_class=visit.observation.obs_class.name,
                       completion=visit.completion,
-                      atom_times=visit.atom_times)
+                      atom_times=visit.atom_times,
+                      step_start=step_start,
+                      step_end=step_end)
 
 
 @strawberry.type

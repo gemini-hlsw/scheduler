@@ -74,6 +74,8 @@ export interface Visit {
   altitude: number[];
   atomEndIdx: number;
   atomStartIdx: number;
+  stepStart: number;
+  stepEnd: number;
   startTime: string;
   instrument: string;
   fpu: string;
