@@ -223,6 +223,8 @@ type SVisit {
   peakScore: Float!
   completion: String!
   atomTimes: [Int!]!
+  stepStart: Int
+  stepEnd: Int
 }
 
 enum SchedulerModes {
