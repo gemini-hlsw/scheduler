@@ -8,7 +8,7 @@ from astropy.time import Time
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
 
-from urllib3.http2.probe import acquire_and_get
+# from urllib3.http2.probe import acquire_and_get
 
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
@@ -19,6 +19,7 @@ from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Con
                               TimingWindow, TooType, WaterVapor, Wavelength, Resource, GROUP_NONE_ID,
                               CalibrationRole)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
+from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.resource_manager import ResourceManager
 from lucupy.timeutils import sex2dec
 from lucupy.types import ZeroTime
@@ -137,7 +138,8 @@ class GppProgramProvider(ProgramProvider):
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
     _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS, 'FLAMINGOS2': Site.GS, 'IGRINS2': Site.GN,
-                      'GHOST': Site.GS, 'GNIRS': Site.GN}
+                      'GHOST': Site.GS, 'GNIRS': Site.GN, 'MAROON_X': Site.GN, 'ALOPEKE': Site.GN, 'ZORRO': Site.GS,
+                      'VISITOR_NORTH': Site.GN, 'VISITOR_SOUTH': Site.GS,}
 
     _gmos_filters = {'GMOS-S': ['U_PRIME', 'G_PRIME', 'R_PRIME', 'I_PRIME', 'Z_PRIME', 'Z', 'Y', 'GG455', 'OG515',
                                     'RG610', 'CA_T', 'F396N', 'OIII', 'OIIIC', 'HE_II', 'HE_IIC', 'OVI', 'OVIC',
@@ -150,52 +152,54 @@ class GppProgramProvider(ProgramProvider):
     # Allowed instrument statuses
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
 
-    # Translate instrument names to use the OCS Resources
+    # Translate instrument names to use the OCS Resource files
     _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2',
-                        'IGRINS2': 'IGRINS-2', 'GHOST': 'GHOST', 'GNIRS': 'GNIRS',}
+                        'IGRINS2': 'IGRINS-2', 'GHOST': 'GHOST', 'GNIRS': 'GNIRS', 'MAROON_X': 'MAROON-X',
+                        'ALOPEKE': 'Alopeke', 'ZORRO': 'Zorro', 'VISITOR_NORTH': 'VISITOR', 'VISITOR_SOUTH': 'VISITOR'}
 
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
-    _fpu_to_barcode = {'GMOS-N': {
-        'IFU-R': '10000009',
-        'IFU-2': '10000007',
-        'IFU-B': '10000008',
-        'focus_array_new': '10005360',
-        'LONG_SLIT_0_25': '10005351',
-        'LONG_SLIT_0_50': '10005352',
-        'LONG_SLIT_0_75': '10005353',
-        'LONG_SLIT_1_00': '10005354',
-        'LONG_SLIT_1_50': '10005355',
-        'LONG_SLIT_2_00': '10005356',
-        'LONG_SLIT_5_00': '10005357',
-        'NS0.5arcsec': '10005367',
-        'NS0.75arcsec': '10005368',
-        'NS1.0arcsec': '10005369',
-        'NS1.5arcsec': '10005358',
-        'NS2.0arcsec': '10005359',
-    },
-        'GMOS-S': {
-            'IFU-R': '10000009',
-            'IFU-2': '10000007',
-            'IFU-B': '10000008',
-            'IFU-NS-2': '10000010',
-            'IFU-NS-B': '10000011',
-            'IFU-NS-R': '10000012',
-            'focus_array_new': '10000005',
-            'LONG_SLIT_0_25': '10005371',
-            'LONG_SLIT_0_50': '10005372',
-            'LONG_SLIT_0_75': '10005373',
-            'LONG_SLIT_1_00': '10005374',
-            'LONG_SLIT_1_50': '10005375',
-            'LONG_SLIT_2_00': '10005376',
-            'LONG_SLIT_5_00': '10005377',
-            'NS0.5arcsec': '10005388',
-            'NS0.75arcsec': '10005389',
-            'NS1.0arcsec': '10005390',
-            'NS1.5arcsec': '10005391',
-            'NS2.0arcsec': '10005392',
-            'PinholeC': '10005381',
-        }
+    _fpu_to_barcode = {
+        "GMOS-N": {
+            "ONE_SLIT_RED": "10000009",
+            "TWO_SLITS": "10000007",
+            "ONE_SLIT_BLUE": "10000008",
+            "focus_array_new": "10005360",
+            "LONG_SLIT_0_25": "10005351",
+            "LONG_SLIT_0_50": "10005352",
+            "LONG_SLIT_0_75": "10005353",
+            "LONG_SLIT_1_00": "10005354",
+            "LONG_SLIT_1_50": "10005355",
+            "LONG_SLIT_2_00": "10005356",
+            "LONG_SLIT_5_00": "10005357",
+            "NS0.5arcsec": "10005367",
+            "NS0.75arcsec": "10005368",
+            "NS1.0arcsec": "10005369",
+            "NS1.5arcsec": "10005358",
+            "NS2.0arcsec": "10005359",
+        },
+        "GMOS-S": {
+            "ONE_SLIT_RED": "10000009",
+            "TWO_SLITS": "10000007",
+            "ONE_SLIT_BLUE": "10000008",
+            "IFU-NS-2": "10000010",
+            "IFU-NS-B": "10000011",
+            "IFU-NS-R": "10000012",
+            "focus_array_new": "10000005",
+            "LONG_SLIT_0_25": "10005371",
+            "LONG_SLIT_0_50": "10005372",
+            "LONG_SLIT_0_75": "10005373",
+            "LONG_SLIT_1_00": "10005374",
+            "LONG_SLIT_1_50": "10005375",
+            "LONG_SLIT_2_00": "10005376",
+            "LONG_SLIT_5_00": "10005377",
+            "NS0.5arcsec": "10005388",
+            "NS0.75arcsec": "10005389",
+            "NS1.0arcsec": "10005390",
+            "NS1.5arcsec": "10005391",
+            "NS2.0arcsec": "10005392",
+            "PinholeC": "10005381",
+        },
     }
 
     # GPP to OCS program type translation
@@ -374,7 +378,7 @@ class GppProgramProvider(ProgramProvider):
         GMOSS = 'fpu'
         # NIRI = 'instrument:mask'
         # NIFS = 'instrument:mask'
-        CUSTOM = 'fpu_custom_mask'
+        CUSTOM = 'custom_mask'
 
     class _DISPKeys:
         GMOSN = 'grating'
@@ -390,7 +394,7 @@ class GppProgramProvider(ProgramProvider):
         CROSS_DISPERSED = 'instrument:cross_dispersed'
 
     FPU_FOR_INSTRUMENT = {
-        # 'Flamingos2': _FPUKeys.F2,
+        'Flamingos2': _FPUKeys.F2,
         # 'GNIRS': _FPUKeys.GNIRS,  # uncomment once we have the FPU availability
         'GMOS-N': _FPUKeys.GMOSN,
         'GMOS-S': _FPUKeys.GMOSS,
@@ -850,7 +854,7 @@ class GppProgramProvider(ProgramProvider):
                                   not_charged=ZeroTime,
                                   observed=False,
                                   qa_state=QAState.NONE,
-                                  guide_state=False,
+                                  guide_state=True,
                                   resources=resources,
                                   wavelengths=frozenset([wavelength]),
                                   obs_mode=mode,
@@ -887,6 +891,39 @@ class GppProgramProvider(ProgramProvider):
 
         return atoms, obs_class
 
+    def visitor_atom(
+        self,
+        data: dict,
+        mode: ObservationMode,
+        wavelength: Wavelength,
+        resources: FrozenSet[Resource],
+    ) -> Tuple[List[Atom], ObservationClass]:
+        """Create a sequence with a single atom for a visitor instrument"""
+
+        atoms = []
+        # Workaround in case the time is None
+        step_time = timedelta(seconds=data['total_request_time']['seconds']) \
+            if data['total_request_time'] else timedelta(seconds=1800)
+        atoms.append(Atom(id=0,
+                          exec_time=step_time,
+                          prog_time=step_time,
+                          part_time=ZeroTime,
+                          program_used=ZeroTime,
+                          partner_used=ZeroTime,
+                          not_charged=ZeroTime,
+                          observed=False,
+                          qa_state=QAState.NONE,
+                          guide_state=True,
+                          resources=resources,
+                          wavelengths=frozenset([wavelength]),
+                          obs_mode=mode,
+                          step_start=0,
+                          step_count=1,))
+
+        obs_class = ObservationClass.SCIENCE
+
+        return atoms, obs_class
+
     def parse_target(self, data: dict, targ_type: str) -> Target:
         """
         Parse a general target - either sidereal or nonsidereal - from the supplied data.
@@ -912,10 +949,16 @@ class GppProgramProvider(ProgramProvider):
         # hopefully this will be changed to be like the other instruments
         if instrument == 'GNIRS' and 'IMAGING' not in mode:
             instrument_config = data.get('gnirs_spectroscopy')
+        elif instrument.upper() in ["MAROON-X", "ZORRO", "ALOPEKE", "VISITOR"]:
+            instrument_config = data.get('visitor')
         else:
             instrument_config = data.get(mode.title().lower())
         if not instrument_config:
             print('No instrument config found for mode', mode)
+
+        # The visitor instrument name written in by the PI
+        if instrument.upper() == 'VISITOR':
+            instrument = instrument_config['name']
 
         fpu = None
         if instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
@@ -932,10 +975,10 @@ class GppProgramProvider(ProgramProvider):
         #     disperser = instrument
         # elif GppProgramProvider._AtomKeys.DISPERSER in instrument_config.keys():
         #     disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]
-        if instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT and 'SLIT' in mode:
+        if "GMOS" in instrument and "IMAGING" in mode:
+            disperser = "Mirror"
+        elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT:
             disperser = instrument_config[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
-        elif 'GMOS' in instrument and 'IMAGING' in mode:
-            disperser = 'Mirror'
         disperser = basic_name(disperser)
 
         # Filters
@@ -961,7 +1004,7 @@ class GppProgramProvider(ProgramProvider):
         elif instrument == 'GHOST':
             wavelength = Wavelength(GppProgramProvider._GHOST_WAVELENGTH)
         elif 'central_wavelength' in instrument_config.keys():
-            # convert to microns, for GMOS
+            # convert to microns
             wavelength = Wavelength(float(instrument_config['central_wavelength']['nanometers'] / 1000.))
         elif 'central_wavelengths' in instrument_config.keys():
             # convert to microns, for GNIRS
@@ -1075,7 +1118,7 @@ class GppProgramProvider(ProgramProvider):
                     band = time_alloc.band if time_alloc.band < band else band
             else:
                 band = Band[band_value]
-            print(f'\t\t band_value = {band_value}, band =  {band}')
+            # print(f'\t\t band_value = {band_value}, band =  {band}')
 
             # Calibration role
             cal_role_value = data.get(GppProgramProvider._ObsKeys.CALROLE)
@@ -1098,6 +1141,11 @@ class GppProgramProvider(ProgramProvider):
             # print(f'\t\t wavelength: {wavelength}')
             # print(f'\t\t mode: {mode}')
             # print(f'\t\t calibration_role: {calibration_role}')
+            logger.debug(f'\t\t resources: {resources}'
+                         f'\t\t wavelength: {wavelength}'
+                         f'\t\t mode: {mode}'
+                         f'\t\t calibration_role: {calibration_role}'
+                         f'\t\t acq_overhead: {acq_overhead}')
 
             # Atoms
             sequence = data[GppProgramProvider._ObsKeys.SEQUENCE]
@@ -1106,6 +1154,8 @@ class GppProgramProvider(ProgramProvider):
             obs_class = ObservationClass.NONE
             if sequence:
                 atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
+            elif any(inst in resources for inst in ObservatoryProperties.visitor_instruments()) or 'VISITOR' in mode:
+                atoms, obs_class = self.visitor_atom(data['observing_mode']['visitor'], mode, wavelength, resources)
             else:
                 raise ValueError(f'Observation {obs_id} has no sequence. Cannot process.')
 

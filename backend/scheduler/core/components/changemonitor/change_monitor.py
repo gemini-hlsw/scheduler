@@ -23,7 +23,7 @@ __all__ = [
 ]
 
 
-_logger = create_logger(__name__)
+logger = create_logger(__name__)
 
 
 @final
@@ -138,12 +138,14 @@ class ChangeMonitor(SchedulerComponent):
         num_timeslots_for_night = night_events.num_timeslots_per_night[night_idx]
         last_timeslot_for_night = TimeslotIndex(num_timeslots_for_night - 1)
 
+        logger.debug(f"{event.description}")
+
         # Process the event based on its type:
         match event:
             case EveningTwilightEvent():
                 # We always create a plan for the evening twilight event.
                 if event_timeslot != 0:
-                    _logger.warning(f'EveningTwilightEvent for site {site_name} should be scheduled for timeslot 0, '
+                    logger.warning(f'EveningTwilightEvent for site {site_name} should be scheduled for timeslot 0, '
                                     f'but is scheduled for timeslot {event_timeslot}.')
                 # We do not perform any time accounting for the evening twilight.
                 return TimeCoordinateRecord(event=event,
@@ -152,7 +154,7 @@ class ChangeMonitor(SchedulerComponent):
 
             case MorningTwilightEvent():
                 if event_timeslot != last_timeslot_for_night:
-                    _logger.warning(f'MorningTwilightEvent for site {site_name} should be scheduled for '
+                    logger.warning(f'MorningTwilightEvent for site {site_name} should be scheduled for '
                                     f'timeslot {last_timeslot_for_night} but is scheduled for '
                                     f'timeslot {event_timeslot}.')
                 return TimeCoordinateRecord(event=event,
@@ -164,7 +166,7 @@ class ChangeMonitor(SchedulerComponent):
                 # Regardless, we want to change the weather values for CC and IQ.
                 current_variant = self.selector.get_current_variant(site)
                 if current_variant.iq == variant_change.iq and current_variant.cc == variant_change.cc:
-                    _logger.info(
+                    logger.info(
                         f'We skip this as is the same conditions as current variant.' +
                         f'\n\t current IQ: {current_variant.iq} vs new IQ: {variant_change.iq}.'
                         f'\n\t current CC: {current_variant.cc} vs new CC: {variant_change.cc}.'
@@ -245,8 +247,8 @@ class ChangeMonitor(SchedulerComponent):
                     raise ValueError(f'Too_id {too_id} does not exist.')
 
                 # Check that only Rapid and Standard ToOs are updated
-                if too.too_type != TooType.RAPID and too.too_type != TooType.STANDARD:
-                    raise ValueError(f'ToO {too_id} is not RAPID or STANDARD is {too.too_type.name}.')
+                if too.too_type < TooType.STANDARD:
+                    raise ValueError(f'ToO {too_id} is not INTERRUPT, RAPID, or STANDARD is {too.too_type.name}.')
 
                 too.status = ObservationStatus.READY
 

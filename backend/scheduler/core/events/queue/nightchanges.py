@@ -364,13 +364,14 @@ class NightlyTimeline:
         self.time_losses[night_idx][site]["weather"] = weather
         self.time_losses[night_idx][site]["fault"] = fault
 
-    def display(self, output='stdout', night_idx_sel=None) -> None:
+    def display(self, output='stdout', night_idx_sel=None, stitched=False) -> None:
         def rnd_min(dt: datetime) -> datetime:
             return dt + timedelta(minutes=1 - (dt.minute % 1))
 
         sys.stderr.flush()
         f = sys.stdout if output == 'stdout' else open(output, 'w')
-        for night_idx, entries_by_site in self.timeline.items():
+        timelines = self.stitched_timeline.items() if stitched else self.timeline.items()
+        for night_idx, entries_by_site in timelines:
             if night_idx_sel is None or night_idx == night_idx_sel:
                 for site, entries in sorted(entries_by_site.items(), key=lambda x: x[0].name):
                     print(f'\n\n+++++ NIGHT {night_idx + 1}, SITE: {site.name} +++++', file=f)
