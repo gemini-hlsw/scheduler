@@ -12,6 +12,7 @@ from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineSt
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor import EventListener, EventConsumer
 from scheduler.night_monitor.night_tracker import NightTracker
+from scheduler.services.loop_monitor import LoopMonitor
 
 from scheduler.services import logger_factory
 _logger = logger_factory.create_logger(__name__)
@@ -59,6 +60,8 @@ class NightMonitor:
             self.nightly_timeline_store
         )
         self.night_tracker = NightTracker(night+timedelta(days=1), sites, scheduler_queue)
+        # Watches the loop the subscriptions depend on.
+        self.loop_monitor = LoopMonitor()
 
         self._listener_task: asyncio.Task | None = None
         self._consumer_task: asyncio.Task | None = None
@@ -74,6 +77,7 @@ class NightMonitor:
         """
         Start the tasks for each subcomponent in the Night Monitor.
         """
+        self.loop_monitor.start()
         self._listener_task = asyncio.create_task(self.listener.listen())
         self._consumer_task = asyncio.create_task(self.consumer.consume())
         self._night_tracker_task = asyncio.create_task(self.night_tracker.start_tracking())
@@ -87,6 +91,8 @@ class NightMonitor:
         """
         _logger.info("Shutting down the Night Monitor.")
         self._shutdown_event.set()
+        # Reports the worst stall of the night, which is the number to watch.
+        await self.loop_monitor.stop()
 
         # Clean listener; the night tracker has no shutdown_event of its own,
         # so it must be cancelled explicitly too.

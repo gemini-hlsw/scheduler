@@ -120,12 +120,7 @@ class Collector(SchedulerComponent):
     obs_classes: FrozenSet[ObservationClass]
     defer_night_events: bool = False  # If True, skip night_events initialization in __post_init__
 
-    # Visibility-loading override. True routes visibility through the in-memory
-    # `_compute_visibility_locally`; False reads pre-computed data from the sight
-    # service (`_load_visibility_from_sight`). None (the default) defers to the
-    # global `collector.visibility_strategy` config. An explicit True/False wins
-    # over the config (e.g. scripts/run.py forces local). Resolved via
-    # `_use_local_visibility()`; both the sync and async load paths honour it.
+    # Visibility-loading override.
     use_local_visibility: Optional[bool] = None
 
     # Per-instance per-night visibility map populated by _load_visibility_from_sight.
@@ -158,9 +153,8 @@ class Collector(SchedulerComponent):
     # is a Singleton so it can be a ClassVar as is shared for all classes. State is not hold here
     _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
 
-    # Resource service.
     # TODO: This will be moved out when event processing is handled.
-    _resource_service: ClassVar[ResourceService]
+    _resource_service: ResourceService = field(default=None, init=False)
 
     # The default timeslot length currently used.
     DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min
@@ -216,7 +210,7 @@ class Collector(SchedulerComponent):
                                                                        site)
                 for site in self.sites
             }
-        Collector._resource_service = self.sources.origin.resource
+        self._resource_service = self.sources.origin.resource
 
         self.time_accountant = TimeAccountant(
             self.sites, list(map(lambda x: NightIndex(x), range(self.num_of_nights)))
@@ -502,39 +496,18 @@ class Collector(SchedulerComponent):
             return self.use_local_visibility
         return str(config.collector.visibility_strategy).strip().lower() == 'local'
 
-    async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
-        _logger.info("Starting async_load_programs...")
+    def _parse_programs(self,
+                        program_provider: ProgramProvider,
+                        data: Iterable[dict]) -> Tuple[List[Tuple[ProgramID, Observation]], int]:
+        """
+        Parse the fetched program payloads into this Collector's program tables.
 
-        if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
-            raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
-        program_provider = program_provider_class(self.obs_classes, self.sources)
-        _logger.debug("Program provider created")
-
-        # Keep a list of the observations for parallel processing.
+        Returns:
+            The (program_id, observation) pairs for the requested sites, and the number of
+            programs that failed to parse.
+        """
         parsed_observations: List[Tuple[ProgramID, Observation]] = []
-
-        # Read in the programs.
-        # Count the number of parse failures.
         bad_program_count = 0
-
-        # Night configurations - run in thread to avoid blocking
-        _logger.debug("Loading night configurations...")
-        nc = {}
-        for site in self.sites:
-            nc[site] = await asyncio.to_thread(
-                self.night_configurations,
-                site,
-                np.arange(self.num_nights_calculated)
-            )
-
-            _logger.info(
-                f'Night configurations for {site.name}: '
-                + ', '.join(
-                    f'night={int(n_idx)} local_date={c.local_date} '
-                    f'resources={len(c.resources)} lgs={c.is_lgs} too={c.too_status}'
-                    for n_idx, c in nc[site].items()
-                )
-            )
 
         for next_program in data:
             try:
@@ -569,13 +542,19 @@ class Collector(SchedulerComponent):
                 bad_program_count += 1
                 _logger.warning(f'Could not parse program: {e}')
 
-        if not parsed_observations:
-            raise Exception('No observations found after parsing programs.')
+        return parsed_observations, bad_program_count
 
-        if bad_program_count:
-            _logger.error(f'Could not parse {bad_program_count} programs.')
+    def _filter_by_night_configuration(
+            self,
+            parsed_observations: List[Tuple[ProgramID, Observation]],
+            nc: Dict[Site, Dict[NightIndex, NightConfiguration]]
+    ) -> Dict[NightIndex, List[Observation]]:
+        """
+        Drop the observations a night cannot run: missing resources, or blocked by the
+        program calendar filter.
 
-        obs_with_resources: dict[NightIndex, list[Observation]] = {}
+        """
+        obs_with_resources: Dict[NightIndex, List[Observation]] = {}
         for n_idx in range(self.num_nights_calculated):
             night_idx = NightIndex(n_idx)
             obs_with_resources.setdefault(night_idx, [])
@@ -616,8 +595,53 @@ class Collector(SchedulerComponent):
                    if missing_resources else '')
             )
 
+        return obs_with_resources
+
+    async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
+        _logger.info("Starting async_load_programs...")
+
+        if not (isclass(program_provider_class) and issubclass(program_provider_class, ProgramProvider)):
+            raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
+        program_provider = program_provider_class(self.obs_classes, self.sources)
+        _logger.debug("Program provider created")
+
+        # Night configurations - run in thread to avoid blocking
+        _logger.debug("Loading night configurations...")
+        nc = {}
+        for site in self.sites:
+            nc[site] = await asyncio.to_thread(
+                self.night_configurations,
+                site,
+                np.arange(self.num_nights_calculated)
+            )
+
+            _logger.info(
+                f'Night configurations for {site.name}: '
+                + ', '.join(
+                    f'night={int(n_idx)} local_date={c.local_date} '
+                    f'resources={len(c.resources)} lgs={c.is_lgs} too={c.too_status}'
+                    for n_idx, c in nc[site].items()
+                )
+            )
+
+        # Parsing is CPU bound so we use a thread
+        parsed_observations, bad_program_count = await asyncio.to_thread(
+            self._parse_programs, program_provider, data)
+
+        if not parsed_observations:
+            raise Exception('No observations found after parsing programs.')
+
+        if bad_program_count:
+            _logger.error(f'Could not parse {bad_program_count} programs.')
+
+        # Nights x observations, each doing resource set lookups. Also off the loop.
+        obs_with_resources = await asyncio.to_thread(
+            self._filter_by_night_configuration, parsed_observations, nc)
+
+        # Off the loop as well as local visibility calculations/Horizons calls might be extensive.
         if self._use_local_visibility():
-            self._compute_visibility_locally(parsed_observations, obs_with_resources)
+            await asyncio.to_thread(
+                self._compute_visibility_locally, parsed_observations, obs_with_resources)
         else:
             try:
                 await self._async_load_visibility_from_sight(obs_with_resources)
@@ -625,7 +649,8 @@ class Collector(SchedulerComponent):
                 _logger.warning(
                     f'Sight visibility load failed ({exc}); falling back to local computation.'
                 )
-                self._compute_visibility_locally(parsed_observations, obs_with_resources)
+                await asyncio.to_thread(
+                    self._compute_visibility_locally, parsed_observations, obs_with_resources)
 
         for _p_id, _obs in parsed_observations:
             self._observations[_obs.id] = _obs, _obs.base_target()
@@ -640,7 +665,7 @@ class Collector(SchedulerComponent):
         """
         Return the list of NightConfiguration for the site and nights under configuration.
         """
-        return {night_idx: Collector._resource_service.get_night_configuration(
+        return {night_idx: self._resource_service.get_night_configuration(
             site,
             self.get_night_events(site).time_grid[night_idx].datetime.date() - Day
         ) for night_idx in night_indices}
@@ -870,11 +895,13 @@ class Collector(SchedulerComponent):
         filtered_observations: dict[NightIndex, list[Observation]],
     ) -> None:
         """Async entry point: await the Sight fetch (no ``asyncio.run``) then
-        build the per-night ``TargetInfo`` exactly like the sync path."""
+        build the per-night ``TargetInfo`` exactly like the sync path.
+
+        """
         per_night = await self._fetch_sight_data(
             filtered_observations, *self._sight_date_args()
         )
-        self._apply_sight_visibility(filtered_observations, per_night)
+        await asyncio.to_thread(self._apply_sight_visibility, filtered_observations, per_night)
 
     def _apply_sight_visibility(
         self,

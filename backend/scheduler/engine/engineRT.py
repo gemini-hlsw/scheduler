@@ -3,7 +3,7 @@
 
 import asyncio
 import datetime
-from time import time
+from time import perf_counter, time
 import traceback
 import numpy as np
 from .params import SchedulerParameters, build_params_store
@@ -148,8 +148,20 @@ class EngineRT:
             holder=self.process_id,
             detail={"event": str(event.description)},
         )
+        # Timed because nothing else measures it: without this there is no way to notice
+        # plans getting slower until something downstream times out.
+        started = perf_counter()
         try:
-            return await self._compute_event_plan(event)
+            plans = await self._compute_event_plan(event)
+            _logger.info(
+                f"Plan for '{event.description}' computed in {perf_counter() - started:.1f}s."
+            )
+            return plans
+        except Exception:
+            _logger.warning(
+                f"Plan for '{event.description}' failed after {perf_counter() - started:.1f}s."
+            )
+            raise
         finally:
             await coordination.signal_plan_done()
 
@@ -208,7 +220,7 @@ class EngineRT:
 
         start_timeslot = await self._compute_event_start_timeslot(event)
 
-        plans = self.scp.run_rt(start_timeslot)
+        plans = await asyncio.to_thread(self.scp.run_rt, start_timeslot)
 
         # The start timeslot section above already released the lock, so the Night Monitor
         # readers are only blocked while the timeline is actually being updated.

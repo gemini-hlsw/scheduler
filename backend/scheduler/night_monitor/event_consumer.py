@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
+from typing import ClassVar
 
 from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
@@ -28,6 +29,8 @@ class EventConsumer:
         nightly_timeline_store (NightlyTimelineStore): Shared store the handlers read to know the
             plan currently in effect.
     """
+
+    BACKLOG_WARN_THRESHOLD: ClassVar[int] = 25
 
     def __init__(
         self,
@@ -78,7 +81,14 @@ class EventConsumer:
         """
         while not self._shutdown_event.is_set():
            try:
+               # Check if the queue is backlogged
                item = await self.queue.get()
+               backlog = self.queue.qsize()
+               if backlog >= self.BACKLOG_WARN_THRESHOLD:
+                   _logger.warning(
+                       f'Event backlog is {backlog}; the consumer is not keeping up with '
+                       f'the subscriptions.'
+                   )
                try:
                    source, sub_name, data = item
                    handler = self._match_source_to_handler(source)
