@@ -217,7 +217,11 @@ class HorizonsClient:
             time, coords = self.get_coords_table(lines)
             start_index = max(0, next(i for i, t in enumerate(time) if t >= self.start) - 1)
             end_index = next(i for i, t in enumerate(time) if t >= self.end)
-            time, coords = time[start_index:end_index], coords[start_index:end_index]
+            # interpolate_coords() only emits points up to (but excluding) the
+            # last knot it is given, so end_index itself must be included as a
+            # knot or the interpolated range falls short of self.end by up to
+            # one raw sample step.
+            time, coords = time[start_index:end_index + 1], coords[start_index:end_index + 1]
             time, coords = self.interpolate_coords(time, coords, timedelta(minutes=self.time_slot_length))
 
         except ValueError as e:
