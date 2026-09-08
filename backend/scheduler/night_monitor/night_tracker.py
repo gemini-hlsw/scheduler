@@ -38,24 +38,35 @@ class NightTracker:
     # Set night date
     # self.date = date
     self.date = datetime.now(UTC)
+    self.sites = sites
     self.scheduler_queue = scheduler_queue
+    self.sorted_night_events: List[NightEvent] = []
 
-    # Precompute night events for each site as an array of tuples
+  def _compute_sorted_night_events(self) -> List[NightEvent]:
+    """
+    Compute and sort every site's night events.
+    """
     all_events = []
-    for site in sites:
+    for site in self.sites:
       night_events = self.calculate_night_events(self.date, site)
       correct_night_events = self._get_correct_events(self.date, site, night_events)
       all_events.extend(correct_night_events)
 
-    # Sort events by time
-    self.sorted_night_events = sorted(all_events, key=lambda x: x.time)
+    sorted_events = sorted(all_events, key=lambda x: x.time)
 
     # Add end of night event
-    self.sorted_night_events.append(
-      EndOfNightEvent(description="End of Night", time=(self.sorted_night_events[-1].time + timedelta(minutes=5)), site="Both"),
+    sorted_events.append(
+      EndOfNightEvent(description="End of Night", time=(sorted_events[-1].time + timedelta(minutes=5)), site="Both"),
     )
+    return sorted_events
 
-    # Debugging output
+  async def prepare(self) -> None:
+    """
+    Compute the night events off the event loop.
+    """
+    if self.sorted_night_events:
+      return
+    self.sorted_night_events = await asyncio.to_thread(self._compute_sorted_night_events)
     _logger.debug(self)
 
   @staticmethod
@@ -177,6 +188,9 @@ class NightTracker:
     In RT should add events to the scheduler queue when an event time is reached
     In non-RT should add all events to the scheduler queue at once
     """
+    # Compute the night events off the loop before tracking them.
+    await self.prepare()
+
     schedule_queue = self.scheduler_queue
     now = datetime.now(UTC)
 
@@ -199,8 +213,14 @@ class NightTracker:
     try:
       await asyncio.gather(*tasks, return_exceptions=True)
       _logger.info("Finished real-time tracking of night events")
-    except asyncio.CancelledError as e:
-      _logger.warning(f'Problem tracking night events: {e}')
+    except asyncio.CancelledError:
+      # Shutdown, not a fault: NightMonitor.shutdown cancels this task deliberately. It
+      # used to be logged as "Problem tracking night events: " -- a warning with an empty
+      # message, because CancelledError carries none -- and, worse, swallowed, so the task
+      # completed normally instead of reporting as cancelled and shutdown had to force-
+      # cancel it. Re-raise so cancellation stays cancellation.
+      _logger.info('Night event tracking cancelled.')
+      raise
 
     #while filtered_night_events:
     #  current_time = Time(datetime.now(tz=timezone.utc), scale='utc')

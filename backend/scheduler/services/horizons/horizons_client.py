@@ -55,6 +55,7 @@ class HorizonsClient:
     date_format: str = field(default='%Y%m%d')
     path: Path = field(default=Path(ROOT_DIR) / 'scheduler' / 'services' / 'horizons' / 'data')
     url: str = field(default='https://ssd.jpl.nasa.gov/api/horizons.api')
+    timeout: float = field(default=30.0)
 
     @staticmethod
     def generate_horizons_id(designation: str) -> str:
@@ -103,7 +104,7 @@ class HorizonsClient:
 
         # Skipping the section of close-approach parameters.
         # Skipping the section of heliocentric ecliptic osculating elements.
-        return requests.get(self.url, params=params)
+        return requests.get(self.url, params=params, timeout=self.timeout)
 
     def get_coords_table(self, lines: list[str]):
         time = []

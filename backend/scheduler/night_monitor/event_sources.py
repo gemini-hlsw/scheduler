@@ -13,10 +13,15 @@ from os import environ
 
 __all__ = [
     "EventSourceType",
+    "ODB_OPEN_TIMEOUT",
     "ResourceEventSource",
     "WeatherEventSource",
     "ODBEventSource",
 ]
+
+# Seconds to allow for the ODB websocket handshake. `websockets` defaults to 10, which is
+# too tight for an ODB that is recovering: see ODBEventSource._subscribe_to_calculation_updates.
+ODB_OPEN_TIMEOUT = float(environ.get('ODB_WS_OPEN_TIMEOUT', 60.0))
 
 class EventSourceType(Enum):
     RESOURCE = 'resource'
@@ -114,6 +119,28 @@ class ODBEventSource(EventSource):
     def __init__(self, client):
         super().__init__(client, EventSourceType.ODB)
 
+    def _subscribe_to_calculation_updates(self):
+        """
+        Open the obscalc subscription with a handshake timeout we choose.
+
+        `websockets` defaults `open_timeout` to 10s, and an ODB that is briefly recovering
+        (a dyno recycle drops connections abruptly and is then unreachable for a few
+        seconds) needs longer than that. Observed: a connection died at 26s, the immediate
+        reconnect failed at exactly 10.003s, and the next one succeeded and stayed up --
+        so the 10s ceiling cost a whole extra reconnect, and every reconnect loses the
+        events emitted while the socket is down.
+
+        Reaching through `_graphql` is deliberate and unfortunate: the domain wrapper
+        `scheduler.subscribe_to_calculation_updates()` takes no arguments, so there is no
+        supported way to pass connection options. The generated method does forward
+        `**kwargs` to `execute_ws` and on to `websockets.connect`. Drop this indirection
+        once gpp-client exposes the options itself.
+        """
+        return self._client._graphql.scheduler_observations_updates(
+            executable_only=True,
+            open_timeout=ODB_OPEN_TIMEOUT,
+        )
+
     def subscriptions(self) -> List[Tuple[str ,callable]]:
         return [
             # (
@@ -123,7 +150,7 @@ class ODBEventSource(EventSource):
             # ),
             (
                 ODBEventSource.OBSERVATION_EDIT,
-                lambda x: self._client.scheduler.subscribe_to_calculation_updates(),
+                lambda x: self._subscribe_to_calculation_updates(),
                 None
             )
         ]
