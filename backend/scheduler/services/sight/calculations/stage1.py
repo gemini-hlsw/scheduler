@@ -199,14 +199,14 @@ def _calculate_nonsidereal_coordinates(
     
     sunset = Time(night_event.sunset)
     sunrise = Time(night_event.sunrise)
-    twilight_evening_12 = Time(night_event.twilight_evening_12)
-    
+    night_start = Time(night_event.night_start)
+
     # Create site adapter for horizons
     site_adapter = _HorizonsSiteAdapter(site)
-    
+
     # Create target adapter for horizons
     target_adapter = _HorizonsTargetAdapter(target)
-    
+
     # Query Horizons (1-minute resolution from sunset to sunrise)
     with horizons_session(
         site_adapter,
@@ -216,23 +216,27 @@ def _calculate_nonsidereal_coordinates(
     ) as hs:
         ephemerides = hs.get_ephemerides(target_adapter)
         coords = ephemerides.coordinates
-        
+
         # Extract RA/Dec arrays (Horizons returns radians)
         ras = np.array([c.ra for c in coords])
         decs = np.array([c.dec for c in coords])
-        
+
         # Create SkyCoord from Horizons data (in radians)
         eph_coord = SkyCoord(ra=ras * u.rad, dec=decs * u.rad, frame='icrs')
-    
-    # Trim coordinates to desired subset
-    # Calculate offset from sunset to twilight
-    sunset_to_twi = (twilight_evening_12 - sunset).to_datetime()
-    start_time_slot = int(sunset_to_twi.total_seconds() / 60)
+
+    # The ephemeris grid is interpolated from the site's cached, semester-wide
+    # sample points, so its first entry is not necessarily sunset - the offset
+    # to night_start must be found by searching the returned timestamps rather
+    # than assumed from a sunset-relative delta.
+    night_start_dt = night_start.to_datetime()
+    start_time_slot = next(
+        i for i, t in enumerate(ephemerides.time) if t >= night_start_dt
+    )
     end_time_slot = start_time_slot + num_time_slots * time_slot_length_minutes
-    
+
     # Resample if time slot length is not 1 minute
     coord = eph_coord[start_time_slot:end_time_slot:time_slot_length_minutes]
-    
+
     return coord
 
 
