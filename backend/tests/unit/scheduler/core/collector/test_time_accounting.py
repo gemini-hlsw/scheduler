@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Sequence, Tuple
 
 import astropy.units as u
-import pytest
 from astropy.time import TimeDelta
 from lucupy.minimodel import (AndOption, Atom, GROUP_NONE_ID, Group, GroupID, NightIndex, Observation,
                               ObservationClass, ObservationID, ObservationMode, ObservationStatus, Priority, Program,
@@ -30,14 +29,6 @@ _PROGRAM_ID = ProgramID('GN-2018B-Q-101')
 _START = datetime(2018, 10, 1, 20, 0, 0)
 
 
-# The Collector ClassVars are global state shared with the (module-scoped) collector fixtures
-# in conftest, so they are swapped out through monkeypatch rather than assigned directly.
-@pytest.fixture(autouse=True)
-def _isolated_collector_tables(monkeypatch):
-    monkeypatch.setattr(Collector, '_observations', {}, raising=False)
-    monkeypatch.setattr(Collector, '_programs', {}, raising=False)
-
-
 def _collector(slot_minutes: float = 1.0) -> Collector:
     """A Collector holding only what time_accounting reads.
 
@@ -47,6 +38,11 @@ def _collector(slot_minutes: float = 1.0) -> Collector:
     collector = Collector.__new__(Collector)
     collector.time_slot_length = TimeDelta(slot_minutes * u.min)
     collector.time_accountant = TimeAccountant(frozenset({_SITE}), [_NIGHT_IDX])
+    # __new__ skips __init__, so the dataclass default_factory never runs. Setting them
+    # here is what keeps each test's programs on its own instance; without it the reads
+    # would fall through to whatever class attribute happened to exist.
+    collector._programs = {}
+    collector._observations = {}
     return collector
 
 
@@ -114,8 +110,10 @@ def _observation_group(obs: Observation) -> Group:
     return _group(GroupID(obs.id.id), obs, 1)
 
 
-def _register(observations: List[Observation], scheduling_group: bool = False) -> List[Group]:
-    """Populate the Collector tables and return the top-level groups, in root order."""
+def _register(collector: Collector,
+              observations: List[Observation],
+              scheduling_group: bool = False) -> List[Group]:
+    """Populate this collector's tables and return the top-level groups, in root order."""
     obs_groups = [_observation_group(obs) for obs in observations]
     if scheduling_group:
         top_level = [_group(GroupID('sched'), obs_groups, len(obs_groups))]
@@ -123,7 +121,7 @@ def _register(observations: List[Observation], scheduling_group: bool = False) -
         top_level = obs_groups
 
     root = _group(ROOT_GROUP_ID, top_level, len(top_level))
-    Collector._programs[_PROGRAM_ID] = Program(id=_PROGRAM_ID,
+    collector._programs[_PROGRAM_ID] = Program(id=_PROGRAM_ID,
                                                internal_id=_PROGRAM_ID.id,
                                                semester=None,
                                                thesis=False,
@@ -135,7 +133,7 @@ def _register(observations: List[Observation], scheduling_group: bool = False) -
                                                used_time=frozenset(),
                                                root_group=root)
     for obs in observations:
-        Collector._observations[obs.id] = (obs, None)
+        collector._observations[obs.id] = (obs, None)
     return top_level
 
 
@@ -185,8 +183,8 @@ def test_truncated_visit_leaves_observation_ongoing():
     never ran, so the observation must stay schedulable.
     """
     obs = _observation('GN-2018B-Q-101-1', acq_seconds=120, atom_specs=[(300, False)] * 3)
-    group = _register([obs])[0]
     collector = _collector()
+    group = _register(collector, [obs])[0]
 
     _account(collector, _plans([_visit(obs, 0, 2, start_time_slot=0, time_slots=17)]), bound=12)
 
@@ -198,8 +196,8 @@ def test_truncated_visit_leaves_observation_ongoing():
 def test_full_night_marks_observation_observed():
     """Whole-night accounting is unchanged: everything ran, so the observation completes."""
     obs = _observation('GN-2018B-Q-101-1', acq_seconds=120, atom_specs=[(300, False)] * 3)
-    group = _register([obs])[0]
     collector = _collector()
+    group = _register(collector, [obs])[0]
 
     _account(collector, _plans([_visit(obs, 0, 2, start_time_slot=0, time_slots=17)]))
 
@@ -218,8 +216,8 @@ def test_truncated_partner_cal_is_inactivated_not_observed():
     """
     obs = _observation('GN-2018B-Q-101-2', acq_seconds=120, atom_specs=[(300, False)] * 3,
                        obs_class=ObservationClass.PARTNERCAL)
-    group = _register([obs])[0]
     collector = _collector()
+    group = _register(collector, [obs])[0]
 
     _account(collector, _plans([_visit(obs, 0, 2, start_time_slot=0, time_slots=17)]), bound=12)
 
@@ -240,8 +238,8 @@ def test_charge_group_with_no_charged_atoms_leaves_status_untouched():
                        acq_seconds=120,
                        atom_specs=[(60, True), (600, False), (600, False)],
                        status=ObservationStatus.ONGOING)
-    group = _register([obs])[0]
     collector = _collector()
+    group = _register(collector, [obs])[0]
 
     _account(collector, _plans([_visit(obs, 1, 2, start_time_slot=0, time_slots=22)]), bound=5)
 
@@ -259,8 +257,8 @@ def test_fractional_acquisition_charges_last_atom_on_full_night():
     own visit and falls past the charge window on a full, uninterrupted night.
     """
     obs = _observation('GN-2018B-Q-101-1', acq_seconds=90, atom_specs=[(75, False)] * 2)
-    group = _register([obs])[0]
     collector = _collector()
+    group = _register(collector, [obs])[0]
 
     _account(collector, _plans([_visit(obs, 0, 1, start_time_slot=0, time_slots=4)]))
 
@@ -273,8 +271,8 @@ def test_interrupted_scheduling_group_is_not_charged():
     """A scheduling group cut short is charged to not_charged, and no status is touched."""
     obs_a = _observation('GN-2018B-Q-101-1', acq_seconds=120, atom_specs=[(300, False)] * 2)
     obs_b = _observation('GN-2018B-Q-101-2', acq_seconds=120, atom_specs=[(300, False)] * 2)
-    _register([obs_a, obs_b], scheduling_group=True)
     collector = _collector()
+    _register(collector, [obs_a, obs_b], scheduling_group=True)
 
     plans = _plans([_visit(obs_a, 0, 1, start_time_slot=0, time_slots=12),
                     _visit(obs_b, 0, 1, start_time_slot=12, time_slots=12)])
@@ -296,8 +294,8 @@ def test_two_visits_of_one_observation_in_a_night_charge_both():
     ONGOING, the second completes it. Each visit pays its own acquisition overhead.
     """
     obs = _observation('GN-2018B-Q-101-1', acq_seconds=120, atom_specs=[(300, False)] * 3)
-    group = _register([obs])[0]
     collector = _collector()
+    group = _register(collector, [obs])[0]
 
     _account(collector, _plans([_visit(obs, 0, 1, start_time_slot=0, time_slots=12),
                                 _visit(obs, 2, 2, start_time_slot=12, time_slots=7)]))
@@ -315,8 +313,8 @@ def test_two_visits_of_one_observation_in_a_night_charge_both():
 def test_second_pass_completes_interrupted_observation():
     """The atoms left behind by an interruption are charged and complete the observation."""
     obs = _observation('GN-2018B-Q-101-1', acq_seconds=120, atom_specs=[(300, False)] * 3)
-    group = _register([obs])[0]
     collector = _collector()
+    group = _register(collector, [obs])[0]
 
     _account(collector, _plans([_visit(obs, 0, 2, start_time_slot=0, time_slots=17)]), bound=12)
     assert obs.status is ObservationStatus.ONGOING

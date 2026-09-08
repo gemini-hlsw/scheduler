@@ -133,25 +133,18 @@ class Collector(SchedulerComponent):
     # concurrent sims by sharing state across instances).
     _visible_obs_by_night: Dict[NightIndex, set[ObservationID]] = field(default_factory=dict)
 
-    # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
-    _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
-
-    # Resource service.
-    # TODO: This will be moved out when event processing is handled.
-    _resource_service: ClassVar[ResourceService]
-
-    # This should not be populated, but we put it here instead of in __post_init__ to eliminate warnings.
-    # This is a list of the programs as read in.
-    # We only want to read these in once unless the program_types change, which they should not.
-    _programs: ClassVar[Dict[ProgramID, Program]] = {}
+    # The programs as read in.
+    _programs: Dict[ProgramID, Program] = field(default_factory=dict, init=False)
 
     # A set of ObservationIDs per ProgramID.
-    _observations_per_program: ClassVar[Dict[ProgramID, FrozenSet[ObservationID]]] = {}
+    _observations_per_program: Dict[ProgramID, FrozenSet[ObservationID]] = field(
+        default_factory=dict, init=False)
 
     # This is a map of observation information that is computed as the programs
     # are read in. It contains both the Observation and the base Target (if any) for
     # the observation.
-    _observations: ClassVar[Dict[ObservationID, Tuple[Observation, Optional[Target]]]] = {}
+    _observations: Dict[ObservationID, Tuple[Observation, Optional[Target]]] = field(
+        default_factory=dict, init=False)
 
     # The target information is dependent on the:
     # 1. TargetName
@@ -159,7 +152,15 @@ class Collector(SchedulerComponent):
     # 4. NightIndex of interest
     # We want the ObservationID in here so that any target sharing in GPP is deliberately split here, since
     # the target info is observation-specific due to the constraints and site.
-    _target_info: ClassVar[TargetInfoMap] = {}
+    _target_info: TargetInfoMap = field(default_factory=dict, init=False)
+
+    # Manage the NightEvents with a NightEventsManager to avoid unnecessary recalculations.
+    # is a Singleton so it can be a ClassVar as is shared for all classes. State is not hold here
+    _night_events_manager: ClassVar[NightEventsManager] = NightEventsManager()
+
+    # Resource service.
+    # TODO: This will be moved out when event processing is handled.
+    _resource_service: ClassVar[ResourceService]
 
     # The default timeslot length currently used.
     DEFAULT_TIMESLOT_LENGTH: ClassVar[Time] = 1.0 * u.min
@@ -272,27 +273,23 @@ class Collector(SchedulerComponent):
                                                                 self.time_slot_length,
                                                                 site)
 
-    @staticmethod
-    def get_program_ids() -> Iterable[ProgramID]:
+    def get_program_ids(self) -> Iterable[ProgramID]:
         """
         Return a list of all the program IDs stored in the Collector.
         """
-        return Collector._programs.keys()
+        return self._programs.keys()
 
-    @staticmethod
-    def get_program(program_id: ProgramID) -> Optional[Program]:
+    def get_program(self, program_id: ProgramID) -> Optional[Program]:
         """
         If a program with the given ID exists, return it.
         Otherwise, return None.
         """
-        return Collector._programs.get(program_id, None)
+        return self._programs.get(program_id, None)
 
-    @staticmethod
-    def get_all_observations() -> Iterable[Observation]:
-        return [obs_data[0] for obs_data in Collector._observations.values()]
+    def get_all_observations(self) -> Iterable[Observation]:
+        return [obs_data[0] for obs_data in self._observations.values()]
 
-    @staticmethod
-    def get_observation_ids(program_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
+    def get_observation_ids(self, program_id: Optional[ProgramID] = None) -> Optional[Iterable[ObservationID]]:
         """
         Return the observation IDs in the Collector.
         If the prog_id is specified, limit these to those in the specified in the program.
@@ -300,42 +297,39 @@ class Collector(SchedulerComponent):
         If no prog_id is specified, return a complete list of observation IDs.
         """
         if program_id is None:
-            return Collector._observations.keys()
-        return Collector._observations_per_program.get(program_id, None)
+            return self._observations.keys()
+        return self._observations_per_program.get(program_id, None)
 
-    @staticmethod
-    def get_observation(obs_id: ObservationID) -> Optional[Observation]:
+    def get_observation(self, obs_id: ObservationID) -> Optional[Observation]:
         """
         Given an ObservationID, if it exists, return the Observation.
         If not, return None.
         """
-        value = Collector._observations.get(obs_id, None)
+        value = self._observations.get(obs_id, None)
         return None if value is None else value[0]
 
-    @staticmethod
-    def get_base_target(obs_id: ObservationID) -> Optional[Target]:
+    def get_base_target(self, obs_id: ObservationID) -> Optional[Target]:
         """
         Given an ObservationID, if it exists and has a base target, return the Target.
         If one of the conditions is not met, return None.
         """
-        value = Collector._observations.get(obs_id, None)
+        value = self._observations.get(obs_id, None)
         return None if value is None else value[1]
 
-    @staticmethod
-    def get_observation_and_base_target(obs_id: ObservationID) -> Optional[Tuple[Observation, Optional[Target]]]:
+    def get_observation_and_base_target(
+            self, obs_id: ObservationID) -> Optional[Tuple[Observation, Optional[Target]]]:
         """
         Given an ObservationID, if it exists, return the Observation and its Target.
         If not, return None.
         """
-        return Collector._observations.get(obs_id, None)
+        return self._observations.get(obs_id, None)
 
-    @staticmethod
-    def get_target_info(obs_id: ObservationID) -> Optional[TargetInfoNightIndexMap]:
+    def get_target_info(self, obs_id: ObservationID) -> Optional[TargetInfoNightIndexMap]:
         """
         Given an ObservationID, if the observation exists and there is a target for the
         observation, return the target information as a map from NightIndex to TargetInfo.
         """
-        info = Collector.get_observation_and_base_target(obs_id)
+        info = self.get_observation_and_base_target(obs_id)
         if info is None:
             return None
 
@@ -344,7 +338,7 @@ class Collector(SchedulerComponent):
             return None
 
         target_name = target.name
-        return Collector._target_info.get((target_name, obs_id), None)
+        return self._target_info.get((target_name, obs_id), None)
 
     def load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         """
@@ -366,10 +360,10 @@ class Collector(SchedulerComponent):
         program_provider = program_provider_class(self.obs_classes, self.sources)
 
         # Purge the old programs and observations.
-        Collector._programs = {}
-        Collector._observations = {}
-        Collector._observations_per_program = {}
-        Collector._target_info = {}
+        self._programs = {}
+        self._observations = {}
+        self._observations_per_program = {}
+        self._target_info = {}
         self._visible_obs_by_night = {}
 
         # Keep a list of the observations for parallel processing.
@@ -419,10 +413,10 @@ class Collector(SchedulerComponent):
                     continue
 
                 # If a program ID is repeated, warn and overwrite.
-                if program.id in Collector._programs.keys():
+                if program.id in self._programs.keys():
                     _logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
 
-                Collector._programs[program.id] = program
+                self._programs[program.id] = program
 
                 # Set the observation IDs for this program.
                 # We only want the observations that are located at the sites supported by the collector.
@@ -434,7 +428,7 @@ class Collector(SchedulerComponent):
                 # TODO: Applying this logic recursively should ensure only Groups that can be completed are included.
                 site_supported_obs = [obs for obs in program.observations() if obs.site in self.sites]
                 if site_supported_obs:
-                    Collector._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
+                    self._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
                     parsed_observations.extend((program.id, obs) for obs in site_supported_obs)
 
             except Exception as e:
@@ -487,9 +481,9 @@ class Collector(SchedulerComponent):
                 self._compute_visibility_locally(parsed_observations, obs_with_resources)
         for _p_id, _obs in parsed_observations:
             base = _obs.base_target()
-            Collector._observations[_obs.id] = _obs, base
+            self._observations[_obs.id] = _obs, base
 
-        _logger.info(f'Collected {len(Collector._observations)} observations: {[ o.id for o in Collector._observations.keys()]}.')
+        _logger.info(f'Collected {len(self._observations)} observations: {[ o.id for o in self._observations.keys()]}.')
 
     def get_visible_observations_for_night(self, night_idx: NightIndex) -> set[ObservationID]:
         return self._visible_obs_by_night.get(night_idx, set())
@@ -515,13 +509,6 @@ class Collector(SchedulerComponent):
             raise ValueError('Collector load_programs requires a ProgramProvider class as the second argument')
         program_provider = program_provider_class(self.obs_classes, self.sources)
         _logger.debug("Program provider created")
-
-        # Purge the old programs and observations.
-        Collector._programs = {}
-        Collector._observations = {}
-        Collector._observations_per_program = {}
-        Collector._target_info = {}
-        self._visible_obs_by_night = {}
 
         # Keep a list of the observations for parallel processing.
         parsed_observations: List[Tuple[ProgramID, Observation]] = []
@@ -568,14 +555,14 @@ class Collector(SchedulerComponent):
                     _logger.debug(f'Program {program.id} has awarded time of zero (skipping).')
                     continue
 
-                if program.id in Collector._programs.keys():
+                if program.id in self._programs.keys():
                     _logger.warning(f'Data contains a repeated program with id {program.id} (overwriting).')
 
-                Collector._programs[program.id] = program
+                self._programs[program.id] = program
 
                 site_supported_obs = [obs for obs in program.observations() if obs.site in self.sites]
                 if site_supported_obs:
-                    Collector._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
+                    self._observations_per_program[program.id] = frozenset(obs.id for obs in site_supported_obs)
                     parsed_observations.extend((program.id, obs) for obs in site_supported_obs)
 
             except Exception as e:
@@ -641,10 +628,10 @@ class Collector(SchedulerComponent):
                 self._compute_visibility_locally(parsed_observations, obs_with_resources)
 
         for _p_id, _obs in parsed_observations:
-            Collector._observations[_obs.id] = _obs, _obs.base_target()
+            self._observations[_obs.id] = _obs, _obs.base_target()
 
         _logger.info(
-            f'Collected {len(Collector._observations)} observations: {[o.id for o in Collector._observations.keys()]}.'
+            f'Collected {len(self._observations)} observations: {[o.id for o in self._observations.keys()]}.'
         )
 
     def night_configurations(self,
@@ -955,10 +942,10 @@ class Collector(SchedulerComponent):
                     ti.visibility_slot_idx = np.array([], dtype=int)
 
                 target_info_map: TargetInfoNightIndexMap = (
-                    Collector._target_info.setdefault((base.name, obs.id), {})
+                    self._target_info.setdefault((base.name, obs.id), {})
                 )
                 target_info_map[night_index] = ti
-                Collector._observations[obs.id] = obs, base
+                self._observations[obs.id] = obs, base
 
     async def _fetch_sight_data(
         self,
@@ -1083,7 +1070,7 @@ class Collector(SchedulerComponent):
             site = obs.site
             sshim = site_shims[site]
             target_info_map: TargetInfoNightIndexMap = (
-                Collector._target_info.setdefault((base.name, obs.id), {})
+                self._target_info.setdefault((base.name, obs.id), {})
             )
 
             # Stage 1 + Stage 2 per night. Hold results; rem_visibility_frac
@@ -1180,7 +1167,7 @@ class Collector(SchedulerComponent):
                     self._visible_obs_by_night.setdefault(night_idx, set()).add(obs.id)
                 target_info_map[night_idx] = ti
 
-            Collector._observations[obs.id] = obs, base
+            self._observations[obs.id] = obs, base
 
         for n_idx in range(num_nights):
             night_idx = NightIndex(n_idx)
