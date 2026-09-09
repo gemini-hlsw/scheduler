@@ -266,7 +266,12 @@ class FileBasedResourceService(ResourceService):
                 # 4. Classical: <prog-id-list>
                 # 5. Priority: <prog-id-list>
                 if mode_entry.startswith('VISITOR:'):
-                    instrument = self.lookup_resource(remove_symbols(mode_entry[8:].strip()), resource_type=ResourceType.INSTRUMENT)
+                    # Some visitor instruments have capitalized names, but removing .upper() for the mode_entry
+                    # above breaks the re. So, put these back to make consistent with the observations and other col
+                    inst = remove_symbols(mode_entry[8:].strip())
+                    inst = inst.capitalize() if inst in ['PHOENIX', 'ZORRO', 'ALOPEKE'] else inst
+                    # print(f'_load_instrument_data visitor: {inst}')
+                    instrument = self.lookup_resource(inst, resource_type=ResourceType.INSTRUMENT)
                     instrument_run.setdefault(instrument, set()).add(row_date)
 
                 elif mode_entry.startswith('PARTNER:'):
@@ -329,6 +334,9 @@ class FileBasedResourceService(ResourceService):
                 except IndexError:
                     # This happens if the row ends prematurely.
                     instrument_status = ''
+                if filename in ["Zorro", "Alopeke"]:
+                    # Add GCAL since these instruments are using the Port 2 column in place of GCAL
+                    resources.add(self.lookup_resource("GCAL", resource_type=ResourceType.INSTRUMENT))
                 if instrument_status == FileBasedResourceService._SCIENCE:
                     resources.add(self.lookup_resource(filename, resource_type=ResourceType.INSTRUMENT))
                     # Check for GRACES if GMOS-N is available (validation mode only)

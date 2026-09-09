@@ -8,8 +8,6 @@ from astropy.time import Time
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
 
-# from urllib3.http2.probe import acquire_and_get
-
 from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
                               Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
                               ObservationClass, ObservationID, ObservationMode, ObservationStatus, Priority,
@@ -893,7 +891,8 @@ class GppProgramProvider(ProgramProvider):
 
     def visitor_atom(
         self,
-        data: dict,
+        mode_data: dict,
+        expmode_data: dict,
         mode: ObservationMode,
         wavelength: Wavelength,
         resources: FrozenSet[Resource],
@@ -902,8 +901,9 @@ class GppProgramProvider(ProgramProvider):
 
         atoms = []
         # Workaround in case the time is None
-        step_time = timedelta(seconds=data['total_request_time']['seconds']) \
-            if data['total_request_time'] else timedelta(seconds=1800)
+        step_seconds = mode_data['total_request_time']['seconds'] if mode_data['total_request_time'] else \
+            expmode_data['time_and_count']['count'] * expmode_data['time_and_count']['time']['seconds']
+        step_time = timedelta(seconds=step_seconds)
         atoms.append(Atom(id=0,
                           exec_time=step_time,
                           prog_time=step_time,
@@ -964,7 +964,10 @@ class GppProgramProvider(ProgramProvider):
         if instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
             if GppProgramProvider._FPUKeys.CUSTOM in instrument_config.keys():
                 # This will assign the MDF name to the FPU
-                fpu = instrument_config[GppProgramProvider._FPUKeys.CUSTOM]
+                # ToDo: gpp-client needs to return the fileName of the attachment, not just the id,
+                # ToDo: the file name can then be converted to an MDF name and barcode for comparison with Resource
+                # fpu = instrument_config[GppProgramProvider._FPUKeys.CUSTOM]['attachment_id']
+                fpu = 'Custom'
             elif GppProgramProvider.FPU_FOR_INSTRUMENT[instrument] in instrument_config.keys():
                 fpu = instrument_config[GppProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
         fpu = basic_name(fpu)
@@ -1020,7 +1023,7 @@ class GppProgramProvider(ProgramProvider):
         # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
         # sets, but we filter below to remove them.
         # ToDo: decide whether to use FPU names or barcodes for resource matching
-            if fpu:
+            if fpu and fpu != 'Custom':
                 fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(
                     GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu, resource_type=ResourceType.FPU
                 )])
@@ -1155,7 +1158,9 @@ class GppProgramProvider(ProgramProvider):
             if sequence:
                 atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
             elif any(inst in resources for inst in ObservatoryProperties.visitor_instruments()) or 'VISITOR' in mode:
-                atoms, obs_class = self.visitor_atom(data['observing_mode']['visitor'], mode, wavelength, resources)
+                atoms, obs_class = self.visitor_atom(data['observing_mode']['visitor'],
+                                                     data['science_requirements']['exposure_time_mode'],
+                                                     mode, wavelength, resources)
             else:
                 raise ValueError(f'Observation {obs_id} has no sequence. Cannot process.')
 

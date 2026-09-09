@@ -335,6 +335,8 @@ export const PROGRAM_LIST_VALIDATION = [
   { label: "GN-2018B-Q-408", id: "GN-2018B-Q-408", checked: false, disabled: false },
   { label: "GN-2018B-Q-409", id: "GN-2018B-Q-409", checked: false, disabled: false },
   { label: "GN-2018B-Q-410", id: "GN-2018B-Q-410", checked: false, disabled: false },
+  { label: "GN-2018B-C-1", id: "GN-2018B-C-1", checked: false, disabled: false },
+  { label: "GN-2018B-C-2", id: "GN-2018B-C-2", checked: false, disabled: false },
   { label: "GN-2018B-Q-901", id: "GN-2018B-Q-901", checked: true, disabled: true }, // ToO program
   { label: "GN-2018B-Q-902", id: "GN-2018B-Q-902", checked: false, disabled: false },
   { label: "GN-2018B-Q-903", id: "GN-2018B-Q-903", checked: true, disabled: false }, // Default program
@@ -930,6 +932,8 @@ export const PROGRAM_LIST_VALIDATION = [
   { label: "GS-2018B-Q-403", id: "GS-2018B-Q-403", checked: false, disabled: false },
   { label: "GS-2018B-Q-404", id: "GS-2018B-Q-404", checked: false, disabled: false },
   { label: "GS-2018B-Q-405", id: "GS-2018B-Q-405", checked: false, disabled: false },
+  { label: "GS-2018B-C-500", id: "GS-2018B-C-500", checked: false, disabled: false },
+  { label: "GS-2018B-C-502", id: "GS-2018B-C-502", checked: false, disabled: false },
   { label: "GS-2019A-DD-101", id: "GS-2019A-DD-101", checked: false, disabled: false },
   { label: "GS-2019A-DD-102", id: "GS-2019A-DD-102", checked: false, disabled: false },
   { label: "GS-2019A-DD-103", id: "GS-2019A-DD-103", checked: false, disabled: false },

@@ -78,8 +78,8 @@ class Engine:
 
         from lucupy.minimodel import ProgramID, Band, Site
         # print_collector_info(collector)
-        # nc = collector.night_configurations(Site.GS, [2])
-        # # print(f'\n GS 2: {nc}')
+        # nc = collector.night_configurations(Site.GS, [0])
+        # print(f'\n GS 0: {nc}')
         # nc = collector.night_configurations(Site.GN, [0])
         # print(f'\n GN 0: {nc}')
 
@@ -88,10 +88,12 @@ class Engine:
         p = None
         # if ProgramID('GN-2018B-Q-134') in progids:
         #     p = collector.get_program(ProgramID('GN-2018B-Q-134'))
-        # if ProgramID('GN-2018B-Q-111') in progids:
+        # if ProgramID('GN-2018B-Q-111') in progids: # Alopeke
         #     p = collector.get_program(ProgramID('GN-2018B-Q-111'))
         # if ProgramID('G-2026B-ENG-GMOSN-01') in progids:
         #     p = collector.get_program(ProgramID('G-2026B-ENG-GMOSN-01'))
+        # if ProgramID('G-2026A-ENG-VISITORN-01') in progids:
+        #     p = collector.get_program(ProgramID('G-2026A-ENG-VISITORN-01'))
         if p is not None:
             print(f"Program awarded: {p.program_awarded()}, Band 1: {p.program_awarded(Band(1))}")
             print(f"Program used: {p.program_used()}, Band 1: {p.program_used(Band(1))}")
