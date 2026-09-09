@@ -247,7 +247,6 @@ class EventCycle:
             else:
                 # TODO: Not needded if the system returns only stitched plans
                 logger.debug('Night done. Adding last empty plan to compute night stats.')
-                # final_plan = self._get_final_plan(site, night_idx, nightly_timeline)
 
                 nightly_timeline.add(
                     NightIndex(night_idx),
@@ -258,48 +257,6 @@ class EventCycle:
                 )
         
         return plans
-
-
-    def _get_final_plan(
-        self, site: Site, night_idx: NightIndex, nt: NightlyTimeline
-    ):
-
-        if night_idx not in nt.timeline:
-            raise RuntimeError(f'Cannot get final plan: {night_idx} for site {site.name} not in timeline.')
-        if site not in nt.timeline[night_idx]:
-            raise RuntimeError(f'Cannot get final plan: {site.name} not in timeline.')
-        entries = nt.timeline[night_idx][site]
-
-        # Skip the None entries.
-        relevant_entries = [e for e in entries if e.plan_generated is not None]
-        if len(relevant_entries) == 0:
-            return None
-
-        accounted_visits = []
-        for entry in relevant_entries:
-            accounted_observations = entry.accounted_observations
-            for v in entry.plan_generated.visits:
-                if v.observation.id in accounted_observations:
-                    accounted_visits.append(v)
-
-        end = relevant_entries[-1].plan_generated.end
-        start = relevant_entries[0].plan_generated.start
-        total_night_timeslots = int((end - start).total_seconds()/60)
-
-        total_used_timeslots = sum([v.time_slots for v in accounted_visits])
-
-        p = Plan(
-            start=relevant_entries[0].plan_generated.start,
-            end=relevant_entries[-1].plan_generated.end,
-            time_slot_length=relevant_entries[0].plan_generated.time_slot_length,
-            site=site,
-            _time_slots_left=total_night_timeslots - total_used_timeslots,
-            conditions=relevant_entries[-1].plan_generated.conditions
-        )
-
-        p.visits = accounted_visits
-        return p
-
 
     def run(self, site: Site, night_idx: NightIndex, nightly_timeline: NightlyTimeline):
         """Executes the Event cycle for a specific site and night.

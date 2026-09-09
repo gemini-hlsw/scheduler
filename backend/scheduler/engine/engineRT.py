@@ -67,6 +67,7 @@ class EngineRT:
         self.weather_source = weather_source
         self.sources = Sources()
         self.start_time = time()
+        self.last_run_date = None
 
     async def build(self) -> None:
         """
@@ -115,6 +116,15 @@ class EngineRT:
 
         self.scp = SCP(collector, selector, optimizer, ranker)
         _logger.info("SCP successfully built.")
+
+
+    async def clear_timelines_if_needed(self) -> None:
+        build_params = await build_params_store.get()
+        if self.last_run_date != build_params.visibility_start:
+            async with self.nightly_timeline_store.mutate() as nightly_timeline:
+                nightly_timeline.reset()
+
+        self.last_run_date = build_params.visibility_start
 
     async def init_variant(self) -> None:
         """
@@ -197,6 +207,7 @@ class EngineRT:
         # {site: {0: current_timeslot}}
 
         await self.build()
+        await self.clear_timelines_if_needed()
         # TODO: Specific logic for events
         # In theory this should be a shared process for all events.
         # Meaning the process of setup the SCP and run a schedule is independent from the type of event.
