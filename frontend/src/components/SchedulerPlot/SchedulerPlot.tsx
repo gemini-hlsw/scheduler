@@ -100,6 +100,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
     "GPI",
     "IGRINS",
     "NIFS",
+    "Alopeke",
   ];
 
   type ColorMap = {
