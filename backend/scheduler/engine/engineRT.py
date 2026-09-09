@@ -68,6 +68,7 @@ class EngineRT:
         self.sources = Sources()
         self.start_time = time()
         self.last_run_date = None
+        self.last_program_list = None
 
     async def build(self) -> None:
         """
@@ -120,11 +121,12 @@ class EngineRT:
 
     async def clear_timelines_if_needed(self) -> None:
         build_params = await build_params_store.get()
-        if self.last_run_date != build_params.visibility_start:
+        if self.last_run_date != build_params.visibility_start or self.last_program_list != build_params.program_list:
             async with self.nightly_timeline_store.mutate() as nightly_timeline:
                 nightly_timeline.reset()
 
         self.last_run_date = build_params.visibility_start
+        self.last_program_list = build_params.program_list
 
     async def init_variant(self) -> None:
         """
