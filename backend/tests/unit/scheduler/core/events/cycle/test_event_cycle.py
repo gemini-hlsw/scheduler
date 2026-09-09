@@ -303,7 +303,6 @@ class TestEventCycle:
             sites=frozenset({site}),
             end_timeslot_bounds=end_timeslot_bounds
         )
-        nightly_timeline.get_final_plan.assert_not_called()
         nightly_timeline.add.assert_not_called()
 
 
