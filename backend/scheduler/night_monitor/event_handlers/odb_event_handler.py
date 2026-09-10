@@ -2,18 +2,17 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 import time
-from datetime import timedelta, datetime, UTC
+from datetime import timedelta
 from functools import partial
 from typing import ClassVar, Dict, Tuple, Callable, Awaitable, Optional
 
 from scheduler.core.events.queue import (Event, NightlyTimelineStore, ObservationActivationEvent,
-                                         OnDemandScheduleEvent)
+                                         OnDemandScheduleEvent, TimelineListener)
 from scheduler.night_monitor.event_sources import ODBEventSource
 from .event_handler import EventHandler, LastPlanMock
 from .obscalc_visibility import (build_conditions, calculate_and_store_visibility, get_visibility_changes,
                                 refresh_visibility_if_changed, site_key_from_instrument,
                                 sight_visibility_enabled)
-from gpp_client.generated.enums import ObservationWorkflowState
 from gpp_client.generated.scheduler_observations_updates import (SchedulerObservationsUpdates,
                                                                 SchedulerObservationsUpdatesObscalcUpdate,
                                                                 SchedulerObservationsUpdatesObscalcUpdateValue)
@@ -22,7 +21,6 @@ from lucupy.minimodel import ALL_SITES, Site, Observation, ObservationID, Observ
 
 from scheduler.services import logger_factory
 from ...core.events.queue.scheduler_queue_client import SchedulerQueue
-from ...engine.params import build_params_store
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -67,9 +65,12 @@ class SchedulerIdleTimer:
     def pending(self) -> bool:
         return self._task is not None and not self._task.done()
 
-class ODBEventHandler(EventHandler):
+class ODBEventHandler(EventHandler, TimelineListener):
     """
     Handles ODB events. To check the different subscriptions go to ODBEventSource.
+
+    Also watches the plan in effect as a :class:`TimelineListener`, so a site that never reports
+    anything to the ODB is still noticed as idle. Register it with the store to enable that.
     """
 
     # How much the Scheduler can wait idle without anything set
@@ -95,38 +96,6 @@ class ODBEventHandler(EventHandler):
     def _sites_of(event: Event) -> Tuple[Site, ...]:
         """The sites an event applies to. Some are raised for every site at once (ALL_SITES)."""
         return tuple(event.site) if isinstance(event.site, (frozenset, set)) else (event.site,)
-
-    async def _reference_time(self, site: Optional[Site] = None) -> datetime:
-        """
-        Returns the time referenced from the build parameters to help simulate the night
-        when this one are in place.
-        """
-        build_params = await build_params_store.get()
-        if not build_params.is_customized():
-            return datetime.now(UTC)
-
-        anchor = build_params.simulated_now
-        if anchor is None:
-            anchor = await self._plan_night_start(site)
-            if anchor is None:
-                # The engine has not recorded a night yet, so there is nothing to anchor to.
-                return datetime.now(UTC)
-
-        return anchor + (datetime.now(UTC) - build_params.set_at)
-
-    async def _plan_night_start(self, site: Optional[Site]) -> Optional[datetime]:
-        """
-        Evening twilight of the night the plan in effect covers.
-
-        ``site`` is None for events raised for every site at once; any site that has a night
-        recorded will do there, since both are the same night.
-        """
-        sites = (site,) if site is not None else tuple(ALL_SITES)
-        for candidate in sites:
-            night_start = await self.nightly_timeline_store.night_start(candidate)
-            if night_start is not None:
-                return night_start
-        return None
 
     async def _request_new_plan(self, event: Event) -> None:
         """
@@ -174,6 +143,30 @@ class ODBEventHandler(EventHandler):
             partial(self._on_execution_timeout, site, observation.id),
             with_offset=True,
         )
+
+    async def on_plan_published(self, site: Site) -> None:
+        """
+        A plan just took effect for the site, so start counting from now.
+
+        Without this the idle watch only ever begins after an ODB event, which means a night
+        that starts and simply stays quiet is never noticed: nothing reports to the ODB, so
+        nothing arms the timer. Re-arming on every plan also restarts the countdown from when
+        the plan actually took effect rather than from when it was requested.
+        """
+        if self.observation_execution_timer[site].pending:
+            # Something is running and we are already waiting it out. A new plan does not make
+            # the site any less busy, and the execution watch is the one worth keeping.
+            return
+        _logger.info(f'Plan in effect for {site.name}. Watching for idle time.')
+        self._arm_idle_timer(site)
+
+    async def on_timeline_reset(self) -> None:
+        """
+        The night is over. Stand down, so nothing wakes up asking for a plan for a dead night.
+        """
+        for site in ALL_SITES:
+            self.observation_execution_timer[site].cancel()
+            self.idle_timer[site].cancel()
 
     async def _on_idle_timeout(self, site: Site) -> None:
         """No ODB activity for WAITING_THRESHOLD: recompute so the plan matches the current time."""

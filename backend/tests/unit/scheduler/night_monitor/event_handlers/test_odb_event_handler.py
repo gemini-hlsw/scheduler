@@ -35,6 +35,8 @@ from scheduler.night_monitor.event_handlers.odb_event_handler import (
 )
 
 _HANDLER_MODULE = "scheduler.night_monitor.event_handlers.odb_event_handler"
+# The simulated clock lives on the shared base, so every handler stamps its events the same way.
+_BASE_MODULE = "scheduler.night_monitor.event_handlers.event_handler"
 
 # GMOS_SOUTH resolves to GS, so every event here is a GS event unless it says otherwise.
 _SITE = Site.GS
@@ -156,7 +158,7 @@ def _reference_time_is_now():
     """
     store = MagicMock()
     store.get = AsyncMock(return_value=BuildParameters())
-    with patch(f"{_HANDLER_MODULE}.build_params_store", store):
+    with patch(f"{_BASE_MODULE}.build_params_store", store):
         yield
 
 
@@ -532,6 +534,56 @@ async def test_request_new_plan_for_all_sites_rearms_every_site(handler_factory)
     assert all(handler.idle_timer[site].pending for site in ALL_SITES)
 
 
+# --- the plan in effect changing --------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_published_plan_starts_the_idle_watch(handler_factory):
+    # The whole point: a night that starts and stays quiet reports nothing to the ODB, so
+    # without this hook nothing would ever arm the watch.
+    handler = handler_factory()
+
+    await handler.on_plan_published(_SITE)
+
+    assert handler.idle_timer[_SITE].pending
+
+
+@pytest.mark.asyncio
+async def test_published_plan_leaves_a_running_observation_alone(handler_factory):
+    # A replan triggered by something else (weather, a resource) must not drop the wait on an
+    # observation that is still executing, or an overrun goes unnoticed.
+    handler = handler_factory()
+    handler.observation_execution_timer[_SITE].set(3600, AsyncMock())
+
+    await handler.on_plan_published(_SITE)
+
+    assert handler.observation_execution_timer[_SITE].pending
+    assert not handler.idle_timer[_SITE].pending
+
+
+@pytest.mark.asyncio
+async def test_published_plan_only_touches_its_own_site(handler_factory):
+    handler = handler_factory()
+
+    await handler.on_plan_published(Site.GS)
+
+    assert handler.idle_timer[Site.GS].pending
+    assert not handler.idle_timer[Site.GN].pending
+
+
+@pytest.mark.asyncio
+async def test_timeline_reset_stands_every_timer_down(handler_factory):
+    # The night is over: a countdown left running would ask for a plan for a dead night.
+    handler = handler_factory()
+    for site in ALL_SITES:
+        handler.idle_timer[site].set(3600, AsyncMock())
+        handler.observation_execution_timer[site].set(3600, AsyncMock())
+
+    await handler.on_timeline_reset()
+
+    assert not any(handler.idle_timer[site].pending for site in ALL_SITES)
+    assert not any(handler.observation_execution_timer[site].pending for site in ALL_SITES)
+
+
 # --- SchedulerIdleTimer ---------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -611,7 +663,7 @@ async def _tick(seconds):
 def _params(**kwargs):
     store = MagicMock()
     store.get = AsyncMock(return_value=BuildParameters(**kwargs))
-    return patch(f"{_HANDLER_MODULE}.build_params_store", store)
+    return patch(f"{_BASE_MODULE}.build_params_store", store)
 
 
 @pytest.mark.asyncio
@@ -674,7 +726,7 @@ async def test_reference_time_advances_with_the_real_clock(handler_factory):
 
     store = MagicMock()
     store.get = AsyncMock(return_value=params)
-    with patch(f"{_HANDLER_MODULE}.build_params_store", store):
+    with patch(f"{_BASE_MODULE}.build_params_store", store):
         when = await handler._reference_time()
 
     assert abs(when - (anchor + timedelta(minutes=17))) < timedelta(seconds=5)

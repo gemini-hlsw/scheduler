@@ -47,6 +47,8 @@ def _timeline_store() -> MagicMock:
 
     store = MagicMock()
     store.mutate = mutate
+    # Announced once the plan is written; awaited, so it cannot be a bare MagicMock.
+    store.plan_published = AsyncMock()
     return store
 
 
