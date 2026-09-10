@@ -20,7 +20,7 @@ collector:
   with_redis: false
   parallel_viscalc: false
   # "sight" reads pre-computed visibility from the Sight service and falls back
-  # to the local joblib calculator on transport failure.
+  # to the in-process calculator on transport failure.
   # "local" always uses the in-process calculator.
   visibility_strategy: sight
 
