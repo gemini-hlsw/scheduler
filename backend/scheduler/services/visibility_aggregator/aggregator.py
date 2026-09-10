@@ -215,7 +215,7 @@ async def _collect_requests(program_ids: list[str]):
     windows: dict[str, tuple[date, date]] = {}
     labels_by_internal_id: dict[str, str] = {}
     skipped_no_target = 0
-    skipped_nonsidereal = 0
+    # skipped_nonsidereal = 0
     bad_programs = 0
 
     program_data = await gpp_program_data(program_ids)
@@ -247,9 +247,9 @@ async def _collect_requests(program_ids: list[str]):
                     skipped_no_target += 1
                     continue
                 # TODO: Add NonSideral support
-                if not payload.is_sidereal:
-                    skipped_nonsidereal += 1
-                    continue
+                # if not payload.is_sidereal:
+                #     skipped_nonsidereal += 1
+                #     continue
 
                 targets_by_name.setdefault(payload.name, payload)
                 labels_by_internal_id[str(obs.internal_id)] = obs.id.id
@@ -277,7 +277,7 @@ async def _collect_requests(program_ids: list[str]):
         _logger.info(f"Skipped {bad_programs} unparseable programs.")
     counts = {
         "skipped_no_target": skipped_no_target,
-        "skipped_nonsidereal": skipped_nonsidereal,
+        # "skipped_nonsidereal": skipped_nonsidereal,
     }
     return targets_by_name, requests, windows, labels_by_internal_id, counts
 
@@ -721,7 +721,7 @@ async def run_aggregation(
     _logger.info(
         f"Prepared {len(targets_by_name)} sidereal targets and {len(requests)} "
         f"observations in {parse_elapsed:.1f}s spanning {start_date}..{end_date} "
-        f"(skipped {counts['skipped_nonsidereal']} non-sidereal, "
+        # f"(skipped {counts['skipped_nonsidereal']} non-sidereal, "
         f"{counts['skipped_no_target']} without a usable base target)."
     )
     if heartbeat is not None:
