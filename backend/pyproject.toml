@@ -1,6 +1,6 @@
 [project]
 name = "scheduler"
-version = "0.1.21"
+version = "2026.09.1"
 description = "Gemini Observatory automated scheduler"
 readme = 'README.md'
 authors = [{ name = "NOIRLab" }]
@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-gpp-prod = ["gpp-client>=26.7.1"]
+gpp-prod = ["gpp-client>=26.9.0"]
 # Dev tracks the latest .dev release; When new cycle starts, bump the CalVer
 gpp-dev = ["gpp-client>=26.7.3.dev12,==26.7.3.*,!=26.7.3"]
 dev = [

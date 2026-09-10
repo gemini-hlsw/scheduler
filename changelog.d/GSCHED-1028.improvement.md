@@ -1,1 +1,0 @@
-Offload operations that are CPU and I/O bound to threads so they are not able to block the websockets connections to subscription in the same loop. It adds also some improvements in logging messaging regarding the subscriptions handle and connection
