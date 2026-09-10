@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# =============================================================================
+# changelog-fragment — helper to create Towncrier fragments from your branch
+#
+# Usage:
+#   ./scripts/changelog-fragment "Add batch retry with exponential backoff"
+#   ./scripts/changelog-fragment "Fix timeout in multiprocess" fix
+#   ./scripts/changelog-fragment "" misc              # internal-only change
+#
+# It auto-detects the Jira ticket from your branch name (e.g. GSCHED-190/...).
+# =============================================================================
+
+set -euo pipefail
+
+DESCRIPTION="${1:-}"
+TYPE="${2:-feature}"
+VALID_TYPES="feature fix breaking deprecation improvement doc misc"
+
+# Validate type
+if ! echo "$VALID_TYPES" | grep -qw "$TYPE"; then
+  echo "❌ Invalid type: $TYPE"
+  echo "   Valid types: $VALID_TYPES"
+  exit 1
+fi
+
+# Extract ticket from branch name
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+TICKET=$(echo "$BRANCH" | grep -oE "^[A-Z]+-[0-9]+" || echo "")
+
+if [ -z "$TICKET" ]; then
+  echo "⚠️  Could not extract Jira ticket from branch: $BRANCH"
+  read -rp "   Enter ticket ID (or press Enter for 'noissue'): " TICKET
+  TICKET="${TICKET:-noissue}"
+fi
+
+# Create the fragment
+FILENAME="changelog.d/${TICKET}.${TYPE}.md"
+
+if [ -z "$DESCRIPTION" ] && [ "$TYPE" = "misc" ]; then
+  echo "" > "$FILENAME"
+  echo "✓ Created empty fragment: $FILENAME"
+elif [ -z "$DESCRIPTION" ]; then
+  echo "❌ Description required for type '$TYPE'"
+  echo "   Usage: $0 \"Description of the change\" $TYPE"
+  echo "   (only 'misc' type can be empty)"
+  exit 1
+else
+  echo "$DESCRIPTION" > "$FILENAME"
+  echo "✓ Created fragment: $FILENAME"
+  echo "  Content: $DESCRIPTION"
+fi
+
+echo ""
+echo "  Don't forget to: git add $FILENAME"

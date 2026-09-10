@@ -1,0 +1,112 @@
+services:
+
+  backend-realtime:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-development}
+    container_name: scheduler-realtime
+    environment:
+      APP_VERSION: ${APP_VERSION:-development}
+      SCHEDULER_MODE: REALTIME
+      PORT: 8000
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://scheduler:scheduler_dev@postgres:5432/scheduler}
+      CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}
+      CLOUDCUBE_ACCESS_KEY_ID: ${CLOUDCUBE_ACCESS_KEY_ID:-}
+      CLOUDCUBE_SECRET_ACCESS_KEY: ${CLOUDCUBE_SECRET_ACCESS_KEY:-}
+      WEATHER_URL: http://weather:4000
+      GPP_DEVELOPMENT_TOKEN: ${GPP_DEVELOPMENT_TOKEN:-}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  backend-validation:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-development}
+    container_name: scheduler-validation
+    environment:
+      APP_VERSION: ${APP_VERSION:-development}
+      SCHEDULER_MODE: VALIDATION
+      PORT: 8001
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://scheduler:scheduler_dev@postgres:5432/scheduler}
+      CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}
+      CLOUDCUBE_ACCESS_KEY_ID: ${CLOUDCUBE_ACCESS_KEY_ID:-}
+      CLOUDCUBE_SECRET_ACCESS_KEY: ${CLOUDCUBE_SECRET_ACCESS_KEY:-}
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/graphql')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+  weather:
+    image: nlsoftware/scheduler-weather:latest
+    container_name: scheduler-weather
+    ports:
+      - "4000:4000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.compose
+      args:
+        VITE_API_URL: http://localhost:8001/graphql
+        VITE_REALTIME_API_URL: http://localhost:8000/graphql
+    container_name: scheduler-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend-realtime:
+        condition: service_healthy
+      backend-validation:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: scheduler-redis
+    profiles:
+      - redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  postgres:
+    image: postgres:16-alpine
+    container_name: scheduler_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-scheduler}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-scheduler_dev}
+      POSTGRES_DB: ${DB_NAME:-scheduler}
+    ports:
+      - "5433:5432"
+    volumes:
+      - scheduler_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-scheduler}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+    scheduler_postgres_data:

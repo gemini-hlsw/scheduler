@@ -1,0 +1,1 @@
+Modify the filter that was blocking Rapid ToOs when the program type was not matching the calendar program filter. Also a few GS ToOs were being activated iun the wrong date when past the noon for UTC. 

@@ -1,0 +1,68 @@
+# Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import os
+from enum import Enum
+from typing import final
+
+import strawberry  # noqa
+
+from scheduler.core.sources.sources import Sources
+from .simulationbuilder import SimulationBuilder
+from .schedulerbuilder import SchedulerBuilder
+from .validationbuilder import ValidationBuilder
+from scheduler.core.events.queue import EventQueue
+from scheduler.config import config
+
+
+__all__ = [
+    'SchedulerModes',
+    'dispatch_with',
+]
+
+from ..sources import Origins
+
+
+@final
+@strawberry.enum
+class SchedulerModes(Enum):
+    """Scheduler modes available:
+
+    - OPERATION
+    - SIMULATION
+    - VALIDATION
+
+    """
+    OPERATION = 'operation'
+    SIMULATION = 'simulation'
+    VALIDATION = 'validation'
+
+try:
+    mode_env = os.environ.get("SCHEDULER_MODE")
+
+    match mode_env:
+        case "REALTIME":
+            app_mode = SchedulerModes.OPERATION
+        case "SIMULATION":
+            app_mode = SchedulerModes.SIMULATION
+        case "VALIDATION":
+            app_mode = SchedulerModes.VALIDATION
+        case _:
+            raise ValueError("Missing env var for SCHEDULER_MODE")
+except ValueError:
+    app_mode = SchedulerModes.VALIDATION
+
+is_operation = app_mode == SchedulerModes.OPERATION
+is_simulation = app_mode == SchedulerModes.SIMULATION
+is_validation = app_mode == SchedulerModes.VALIDATION
+
+def dispatch_with(sources: Sources, events: EventQueue) -> SchedulerBuilder:
+    match app_mode:
+        case SchedulerModes.VALIDATION:
+            sources.set_origin(Origins.OCS())
+            return ValidationBuilder(sources, events)
+        case SchedulerModes.SIMULATION:
+            sources.set_origin(Origins.SIM())
+            return SimulationBuilder(sources, events)
+        case SchedulerModes.OPERATION:
+            sources.set_origin(Origins.OPS())
+            return SimulationBuilder(sources, events)

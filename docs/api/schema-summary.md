@@ -1,0 +1,318 @@
+# GraphQL Schema Reference
+
+Auto-generated from the Strawberry schema.
+
+## SDL Schema
+
+```graphql
+type AvailableProgram {
+  id: String!
+  refLabel: String!
+}
+
+input BuildParametersInput {
+  nightTimes: [SiteNightTimesEntry!] = null
+  visibilityStart: DateTime = null
+  visibilityEnd: DateTime = null
+  programList: [String!] = null
+  simulatedNow: DateTime = null
+}
+
+type BuildParametersResponse {
+  nightTimes: [NightTimesResponse!]
+  visibilityStart: DateTime
+  visibilityEnd: DateTime
+  programList: [String!]
+  simulatedNow: DateTime
+}
+
+input CreateNewScheduleInput {
+  startTime: String!
+  endTime: String!
+  sites: Sites!
+  mode: SchedulerModes!
+  semesterVisibility: Boolean! = true
+  numNightsToSchedule: Int = null
+  thesisFactor: Float = 1.1
+  power: Int = 2
+  metPower: Float = 1
+  visPower: Float = 1
+  whaPower: Float = 1
+  airPower: Float = 0
+  programs: [String!] = null
+}
+
+"""Date (isoformat)"""
+scalar Date
+
+"""Date with time (isoformat)"""
+scalar DateTime
+
+type Event {
+  site: Site!
+  time: DateTime!
+  description: String!
+}
+
+type GroupCoverage {
+  key: String!
+  expected: Int!
+  stored: Int!
+  pending: Int!
+  missing: Int!
+  skipped: Int!
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf).
+"""
+scalar JSON @specifiedBy(url: "https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf")
+
+type Mutation {
+  updateBuildParams(buildParamsInput: BuildParametersInput!): String!
+}
+
+type NewNightPlans {
+  nightPlans: SNightTimelines!
+  plansSummary: SRunSummary!
+}
+
+type NewPlansRT {
+  nightPlans: SPlans!
+}
+
+type NightPlansError {
+  error: String!
+}
+
+union NightPlansResponseRT = NewNightPlans | NightPlansError | NewPlansRT | NightPlansWithEvent
+
+type NightPlansWithEvent {
+  nightPlans: SPlans!
+  event: String!
+}
+
+input NightTimesInput {
+  nightStart: DateTime = null
+  nightEnd: DateTime = null
+}
+
+type NightTimesResponse {
+  site: String!
+  start: DateTime
+  end: DateTime
+}
+
+type ObservationCoverage {
+  observationId: String!
+  programLabel: String!
+  site: String
+  targetName: String
+  status: ObservationStatus!
+  reason: String
+}
+
+type ObservationCoveragePage {
+  observations: [ObservationCoverage!]!
+  total: Int!
+  nightDate: Date
+  odbReadAt: DateTime
+}
+
+enum ObservationStatus {
+  STORED
+  PENDING
+  MISSING
+  SKIPPED
+}
+
+type Query {
+  version: Version!
+  schedule(scheduleId: String!, newScheduleInput: CreateNewScheduleInput!): String!
+  scheduleV2: String!
+  onDemandSchedule: String!
+  availablePrograms(nightDate: Date = null): [AvailableProgram!]!
+  visibilityAggregatorStatus: VisibilityAggregatorStatus!
+  visibilityCoverage(nightDate: Date = null): VisibilityCoverage!
+  observationCoverage(nightDate: Date = null, status: ObservationStatus = null, site: String = null, programLabel: String = null, search: String = null, limit: Int! = 50, offset: Int! = 0): ObservationCoveragePage!
+  visibleObservations(site: String!, nightDate: Date = null, limit: Int! = 50, offset: Int! = 0, minRemainingMinutes: Int! = 1): VisibleObservationsPage!
+  buildParameters: BuildParametersResponse!
+}
+
+type SConditions {
+  iq: String!
+  cc: String!
+}
+
+type SNightInTimeline {
+  nightIndex: Int!
+  timeEntriesBySite: [TimelineEntriesBySite!]!
+}
+
+type SNightStats {
+  planScore: Float!
+  nToos: Int!
+  completionFraction: JSON!
+  programCompletion: JSON!
+}
+
+type SNightTimelines {
+  nightTimeline: [SNightInTimeline!]!
+}
+
+"""ID of an Observation"""
+scalar SObservationID
+
+type SPlan {
+  site: Site!
+  startTime: DateTime!
+  endTime: DateTime!
+  visits: [SVisit!]!
+  nightStats: SNightStats!
+  nightConditions: SConditions!
+}
+
+type SPlans {
+  nightIdx: Int!
+  plansPerSite: [SPlan!]!
+}
+
+type SRunSummary {
+  summary: JSON!
+  metricsPerBand: JSON!
+}
+
+type STimeLossWindow {
+  start: DateTime!
+  end: DateTime
+  lossType: String!
+}
+
+type STimelineEntry {
+  startTimeSlots: Int!
+  event: Event!
+  plan: SPlan!
+  timelossWindows: [STimeLossWindow!]!
+  timestats: STimestats!
+}
+
+type STimestats {
+  nightLength: Int!
+  observed: Int!
+  scheduled: Int!
+  weather: Int!
+  fault: Int!
+  closed: Int!
+  unscheduled: Int!
+}
+
+type SVisit {
+  startTime: DateTime!
+  endTime: DateTime!
+  obsId: SObservationID!
+  atomStartIdx: Int!
+  atomEndIdx: Int!
+  altitude: [Float!]!
+  instrument: String!
+  fpu: String!
+  disperser: String!
+  filters: [String!]!
+  requiredConditions: SConditions!
+  obsClass: String!
+  score: Float!
+  peakScore: Float!
+  completion: String!
+  atomTimes: [Int!]!
+  stepStart: Int
+  stepEnd: Int
+}
+
+enum SchedulerModes {
+  OPERATION
+  SIMULATION
+  VALIDATION
+}
+
+enum Site {
+  GN
+  GS
+}
+
+input SiteNightTimesEntry {
+  site: Site!
+  nightTimes: NightTimesInput!
+}
+
+"""Depiction of the sites that can be load to the collector"""
+scalar Sites
+
+type Subscription {
+  queueSchedule(scheduleId: String!): NightPlansResponseRT!
+  buildParametersUpdates: BuildParametersResponse!
+}
+
+type TimelineEntriesBySite {
+  site: Site!
+  timeEntries: [STimelineEntry!]!
+  eveTwilight: DateTime!
+  mornTwilight: DateTime!
+}
+
+type Version {
+  version: String!
+  changelog: [String!]!
+}
+
+type VisibilityAggregatorStatus {
+  active: Boolean!
+  stale: Boolean!
+  holder: String
+  startedAt: String
+  heartbeatAt: String
+  finishedAt: String
+  detail: String
+  phase: String
+  progressCurrent: Int
+  progressTotal: Int
+  progressUnit: String
+  elapsedSeconds: Float
+  etaSeconds: Float
+}
+
+type VisibilityCoverage {
+  nightDate: Date
+  odbReadAt: DateTime
+  expected: Int!
+  stored: Int!
+  pending: Int!
+  missing: Int!
+  skipped: Int!
+  isComplete: Boolean!
+  pendingKnown: Boolean!
+  perProgram: [GroupCoverage!]!
+  perSite: [GroupCoverage!]!
+}
+
+type VisibleInterval {
+  start: DateTime!
+  end: DateTime!
+}
+
+type VisibleObservation {
+  observationId: String!
+  site: String!
+  targetName: String
+  nightDate: Date!
+  remainingMinutes: Int!
+  remainingMinutesFromNow: Int!
+  intervals: [VisibleInterval!]!
+}
+
+type VisibleObservationsPage {
+  site: String!
+  nightDate: Date!
+  observations: [VisibleObservation!]!
+  total: Int!
+  totalRemainingMinutes: Int!
+}
+```

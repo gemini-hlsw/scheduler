@@ -1,0 +1,113 @@
+# Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import asyncio
+import logging
+
+from astropy.time import Time
+from lucupy.minimodel import Semester, Site
+from typing import final, FrozenSet, Optional, Dict, Tuple
+from datetime import datetime
+
+from .blueprint import CollectorBlueprint
+from .schedulerbuilder import SchedulerBuilder
+from scheduler.core.components.collector import Collector
+from scheduler.core.sources.sources import Sources
+from scheduler.clients.gpp import gpp
+from scheduler.core.programprovider.gpp import gpp_program_data, GppProgramProvider
+from scheduler.core.statscalculator import StatCalculator
+from scheduler.core.events.queue import EventQueue
+
+
+__all__ = [
+    'SimulationBuilder',
+]
+
+from ...services import logger_factory
+
+_logger = logger_factory.create_logger(__name__, level=logging.INFO)
+
+@final
+class SimulationBuilder(SchedulerBuilder):
+    """Simulation mode is used to predict future plans based on current GPP data
+
+    Attributes:
+
+    """
+
+    def __init__(self, sources: Sources, events: EventQueue):
+        super().__init__(sources, events)
+        self.stats = StatCalculator
+
+    def build_collector(self,
+                        start: datetime,
+                        end: datetime,
+                        num_of_nights: int,
+                        sites: FrozenSet[Site],
+                        semesters: FrozenSet[Semester],
+                        blueprint: CollectorBlueprint,
+                        night_times: Dict[Site, Tuple[Time, Time]],
+                        program_list: Optional[bytes] = None,
+                        defer_night_events: bool = False,
+                        use_local_visibility: Optional[bool] = None) -> Collector:
+
+        collector = super().build_collector(
+            start, end, num_of_nights, sites, semesters, blueprint, night_times,
+            use_local_visibility=use_local_visibility,
+        )
+        async def fetch_data():
+            try:
+                async_gen = await gpp_program_data(program_list)
+                return [item async for item in async_gen]
+            finally:
+                await gpp.close()
+
+        collector.load_programs(
+            program_provider_class=GppProgramProvider,
+            data=asyncio.run(fetch_data())
+        )
+        return collector
+
+
+    async def async_build_collector(
+        self,
+        start: datetime,
+        end: datetime,
+        num_of_nights: int,
+        sites: FrozenSet[Site],
+        semesters: FrozenSet[Semester],
+        blueprint: CollectorBlueprint,
+        night_times: Dict[Site, Tuple[Time, Time]],
+        program_list: Optional[bytes] = None
+    ) -> Collector:
+        # Build collector with deferred night events initialization
+        collector = super().build_collector(
+            start, end, num_of_nights, sites, semesters, blueprint, night_times,
+            defer_night_events=True
+        )
+        
+        # Initialize night events asynchronously
+        await collector.async_init_night_events()
+        
+        # Load programs asynchronously
+        _logger.info("Fetching program data...")
+        async_data = await gpp_program_data(program_list)
+        data = [item async for item in async_data]
+        try:
+            await collector.async_load_programs(
+                program_provider_class=GppProgramProvider,
+                data=data
+            )
+        except Exception as e:
+            raise Exception(f"Failed to load programs: {e}")
+        
+        return collector
+
+    def _setup_event_queue(self,
+                           start: datetime,
+                           num_nights_to_schedule: int,
+                           sites: FrozenSet[Site]) -> None:
+        """
+        Load all the events for the event queue from the different services for the number of nights to schedule.
+        """
+        for site in sites:
+            ...

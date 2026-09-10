@@ -1,0 +1,68 @@
+collector:
+  observation_classes: [SCIENCE, PROGCAL, PARTNERCAL]
+  program_types: [Q, LP, FT, DD]
+  time_slot_length: 1.0 # on minutes
+  with_redis: false
+  parallel_viscalc: false
+  # Global visibility-loading strategy for the Collector (sync and async paths).
+  # "sight" reads pre-computed Stage-1/Stage-2 from the sight service (needs a
+  # populated Sight DB / DATABASE_URL); "local" uses the in-process calculator.
+  # The sight path falls back to local on failure. Override per-env with
+  # COLLECTOR_VISIBILITY_STRATEGY (tests set it to "local" so CI needs no DB).
+  visibility_strategy: ${oc.env:COLLECTOR_VISIBILITY_STRATEGY,sight}
+
+optimizer:
+  name: GREEDYMAX
+
+ranker:
+#  name: ADDITIVE
+  name: DEFAULT
+
+selector:
+#  buffer_type: PERCENTAGE
+#  buffer_amount: 0.05
+  buffer_type: FLAT_MINUTES
+  buffer_amount: 20.0
+
+server:
+  port: 8000
+  host: 0.0.0.0
+
+app:
+  external_ephemerides: false
+
+sight:
+  # Per-request HTTP timeout in seconds for read-only bulk fetches.
+  timeout: 300
+
+# Background visibility-aggregator cron (scheduler.services.visibility_aggregator).
+visibility_aggregator:
+  # Master switch for the aggregator coordination interlock. Set to false (or
+  # VIS_AGG_INTERLOCK=false) to bypass it entirely: plan creation no longer waits
+  # on or signals the aggregator and never touches the scheduler_coordination
+  # table. Use for local runs without the aggregator cron / coordination table.
+  interlock_enabled: ${oc.decode:${oc.env:VIS_AGG_INTERLOCK,true}}
+  # How long EngineRT.compute_event_plan blocks while a run is active before
+  # proceeding anyway. null = block until the run finishes (the hard interlock).
+  # Overridable per-deploy via the VIS_AGG_PLAN_WAIT_TIMEOUT env var.
+  plan_wait_timeout: ${oc.decode:${oc.env:VIS_AGG_PLAN_WAIT_TIMEOUT,null}}
+  # A coordination holder whose heartbeat is older than this (seconds) is treated
+  # as dead, so a crashed run never wedges the interlock. This is NOT a run
+  # timeout: a healthy run heartbeats every `heartbeat_interval_seconds` and may
+  # run for as long as it needs (e.g. a ~30 min semester-start backfill). Keep
+  # this comfortably larger than the heartbeat interval (here ~10x).
+  stale_after_seconds: 600
+  # Cadence (seconds) at which a run refreshes its coordination heartbeat.
+  heartbeat_interval_seconds: 60
+  # Cadence (seconds) at which the operation process polls while blocked on a run.
+  idle_poll_interval_seconds: 2
+  # Targets processed per committed Stage-1 batch. Bounds transaction size on
+  # Heroku Postgres and lets a killed run resume from the next batch.
+  target_batch_size: 25
+  # `since` fallback (hours before now) when no odb_change_watermark row exists
+  # yet (first run, or the row was deleted).
+  changes_fallback_lookback_hours: 1
+  # Safety overlap (seconds) subtracted from a run's fetch time when advancing
+  # the watermark, so clock skew between ODB and scheduler never skips changes.
+  # Re-processing an already-applied change is idempotent.
+  changes_overlap_seconds: 300

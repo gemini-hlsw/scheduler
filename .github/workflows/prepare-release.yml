@@ -1,0 +1,143 @@
+###############################################################################
+# Prepare Release
+# Manual trigger. Opens a reviewable release PR instead of pushing to main
+# (main is protected — direct pushes are rejected).
+#
+# What it does:
+#   1. Computes the next CalVer version (YYYY.MM.PATCH) and bumps version.py
+#   2. Builds CHANGELOG.md with towncrier (consumes changelog.d/ fragments)
+#   3. Opens a release/vX.Y.Z PR against main for review
+#
+# Merging the PR automatically triggers "Promote to PROD", which deploys,
+# tags, and publishes the GitHub Release.
+#
+###############################################################################
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: "Override version (leave empty to auto-compute next CalVer)"
+        required: false
+        type: string
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    name: Prepare Release PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.11"
+
+      - name: Compute next version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version_override }}" ]; then
+            VERSION="${{ inputs.version_override }}"
+          else
+            CURRENT=$(python3 -c "from version import __version__; print(__version__)")
+            NOW=$(date -u +%Y.%m)
+            if [[ "$CURRENT" == "$NOW".* ]]; then
+              PATCH=$(( ${CURRENT##*.} + 1 ))
+            else
+              PATCH=1
+            fi
+            VERSION="${NOW}.${PATCH}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Preparing release: ${VERSION}"
+
+      - name: Fail if tag already exists
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q .; then
+            echo "::error::Tag v$VERSION already exists. Use version_override to pick another version."
+            exit 1
+          fi
+
+      - name: Bump version.py
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/^__version__ = .*/__version__ = \"$VERSION\"/" version.py
+          cat version.py
+
+      - name: Render changelog preview
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          CHANGELOG=$(uv run towncrier build --version "$VERSION" --draft)
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build changelog and consume fragments
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          uv run towncrier build --version "$VERSION" --yes
+
+      - name: Open release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          CHANGELOG: ${{ steps.changelog.outputs.changelog }}
+        run: |
+          BRANCH="release/v$VERSION"
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "::error::Nothing to release — no changelog or version changes were produced."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add -A
+          git commit -m "chore(release): prepare v$VERSION"
+          # --force makes re-runs of this workflow refresh the branch
+          git push --force origin "$BRANCH"
+
+          BODY_FILE="$RUNNER_TEMP/pr_body.md"
+          {
+            echo "## Release v$VERSION"
+            echo ""
+            echo "Prepared by @$GITHUB_ACTOR via the **Prepare Release** workflow."
+            echo ""
+            echo "Review the changelog and version bump below. **Merging this PR"
+            echo "automatically triggers the"
+            echo "[Promote to PROD]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/promote-prod.yml)"
+            echo "workflow**, which deploys to production, tags \`v$VERSION\`, and"
+            echo "publishes the GitHub Release. Close this PR instead of merging if"
+            echo "you are not ready to deploy."
+            echo ""
+            echo "---"
+            echo ""
+            echo "$CHANGELOG"
+          } > "$BODY_FILE"
+
+          EXISTING=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')
+          if [ -z "$EXISTING" ]; then
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "release: v$VERSION" \
+              --body-file "$BODY_FILE"
+          else
+            echo "PR #$EXISTING already exists for $BRANCH — updating its body."
+            gh pr edit "$EXISTING" --body-file "$BODY_FILE"
+          fi

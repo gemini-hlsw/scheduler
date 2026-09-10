@@ -33,13 +33,21 @@ theme:
         name: Switch to system preference
 
 nav:
-  - Getting Started: getting-started.md
+  - Installation: installation.md
+  - Configuration: configuration.md
+  - First Steps: first-steps.md
   - Architecture: architecture.md
   - Core Components:
-      - core-components/events.md
+      - Events: core-components/events.md
   - External Services:
       - external-services/index.md
-      - external-services/resource.md
+      - Resource: external-services/resource.md
+      - Sight: external-services/sight.md
+      - Weather: external-services/weather.md
+  - Development Guide: development-guide.md
+  - API:
+      - GraphQL Schema: api/schema-summary.md
+  - Changelog: changelog.md
 
 
 markdown_extensions:
@@ -53,10 +61,13 @@ markdown_extensions:
 
 plugins:
   - search
+  - include-markdown
   - mermaid2
   - mkdocstrings:
       handlers:
         python:
+          paths:
+            - backend
           inventories:
             - https://docs.python.org/3/objects.inv
             - https://docs.astropy.org/en/stable/objects.inv

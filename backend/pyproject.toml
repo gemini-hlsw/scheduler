@@ -1,0 +1,76 @@
+[project]
+name = "scheduler"
+version = "0.1.21"
+description = "Gemini Observatory automated scheduler"
+readme = 'README.md'
+authors = [{ name = "NOIRLab" }]
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+dependencies = [
+    "aioboto3>=15.5.0",
+    "astropy>=7.1.0",
+    "coverage>=7.10.3",
+    "dask>=2025.10.0",
+    "fastapi>=0.116.1",
+    "gelidum>=0.5.9",
+    "gql>=4.0.0",
+    "hypothesis>=6.137.1",
+    "joblib>=1.5.2",
+    "lucupy>=0.2.13",
+    "matplotlib>=3.10.5",
+    "more-itertools>=10.7.0",
+    "numpy>=2.3.2",
+    "omegaconf>=2.3.0",
+    "openpyxl>=3.1.5",
+    "pandas>=2.3.1",
+    "psutil>=7.1.2",
+    "pyarrow>=22.0.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "python-dateutil>=2.9.0.post0",
+    "pytz>=2025.2",
+    "redis>=6.4.0",
+    "requests>=2.32.4",
+    "sqlalchemy>=2.0.46",
+    "asyncpg>=0.31.0",
+    "alembic>=1.18.3",
+    "pydantic-settings>=2.12.0",
+    "greenlet>=3.3.1",
+    "scipy>=1.16.1",
+    "sortedcontainers>=2.4.0",
+    "stamina>=25.1.0",
+    "strawberry-graphql[fastapi]>=0.278.1",
+    "tabulate>=0.9.0",
+    "uvicorn[standard]>=0.35.0",
+]
+
+[dependency-groups]
+gpp-prod = ["gpp-client>=26.7.1"]
+# Dev tracks the latest .dev release; When new cycle starts, bump the CalVer
+gpp-dev = ["gpp-client>=26.7.3.dev12,==26.7.3.*,!=26.7.3"]
+dev = [
+    "hypothesis>=6.137.1",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.15.10",
+    "strawberry-graphql[cli]>=0.278.1",
+    "towncrier>=25.8.0",
+    "ty>=0.0.29",
+]
+docs = [
+    "mkdocs-material>=9.6.16",
+    "mkdocs-mermaid2-plugin>=1.2.1",
+    "mkdocs-include-markdown-plugin>=7.0.0",
+    "mkdocstrings-python>=1.16.12",
+]
+
+[tool.uv]
+conflicts = [
+    [{ group = "gpp-prod" }, { group = "gpp-dev" }],
+]
+
+
+# Towncrier config moved to towncrier.toml at the repo root so it is
+# picked up when towncrier runs from the root (where changelog.d/ lives).

@@ -1,0 +1,58 @@
+# Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+
+from dataclasses import dataclass, field, InitVar
+from typing import final, Dict, Mapping
+
+from lucupy.minimodel import NightIndex, Site, VariantSnapshot
+
+from .plan import Plan
+from scheduler.core.calculations.nightevents import NightEvents
+from scheduler.services.logger_factory import create_logger
+
+_logger = create_logger(__name__)
+
+__all__ = [
+    'Plans',
+]
+
+
+@final
+@dataclass
+class Plans:
+    """
+    A collection of Plan for all sites for a specific night.
+    """
+    night_events: InitVar[Mapping[Site, NightEvents]]
+    night_conditions: Dict[Site, VariantSnapshot]
+    night_idx: NightIndex
+    plans: Dict[Site, Plan] = field(init=False, default_factory=dict)
+
+    def __post_init__(self, night_events: Mapping[Site, NightEvents]):
+        self.plans: Dict[Site, Plan] = {}
+        for site, ne in night_events.items():
+            if ne is not None:
+                plan_start = ne.local_times[self.night_idx][0]
+                plan_end = ne.local_times[self.night_idx][-1]
+                num_slots = len(ne.times[self.night_idx])
+                self.plans[site] = Plan(plan_start,
+                                        plan_end,
+                                        ne.time_slot_length.to_datetime(),
+                                        site,
+                                        num_slots,
+                                        self.night_conditions[site])
+
+    def __getitem__(self, site: Site) -> Plan:
+        return self.plans[site]
+
+    def __setitem__(self, key: Site, value: Plan) -> None:
+        self.plans[key] = value
+
+    def __iter__(self):
+        return iter(self.plans.values())
+
+    def all_done(self) -> bool:
+        """
+        Check if all plans for all sites are done in a night
+        """
+        return all(plan.is_full for plan in self.plans.values())

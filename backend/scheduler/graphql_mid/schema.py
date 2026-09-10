@@ -1,0 +1,353 @@
+# Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import asyncio
+from typing import AsyncGenerator, Dict, Optional
+from datetime import date, datetime, UTC
+from zoneinfo import ZoneInfo
+
+import numpy as np
+import strawberry # noqa
+from astropy.time import Time
+from lucupy.minimodel import TimeslotIndex, NightIndex, VariantSnapshot
+from pydantic import ValidationError
+
+from scheduler.context import schedule_id_var
+from scheduler.core.components.ranker import RankerParameters
+from scheduler.engine import Engine, SchedulerParameters
+from scheduler.orchestration import process_manager
+from scheduler.services.logger_factory import create_logger
+from scheduler.shared_queue import plan_response_subscribers, build_parameters_subscribers
+from scheduler.clients.gpp import gpp
+from scheduler.services.sight.database.connection import session_scope
+from scheduler.services.visibility_status.coverage import (
+    get_coverage_summary,
+    list_observation_coverage,
+)
+from scheduler.services.visibility_status.status import (
+    get_aggregator_status as get_typed_aggregator_status,
+)
+from scheduler.services.visibility_status.tonight import list_visible_observations
+from scheduler.version import get_app_version
+
+from .types import (SPlans, SNightTimelines, NewNightPlans, NightPlansError, Version, SRunSummary,
+                    NewPlansRT, NightPlansResponseRT, NightTimesResponse, BuildParametersInput, BuildParametersResponse,
+                    AvailableProgram, VisibilityAggregatorStatus, VisibilityCoverage,
+                    ObservationCoveragePage, ObservationStatus,
+                    VisibleObservationsPage)
+from .inputs import CreateNewScheduleInput
+
+from ..core.plans import NightStats
+from ..engine.params import build_params_store
+from scheduler.core.events.queue import OnDemandScheduleEvent
+
+_logger = create_logger(__name__)
+
+
+# TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
+
+def sync_schedule(params: SchedulerParameters) -> NewNightPlans:
+    engine = Engine(params)
+    plan_summary, timelines = engine.schedule()
+    s_timelines = SNightTimelines.from_computed_stitched_timelines(timelines)
+    s_plan_summary = SRunSummary.from_computed_run_summary(plan_summary)
+    return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
+
+def sync_rt_schedule(params: SchedulerParameters, night_start_time: Time, night_end_time: Time, initial_variant: VariantSnapshot) -> NewPlansRT:
+    engine = Engine(params, night_start_time=night_start_time, night_end_time=night_end_time)
+    scp = engine.build()
+
+    site = list(params.sites)[0]
+
+    scp.selector.update_site_variant(site, initial_variant)
+    plans = scp.run(site, np.array([NightIndex(0)]), TimeslotIndex(0))
+
+    plans.plans[site].night_stats = NightStats({},0.0,0,{},{})
+    plans.plans[site].alt_degs = []
+    # Calculate altitude data
+    for visit in plans.plans[site].visits:
+        ti = scp.collector.get_target_info(visit.observation.id)
+        end_time_slot = visit.start_time_slot + visit.time_slots
+        values = ti[plans.night_idx].alt[visit.start_time_slot: end_time_slot]
+        alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
+        plans.plans[site].alt_degs.append(alt_degs)
+    splans = SPlans.from_computed_plans(plans, params.sites)
+
+    return NewPlansRT(night_plans=splans)
+
+active_subscriptions: Dict[str, asyncio.Queue] = {}
+
+_schedule_tasks: set = set()
+
+async def _run_schedule_and_publish(schedule_id: str, params: SchedulerParameters) -> None:
+    """Run the validation schedule off-loop and publish the outcome (plans or
+    a NightPlansError) to every subscriber of schedule_id."""
+    try:
+        result = await asyncio.to_thread(sync_schedule, params)
+    except Exception as e:
+        _logger.exception(f"Validation schedule for '{schedule_id}' failed.")
+        result = NightPlansError(error=str(e))
+
+    queues = plan_response_subscribers.get(schedule_id, set())
+    if not queues:
+        _logger.warning(f"Schedule '{schedule_id}' finished but has no subscribers; "
+                        f"result dropped.")
+    for q in queues:
+        await q.put(result)
+
+
+@strawberry.type
+class Query:
+
+    @strawberry.field
+    def version(self) -> Version:
+        return Version(version=get_app_version(), changelog=[])
+
+    @strawberry.field
+    async def schedule(self, schedule_id: str, new_schedule_input: CreateNewScheduleInput) -> str:
+        schedule_id_var.set(schedule_id)
+
+        start = datetime.fromisoformat(new_schedule_input.start_time).replace(tzinfo=ZoneInfo("UTC"))
+        end = datetime.fromisoformat(new_schedule_input.end_time).replace(tzinfo=ZoneInfo("UTC"))
+
+        ranker_params = RankerParameters(new_schedule_input.thesis_factor,
+                                         new_schedule_input.power,
+                                         new_schedule_input.met_power,
+                                         new_schedule_input.vis_power,
+                                         new_schedule_input.wha_power,
+                                         new_schedule_input.air_power)
+        programs_list = None
+        if new_schedule_input.programs:
+            if len(new_schedule_input.programs) > 0:
+                programs_list = new_schedule_input.programs
+
+        params = SchedulerParameters(start, end,
+                                     new_schedule_input.sites,
+                                     new_schedule_input.mode,
+                                     ranker_params,
+                                     new_schedule_input.semester_visibility,
+                                     new_schedule_input.num_nights_to_schedule,
+                                     programs_list)
+
+        task = asyncio.create_task(_run_schedule_and_publish(schedule_id, params))
+        _schedule_tasks.add(task)
+        task.add_done_callback(_schedule_tasks.discard)
+
+        _logger.info(f"Scheduling run started for: {schedule_id}\n{params}")
+        return f'Plan is on the queue! for {schedule_id}'
+
+    @strawberry.field
+    async def schedule_v2(self)-> str:
+        op_process = process_manager.get_operation_process()
+        if op_process is None:
+            raise ValueError("No operation process is running: schedule_v2 is only "
+                             "available in OPERATION mode.")
+
+        # Schedule event with None time to compute the plan from start of the night
+        await op_process.scheduler_queue.add_schedule_event(
+            OnDemandScheduleEvent(
+                site=None,
+                description="On demand request",
+                time=None
+            )
+        )
+        return f'Plan is on the queue in the Operation Process!'
+
+    @strawberry.field
+    async def on_demand_schedule(self)-> str:
+        op_process = process_manager.get_operation_process()
+        if op_process is None:
+            raise ValueError("No operation process is running: on_demand_schedule is "
+                             "only available in OPERATION mode.")
+
+        # Compute plan starting from the current time
+        await op_process.scheduler_queue.add_schedule_event(
+            OnDemandScheduleEvent(
+                site=None,
+                description="On demand request",
+                time=datetime.now(UTC)
+            )
+        )
+        return f'Plan is on the queue in the Operation Process!'
+
+    @strawberry.field
+    async def available_programs(self, night_date: Optional[date] = None)-> list[AvailableProgram]:
+        """Programs active on a given night.
+
+        ``nightDate`` defaults to the night the stored build parameters target,
+        so an older build shows the programs of that night and not of today.
+        """
+        if night_date is None:
+            build_params = await build_params_store.get()
+            night_date = build_params.program_date()
+
+        results = await gpp.client.scheduler.get_all_reference_labels(
+            date=night_date.isoformat() if night_date is not None else None
+        )
+
+        return [
+            AvailableProgram(id=p[1], ref_label=p[0]) for p in results
+        ]
+
+    @strawberry.field
+    async def visibility_aggregator_status(self) -> VisibilityAggregatorStatus:
+        """Is the aggregator running, and when will it finish?
+
+        Reads Postgres only, so this is the one Visibility field cheap enough
+        to poll.
+        """
+        status = await get_typed_aggregator_status()
+        return VisibilityAggregatorStatus.from_service(status)
+
+    @strawberry.field
+    async def visibility_coverage(
+        self, night_date: Optional[date] = None
+    ) -> VisibilityCoverage:
+        """Does the Sight DB hold visibility for everything the ODB expects?
+        Reads the ODB live. ``nightDate`` defaults to the current night.
+
+        """
+        summary = await get_coverage_summary(night_date)
+        return VisibilityCoverage.from_service(summary)
+
+    @strawberry.field
+    async def observation_coverage(
+        self,
+        night_date: Optional[date] = None,
+        status: Optional[ObservationStatus] = None,
+        site: Optional[str] = None,
+        program_label: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> ObservationCoveragePage:
+        """Which observations are missing or being updated, one page at a time."""
+        page = await list_observation_coverage(
+            night_date=night_date,
+            status=status.value if status is not None else None,
+            site=site,
+            program_label=program_label,
+            search=search,
+            limit=limit,
+            offset=offset,
+        )
+        return ObservationCoveragePage.from_service(page)
+
+    @strawberry.field
+    async def visible_observations(
+        self,
+        site: str,
+        night_date: Optional[date] = None,
+        limit: int = 50,
+        offset: int = 0,
+        min_remaining_minutes: int = 1,
+    ) -> VisibleObservationsPage:
+        """What is visible at a site tonight, and for how long.
+
+        ``nightDate`` defaults to that site's current night — GN and GS roll
+        over at different instants, so each resolves its own.
+        """
+        async with session_scope() as session:
+            page = await list_visible_observations(
+                session,
+                site=site,
+                night_date=night_date,
+                limit=limit,
+                offset=offset,
+                min_remaining_minutes=min_remaining_minutes,
+            )
+        return VisibleObservationsPage.from_service(page)
+
+    @strawberry.field
+    async def build_parameters(self) -> BuildParametersResponse:
+        build_params = await build_params_store.get()
+
+        return BuildParametersResponse(
+            night_times=[NightTimesResponse(
+                            site=k.value[0],
+                            start=v.night_start if v.night_start else None,
+                            end=v.night_end if v.night_end else None
+                        ) for k, v in build_params.night_times.items()] if build_params.night_times else None,
+            visibility_start=build_params.visibility_start,
+            visibility_end=build_params.visibility_end,
+            program_list=build_params.program_list,
+            simulated_now=build_params.simulated_now
+        )
+
+
+@strawberry.type
+class Subscription:
+    @strawberry.subscription
+    async def queue_schedule(self, schedule_id: str) -> AsyncGenerator[NightPlansResponseRT, None]:
+        if schedule_id not in plan_response_subscribers:
+            plan_response_subscribers[schedule_id] = set()
+
+        client_queue = asyncio.Queue()
+        plan_response_subscribers[schedule_id].add(client_queue)
+
+        try:
+            while True:
+                try:
+                    _logger.info(f"Subscription: Waiting for plan response for {schedule_id}")
+                    result = await client_queue.get()  # Wait for item from the queue
+                    _logger.info(f"Subscription: Received plan response for {schedule_id}")
+                    _logger.debug(f'Result: {result}')
+                    yield result  # Yield item to the subscription
+                except Exception as e:
+                    _logger.error(f'Error: {e}')
+                    yield NightPlansError(error=f'Error: {e}')
+                    raise
+        finally:
+            plan_response_subscribers[schedule_id].discard(client_queue)
+            if not plan_response_subscribers[schedule_id]:
+                del plan_response_subscribers[schedule_id]
+    
+    @strawberry.subscription
+    async def build_parameters_updates(self) -> AsyncGenerator[BuildParametersResponse, None]:
+        client_queue = asyncio.Queue()
+        build_parameters_subscribers.add(client_queue)
+
+        try:
+            while True:
+                try:
+                    _logger.info(f"Subscription: Waiting for build parameters update")
+                    result = await client_queue.get()  # Wait for item from the queue
+                    _logger.info(f"Subscription: Received build parameters update")
+                    _logger.debug(f'Result: {result}')
+                    yield BuildParametersResponse(
+                        night_times=[NightTimesResponse(
+                            site=k.value[0],
+                            start=v.night_start if v.night_start else None,
+                            end=v.night_end if v.night_end else None
+                        ) for k, v in result.night_times.items()] if result.night_times else None,
+                        visibility_start=result.visibility_start,
+                        visibility_end=result.visibility_end,
+                        program_list=result.program_list,
+                        simulated_now=result.simulated_now
+                    )  # Yield item to the subscription
+                except Exception as e:
+                    _logger.error(f'Error: {e}')
+                    yield BuildParametersResponse(
+                        night_times=[],
+                        visibility_start=None,
+                        visibility_end=None,
+                        program_list=[]
+                    )
+                    raise
+        finally:
+            build_parameters_subscribers.discard(client_queue)
+
+
+@strawberry.type
+class Mutation:
+    @strawberry.mutation
+    async def update_build_params(self, build_params_input: BuildParametersInput) -> str:
+        msg = ''
+        try:
+            build_params = build_params_input.to_pydantic()
+            await build_params_store.set(build_params)
+            for queue in build_parameters_subscribers:
+                await queue.put(build_params)
+            msg += f'Build Parameters updated successful'
+        except ValidationError as e:
+            msg+=f'Error: {e.errors()}'
+        return msg

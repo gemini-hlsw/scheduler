@@ -1,0 +1,4 @@
+.git/
+.hyphotesis/
+.pytest_cache/
+.vscode/

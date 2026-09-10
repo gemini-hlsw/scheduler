@@ -1,0 +1,379 @@
+# Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
+# For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
+import sys
+from copy import deepcopy
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import ClassVar, Dict, List, Optional
+from zoneinfo import ZoneInfo
+
+from lucupy.minimodel import TimeslotIndex, NightIndex, Site, ObservationID
+
+from scheduler.core.events.queue import Event, InterruptionResolutionEvent, FaultResolutionEvent, \
+    WeatherClosureResolutionEvent, MorningTwilightEvent, FaultEvent, WeatherClosureEvent
+from scheduler.core.plans import Plan
+
+
+__all__ = [
+    'TimelineEntry',
+    'NightlyTimeline',
+    'TimeStats'
+]
+
+def time_range_to_timeslots(start: datetime, end: datetime) -> int:
+    return int((end - start).total_seconds() / 60)
+
+@dataclass
+class TimeLossWindow:
+    start: datetime
+    end: Optional[datetime]
+    loss_type: str
+
+    def get_timeslots(self, night_end: datetime) -> int:
+        if self.end is None:
+            return time_range_to_timeslots(self.start, night_end)
+        return time_range_to_timeslots(self.start, self.end)
+
+@dataclass
+class TimeStats:
+    night_length: int
+    observed: int
+    scheduled: int
+    weather: int
+    fault: int
+    closed: int
+    unscheduled: int
+
+@dataclass
+class TimelineEntry:
+    start_time_slot: TimeslotIndex
+    event: Event
+    plan_generated: Optional[Plan]
+    accounted_observations: Optional[List[ObservationID]]
+    timeloss_windows: List[TimeLossWindow]
+    timestats: TimeStats
+
+@dataclass
+class NightLength:
+    start: datetime
+    end: datetime
+
+    def get_timeslots(self) -> int:
+        return time_range_to_timeslots(self.start, self.end)
+
+@dataclass
+class NightlyTimeline:
+    """
+    A collection of timeline entries per night and site.
+    """
+    timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
+    stitched_timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
+    time_losses: Dict[NightIndex, Dict[Site, Dict[str, int]]] = field(init=False, default_factory=dict)
+    night_length: Dict[NightIndex, Dict[Site, NightLength]] = field(init=False, default_factory=dict)
+    _datetime_formatter: ClassVar[str] = field(init=False, default='%Y-%m-%d %H:%M')
+
+    def reset(self) -> None:
+        """
+        Reset the nightly timeline to an empty state.
+        """
+        self.timeline = {}
+        self.stitched_timeline = {}
+        self.time_losses = {}
+        self.night_length = {}
+
+    def set_night_length(self, night_idx: NightIndex, site: Site, start: datetime, end: datetime) -> None:
+        """
+        Set the night length for the given night and site.
+        """
+        if night_idx not in self.night_length:
+            self.night_length[night_idx] = {}
+        if site not in self.night_length[night_idx]:
+            self.night_length[night_idx][site] = {}
+        self.night_length[night_idx][site] = NightLength(start=start, end=end)
+
+    def add(self,
+            night_idx: NightIndex,
+            site: Site,
+            time_slot: TimeslotIndex,
+            event: Event,
+            plan_generated: Optional[Plan],
+            accounted_observations: List[ObservationID] = []) -> None:
+        """
+        Add an event to the timeline, along with the plan generated and the observations accounted for.
+        Check if the event is a closure and if so, set the closure end time.
+        Add the generated plan to the stitched timeline, replacing the last plan if it exists.
+        """
+        timeloss_windows = []
+        closure_end = None
+        match event:
+            case FaultEvent():
+                timeloss_windows = [TimeLossWindow(start=event.time, end=None, loss_type="fault")]
+            case WeatherClosureEvent():
+                timeloss_windows = [TimeLossWindow(start=event.time, end=None, loss_type="weather")]
+            case FaultResolutionEvent():
+                closure_end = ["fault", event.time]
+            case WeatherClosureResolutionEvent():
+                closure_end = ["weather", event.time]
+            case _:
+                pass
+
+        # Compute initial timeloss / should be considered only for the first entry
+        total_timeslots = self.night_length[night_idx][site].get_timeslots()
+        scheduled_timeslots = 0
+        if plan_generated is not None:
+            for visit in plan_generated.visits:
+                scheduled_timeslots += visit.time_slots
+        timestats = TimeStats(night_length=total_timeslots,
+                            observed=0,
+                            scheduled=scheduled_timeslots,
+                            weather=0,
+                            fault=0,
+                            closed=0,
+                            unscheduled=total_timeslots - scheduled_timeslots)
+
+        entry = TimelineEntry(time_slot, event, plan_generated, accounted_observations, timeloss_windows, timestats)
+        self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
+        self.set_stitched_timeline(night_idx, site, time_slot, plan_generated, event, closure_end)
+
+    def set_stitched_timeline(self,
+                              night_idx: NightIndex,
+                              site: Site,
+                              time_slot: TimeslotIndex,
+                              plan_generated: Plan,
+                              event: Event,
+                              closure_end: Optional[tuple[str, TimeslotIndex]]) -> None:
+        """
+        Create a stitched plan for every partial plan added
+
+        It should take the last partial plan generated and stitch it to the previous stitched plan
+        replacing all observations starting from the timeslot of the last partial plan
+        """
+        # If no stitched_timeline yet initialize it as the last timeline
+        if night_idx not in self.stitched_timeline:
+            self.stitched_timeline[night_idx] = deepcopy(self.timeline[night_idx])
+            return
+
+        # If site not in stitched_timeline yet initialize it as the last timeline
+        if site not in self.stitched_timeline[night_idx]:
+            self.stitched_timeline[night_idx][site] = deepcopy(self.timeline[night_idx][site])
+            return
+
+        # If closure_end is not None, find the timeloss_window of the same type and without end time,
+        # it should exist already, and set the end time
+        new_timeloss_windows = deepcopy(self.stitched_timeline[night_idx][site][-1].timeloss_windows)
+        if len(self.timeline[night_idx][site][-1].timeloss_windows) > 0:
+            new_timeloss_windows.append(self.timeline[night_idx][site][-1].timeloss_windows[-1])
+
+        if closure_end is not None:
+            for window in reversed(new_timeloss_windows):
+                if window.loss_type == closure_end[0] and window.end is None:
+                    window.end = closure_end[1]
+                    break
+
+        # Find the last plan generated different from None
+        last_plan_generated = None
+        timeline_index = len(self.stitched_timeline[night_idx][site]) - 1
+        while last_plan_generated is None and timeline_index >= 0:
+            last_plan_generated = self.stitched_timeline[night_idx][site][timeline_index].plan_generated
+            timeline_index -= 1
+
+        if last_plan_generated is None:
+            print(f"No last plan generated found for night {night_idx} and site {site}")
+            return
+
+        # Compute timeslots
+        #   total_timeslots is the number of timeslots for the full night
+        #   observed_timeslots is the number of timeslots observed in the last plan
+        #   scheduled_timeslots is the number of timeslots scheduled in the incoming plan
+        #   weather_timeslots is the number of timeslots that are weather closures
+        #   fault_timeslots is the number of timeslots that are faults
+        #   closed_timeslots is the number of timeslots that telescope is closed (both weather and fault) / windows may be overlapping
+        #   unscheduled_timeslots is the number of timeslots that are unscheduled
+        total_timeslots = self.night_length[night_idx][site].get_timeslots()
+        observed_timeslots = 0
+        scheduled_timeslots = 0
+        weather_timeslots = 0
+        fault_timeslots = 0
+        closed_timeslots = 0
+
+        # Now from last stitched timeline get all visits until reaching the current timeslot
+        # and join them with the last partial plan created
+        new_plan_visits = []
+        for visit in last_plan_generated.visits:
+            if visit.start_time_slot < time_slot:
+                if visit.start_time_slot + visit.time_slots < time_slot:
+                    observed_timeslots += visit.time_slots
+                    new_plan_visits.append(visit)
+                else:
+                    # Check were the visit should be split
+                    aux_visit = deepcopy(visit)
+                    aux_visit.atom_times = []
+                    for atom in visit.atom_times:
+                        if atom + visit.start_time_slot <= time_slot:
+                            aux_visit.atom_times.append(atom)
+                        else:
+                            break
+                    if len(aux_visit.atom_times) > 0:
+                        aux_visit.time_slots = aux_visit.atom_times[-1]
+                        observed_timeslots += aux_visit.time_slots
+                        aux_visit.completion = f"{len(aux_visit.atom_times)}/{len(aux_visit.observation.sequence)}"
+                        new_plan_visits.append(aux_visit)
+            else:
+                break
+
+        if plan_generated is not None:
+            plan = last_plan_generated
+            for visit in plan_generated.visits:
+                scheduled_timeslots += visit.time_slots
+                new_plan_visits.append(visit)
+
+        # Get weather, fault and closed timeslots
+        merged_windows = []
+        for window in new_timeloss_windows:
+            if len(merged_windows) == 0:
+                merged_windows.append((window.start, window.end))
+            else:
+                if merged_windows[-1][1] is not None:
+                    if window.start > merged_windows[-1][1]:
+                        # New window will be added, then previous window time can be accounted
+                        closed_timeslots += time_range_to_timeslots(merged_windows[-1][0], merged_windows[-1][1])
+                        merged_windows.append((window.start, window.end))
+                    else:
+                        merged_windows[-1] = (merged_windows[-1][0], window.end)
+
+            if window.loss_type == 'weather':
+                weather_timeslots += window.get_timeslots(self.night_length[night_idx][site].end)
+            elif window.loss_type == 'fault':
+                fault_timeslots += window.get_timeslots(self.night_length[night_idx][site].end)
+        # Account the last window, use night end to close last window if it is not closed
+        if len(merged_windows) > 0:
+            closed_timeslots += time_range_to_timeslots(merged_windows[-1][0],
+                                                        merged_windows[-1][1] if merged_windows[-1][1] is not None else self.night_length[night_idx][site].end)
+
+        plan = Plan(start=last_plan_generated.start,
+                    end=plan_generated.end if plan_generated else last_plan_generated.end,
+                    time_slot_length=last_plan_generated.time_slot_length,
+                    site=site,
+                    _time_slots_left=0,
+                    conditions=plan_generated.conditions if plan_generated else last_plan_generated.conditions,)
+        plan.visits = new_plan_visits
+
+        # Compute unscheduled timeslots
+        unscheduled_timeslots = total_timeslots - observed_timeslots - scheduled_timeslots - closed_timeslots
+        timestats = TimeStats(total_timeslots, observed_timeslots, scheduled_timeslots, weather_timeslots, fault_timeslots, closed_timeslots, unscheduled_timeslots)
+
+        entry = TimelineEntry(time_slot, event, plan, [], new_timeloss_windows, timestats)
+
+        self.stitched_timeline[night_idx][site].append(entry)
+
+    def calculate_time_losses(self, night_idx: NightIndex, site: Site) -> None:
+        """
+        Calculates the time lost by different types of events for the night.
+
+          Args:
+          night_idx (NightIdx): Night index of the plan.
+          site (Site): Site for the night plan.
+
+          Returns:
+            None: Updates the `time_losses` attribute.
+
+        """
+        # Initialize the values
+        self.time_losses.setdefault(night_idx, {})
+        self.time_losses[night_idx].setdefault(site, {})
+        self.time_losses[night_idx][site].setdefault("weather", 0)
+        self.time_losses[night_idx][site].setdefault("fault", 0)
+        self.time_losses[night_idx][site].setdefault("unschedule", 0)
+
+        weather = 0
+        fault = 0
+        for entry in self.stitched_timeline[night_idx][site]:
+            event = entry.event
+            if isinstance(event, InterruptionResolutionEvent):
+                match event:
+                    case FaultResolutionEvent():
+                        fault += event.time_loss.total_seconds() // 60
+                    case WeatherClosureResolutionEvent():
+                        # TODO: Weather is giving float somehow
+                        weather += int(event.time_loss.total_seconds() // 60)
+
+        # This is to ensure no matter what order the ResolutionEvents are we get all at them accounted.
+        for entry in self.stitched_timeline[night_idx][site]:
+            event = entry.event
+            if isinstance(event, MorningTwilightEvent):
+                if entry.plan_generated is not None:
+                    unschedule = entry.plan_generated.time_left() - weather - fault
+                    #  if unschedule < 0:
+                    #    raise ValueError(f'Unscheduled time is negative!')
+                    self.time_losses[night_idx][site]["unschedule"] = unschedule
+
+        self.time_losses[night_idx][site]["weather"] = weather
+        self.time_losses[night_idx][site]["fault"] = fault
+
+    def display(self, output='stdout', night_idx_sel=None, stitched=False) -> None:
+        def rnd_min(dt: datetime) -> datetime:
+            return dt + timedelta(minutes=1 - (dt.minute % 1))
+
+        sys.stderr.flush()
+        f = sys.stdout if output == 'stdout' else open(output, 'w')
+        timelines = self.stitched_timeline.items() if stitched else self.timeline.items()
+        for night_idx, entries_by_site in timelines:
+            if night_idx_sel is None or night_idx == night_idx_sel:
+                for site, entries in sorted(entries_by_site.items(), key=lambda x: x[0].name):
+                    print(f'\n\n+++++ NIGHT {night_idx + 1}, SITE: {site.name} +++++', file=f)
+                    for entry in entries:
+                        time = rnd_min(entry.event.time).strftime(self._datetime_formatter)
+                        print(f'\t+++++ Triggered by event: {entry.event.description} at {time} '
+                              f'(time slot {entry.start_time_slot}) at site {site.name}', file=f)
+                        if entry.plan_generated is not None:
+                            for visit in entry.plan_generated.visits:
+                                visit_time = rnd_min(visit.start_time).strftime(self._datetime_formatter)
+                                # Display 1-indexed start and end steps to match Explore/Observe
+                                step_start = visit.step_start_idx + 1 if visit.step_start_idx is not None else -1
+                                step_end = step_start + visit.step_count - 1 if visit.step_count is not None else -1
+                                print(f'\t{visit_time}   {visit.observation.id.id:20} {visit.score:8.2f} '
+                                      f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} '
+                                      f'{step_start:4d} {step_end:4d} {visit.start_time_slot:4d}'
+                                      f' {visit.start_time_slot+visit.time_slots:4d}', file=f)
+                        print('\t+++++ END EVENT +++++', file=f)
+                print('', file=f)
+        if f != sys.stdout:
+            f.close()
+        else:
+            sys.stdout.flush()
+
+    def to_json(self) -> dict:
+        utc = ZoneInfo('UTC')
+        return {
+            n_idx: {site.name: [{'startTimeSlot': te.start_time_slot,
+                                 'event': {'site': te.event.site.name,
+                                           'time': te.event.time.strftime(self._datetime_formatter),
+                                           'description': te.event.description,
+                                           },
+                                 'plan': {'start': te.plan_generated.start.astimezone(utc).strftime(self._datetime_formatter),
+                                           'end': te.plan_generated.end.astimezone(utc).strftime(self._datetime_formatter),
+                                           'site': te.plan_generated.site.name,
+                                           'visits': [{"starTime": v.start_time.astimezone(utc).strftime(self._datetime_formatter),
+                                                       "endTime": (v.start_time+
+                                                                   v.time_slots*te.plan_generated.time_slot_length).strftime(self._datetime_formatter),
+                                                       "obsId": v.observation.id.id,
+                                                       "atomStartIdx": v.atom_start_idx,
+                                                       "atomEndIdx": v.atom_end_idx,
+                                                       "altitude": alt,
+                                                       "instrument": inst.id if (inst := v.observation.instrument()) else '',
+                                                       "obs_class": v.observation.obs_class.name,
+                                                       "score": v.score,
+                                                       "peakScore": v.peak_score,
+                                                       "completion": v.completion}
+                                                      for v, alt in zip(te.plan_generated.visits, te.plan_generated.alt_degs)],
+                                           'nightStats': {
+                                               'timeLoss': te.plan_generated.night_stats.time_loss,
+                                               'planScore': te.plan_generated.night_stats.plan_score,
+                                               'completionFraction': te.plan_generated.night_stats.completion_fraction,
+                                               'programCompletion': te.plan_generated.night_stats.program_completion
+                                           }
+                                          } if te.plan_generated else {}
+                                 } for te in time_entries]
+             for site, time_entries in by_site.items()
+                    } for n_idx, by_site in self.timeline.items()
+        }

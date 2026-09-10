@@ -1,0 +1,12 @@
+build:
+  docker:
+    backend:
+      dockerfile: backend/Dockerfile
+      context: .
+    frontend:
+      dockerfile: frontend/Dockerfile
+      context: .
+release:
+  image: backend
+  command:
+    - cd /home && uv run alembic -c alembic.ini upgrade head

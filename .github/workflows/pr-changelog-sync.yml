@@ -1,0 +1,101 @@
+###############################################################################
+# PR Changelog Sync
+# Reads changelog fragments from the PR branch and updates the PR description
+# with their content, so reviewers see what's changing without opening files.
+###############################################################################
+name: PR Changelog Sync
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - "changelog.d/**"
+
+jobs:
+  sync-fragments:
+    name: Sync Fragments to PR
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect changelog fragments
+        id: fragments
+        run: |
+          # Find fragment files added/modified in this PR
+          FRAGMENTS=$(git diff --name-only --diff-filter=A \
+            origin/${{ github.base_ref }}...HEAD \
+            -- 'changelog.d/*.md' \
+            | grep -v "README.md" \
+            | grep -v "_template" || true)
+
+          if [ -z "$FRAGMENTS" ]; then
+            echo "No changelog fragments found"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "found=true" >> "$GITHUB_OUTPUT"
+
+          # Build a markdown block from all fragments
+          BLOCK=""
+          while IFS= read -r FILE; do
+            FILENAME=$(basename "$FILE")
+            # Extract ticket and type from filename: GSCHED-190.feature.md → GSCHED-190 / feature
+            TICKET=$(echo "$FILENAME" | sed 's/\.\(feature\|fix\|breaking\|deprecation\|improvement\|doc\|misc\)\.md$//')
+            TYPE=$(echo "$FILENAME" | grep -oE '\.(feature|fix|breaking|deprecation|improvement|doc|misc)\.' | tr -d '.')
+            CONTENT=$(cat "$FILE" | tr -d '\r')
+
+            if [ -n "$CONTENT" ]; then
+              BLOCK="${BLOCK} **${TYPE}** (${TICKET}): ${CONTENT}\n"
+            else
+              BLOCK="${BLOCK} **${TYPE}** (${TICKET}): *(internal change)*\n"
+            fi
+          done <<< "$FRAGMENTS"
+
+          # Write to output
+          echo "block<<EOF" >> "$GITHUB_OUTPUT"
+          echo -e "$BLOCK" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Update PR description
+        if: steps.fragments.outputs.found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const fragmentBlock = `${{ steps.fragments.outputs.block }}`.trim();
+
+            // Markers to find/replace the changelog section
+            const START = '<!-- CHANGELOG:START -->';
+            const END = '<!-- CHANGELOG:END -->';
+
+            const changelogSection = `${START}\n### Changelog\n\n${fragmentBlock}\n${END}`;
+
+            let newBody;
+            if (body.includes(START) && body.includes(END)) {
+              // Replace existing changelog section
+              const regex = new RegExp(`${START}[\\s\\S]*?${END}`, 'g');
+              newBody = body.replace(regex, changelogSection);
+            } else {
+              // Append changelog section after Summary
+              // Try to insert after the Summary section, or at the top
+              const summaryEnd = body.indexOf('## Changelog');
+              if (summaryEnd !== -1) {
+                newBody = body.slice(0, summaryEnd) + changelogSection + '\n\n' + body.slice(summaryEnd);
+              } else {
+                newBody = changelogSection + '\n\n' + body;
+              }
+            }
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              body: newBody,
+            });
+
+            console.log('PR description updated with changelog fragments');

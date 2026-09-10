@@ -1,0 +1,13 @@
+overwrite: true
+schema:
+  - "https://weather-graphql-ec26c2063b75.herokuapp.com/"
+  - "../backend/scheduler.graphql"
+documents: "src/**/*.{ts,tsx}"
+generates:
+  src/gql/:
+    preset: client
+    config:
+      withHooks: true
+      enumsAsTypes: true
+      futureProofEnums: true
+ignoreNoDocuments: true

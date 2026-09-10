@@ -1,0 +1,242 @@
+###############################################################################
+# Promote to PRODUCTION
+# Runs automatically when a release/* PR (opened by "Prepare Release") is
+# merged into main — the PR review is the manual gate. Can also be triggered
+# manually via workflow_dispatch as a fallback (e.g. to retry a failed run).
+# ALWAYS deploys both backend and frontend (full promotion).
+#
+# This workflow verifies the changelog for the current version is already
+# merged, checks the Heroku apps are set up, deploys, then creates the git
+# tag and GitHub Release via the API — it never pushes to main.
+#
+# GitHub Environments used:
+#   - prod-backend  → shows backend API URL
+#   - prod-frontend → shows frontend URL
+# If required reviewers are configured on these environments the deploy jobs
+# pause for approval; remove them in Settings → Environments for a fully
+# automatic promotion after the release PR merge.
+###############################################################################
+name: Promote to PROD
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Pre-flight Checks
+    runs-on: ubuntu-latest
+    # Run on manual dispatch, or automatically when a release PR is merged.
+    # All other jobs depend on this one, so they inherit the condition.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       startsWith(github.event.pull_request.head.ref, 'release/'))
+    env:
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Record deployed commit
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Determine version
+        id: version
+        run: |
+          VERSION=$(python3 -c "from version import __version__; print(__version__)")
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Promoting version: ${VERSION}"
+
+      - name: Verify release PR was merged
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! grep -q "^## $VERSION " CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no entry for $VERSION. Run the 'Prepare Release' workflow and merge the release PR before promoting."
+            exit 1
+          fi
+          if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q .; then
+            echo "::error::Tag v$VERSION already exists — this version was already released. Run 'Prepare Release' to cut a new version."
+            exit 1
+          fi
+          echo "Release v$VERSION is ready to promote."
+
+      - name: Extract changelog section
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SECTION=$(awk -v ver="$VERSION" '
+            $0 ~ "^## "ver" " { found=1; next }
+            /^## / && found { exit }
+            found { print }
+          ' CHANGELOG.md)
+          {
+            echo "changelog<<EOF"
+            echo "$SECTION"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Verify Heroku apps are set up
+        env:
+          APP_REALTIME: ${{ secrets.HEROKU_APP_NAME_REALTIME_PRODUCTION }}
+          APP_MULTINIGHT: ${{ secrets.HEROKU_APP_NAME_MULTINIGHT_PRODUCTION }}
+          APP_FRONTEND: ${{ secrets.HEROKU_APP_NAME_FRONTEND_PRODUCTION }}
+        run: |
+          FAILED=0
+
+          check_app() {
+            local label="$1" app="$2" want_container="$3"
+            if [ -z "$app" ]; then
+              echo "::error::Secret for $label app is empty. Set it in the repository secrets."
+              FAILED=1
+              return
+            fi
+            if ! INFO=$(heroku apps:info --json -a "$app" 2>&1); then
+              echo "::error::Cannot reach Heroku app '$app' ($label): $INFO"
+              FAILED=1
+              return
+            fi
+            STACK=$(echo "$INFO" | jq -r .app.stack.name)
+            echo "✓ $label: app '$app' exists (stack: $STACK)"
+            if [ "$want_container" = "true" ] && [ "$STACK" != "container" ]; then
+              echo "::error::$label app '$app' uses stack '$STACK' but container deploys require the 'container' stack."
+              FAILED=1
+              return
+            fi
+            if [ "$want_container" = "true" ] && [ -z "$(heroku config:get DATABASE_URL -a "$app")" ]; then
+              echo "::warning::$label app '$app' has no DATABASE_URL — migrations will be skipped."
+            fi
+          }
+
+          check_app "realtime backend" "$APP_REALTIME" true
+          check_app "multinight backend" "$APP_MULTINIGHT" true
+          check_app "frontend" "$APP_FRONTEND" false
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo "::error::Heroku setup checks failed — fix the issues above before promoting."
+            exit 1
+          fi
+          echo "All Heroku setup checks passed."
+
+  deploy-backend:
+    name: "Deploy Backend → PROD"
+    runs-on: ubuntu-latest
+    needs: preflight
+    environment:
+      name: prod-backend
+    env:
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+    strategy:
+      matrix:
+        include:
+          - mode: realtime
+            app_mode: operation
+            app_secret: HEROKU_APP_NAME_REALTIME_PRODUCTION
+          - mode: multinight
+            app_mode: validation
+            app_secret: HEROKU_APP_NAME_MULTINIGHT_PRODUCTION
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Verify LFS files
+        run: |
+          echo "Checking LFS status:"
+          git lfs ls-files
+          echo "Checking if LFS files exist locally:"
+          ls -la backend/scheduler/services/horizons/data/
+
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Login to Heroku Container registry
+        run: heroku container:login
+
+      - name: Build and push container to Heroku registry
+        working-directory: backend
+        run: |
+          heroku container:push -a ${{ secrets[matrix.app_secret] }} web \
+            --context-path .. \
+            --arg APP_VERSION=${{ needs.preflight.outputs.version }}-prod-${{ matrix.mode }},GPP_GROUP=gpp-prod
+
+      - name: Release container on Heroku
+        run: |
+          heroku container:release -a ${{ secrets[matrix.app_secret] }} web
+
+      - name: Run DB migrations
+        run: |
+          APP="${{ secrets[matrix.app_secret] }}"
+          if [ -n "$(heroku config:get DATABASE_URL -a "$APP")" ]; then
+            echo "Running alembic upgrade head on $APP"
+            heroku run --exit-code -a "$APP" \
+              "cd /home && uv run alembic -c alembic.ini upgrade head"
+          else
+            echo "No DATABASE_URL on $APP; skipping migrations."
+          fi
+
+  deploy-frontend:
+    name: "Deploy Frontend → PROD"
+    runs-on: ubuntu-latest
+    needs: [preflight, deploy-backend]
+    environment:
+      name: prod-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Disable Git LFS pre-push hook (Heroku has no LFS server)
+        run: git lfs uninstall --skip-repo
+
+      - name: Build, Push and Release to Heroku via buildpack
+        uses: akhileshns/heroku-deploy@v3.12.12
+        with:
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: ${{ secrets.HEROKU_APP_NAME_FRONTEND_PRODUCTION }}
+          appdir: frontend
+          buildpack: heroku-community/nginx
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [preflight, deploy-backend, deploy-frontend]
+    permissions:
+      contents: write
+    steps:
+      - name: Create tag and GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.preflight.outputs.version }}
+          target_commitish: ${{ needs.preflight.outputs.sha }}
+          name: v${{ needs.preflight.outputs.version }}
+          body: |
+            ## Release v${{ needs.preflight.outputs.version }}
+
+            **Deployed by:** @${{ github.actor }}
+
+            ### Deployed to
+            - ✅ Backend (realtime + multinight)
+            - ✅ Frontend
+
+            ${{ needs.preflight.outputs.changelog }}
+          draft: false
+          prerelease: false
