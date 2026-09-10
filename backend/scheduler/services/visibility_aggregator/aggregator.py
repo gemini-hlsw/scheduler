@@ -502,14 +502,21 @@ async def _apply_odb_changes(
             continue
         payload = targets_by_name[name]
         try:
-            await calc.target_repo.update_fields(
-                db_target,
-                base_ra=payload.base_ra,
-                base_dec=payload.base_dec,
-                pm_ra=payload.pm_ra,
-                pm_dec=payload.pm_dec,
-                epoch=payload.epoch,
-            )
+            if payload.is_sidereal:
+                await calc.target_repo.update_fields(
+                    db_target,
+                    base_ra=payload.base_ra,
+                    base_dec=payload.base_dec,
+                    pm_ra=payload.pm_ra,
+                    pm_dec=payload.pm_dec,
+                    epoch=payload.epoch,
+                )
+            else:
+                await calc.target_repo.update_non_sidereal_fields(
+                    db_target,
+                    tag=payload.tag,
+                    horizons_id=payload.horizons_id,
+                )
         except Exception as exc:
             _logger.warning(f"Could not update changed target {name!r}: {exc}")
             targets_update_failed += len(internal_ids)
