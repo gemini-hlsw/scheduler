@@ -215,7 +215,7 @@ async def _collect_requests(program_ids: list[str]):
     windows: dict[str, tuple[date, date]] = {}
     labels_by_internal_id: dict[str, str] = {}
     skipped_no_target = 0
-    skipped_nonsidereal = 0
+    # skipped_nonsidereal = 0
     bad_programs = 0
 
     program_data = await gpp_program_data(program_ids)
@@ -247,9 +247,9 @@ async def _collect_requests(program_ids: list[str]):
                     skipped_no_target += 1
                     continue
                 # TODO: Add NonSideral support
-                if not payload.is_sidereal:
-                    skipped_nonsidereal += 1
-                    continue
+                # if not payload.is_sidereal:
+                #     skipped_nonsidereal += 1
+                #     continue
 
                 targets_by_name.setdefault(payload.name, payload)
                 labels_by_internal_id[str(obs.internal_id)] = obs.id.id
@@ -277,7 +277,7 @@ async def _collect_requests(program_ids: list[str]):
         _logger.info(f"Skipped {bad_programs} unparseable programs.")
     counts = {
         "skipped_no_target": skipped_no_target,
-        "skipped_nonsidereal": skipped_nonsidereal,
+        # "skipped_nonsidereal": skipped_nonsidereal,
     }
     return targets_by_name, requests, windows, labels_by_internal_id, counts
 
@@ -502,14 +502,21 @@ async def _apply_odb_changes(
             continue
         payload = targets_by_name[name]
         try:
-            await calc.target_repo.update_fields(
-                db_target,
-                base_ra=payload.base_ra,
-                base_dec=payload.base_dec,
-                pm_ra=payload.pm_ra,
-                pm_dec=payload.pm_dec,
-                epoch=payload.epoch,
-            )
+            if payload.is_sidereal:
+                await calc.target_repo.update_fields(
+                    db_target,
+                    base_ra=payload.base_ra,
+                    base_dec=payload.base_dec,
+                    pm_ra=payload.pm_ra,
+                    pm_dec=payload.pm_dec,
+                    epoch=payload.epoch,
+                )
+            else:
+                await calc.target_repo.update_non_sidereal_fields(
+                    db_target,
+                    tag=payload.tag,
+                    horizons_id=payload.horizons_id,
+                )
         except Exception as exc:
             _logger.warning(f"Could not update changed target {name!r}: {exc}")
             targets_update_failed += len(internal_ids)
@@ -721,7 +728,7 @@ async def run_aggregation(
     _logger.info(
         f"Prepared {len(targets_by_name)} sidereal targets and {len(requests)} "
         f"observations in {parse_elapsed:.1f}s spanning {start_date}..{end_date} "
-        f"(skipped {counts['skipped_nonsidereal']} non-sidereal, "
+        # f"(skipped {counts['skipped_nonsidereal']} non-sidereal, "
         f"{counts['skipped_no_target']} without a usable base target)."
     )
     if heartbeat is not None:
