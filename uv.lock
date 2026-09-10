@@ -905,7 +905,7 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "26.7.3"
+version = "26.9.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -923,9 +923,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/26/18/0dc751d3f39b28959100217514bae5fefaf992ade47715946ed77f909a0c/gpp_client-26.7.3.tar.gz", hash = "sha256:2c83b2ab529460450cebe819d53986c8554a035cdd7ae6f1682ad70c7b38f49e", size = 194038, upload-time = "2026-07-09T18:18:51.741Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/44/a1/185e51c0db2cd9ccca95ac983512697971c474035e11964c48d6c020e2e1/gpp_client-26.9.0.tar.gz", hash = "sha256:db90e83ec79786cd462973d4a5996fb9f72e68ea24e18e9e43529c22e9ec7e47", size = 236204, upload-time = "2026-09-09T21:36:52.217Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/68/46/faabcfed9c93900034f4ea6adedfe47155e16818e0339b3f62314ab1ca4a/gpp_client-26.7.3-py3-none-any.whl", hash = "sha256:30235afa288dc35918abcabb7a96f3431432cdad96a7445d8ea96892610c5610", size = 231930, upload-time = "2026-07-09T18:18:50.68Z" },
+    { url = "https://files.pythonhosted.org/packages/43/48/e2f2927eedd0e190aad1bc665cd736275d50c8e3bc862583ef8d82bef4a9/gpp_client-26.9.0-py3-none-any.whl", hash = "sha256:05ed60234cc2950b8aad7b7d6d80b5d15c4df0b2d56f2e313cf97fb70cf8e3d8", size = 276055, upload-time = "2026-09-09T21:36:50.911Z" },
 ]
 
 [[package]]
@@ -2551,7 +2551,7 @@ wheels = [
 
 [[package]]
 name = "scheduler"
-version = "0.1.21"
+version = "2026.9.1"
 source = { virtual = "backend" }
 dependencies = [
     { name = "aioboto3" },
@@ -2605,7 +2605,7 @@ gpp-dev = [
     { name = "gpp-client", version = "26.7.3.dev12", source = { registry = "https://pypi.org/simple" } },
 ]
 gpp-prod = [
-    { name = "gpp-client", version = "26.7.3", source = { registry = "https://pypi.org/simple" } },
+    { name = "gpp-client", version = "26.9.0", source = { registry = "https://pypi.org/simple" } },
 ]
 
 [package.metadata]
@@ -2658,7 +2658,7 @@ docs = [
     { name = "mkdocstrings-python", specifier = ">=1.16.12" },
 ]
 gpp-dev = [{ name = "gpp-client", specifier = ">=26.7.3.dev12,==26.7.3.*,!=26.7.3" }]
-gpp-prod = [{ name = "gpp-client", specifier = ">=26.7.1" }]
+gpp-prod = [{ name = "gpp-client", specifier = ">=26.9.0" }]
 
 [[package]]
 name = "scipy"
