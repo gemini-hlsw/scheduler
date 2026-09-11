@@ -35,7 +35,7 @@ function Stat({
     <div
       className={cn(
         "border rounded-md px-3 py-2 flex flex-col min-w-24",
-        "dark:bg-white/10 bg-black/5"
+        "dark:bg-white/10 bg-black/5",
       )}
     >
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -67,7 +67,7 @@ export default function CoverageSummary() {
     <div
       className={cn(
         "border rounded-md flex flex-col gap-3 p-3",
-        "dark:bg-white/20 bg-black/10"
+        "dark:bg-white/20 bg-black/10",
       )}
     >
       <div className="flex flex-row items-center gap-2 flex-wrap">
@@ -82,7 +82,7 @@ export default function CoverageSummary() {
             variant={coverage.isComplete ? "default" : "destructive"}
             className={cn(
               coverage.isComplete &&
-                "bg-emerald-600 text-white dark:bg-emerald-500"
+                "bg-emerald-600 text-white dark:bg-emerald-500",
             )}
           >
             {coverage.isComplete ? "Complete" : "Incomplete"}
@@ -121,7 +121,9 @@ export default function CoverageSummary() {
         </span>
       )}
 
-      {error && <span className="text-sm text-destructive">{error.message}</span>}
+      {error && (
+        <span className="text-sm text-destructive">{error.message}</span>
+      )}
 
       {coverage && !error && (
         <>
@@ -144,7 +146,7 @@ export default function CoverageSummary() {
               label="Not applicable"
               value={coverage.skipped}
               tone="muted"
-              hint="Non-sidereal or without a usable target: the aggregator cannot store these, so they are not gaps."
+              hint="Without a usable target: the aggregator cannot store these, so they are not gaps."
             />
           </div>
 
