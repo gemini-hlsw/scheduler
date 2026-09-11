@@ -15,8 +15,7 @@ necessary variables. You can read more about what each variable represent in the
 The Scheduler can be configured to work with both visibility calculations done in runtime and with Sight. If the first
 option is selected, due to the amount of data we store all the ephemerides files for 2018B Semester that are needed to create the whole semester.
 Is possible to skip this step but the performance of the Scheduler would be severely hindered. The files are in a .bz2
-compressed file in `/scheduler/scheduler/services/horizons/data/` and it needs `git-lfs` to be cloned from the repo.
-You can install it from [here](https://git-lfs.com/)
+compressed file in `/scheduler/scheduler/services/horizons/data/`.
 
 To unzip you can run:
 
@@ -30,14 +29,6 @@ First clone the monorepo.
 
 ```shell
 $ git clone https://github.com/gemini-hlsw/scheduler.git
-```
-
-> :bulb:
-> Remember that if you use runtime visibility you need to use [Git LFS](https://git-lfs.com/)
-
-```bash
-git lfs install
-git lfs pull
 ```
 
 After that you have two options using Docker or using a local setting.
