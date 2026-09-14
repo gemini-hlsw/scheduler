@@ -375,7 +375,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         # The refresh runs before the plan is requested, so the Engine reads the
                         # recomputed rows instead of the ones just invalidated.
                         try:
-                            changes = await get_visibility_changes(when)
+                            changes = await get_visibility_changes()
                             refreshed = await refresh_visibility_if_changed(
                                 updated_obs, observation_id=str(label), site_key=site_key, changes=changes
                             )
@@ -385,7 +385,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
                             # An ODB or Sight blip must not stop the plan request.
                             _logger.warning(f'Could not refresh the visibility of {label}: {exc}')
 
-                    changed = '; '.join(found) if found else 'no plan-relevant change detected'
+                    changed = '; '.join(found) if found else 'other change detected'
 
                     await self._request_new_plan(
                         ObservationActivationEvent(

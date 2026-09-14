@@ -422,9 +422,11 @@ async def test_ready_in_plan_refreshes_stale_visibility_before_replanning(handle
         await handler._on_updated_edit(_event(ObservationWorkflowState.READY))
 
     refresh.assert_awaited_once()
-    # The window is cut from the handler's clock, so a simulated night asks about the
-    # simulated instant rather than the wall clock.
-    assert abs((changes_fetch.await_args.args[0] - anchor).total_seconds()) < 5
+    # The handler's clock must NOT reach this query. It reads the ODB's change log, which is
+    # stamped with the wall clock however far back the simulated night sits; handed the
+    # simulated instant it would match historical edits to the same target and recompute for
+    # nothing. get_visibility_changes takes the wall clock itself, so it takes no argument.
+    changes_fetch.assert_awaited_once_with()
     assert refresh.await_args.kwargs["observation_id"] == _LABEL
     assert refresh.await_args.kwargs["changes"] is changes
     assert "visibility recomputed for 3 night(s)" in _queued_event(handler).description

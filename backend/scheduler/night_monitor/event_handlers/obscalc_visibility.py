@@ -313,25 +313,18 @@ async def calculate_and_store_visibility(
     return {**result, "target_existed": target_existed, "elapsed_seconds": round(elapsed, 2)}
 
 
-# How far back an event looks for ODB visibility changes. The change record lands
-# a moment after the subscription pushes the event, so a couple of minutes of slack;
-# anything older than that belongs to an earlier event, not to this one.
+# How far back an event looks for ODB visibility changes.
+# This value is heuristic and might need modifications in the future.
 _CHANGES_WINDOW = timedelta(minutes=2)
 
 
-async def get_visibility_changes(now: datetime) -> VisibilityChanges:
+async def get_visibility_changes() -> VisibilityChanges:
     """ODB entities whose visibility inputs changed around the event being handled.
 
-    ``now`` is the handler's reference time, so the window follows the same clock
-    as the rest of the event handling (the simulated one when the build parameters
-    set it, the wall clock otherwise).
-
-    Deliberately not the aggregator's change watermark: that tracks what the
-    offline aggregation has applied, so it grows with every run the aggregator
-    misses and answers "is the stored data stale" rather than "did this edit move
-    the visibility", which is what the event needs.
     """
-    return await gpp.client.scheduler.get_visibility_changes(now - _CHANGES_WINDOW)
+    return await gpp.client.scheduler.get_visibility_changes(
+        datetime.now(timezone.utc) - _CHANGES_WINDOW
+    )
 
 
 async def refresh_visibility_if_changed(
