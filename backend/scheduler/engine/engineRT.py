@@ -248,6 +248,12 @@ class EngineRT:
                                                                           self.scp.ranker)
             s_timelines = SNightTimelines.from_computed_stitched_timelines(nightly_timeline)
         s_plan_summary = SRunSummary.from_computed_run_summary(run_summary)
+
+        # Outside the mutate block on purpose: a listener reads the plan back, and the store's
+        # lock is not reentrant.
+        for site in self.params.sites:
+            await self.nightly_timeline_store.plan_published(site)
+
         return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
 
     async def run(self):
