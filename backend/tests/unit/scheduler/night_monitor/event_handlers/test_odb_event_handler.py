@@ -386,7 +386,7 @@ async def test_ready_in_plan_with_untouched_constraints_says_so(handler_factory)
 
     await handler._on_updated_edit(_event(ObservationWorkflowState.READY))
 
-    assert "no plan-relevant change detected" in _queued_event(handler).description
+    assert "other change detected" in _queued_event(handler).description
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1088,44 +1089,46 @@ class Calculator:
         
         result = await self.session.execute(stmt)
         rows = result.all()
-        
+
         if not rows:
             return {}
-        
+
         # Build target_id -> name mapping
         id_to_name = {t.id: name for name, t in targets_by_name.items()}
-        
-        # Build nested structure
-        targets = {}
-        
+        return await asyncio.to_thread(self._unpack_greedymax_rows, rows, id_to_name)
+
+    @staticmethod
+    def _unpack_greedymax_rows(rows, id_to_name: dict[int, str]) -> dict[str, dict]:
+        """Shape fetched Stage 1 rows into the nested greedymax structure. Pure CPU, no I/O."""
+        targets: dict[str, dict] = {}
+
         for row in rows:
             target_name = id_to_name.get(row.target_id)
             if not target_name:
                 continue
-            
+
             site_key = SITE_ID_TO_KEY[row.site_id]
             date_str = row.night_date.isoformat()
             key = f"{site_key}_{date_str}"
-            
+
             n = row.night_duration_minutes
-            
+
             # Initialize nested dicts
             if target_name not in targets:
                 targets[target_name] = {"nights": {}}
-            
-            # Unpack only alt, airmass, and hourangle
+
             targets[target_name]["nights"][key] = {
                 "night_date": row.night_date,
                 "site": site_key,
                 "night_duration_minutes": n,
-                "ra": unpack_array(row.ra, n).tolist(),
-                "dec": unpack_array(row.dec, n).tolist(),
-                "alt": unpack_array(row.alt, n).tolist(),
-                "az": unpack_array(row.az, n).tolist(),
-                "airmass": unpack_array(row.airmass, n).tolist(),
-                "hourangle": unpack_array(row.hourangle, n).tolist(),
+                "ra": unpack_array(row.ra, n),
+                "dec": unpack_array(row.dec, n),
+                "alt": unpack_array(row.alt, n),
+                "az": unpack_array(row.az, n),
+                "airmass": unpack_array(row.airmass, n),
+                "hourangle": unpack_array(row.hourangle, n),
             }
-        
+
         return targets
 
 async def get_calculator(session: AsyncSession) -> Calculator:
