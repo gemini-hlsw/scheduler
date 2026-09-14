@@ -960,8 +960,22 @@ class Calculator:
         target_ids = [t.id for t in targets_by_name.values()]
         site_id_ints = [SITE_KEY_TO_ID[s] for s in site_ids]
         
-        # Query all Stage 1 data
-        stmt = select(TargetNightData).where(
+        # Only the needed columns, so result.all() yields plain rows rather than ORM
+        # instances: values already fetched, with no session-bound instrumentation to
+        # follow the unpacking into a thread.
+        stmt = select(
+            TargetNightData.target_id,
+            TargetNightData.site_id,
+            TargetNightData.night_date,
+            TargetNightData.night_duration_minutes,
+            TargetNightData.ra,
+            TargetNightData.dec,
+            TargetNightData.alt,
+            TargetNightData.az,
+            TargetNightData.hourangle,
+            TargetNightData.airmass,
+            TargetNightData.par_ang,
+        ).where(
             and_(
                 TargetNightData.target_id.in_(target_ids),
                 TargetNightData.site_id.in_(site_id_ints),
@@ -973,48 +987,56 @@ class Calculator:
             TargetNightData.site_id,
             TargetNightData.night_date,
         )
-        
+
         result = await self.session.execute(stmt)
-        data_list = result.scalars().all()
-        
-        if not data_list:
+        rows = result.all()
+
+        if not rows:
             return {}
-        
+
         # Build target_id -> name mapping
         id_to_name = {t.id: name for name, t in targets_by_name.items()}
-        
-        # Build nested structure
-        targets = {}
-        
-        for data in data_list:
-            target_name = id_to_name.get(data.target_id)
+
+        # Same reasoning as get_stage1_greedymax_bulk: the unpacking is seconds of pure CPU
+        # at semester scale with nothing to await in between, so it must not run on the loop
+        # the caller is on. The query above stays there because the AsyncSession is bound to it.
+        return await asyncio.to_thread(self._unpack_stage1_rows, rows, id_to_name)
+
+    @staticmethod
+    def _unpack_stage1_rows(rows, id_to_name: dict[int, str]) -> dict[str, dict]:
+        """Shape fetched Stage 1 rows into the full nested structure. Pure CPU, no I/O."""
+        targets: dict[str, dict] = {}
+
+        for row in rows:
+            target_name = id_to_name.get(row.target_id)
             if not target_name:
                 continue
-            
-            site_key = SITE_ID_TO_KEY[data.site_id]
-            date_str = data.night_date.isoformat()
+
+            site_key = SITE_ID_TO_KEY[row.site_id]
+            date_str = row.night_date.isoformat()
             key = f"{site_key}_{date_str}"
-            
-            n = data.night_duration_minutes
-            
+
+            n = row.night_duration_minutes
+
             # Initialize nested dicts
             if target_name not in targets:
                 targets[target_name] = {"nights": {}}
-            
-            # Unpack arrays
+
+            # Left as ndarrays, like the greedymax variant: every consumer feeds these to
+            # np.asarray, so .tolist() would build Python lists only for numpy to rebuild them.
             targets[target_name]["nights"][key] = {
-                "night_date": data.night_date,
+                "night_date": row.night_date,
                 "site": site_key,
                 "night_duration_minutes": n,
-                "ra": unpack_array(data.ra, n).tolist(),
-                "dec": unpack_array(data.dec, n).tolist(),
-                "alt": unpack_array(data.alt, n).tolist(),
-                "az": unpack_array(data.az, n).tolist(),
-                "hourangle": unpack_array(data.hourangle, n).tolist(),
-                "airmass": unpack_array(data.airmass, n).tolist(),
-                "par_ang": unpack_array(data.par_ang, n).tolist() if data.par_ang else None,
+                "ra": unpack_array(row.ra, n),
+                "dec": unpack_array(row.dec, n),
+                "alt": unpack_array(row.alt, n),
+                "az": unpack_array(row.az, n),
+                "hourangle": unpack_array(row.hourangle, n),
+                "airmass": unpack_array(row.airmass, n),
+                "par_ang": unpack_array(row.par_ang, n) if row.par_ang else None,
             }
-        
+
         return targets
 
     async def get_stage1_greedymax_bulk(
