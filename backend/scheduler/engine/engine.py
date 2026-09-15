@@ -35,6 +35,12 @@ from ..core.statscalculator.run_summary import RunSummary
 
 logger = logger_factory.create_logger(__name__)
 
+# Selected by config.ranker.name. A new Ranker plugs in here with no new branch.
+_RANKERS = {
+    'DEFAULT': DefaultRanker,
+    'ADDITIVE': AdditiveRanker,
+}
+
 
 class Engine:
 
@@ -105,20 +111,14 @@ class Engine:
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
 
-        # Simple selection of different rankers, for now they must use the same parameters
-        match config.ranker.name.upper():
-            case 'DEFAULT':
-                ranker = DefaultRanker(collector,
-                               self.params.night_indices,
-                               self.params.sites,
-                               params = self.params.ranker_parameters,)
-            case 'ADDITIVE':
-                ranker = AdditiveRanker(collector,
-                               self.params.night_indices,
-                               self.params.sites,
-                               params = self.params.ranker_parameters,)
-            case _:
-                raise ConfigurationError('Ranker', config.ranker.name)
+        try:
+            ranker_class = _RANKERS[config.ranker.name.upper()]
+        except KeyError:
+            raise ConfigurationError('Ranker', config.ranker.name)
+        ranker = ranker_class(collector,
+                              self.params.night_indices,
+                              self.params.sites,
+                              params=self.params.ranker_parameters)
 
         return SCP(collector, selector, optimizer, ranker)
 
