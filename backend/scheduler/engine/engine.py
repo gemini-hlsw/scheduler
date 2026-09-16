@@ -26,7 +26,7 @@ __all__ = [
     'Engine'
 ]
 
-from ..core.components.ranker import DefaultRanker, AdditiveRanker
+from ..core.components.ranker import ranker_class
 
 from ..core.events.cycle.cycle import EventCycle
 # from ..core.output import print_collector_info
@@ -34,12 +34,6 @@ from ..core.events.cycle.cycle import EventCycle
 from ..core.statscalculator.run_summary import RunSummary
 
 logger = logger_factory.create_logger(__name__)
-
-# Selected by config.ranker.name. A new Ranker plugs in here with no new branch.
-_RANKERS = {
-    'DEFAULT': DefaultRanker,
-    'ADDITIVE': AdditiveRanker,
-}
 
 
 class Engine:
@@ -111,14 +105,18 @@ class Engine:
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
 
+        # The Rankers differ only in how they combine the score terms, so the construction is
+        # shared. A VALIDATION run may pick one per run (params.ranker, set from the UI);
+        # every other mode uses the configured default. SchedulerParameters enforces that.
+        requested_ranker = self.params.ranker or config.ranker.name
         try:
-            ranker_class = _RANKERS[config.ranker.name.upper()]
+            ranker_cls = ranker_class(requested_ranker)
         except KeyError:
-            raise ConfigurationError('Ranker', config.ranker.name)
-        ranker = ranker_class(collector,
-                              self.params.night_indices,
-                              self.params.sites,
-                              params=self.params.ranker_parameters)
+            raise ConfigurationError('Ranker', requested_ranker)
+        ranker = ranker_cls(collector,
+                            self.params.night_indices,
+                            self.params.sites,
+                            params=self.params.ranker_parameters)
 
         return SCP(collector, selector, optimizer, ranker)
 

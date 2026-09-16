@@ -82,6 +82,46 @@ async def test_schedule_query_with_empty_file(set_observatory_properties, schedu
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('ranker', ['DEFAULT', 'ADDITIVE'])
+async def test_schedule_query_accepts_a_ranker(set_observatory_properties, scheduler_schema,
+                                               ranker):
+    """The Validation UI picks the Ranker per run, so the enum has to reach the input."""
+    query = """
+        query Schedule($ranker: RankerName) {
+            schedule(scheduleId: "5",
+                     newScheduleInput: {startTime: "2018-10-01 08:00:00",
+                                        endTime: "2018-10-03 08:00:00"
+                                        sites: "GN",
+                                        mode: VALIDATION,
+                                        semesterVisibility:false,
+                                        numNightsToSchedule:1,
+                                        ranker: $ranker})
+        }
+    """
+    result = await scheduler_schema.execute(query, variable_values={'ranker': ranker})
+    assert result.errors is None
+
+
+@pytest.mark.asyncio
+async def test_schedule_query_rejects_an_unknown_ranker(set_observatory_properties,
+                                                        scheduler_schema):
+    query = """
+        query Schedule {
+            schedule(scheduleId: "6",
+                     newScheduleInput: {startTime: "2018-10-01 08:00:00",
+                                        endTime: "2018-10-03 08:00:00"
+                                        sites: "GN",
+                                        mode: VALIDATION,
+                                        semesterVisibility:false,
+                                        numNightsToSchedule:1,
+                                        ranker: GREEDY})
+        }
+    """
+    result = await scheduler_schema.execute(query)
+    assert result.data is None
+
+
+@pytest.mark.asyncio
 async def test_schedule_query_with_wrong_parameters(set_observatory_properties, scheduler_schema):
 
     query = """

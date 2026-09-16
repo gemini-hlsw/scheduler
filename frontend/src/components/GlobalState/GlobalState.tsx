@@ -3,7 +3,7 @@ import React, { createContext, useState, ReactNode } from "react";
 // ------------------------------------------------------------
 // Populate initial data, just for testing, should be removed
 import { NightPlanType, RunSummary } from "../../types";
-import { NightPlansWithEvent } from "@/gql/graphql";
+import { NightPlansWithEvent, RankerName } from "@/gql/graphql";
 // ------------------------------------------------------------
 
 interface GlobalStateContextType {
@@ -29,6 +29,8 @@ interface GlobalStateContextType {
   setWhaPower: React.Dispatch<React.SetStateAction<number>>;
   airPower: number;
   setAirPower: React.Dispatch<React.SetStateAction<number>>;
+  ranker: RankerName;
+  setRanker: React.Dispatch<React.SetStateAction<RankerName>>;
   semesterVisibility: boolean;
   setSemesterVisibility: React.Dispatch<React.SetStateAction<boolean>>;
   loadingPlan: boolean;
@@ -69,6 +71,7 @@ export default function GlobalStateProvider({
   const [visPower, setVisPower] = useState(1.0);
   const [whaPower, setWhaPower] = useState(1.0);
   const [airPower, setAirPower] = useState(0.0);
+  const [ranker, setRanker] = useState<RankerName>("DEFAULT");
   const [imageQuality, setImageQuality] = useState(0.7);
   const [cloudCover, setCloudCover] = useState(0.7);
   const [windDirection, setWindDirection] = useState(20);
@@ -106,6 +109,8 @@ export default function GlobalStateProvider({
         setWhaPower,
         airPower,
         setAirPower,
+        ranker,
+        setRanker,
         semesterVisibility,
         setSemesterVisibility,
         loadingPlan,

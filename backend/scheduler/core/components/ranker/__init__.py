@@ -6,6 +6,7 @@ from .parameters import (RankerBandParameterMap, RankerBandParameters, RankerPar
 from .base import Ranker
 from .default import DefaultRanker
 from .additive import AdditiveRanker
+from .registry import RankerName, ranker_class
 
 __all__ = [
     'AdditiveRanker',
@@ -13,6 +14,8 @@ __all__ = [
     'Ranker',
     'RankerBandParameterMap',
     'RankerBandParameters',
+    'RankerName',
     'RankerParameters',
     'default_band_params',
+    'ranker_class',
 ]

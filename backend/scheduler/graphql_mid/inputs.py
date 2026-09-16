@@ -9,6 +9,7 @@ from typing import Optional, List
 
 from .scalars import Sites
 from scheduler.core.builder.modes import SchedulerModes
+from scheduler.core.components.ranker import RankerName
 
 
 @strawberry.input
@@ -29,6 +30,9 @@ class CreateNewScheduleInput:
     wha_power: Optional[float] = 1.0
     air_power: Optional[float] = 0.0
     programs: Optional[List[str]] = None
+    # Which Ranker scores this run. VALIDATION only; null uses config.ranker.name.
+    # Note the *_power fields mean different things per Ranker - see RankerParameters.
+    ranker: Optional[RankerName] = None
 
 
 @strawberry.input

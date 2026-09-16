@@ -27,6 +27,7 @@ export default function Validation() {
     whaPower,
     airPower,
     visPower,
+    ranker,
     loadingPlan,
     setLoadingPlan,
     uuid,
@@ -68,6 +69,8 @@ export default function Validation() {
         airPower: airPower,
         metPower: metPower,
         visPower: visPower,
+        // Only sent from here: the backend rejects a per-run ranker outside VALIDATION.
+        ranker: ranker,
         programs: programs.filter((p) => p.checked).map((p) => p.id),
       },
     });
