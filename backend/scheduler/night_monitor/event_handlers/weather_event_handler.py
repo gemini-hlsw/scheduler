@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2025 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+from dataclasses import replace
 from typing import Dict, Tuple, Callable
 from lucupy.minimodel import ImageQuality, CloudCover, Site, VariantSnapshot
 from astropy.coordinates import Angle
@@ -36,10 +37,13 @@ class WeatherEventHandler(EventHandler):
                                   wind_dir=Angle(wind_direction, unit=u.deg),
                                   wind_spd=wind_speed * (u.m / u.s))
         
+        # Placeholder: the parser is synchronous, so _on_weather_change restamps this with the
+        # time the plan is running on before the event reaches the Engine.
         return WeatherChangeEvent(variant_change=variant,
                                   time=datetime.now(UTC),
                                   site=site,
                                   description=f"Weather changed for site {site.name}")
-    
+
     async def _on_weather_change(self, event: WeatherChangeEvent):
-        await self.scheduler_queue.add_schedule_event(event)
+        when = await self._reference_time(event.site)
+        await self.scheduler_queue.add_schedule_event(replace(event, time=when))

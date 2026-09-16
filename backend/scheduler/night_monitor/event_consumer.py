@@ -45,6 +45,9 @@ class EventConsumer:
         self.resource_handler = ResourceEventHandler(self.scheduler_queue, nightly_timeline_store)
         self.weather_handler = WeatherEventHandler(self.scheduler_queue, nightly_timeline_store)
         self.odb_handler = ODBEventHandler(self.scheduler_queue, nightly_timeline_store)
+        # The ODB handler owns the idle watch, which has to start when a plan takes effect and
+        # not only when the ODB reports something. The store tells it when that happens.
+        nightly_timeline_store.add_listener(self.odb_handler)
         self._shutdown_event = shutdown_event
 
 

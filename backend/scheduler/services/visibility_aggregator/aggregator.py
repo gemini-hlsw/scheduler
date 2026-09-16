@@ -49,6 +49,7 @@ __all__ = [
     "progress_eta_seconds",
     "SCHEDULABLE_STATES",
     "resolve_schedulable_observation_labels",
+    "resolve_target_names",
     "LabelResolution",
 ]
 
@@ -332,7 +333,7 @@ async def _load_changes(
     return changes, fetch_time
 
 
-async def _resolve_target_names(internal_ids: list[str]) -> dict[str, str]:
+async def resolve_target_names(internal_ids: list[str]) -> dict[str, str]:
     """Map changed target internal ids to ODB names, one query per chunk.
 
     A failed chunk is logged and leaves its internal ids unresolved; the
@@ -460,7 +461,7 @@ async def _apply_odb_changes(
     # Resolve every changed target internal id in batched ODB queries, then
     # load the matching Sight rows in a single query, so the cost stays flat
     # as the change set grows.
-    names_by_internal_id = await _resolve_target_names(sorted(changes.target_ids))
+    names_by_internal_id = await resolve_target_names(sorted(changes.target_ids))
     internal_ids_by_name: dict[str, list[str]] = {}
     for internal_id in sorted(changes.target_ids):
         name = names_by_internal_id.get(internal_id)

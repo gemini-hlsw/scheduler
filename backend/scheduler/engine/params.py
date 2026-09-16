@@ -8,7 +8,7 @@ from typing import final, Optional, FrozenSet, List, Dict, Tuple
 
 from astropy.time import Time
 from lucupy.minimodel import Site, ALL_SITES, Semester, NightIndex
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
@@ -219,6 +219,10 @@ class BuildParameters(BaseModel):
             for site, nt in self.night_times.items() if nt is not None
         }
 
+    @field_validator("simulated_now")
+    @classmethod
+    def _as_utc(cls, v: datetime | None) -> datetime | None:
+        return v if v is None or v.tzinfo else v.replace(tzinfo=UTC)
 
 class BuildParamsStore:
     """

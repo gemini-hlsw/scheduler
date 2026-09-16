@@ -2,23 +2,25 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 import time
-from datetime import timedelta, datetime, UTC
+from datetime import timedelta
 from functools import partial
 from typing import ClassVar, Dict, Tuple, Callable, Awaitable, Optional
 
 from scheduler.core.events.queue import (Event, NightlyTimelineStore, ObservationActivationEvent,
-                                         OnDemandScheduleEvent)
+                                         OnDemandScheduleEvent, TimelineListener)
 from scheduler.night_monitor.event_sources import ODBEventSource
 from .event_handler import EventHandler, LastPlanMock
-from .obscalc_visibility import calculate_and_store_visibility, site_key_from_instrument, sight_visibility_enabled
-from gpp_client.generated.enums import ObservationWorkflowState
-from gpp_client.generated.scheduler_observations_updates import SchedulerObservationsUpdates, SchedulerObservationsUpdatesObscalcUpdate
+from .obscalc_visibility import (build_conditions, calculate_and_store_visibility, get_visibility_changes,
+                                refresh_visibility_if_changed, site_key_from_instrument,
+                                sight_visibility_enabled)
+from gpp_client.generated.scheduler_observations_updates import (SchedulerObservationsUpdates,
+                                                                SchedulerObservationsUpdatesObscalcUpdate,
+                                                                SchedulerObservationsUpdatesObscalcUpdateValue)
 
 from lucupy.minimodel import ALL_SITES, Site, Observation, ObservationID, ObservationStatus
 
 from scheduler.services import logger_factory
 from ...core.events.queue.scheduler_queue_client import SchedulerQueue
-from ...engine.params import build_params_store
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -63,9 +65,12 @@ class SchedulerIdleTimer:
     def pending(self) -> bool:
         return self._task is not None and not self._task.done()
 
-class ODBEventHandler(EventHandler):
+class ODBEventHandler(EventHandler, TimelineListener):
     """
     Handles ODB events. To check the different subscriptions go to ODBEventSource.
+
+    Also watches the plan in effect as a :class:`TimelineListener`, so a site that never reports
+    anything to the ODB is still noticed as idle. Register it with the store to enable that.
     """
 
     # How much the Scheduler can wait idle without anything set
@@ -91,38 +96,6 @@ class ODBEventHandler(EventHandler):
     def _sites_of(event: Event) -> Tuple[Site, ...]:
         """The sites an event applies to. Some are raised for every site at once (ALL_SITES)."""
         return tuple(event.site) if isinstance(event.site, (frozenset, set)) else (event.site,)
-
-    async def _reference_time(self, site: Optional[Site] = None) -> datetime:
-        """
-        Returns the time referenced from the build parameters to help simulate the night
-        when this one are in place.
-        """
-        build_params = await build_params_store.get()
-        if not build_params.is_customized():
-            return datetime.now(UTC)
-
-        anchor = build_params.simulated_now
-        if anchor is None:
-            anchor = await self._plan_night_start(site)
-            if anchor is None:
-                # The engine has not recorded a night yet, so there is nothing to anchor to.
-                return datetime.now(UTC)
-
-        return anchor + (datetime.now(UTC) - build_params.set_at)
-
-    async def _plan_night_start(self, site: Optional[Site]) -> Optional[datetime]:
-        """
-        Evening twilight of the night the plan in effect covers.
-
-        ``site`` is None for events raised for every site at once; any site that has a night
-        recorded will do there, since both are the same night.
-        """
-        sites = (site,) if site is not None else tuple(ALL_SITES)
-        for candidate in sites:
-            night_start = await self.nightly_timeline_store.night_start(candidate)
-            if night_start is not None:
-                return night_start
-        return None
 
     async def _request_new_plan(self, event: Event) -> None:
         """
@@ -170,6 +143,30 @@ class ODBEventHandler(EventHandler):
             partial(self._on_execution_timeout, site, observation.id),
             with_offset=True,
         )
+
+    async def on_plan_published(self, site: Site) -> None:
+        """
+        A plan just took effect for the site, so start counting from now.
+
+        Without this the idle watch only ever begins after an ODB event, which means a night
+        that starts and simply stays quiet is never noticed: nothing reports to the ODB, so
+        nothing arms the timer. Re-arming on every plan also restarts the countdown from when
+        the plan actually took effect rather than from when it was requested.
+        """
+        if self.observation_execution_timer[site].pending:
+            # Something is running and we are already waiting it out. A new plan does not make
+            # the site any less busy, and the execution watch is the one worth keeping.
+            return
+        _logger.info(f'Plan in effect for {site.name}. Watching for idle time.')
+        self._arm_idle_timer(site)
+
+    async def on_timeline_reset(self) -> None:
+        """
+        The night is over. Stand down, so nothing wakes up asking for a plan for a dead night.
+        """
+        for site in ALL_SITES:
+            self.observation_execution_timer[site].cancel()
+            self.idle_timer[site].cancel()
 
     async def _on_idle_timeout(self, site: Site) -> None:
         """No ODB activity for WAITING_THRESHOLD: recompute so the plan matches the current time."""
@@ -341,16 +338,61 @@ class ODBEventHandler(EventHandler):
         if updated_obs.workflow.value.state == 'READY':
 
             if is_in_the_plan:
-                # READY -> READY
-                # Observation must have changed in some way. Check constraints.
-                # We are not saving current conditions yet
+                # READY -> READY: the observation was edited while still pending.
                 if last_obs.status is ObservationStatus.READY:
+                    # What changed, as far as the plan cares. The plan is requested either way:
+                    # the obscalc update also fires on edits we do not inspect here (sequence,
+                    # execution digest), so this describes the change rather than gating it.
+                    found = []
+
+                    try:
+                    # Transform from GPP to OCS
+                        required = build_conditions(updated_obs)
+                    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+                        _logger.warning(f'Could not read the constraints of {label}: {exc}')
+                        required = None
+
+                    if required is not None:
+                        planned = last_obs.constraints.conditions if last_obs.constraints is not None else None
+                        if planned is not None and required != planned:
+                            found.append(
+                                f'constraints cc={planned.cc.name}, iq={planned.iq.name}, '
+                                f'sb={planned.sb.name}, wv={planned.wv.name} -> '
+                                f'cc={required.cc.name}, iq={required.iq.name}, '
+                                f'sb={required.sb.name}, wv={required.wv.name}'
+                            )
+
+                        # The sky the plan was built against. Tighter constraints than that mean the
+                        # observation no longer belongs where the plan put it.
+                        sky = last_plan.conditions
+                        if sky is not None and not (sky.cc <= required.cc and sky.iq <= required.iq):
+                            found.append(f'no longer fits the conditions the plan assumed '
+                                         f'(cc={sky.cc.name}, iq={sky.iq.name})')
+
+                    if sight_visibility_enabled():
+                        # With the local strategy nothing is stored ahead of time, so there is
+                        # nothing to invalidate: the Collector computes visibility as it queries.
+                        # The refresh runs before the plan is requested, so the Engine reads the
+                        # recomputed rows instead of the ones just invalidated.
+                        try:
+                            changes = await get_visibility_changes()
+                            refreshed = await refresh_visibility_if_changed(
+                                updated_obs, observation_id=str(label), site_key=site_key, changes=changes
+                            )
+                            if refreshed is not None:
+                                found.append(f'visibility recomputed for {refreshed.get("stored", 0)} night(s)')
+                        except Exception as exc:
+                            # An ODB or Sight blip must not stop the plan request.
+                            _logger.warning(f'Could not refresh the visibility of {label}: {exc}')
+
+                    changed = '; '.join(found) if found else 'other change detected'
+
                     await self._request_new_plan(
                         ObservationActivationEvent(
                             site=site,
                             observation_id=updated_obs.id,
                             time=await self._reference_time(site),
-                            description=f'Observation {label} was modified.'
+                            description=f'Observation {label} was modified: {changed}.'
                         )
                     )
             else:
