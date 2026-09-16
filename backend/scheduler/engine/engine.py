@@ -105,9 +105,6 @@ class Engine:
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
 
-        # The Rankers differ only in how they combine the score terms, so the construction is
-        # shared. A VALIDATION run may pick one per run (params.ranker, set from the UI);
-        # every other mode uses the configured default. SchedulerParameters enforces that.
         requested_ranker = self.params.ranker or config.ranker.name
         try:
             ranker_cls = ranker_class(requested_ranker)

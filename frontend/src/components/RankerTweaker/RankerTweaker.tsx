@@ -27,8 +27,6 @@ export default function RankerTweaker({
     setRanker,
   } = useContext(GlobalStateContext);
 
-  // The Default ranker reads met/vis/wha as exponents, the Additive one as linear weights,
-  // so the same number scores differently. Say which, next to the fields it applies to.
   const powerMeaning =
     ranker === "ADDITIVE"
       ? "Additive: MET/VIS/WHA are linear weights (terms are summed)."
@@ -45,9 +43,7 @@ export default function RankerTweaker({
       <div
         className={cn(
           "flex gap-1 items-center",
-          // Wrap rather than squeeze: at phone width the row used to crush every field,
-          // and the ranker select collapsed to just its dropdown arrow.
-          vertical ? "flex-col" : "flex-row flex-wrap"
+          vertical ? "flex-col" : "flex-row"
         )}
       >
         <Field orientation={vertical ? "horizontal" : "vertical"}>
@@ -66,8 +62,6 @@ export default function RankerTweaker({
             onChange={(e) => setRanker(e.target.value as RankerName)}
             value={ranker}
           >
-            {/* Field forces [&>*]:w-full, so long labels get clipped. The multiply/sum
-                distinction is spelled out in the hint line below instead. */}
             <option value="DEFAULT">Default</option>
             <option value="ADDITIVE">Additive</option>
           </select>
