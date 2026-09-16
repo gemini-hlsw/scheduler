@@ -202,8 +202,8 @@ class HorizonsClient:
                 )
 
         if lines is None:
-            semester_start = semester.start_date().strftime("'%Y-%b-%d %H:%M'")
-            semester_end = semester.end_date().strftime("'%Y-%b-%d %H:%M'")
+            semester_start = (semester.start_date() - timedelta(days=1)).strftime("'%Y-%b-%d %H:%M'")
+            semester_end = (semester.end_date() + timedelta(days=2)).strftime("'%Y-%b-%d %H:%M'")
             logger.debug(f'Querying JPL/Horizons for {horizons_name}')
             res = self._query(horizons_name,
                               semester_start,
