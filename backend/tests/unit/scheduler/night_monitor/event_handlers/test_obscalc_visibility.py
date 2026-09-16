@@ -4,7 +4,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -440,3 +440,49 @@ async def test_on_updated_edit_local_strategy_skips_sight(handler_factory):
 
     mock_calc.assert_not_called()
     handler.scheduler_queue.add_schedule_event.assert_awaited_once()
+
+
+# --- the change-log window ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_change_lookup_uses_the_wall_clock_not_the_simulated_night():
+    """The ODB stamps its change log with the wall clock whatever night we simulate.
+
+    Cut from a simulated past night the window would start months ago and report every
+    historical edit to the target as a fresh change, invalidating and recomputing for nothing.
+    """
+    captured = {}
+
+    async def fake_changes(since):
+        captured['since'] = since
+        return 'changes'
+
+    client = MagicMock()
+    client.scheduler.get_visibility_changes = AsyncMock(side_effect=fake_changes)
+
+    # A build simulating a night months in the past; it must not reach the query.
+    params = MagicMock()
+    params.is_customized.return_value = True
+    params.simulated_now = datetime(2026, 5, 13, 3, 30, tzinfo=timezone.utc)
+    store = MagicMock()
+    store.get = AsyncMock(return_value=params)
+
+    before = datetime.now(timezone.utc)
+    # gpp.client is a per-event-loop property, so it has to be patched on the class.
+    with patch.object(type(ov.gpp), 'client', new_callable=PropertyMock, return_value=client), \
+            patch('scheduler.night_monitor.event_handlers.event_handler.build_params_store', store):
+        assert await ov.get_visibility_changes() == 'changes'
+    after = datetime.now(timezone.utc)
+
+    since = captured['since']
+    assert before - ov._CHANGES_WINDOW <= since <= after - ov._CHANGES_WINDOW, \
+        f'window started at {since}, not the last {ov._CHANGES_WINDOW} of real time'
+
+
+@pytest.mark.asyncio
+async def test_change_lookup_takes_no_clock():
+    """A guard: the bug was a caller handing it a plausible-looking datetime."""
+    import inspect
+
+    assert not inspect.signature(ov.get_visibility_changes).parameters, \
+        'get_visibility_changes must read the wall clock itself, not accept one'

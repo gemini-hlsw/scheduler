@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
+from abc import ABC
 from contextlib import asynccontextmanager
 from copy import deepcopy
 from datetime import datetime
@@ -10,12 +11,32 @@ from typing import AsyncIterator, Dict, FrozenSet, List, Optional
 from lucupy.minimodel import NightIndex, ObservationID, Site
 
 from scheduler.core.plans import Plan
+from scheduler.services import logger_factory
 
 from .nightchanges import NightlyTimeline, TimelineEntry
 
 __all__ = [
-    'NightlyTimelineStore'
+    'NightlyTimelineStore',
+    'TimelineListener'
 ]
+
+_logger = logger_factory.create_logger(__name__)
+
+
+class TimelineListener(ABC):
+    """
+    Something that reacts to the plan in effect changing.
+
+    The engine writes plans and the night monitor watches them, but neither holds a reference to
+    the other: the store they already share is the join point. Both hooks are called outside the
+    store's lock, so a listener is free to read the timeline back.
+    """
+
+    async def on_plan_published(self, site: Site) -> None:
+        """A plan is now in effect for the site."""
+
+    async def on_timeline_reset(self) -> None:
+        """The night is over and nothing is in effect any more."""
 
 class NightlyTimelineStore:
     """
@@ -34,6 +55,21 @@ class NightlyTimelineStore:
     def __init__(self, timeline: Optional[NightlyTimeline] = None) -> None:
         self._timeline = timeline if timeline is not None else NightlyTimeline()
         self._lock = asyncio.Lock()
+        self._listeners: List[TimelineListener] = []
+
+    def add_listener(self, listener: TimelineListener) -> None:
+        """Register something that reacts to the plan in effect changing."""
+        self._listeners.append(listener)
+
+    async def plan_published(self, site: Site) -> None:
+        """
+        Announce that the writer has finished putting a plan in effect for the site.
+        """
+        for listener in self._listeners:
+            try:
+                await listener.on_plan_published(site)
+            except Exception:
+                _logger.exception(f'Plan listener {type(listener).__name__} failed for {site.name}.')
 
     @asynccontextmanager
     async def mutate(self) -> AsyncIterator[NightlyTimeline]:
@@ -50,9 +86,18 @@ class NightlyTimelineStore:
         """
         Drop everything recorded so far. Called when the night ends, so the next night does not
         read the previous night's plan as the one in effect.
+
+        Listeners are told once the timeline is actually empty, so a watcher can stand down
+        instead of waking up later against a night that is over.
         """
         async with self._lock:
             self._timeline = NightlyTimeline()
+
+        for listener in self._listeners:
+            try:
+                await listener.on_timeline_reset()
+            except Exception:
+                _logger.exception(f'Reset listener {type(listener).__name__} failed.')
 
     async def has_plan(self, site: Site) -> bool:
         """Whether a plan has been generated for the site on the current night."""

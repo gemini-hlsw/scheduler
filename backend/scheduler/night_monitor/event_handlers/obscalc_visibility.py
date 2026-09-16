@@ -6,13 +6,17 @@ from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 from dateutil.parser import parse as parsedt
+from lucupy.minimodel import CloudCover, Conditions, ImageQuality
+from lucupy.minimodel import SkyBackground as OcsSkyBackground, WaterVapor as OcsWaterVapor
 from lucupy.timeutils import sex2dec
 
 from gpp_client.generated.enums import Instrument, SkyBackground, TimingWindowInclusion
 from gpp_client.generated.scheduler_observations_updates import (
     SchedulerObservationsUpdatesObscalcUpdateValue as ObscalcValue,
 )
+from gpp_client.rest.models import VisibilityChanges
 
+from scheduler.clients.gpp import gpp
 from scheduler.config import config
 from scheduler.services import logger_factory
 from scheduler.services.sight.calculator.calculator import Calculator
@@ -25,14 +29,18 @@ from scheduler.services.sight.calculator.models import (
     TimingWindow as SightTimingWindow,
 )
 from scheduler.services.sight.database.connection import session_scope
+from scheduler.services.visibility_aggregator.aggregator import resolve_target_names
 
 __all__ = [
     "sight_visibility_enabled",
     "site_key_from_instrument",
     "build_target_create",
+    "build_conditions",
     "build_constraints",
     "expand_event_timing_windows",
     "calculate_and_store_visibility",
+    "get_visibility_changes",
+    "refresh_visibility_if_changed",
 ]
 
 _logger = logger_factory.create_logger(__name__)
@@ -142,6 +150,62 @@ def build_constraints(value: ObscalcValue, range_end: datetime) -> ObservationCo
     )
 
 
+# GPP constraint preset -> absolute value. Same table as
+# ``GppProgramProvider._constraint_to_value``, kept local so the event path does
+# not pull in the program provider.
+_PRESET_TO_VALUE = {
+    'ZERO': 0.0, 'POINT_ONE': 0.1, 'POINT_TWO': 0.2, 'POINT_THREE': 0.3,
+    'POINT_FOUR': 0.4, 'POINT_FIVE': 0.5, 'POINT_SIX': 0.6, 'POINT_EIGHT': 0.8,
+    'ONE_POINT_ZERO': 1.0, 'ONE_POINT_TWO': 1.2, 'ONE_POINT_FIVE': 1.5,
+    'TWO_POINT_ZERO': 2.0, 'THREE_POINT_ZERO': 3.0,
+    'DARKEST': 0.2, 'DARK': 0.5, 'GRAY': 0.8, 'BRIGHT': 1.0,
+    'VERY_DRY': 0.2, 'DRY': 0.5, 'MEDIAN': 0.8, 'WET': 1.0,
+}
+
+# Legacy OCS percentile bins, as in ``GppProgramProvider.parse_conditions``.
+_CC_BINS = (0.1, 0.3, 1.0, 3.0)
+_CC_BIN_VALUES = (0.5, 0.7, 0.8, 1.0)
+_IQ_BINS = (0.45, 0.75, 1.05, 1.5)  # for r; should be wavelength dependent
+_IQ_BIN_VALUES = (0.2, 0.7, 0.85, 1.0)
+
+
+def _preset_value(preset) -> float:
+    """Absolute value of a GPP constraint preset.
+
+    The presets are string enums (``TWO_POINT_ZERO``), and pydantic hands back
+    either the member or the bare string depending on how the payload was
+    parsed, so both are accepted.
+    """
+    return _PRESET_TO_VALUE[str(getattr(preset, "value", preset))]
+
+
+def _to_bin(value: float, bins, bin_values) -> float:
+    """First bin the value fits in, or the loosest one when it fits none."""
+    for limit, bin_value in zip(bins, bin_values):
+        if value <= limit:
+            return bin_value
+    return bin_values[-1]
+
+
+def build_conditions(value: ObscalcValue) -> Conditions:
+    """The observation's constraints as OCS percentile bins.
+    """
+    cs = value.constraint_set
+    elevation = cs.elevation_range
+    # Hour-angle observations have no airmass limit; 2.0 is the provider's stand-in.
+    x_max = float(elevation.air_mass.max) if elevation.air_mass is not None else 2.0
+
+    iq_value = _preset_value(cs.image_quality)
+    cc_value = _preset_value(cs.cloud_extinction)
+
+    return Conditions(
+        cc=CloudCover(_to_bin(cc_value, _CC_BINS, _CC_BIN_VALUES)),
+        iq=ImageQuality(_to_bin(iq_value * x_max ** -0.6, _IQ_BINS, _IQ_BIN_VALUES)),
+        sb=OcsSkyBackground(_preset_value(cs.sky_background)),
+        wv=OcsWaterVapor(_preset_value(cs.water_vapor)),
+    )
+
+
 def expand_event_timing_windows(windows, range_end: datetime) -> List[SightTimingWindow]:
     """Expand event timing windows into flat Sight ``TimingWindow`` pairs.
     """
@@ -247,3 +311,73 @@ async def calculate_and_store_visibility(
         f"nights already present) over {start_date}..{end_date} in {elapsed:.2f}s."
     )
     return {**result, "target_existed": target_existed, "elapsed_seconds": round(elapsed, 2)}
+
+
+# How far back an event looks for ODB visibility changes.
+# This value is heuristic and might need modifications in the future.
+_CHANGES_WINDOW = timedelta(minutes=2)
+
+
+async def get_visibility_changes() -> VisibilityChanges:
+    """ODB entities whose visibility inputs changed around the event being handled.
+
+    """
+    return await gpp.client.scheduler.get_visibility_changes(
+        datetime.now(timezone.utc) - _CHANGES_WINDOW
+    )
+
+
+async def refresh_visibility_if_changed(
+    value: ObscalcValue,
+    observation_id: str,
+    site_key: str,
+    changes: VisibilityChanges,
+) -> Optional[dict]:
+    """Recompute one observation's stored visibility when the ODB reports it stale.
+
+    The same invalidation the aggregator applies (``_apply_odb_changes``), for a
+    single observation: a changed target has its stored coordinates overwritten
+    (bumping ``updated_at``, which makes Stage 1 recompute as stale), and Stage 2
+    rows are deleted so the store pass below refills them with the fresh inputs.
+
+    Returns None when nothing changed for this observation, so the caller can
+    tell "already up to date" from "refreshed".
+    """
+    payload = build_target_create(value)
+    if payload is None:
+        # Non-sidereal or no base target: nothing stored to refresh.
+        return None
+
+    obs_changed = str(value.id) in changes.observation_ids
+    target_changed = False
+    if changes.target_ids:
+        # The event carries target names, the endpoint reports internal ids, so
+        # the changed ids have to be resolved to compare them.
+        changed_names = set((await resolve_target_names(sorted(changes.target_ids))).values())
+        target_changed = payload.name in changed_names
+
+    if not (obs_changed or target_changed):
+        return None
+
+    async with session_scope() as session:
+        calc = Calculator(session)
+        if target_changed:
+            db_target = await calc.target_repo.get_by_name(payload.name)
+            if db_target is not None:
+                await calc.target_repo.update_fields(
+                    db_target,
+                    base_ra=payload.base_ra,
+                    base_dec=payload.base_dec,
+                    pm_ra=payload.pm_ra,
+                    pm_dec=payload.pm_dec,
+                    epoch=payload.epoch,
+                )
+        deleted = await calc.visibility_repo.delete_by_observation(observation_id)
+
+    _logger.info(
+        f"Observation {observation_id}: visibility inputs changed "
+        f"(observation={obs_changed}, target={target_changed}); invalidated "
+        f"{deleted} stored night(s), recomputing."
+    )
+    result = await calculate_and_store_visibility(value, observation_id=observation_id, site_key=site_key)
+    return {**result, "invalidated": deleted, "obs_changed": obs_changed, "target_changed": target_changed}

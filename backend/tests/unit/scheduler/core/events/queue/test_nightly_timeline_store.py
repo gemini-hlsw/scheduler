@@ -7,7 +7,8 @@ from types import SimpleNamespace
 import pytest
 from lucupy.minimodel import NightIndex, ObservationID, Site, TimeslotIndex
 
-from scheduler.core.events.queue import NightlyTimeline, NightlyTimelineStore, TimelineEntry, TimeStats
+from scheduler.core.events.queue import (NightlyTimeline, NightlyTimelineStore, TimelineEntry,
+                                         TimelineListener, TimeStats)
 
 NIGHT_IDX = NightIndex(0)
 
@@ -156,3 +157,77 @@ async def test_engine_clears_the_store_at_end_of_night():
     await engine.run()
 
     assert await store.last_plan(Site.GN) is None
+
+
+# --- listeners ------------------------------------------------------------------------------
+
+class RecordingListener(TimelineListener):
+    """Records what it was told, and reads the store back to prove the lock is free."""
+
+    def __init__(self, store=None):
+        self.published = []
+        self.resets = 0
+        self.read_back = []
+        self._store = store
+
+    async def on_plan_published(self, site):
+        self.published.append(site)
+        if self._store is not None:
+            self.read_back.append(await self._store.last_plan(site))
+
+    async def on_timeline_reset(self):
+        self.resets += 1
+
+
+@pytest.mark.asyncio
+async def test_plan_published_reaches_every_listener():
+    store = store_with()
+    first, second = RecordingListener(), RecordingListener()
+    store.add_listener(first)
+    store.add_listener(second)
+
+    await store.plan_published(Site.GN)
+
+    assert first.published == [Site.GN]
+    assert second.published == [Site.GN]
+
+
+@pytest.mark.asyncio
+async def test_a_listener_can_read_the_plan_it_was_told_about():
+    """The reason plan_published is called outside mutate(): the lock is not reentrant, so a
+    listener that reads the store back would otherwise deadlock."""
+    store = store_with(stitched_plans=[fake_plan('GN-1')])
+    listener = RecordingListener(store)
+    store.add_listener(listener)
+
+    await asyncio.wait_for(store.plan_published(Site.GN), timeout=1)
+
+    assert [visit.observation.id for visit in listener.read_back[0].visits] == [ObservationID('GN-1')]
+
+
+@pytest.mark.asyncio
+async def test_a_failing_listener_does_not_stop_the_others():
+    """Publishing a plan must not depend on whoever happens to be watching."""
+    class Broken(TimelineListener):
+        async def on_plan_published(self, site):
+            raise RuntimeError('boom')
+
+    store = store_with()
+    survivor = RecordingListener()
+    store.add_listener(Broken())
+    store.add_listener(survivor)
+
+    await store.plan_published(Site.GN)
+
+    assert survivor.published == [Site.GN]
+
+
+@pytest.mark.asyncio
+async def test_reset_tells_listeners_the_night_is_over():
+    store = store_with(stitched_plans=[fake_plan('GN-1')])
+    listener = RecordingListener()
+    store.add_listener(listener)
+
+    await store.reset()
+
+    assert listener.resets == 1
