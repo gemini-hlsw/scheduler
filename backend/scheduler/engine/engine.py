@@ -26,7 +26,7 @@ __all__ = [
     'Engine'
 ]
 
-from ..core.components.ranker import DefaultRanker, AdditiveRanker
+from ..core.components.ranker import ranker_class
 
 from ..core.events.cycle.cycle import EventCycle
 # from ..core.output import print_collector_info
@@ -105,20 +105,15 @@ class Engine:
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
 
-        # Simple selection of different rankers, for now they must use the same parameters
-        match config.ranker.name.upper():
-            case 'DEFAULT':
-                ranker = DefaultRanker(collector,
-                               self.params.night_indices,
-                               self.params.sites,
-                               params = self.params.ranker_parameters,)
-            case 'ADDITIVE':
-                ranker = AdditiveRanker(collector,
-                               self.params.night_indices,
-                               self.params.sites,
-                               params = self.params.ranker_parameters,)
-            case _:
-                raise ConfigurationError('Ranker', config.ranker.name)
+        requested_ranker = self.params.ranker or config.ranker.name
+        try:
+            ranker_cls = ranker_class(requested_ranker)
+        except KeyError:
+            raise ConfigurationError('Ranker', requested_ranker)
+        ranker = ranker_cls(collector,
+                            self.params.night_indices,
+                            self.params.sites,
+                            params=self.params.ranker_parameters)
 
         return SCP(collector, selector, optimizer, ranker)
 

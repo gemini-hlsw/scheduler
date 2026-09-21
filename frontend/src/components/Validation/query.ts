@@ -14,6 +14,7 @@ export const scheduleQuery = graphql(`
     $whaPower: Float
     $airPower: Float
     $visPower: Float
+    $ranker: RankerName
     $programs: [String!]!
   ) {
     schedule(
@@ -29,6 +30,7 @@ export const scheduleQuery = graphql(`
         whaPower: $whaPower
         airPower: $airPower
         visPower: $visPower
+        ranker: $ranker
         semesterVisibility: $semesterVisibility
         numNightsToSchedule: $numNightsToSchedule
         programs: $programs

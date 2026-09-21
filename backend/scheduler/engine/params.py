@@ -11,7 +11,7 @@ from lucupy.minimodel import Site, ALL_SITES, Semester, NightIndex
 from pydantic import BaseModel, Field, field_validator
 
 from scheduler.core.builder.modes import SchedulerModes
-from scheduler.core.components.ranker import RankerParameters
+from scheduler.core.components.ranker import RankerName, RankerParameters
 
 
 __all__ = [
@@ -41,6 +41,9 @@ class SchedulerParameters:
         programs_list (List[str], optional):  A list of ProgramID that allows a specific selection of programs to run.
             Defaults to None. If None, the default programs list in scheduler/data would be used.
         use_local_visibility: bool: Allow using local calculations instead of parameters
+        ranker (RankerName, optional): Which Ranker scores this run. VALIDATION only, so the
+            scoring algorithms can be compared side by side. Defaults to None, which uses
+            config.ranker.name.
     Examples:
         ```python
 
@@ -66,8 +69,18 @@ class SchedulerParameters:
     # None defers to the global `collector.visibility_strategy` config; an
     # explicit True/False overrides it.
     use_local_visibility: Optional[bool] = None
+    # None defers to `config.ranker.name`. VALIDATION only - see __post_init__.
+    ranker: Optional[RankerName] = None
 
     def __post_init__(self):
+        # Picking a Ranker per run is a VALIDATION affordance for comparing scoring
+        # algorithms side by side. Rejecting it elsewhere rather than ignoring it: the
+        # real-time engine hardcodes DefaultRanker, so a silently dropped choice would
+        # look like it worked and produce plans scored by something else.
+        if self.ranker is not None and self.mode is not SchedulerModes.VALIDATION:
+            raise ValueError(f'A ranker can only be selected per run in VALIDATION mode, '
+                             f'not {self.mode.name}. Set config.ranker.name instead.')
+
         if self.end is not None and self.end > self.start:
             # The semester methods work on local dates, so have to subtract 1 day from UT dates
             self.semesters = frozenset([Semester.find_semester_from_date(self.start - timedelta(days=1)),
@@ -108,7 +121,11 @@ class SchedulerParameters:
                                                     vis_power=float(received_params['rankerParameters']['visPower'])),
                                    received_params['semesterVisibility'],
                                    received_params['numNightsToSchedule'],
-                                   None)
+                                   None,
+                                   # Absent in payloads written before the ranker became
+                                   # selectable, so fall back to config.ranker.name.
+                                   ranker=(RankerName[received_params['ranker'].upper()]
+                                           if received_params.get('ranker') else None))
 
     def __str__(self) -> str:
         return "Scheduler Parameters:\n" + \

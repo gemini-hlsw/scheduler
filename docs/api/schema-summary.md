@@ -40,6 +40,7 @@ input CreateNewScheduleInput {
   whaPower: Float = 1
   airPower: Float = 0
   programs: [String!] = null
+  ranker: RankerName = null
 }
 
 """Date (isoformat)"""
@@ -137,6 +138,11 @@ type Query {
   observationCoverage(nightDate: Date = null, status: ObservationStatus = null, site: String = null, programLabel: String = null, search: String = null, limit: Int! = 50, offset: Int! = 0): ObservationCoveragePage!
   visibleObservations(site: String!, nightDate: Date = null, limit: Int! = 50, offset: Int! = 0, minRemainingMinutes: Int! = 1): VisibleObservationsPage!
   buildParameters: BuildParametersResponse!
+}
+
+enum RankerName {
+  DEFAULT
+  ADDITIVE
 }
 
 type SConditions {
