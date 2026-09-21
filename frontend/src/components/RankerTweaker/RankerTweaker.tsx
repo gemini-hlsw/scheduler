@@ -3,6 +3,7 @@ import { GlobalStateContext } from "../GlobalState/GlobalState";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
+import { RankerName } from "@/gql/graphql";
 
 export default function RankerTweaker({
   vertical = false,
@@ -22,7 +23,14 @@ export default function RankerTweaker({
     setWhaPower,
     airPower,
     setAirPower,
+    ranker,
+    setRanker,
   } = useContext(GlobalStateContext);
+
+  const powerMeaning =
+    ranker === "ADDITIVE"
+      ? "Additive: MET/VIS/WHA are linear weights (terms are summed)."
+      : "Default: MET/VIS/WHA are exponents (terms are multiplied).";
 
   return (
     <div
@@ -38,6 +46,26 @@ export default function RankerTweaker({
           vertical ? "flex-col" : "flex-row"
         )}
       >
+        <Field orientation={vertical ? "horizontal" : "vertical"}>
+          <FieldLabel className={vertical ? "w-1/2" : "w-fit"} htmlFor="ranker">
+            Ranker
+          </FieldLabel>
+          <select
+            className={cn(
+              "border-input dark:bg-input/30 h-9 min-w-0 rounded-md border bg-transparent",
+              "px-3 py-1 text-base shadow-xs outline-none md:text-sm",
+              "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+              vertical ? "w-1/2" : "w-fit"
+            )}
+            id="ranker"
+            title={powerMeaning}
+            onChange={(e) => setRanker(e.target.value as RankerName)}
+            value={ranker}
+          >
+            <option value="DEFAULT">Default</option>
+            <option value="ADDITIVE">Additive</option>
+          </select>
+        </Field>
         <Field orientation={vertical ? "horizontal" : "vertical"}>
           <FieldLabel className={vertical ? "w-1/2" : "w-fit"} htmlFor="thesis">
             Thesis factor
@@ -134,6 +162,7 @@ export default function RankerTweaker({
           />
         </Field>
       </div>
+      <p className="text-muted-foreground text-xs">{powerMeaning}</p>
     </div>
   );
 }

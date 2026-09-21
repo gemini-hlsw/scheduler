@@ -126,7 +126,8 @@ class Query:
                                      ranker_params,
                                      new_schedule_input.semester_visibility,
                                      new_schedule_input.num_nights_to_schedule,
-                                     programs_list)
+                                     programs_list,
+                                     ranker=new_schedule_input.ranker)
 
         task = asyncio.create_task(_run_schedule_and_publish(schedule_id, params))
         _schedule_tasks.add(task)
