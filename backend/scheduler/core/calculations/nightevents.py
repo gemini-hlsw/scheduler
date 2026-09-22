@@ -26,6 +26,11 @@ __all__ = [
 ]
 
 
+def _utc_str(t: Time) -> str:
+    """An astropy Time as 'YYYY-MM-DD HH:MM' UTC, for operator-facing messages."""
+    return t.utc.iso[:16]
+
+
 @final
 @immutable
 @dataclass(frozen=True)
@@ -90,9 +95,21 @@ class NightEvents:
 
         # Make a shorter night if start and end is provided.
         # Replace the first time_starts and time_ends if between twilights.
-        if self.night_start_time is not None and time_starts[0] < self.night_start_time < time_ends[0]:
+        if self.night_start_time is not None:
+            if not time_starts[0] < self.night_start_time < time_ends[0]:
+                raise ValueError(
+                    f'{self.site.name} night start {_utc_str(self.night_start_time)} is outside the night '
+                    f'being built ({_utc_str(time_starts[0])} to {_utc_str(time_ends[0])} UTC, '
+                    f'evening to morning twilight).'
+                )
             time_starts[0] = self.night_start_time
-        if self.night_end_time is not None and time_starts[0] < self.night_end_time < time_ends[0]:
+        if self.night_end_time is not None:
+            if not time_starts[0] < self.night_end_time < time_ends[0]:
+                raise ValueError(
+                    f'{self.site.name} night end {_utc_str(self.night_end_time)} is outside '
+                    f'{_utc_str(time_starts[0])} to {_utc_str(time_ends[0])} UTC (the night start, custom '
+                    f'or twilight, to morning twilight).'
+                )
             time_ends[0] = self.night_end_time
 
         n = ((time_ends.jd - time_starts.jd) / timeslot_length_days + 0.5).astype(int)
