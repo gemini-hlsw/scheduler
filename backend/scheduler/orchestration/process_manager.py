@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
 
 from scheduler.config import config
@@ -10,6 +9,7 @@ from scheduler.core.builder.modes import is_operation
 from scheduler.services.logger_factory import create_logger
 from scheduler.orchestration.scheduler_process import SchedulerProcess
 from scheduler.engine import SchedulerParameters
+from scheduler.engine.params import default_operation_parameters
 from scheduler.services.ephemeris import EphemerisLookup
 
 _logger = create_logger(__name__, with_id=False)
@@ -65,26 +65,12 @@ class ProcessManager:
         # Add the process without parameters as those should be setup separately
         from lucupy.minimodel import ALL_SITES
 
-        # Calculate default date
-        current_ut = datetime.now(timezone.utc)
-        # Set date to yesterday if current time is before 7pm UTC, otherwise set it to tmo
-        if current_ut.hour < 19:
-            default_start = datetime.now(timezone.utc).replace(hour=8, minute=0, second=0, microsecond=0)
-            default_end = default_start + timedelta(days=14)
-        else:
-            default_start = datetime.now(timezone.utc).replace(hour=8, minute=0, second=0, microsecond=0) + timedelta(days=1)
-            default_end = default_start + timedelta(days=14)
+        params = default_operation_parameters()
 
         if config.app.external_ephemerides:
             for site in ALL_SITES:
-                await EphemerisLookup().load_from_s3(site, default_start, default_end)
+                await EphemerisLookup().load_from_s3(site, params.start, params.end)
 
-        params = SchedulerParameters(
-            start=default_start,
-            end=default_end,
-            semester_visibility=False,
-            num_nights_to_schedule=1,
-        )
         await self.add_scheduler_process(process_id, params)
         self.operation_process_id = process_id
         _logger.info(f"Set operation process ID: {process_id}")
