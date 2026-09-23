@@ -345,35 +345,41 @@ class NightlyTimeline:
     def to_json(self) -> dict:
         utc = ZoneInfo('UTC')
         return {
-            n_idx: {site.name: [{'startTimeSlot': te.start_time_slot,
-                                 'event': {'site': te.event.site.name,
-                                           'time': te.event.time.strftime(self._datetime_formatter),
-                                           'description': te.event.description,
-                                           },
-                                 'plan': {'start': te.plan_generated.start.astimezone(utc).strftime(self._datetime_formatter),
-                                           'end': te.plan_generated.end.astimezone(utc).strftime(self._datetime_formatter),
-                                           'site': te.plan_generated.site.name,
-                                           'visits': [{"starTime": v.start_time.astimezone(utc).strftime(self._datetime_formatter),
-                                                       "endTime": (v.start_time+
-                                                                   v.time_slots*te.plan_generated.time_slot_length).strftime(self._datetime_formatter),
-                                                       "obsId": v.observation.id.id,
-                                                       "atomStartIdx": v.atom_start_idx,
-                                                       "atomEndIdx": v.atom_end_idx,
-                                                       "altitude": alt,
-                                                       "instrument": inst.id if (inst := v.observation.instrument()) else '',
-                                                       "obs_class": v.observation.obs_class.name,
-                                                       "score": v.score,
-                                                       "peakScore": v.peak_score,
-                                                       "completion": v.completion}
-                                                      for v, alt in zip(te.plan_generated.visits, te.plan_generated.alt_degs)],
-                                           'nightStats': {
-                                               'timeLoss': te.plan_generated.night_stats.time_loss,
-                                               'planScore': te.plan_generated.night_stats.plan_score,
-                                               'completionFraction': te.plan_generated.night_stats.completion_fraction,
-                                               'programCompletion': te.plan_generated.night_stats.program_completion
-                                           }
-                                          } if te.plan_generated else {}
-                                 } for te in time_entries]
-             for site, time_entries in by_site.items()
-                    } for n_idx, by_site in self.timeline.items()
+            n_idx: {
+                site.name: [
+                    {
+                        'startTimeSlot': te.start_time_slot,
+                        'event': {
+                            'site': te.event.site.name,
+                            'time': te.event.time.strftime(self._datetime_formatter),
+                            'description': te.event.description,
+                        },
+                        'plan': {
+                            'start': te.plan_generated.start.astimezone(utc).strftime(self._datetime_formatter),
+                            'end': te.plan_generated.end.astimezone(utc).strftime(self._datetime_formatter),
+                            'site': te.plan_generated.site.name,
+                            'visits': [
+                                {
+                                    "starTime": v.start_time.astimezone(utc).strftime(self._datetime_formatter),
+                                    "endTime": (v.start_time + v.time_slots*te.plan_generated.time_slot_length).strftime(self._datetime_formatter),
+                                    "obsId": v.observation.id.id,
+                                    "atomStartIdx": v.atom_start_idx,
+                                    "atomEndIdx": v.atom_end_idx,
+                                    "altitude": alt,
+                                    "instrument": inst.id if (inst := v.observation.instrument()) else '',
+                                    "obs_class": v.observation.obs_class.name,
+                                    "score": v.score,
+                                    "peakScore": v.peak_score,
+                                    "completion": v.completion
+                                } for v, alt in zip(te.plan_generated.visits, te.plan_generated.alt_degs)],
+                            'nightStats': {
+                                'timeLoss': te.plan_generated.night_stats.time_loss,
+                                'planScore': te.plan_generated.night_stats.plan_score,
+                                'completionFraction': te.plan_generated.night_stats.completion_fraction,
+                                'programCompletion': te.plan_generated.night_stats.program_completion
+                            }
+                        } if te.plan_generated else {}
+                    } for te in time_entries
+                ] for site, time_entries in by_site.items()
+            } for n_idx, by_site in self.timeline.items()
         }

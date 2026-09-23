@@ -58,8 +58,14 @@ class StatCalculator:
 
                     if entry_idx == len(timeline.stitched_timeline[night_idx][site]) - 1:
                         for v in plan.visits:
-                            obs = collector.get_observation(v.observation.id)
+                            # The visit keeps its own Observation: in RT the collector is rebuilt on every
+                            # event, so observations from earlier plans might not be in it anymore.
+                            obs = v.observation
                             program = collector.get_program(obs.belongs_to)
+                            if program is None:
+                                logger.warning(f'Program {obs.belongs_to.id} for observation {obs.id.id} '
+                                               f'not found in the collector, skipping it in the run summary.')
+                                continue
 
                             # Check if program is on the table
                             metrics_per_program.setdefault(program.id, 0.0)
@@ -76,8 +82,14 @@ class StatCalculator:
                     plan_conditions = []
                     completion_fraction: Counter[Band] = Counter({b: 0 for b in Band})
 
+                    # Altitudes are only calculated once per plan: previous entries are revisited on every
+                    # RT event, and their target info might not be in the current collector anymore.
+                    calculate_alt_degs = len(plan.alt_degs) != len(plan.visits)
+                    if calculate_alt_degs:
+                        plan.alt_degs = []
+
                     for visit in plan.visits:
-                        obs = collector.get_observation(visit.observation.id)
+                        obs = visit.observation
                         # check if obs is a too
                         if obs.too_type is not None:
                             n_toos += 1
@@ -92,7 +104,14 @@ class StatCalculator:
                         completion_fraction[obs.band] += 1
 
                         # Calculate altitude data
-                        ti = collector.get_target_info(visit.observation.id)
+                        if not calculate_alt_degs:
+                            continue
+                        ti = collector.get_target_info(obs.id)
+                        if ti is None or night_idx not in ti:
+                            logger.warning(f'No target info for observation {obs.id.id} on night {night_idx}.')
+                            # Keep alt_degs aligned with the visits, as they are zipped together.
+                            plan.alt_degs.append([])
+                            continue
                         end_time_slot = visit.start_time_slot + visit.time_slots
                         values = ti[night_idx].alt[visit.start_time_slot: end_time_slot]
                         alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
