@@ -99,6 +99,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
     "GSAOI",
     "GPI",
     "IGRINS",
+    "IGRINS-2",
     "NIFS",
     "Alopeke",
   ];
