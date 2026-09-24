@@ -23,7 +23,7 @@ _BASE_MODULE = "scheduler.night_monitor.event_handlers.event_handler"
 _RAW = {
     "weatherUpdates": {
         "site": "GN",
-        "imageQuality": ImageQuality.IQ70.value,
+        "imageQuality": 0.7,
         "cloudCover": CloudCover.CC50.value,
         "windDirection": 90.0,
         "windSpeed": 5.0,

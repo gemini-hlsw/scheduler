@@ -110,7 +110,7 @@ class OpsEnvService(ExternalService):
             return None
 
         df_iq = filtered_df[OpsEnvService._iq_col_initial].iloc[0]
-        iq = ImageQuality.IQ70 if df_iq == 'na' else (ImageQuality(int(df_iq)/100) if df_iq != 'ANY' else ImageQuality.IQANY)
+        iq = ImageQuality(0.7) if df_iq == 'na' else (ImageQuality(int(df_iq)/100) if df_iq != 'ANY' else ImageQuality(1.0))
         df_cc = filtered_df[OpsEnvService._cc_col_initial].iloc[0]
         cc = CloudCover.CC70 if df_cc == 'na' else (CloudCover(int(df_cc)/100) if df_cc != 'ANY' else CloudCover.CCANY)
 
