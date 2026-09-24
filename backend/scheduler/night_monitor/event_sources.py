@@ -11,6 +11,8 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from urllib.parse import urlparse
 from os import environ
 
+from scheduler.services.resource.telescope_nights_query import RESOURCE_URL, TELESCOPE_NIGHTS_QUERY
+
 __all__ = [
     "EventSourceType",
     "ODB_OPEN_TIMEOUT",
@@ -39,17 +41,34 @@ class ResourceEventSource(EventSource):
 
     def __init__(self, client):
         super().__init__(client, EventSourceType.RESOURCE)
+        url_parsed = urlparse(RESOURCE_URL)
+        ws_protocol = "wss" if url_parsed.scheme == "https" else "ws"
+        resource_ws_url = f"{ws_protocol}://{url_parsed.netloc}{url_parsed.path}"
+        self.ws_transport = AIOHTTPWebsocketsTransport(url=resource_ws_url)
+        self.transport = AIOHTTPTransport(url=RESOURCE_URL)
 
-    def get_current_state(self) -> Any:
-        return
+        # self.subscription = gql(
+        #     """
+        #     subscription resourceUpdates {}
+        #     """
+        # )
+
+        self.query = TELESCOPE_NIGHTS_QUERY
+
+        self.ws_resource_client = Client(transport=self.ws_transport)
+        self.resource_client = Client(transport=self.transport)
+
+    async def get_current_state(self) -> Any:
+        result = await self.resource_client.execute_async(self.query)
+        return result['resource']
 
     def subscriptions(self) -> List[Tuple[str ,callable]]:
         # No subscriptions yet!
         return [
             # (
             #     ResourceEventSource.RESOURCE_EDIT,
-            #     lambda x: self._client.subscribe(ResourceEventSource.RESOURCE_EDIT),
-            #     None
+            #     lambda x: x.subscribe(self.subscription),
+            #     self.ws_resource_client
             # )
         ]
 

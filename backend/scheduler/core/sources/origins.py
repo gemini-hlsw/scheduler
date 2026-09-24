@@ -137,16 +137,17 @@ class OpsOrigin(Origin):
 
     def load(self) -> OpsOrigin:
         if not self._is_loaded:
-            try:
-                with open(OpsOrigin._resource_path, 'rb') as res_pickle:
-                    self.resource = pickle.load(res_pickle)
-                    logger.debug('Read Ops Resource service from pickle.')
-            except Exception:
-                logger.debug('Creating and pickling Ops Resource service.')
-                self.resource = OpsResourceService()
-                OpsOrigin._resource_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(OpsOrigin._resource_path, 'wb') as res_pickle:
-                    pickle.dump(self.resource, res_pickle)
+            self.resource = OpsResourceService()
+            # try:
+            #     with open(OpsOrigin._resource_path, 'rb') as res_pickle:
+            #         self.resource = pickle.load(res_pickle)
+            #         logger.debug('Read Ops Resource service from pickle.')
+            # except Exception:
+            #     logger.debug('Creating and pickling Ops Resource service.')
+            #     self.resource = OpsResourceService()
+            #     OpsOrigin._resource_path.parent.mkdir(parents=True, exist_ok=True)
+            #     with open(OpsOrigin._resource_path, 'wb') as res_pickle:
+            #         pickle.dump(self.resource, res_pickle)
 
             try:
                 with open(OpsOrigin._env_path, 'rb') as res_env:

@@ -110,9 +110,6 @@ class EventCycle:
         else:
             # the site becomes unblocked
             logger.debug(f'Site {site.site_name} for {night_idx} blocked at timeslot {current_timeslot}.')
-            # import pdb
-            # pdb.set_trace()
-            # pdb.set_trace = lambda: None
             nightly_timeline.add(
                 NightIndex(night_idx),
                 site,
