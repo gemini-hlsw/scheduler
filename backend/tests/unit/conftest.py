@@ -139,7 +139,7 @@ class RTEventFactory:
     def weather(self,
                 site: Site = Site.GN,
                 time: datetime = DEFAULT_TIME,
-                iq: ImageQuality = ImageQuality.IQ70,
+                iq: ImageQuality = ImageQuality(0.7),
                 cc: CloudCover = CloudCover.CC50,
                 wind_dir: float = 330.0,
                 wind_spd: float = 5.0) -> WeatherChangeEvent:
