@@ -608,7 +608,8 @@ class GppProgramProvider(ProgramProvider):
                (SkyBackground, GppProgramProvider._ConstraintKeys.SB),
                (WaterVapor, GppProgramProvider._ConstraintKeys.WV)]])
 
-    def parse_constraints(self, data: dict, wavelength: Wavelength) -> Constraints:
+    def parse_constraints(self, data: dict, site: Site, base: Optional[Target],
+                          wavelength: Optional[Wavelength] = None) -> Constraints:
 
         # Parse the timing windows.
         timing_windows = [self.parse_timing_window(tw_data)
@@ -617,20 +618,17 @@ class GppProgramProvider(ProgramProvider):
         # Get the elevation data
         elevation_min, elevation_max, elevation_type = self.parse_elevation(
             data[GppProgramProvider._ConstraintKeys.KEY][GppProgramProvider._ConstraintKeys.ELEVATION])
+        elevation = self.elevation_limits(elevation_type, elevation_min, elevation_max, site, base)
 
         # Get the conditions
         # ToDo: support GPP on-target conditions constraints rather than converting to percentile bins
-        if elevation_type == ElevationType['AIRMASS']:
-            airmass_max = elevation_max
-        else:
-            airmass_max = 2.0  # should be converted from the max |HA|, but this is better than otherwise
+        # The airmass is unknown for hour angle constraints of nonsidereal targets.
+        airmass_max = elevation.airmass_max if elevation.airmass_max is not None else 2.0
         conditions = self.parse_conditions(data[GppProgramProvider._ConstraintKeys.KEY], airmass_max, wavelength)
 
         return Constraints(
             conditions=conditions,
-            elevation_type=elevation_type,
-            elevation_min=elevation_min,
-            elevation_max=elevation_max,
+            elevation=elevation,
             timing_windows=timing_windows,
             strehl=None)
 
@@ -1181,13 +1179,6 @@ class GppProgramProvider(ProgramProvider):
                          f'\t\t calibration_role: {calibration_role}'
                          f'\t\t acq_overhead: {acq_overhead}')
 
-            # Constraints
-            find_constraints = {
-                GppProgramProvider._ConstraintKeys.KEY: data[GppProgramProvider._ConstraintKeys.KEY],
-                GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]
-            }
-            constraints = self.parse_constraints(find_constraints, wavelength) if find_constraints and wavelength else None
-            # print(f'\t\t constraints = {constraints}')
             # QA states, needed?
             # qa_states = [QAState[log_entry[GppProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
             #              data[GppProgramProvider._ObsKeys.LOG]]
@@ -1293,6 +1284,15 @@ class GppProgramProvider(ProgramProvider):
                 # if (GppProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID in data and
                 #         data[GppProgramProvider._ObsKeys.TOO_OVERRIDE_RAPID]):
                 #     too_type = TooType.RAPID
+
+            # Constraints, parsed after the targets as the elevation limits depend on the base target.
+            base_target = targets[0] if targets[0] is not GppProgramProvider._EMPTY_BASE_TARGET else None
+            find_constraints = {
+                GppProgramProvider._ConstraintKeys.KEY: data[GppProgramProvider._ConstraintKeys.KEY],
+                GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]}
+            constraints = (self.parse_constraints(find_constraints, site, base_target, wavelength)
+                           if find_constraints and wavelength else None)
+            # print(f'\t\t constraints = {constraints}')
 
             return GeminiObservation(
                 id=ObservationID(obs_id),

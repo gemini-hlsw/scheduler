@@ -4,7 +4,7 @@ from astropy.coordinates import Angle, SkyCoord
 import astropy.units as u
 from pydantic import BaseModel, ConfigDict, Field
 
-from lucupy.minimodel import SkyBackground, Constraints  # noqa: F401 - SkyBackground re-exported via calculations.__init__
+from lucupy.minimodel import SkyBackground, Constraints, ElevationLimits  # noqa: F401 - SkyBackground re-exported via calculations.__init__
 import lucupy.sky as sky
 
 from scheduler.services.sight.calculations.arrays import unpack_array
@@ -110,8 +110,12 @@ def calculate_visibility(
     if constraints.elevation_type == ElevationType.AIRMASS:
         mask &= (airmass >= constraints.elevation_min) & (airmass <= constraints.elevation_max)
     elif constraints.elevation_type == ElevationType.HOUR_ANGLE:
-        hourangle_deg = np.degrees(hourangle)
-        mask &= (hourangle_deg >= constraints.elevation_min) & (hourangle_deg <= constraints.elevation_max)
+        # Hour angle constraints are in hours.
+        hourangle_hours = np.degrees(hourangle) / 15.0
+        mask &= (hourangle_hours >= constraints.elevation_min) & (hourangle_hours <= constraints.elevation_max)
+        # Within the hour angle limits the airmass is at most the one at the limits, so the equivalent
+        # airmass constraint (sky.hour_angle_to_airmass_limits) only adds the airmass cap.
+        mask &= airmass <= ElevationLimits.AIRMASS_LIMIT
     # NONE: use default airmass
     elif constraints.elevation_type == ElevationType.NONE:
         mask &= ((airmass >= Constraints.DEFAULT_AIRMASS_ELEVATION_MIN) &
