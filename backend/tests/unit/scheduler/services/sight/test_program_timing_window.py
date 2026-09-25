@@ -9,7 +9,7 @@ visible across the whole semester.
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from lucupy.minimodel import ElevationType, SkyBackground
+from lucupy.minimodel import ElevationLimits, ElevationType, SkyBackground
 
 from scheduler.services.sight._temporary.lucupy_adapters import (
     program_window,
@@ -27,9 +27,8 @@ def _obs(timing_windows, with_constraints=True):
     cond = SimpleNamespace(sb=SkyBackground.SBANY)
     constraints = SimpleNamespace(
         conditions=cond,
-        elevation_type=ElevationType.AIRMASS,
-        elevation_min=1.0,
-        elevation_max=2.0,
+        elevation=ElevationLimits(elevation_type=ElevationType.AIRMASS,
+                                  ha_min=None, ha_max=None, airmass_min=1.0, airmass_max=2.0),
         timing_windows=timing_windows,
     )
     return SimpleNamespace(constraints=constraints)

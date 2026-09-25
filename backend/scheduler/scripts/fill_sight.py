@@ -41,7 +41,6 @@ from scheduler.services.sight.calculator.calculator import Calculator
 from scheduler.services.sight.calculator.constants import SITE_KEY_TO_ID
 from scheduler.services.sight.database.models import VisibilityData
 from scheduler.services.sight.calculator.models import (
-    ElevationType,
     ObservationConstraints,
     ObservationRequest,
     TargetCreate,
@@ -52,6 +51,7 @@ from scheduler.services.sight.database.connection import (
     session_scope,
 )
 from scheduler.services.sight._temporary.lucupy_adapters import (
+    elevation_constraints,
     expand_timing_windows,
     program_window,
 )
@@ -142,11 +142,12 @@ def _constraints_payload(
     )
     if not timing_windows:
         timing_windows = program_window(program_start, program_end)
+    elevation_type, elevation_min, elevation_max = elevation_constraints(constraints.elevation)
     return ObservationConstraints(
         target_sb=target_sb,
-        elevation_type=ElevationType(constraints.elevation_type.name.lower()),
-        elevation_min=float(constraints.elevation_min),
-        elevation_max=float(constraints.elevation_max),
+        elevation_type=elevation_type,
+        elevation_min=float(elevation_min),
+        elevation_max=float(elevation_max),
         timing_windows=timing_windows,
         has_resources=True,
         can_schedule=True,
