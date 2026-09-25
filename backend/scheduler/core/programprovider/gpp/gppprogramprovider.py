@@ -586,8 +586,17 @@ class GppProgramProvider(ProgramProvider):
                 else:
                     return bin_value
             elif cond == GppProgramProvider._ConstraintKeys.IQ:
-                percentile_iq = Conditions.percentile_iq(value, wavelength, x_max)
-                return percentile_iq / 100.0
+                if wavelength is not None:
+                    percentile_iq = Conditions.percentile_iq(value, wavelength, x_max)
+                    return percentile_iq / 100.0
+
+                # If no wavelength is provided, use the default
+                bin_value = iq_bin_values[-1]
+                iqzen = value * x_max ** -0.6
+                for i_bin, bin_lim in enumerate(iq_bins):
+                    if iqzen <= bin_lim:
+                        bin_value = iq_bin_values[i_bin]
+                return bin_value
             else:
                 return value
 
