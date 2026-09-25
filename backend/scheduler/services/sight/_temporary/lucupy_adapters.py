@@ -2,9 +2,10 @@
 
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import astropy.units as u
+from lucupy.minimodel import ElevationLimits, ElevationType
 from lucupy.minimodel.target import NonsiderealTarget, SiderealTarget
 from lucupy.minimodel.timingwindow import TimingWindow
 
@@ -102,6 +103,17 @@ def target_create(target) -> Optional[SightTargetCreate]:
     return None
 
 
+def elevation_constraints(elevation: ElevationLimits) -> Tuple[SightElevationType, float, float]:
+    """Sight elevation type, min and max from the limits that were given in the lucupy ElevationLimits.
+
+    Used by both the realtime collector and scripts/fill_sight.py.
+    """
+    if elevation.elevation_type == ElevationType.HOUR_ANGLE:
+        return SightElevationType.HOUR_ANGLE, elevation.ha_min, elevation.ha_max
+    return (SightElevationType(elevation.elevation_type.name.lower()),
+            elevation.airmass_min, elevation.airmass_max)
+
+
 def expand_timing_windows(windows, range_end: datetime) -> List[SightTimingWindow]:
     """Expand lucupy TimingWindow repeats into flat sight TimingWindow pairs.
 
@@ -192,11 +204,12 @@ def stage2_constraints(
     )
     if not timing_windows:
         timing_windows = program_window(program_start, program_end)
+    elevation_type, elevation_min, elevation_max = elevation_constraints(constraints.elevation)
     return SightObservationConstraints(
         target_sb=target_sb,
-        elevation_type=SightElevationType(constraints.elevation_type.name.lower()),
-        elevation_min=float(constraints.elevation_min),
-        elevation_max=float(constraints.elevation_max),
+        elevation_type=elevation_type,
+        elevation_min=float(elevation_min),
+        elevation_max=float(elevation_max),
         timing_windows=timing_windows,
         has_resources=has_resources,
         can_schedule=can_schedule,

@@ -475,7 +475,7 @@ class OcsProgramProvider(ProgramProvider):
                (SkyBackground, OcsProgramProvider._ConstraintKeys.SB),
                (WaterVapor, OcsProgramProvider._ConstraintKeys.WV)]])
 
-    def parse_constraints(self, data: dict) -> Constraints:
+    def parse_constraints(self, data: dict, site: Site, base: Optional[Target]) -> Constraints:
         # Get the conditions
         conditions = self.parse_conditions(data)
 
@@ -488,12 +488,11 @@ class OcsProgramProvider(ProgramProvider):
         elevation_type = ElevationType[elevation_type_data]
         elevation_min = data[OcsProgramProvider._ConstraintKeys.ELEVATION_MIN]
         elevation_max = data[OcsProgramProvider._ConstraintKeys.ELEVATION_MAX]
+        elevation = self.elevation_limits(elevation_type, elevation_min, elevation_max, site, base)
 
         return Constraints(
             conditions=conditions,
-            elevation_type=elevation_type,
-            elevation_min=elevation_min,
-            elevation_max=elevation_max,
+            elevation=elevation,
             timing_windows=timing_windows,
             strehl=None)
 
@@ -1088,10 +1087,6 @@ class OcsProgramProvider(ProgramProvider):
             setuptime_type = SetupTimeType[data[OcsProgramProvider._ObsKeys.SETUPTIME_TYPE]]
             acq_overhead = timedelta(milliseconds=data[OcsProgramProvider._ObsKeys.SETUPTIME])
 
-            find_constraints = [data[key] for key in data.keys()
-                                if key.startswith(OcsProgramProvider._ConstraintKeys.KEY)]
-            constraints = self.parse_constraints(find_constraints[0]) if find_constraints else None
-
             # TODO: Do we need this? It is being passed to the parse_atoms method.
             # TODO: We have a qaState on the Observation as well.
             qa_states = [QAState[log_entry[OcsProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
@@ -1197,6 +1192,13 @@ class OcsProgramProvider(ProgramProvider):
                 for user_target_data in user_targets_data:
                     user_target = self.parse_target(user_target_data)
                     targets.append(user_target)
+
+            # Constraints, parsed after the targets as the elevation limits depend on the base target.
+            base_target = targets[0] if targets[0] is not OcsProgramProvider._EMPTY_BASE_TARGET else None
+            find_constraints = [data[key] for key in data.keys()
+                                if key.startswith(OcsProgramProvider._ConstraintKeys.KEY)]
+            constraints = (self.parse_constraints(find_constraints[0], site, base_target)
+                           if find_constraints else None)
 
             return GeminiObservation(
                 id=ObservationID(obs_id),
