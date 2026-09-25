@@ -596,6 +596,7 @@ class GppProgramProvider(ProgramProvider):
                 for i_bin, bin_lim in enumerate(iq_bins):
                     if iqzen <= bin_lim:
                         bin_value = iq_bin_values[i_bin]
+                        break
                 return bin_value
             else:
                 return value
