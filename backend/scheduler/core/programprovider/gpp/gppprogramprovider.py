@@ -553,7 +553,7 @@ class GppProgramProvider(ProgramProvider):
 
         return elevation_min, elevation_max, elevation_type
 
-    def parse_conditions(self, data: dict, x_max: float) -> Conditions:
+    def parse_conditions(self, data: dict, x_max: float, wavelength: Wavelength) -> Conditions:
         def to_value(cond: str) -> float:
             """
             Parse the conditions value as a float out of the string passed by the GPP program extractor.
@@ -582,21 +582,24 @@ class GppProgramProvider(ProgramProvider):
                 bin_value = cc_bin_values[-1]
                 for i_bin, bin_lim in enumerate(cc_bins):
                     if value <= bin_lim:
-                        bin_value = cc_bin_values[i_bin]
-                        break
+                        return cc_bin_values[i_bin]
+                else:
+                    return bin_value
             elif cond == GppProgramProvider._ConstraintKeys.IQ:
+                if wavelength is not None:
+                    percentile_iq = Conditions.percentile_iq(value, wavelength, x_max)
+                    return percentile_iq / 100.0
+
+                # If no wavelength is provided, use the default
                 bin_value = iq_bin_values[-1]
                 iqzen = value * x_max ** -0.6
-                # print(value, iqzen)
                 for i_bin, bin_lim in enumerate(iq_bins):
                     if iqzen <= bin_lim:
                         bin_value = iq_bin_values[i_bin]
                         break
+                return bin_value
             else:
-                bin_value = value
-
-            return bin_value
-
+                return value
 
         return Conditions(
             *[lookup(to_percent_bin(key, data[key], x_max)) for lookup, key in
@@ -605,7 +608,7 @@ class GppProgramProvider(ProgramProvider):
                (SkyBackground, GppProgramProvider._ConstraintKeys.SB),
                (WaterVapor, GppProgramProvider._ConstraintKeys.WV)]])
 
-    def parse_constraints(self, data: dict) -> Constraints:
+    def parse_constraints(self, data: dict, wavelength: Wavelength) -> Constraints:
 
         # Parse the timing windows.
         timing_windows = [self.parse_timing_window(tw_data)
@@ -621,7 +624,7 @@ class GppProgramProvider(ProgramProvider):
             airmass_max = elevation_max
         else:
             airmass_max = 2.0  # should be converted from the max |HA|, but this is better than otherwise
-        conditions = self.parse_conditions(data[GppProgramProvider._ConstraintKeys.KEY], airmass_max)
+        conditions = self.parse_conditions(data[GppProgramProvider._ConstraintKeys.KEY], airmass_max, wavelength)
 
         return Constraints(
             conditions=conditions,
@@ -1128,16 +1131,6 @@ class GppProgramProvider(ProgramProvider):
             # print(f'\t\t cal_role_value = {cal_role_value}')
             calibration_role = CalibrationRole[cal_role_value] if cal_role_value is not None else None
 
-            # Constraints
-            find_constraints = {
-                GppProgramProvider._ConstraintKeys.KEY: data[GppProgramProvider._ConstraintKeys.KEY],
-                GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]}
-            constraints = self.parse_constraints(find_constraints) if find_constraints else None
-            # print(f'\t\t constraints = {constraints}')
-            # QA states, needed?
-            # qa_states = [QAState[log_entry[GppProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
-            #              data[GppProgramProvider._ObsKeys.LOG]]
-
             # observing mode (instrument config)
             resources, wavelength, mode = self.parse_observing_mode(data['observing_mode'])
             # print(f'\t\t resources: {resources}')
@@ -1149,6 +1142,17 @@ class GppProgramProvider(ProgramProvider):
                          f'\t\t mode: {mode}'
                          f'\t\t calibration_role: {calibration_role}'
                          f'\t\t acq_overhead: {acq_overhead}')
+
+            # Constraints
+            find_constraints = {
+                GppProgramProvider._ConstraintKeys.KEY: data[GppProgramProvider._ConstraintKeys.KEY],
+                GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]
+            }
+            constraints = self.parse_constraints(find_constraints, wavelength) if find_constraints and wavelength else None
+            # print(f'\t\t constraints = {constraints}')
+            # QA states, needed?
+            # qa_states = [QAState[log_entry[GppProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
+            #              data[GppProgramProvider._ObsKeys.LOG]]
 
             # Atoms
             sequence = data[GppProgramProvider._ObsKeys.SEQUENCE]

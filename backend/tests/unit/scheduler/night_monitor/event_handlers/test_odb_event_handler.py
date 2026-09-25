@@ -92,7 +92,7 @@ def _observation(label=_LABEL, status=ObservationStatus.READY, exec_minutes=30,
     built from the same defaults reads as unchanged.
     """
     if conditions is None:
-        conditions = Conditions(cc=CloudCover.CC70, iq=ImageQuality.IQ70,
+        conditions = Conditions(cc=CloudCover.CC70, iq=ImageQuality(0.7),
                                 sb=SkyBackground.SB80, wv=WaterVapor.WV80)
     return SimpleNamespace(
         id=ObservationID(label),
@@ -118,7 +118,7 @@ def _plan(visits=(), found=None, slot_minutes=1, conditions=None):
         time_slot_length=timedelta(minutes=slot_minutes),
         find=lambda obs_id: found,
         conditions=conditions if conditions is not None else SimpleNamespace(
-            cc=CloudCover.CC50, iq=ImageQuality.IQ20
+            cc=CloudCover.CC50, iq=ImageQuality(0.2)
         ),
     )
 
@@ -365,7 +365,7 @@ async def test_ready_in_plan_reports_changed_constraints(handler_factory):
     # description says what moved instead of just "was modified".
     planned = _observation(
         status=ObservationStatus.READY,
-        conditions=Conditions(cc=CloudCover.CC50, iq=ImageQuality.IQ20,
+        conditions=Conditions(cc=CloudCover.CC50, iq=ImageQuality(0.2),
                               sb=SkyBackground.SB20, wv=WaterVapor.WV20),
     )
     handler = handler_factory(_plan(visits=[_visit_spanning_now(planned)], found=planned))
@@ -396,7 +396,7 @@ async def test_ready_in_plan_flags_conditions_the_plan_cannot_meet(handler_facto
     handler = handler_factory(_plan(
         visits=[_visit_spanning_now(planned)],
         found=planned,
-        conditions=SimpleNamespace(cc=CloudCover.CCANY, iq=ImageQuality.IQANY),
+        conditions=SimpleNamespace(cc=CloudCover.CCANY, iq=ImageQuality(1.0)),
     ))
 
     await handler._on_updated_edit(_event(ObservationWorkflowState.READY))

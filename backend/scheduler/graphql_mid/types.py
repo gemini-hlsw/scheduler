@@ -10,7 +10,7 @@ import strawberry  # noqa
 from typing import Annotated, Union
 from strawberry.scalars import JSON  # noqa
 
-from lucupy.minimodel import CloudCover, ImageQuality, Site, VariantSnapshot, Conditions
+from lucupy.minimodel import CloudCover, Site, VariantSnapshot, Conditions
 
 from scheduler.core.events.queue import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
@@ -298,7 +298,6 @@ class SourceFileHandlerResponse:
 NewScheduleResponse = NewScheduleSuccess | NewScheduleError
 
 CC = strawberry.enum(CloudCover)
-IQ = strawberry.enum(ImageQuality)
 
 
 @strawberry.type
