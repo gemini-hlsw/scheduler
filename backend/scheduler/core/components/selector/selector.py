@@ -15,7 +15,7 @@ import lucupy.sky as sky
 from lucupy.helpers import is_contiguous
 from lucupy.minimodel import (Group, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
                               ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, TimeslotIndex,
-                              UniqueGroupID, Variant, VariantSnapshot, AndOption, ElevationType)
+                              UniqueGroupID, Variant, VariantSnapshot, AndOption)
 from lucupy.minimodel import CloudCover, ImageQuality
 from lucupy.timeutils import time2slots
 
@@ -293,23 +293,14 @@ class Selector(SchedulerComponent):
     def is_rising(self, obs, target_info):
         """Determine if an observation is rising"""
 
-        logger.debug(f'\nis_rising for {obs.id.id} with {obs.constraints.elevation_type}'
-                     f'\nelevation_max = {obs.constraints.elevation_max}')
+        logger.debug(f'\nis_rising for {obs.id.id} with {obs.constraints.elevation}')
 
-        # Get Hour Angle constraints
-        if obs.constraints.elevation_type == ElevationType.AIRMASS:
-            # Find HA for airmass, this is symmetrical, so can be pos or neg
-            alt_airmass_max = sky.airmass_to_alt(obs.constraints.elevation_max)
-            ha_airmass_max = sky.alt_to_hour_angle(target_info.coord.dec[0], obs.site.location.lat, alt_airmass_max)
-            # If +-1000, then no good
-            ha_airmass_max = 0.0 * u.rad if abs(ha_airmass_max.value) == 1000.0 else ha_airmass_max
-
-            # Corresponding hour angles
-            halim_min = -1.0 * ha_airmass_max
-            halim_max = ha_airmass_max
-        else:
-            halim_min = obs.constraints.elevation_min * u.hourangle
-            halim_max = obs.constraints.elevation_max * u.hourangle
+        # Get Hour Angle constraints. They are only missing if the dec was not known when parsing, e.g. nonsidereal.
+        limits = sky.complete_elevation_limits(obs.constraints.elevation,
+                                               target_info.coord.dec[0],
+                                               obs.site.location.lat)
+        halim_min = limits.ha_min * u.hourangle
+        halim_max = limits.ha_max * u.hourangle
 
         # Hour angles that match the constraints
         ha_match = np.where(np.logical_and(halim_min <= target_info.hourangle, target_info.hourangle <= halim_max))[0]

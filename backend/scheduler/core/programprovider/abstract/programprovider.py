@@ -4,9 +4,12 @@
 from abc import ABC, abstractmethod
 from typing import FrozenSet, List, Optional, Tuple
 
-from lucupy.minimodel import (Group, Atom, Conditions, Constraints, GroupID, Magnitude, NonsiderealTarget,
-                              Observation, ObservationClass, Program, ProgramID, QAState, SiderealTarget,
-                              Site, Target, TimeAllocation, TimingWindow)
+import astropy.units as u
+import lucupy.sky as sky
+from astropy.coordinates import Angle
+from lucupy.minimodel import (Group, Atom, Conditions, Constraints, ElevationLimits, ElevationType, GroupID,
+                              Magnitude, NonsiderealTarget, Observation, ObservationClass, Program, ProgramID,
+                              QAState, SiderealTarget, Site, Target, TimeAllocation, TimingWindow)
 
 from scheduler.core.sources.sources import Sources
 
@@ -157,16 +160,34 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_constraints(self, data: dict) -> Constraints:
+    def parse_constraints(self, data: dict, site: Site, base: Optional[Target]) -> Constraints:
         """
         Given an associative array that contains constraints data, retrieve the data
         and populate a Constraints object.
+
+        The site and the base target are used to calculate the equivalent hour angle and airmass
+        limits of the elevation constraints. base should be None if the base target is not known.
 
         Note that some Observations do not have Constraints associated with them, in which
         case, this method should not be called from parse_observation, which is where it will
         presumably be called.
         """
         ...
+
+    @staticmethod
+    def elevation_limits(elevation_type: ElevationType,
+                         elevation_min: Optional[float],
+                         elevation_max: Optional[float],
+                         site: Site,
+                         base: Optional[Target]) -> ElevationLimits:
+        """
+        Create the ElevationLimits of the elevation constraints.
+
+        The declination is only known for sidereal targets, so for nonsidereal targets (or if there is no
+        base target) the derived limits are left as None, to be calculated per night.
+        """
+        dec = Angle(base.dec, unit=u.deg) if isinstance(base, SiderealTarget) else None
+        return sky.elevation_limits(elevation_type, elevation_min, elevation_max, dec, site.location.lat)
 
     @abstractmethod
     def parse_conditions(self, data: dict) -> Conditions:
