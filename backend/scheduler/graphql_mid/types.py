@@ -64,6 +64,7 @@ class SVisit:
     start_time: datetime
     end_time: datetime
     obs_id: SObservationID
+    targets: List[str]
     atom_start_idx: int
     atom_end_idx: int
     altitude: List[float]
@@ -89,12 +90,14 @@ class SVisit:
         fpu = visit.observation.fpu()
         disperser = visit.observation.disperser()
         filters = visit.observation.filters()
+        targets = [target.name for target in visit.observation.targets]
 
         step_start = visit.step_start_idx + 1 if visit.step_start_idx is not None else -1
         step_end = step_start + visit.step_count - 1 if visit.step_count is not None else -1
         return SVisit(start_time=visit.start_time.astimezone(utc),
                       end_time=end_time.astimezone(utc),
                       obs_id=visit.observation.id,
+                      targets=targets,
                       atom_start_idx=visit.atom_start_idx,
                       atom_end_idx=visit.atom_end_idx,
                       altitude=alt_degs,

@@ -216,6 +216,7 @@ type SVisit {
   startTime: DateTime!
   endTime: DateTime!
   obsId: SObservationID!
+  targets: [String!]!
   atomStartIdx: Int!
   atomEndIdx: Int!
   altitude: [Float!]!

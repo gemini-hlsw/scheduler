@@ -27,6 +27,7 @@ export const subscriptionQueueSchedule = graphql(`
                   }
                   visits {
                     obsId
+                    targets
                     endTime
                     altitude
                     atomEndIdx
