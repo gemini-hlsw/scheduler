@@ -19,8 +19,6 @@ import time
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
-from opentelemetry.metrics import Histogram
-
 from scheduler.context import schedule_id_var
 from scheduler.services.telemetry import otel
 from scheduler.services.telemetry.instruments import OPERATION_DURATION
@@ -36,9 +34,6 @@ _MISSING_RUN_ID = '3RR0R-Missing-ID'
 
 _VERSION = get_app_version()
 _HOSTNAME = socket.gethostname()
-
-_histogram: Optional[Histogram] = None
-_histogram_provider = None
 
 
 def _build_perf_logger() -> logging.Logger:
@@ -63,21 +58,6 @@ class Timing:
 
     def __init__(self) -> None:
         self.elapsed = 0.0
-
-
-def _operation_histogram() -> Histogram:
-    """The duration histogram, rebuilt whenever the meter provider changes."""
-    global _histogram, _histogram_provider
-
-    provider = otel.current_provider()
-    if _histogram is None or provider is not _histogram_provider:
-        _histogram = otel.get_meter().create_histogram(
-            OPERATION_DURATION,
-            unit='s',
-            description='Wall time of a named scheduler operation.')
-        _histogram_provider = provider
-
-    return _histogram
 
 
 def _base_fields() -> Dict[str, Any]:
@@ -142,8 +122,8 @@ def timed(operation: str, **fields: Any) -> Iterator[Timing]:
         try:
             # `error` stays out of the metric attributes on purpose: exception class
             # names are an open set, and each one would be another series.
-            _operation_histogram().record(timing.elapsed,
-                                          {'operation': operation, 'ok': ok})
+            otel.telemetry.operation_duration.record(timing.elapsed,
+                                                     {'operation': operation, 'ok': ok})
         except Exception:  # pragma: no cover - defensive
             pass
 

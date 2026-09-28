@@ -106,6 +106,24 @@ def test_operations_are_separate_series(reader):
     assert operations == {'engine.plan', 'collector.load'}
 
 
+def test_instruments_follow_the_current_provider(reader):
+    # The instrument is cached, so it has to be rebuilt when a provider is installed or
+    # torn down. A stale one keeps recording into a dead provider and the metrics just
+    # quietly stop arriving -- the worst kind of telemetry bug, since the alerts go
+    # silent rather than red.
+    with timed('engine.plan'):
+        pass
+    assert len(points_for(reader)) == 1
+
+    second = InMemoryMetricReader()
+    otel.setup_telemetry(meter_provider=MeterProvider(metric_readers=[second]),
+                         set_global=False)
+    with timed('engine.plan'):
+        pass
+
+    assert len(points_for(second)) == 1, 'recording did not follow the new provider'
+
+
 def test_the_facade_is_inert_without_setup():
     # Scripts and tests import the scheduler without ever calling setup_telemetry;
     # the API's no-op meter must absorb that rather than blowing up at the call site.
