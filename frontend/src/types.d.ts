@@ -70,6 +70,7 @@ export interface NightConditions {
 
 export interface Visit {
   obsId: string;
+  targets: string[];
   endTime: string;
   altitude: number[];
   atomEndIdx: number;

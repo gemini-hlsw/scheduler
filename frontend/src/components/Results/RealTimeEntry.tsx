@@ -98,6 +98,7 @@ function VisitRow({
     >
       <TableCell>{icon}</TableCell>
       <TableCell>{visit.obsId}</TableCell>
+      <TableCell>{visit.targets.join(", ")}</TableCell>
       <TableCell>
         <ObsClassBadge obsClass={visit.obsClass} />
       </TableCell>
@@ -248,6 +249,7 @@ export default function RealTimeEntry({
             <TableHead></TableHead>
             <TableHead></TableHead>
             <TableHead></TableHead>
+            <TableHead></TableHead>
             <TableHead className="text-center" colSpan={2}>
               Atom
             </TableHead>
@@ -269,6 +271,7 @@ export default function RealTimeEntry({
           >
             <TableHead></TableHead>
             <TableHead>Observation Id</TableHead>
+            <TableHead>Targets</TableHead>
             <TableHead>Observation Class</TableHead>
             <TableHead>Start Time</TableHead>
             <TableHead>Start</TableHead>
