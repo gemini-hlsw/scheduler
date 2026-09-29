@@ -840,17 +840,15 @@ class Selector(SchedulerComponent):
                              f'and {required_conditions}')
 
         # Determine the positions where the actual conditions are worse than the requirements.
-        # print(f'match_conditions')
-        # print(f'actual_iq: {actual_iq}')
-        # print(f'required_iq: {required_conditions.iq.value}')
-        # print(f'actual_cc: {actual_cc}')
-        # print(f'required_cc: {required_conditions.cc.value}')
-        bad_iq = actual_iq > required_conditions.iq
+        # TODO remove the if clause when weather service get updated
+        if required_conditions.iq >= 0.2:
+            bad_iq = actual_iq > required_conditions.iq 
+        else:
+            bad_iq = actual_iq > 0.2
         bad_cc = actual_cc > required_conditions.cc
         bad_cond_idx = np.where(np.logical_or(bad_iq, bad_cc))[0]
         cond_match = np.ones(length)
         cond_match[bad_cond_idx] = 0
-        # print(f'len(bad_cond_idx) {len(bad_cond_idx)}')
 
         # Penalize for using IQ / CC that is better than needed:
         # Multiply the weights by actual value / value where value is better than required and target
@@ -863,9 +861,7 @@ class Selector(SchedulerComponent):
                 cond_match[better_idx] = cond_match[better_idx] * (1.0 - (value - array[better_idx]))
 
         adjuster(actual_iq, required_conditions.iq)
-        # print(f'IQ adjustor: {cond_match}')
         adjuster(actual_cc, required_conditions.cc)
-        # print(f'CC adjustor: {cond_match}')
 
         if scalar_input:
             cond_match = np.squeeze(cond_match)
