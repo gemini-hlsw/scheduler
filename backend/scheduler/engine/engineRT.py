@@ -6,7 +6,7 @@ import datetime
 from time import perf_counter, time
 import traceback
 import numpy as np
-from .params import SchedulerParameters, build_params_store
+from .params import SchedulerParameters, build_params_store, default_operation_parameters
 from scheduler.core.scp.scp import SCP
 from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints, SimulationBuilder
@@ -70,6 +70,38 @@ class EngineRT:
         self.last_run_date = None
         self.last_program_list = None
 
+    def _refresh_default_night(self, build_params) -> None:
+        """
+        Re-derive the night to schedule, unless the operator pinned one.
+
+        A visibility range in the build parameters is an explicit choice of night, so it
+        is left alone.
+
+        Args:
+            build_params (BuildParameters): the current build parameters.
+        """
+        if build_params.visibility_start is not None:
+            return
+
+        current = default_operation_parameters()
+        if current.start == self.params.start:
+            return
+
+        _logger.info(f"Default night rolled over: rebuilding parameters for {current.start}.")
+        # Rebuilt rather than mutated so semesters, end_vis and night_indices are
+        # recalculated from the new dates; everything else stays as configured.
+        self.params = SchedulerParameters(
+            start=current.start,
+            end=current.end,
+            sites=self.params.sites,
+            mode=self.params.mode,
+            ranker_parameters=self.params.ranker_parameters,
+            semester_visibility=self.params.semester_visibility,
+            num_nights_to_schedule=self.params.num_nights_to_schedule,
+            programs_list=self.params.programs_list,
+            use_local_visibility=self.params.use_local_visibility,
+        )
+
     async def build(self) -> None:
         """
         Creates a Scheduler Core Pipeline based on the parameters.
@@ -81,6 +113,7 @@ class EngineRT:
             raise RuntimeError("Builder must be Simulation to use async build method.")
 
         build_params = await build_params_store.get()
+        self._refresh_default_night(build_params)
         night_times = build_params.get_night_times()
         _logger.info(
             f"Build params: vis_start={build_params.visibility_start}, vis_end={build_params.visibility_end}, night_times={night_times}")

@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
+# Copyright (c) 2016-2026 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 from dataclasses import dataclass, field
@@ -6,7 +6,10 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import final, Optional, FrozenSet, List, Dict, Tuple
 
+from functools import lru_cache
+
 from astropy.time import Time
+from lucupy import sky
 from lucupy.minimodel import Site, ALL_SITES, Semester, NightIndex
 from pydantic import BaseModel, Field, field_validator
 
@@ -17,8 +20,66 @@ from scheduler.core.components.ranker import RankerName, RankerParameters
 __all__ = [
     'SchedulerParameters',
     'build_params_store',
-    'BuildParameters'
+    'BuildParameters',
+    'default_operation_start',
+    'default_operation_parameters',
+    'night_end',
 ]
+
+@lru_cache(maxsize=16)
+def _morning_twilight(ut_date: date, site: Site) -> datetime:
+    """
+    The 12-degree morning twilight, in UT, of the night that ends on ``ut_date``.
+
+    Cached because this is the same astropy sky computation the Collector runs and the
+    answer only changes once a day.
+
+    TODO: This data is scattered across the Scheduler, it needs centralization.
+    """
+    anchor = Time(datetime(ut_date.year, ut_date.month, ut_date.day, 8, tzinfo=UTC))
+    morn_12twi = sky.night_events(anchor, site.location, site.timezone)[4]
+    return morn_12twi.utc.to_datetime(timezone=UTC)
+
+
+def night_end(ut_date: date) -> datetime:
+    """
+    When the night ending on UT date is over at the last site still observing.
+    """
+    return max(_morning_twilight(ut_date, site) for site in ALL_SITES)
+
+
+def default_operation_start(now: Optional[datetime] = None) -> datetime:
+    """
+    The 08:00 UT anchor of the night an operation build targets when no visibility
+    range was given.
+
+    Args:
+        now (datetime, optional): the instant to derive the night from. Defaults to the
+            real clock. A naive value is read as UT.
+
+    Returns:
+        datetime: 08:00 UT on the date whose morning the target night ends.
+    """
+    now = now or datetime.now(UTC)
+    now = now.replace(tzinfo=UTC) if now.tzinfo is None else now.astimezone(UTC)
+
+    anchor_date = now.date()
+    if now >= night_end(anchor_date):
+        anchor_date += timedelta(days=1)
+    return datetime(anchor_date.year, anchor_date.month, anchor_date.day, 8, tzinfo=UTC)
+
+
+def default_operation_parameters(now: Optional[datetime] = None) -> 'SchedulerParameters':
+    """
+    Parameters for an operation build that was not given a visibility range.
+    """
+    start = default_operation_start(now)
+    return SchedulerParameters(
+        start=start,
+        end=start + timedelta(days=14),
+        semester_visibility=False,
+        num_nights_to_schedule=1,
+    )
 
 
 @final
@@ -198,9 +259,6 @@ class BuildParameters(BaseModel):
         sit in that night while the clock reads today, so nothing the ODB reports ever lines
         up with what the plan expects, and events stamped with the real time land tens of
         thousands of timeslots past evening twilight.
-
-        The instant advances rather than freezing, so a READY -> ONGOING -> COMPLETED sequence
-        spread over real minutes moves through that night by those same minutes.
         """
         if self.simulated_now is None:
             return None
