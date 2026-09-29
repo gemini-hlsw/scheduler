@@ -1,30 +1,26 @@
 # Copyright (c) 2016-2026 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-"""The timing façade the ~40 measurement sites call.
 
-Two outputs from one call. The histogram is what the Grafana alerts query; the JSON
-event is what you read afterwards to find out why a run was slow. `.elapsed` exists so
-the existing human log lines keep working untouched -- the aggregator's ETA messages are
-genuinely useful to someone watching a backfill, and this must not cost them.
 
-Nothing here may raise. It wraps the scheduler's hot paths, so a bug in instrumentation
-would be an outage in scheduling.
-"""
-
+import asyncio
+import functools
 import json
 import logging
 import os
 import socket
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Callable, Dict, Iterator, Optional, TypeVar
 
 from scheduler.context import schedule_id_var
 from scheduler.services.telemetry import otel
 from scheduler.services.telemetry.instruments import OPERATION_DURATION
 from scheduler.version import get_app_version
 
-__all__ = ['OPERATION_DURATION', 'PERF_LOGGER_NAME', 'Timing', 'perf_event', 'timed']
+__all__ = ['OPERATION_DURATION', 'PERF_LOGGER_NAME', 'Timing', 'perf_event',
+           'record_loop_stall', 'record_sight_fallback', 'timed', 'timed_function']
+
+F = TypeVar('F', bound=Callable[..., Any])
 
 PERF_LOGGER_NAME = 'scheduler.perf'
 
@@ -90,6 +86,53 @@ def perf_event(event: str, **fields: Any) -> None:
         # worse log line, never an exception in the middle of a scheduling run.
         _perf_logger.info(json.dumps(payload, default=repr))
     except Exception:  # pragma: no cover - the façade must not break its caller
+        pass
+
+
+def timed_function(operation: str, **fields: Any) -> Callable[[F], F]:
+    """Decorator form of `timed`, for when the whole function body is the operation.
+
+    Use it instead of a `with` block when wrapping would mean re-indenting a long body,
+    or when a method has several call sites that would each need their own block.
+
+    Handles async and sync alike: decorating a coroutine function with the plain `with`
+    form would time only how long it took to *create* the coroutine, which is the kind
+    of measurement that looks fine and means nothing.
+    """
+    def decorate(func: F) -> F:
+        if asyncio.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                with timed(operation, **fields):
+                    return await func(*args, **kwargs)
+            return async_wrapper  # type: ignore[return-value]
+
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            with timed(operation, **fields):
+                return func(*args, **kwargs)
+        return wrapper  # type: ignore[return-value]
+
+    return decorate
+
+
+def record_sight_fallback() -> None:
+    """Count one Collector fallback from Sight to local visibility computation."""
+    try:
+        otel.telemetry.sight_fallback.add(1)
+    except Exception:  # pragma: no cover - defensive
+        pass
+
+
+def record_loop_stall(seconds: float) -> None:
+    """Record an event-loop stall.
+
+    Only for stalls past the monitor's warning threshold. Recording every sample would
+    be ten datapoints a second of "the loop is fine", which buries the real ones.
+    """
+    try:
+        otel.telemetry.loop_stall.record(seconds)
+    except Exception:  # pragma: no cover - defensive
         pass
 
 

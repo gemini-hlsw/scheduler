@@ -1,7 +1,6 @@
 # Copyright (c) 2016-2026 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import time
 from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
@@ -29,6 +28,7 @@ from scheduler.services.sight.calculator.models import (
     TimingWindow as SightTimingWindow,
 )
 from scheduler.services.sight.database.connection import session_scope
+from scheduler.services.telemetry import timed
 from scheduler.services.visibility_aggregator.aggregator import resolve_target_names
 
 __all__ = [
@@ -282,27 +282,27 @@ async def calculate_and_store_visibility(
         constraints=build_constraints(value, range_end),
     )
 
-    t0 = time.perf_counter()
-    async with session_scope() as session:
-        calc = Calculator(session)
-        # Ensure the target row exists.
-        target = await calc.target_repo.get_by_name(payload.name)
-        target_existed = target is not None
-        if target is None:
-            target = await calc.target_repo.create(
-                name=payload.name,
-                is_sidereal=payload.is_sidereal,
-                base_ra=payload.base_ra,
-                base_dec=payload.base_dec,
-                pm_ra=payload.pm_ra,
-                pm_dec=payload.pm_dec,
-                epoch=payload.epoch,
-                horizons_id=payload.horizons_id,
-                tag=payload.tag,
-            )
-        # computes night events + Stage-1 on demand for the needed site/nights.
-        result = await calc.store_missing_visibility([request], start_date, end_date)
-    elapsed = time.perf_counter() - t0
+    with timed('night_monitor.visibility_recalc') as recalc:
+        async with session_scope() as session:
+            calc = Calculator(session)
+            # Ensure the target row exists.
+            target = await calc.target_repo.get_by_name(payload.name)
+            target_existed = target is not None
+            if target is None:
+                target = await calc.target_repo.create(
+                    name=payload.name,
+                    is_sidereal=payload.is_sidereal,
+                    base_ra=payload.base_ra,
+                    base_dec=payload.base_dec,
+                    pm_ra=payload.pm_ra,
+                    pm_dec=payload.pm_dec,
+                    epoch=payload.epoch,
+                    horizons_id=payload.horizons_id,
+                    tag=payload.tag,
+                )
+            # computes night events + Stage-1 on demand for the needed site/nights.
+            result = await calc.store_missing_visibility([request], start_date, end_date)
+    elapsed = recalc.elapsed
 
     _logger.info(
         f"Observation {observation_id} ({site_key}, target '{payload.name}', "

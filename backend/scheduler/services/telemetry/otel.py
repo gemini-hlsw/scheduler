@@ -5,6 +5,7 @@ import os
 from typing import Optional
 
 from opentelemetry import metrics
+from opentelemetry.metrics import Counter as APICounter
 from opentelemetry.metrics import Histogram, Meter
 from opentelemetry.sdk.metrics import Counter, MeterProvider, UpDownCounter
 from opentelemetry.sdk.metrics import Histogram as SDKHistogram
@@ -13,7 +14,8 @@ from opentelemetry.sdk.metrics.export import (AggregationTemporality,
 from opentelemetry.sdk.resources import Resource
 
 from scheduler.services.logger_factory import create_logger
-from scheduler.services.telemetry.instruments import OPERATION_DURATION, SERVICE_NAME
+from scheduler.services.telemetry.instruments import (LOOP_STALL, OPERATION_DURATION,
+                                                      SERVICE_NAME, SIGHT_FALLBACK)
 from scheduler.services.telemetry.memory import register_memory_gauges
 from scheduler.version import get_app_version
 
@@ -31,11 +33,7 @@ _DELTA_TEMPORALITY = {
 
 
 def is_sdk_disabled() -> bool:
-    """Whether OTEL_SDK_DISABLED is set.
-
-    Only the SDK's own autoconfiguration reads this variable. We build the providers by
-    hand, so we have to honour it ourselves or the kill switch silently does nothing.
-    """
+    """Whether OTEL_SDK_DISABLED is set."""
     return os.environ.get('OTEL_SDK_DISABLED', '').strip().lower() == 'true'
 
 
@@ -47,30 +45,12 @@ def process_type() -> str:
 
 
 def scheduler_mode() -> str:
-    """The deployment mode, straight from the environment.
-
-    Deliberately not ``core.builder.modes.app_mode``: that module raises at import time
-    when SCHEDULER_MODE is unset, and telemetry must never be the reason a script or a
-    test fails to start.
-    """
+    """The deployment mode, straight from the environment."""
     return os.environ.get('SCHEDULER_MODE', '').strip().lower() or 'unknown'
 
 
 def build_resource() -> Resource:
-    """Identity attached to every signal.
-
-    ``Resource.create`` folds in OTEL_RESOURCE_ATTRIBUTES, which is where deployment
-    environment and namespace come from. The three set here win over the environment on
-    purpose: the service name is how the shared stack tells our signals apart, the
-    version is a build fact the deploy config has no business overriding, and the
-    instance id has to be pinned (see below).
-
-    ``service.instance.id`` defaults to a **random UUID per process**. Left alone, every
-    aggregator dyno would arrive as a brand new instance and mint a fresh set of metric
-    series on a stack other teams are paying for. Pinning it to the process type keeps
-    it bounded; delta temporality (see `setup_telemetry`) is what makes several dynos
-    sharing one id sum correctly instead of fighting over a cumulative counter.
-    """
+    """Identity attached to every signal."""
     return Resource.create({
         'service.name': SERVICE_NAME,
         'service.version': get_app_version(),
@@ -83,11 +63,6 @@ def _build_meter_provider() -> MeterProvider:
     # Imported here so a deploy without an endpoint never pays for the exporter.
     from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 
-    # Delta, not the SDK default of cumulative. Most of our processes are one-off
-    # aggregator dynos that live for one run: a cumulative counter from a process that
-    # never comes back is a series that resets every time and reads as a restart.
-    # Deltas from short-lived writers just add up, and Grafana Cloud's gateway converts
-    # them back to cumulative on ingest, so queries are unchanged.
     reader = PeriodicExportingMetricReader(
         OTLPMetricExporter(preferred_temporality=_DELTA_TEMPORALITY))
 
@@ -96,19 +71,13 @@ def _build_meter_provider() -> MeterProvider:
 
 class Telemetry:
     """Owns the meter provider and the instruments built from it.
-
-    One instance per process, exported as `telemetry` below. It is ambient
-    infrastructure in the same way logging is: the ~40 measurement sites are spread
-    across the call graph and threading a handle to all of them would cost more than it
-    buys. What this does buy over loose module state is a single object whose lifecycle
-    is explicit, and instruments that cannot outlive the provider they came from.
     """
 
     def __init__(self) -> None:
         self._provider: Optional[MeterProvider] = None
         # Built eagerly, and rebuilt on every configure/shutdown. A lazy cache would
         # need a lock: `timed` is called from worker threads via asyncio.to_thread.
-        self._operation_duration = self._build_operation_duration()
+        self._build_instruments()
 
     @property
     def enabled(self) -> bool:
@@ -131,11 +100,29 @@ class Telemetry:
         """The duration histogram every `timed` block records into."""
         return self._operation_duration
 
-    def _build_operation_duration(self) -> Histogram:
-        return self.meter.create_histogram(
+    @property
+    def loop_stall(self) -> Histogram:
+        """Event-loop stalls, recorded only past the monitor's warning threshold."""
+        return self._loop_stall
+
+    @property
+    def sight_fallback(self) -> APICounter:
+        """Times the Collector fell back from Sight to local visibility computation."""
+        return self._sight_fallback
+
+    def _build_instruments(self) -> None:
+        meter = self.meter
+        self._operation_duration = meter.create_histogram(
             OPERATION_DURATION,
             unit='s',
             description='Wall time of a named scheduler operation.')
+        self._loop_stall = meter.create_histogram(
+            LOOP_STALL,
+            unit='s',
+            description='Time the event loop could not give a waiting task.')
+        self._sight_fallback = meter.create_counter(
+            SIGHT_FALLBACK,
+            description='Sight visibility loads that fell back to local computation.')
 
     def configure(self,
                   meter_provider: Optional[MeterProvider] = None,
@@ -162,7 +149,7 @@ class Telemetry:
         if set_global:
             metrics.set_meter_provider(meter_provider)
 
-        self._operation_duration = self._build_operation_duration()
+        self._build_instruments()
         register_memory_gauges(self.meter, {'process_type': process_type()})
         _logger.info(f'Telemetry configured for {SERVICE_NAME} ({process_type()}).')
         return True
@@ -175,7 +162,7 @@ class Telemetry:
         `vis_agg.run` datapoint the alerts key on, are never sent at all.
         """
         provider, self._provider = self._provider, None
-        self._operation_duration = self._build_operation_duration()
+        self._build_instruments()
         if provider is None:
             return
 
