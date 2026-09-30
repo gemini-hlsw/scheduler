@@ -228,13 +228,9 @@ class Collector(SchedulerComponent):
         # Initialize night_events dict
         self.night_events = {}
 
-        night_start_time = None
-        night_end_time = None
         # Initialize night events for each site asynchronously
         for site in self.sites:
-            if self.night_times and site in self.night_times:
-                night_start_time = self.night_times[site][0]
-                night_end_time = self.night_times[site][1]
+            night_start_time, night_end_time = (self.night_times or {}).get(site, (None, None))
 
             self.night_events[site] = await asyncio.to_thread(
                 Collector._night_events_manager.get_night_events,
