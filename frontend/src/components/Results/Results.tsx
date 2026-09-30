@@ -9,14 +9,38 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+// Number of slides on each side of the current one that are fully rendered.
+// Rendering every night plan at once (each with its own plot) freezes the carousel.
+const RENDER_WINDOW = 1;
+
+function isNearSlide(idx: number, current: number, total: number) {
+  const distance = Math.abs(idx - current);
+  // The carousel loops, so the first and last slides are neighbours.
+  return Math.min(distance, total - distance) <= RENDER_WINDOW;
+}
 
 export default function Results({ plans }: { plans: NightPlanType[] }) {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [api, setApi] = useState<CarouselApi | null>(null);
+
+  // Keep the current slide in sync with swipes, drags and keyboard navigation.
+  useEffect(() => {
+    if (!api) return;
+    const onSelect = () => setCurrentSlide(api.selectedScrollSnap());
+    onSelect();
+    api.on("select", onSelect);
+    api.on("reInit", onSelect);
+    return () => {
+      api.off("select", onSelect);
+      api.off("reInit", onSelect);
+    };
+  }, [api]);
+
   if (!plans || plans.length === 0) {
     return null;
   }
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [api, setApi] = useState<CarouselApi | null>(null);
 
   function goToSlide(idx: number) {
     return () => {
@@ -41,9 +65,13 @@ export default function Results({ plans }: { plans: NightPlanType[] }) {
         setApi={setApi}
       >
         <CarouselContent>
-          {plans.map((plan) => (
+          {plans.map((plan, idx) => (
             <CarouselItem key={plan.nightIndex}>
-              <NightPlan nightPlan={plan} />
+              {isNearSlide(idx, currentSlide, plans.length) ? (
+                <NightPlan nightPlan={plan} />
+              ) : (
+                <div className="h-96" />
+              )}
             </CarouselItem>
           ))}
         </CarouselContent>
