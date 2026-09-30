@@ -32,7 +32,7 @@ dependencies = [
     "scipy>=1.16.1",
     "sortedcontainers>=2.4.0",
     "stamina>=26.1.0",
-    "strawberry-graphql[fastapi]>=0.278.1",
+    "strawberry-graphql[fastapi]>=0.327.7",
     "uvicorn[standard]>=0.35.0",
 ]
 
