@@ -391,16 +391,15 @@ class GppProgramProvider(ProgramProvider):
         ACQ_MIRROR = 'instrument:acquisition_mirror'
         CROSS_DISPERSED = 'instrument:cross_dispersed'
 
+    # GNIRS is not in these maps: its config is nested, see _gnirs_fpu and _gnirs_disperser.
     FPU_FOR_INSTRUMENT = {
         'Flamingos2': _FPUKeys.F2,
-        # 'GNIRS': _FPUKeys.GNIRS,  # uncomment once we have the FPU availability
         'GMOS-N': _FPUKeys.GMOSN,
         'GMOS-S': _FPUKeys.GMOSS,
     }
 
     DISPERSER_FOR_INSTRUMENT = {
         # 'Flamingos2': _DISPKeys.F2,
-        # 'GNIRS': _DISPKeys.GNIRS,  # uncomment once we have the disperser availability
         'GMOS-N': _DISPKeys.GMOSN,
         'GMOS-S': _DISPKeys.GMOSS,
         # 'GHOST': _DISPKeys.GHOST,
@@ -940,6 +939,35 @@ class GppProgramProvider(ProgramProvider):
             msg = f'Illegal object type.'
             raise ValueError(msg)
 
+    @staticmethod
+    def _gnirs_fpu(config: dict) -> Optional[str]:
+        """
+        GNIRS keeps its FPU under slit (long slit) or ifu, not at the top of the block like GMOS and F2.
+        Imaging has neither. IFU values (LOW_RESOLUTION, HIGH_RESOLUTION) get an _IFU suffix: they are
+        too generic to be a Resource id on their own.
+        """
+        slit = config.get('slit')
+        if slit and slit.get(GppProgramProvider._FPUKeys.GNIRS):
+            return basic_name(slit[GppProgramProvider._FPUKeys.GNIRS])
+        ifu = config.get('ifu')
+        if ifu and ifu.get(GppProgramProvider._FPUKeys.GNIRS):
+            return f'{basic_name(ifu[GppProgramProvider._FPUKeys.GNIRS])}_IFU'
+        return None
+
+    @staticmethod
+    def _gnirs_disperser(config: dict, mode: str) -> Optional[str]:
+        """
+        One disperser from grating + prism, as the OCS provider joins grating and crossDispersed.
+        A MIRROR prism means no cross-dispersion. Imaging goes through the mirror, like GMOS.
+        """
+        if 'IMAGING' in mode:
+            return 'Mirror'
+        grating = basic_name(config.get(GppProgramProvider._DISPKeys.GNIRS))
+        prism = basic_name(config.get('prism'))
+        if grating and prism and prism != 'MIRROR':
+            return f'{grating}_{prism}'
+        return grating
+
     def parse_observing_mode(self, data: dict) -> Tuple[FrozenSet[Resource], Wavelength, ObservationMode]:
 
         def find_filter(filter_input: str, filter_dict: Mapping[str, float]) -> Optional[str]:
@@ -964,7 +992,9 @@ class GppProgramProvider(ProgramProvider):
             instrument = instrument_config['name']
 
         fpu = None
-        if instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
+        if instrument == 'GNIRS':
+            fpu = GppProgramProvider._gnirs_fpu(instrument_config)
+        elif instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
             if GppProgramProvider._FPUKeys.CUSTOM in instrument_config.keys():
                 # This will assign the MDF name to the FPU
                 # ToDo: gpp-client needs to return the fileName of the attachment, not just the id,
@@ -983,6 +1013,8 @@ class GppProgramProvider(ProgramProvider):
         #     disperser = instrument_config[GppProgramProvider._AtomKeys.DISPERSER]
         if "GMOS" in instrument and "IMAGING" in mode:
             disperser = "Mirror"
+        elif instrument == 'GNIRS':
+            disperser = GppProgramProvider._gnirs_disperser(instrument_config, mode)
         elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT:
             disperser = instrument_config[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
         disperser = basic_name(disperser)
@@ -1040,7 +1072,12 @@ class GppProgramProvider(ProgramProvider):
         else:
             fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU)])
             disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser, resource_type=ResourceType.DISPERSER)])
-            filter_resources = frozenset([])
+            if instrument == 'GNIRS':
+                filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt,
+                                        resource_type=ResourceType.FILTER) for filt in filters
+                                        if filt is not None and filt != 'Unknown'])
+            else:
+                filter_resources = frozenset([])
 
         instrument_resource = frozenset([self._sources.origin.resource.lookup_resource(
                                 instrument, resource_type=ResourceType.INSTRUMENT)])
