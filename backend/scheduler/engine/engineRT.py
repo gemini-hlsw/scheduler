@@ -3,7 +3,7 @@
 
 import asyncio
 import datetime
-from time import perf_counter, time
+from time import time
 import traceback
 import numpy as np
 from .params import SchedulerParameters, build_params_store, default_operation_parameters
@@ -13,6 +13,7 @@ from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
 from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
+from scheduler.services.telemetry import timed
 from scheduler.core.events.queue import NightlyTimelineStore
 from scheduler.core.events.queue.events import CustomStartOfNightEvent, Event, EndOfNightEvent
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
@@ -126,16 +127,17 @@ class EngineRT:
             f"Program list for this build: "
             f"{len(programs_list) if programs_list else 'all programs active today'}")
 
-        collector = await builder.async_build_collector(
-            start=vis_start,
-            end=vis_end,
-            num_of_nights=self.params.num_nights_to_schedule,
-            sites=self.params.sites,
-            semesters=self.params.semesters,
-            blueprint=Blueprints.collector,
-            night_times=night_times,
-            program_list=programs_list
-        )
+        with timed('scp.build_collector'):
+            collector = await builder.async_build_collector(
+                start=vis_start,
+                end=vis_end,
+                num_of_nights=self.params.num_nights_to_schedule,
+                sites=self.params.sites,
+                semesters=self.params.semesters,
+                blueprint=Blueprints.collector,
+                night_times=night_times,
+                program_list=programs_list
+            )
 
 
         selector = builder.build_selector(collector=collector,
@@ -195,18 +197,21 @@ class EngineRT:
         )
         # Timed because nothing else measures it: without this there is no way to notice
         # plans getting slower until something downstream times out.
-        started = perf_counter()
         try:
-            plans = await self._compute_event_plan(event)
-            _logger.info(
-                f"Plan for '{event.description}' computed in {perf_counter() - started:.1f}s."
-            )
-            return plans
+            with timed('engine.plan') as plan:
+                plans = await self._compute_event_plan(event)
         except Exception:
+            # `plan.elapsed` is already set: `timed` fills it in its own finally, which
+            # runs before the exception reaches us here.
             _logger.warning(
-                f"Plan for '{event.description}' failed after {perf_counter() - started:.1f}s."
+                f"Plan for '{event.description}' failed after {plan.elapsed:.1f}s."
             )
             raise
+        else:
+            _logger.info(
+                f"Plan for '{event.description}' computed in {plan.elapsed:.1f}s."
+            )
+            return plans
         finally:
             await coordination.signal_plan_done()
 

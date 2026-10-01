@@ -1,7 +1,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
-import time
 from dataclasses import dataclass, field
 from inspect import isclass
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Type, final
@@ -36,6 +35,8 @@ from scheduler.services.sight.calculator.models import (
     ObservationRequest,
 )
 from scheduler.services.sight.database.connection import session_scope
+from scheduler.services.telemetry import timed
+from scheduler.services.telemetry.perf import record_sight_fallback, timed_function
 from scheduler.services.sight.calculations.night_events import calculate_night_events_for_night
 from scheduler.services.sight.calculations.stage1 import calculate_stage1
 from scheduler.services.sight.calculations.stage2 import calculate_visibility as sight_calculate_visibility
@@ -465,6 +466,7 @@ class Collector(SchedulerComponent):
             try:
                 self._load_visibility_from_sight(obs_with_resources)
             except Exception as exc:
+                record_sight_fallback()
                 _logger.warning(
                     f'Sight visibility load failed ({exc}); falling back to local computation.'
                 )
@@ -642,6 +644,7 @@ class Collector(SchedulerComponent):
             try:
                 await self._async_load_visibility_from_sight(obs_with_resources)
             except Exception as exc:
+                record_sight_fallback()
                 _logger.warning(
                     f'Sight visibility load failed ({exc}); falling back to local computation.'
                 )
@@ -899,6 +902,7 @@ class Collector(SchedulerComponent):
         )
         await asyncio.to_thread(self._apply_sight_visibility, filtered_observations, per_night)
 
+    @timed_function('collector.sight_apply')
     def _apply_sight_visibility(
         self,
         filtered_observations: dict[NightIndex, list[Observation]],
@@ -999,11 +1003,11 @@ class Collector(SchedulerComponent):
                 night_date = self.time_grid[int(night_index)].to_datetime().date()
 
                 # Calculate visible observations for the night.
-                t0 = time.perf_counter()
-                visible = await calc.get_visible_observations(requests, night_date)
+                with timed('collector.visible_observations') as visibility:
+                    visible = await calc.get_visible_observations(requests, night_date)
                 _logger.info(
                     f'Sight get_visible_observations night={int(night_index)} '
-                    f'({len(observations)} obs) took {time.perf_counter() - t0:.3f}s'
+                    f'({len(observations)} obs) took {visibility.elapsed:.3f}s'
                 )
                 visible_ids = {r.observation_id for r in visible}
                 visible_by_night[night_index] = visible_ids
@@ -1018,13 +1022,13 @@ class Collector(SchedulerComponent):
             if not all_visible_ids:
                 return {ni: (set(), {}, {}, {}) for ni in filtered_observations}
 
-            t0 = time.perf_counter()
-            stage1 = await calc.get_stage1_greedymax_bulk(
-                sorted(all_target_names), site_ids, start_date, end_date
-            )
+            with timed('collector.stage1_bulk') as stage1_fetch:
+                stage1 = await calc.get_stage1_greedymax_bulk(
+                    sorted(all_target_names), site_ids, start_date, end_date
+                )
             _logger.info(
                 f'Sight get_stage1_greedymax_bulk ({len(all_target_names)} targets) '
-                f'took {time.perf_counter() - t0:.3f}s'
+                f'took {stage1_fetch.elapsed:.3f}s'
             )
 
         # Per-night backward cumulative remaining minutes per observation.
@@ -1040,6 +1044,7 @@ class Collector(SchedulerComponent):
             )
         return per_night
 
+    @timed_function('collector.visibility_local')
     def _compute_visibility_locally(
         self,
         parsed_observations: List[Tuple[ProgramID, Observation]],

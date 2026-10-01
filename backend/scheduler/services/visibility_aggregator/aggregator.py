@@ -29,6 +29,7 @@ from scheduler.clients.gpp import gpp
 from scheduler.core.programprovider.gpp import GppProgramProvider, gpp_program_data
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
+from scheduler.services.telemetry import timed
 from scheduler.services.visibility_aggregator.coordination import (
     get_change_watermark,
     set_change_watermark,
@@ -639,10 +640,10 @@ async def _store_missing_visibility(
             missing = []
 
         if missing:
-            t0 = time.perf_counter()
-            result = await calc.store_visibility(missing, current, current)
-            await calc.session.commit()
-            elapsed = time.perf_counter() - t0
+            with timed('vis_agg.stage2_night') as night:
+                result = await calc.store_visibility(missing, current, current)
+                await calc.session.commit()
+            elapsed = night.elapsed
             night_stored = int(result.get("stored", 0))
             stored += night_stored
 
@@ -702,9 +703,9 @@ async def run_aggregation(
 
     # What changed in the ODB since the last successful run? Fetched before the
     # program dump; applied after parsing (the fresh payloads are needed).
-    changes_t0 = time.perf_counter()
-    changes, fetch_time = await _load_changes(session, now)
-    changes_elapsed = time.perf_counter() - changes_t0
+    with timed('vis_agg.changes_fetch') as fetch:
+        changes, fetch_time = await _load_changes(session, now)
+    changes_elapsed = fetch.elapsed
     if heartbeat is not None:
         await heartbeat({
             "phase": "changes",
@@ -720,10 +721,10 @@ async def run_aggregation(
         f"(reported only — work is bounded per program)."
     )
 
-    parse_t0 = time.perf_counter()
-    (targets_by_name, requests, windows,
-     labels_by_internal_id, counts) = await _collect_requests(program_ids)
-    parse_elapsed = time.perf_counter() - parse_t0
+    with timed('vis_agg.parse') as parse:
+        (targets_by_name, requests, windows,
+         labels_by_internal_id, counts) = await _collect_requests(program_ids)
+    parse_elapsed = parse.elapsed
     start_date = min((w[0] for w in windows.values()), default=today)
     end_date = max((w[1] for w in windows.values()), default=today)
     _logger.info(
@@ -746,11 +747,11 @@ async def run_aggregation(
     # Apply the ODB-reported changes before the Stage-1/Stage-2 flow below, so
     # updated targets are recomputed as stale and invalidated observations are
     # refilled as missing.
-    apply_t0 = time.perf_counter()
-    change_counts = await _apply_odb_changes(
-        calc, changes, targets_by_name, requests, labels_by_internal_id
-    )
-    apply_elapsed = time.perf_counter() - apply_t0
+    with timed('vis_agg.apply') as apply_changes:
+        change_counts = await _apply_odb_changes(
+            calc, changes, targets_by_name, requests, labels_by_internal_id
+        )
+    apply_elapsed = apply_changes.elapsed
     if heartbeat is not None:
         await heartbeat({
             "phase": "changes_applied", "started_at": started_at, **change_counts
@@ -785,14 +786,14 @@ async def run_aggregation(
     for (window_start, window_end), group in sorted(groups.items()):
         for offset in range(0, len(group), batch_size):
             chunk = group[offset:offset + batch_size]
-            batch_t0 = time.perf_counter()
-            created = await calc.create_targets_bulk(chunk, window_start, window_end)
-            created_total += created.created
-            await calc.precompute_stage1(
-                window_start, window_end, target_names=[t.name for t in chunk]
-            )
-            await session.commit()
-            batch_elapsed = time.perf_counter() - batch_t0
+            with timed('vis_agg.stage1_batch') as batch:
+                created = await calc.create_targets_bulk(chunk, window_start, window_end)
+                created_total += created.created
+                await calc.precompute_stage1(
+                    window_start, window_end, target_names=[t.name for t in chunk]
+                )
+                await session.commit()
+            batch_elapsed = batch.elapsed
             done += len(chunk)
             batch_number += 1
             loop_elapsed = time.perf_counter() - stage1_t0

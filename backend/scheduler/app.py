@@ -9,6 +9,7 @@ from scheduler.graphql_mid.server import graphql_server
 from scheduler.orchestration.process_manager import process_manager
 from scheduler.services.sight.database.connection import init_db_engine, dispose_engine
 from scheduler.services.logger_factory import create_logger
+from scheduler.services.telemetry import setup_telemetry, shutdown_telemetry
 from scheduler.core.builder.modes import is_validation, is_operation
 from scheduler.version import get_app_version
 
@@ -18,6 +19,7 @@ _logger.info(f"Running scheduler server version {get_app_version()}")
 
 async def lifespan(app: FastAPI):
     try:
+        setup_telemetry()
         await init_db_engine()
         _logger.info("Sight DB engine initialized")
 
@@ -33,6 +35,7 @@ async def lifespan(app: FastAPI):
         await gpp.close()
         await dispose_engine()
         _logger.info("Sight DB engine disposed")
+        shutdown_telemetry()
 
 app = FastAPI(lifespan=lifespan)
 

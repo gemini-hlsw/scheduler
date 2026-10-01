@@ -1,0 +1,340 @@
+{
+  "uid": "scheduler-perf",
+  "title": "Scheduler performance",
+  "description": "Operation durations and process memory from the scheduler's OTel instrumentation. Every query is scoped to service_name=\"scheduler\" because the Grafana stack is shared with other apps.",
+  "tags": ["scheduler", "gemini", "otel"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS",
+        "label": "Datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0
+      },
+      {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS}" },
+        "query": "label_values(scheduler_operation_duration_seconds_count{service_name=\"scheduler\"}, deployment_environment)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "instance",
+        "label": "Instance",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS}" },
+        "query": "label_values(scheduler_operation_duration_seconds_count{service_name=\"scheduler\", deployment_environment=~\"$environment\"}, service_instance_id)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Plan p95",
+      "description": "The number the under-a-minute target is about.",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 40 },
+              { "color": "red", "value": 60 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(scheduler_operation_duration_seconds_bucket{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\", operation=\"engine.plan\"}[$__rate_interval])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Failed operations (6h)",
+      "description": "Any timed block that raised, including cancellations from a killed dyno.",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "sum(increase(scheduler_operation_duration_seconds_count{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\", ok=\"false\"}[6h])) or vector(0)",
+          "legendFormat": "failures"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Sight fallbacks (6h)",
+      "description": "Collector fell back from Sight to local visibility computation. Non-zero means Sight is failing and plans are silently taking the slow path.",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "sum(increase(scheduler_collector_sight_fallback_total{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\"}[6h])) or vector(0)",
+          "legendFormat": "fallbacks"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Aggregator runs (24h)",
+      "description": "Zero here is the alert that matters: the aggregator stopped completing.",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "sum(increase(scheduler_operation_duration_seconds_count{service_name=\"scheduler\", deployment_environment=~\"$environment\", operation=\"vis_agg.run\"}[24h])) or vector(0)",
+          "legendFormat": "runs"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Plan latency",
+      "description": "engine.plan, end to end.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2, "fillOpacity": 5 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(scheduler_operation_duration_seconds_bucket{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\", operation=\"engine.plan\"}[$__rate_interval])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(scheduler_operation_duration_seconds_bucket{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\", operation=\"engine.plan\"}[$__rate_interval])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(scheduler_operation_duration_seconds_bucket{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\", operation=\"engine.plan\"}[$__rate_interval])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "SCP steps (p95)",
+      "description": "Where plan time actually goes. scp.select minus the sum of scp.score_program is what the per-program deepcopy costs.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2, "fillOpacity": 5 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(scheduler_operation_duration_seconds_bucket{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\", operation=~\"scp\\\\..*\"}[$__rate_interval])))",
+          "legendFormat": "{{operation}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Aggregator phases (p95)",
+      "description": "vis_agg.run is the whole job; the rest are its parts. Windowed over the dashboard range rather than $__rate_interval: the aggregator is a one-off dyno that may export only once per run, and rate() over a few minutes would have fewer than two samples and draw nothing.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "${DS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2, "fillOpacity": 5 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (increase(scheduler_operation_duration_seconds_bucket{service_name=\"scheduler\", deployment_environment=~\"$environment\", operation=~\"vis_agg\\\\..*\"}[$__range])))",
+          "legendFormat": "{{operation}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Sight and collector (p95)",
+      "description": "collector.visibility_local is the in-process fallback path; if it appears, Sight is not being used.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "${DS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2, "fillOpacity": 5 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(scheduler_operation_duration_seconds_bucket{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\", operation=~\"collector\\\\..*|night_monitor\\\\..*\"}[$__rate_interval])))",
+          "legendFormat": "{{operation}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Process memory",
+      "description": "This process's RSS, a proxy for the dyno total that R14 fires on. Absent on macOS, where only the peak is readable. Standard-1x quota is 512MB, standard-2x 1GB.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${DS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 429496729 },
+              { "color": "red", "value": 536870912 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "scheduler_process_memory_rss_bytes{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\"}",
+          "legendFormat": "rss {{service_instance_id}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "scheduler_process_memory_peak_bytes{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\"}",
+          "legendFormat": "peak {{service_instance_id}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Event loop stalls",
+      "description": "Recorded only past the monitor's warning threshold. Each point is blocking work that kept the loop from a waiting task, which is how the ODB subscription gets dropped.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "${DS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 20, "drawStyle": "bars" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${DS}" },
+          "editorMode": "code",
+          "expr": "sum(increase(scheduler_loop_stall_seconds_count{service_name=\"scheduler\", deployment_environment=~\"$environment\", service_instance_id=~\"$instance\"}[$__rate_interval])) or vector(0)",
+          "legendFormat": "stalls"
+        }
+      ]
+    }
+  ]
+}
