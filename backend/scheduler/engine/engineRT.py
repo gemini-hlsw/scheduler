@@ -127,16 +127,17 @@ class EngineRT:
             f"Program list for this build: "
             f"{len(programs_list) if programs_list else 'all programs active today'}")
 
-        collector = await builder.async_build_collector(
-            start=vis_start,
-            end=vis_end,
-            num_of_nights=self.params.num_nights_to_schedule,
-            sites=self.params.sites,
-            semesters=self.params.semesters,
-            blueprint=Blueprints.collector,
-            night_times=night_times,
-            program_list=programs_list
-        )
+        with timed('scp.build_collector'):
+            collector = await builder.async_build_collector(
+                start=vis_start,
+                end=vis_end,
+                num_of_nights=self.params.num_nights_to_schedule,
+                sites=self.params.sites,
+                semesters=self.params.semesters,
+                blueprint=Blueprints.collector,
+                night_times=night_times,
+                program_list=programs_list
+            )
 
 
         selector = builder.build_selector(collector=collector,

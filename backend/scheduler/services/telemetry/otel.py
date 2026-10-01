@@ -7,10 +7,9 @@ from typing import Optional
 from opentelemetry import metrics
 from opentelemetry.metrics import Counter as APICounter
 from opentelemetry.metrics import Histogram, Meter
-from opentelemetry.sdk.metrics import Counter, MeterProvider, UpDownCounter
-from opentelemetry.sdk.metrics import Histogram as SDKHistogram
-from opentelemetry.sdk.metrics.export import (AggregationTemporality,
-                                              PeriodicExportingMetricReader)
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource
 
 from scheduler.services.logger_factory import create_logger
@@ -19,17 +18,18 @@ from scheduler.services.telemetry.instruments import (LOOP_STALL, OPERATION_DURA
 from scheduler.services.telemetry.memory import register_memory_gauges
 from scheduler.version import get_app_version
 
-__all__ = ['Telemetry', 'build_resource', 'is_sdk_disabled', 'process_type',
-           'scheduler_mode', 'setup_telemetry', 'shutdown_telemetry', 'telemetry']
+__all__ = ['Telemetry', 'build_resource', 'duration_views', 'instance_id',
+           'is_sdk_disabled', 'process_type', 'scheduler_mode', 'setup_telemetry',
+           'shutdown_telemetry', 'telemetry']
 
 _logger = create_logger(__name__, with_id=False)
 
-# Observable gauges are always reported as-is; only the summing instruments need this.
-_DELTA_TEMPORALITY = {
-    Counter: AggregationTemporality.DELTA,
-    SDKHistogram: AggregationTemporality.DELTA,
-    UpDownCounter: AggregationTemporality.DELTA,
-}
+# Heroku names one-off dynos run.<n> with a counter that never repeats.
+_ONE_OFF_PROCESS = 'run'
+
+# Bucket edges in SECONDS.
+_DURATION_BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0,
+                     10.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0)
 
 
 def is_sdk_disabled() -> bool:
@@ -49,12 +49,27 @@ def scheduler_mode() -> str:
     return os.environ.get('SCHEDULER_MODE', '').strip().lower() or 'unknown'
 
 
+def instance_id() -> str:
+    """Which writer a metric series belongs to."""
+    dyno = os.environ.get('DYNO', '')
+    if not dyno:
+        return 'local'
+    return _ONE_OFF_PROCESS if dyno.split('.')[0] == _ONE_OFF_PROCESS else dyno
+
+
+def duration_views() -> list:
+    """Views putting the duration histograms on second-scale buckets."""
+    return [View(instrument_name=name,
+                 aggregation=ExplicitBucketHistogramAggregation(_DURATION_BUCKETS))
+            for name in (OPERATION_DURATION, LOOP_STALL)]
+
+
 def build_resource() -> Resource:
     """Identity attached to every signal."""
     return Resource.create({
         'service.name': SERVICE_NAME,
         'service.version': get_app_version(),
-        'service.instance.id': process_type(),
+        'service.instance.id': instance_id(),
     })
 
 
@@ -63,10 +78,12 @@ def _build_meter_provider() -> MeterProvider:
     # Imported here so a deploy without an endpoint never pays for the exporter.
     from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 
-    reader = PeriodicExportingMetricReader(
-        OTLPMetricExporter(preferred_temporality=_DELTA_TEMPORALITY))
+    # Cumulative
+    reader = PeriodicExportingMetricReader(OTLPMetricExporter())
 
-    return MeterProvider(resource=build_resource(), metric_readers=[reader])
+    return MeterProvider(resource=build_resource(),
+                         metric_readers=[reader],
+                         views=duration_views())
 
 
 class Telemetry:

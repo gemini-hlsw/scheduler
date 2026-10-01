@@ -1,13 +1,5 @@
 # Copyright (c) 2016-2026 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-"""Process memory, read without psutil.
-
-The Heroku dyno runs a single Python process (`uv run python main.py`), so this
-process's RSS is a good proxy for the dyno total that R14 fires on. It is only a proxy:
-R14 triggers once the dyno swaps, and VmRSS does not count swapped-out pages, so the
-number understates exactly when things are already bad. The rise beforehand is the part
-worth alerting on.
-"""
 
 import resource
 import sys
@@ -87,9 +79,6 @@ def read_memory() -> MemoryReading:
 def register_memory_gauges(meter: Meter,
                            attributes: Optional[Dict[str, Any]] = None) -> None:
     """Attach the RSS and peak observable gauges to ``meter``.
-
-    The callbacks are driven by the metric reader's own thread, so they must stay pure
-    and non-blocking. Reading /proc qualifies; a DB round trip would not.
 
     Args:
         meter (Meter): the meter to register on.

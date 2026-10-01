@@ -11,6 +11,7 @@ from lucupy.observatory.gemini.geminiproperties import GeminiProperties
 
 from scheduler.config import config
 from scheduler.services import logger_factory
+from scheduler.services.telemetry import setup_telemetry, shutdown_telemetry, timed
 from scheduler.services.sight.database.connection import (
     dispose_engine,
     init_db_engine,
@@ -59,6 +60,7 @@ def _install_signal_handlers() -> None:
 async def _run() -> int:
     ObservatoryProperties.set_properties(GeminiProperties)
     _install_signal_handlers()
+    setup_telemetry()
     await init_db_engine()
     try:
         # Never run while a night is being executed.
@@ -84,11 +86,12 @@ async def _run() -> int:
         stop_heartbeat = asyncio.Event()
         heartbeat_task = asyncio.create_task(_heartbeat_loop(stop_heartbeat))
         try:
-            async with session_scope() as work:
-                result = await run_aggregation(
-                    work,
-                    heartbeat=_make_detail_heartbeat()
-                )
+            with timed('vis_agg.run'):
+                async with session_scope() as work:
+                    result = await run_aggregation(
+                        work,
+                        heartbeat=_make_detail_heartbeat()
+                    )
             _logger.info(f"Aggregation complete: {result}")
         finally:
             # Stop heartbeating and release the row even on cancellation, so the
@@ -123,6 +126,10 @@ async def _run() -> int:
         return 1
     finally:
         await dispose_engine()
+        # Last thing, and load-bearing: this dyno is one-off and can finish inside a
+        # whole export interval, so without an explicit flush the run's metrics are
+        # never sent at all.
+        shutdown_telemetry()
 
 
 def _make_detail_heartbeat():

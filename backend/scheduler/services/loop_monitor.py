@@ -6,6 +6,7 @@ from time import perf_counter
 from typing import Optional
 
 from scheduler.services import logger_factory
+from scheduler.services.telemetry.perf import record_loop_stall
 
 __all__ = ['LoopMonitor']
 
@@ -48,6 +49,7 @@ class LoopMonitor:
             if lateness > self._worst:
                 self._worst = lateness
             if lateness >= self._warn_after:
+                record_loop_stall(lateness)
                 _logger.warning(
                     f"Event loop stalled {lateness:.1f}s. Something on the loop is doing "
                     f"blocking work; the ODB subscription may have been dropped."

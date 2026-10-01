@@ -27,6 +27,7 @@ from scheduler.core.components.selector.timebuffer import TimeBuffer
 from scheduler.core.types import StartingTimeslots
 from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
+from scheduler.services.telemetry import timed
 
 
 __all__ = [
@@ -263,7 +264,11 @@ class Selector(SchedulerComponent):
             # This will allow us to use the members of this deep copy for things like internal time accounting
             # while leaving the information in the Collector intact.
             program = deepcopy(original_program)
-            program_calculations = self.score_program(program, sites, night_indices, starting_time_slots, ranker)
+            # Scoring only. The deepcopy above is deliberately outside it, so
+            # `scp.select` minus the sum of these shows what the copying costs.
+            with timed('scp.score_program'):
+                program_calculations = self.score_program(program, sites, night_indices,
+                                                          starting_time_slots, ranker)
             if program_calculations is None:
                 # Warning is already issued in scorer.
                 # print(f"Selector: {program_id} has no schedulable groups")
