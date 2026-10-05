@@ -30,6 +30,12 @@ from scheduler.core.programprovider.gpp import GppProgramProvider, gpp_program_d
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.telemetry import timed
+
+from scheduler.services.visibility_aggregator.memory_guard import (
+    MemoryBudgetExceeded,
+    MemoryGuard,
+)
+
 from scheduler.services.visibility_aggregator.coordination import (
     get_change_watermark,
     set_change_watermark,
@@ -202,7 +208,7 @@ def program_window(program_start: datetime, program_end: datetime) -> tuple[date
     return program_start.date(), program_end.date()
 
 
-async def _collect_requests(program_ids: list[str]):
+async def _collect_requests(program_ids: list[str], guard: MemoryGuard):
     """Parse the available GPP programs into sidereal targets + obs requests.
 
     Also returns, per observation, the night window its program is active for
@@ -230,6 +236,7 @@ async def _collect_requests(program_ids: list[str]):
         # keep firing and the coordination row stays fresh.
         if processed % 25 == 0:
             await asyncio.sleep(0)
+            guard.check(f"parsing {processed} programs")
         try:
             data = next(iter(raw.values())) if len(raw.keys()) == 1 else raw
             program = provider.parse_program(data)
@@ -594,6 +601,7 @@ async def _store_missing_visibility(
     windows: dict[str, tuple[date, date]],
     heartbeat: Optional[Heartbeat],
     started_at: str,
+    guard: MemoryGuard,
 ) -> int:
     """Store Stage 2 for (observation, night) pairs not already present.
 
@@ -601,10 +609,6 @@ async def _store_missing_visibility(
     for (``windows``), so a short program costs a few nights and a multi-semester
     one is not truncated at a calendar boundary. The loop walks the union of all
     windows and, for each night, considers only the observations due that night.
-
-    This is also the "add only the ones not there" step: without it,
-    ``store_visibility`` would recompute every night on every cron tick.
-    Commits per night to bound transaction size and persist progress.
     """
     if not requests:
         return 0
@@ -640,6 +644,11 @@ async def _store_missing_visibility(
             missing = []
 
         if missing:
+            t0 = time.perf_counter()
+            result = await calc.store_visibility(missing, current, current)
+            await calc.session.commit()
+            elapsed = time.perf_counter() - t0
+            used_mb = guard.check(f"Stage 2 night {current.isoformat()}")
             with timed('vis_agg.stage2_night') as night:
                 result = await calc.store_visibility(missing, current, current)
                 await calc.session.commit()
@@ -658,7 +667,8 @@ async def _store_missing_visibility(
                 f"Stage 2 {current.isoformat()} [{nights_done}/{total_nights}]: "
                 f"{len(missing)} missing obs, stored {night_stored} in {elapsed:.1f}s "
                 f"({elapsed / len(missing) * 1000:.0f} ms/obs); "
-                f"ETA ~{'unknown' if eta is None else _format_duration(eta)}."
+                f"ETA ~{'unknown' if eta is None else _format_duration(eta)}; "
+                f"{used_mb:.0f} MB in use."
             )
 
         if heartbeat is not None:
@@ -681,19 +691,19 @@ async def run_aggregation(
     session: AsyncSession,
     *,
     heartbeat: Optional[Heartbeat] = None,
+    memory_guard: Optional[MemoryGuard] = None,
 ) -> dict:
     """Bring the Sight DB up to date (sidereal only).
 
     Each observation is computed over the nights its own program is active for,
-    taken from the ODB's ``active`` dates plus ``Program.FUZZY_BOUNDARY`` — not
-    over a fixed calendar semester. A program shorter than a semester costs only
-    its own nights, one spanning several is not truncated at the boundary, and
-    the semester rollover stops being a cliff where the whole range turns over
-    at once.
+    taken from the ODB's ``active`` dates plus ``Program.FUZZY_BOUNDARY`` .
 
     session (AsyncSession): is the compute session (its own connection).
     heartbeat (Optional[Heartbeat]): is an optional async callback used to keep the coordination row fresh.
+    memory_guard (Optional[MemoryGuard]): stops the run with ``MemoryBudgetExceeded``
+        between committed units of work once memory passes its budget. None disables it.
     """
+    guard = memory_guard or MemoryGuard(None)
     run_t0 = time.perf_counter()
     now = datetime.now(timezone.utc)
     started_at = now.isoformat()
@@ -725,13 +735,22 @@ async def run_aggregation(
         (targets_by_name, requests, windows,
          labels_by_internal_id, counts) = await _collect_requests(program_ids)
     parse_elapsed = parse.elapsed
+    parse_t0 = time.perf_counter()
+
+    # Updates are not guarded by memory. If they failed they need to be done manually.
+    (targets_by_name, requests, windows,
+     labels_by_internal_id, counts) = await _collect_requests(program_ids, guard)
+    parsed_mb = guard.check(f"parsing {len(program_ids)} programs")
+
+    parse_elapsed = time.perf_counter() - parse_t0
     start_date = min((w[0] for w in windows.values()), default=today)
     end_date = max((w[1] for w in windows.values()), default=today)
     _logger.info(
         f"Prepared {len(targets_by_name)} sidereal targets and {len(requests)} "
         f"observations in {parse_elapsed:.1f}s spanning {start_date}..{end_date} "
         # f"(skipped {counts['skipped_nonsidereal']} non-sidereal, "
-        f"{counts['skipped_no_target']} without a usable base target)."
+        f"{counts['skipped_no_target']} without a usable base target); "
+        f"{parsed_mb:.0f} MB in use."
     )
     if heartbeat is not None:
         await heartbeat({
@@ -762,14 +781,7 @@ async def run_aggregation(
 
     # Stage 1, in batches: create new targets (sight skips existing ones) and
     # ensure position arrays exist for every night in the range — including
-    # gaps for targets that already existed (e.g. new semester nights).
-    #
-    # We commit per batch so a long semester-start backfill never holds one
-    # giant transaction, and so progress persists.
-    # A dyno killed mid-run just resumes from the remaining gaps on the next cron tick (every upsert is idempotent).
-    # Targets sharing an active period are batched together, so this collapses
-    # to roughly one group per distinct program window rather than a call per
-    # target.
+    # gaps for targets that already existed
     windows_by_target = target_windows(requests, windows)
     groups: dict[tuple[date, date], list] = {}
     for target in targets:
@@ -796,6 +808,7 @@ async def run_aggregation(
             batch_elapsed = batch.elapsed
             done += len(chunk)
             batch_number += 1
+            used_mb = guard.check(f"Stage 1 batch {batch_number}")
             loop_elapsed = time.perf_counter() - stage1_t0
             # Same moving ETA as Stage 2: measured seconds/target x targets left.
             eta = progress_eta_seconds(
@@ -806,7 +819,8 @@ async def run_aggregation(
                 f"{len(chunk)} targets in {batch_elapsed:.1f}s "
                 f"({batch_elapsed / len(chunk):.2f}s/target); "
                 f"{done}/{total_targets} done; "
-                f"ETA ~{'unknown' if eta is None else _format_duration(eta)}."
+                f"ETA ~{'unknown' if eta is None else _format_duration(eta)}; "
+                f"{used_mb:.0f} MB in use."
             )
             if heartbeat is not None:
                 await heartbeat(progress_detail(
@@ -830,7 +844,7 @@ async def run_aggregation(
     # their own program's window.
     stage2_t0 = time.perf_counter()
     stored = await _store_missing_visibility(
-        calc, requests, windows, heartbeat, started_at
+        calc, requests, windows, heartbeat, started_at, guard
     )
     stage2_elapsed = time.perf_counter() - stage2_t0
     _logger.info(f"Stage 2: stored {stored} new visibility rows in {stage2_elapsed:.1f}s.")
