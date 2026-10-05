@@ -659,49 +659,56 @@ class FileBasedResourceService(ResourceService):
     def load_files(self,
                    site: Site,
                    fpu_to_barcodes_file: str,
-                   fpus_data: Union[str, BytesIO],
-                   gratings_data: Union[str, BytesIO],
+                   fpus_data: Optional[Union[str, BytesIO]],
+                   gratings_data: Optional[Union[str, BytesIO]],
                    faults_data: Union[str, BytesIO],
                    eng_tasks_data: Union[str, BytesIO],
                    weather_closure_data: Union[str, BytesIO],
-                   filters_data: Union[str, BytesIO],
+                   filters_data: Optional[Union[str, BytesIO]],
                    too_data: Union[str, BytesIO],
                    spreadsheet_file: str) -> None:
         """
         Load all files necessaries to the correct functioning of the ResourceManager.
+
+        fpus_data, filters_data, and gratings_data may each be None for a service that sources
+        per-night FPU, filter, and disperser availability elsewhere (e.g. OpsResourceService,
+        which queries a live resource service instead).
         """
         # Load the mappings from the ITCD FPU values to the barcodes.
         logger.debug(f'Reading FPU barcode data for {site}.')
         self._load_fpu_to_barcodes(site, fpu_to_barcodes_file)
         logger.debug(f'Done reading FPU barcode data for {site}.')
 
-        # Load the FPUrs.
-        # This will put both the IFU and the FPU barcodes available on a given date as Resources.
-        # Note that for the IFU, we need to convert to a barcode, which is a Resource.
-        # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take its ID.
-        logger.debug(f'Reading IFU-FPU barcode data for {site}.')
-        self._load_csv(site,
-                       self._itcd_fpu_to_barcode_parser,
-                       fpus_data,
-                       resource_type=ResourceType.FPU)
-        logger.debug(f'Done reading IFU-FPU barcode data for {site}.')
+        if fpus_data is not None:
+            # Load the FPUrs.
+            # This will put both the IFU and the FPU barcodes available on a given date as Resources.
+            # Note that for the IFU, we need to convert to a barcode, which is a Resource.
+            # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take its ID.
+            logger.debug(f'Reading IFU-FPU barcode data for {site}.')
+            self._load_csv(site,
+                           self._itcd_fpu_to_barcode_parser,
+                           fpus_data,
+                           resource_type=ResourceType.FPU)
+            logger.debug(f'Done reading IFU-FPU barcode data for {site}.')
 
-        # Load Filters
-        self._load_csv(site,
-                       self._filter_parser,
-                       filters_data,
-                       resource_type=ResourceType.FILTER)
-        logger.debug(f'Done reading filter data for {site}.')
+        if filters_data is not None:
+            # Load Filters
+            self._load_csv(site,
+                           self._filter_parser,
+                           filters_data,
+                           resource_type=ResourceType.FILTER)
+            logger.debug(f'Done reading filter data for {site}.')
 
-        # Load the gratings.
-        # This will put the mirror and the grating names available on a given date as Resources.
-        # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
-        logger.debug(f'Reading gratings data for {site}.')
-        self._load_csv(site,
-                       self._mirror_parser,
-                       gratings_data,
-                       resource_type=ResourceType.DISPERSER)
-        logger.debug(f'Done reading gratings data for {site}.')
+        if gratings_data is not None:
+            # Load the gratings.
+            # This will put the mirror and the grating names available on a given date as Resources.
+            # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
+            logger.debug(f'Reading gratings data for {site}.')
+            self._load_csv(site,
+                           self._mirror_parser,
+                           gratings_data,
+                           resource_type=ResourceType.DISPERSER)
+            logger.debug(f'Done reading gratings data for {site}.')
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.
         logger.debug(f'Reading instrument data for {site}.')
