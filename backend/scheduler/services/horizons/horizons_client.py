@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import contextlib
+import fcntl
 import dateutil.parser
 import requests
 from dataclasses import dataclass, field
@@ -106,6 +107,21 @@ class HorizonsClient:
         # Skipping the section of heliocentric ecliptic osculating elements.
         return requests.get(self.url, params=params, timeout=self.timeout)
 
+    @contextlib.contextmanager
+    def _cache_lock(self):
+        """One cache read-or-fetch at a time across every process sharing this cache.
+
+        The parallel aggregation runs a process per CPU; their simultaneous
+        Horizons queries got HTML error pages back instead of ephemerides. Under
+        the lock a process that waited finds the file the holder just fetched.
+        """
+        with (self.path / '.horizons_fetch.lock').open('w') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
     def get_coords_table(self, lines: list[str]):
         time = []
         coords = []
@@ -185,34 +201,35 @@ class HorizonsClient:
         ephemeris_path = self.path / f'{self.site.name}_{targ_name}_{str(semester)}.eph'
 
         lines = None
-        if not overwrite and ephemeris_path.exists() and ephemeris_path.is_file():
-            logger.debug(f'Reading ephemerides file for {target.des}')
-            with ephemeris_path.open('r') as f:
-                cached_lines = [x.strip() for x in f.readlines()]
-            # Cached file is only usable if it contains the SOE/EOE markers.
-            # Old failed queries (e.g. from a wrong COMMAND param) leave error
-            # pages on disk; treat those as a cache miss and re-fetch instead
-            # of letting the parser raise.
-            if '$$SOE' in cached_lines and '$$EOE' in cached_lines:
-                lines = cached_lines
-            else:
-                logger.warning(
-                    f'Cached ephemerides for {target.des} at {ephemeris_path} '
-                    'is missing $$SOE/$$EOE markers; re-fetching from Horizons.'
-                )
+        with self._cache_lock():
+            if not overwrite and ephemeris_path.exists() and ephemeris_path.is_file():
+                logger.debug(f'Reading ephemerides file for {target.des}')
+                with ephemeris_path.open('r') as f:
+                    cached_lines = [x.strip() for x in f.readlines()]
+                # Cached file is only usable if it contains the SOE/EOE markers.
+                # Old failed queries (e.g. from a wrong COMMAND param) leave error
+                # pages on disk; treat those as a cache miss and re-fetch instead
+                # of letting the parser raise.
+                if '$$SOE' in cached_lines and '$$EOE' in cached_lines:
+                    lines = cached_lines
+                else:
+                    logger.warning(
+                        f'Cached ephemerides for {target.des} at {ephemeris_path} '
+                        'is missing $$SOE/$$EOE markers; re-fetching from Horizons.'
+                    )
 
-        if lines is None:
-            semester_start = (semester.start_date() - timedelta(days=1)).strftime("'%Y-%b-%d %H:%M'")
-            semester_end = (semester.end_date() + timedelta(days=2)).strftime("'%Y-%b-%d %H:%M'")
-            logger.debug(f'Querying JPL/Horizons for {horizons_name}')
-            res = self._query(horizons_name,
-                              semester_start,
-                              semester_end,
-                              daytime=True,
-                              step='4h')
-            lines = res.text.splitlines()
-            with ephemeris_path.open('w') as f:
-                f.write(res.text)
+            if lines is None:
+                semester_start = (semester.start_date() - timedelta(days=1)).strftime("'%Y-%b-%d %H:%M'")
+                semester_end = (semester.end_date() + timedelta(days=2)).strftime("'%Y-%b-%d %H:%M'")
+                logger.debug(f'Querying JPL/Horizons for {horizons_name}')
+                res = self._query(horizons_name,
+                                  semester_start,
+                                  semester_end,
+                                  daytime=True,
+                                  step='4h')
+                lines = res.text.splitlines()
+                with ephemeris_path.open('w') as f:
+                    f.write(res.text)
 
         try:
             time, coords = self.get_coords_table(lines)

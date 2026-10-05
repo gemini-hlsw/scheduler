@@ -1,11 +1,23 @@
 from datetime import date, datetime
 from typing import Sequence
 
-from sqlalchemy import select, and_, delete
+from sqlalchemy import select, and_, delete, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scheduler.services.sight.database.models import Target, TargetNightData
 from scheduler.services.sight.database.repositories.base import BaseRepository
+
+# Rows per executemany chunk in bulk_upsert. A Stage 1 row carries seven
+# per-minute float64 arrays (~35KB for a long night), so this keeps each
+# statement's bind buffer near 7MB.
+BULK_UPSERT_CHUNK = 200
+
+# Everything except the (target_id, site_id, night_date) conflict key.
+_UPSERT_COLUMNS = (
+    "night_duration_minutes", "ra", "dec", "alt", "az", "hourangle",
+    "airmass", "par_ang", "target_updated_at",
+)
 
 
 class TargetNightDataRepository(BaseRepository[TargetNightData]):
@@ -212,6 +224,30 @@ class TargetNightDataRepository(BaseRepository[TargetNightData]):
                 **kwargs,
             )
     
+    async def bulk_upsert(self, rows: list[dict]) -> int:
+        """
+        Insert or refresh many Stage 1 rows in a few round trips.
+
+        Rows are ``Calculator._stage1_row`` dicts (identical key sets). An
+        existing row for the same target, site and night is overwritten, which
+        is how a stale one is refreshed. No RETURNING, so asyncpg pipelines
+        each chunk as one executemany; the count is rows submitted.
+        """
+        if not rows:
+            return 0
+
+        insert_stmt = pg_insert(TargetNightData)
+        stmt = insert_stmt.on_conflict_do_update(
+            constraint="uq_target_night_data_target_site_night",
+            set_={
+                **{col: insert_stmt.excluded[col] for col in _UPSERT_COLUMNS},
+                "computed_at": func.now(),
+            },
+        )
+        for start in range(0, len(rows), BULK_UPSERT_CHUNK):
+            await self.session.execute(stmt, rows[start:start + BULK_UPSERT_CHUNK])
+        return len(rows)
+
     async def delete_old_data(self, before_date: date) -> int:
         """Delete cached data older than a given date. Returns count deleted."""
         stmt = delete(TargetNightData).where(
