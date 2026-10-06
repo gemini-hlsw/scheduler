@@ -49,8 +49,7 @@ from scheduler.services.visibility_aggregator.memory_guard import MemoryGuard
 
 _logger = logger_factory.create_logger(__name__, with_id=False)
 
-# Targets per task. Bounds a worker's memory (each Stage 1 row is ~35KB, two
-# sites per target) while keeping tasks numerous enough to balance the pool.
+# Targets per task.
 DEFAULT_CHUNK_SIZE = 200
 
 _PROGRESS_EVERY_SECONDS = 10.0

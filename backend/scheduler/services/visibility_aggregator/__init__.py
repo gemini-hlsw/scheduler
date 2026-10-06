@@ -5,4 +5,9 @@ Stage 2 (observations) current for the available GPP programs.
 
 Run as a Heroku Scheduler one-off dyno:
     python -m scheduler.services.visibility_aggregator.runner
+
+Local-only parallel backfill (same rows, a process pool, bulk writes; no memory
+guard, interlock or watermark):
+    DATABASE_URL=... GPP_TOKEN=... python -m scheduler.services.visibility_aggregator.aggregate_parallel \\
+        [--workers N] [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--dry-run]
 """
