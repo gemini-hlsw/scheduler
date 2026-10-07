@@ -31,10 +31,7 @@ from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.telemetry import timed
 
-from scheduler.services.visibility_aggregator.memory_guard import (
-    MemoryBudgetExceeded,
-    MemoryGuard,
-)
+from scheduler.services.visibility_aggregator.memory_guard import MemoryGuard
 
 from scheduler.services.visibility_aggregator.coordination import (
     get_change_watermark,
@@ -644,15 +641,11 @@ async def _store_missing_visibility(
             missing = []
 
         if missing:
-            t0 = time.perf_counter()
-            result = await calc.store_visibility(missing, current, current)
-            await calc.session.commit()
-            elapsed = time.perf_counter() - t0
-            used_mb = guard.check(f"Stage 2 night {current.isoformat()}")
             with timed('vis_agg.stage2_night') as night:
                 result = await calc.store_visibility(missing, current, current)
                 await calc.session.commit()
             elapsed = night.elapsed
+            used_mb = guard.check(f"Stage 2 night {current.isoformat()}")
             night_stored = int(result.get("stored", 0))
             stored += night_stored
 
@@ -733,16 +726,9 @@ async def run_aggregation(
 
     with timed('vis_agg.parse') as parse:
         (targets_by_name, requests, windows,
-         labels_by_internal_id, counts) = await _collect_requests(program_ids)
-    parse_elapsed = parse.elapsed
-    parse_t0 = time.perf_counter()
-
-    # Updates are not guarded by memory. If they failed they need to be done manually.
-    (targets_by_name, requests, windows,
-     labels_by_internal_id, counts) = await _collect_requests(program_ids, guard)
+         labels_by_internal_id, counts) = await _collect_requests(program_ids, guard)
     parsed_mb = guard.check(f"parsing {len(program_ids)} programs")
-
-    parse_elapsed = time.perf_counter() - parse_t0
+    parse_elapsed = parse.elapsed
     start_date = min((w[0] for w in windows.values()), default=today)
     end_date = max((w[1] for w in windows.values()), default=today)
     _logger.info(
