@@ -272,10 +272,7 @@ class VisibilityData(Base):
     # Results
     remaining_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     visible_ranges: Mapped[list] = mapped_column(JSONB, nullable=False)  # [[start, end], ...]
-    
-    # Constraints used
-    constraints: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    
+
     # Metadata
     computed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

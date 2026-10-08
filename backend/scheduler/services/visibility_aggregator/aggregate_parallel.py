@@ -260,11 +260,6 @@ def _init_worker(program_set_path: str, stop) -> None:
         targets=targets,
         requests_by_target=requests_by_target,
         windows=windows,
-        # Dumped once per worker rather than once per stored row.
-        constraints={
-            r.observation_id: r.constraints.model_dump(mode="json")
-            for rs in requests_by_target.values() for r in rs
-        },
     )
 
 
@@ -418,7 +413,6 @@ async def _fill_chunk(night: date, names: tuple[str, ...]) -> ChunkResult:
                 night_date=result.night_date,
                 remaining_minutes=result.remaining_minutes,
                 visible_ranges=result.visible_ranges,
-                constraints=_worker["constraints"][request.observation_id],
             ))
         await calc.visibility_repo.bulk_upsert(stage2_rows)
 

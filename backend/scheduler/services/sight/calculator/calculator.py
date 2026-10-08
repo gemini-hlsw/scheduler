@@ -620,10 +620,6 @@ class Calculator:
         target_names = set(r.target_name for r in requests)
         targets_by_name = await self.target_repo.get_by_names(list(target_names))
 
-        # Constraints are looked up per stored result; a dict avoids rescanning
-        # the request list for every one.
-        requests_by_obs_id = {r.observation_id: r for r in requests}
-
         current_date = start_date
         while current_date <= end_date:
             # Calculate visibility for this night
@@ -641,12 +637,6 @@ class Calculator:
                 if not target:
                     continue
 
-                original_request = requests_by_obs_id.get(result.observation_id)
-                constraints_dict = (
-                    original_request.constraints.model_dump(mode="json")
-                    if original_request else {}
-                )
-
                 rows.append(dict(
                     observation_id=result.observation_id,
                     target_id=target.id,
@@ -654,7 +644,6 @@ class Calculator:
                     night_date=result.night_date,
                     remaining_minutes=result.remaining_minutes,
                     visible_ranges=result.visible_ranges,
-                    constraints=constraints_dict,
                 ))
 
             stored += await self.visibility_repo.bulk_upsert(rows)

@@ -35,7 +35,6 @@ def _row(i: int) -> dict:
         'night_date': date(2018, 8, 1),
         'remaining_minutes': 42,
         'visible_ranges': [[0, 10]],
-        'constraints': {},
     }
 
 

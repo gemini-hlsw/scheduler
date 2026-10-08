@@ -9,7 +9,7 @@ from scheduler.services.sight.database.models import Target, VisibilityData
 
 
 # Rows per executemany chunk in bulk_upsert: bounds per-statement bind
-# buffers (~1000 rows x 2-5KB of JSONB each) while keeping round trips low.
+# buffers while keeping round trips low.
 BULK_UPSERT_CHUNK = 1000
 
 
@@ -207,7 +207,6 @@ class VisibilityDataRepository:
         night_date: date,
         remaining_minutes: int,
         visible_ranges: list,
-        constraints: dict,
     ) -> VisibilityData:
         """Insert or update visibility data."""
         stmt = select(VisibilityData).where(
@@ -224,7 +223,6 @@ class VisibilityDataRepository:
         if existing:
             existing.remaining_minutes = remaining_minutes
             existing.visible_ranges = visible_ranges
-            existing.constraints = constraints
             await self.session.flush()
             return existing
         
@@ -235,7 +233,6 @@ class VisibilityDataRepository:
             night_date=night_date,
             remaining_minutes=remaining_minutes,
             visible_ranges=visible_ranges,
-            constraints=constraints,
         )
         self.session.add(data)
         await self.session.flush()
@@ -246,7 +243,7 @@ class VisibilityDataRepository:
         Insert or update many visibility rows in a few round trips.
 
         Every row dict must have exactly the keys observation_id, target_id,
-        site_id, night_date, remaining_minutes, visible_ranges, constraints
+        site_id, night_date, remaining_minutes, visible_ranges
         (identical key sets across dicts, or SQLAlchemy compiles the column
         list from the first dict only). The statement has no RETURNING, so
         asyncpg pipelines each chunk as a single executemany round trip
@@ -262,7 +259,6 @@ class VisibilityDataRepository:
             set_={
                 "remaining_minutes": insert_stmt.excluded.remaining_minutes,
                 "visible_ranges": insert_stmt.excluded.visible_ranges,
-                "constraints": insert_stmt.excluded.constraints,
                 "computed_at": func.now(),
             },
         )
