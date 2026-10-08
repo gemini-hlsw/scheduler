@@ -551,49 +551,103 @@ class Collector(SchedulerComponent):
         Drop the observations a night cannot run: missing resources, or blocked by the
         program calendar filter.
 
+        Only the scheduled nights (the first `num_of_nights`) are checked against every
+        observation. The remaining nights of the visibility period only feed the remaining
+        visibility of the observations that can be scheduled, so they are checked against
+        that subset alone. This keeps the expensive visibility calculation from running
+        over the whole period for observations that will never be scored.
         """
-        obs_with_resources: Dict[NightIndex, List[Observation]] = {}
-        for n_idx in range(self.num_nights_calculated):
-            night_idx = NightIndex(n_idx)
-            obs_with_resources.setdefault(night_idx, [])
+        scheduled_nights, remaining_nights = self._split_nights()
+        obs_with_resources = self._filter_nights(parsed_observations, nc, scheduled_nights)
 
-            dropped_resources = 0
-            dropped_by_filter = 0
-            missing_resources = set()
-            for p_id, obs in parsed_observations:
-                night_resources = nc[obs.site][night_idx].resources
-                if "GMOS" in obs.instrument().id:
-                    required = list(obs.required_resources())
-                else:
-                    required = [
-                        resource
-                        for resource in obs.required_resources()
-                        if resource.type != ResourceType.FILTER
-                        and resource.type != ResourceType.DISPERSER
-                        and resource.type != ResourceType.FPU
-                    ]
-                missing = [r for r in required if r not in night_resources]
-                if missing:
-                    dropped_resources += 1
-                    missing_resources.update(r.id for r in missing)
-                    continue
-                # Rapid ToOs bypass block scheduling here so that they always have visibility
-                # data available for activation. See the note in load_programs.
-                if (obs.too_type is not TooType.RAPID
-                        and not nc[obs.site][night_idx].filter.program_filter(self.get_program(p_id))):
-                    dropped_by_filter += 1
-                    continue
-                obs_with_resources[night_idx].append(obs)
-
-            _logger.info(
-                f'Night configuration filter night={int(night_idx)}: '
-                f'{len(obs_with_resources[night_idx])}/{len(parsed_observations)} schedulable '
-                f'({dropped_resources} missing resources, {dropped_by_filter} blocked by program filter)'
-                + (f'; resources not available: {sorted(missing_resources)}'
-                   if missing_resources else '')
-            )
-
+        schedulable_ids = {obs.id for night_obs in obs_with_resources.values() for obs in night_obs}
+        candidates = self._carry_into_remaining_nights(parsed_observations, schedulable_ids, 'schedulable')
+        obs_with_resources.update(self._filter_nights(candidates, nc, remaining_nights))
         return obs_with_resources
+
+    def _split_nights(self) -> Tuple[range, range]:
+        """
+        The nights being scheduled, and the remaining nights of the visibility period, which
+        only feed the remaining visibility fraction of the scheduled observations.
+        """
+        num_scheduled = min(self.num_of_nights, self.num_nights_calculated)
+        return range(num_scheduled), range(num_scheduled, self.num_nights_calculated)
+
+    def _carry_into_remaining_nights(
+            self,
+            parsed_observations: List[Tuple[ProgramID, Observation]],
+            kept_ids: set,
+            reason: str
+    ) -> List[Tuple[ProgramID, Observation]]:
+        """
+        The observations in `kept_ids`, the only ones whose remaining nights are worth computing.
+        """
+        candidates = [(p_id, obs) for p_id, obs in parsed_observations if obs.id in kept_ids]
+        _, remaining_nights = self._split_nights()
+        if remaining_nights:
+            _logger.info(
+                f'Remaining nights {remaining_nights.start}-{remaining_nights.stop - 1} limited to the '
+                f'{len(candidates)}/{len(parsed_observations)} observations {reason} in the scheduled nights.'
+            )
+        return candidates
+
+    def _filter_nights(
+            self,
+            observations: List[Tuple[ProgramID, Observation]],
+            nc: Dict[Site, Dict[NightIndex, NightConfiguration]],
+            nights: range
+    ) -> Dict[NightIndex, List[Observation]]:
+        """
+        Apply the night configuration filter to `observations` for each night in `nights`.
+        """
+        return {NightIndex(n_idx): self._filter_night(NightIndex(n_idx), observations, nc) for n_idx in nights}
+
+    def _filter_night(
+            self,
+            night_idx: NightIndex,
+            observations: List[Tuple[ProgramID, Observation]],
+            nc: Dict[Site, Dict[NightIndex, NightConfiguration]]
+    ) -> List[Observation]:
+        """
+        The observations in `observations` that can run on night `night_idx`.
+        """
+        night_obs: List[Observation] = []
+        dropped_resources = 0
+        dropped_by_filter = 0
+        missing_resources = set()
+        for p_id, obs in observations:
+            night_resources = nc[obs.site][night_idx].resources
+            if "GMOS" in obs.instrument().id:
+                required = list(obs.required_resources())
+            else:
+                required = [
+                    resource
+                    for resource in obs.required_resources()
+                    if resource.type != ResourceType.FILTER
+                    and resource.type != ResourceType.DISPERSER
+                    and resource.type != ResourceType.FPU
+                ]
+            missing = [r for r in required if r not in night_resources]
+            if missing:
+                dropped_resources += 1
+                missing_resources.update(r.id for r in missing)
+                continue
+            # Rapid ToOs bypass block scheduling here so that they always have visibility
+            # data available for activation. See the note in load_programs.
+            if (obs.too_type is not TooType.RAPID
+                    and not nc[obs.site][night_idx].filter.program_filter(self.get_program(p_id))):
+                dropped_by_filter += 1
+                continue
+            night_obs.append(obs)
+
+        _logger.info(
+            f'Night configuration filter night={int(night_idx)}: '
+            f'{len(night_obs)}/{len(observations)} schedulable '
+            f'({dropped_resources} missing resources, {dropped_by_filter} blocked by program filter)'
+            + (f'; resources not available: {sorted(missing_resources)}'
+               if missing_resources else '')
+        )
+        return night_obs
 
     async def async_load_programs(self, program_provider_class: Type[ProgramProvider], data: Iterable[dict]) -> None:
         _logger.info("Starting async_load_programs...")
@@ -632,24 +686,19 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             _logger.error(f'Could not parse {bad_program_count} programs.')
 
-        # Nights x observations, each doing resource set lookups. Also off the loop.
-        obs_with_resources = await asyncio.to_thread(
-            self._filter_by_night_configuration, parsed_observations, nc)
-
         # Off the loop as well as local visibility calculations/Horizons calls might be extensive.
         if self._use_local_visibility():
-            await asyncio.to_thread(
-                self._compute_visibility_locally, parsed_observations, obs_with_resources)
+            await self._async_load_visibility_locally(parsed_observations, nc)
         else:
             try:
-                await self._async_load_visibility_from_sight(obs_with_resources)
+                # Applies the night configuration filter itself, between the Sight queries.
+                await self._async_load_visibility_from_sight(parsed_observations, nc)
             except Exception as exc:
                 record_sight_fallback()
                 _logger.warning(
                     f'Sight visibility load failed ({exc}); falling back to local computation.'
                 )
-                await asyncio.to_thread(
-                    self._compute_visibility_locally, parsed_observations, obs_with_resources)
+                await self._async_load_visibility_locally(parsed_observations, nc)
 
         for _p_id, _obs in parsed_observations:
             self._observations[_obs.id] = _obs, _obs.base_target()
@@ -894,16 +943,29 @@ class Collector(SchedulerComponent):
         )
         self._apply_sight_visibility(filtered_observations, per_night)
 
+    async def _async_load_visibility_locally(
+        self,
+        parsed_observations: List[Tuple[ProgramID, Observation]],
+        nc: Dict[Site, Dict[NightIndex, NightConfiguration]],
+    ) -> None:
+        """Filter by night configuration, then compute the visibility in memory, all off the loop."""
+        # Nights x observations, each doing resource set lookups.
+        obs_with_resources = await asyncio.to_thread(
+            self._filter_by_night_configuration, parsed_observations, nc)
+        await asyncio.to_thread(
+            self._compute_visibility_locally, parsed_observations, obs_with_resources)
+
     async def _async_load_visibility_from_sight(
         self,
-        filtered_observations: dict[NightIndex, list[Observation]],
+        parsed_observations: List[Tuple[ProgramID, Observation]],
+        nc: Dict[Site, Dict[NightIndex, NightConfiguration]],
     ) -> None:
         """Async entry point: await the Sight fetch (no ``asyncio.run``) then
         build the per-night ``TargetInfo`` exactly like the sync path.
 
         """
-        per_night = await self._fetch_sight_data(
-            filtered_observations, *self._sight_date_args()
+        filtered_observations, per_night = await self._fetch_sight_data_for_scheduled_nights(
+            parsed_observations, nc, *self._sight_date_args()
         )
         await asyncio.to_thread(self._apply_sight_visibility, filtered_observations, per_night)
 
@@ -993,72 +1055,182 @@ class Collector(SchedulerComponent):
         site_ids: list[str],
     ) -> dict[NightIndex, tuple[set[str], dict, dict]]:
         """Issue all required Sight Calculator queries inside one DB session."""
-        per_night: dict[NightIndex, tuple[set[str], dict, dict]] = {}
-        planned_nights = self._planned_nights()
+        async with session_scope() as session:
+            calc = Calculator(session)
+            visibility = await self._query_sight_visibility(calc, filtered_observations)
+            return await self._fetch_sight_stage1(
+                calc, filtered_observations, visibility, start_date, end_date, site_ids)
+
+    async def _fetch_sight_data_for_scheduled_nights(
+        self,
+        parsed_observations: List[Tuple[ProgramID, Observation]],
+        nc: Dict[Site, Dict[NightIndex, NightConfiguration]],
+        start_date,
+        end_date,
+        site_ids: list[str],
+    ) -> Tuple[dict[NightIndex, list[Observation]], dict[NightIndex, tuple[set[str], dict, dict]]]:
+        """Fetch Sight data for the observations that can be scheduled.
+
+        An observation Sight finds not visible on any scheduled night is never scored, so its
+        remaining nights are neither filtered nor queried, and its targets stay out of the
+        Stage-1 fetch. The observations that are kept get the same remaining nights as before,
+        so their remaining visibility fraction does not change. Those remaining nights only
+        feed that fraction, so they are read in one range query rather than one per night.
+
+        Returns:
+            The observations filtered per night, and the per-night Sight data.
+        """
+        scheduled_nights, remaining_nights = self._split_nights()
         async with session_scope() as session:
             calc = Calculator(session)
 
-            all_visible_ids: set[str] = set()
-            all_target_names: set[str] = set()
-            visible_by_night: dict[NightIndex, set[str]] = {}
-            ranges_by_night: dict[NightIndex, dict[str, list]] = {}
-            # Per-night, resource-gated remaining minutes per observation.
-            rem_min_by_night: dict[NightIndex, dict[str, int]] = {}
+            filtered_observations = await asyncio.to_thread(
+                self._filter_nights, parsed_observations, nc, scheduled_nights)
+            visibility = await self._query_sight_visibility(calc, filtered_observations)
 
-            for night_index, observations in filtered_observations.items():
-                if not observations:
-                    visible_by_night[night_index] = set()
-                    ranges_by_night[night_index] = {}
-                    rem_min_by_night[night_index] = {}
-                    continue
-                requests = [_obs_to_request(o) for o in observations]
-                night_date = self.time_grid[int(night_index)].to_datetime().date()
+            visible_ids = {obs_id for visible_ids, _ranges, _rem in visibility.values() for obs_id in visible_ids}
+            candidates = self._carry_into_remaining_nights(
+                parsed_observations, {o.id for _p, o in parsed_observations if o.id.id in visible_ids}, 'visible')
+            remaining = await asyncio.to_thread(self._filter_nights, candidates, nc, remaining_nights)
+            visibility.update(await self._query_sight_remaining_nights(calc, remaining))
+            filtered_observations.update(remaining)
 
-                # Calculate visible observations for the night.
-                with timed('collector.visible_observations') as visibility:
-                    visible = await calc.get_visible_observations(requests, night_date)
-                _logger.info(
-                    f'Sight get_visible_observations night={int(night_index)} '
-                    f'({len(observations)} obs) took {visibility.elapsed:.3f}s'
+            per_night = await self._fetch_sight_stage1(
+                calc, filtered_observations, visibility, start_date, end_date, site_ids)
+        return filtered_observations, per_night
+
+    async def _query_sight_visibility(
+        self,
+        calc: Calculator,
+        filtered_observations: dict[NightIndex, list[Observation]],
+    ) -> dict[NightIndex, tuple[set[str], dict[str, list], dict[str, int]]]:
+        """Query Sight for the observations visible on each night.
+
+        Returns:
+            Per night: the visible observation ids, their visible ranges, and their
+            resource-gated remaining minutes.
+        """
+        visibility: dict[NightIndex, tuple[set[str], dict[str, list], dict[str, int]]] = {}
+        for night_index, observations in filtered_observations.items():
+            if not observations:
+                visibility[night_index] = set(), {}, {}
+                continue
+            requests = [_obs_to_request(o) for o in observations]
+            night_date = self.time_grid[int(night_index)].to_datetime().date()
+
+            # Calculate visible observations for the night.
+            with timed('collector.visible_observations') as visibility_query:
+                visible = await calc.get_visible_observations(requests, night_date)
+            _logger.info(
+                f'Sight get_visible_observations night={int(night_index)} '
+                f'({len(observations)} obs) took {visibility_query.elapsed:.3f}s'
+            )
+            visibility[night_index] = (
+                {r.observation_id for r in visible},
+                {r.observation_id: r.visible_ranges for r in visible},
+                {r.observation_id: r.remaining_minutes for r in visible},
+            )
+        return visibility
+
+    async def _query_sight_remaining_nights(
+        self,
+        calc: Calculator,
+        filtered_observations: dict[NightIndex, list[Observation]],
+    ) -> dict[NightIndex, tuple[set[str], dict[str, list], dict[str, int]]]:
+        """Same result as `_query_sight_visibility` for nights after the scheduled ones,
+        from one query over their whole date range.
+
+        These nights only add their remaining minutes to the remaining visibility fraction,
+        so the visible ranges are left out. An (observation, night) with no stored row goes
+        through `_query_sight_visibility`, which calculates it as before.
+        """
+        dates = {night_index: self.time_grid[int(night_index)].to_datetime().date()
+                 for night_index in filtered_observations}
+        queried = [night_index for night_index, observations in filtered_observations.items() if observations]
+        stored: dict = {}
+        if queried:
+            obs_ids = sorted({o.id.id for night_index in queried for o in filtered_observations[night_index]})
+            start, end = min(dates[n] for n in queried), max(dates[n] for n in queried)
+            with timed('collector.remaining_minutes') as remaining_query:
+                stored = await calc.get_remaining_minutes_in_range(obs_ids, start, end)
+            _logger.info(
+                f'Sight remaining minutes for {len(obs_ids)} obs over {start}..{end} '
+                f'({len(stored)} stored nights) took {remaining_query.elapsed:.3f}s'
+            )
+
+        visibility: dict[NightIndex, tuple[set[str], dict[str, list], dict[str, int]]] = {}
+        missing: dict[NightIndex, list[Observation]] = {}
+        for night_index, observations in filtered_observations.items():
+            remaining_minutes: dict[str, int] = {}
+            for obs in observations:
+                minutes = stored.get((obs.id.id, dates[night_index]))
+                if minutes is None:
+                    missing.setdefault(night_index, []).append(obs)
+                elif minutes > 0:
+                    remaining_minutes[obs.id.id] = minutes
+            visibility[night_index] = set(remaining_minutes), {}, remaining_minutes
+
+        if missing:
+            _logger.info(
+                f'{sum(len(o) for o in missing.values())} (observation, night) pairs over '
+                f'{len(missing)} nights have no stored visibility; calculating them.'
+            )
+            for night_index, (visible_ids, _ranges, remaining_minutes) in (
+                    await self._query_sight_visibility(calc, missing)).items():
+                visibility[night_index][0].update(visible_ids)
+                visibility[night_index][2].update(remaining_minutes)
+        return visibility
+
+    async def _fetch_sight_stage1(
+        self,
+        calc: Calculator,
+        filtered_observations: dict[NightIndex, list[Observation]],
+        visibility: dict[NightIndex, tuple[set[str], dict[str, list], dict[str, int]]],
+        start_date,
+        end_date,
+        site_ids: list[str],
+    ) -> dict[NightIndex, tuple[set[str], dict, dict]]:
+        """Fetch Stage-1 data for the visible targets and assemble the per-night Sight data."""
+        per_night: dict[NightIndex, tuple[set[str], dict, dict]] = {}
+        planned_nights = self._planned_nights()
+        # Stage 1 only feeds TargetInfo, which is built for the planned nights alone; the
+        # remaining nights contribute their remaining minutes and nothing else.
+        all_target_names: set[str] = set()
+        for night_index, observations in filtered_observations.items():
+            if night_index not in planned_nights:
+                continue
+            visible_ids = visibility[night_index][0]
+            for obs in observations:
+                base = obs.base_target()
+                if base is not None and obs.id.id in visible_ids:
+                    all_target_names.add(base.name)
+
+        if not any(visible_ids for visible_ids, _ranges, _rem in visibility.values()):
+            return {ni: (set(), {}, {}, {}) for ni in filtered_observations}
+
+        stage1: dict = {}
+        if all_target_names:
+            last_planned = self.time_grid[int(max(planned_nights))].to_datetime().date()
+            stage1_end = min(end_date, last_planned)
+            with timed('collector.stage1_bulk') as stage1_fetch:
+                stage1 = await calc.get_stage1_greedymax_bulk(
+                    sorted(all_target_names), site_ids, start_date, stage1_end
                 )
-                visible_ids = {r.observation_id for r in visible}
-                visible_by_night[night_index] = visible_ids
-                ranges_by_night[night_index] = {r.observation_id: r.visible_ranges for r in visible}
-                rem_min_by_night[night_index] = {r.observation_id: r.remaining_minutes for r in visible}
-                all_visible_ids.update(visible_ids)
-                if night_index not in planned_nights:
-                    continue
-                for obs in observations:
-                    base = obs.base_target()
-                    if base is not None and obs.id.id in visible_ids:
-                        all_target_names.add(base.name)
-
-            if not all_visible_ids:
-                return {ni: (set(), {}, {}, {}) for ni in filtered_observations}
-
-            stage1: dict = {}
-            if all_target_names:
-                last_planned = self.time_grid[int(max(planned_nights))].to_datetime().date()
-                stage1_end = min(end_date, last_planned)
-                with timed('collector.stage1_bulk') as stage1_fetch:
-                    stage1 = await calc.get_stage1_greedymax_bulk(
-                        sorted(all_target_names), site_ids, start_date, stage1_end
-                    )
-                _logger.info(
-                    f'Sight get_stage1_greedymax_bulk ({len(all_target_names)} targets, '
-                    f'{start_date}..{stage1_end}) took {stage1_fetch.elapsed:.3f}s'
-                )
+            _logger.info(
+                f'Sight get_stage1_greedymax_bulk ({len(all_target_names)} targets, '
+                f'{start_date}..{stage1_end}) took {stage1_fetch.elapsed:.3f}s'
+            )
 
         # Per-night backward cumulative remaining minutes per observation.
         # The denominator of rem_visibility_frac at night n is the sum of (resource-gated) remaining
         # minutes from night n through the end of the period, so it shrinks toward
         # the end of the run.
-        cumulative_by_night = cumulative_remaining_by_night(rem_min_by_night)
+        cumulative_by_night = cumulative_remaining_by_night(
+            {night_index: rem_min for night_index, (_ids, _ranges, rem_min) in visibility.items()})
 
-        for night_index, visible_ids in visible_by_night.items():
+        for night_index, (visible_ids, ranges, _rem_min) in visibility.items():
             per_night[night_index] = (
-                visible_ids, stage1, cumulative_by_night.get(night_index, {}),
-                ranges_by_night.get(night_index, {})
+                visible_ids, stage1, cumulative_by_night.get(night_index, {}), ranges
             )
         return per_night
 
@@ -1076,6 +1248,7 @@ class Collector(SchedulerComponent):
         Uses adapters(shims) to match Sight models.
         """
         num_nights = self.num_nights_calculated
+        scheduled_nights, _ = self._split_nights()
         range_end_dt = self.end_vis_time
 
         # Pre-resolve one site shim per site (doesn't change across nights).
@@ -1103,6 +1276,7 @@ class Collector(SchedulerComponent):
         visible_counts = {NightIndex(n): 0 for n in range(num_nights)}
         no_resource_counts = {NightIndex(n): 0 for n in range(num_nights)}
         visible_slot_totals = {NightIndex(n): 0 for n in range(num_nights)}
+        not_visible_scheduled = 0
 
         for p_id, obs in parsed_observations:
             base = obs.base_target()
@@ -1115,14 +1289,16 @@ class Collector(SchedulerComponent):
 
             site = obs.site
             sshim = site_shims[site]
-            target_info_map: TargetInfoNightIndexMap = (
-                self._target_info.setdefault((base.name, obs.id), {})
-            )
 
             # Stage 1 + Stage 2 per night. Hold results; rem_visibility_frac
             # needs suffix-sum of remaining_minutes across the whole window.
+            # The scheduled nights come first: an observation not visible on any of them is
+            # never scored, so the rest of the window is not computed for it.
             per_night: dict[NightIndex, tuple] = {}
+            visible_scheduled = False
             for n_idx in range(num_nights):
+                if n_idx == scheduled_nights.stop and not visible_scheduled:
+                    break
                 night_idx = NightIndex(n_idx)
                 ne = _night_event(site, night_idx)
                 s1 = calculate_stage1(target, sshim, ne)
@@ -1155,6 +1331,16 @@ class Collector(SchedulerComponent):
                     constraints=constraints,
                 )
                 per_night[night_idx] = (ne, s1, s2)
+                if n_idx in scheduled_nights and np.asarray(s2.visibility_mask, dtype=bool).any():
+                    visible_scheduled = True
+
+            if not visible_scheduled:
+                not_visible_scheduled += 1
+                continue
+
+            target_info_map: TargetInfoNightIndexMap = (
+                self._target_info.setdefault((base.name, obs.id), {})
+            )
 
             # Suffix-sum of remaining_minutes for rem_visibility_frac
             # (same pattern as sight/scripts/dump_sight_targetinfo.py:215-223).
@@ -1215,6 +1401,10 @@ class Collector(SchedulerComponent):
 
             self._observations[obs.id] = obs, base
 
+        _logger.info(
+            f'Local visibility: {not_visible_scheduled}/{len(parsed_observations)} observations not visible '
+            f'on any scheduled night, remaining nights skipped for them.'
+        )
         for n_idx in range(num_nights):
             night_idx = NightIndex(n_idx)
             _logger.info(

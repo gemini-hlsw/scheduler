@@ -44,23 +44,25 @@ def test_config_strategy_is_case_insensitive_and_safe():
 
 @pytest.mark.asyncio
 async def test_async_sight_loader_awaits_and_applies():
-    """The async loader must await _fetch_sight_data (not asyncio.run, which would
+    """The async loader must await the Sight fetch (not asyncio.run, which would
     raise inside a running loop) and feed the result to _apply_sight_visibility."""
     obj = Collector.__new__(Collector)
     obj.start_vis_time = datetime(2026, 2, 1)
     obj.end_vis_time = datetime(2026, 2, 5)
     obj.sites = frozenset({Site.GS})
-    obj._fetch_sight_data = AsyncMock(return_value={"sentinel": 1})
+    filtered = {}
+    obj._fetch_sight_data_for_scheduled_nights = AsyncMock(return_value=(filtered, {"sentinel": 1}))
     obj._apply_sight_visibility = MagicMock()
 
-    filtered = {}
-    await obj._async_load_visibility_from_sight(filtered)
+    parsed, nc = [], {}
+    await obj._async_load_visibility_from_sight(parsed, nc)
 
-    obj._fetch_sight_data.assert_awaited_once()
-    # _fetch_sight_data(filtered_observations, start_date, end_date, site_ids)
-    args = obj._fetch_sight_data.await_args.args
-    assert args[0] is filtered
-    assert args[1] == obj.start_vis_time.date()
-    assert args[2] == obj.end_vis_time.date()
-    assert args[3] == ["GS"]
+    obj._fetch_sight_data_for_scheduled_nights.assert_awaited_once()
+    # (parsed_observations, nc, start_date, end_date, site_ids)
+    args = obj._fetch_sight_data_for_scheduled_nights.await_args.args
+    assert args[0] is parsed
+    assert args[1] is nc
+    assert args[2] == obj.start_vis_time.date()
+    assert args[3] == obj.end_vis_time.date()
+    assert args[4] == ["GS"]
     obj._apply_sight_visibility.assert_called_once_with(filtered, {"sentinel": 1})

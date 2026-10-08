@@ -137,3 +137,21 @@ def test_next_night_lookup_takes_the_earliest_upcoming_night():
     assert "night_events.night_start >" in sql
     assert "ORDER BY night_events.night_start" in sql
     assert "LIMIT" in sql.upper()
+
+
+def test_remaining_minutes_are_read_in_one_range_query_without_the_ranges():
+    session = _CapturingSession(rows=[("o-1", _NIGHT, 30)])
+    repo = VisibilityDataRepository(session)
+
+    rows = asyncio.run(repo.get_remaining_minutes_in_range(
+        ["o-1", "o-2"], date(2026, 7, 29), date(2026, 12, 31)
+    ))
+
+    assert rows == [("o-1", _NIGHT, 30)]
+    assert len(session.statements) == 1
+    sql = _sql(session.statements[0])
+    assert "visibility_data.night_date >=" in sql
+    assert "visibility_data.night_date <=" in sql
+    assert "visibility_data.remaining_minutes" in sql
+    # The JSONB ranges are the bulk of each row and unused by the caller.
+    assert "visible_ranges" not in sql

@@ -1,6 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
+import logging
 from copy import deepcopy
 from dataclasses import dataclass, field
 # from enum import Enum, IntEnum
@@ -476,8 +477,10 @@ class Selector(SchedulerComponent):
         # We ignore the Observation if:
         # 1. There is no target info associated with it.
         target_info = self.collector.get_target_info(obs.id)
+        # The collector leaves out observations that are not visible on any scheduled night,
+        # so this is routine.
         if target_info is None:
-            logger.warning(f'Selector skipping observation {obs.id}: no target info.')
+            logger.debug(f'Selector skipping observation {obs.id}: no target info.')
             return group_data_map
         # 2. There are no constraints associated with it.
         if obs.constraints is None:
@@ -551,13 +554,16 @@ class Selector(SchedulerComponent):
             conditions_score[night_idx][:starting_timeslot_in_night] = 0
             wind_score[night_idx] = Selector._wind_conditions(variant, target_info[night_idx].az)
 
-            logger.debug(
-                f'\nSelector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}\n'+
-                f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}\n'+
-                f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}\n'+
-                f'rising: {rising[night_idx]}, Too: {too_type.name}\n'+
-                f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}\n'
-            )
+            # Guarded: the f-string runs Python's max() over per-timeslot astropy arrays,
+            # which costs ~8 ms per observation even when DEBUG is off.
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    f'\nSelector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}\n'+
+                    f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}\n'+
+                    f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}\n'+
+                    f'rising: {rising[night_idx]}, Too: {too_type.name}\n'+
+                    f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}\n'
+                )
             # print(f'_calc_observation_group conditions: {conditions_score[night_idx]}')
 
         # Calculate the schedulable slot indices.

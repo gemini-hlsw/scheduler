@@ -1,0 +1,1 @@
+Modify the way the information is retrieved from the ODB and Sight, the observations are filtered down using the available resources first only for the requested to schedule nights, then filtered down again depending on their visibility from Sight and finally retrieved the information about their remaining visibility in a single batch.

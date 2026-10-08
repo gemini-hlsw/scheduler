@@ -125,7 +125,7 @@ def test_the_sight_fetch_is_not_offloaded():
     Only the TargetInfo build after it may move to a thread.
     """
     src = inspect.getsource(Collector._async_load_visibility_from_sight)
-    assert "await self._fetch_sight_data" in src, "the Sight read must stay on the loop"
+    assert "await self._fetch_sight_data_for_scheduled_nights" in src, "the Sight read must stay on the loop"
     assert "to_thread(self._apply_sight_visibility" in src, \
         "the TargetInfo build is CPU-bound and belongs off the loop"
 
