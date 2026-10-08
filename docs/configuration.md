@@ -94,6 +94,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/scheduler
 |`VITE_WEATHER_URL` | **Yes**| Same as above but used by the frontend app                                                                                                                                       |
 |`COLLECTOR_VISIBILITY_STRATEGY` | No | Toggle between Sight and Local visibility calculation                                                                                                                            |
 |`VIS_AGG_INTERLOCK` | No | Unlocks the aggregator lock to work with Sight locally on daytime |
+|`TELEMETRY_ENABLED` | No | Set to `false` to turn performance telemetry off: no OTLP metrics export and no JSON perf events on stdout (default `true`, `telemetry.enabled` in `config.yaml`). Timings in the regular log lines are unaffected. |
 ### Scheduler modes
 
 `SCHEDULER_MODE` determines how the scheduler behaves at startup:
