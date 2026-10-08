@@ -1,0 +1,1 @@
+Speed up Sight reads for plans: fetch Stage 1 arrays and build target info only for the nights being planned (one in realtime, the full range in validation), look up Stage 1 targets in one query, and drop the unused `visibility_data.constraints` column (migration 012), which held most of the table's data.
