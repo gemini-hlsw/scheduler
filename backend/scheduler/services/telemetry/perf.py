@@ -80,6 +80,8 @@ def perf_event(event: str, **fields: Any) -> None:
         **fields: extra context. Free to be high-cardinality -- these are log
             attributes, not metric attributes, so a run id or a night is fine here.
     """
+    if not otel.telemetry.emitting:
+        return
     try:
         payload = {'event': event, **_base_fields(), **fields}
         # default=repr: a caller passing something unserialisable should get a slightly
@@ -161,19 +163,20 @@ def timed(operation: str, **fields: Any) -> Iterator[Timing]:
     finally:
         timing.elapsed = time.perf_counter() - started
         ok = error is None
+        # No `return` here: inside `finally` it would swallow the block's exception.
+        if otel.telemetry.emitting:
+            try:
+                # `error` stays out of the metric attributes on purpose: exception class
+                # names are an open set, and each one would be another series.
+                otel.telemetry.operation_duration.record(timing.elapsed,
+                                                         {'operation': operation, 'ok': ok})
+            except Exception:  # pragma: no cover - defensive
+                pass
 
-        try:
-            # `error` stays out of the metric attributes on purpose: exception class
-            # names are an open set, and each one would be another series.
-            otel.telemetry.operation_duration.record(timing.elapsed,
-                                                     {'operation': operation, 'ok': ok})
-        except Exception:  # pragma: no cover - defensive
-            pass
-
-        event_fields = dict(fields)
-        if error is not None:
-            event_fields['error'] = error
-        perf_event(operation,
-                   duration_s=round(timing.elapsed, 6),
-                   ok=ok,
-                   **event_fields)
+            event_fields = dict(fields)
+            if error is not None:
+                event_fields['error'] = error
+            perf_event(operation,
+                       duration_s=round(timing.elapsed, 6),
+                       ok=ok,
+                       **event_fields)

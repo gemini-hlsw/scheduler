@@ -15,12 +15,12 @@ optimizer:
   name: GREEDYMAX
 
 ranker:
-#  name: ADDITIVE
+  #  name: ADDITIVE
   name: DEFAULT
 
 selector:
-#  buffer_type: PERCENTAGE
-#  buffer_amount: 0.05
+  #  buffer_type: PERCENTAGE
+  #  buffer_amount: 0.05
   buffer_type: FLAT_MINUTES
   buffer_amount: 20.0
 
@@ -34,6 +34,14 @@ app:
 sight:
   # Per-request HTTP timeout in seconds for read-only bulk fetches.
   timeout: 300
+
+telemetry:
+  # Master switch for performance telemetry: the OTLP metrics export and the JSON perf
+  # events `timed` writes to stdout. false keeps `timed` measuring (callers still read
+  # `.elapsed` for their own log lines) but nothing is recorded or emitted. A process
+  # that installs its own meter provider (tests, scripts/stress_realtime.py) turns it
+  # back on. Overridable via the TELEMETRY_ENABLED env var.
+  enabled: ${oc.decode:${oc.env:TELEMETRY_ENABLED,true}}
 
 # Background visibility-aggregator cron (scheduler.services.visibility_aggregator).
 visibility_aggregator:
