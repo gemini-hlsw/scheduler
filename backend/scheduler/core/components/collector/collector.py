@@ -874,6 +874,11 @@ class Collector(SchedulerComponent):
             sorted({s.name for s in self.sites}),
         )
 
+    def _planned_nights(self) -> frozenset[NightIndex]:
+        """Nights the Selector plans: 0 .. num_of_nights - 1.
+        """
+        return frozenset(NightIndex(i) for i in range(self.num_of_nights))
+
     def _load_visibility_from_sight(
         self,
         filtered_observations: dict[NightIndex, list[Observation]],
@@ -920,6 +925,7 @@ class Collector(SchedulerComponent):
             for night_index, (visible_obs_ids, _stage1, _cumulative, _ranges) in per_night.items()
         }
 
+        planned_nights = self._planned_nights()
         for night_index, observations in filtered_observations.items():
             visible_obs_ids, stage1, cumulative, ranges_by_obs = per_night[night_index]
             visible_observations = [o for o in observations if o.id.id in visible_obs_ids]
@@ -932,6 +938,11 @@ class Collector(SchedulerComponent):
                 base = obs.base_target()
                 if base is None:
                     _logger.error(f'Could not find base target for {obs.id.id}.')
+                    continue
+
+                if night_index not in planned_nights:
+                    self._target_info.setdefault((base.name, obs.id), {})
+                    self._observations[obs.id] = obs, base
                     continue
 
                 rem_minutes = cumulative.get(obs.id.id, 0)
@@ -983,6 +994,7 @@ class Collector(SchedulerComponent):
     ) -> dict[NightIndex, tuple[set[str], dict, dict]]:
         """Issue all required Sight Calculator queries inside one DB session."""
         per_night: dict[NightIndex, tuple[set[str], dict, dict]] = {}
+        planned_nights = self._planned_nights()
         async with session_scope() as session:
             calc = Calculator(session)
 
@@ -1014,6 +1026,8 @@ class Collector(SchedulerComponent):
                 ranges_by_night[night_index] = {r.observation_id: r.visible_ranges for r in visible}
                 rem_min_by_night[night_index] = {r.observation_id: r.remaining_minutes for r in visible}
                 all_visible_ids.update(visible_ids)
+                if night_index not in planned_nights:
+                    continue
                 for obs in observations:
                     base = obs.base_target()
                     if base is not None and obs.id.id in visible_ids:
@@ -1022,14 +1036,18 @@ class Collector(SchedulerComponent):
             if not all_visible_ids:
                 return {ni: (set(), {}, {}, {}) for ni in filtered_observations}
 
-            with timed('collector.stage1_bulk') as stage1_fetch:
-                stage1 = await calc.get_stage1_greedymax_bulk(
-                    sorted(all_target_names), site_ids, start_date, end_date
+            stage1: dict = {}
+            if all_target_names:
+                last_planned = self.time_grid[int(max(planned_nights))].to_datetime().date()
+                stage1_end = min(end_date, last_planned)
+                with timed('collector.stage1_bulk') as stage1_fetch:
+                    stage1 = await calc.get_stage1_greedymax_bulk(
+                        sorted(all_target_names), site_ids, start_date, stage1_end
+                    )
+                _logger.info(
+                    f'Sight get_stage1_greedymax_bulk ({len(all_target_names)} targets, '
+                    f'{start_date}..{stage1_end}) took {stage1_fetch.elapsed:.3f}s'
                 )
-            _logger.info(
-                f'Sight get_stage1_greedymax_bulk ({len(all_target_names)} targets) '
-                f'took {stage1_fetch.elapsed:.3f}s'
-            )
 
         # Per-night backward cumulative remaining minutes per observation.
         # The denominator of rem_visibility_frac at night n is the sum of (resource-gated) remaining
