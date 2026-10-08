@@ -1301,6 +1301,7 @@ _ROWS = [
     ("stress.night_filter", 2, "Night configuration filter"),
     ("collector.visibility_local", 2, "Visibility, local compute"),
     ("collector.visible_observations", 2, "Sight: visible observations query (per night)"),
+    ("collector.remaining_minutes", 2, "Sight: remaining minutes, later nights (one query)"),
     ("collector.stage1_bulk", 2, "Sight: stage 1 bulk fetch"),
     ("collector.sight_apply", 2, "Sight: build target info"),
     ("stress.selector_init", 1, "Selector setup"),
@@ -1323,7 +1324,7 @@ _ROWS = [
 _PLAN_CHILDREN = ("scp.build_collector", "stress.selector_init", "stress.ranker_init",
                   "stress.init_variant", "scp.select", "scp.optimize", "stress.stats",
                   "stress.serialize_timelines", "stress.serialize_summary")
-_VISIBILITY_OPS = ("collector.visibility_local", "collector.visible_observations",
+_VISIBILITY_OPS = ("collector.visibility_local", "collector.visible_observations", "collector.remaining_minutes",
                    "collector.stage1_bulk", "collector.sight_apply")
 _SCALING = (("engine.plan", "Whole plan"), ("scp.build_collector", "Collector build"),
             ("derived.visibility", "Visibility"), ("scp.select", "Selection"),

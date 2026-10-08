@@ -325,6 +325,23 @@ class Calculator:
             visible_ranges=mask_to_ranges(result.visibility_mask),
         )
 
+    async def get_remaining_minutes_in_range(
+        self,
+        observation_ids: list[str],
+        start_date: date,
+        end_date: date,
+    ) -> dict[tuple[str, date], int]:
+        """
+        Stored remaining minutes per (observation, night) over a date range, in one query.
+
+        Unlike get_visible_observations this never calculates: a pair with no
+        stored row is simply absent, and the caller decides what to do with it.
+        """
+        rows = await self.visibility_repo.get_remaining_minutes_in_range(
+            observation_ids, start_date, end_date
+        )
+        return {(observation_id, night_date): minutes for observation_id, night_date, minutes in rows}
+
     async def get_visible_observations(
         self,
         requests: list[ObservationRequest],

@@ -122,6 +122,35 @@ class VisibilityDataRepository:
         result = await self.session.execute(stmt)
         return {(observation_id, night_date) for observation_id, night_date in result.all()}
 
+    async def get_remaining_minutes_in_range(
+        self,
+        observation_ids: list[str],
+        start_date: date,
+        end_date: date,
+    ) -> list[tuple[str, date, int]]:
+        """
+        Get (observation_id, night_date, remaining_minutes) for the stored rows in a range.
+
+        One query for the whole range in place of one per night, and no JSONB
+        payloads: callers that only sum remaining minutes over many nights do not
+        need the visible ranges.
+        """
+        if not observation_ids:
+            return []
+        stmt = select(
+            VisibilityData.observation_id,
+            VisibilityData.night_date,
+            VisibilityData.remaining_minutes,
+        ).where(
+            and_(
+                VisibilityData.observation_id.in_(observation_ids),
+                VisibilityData.night_date >= start_date,
+                VisibilityData.night_date <= end_date,
+            )
+        )
+        result = await self.session.execute(stmt)
+        return [(observation_id, night_date, minutes) for observation_id, night_date, minutes in result.all()]
+
     async def get_visible_on_night(
         self,
         night_date: date,
