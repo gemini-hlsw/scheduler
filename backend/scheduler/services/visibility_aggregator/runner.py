@@ -22,6 +22,10 @@ from scheduler.services.visibility_aggregator.aggregator import (
     is_night_in_progress,
     run_aggregation,
 )
+from scheduler.services.visibility_aggregator.memory_guard import (
+    MemoryBudgetExceeded,
+    MemoryGuard,
+)
 
 _logger = logger_factory.create_logger(__name__, with_id=False)
 
@@ -90,7 +94,8 @@ async def _run() -> int:
                 async with session_scope() as work:
                     result = await run_aggregation(
                         work,
-                        heartbeat=_make_detail_heartbeat()
+                        heartbeat=_make_detail_heartbeat(),
+                        memory_guard=MemoryGuard.from_config(),
                     )
             _logger.info(f"Aggregation complete: {result}")
         finally:
@@ -118,6 +123,15 @@ async def _run() -> int:
             "released and progress committed up to the last batch."
         )
         return 0
+    except MemoryBudgetExceeded as exc:
+        # Stopped on purpose before the dyno runs out of memory. Committed
+        # batches persist and the watermark is untouched, so the next tick
+        # resumes from the remaining gaps with fresh memory.
+        _logger.warning(
+            f"Aggregation run stopped early: {exc}. Coordination row released; "
+            f"the next run resumes from the remaining work."
+        )
+        return 1
     except Exception as exc:
         # e.g. a dropped Heroku Postgres connection mid-run. The row is already
         # released by the inner finally; committed batches persist, so the next

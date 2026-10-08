@@ -66,3 +66,11 @@ visibility_aggregator:
   # the watermark, so clock skew between ODB and scheduler never skips changes.
   # Re-processing an already-applied change is idempotent.
   changes_overlap_seconds: 300
+  # Memory (MB, resident + swap) above which a run stops cleanly between
+  # committed batches; the next tick resumes from the remaining gaps, so a big
+  # backfill is spread over several runs instead of swapping past the dyno
+  # quota (R14) or being killed with the coordination row held (R15). Keep it
+  # ~10% under the Scheduler dyno size (Standard-1X = 512) for the uv parent
+  # process and one batch of growth. Overridable via VIS_AGG_MEMORY_BUDGET_MB;
+  # null disables the guard.
+  memory_budget_mb: ${oc.decode:${oc.env:VIS_AGG_MEMORY_BUDGET_MB,460}}

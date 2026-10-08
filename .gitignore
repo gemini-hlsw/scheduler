@@ -143,6 +143,7 @@ profiles/
 
 # Ephemeris files
 *.eph
+.horizons_fetch.lock
 
 # Logs
 logs
