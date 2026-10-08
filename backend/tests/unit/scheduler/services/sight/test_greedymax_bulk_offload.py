@@ -6,6 +6,7 @@ import inspect
 from datetime import date
 from time import perf_counter
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import numpy as np
 import pytest
@@ -152,3 +153,19 @@ def test_stage1_missing_par_ang_stays_none():
 
 def test_stage1_row_whose_target_is_unknown_is_skipped():
     assert Calculator._unpack_stage1_rows([_row(99, date(2026, 8, 26))], {7: 'NGC-1'}) == {}
+
+
+@pytest.mark.asyncio
+async def test_targets_are_looked_up_in_one_query():
+    """A lookup per name cost a round trip per target, hundreds per plan."""
+    calc = Calculator.__new__(Calculator)
+    calc.target_repo = SimpleNamespace(
+        get_by_names=AsyncMock(return_value={'NGC-1': SimpleNamespace(id=7)}),
+        get_by_name=AsyncMock(),
+    )
+    calc.session = SimpleNamespace(execute=AsyncMock(return_value=SimpleNamespace(all=lambda: [])))
+
+    await calc.get_stage1_greedymax_bulk(['NGC-1', 'NGC-2'], ['GN'], date(2026, 8, 26), date(2026, 8, 26))
+
+    calc.target_repo.get_by_names.assert_awaited_once_with(['NGC-1', 'NGC-2'], unique=True)
+    calc.target_repo.get_by_name.assert_not_awaited()

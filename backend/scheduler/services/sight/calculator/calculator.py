@@ -1059,20 +1059,15 @@ class Calculator:
         
         if not target_names or not site_ids:
             return {}
-        
-        # Get targets by name
-        targets_by_name = {}
-        for name in target_names:
-            target = await self.target_repo.get_by_name(name)
-            if target:
-                targets_by_name[name] = target
-        
+
+        targets_by_name = await self.target_repo.get_by_names(target_names, unique=True)
+
         if not targets_by_name:
             return {}
-        
+
         target_ids = [t.id for t in targets_by_name.values()]
         site_id_ints = [SITE_KEY_TO_ID[s] for s in site_ids]
-        
+
         # Query only needed columns
         stmt = select(
             TargetNightData.target_id,
