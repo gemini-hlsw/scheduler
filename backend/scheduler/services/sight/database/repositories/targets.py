@@ -1,7 +1,9 @@
+from collections import Counter
 from datetime import datetime
 from typing import Sequence
 
 from sqlalchemy import select, and_, func
+from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scheduler.services.sight.database.models import Target
@@ -19,13 +21,22 @@ class TargetRepository(BaseRepository[Target]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_by_names(self, names: list[str]) -> dict[str, Target]:
-        """Get all targets whose name is in `names`, keyed by name. One query."""
+    async def get_by_names(self, names: list[str], *, unique: bool = False) -> dict[str, Target]:
+        """Get all targets whose name is in `names`, keyed by name. One query.
+        TODO: check if this behavior is similar in the ODB
+        unique=True raises MultipleResultsFound instead, as get_by_name does.
+        """
         if not names:
             return {}
         stmt = select(Target).where(Target.name.in_(set(names)))
         result = await self.session.execute(stmt)
-        return {t.name: t for t in result.scalars().all()}
+        targets = result.scalars().all()
+        by_name = {t.name: t for t in targets}
+        if unique and len(by_name) < len(targets):
+            counts = Counter(t.name for t in targets)
+            duplicated = sorted(name for name, n in counts.items() if n > 1)
+            raise MultipleResultsFound(f"More than one target named {duplicated}")
+        return by_name
     
     async def get_ids_by_names(self, names: list[str]) -> dict[str, int]:
         """Ids of the targets whose name is in `names`, keyed by name.

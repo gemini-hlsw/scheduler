@@ -70,12 +70,6 @@ def target_shim(target) -> Optional[SimpleNamespace]:
 
 def target_create(target) -> Optional[SightTargetCreate]:
     """Build a sight ``TargetCreate`` payload from a lucupy Target.
-
-    Single home for the lucupy -> sight target mapping, shared by the
-    visibility-aggregator and ``scripts/fill_sight.py``. Returns None for an
-    unrecognised/None target. Non-sidereal targets are mapped too (with
-    placeholder base_ra/base_dec, since the schema requires them); callers that
-    only want sidereal targets check ``.is_sidereal``.
     """
     if target is None:
         return None
@@ -105,8 +99,6 @@ def target_create(target) -> Optional[SightTargetCreate]:
 
 def elevation_constraints(elevation: ElevationLimits) -> Tuple[SightElevationType, float, float]:
     """Sight elevation type, min and max from the limits that were given in the lucupy ElevationLimits.
-
-    Used by both the realtime collector and scripts/fill_sight.py.
     """
     if elevation.elevation_type == ElevationType.HOUR_ANGLE:
         return SightElevationType.HOUR_ANGLE, elevation.ha_min, elevation.ha_max
@@ -116,9 +108,6 @@ def elevation_constraints(elevation: ElevationLimits) -> Tuple[SightElevationTyp
 
 def expand_timing_windows(windows, range_end: datetime) -> List[SightTimingWindow]:
     """Expand lucupy TimingWindow repeats into flat sight TimingWindow pairs.
-
-    Used by both the realtime collector (Stage-2 constraint construction) and
-    scripts/fill_sight.py (bulk store). Single home so behaviour stays in sync.
     """
     out: List[SightTimingWindow] = []
     for tw in (windows or []):
