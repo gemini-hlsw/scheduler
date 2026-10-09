@@ -84,11 +84,27 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
 
   // Array of colors from Highcharts
   const colorsOption = Highcharts.getOptions().colors;
-  const colors = colorsOption
-    ? colorsOption.filter(
-        (color): color is Highcharts.ColorString => typeof color === "string",
-      )
-    : [];
+  // Highcharts default palette only has 10 colors, extend it so every
+  // instrument gets its own color
+  const extraColors: Highcharts.ColorString[] = [
+    "#f2c80f",
+    "#a0522d",
+    "#ff6fb5",
+    "#7f8c8d",
+    "#808000",
+    "#8b0a50",
+    "#c6e377",
+  ];
+  const colors = [
+    ...(colorsOption
+      ? colorsOption.filter(
+          (color): color is Highcharts.ColorString => typeof color === "string",
+        )
+      : []),
+    ...extraColors,
+  ];
+  // Used for instruments not listed below
+  const fallbackColor: Highcharts.ColorString = "#999999";
 
   const instruments = [
     "GMOS-N",
@@ -126,6 +142,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   const mornTwiDate = new Date(mornTwilight);
 
   const seriesData: Array<SeriesArearangeOptions> = data.map((d: Visit) => {
+    const instrumentColor = colorMap[d.instrument] ?? fallbackColor;
     const zones = [];
     for (let i = 0; i < d.atomTimes.length; i++) {
       const atomTime = d.atomTimes[i];
@@ -135,11 +152,9 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       );
       zones.push({
         value: atomX,
-        color: colorMap[d.instrument],
+        color: instrumentColor,
         fillColor:
-          i % 2 === 0
-            ? `${colorMap[d.instrument]}66`
-            : `${colorMap[d.instrument]}33`, // 20% opacity for even atoms, 0% for odd
+          i % 2 === 0 ? `${instrumentColor}66` : `${instrumentColor}33`, // 20% opacity for even atoms, 0% for odd
       });
     }
 
@@ -157,7 +172,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
         };
       }),
       lineWidth: 1,
-      color: colorMap[d.instrument],
+      color: instrumentColor,
       fillOpacity: 0.3,
       zIndex: 0,
       marker: {
