@@ -72,11 +72,19 @@ def default_operation_start(now: Optional[datetime] = None) -> datetime:
 def default_operation_parameters(now: Optional[datetime] = None) -> 'SchedulerParameters':
     """
     Parameters for an operation build that was not given a visibility range.
+
+    The visibility period runs from the target night to the last night of its semester
+    (A: February to July, B: August to January).
     """
     start = default_operation_start(now)
+    # The semester methods work on local dates, so have to subtract 1 day from UT dates
+    semester = Semester.find_semester_from_date((start - timedelta(days=1)).date())
+    # end_date is a local date, so add 1 for UT
+    end_date = semester.end_date() + timedelta(days=1)
+    end = datetime(end_date.year, end_date.month, end_date.day, hour=start.hour, tzinfo=UTC)
     return SchedulerParameters(
         start=start,
-        end=start + timedelta(days=14),
+        end=end,
         semester_visibility=False,
         num_nights_to_schedule=1,
     )
@@ -147,7 +155,7 @@ class SchedulerParameters:
             self.semesters = frozenset([Semester.find_semester_from_date(self.start - timedelta(days=1)),
                                         Semester.find_semester_from_date(self.end - timedelta(days=1))])
         else:
-            self.semesters = frozenset([Semester.find_semester_from_date(self.start) - timedelta(days=1)])
+            self.semesters = frozenset([Semester.find_semester_from_date(self.start - timedelta(days=1))])
 
         if self.semester_visibility:
             end_date = max(s.end_date() for s in self.semesters)
