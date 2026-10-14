@@ -7,6 +7,7 @@ The ODB filters programs by an active-on date, so a run of an older night has to
 ask for that night; asking for today silently drops every program that has since
 expired, and the operator ends up selecting from the wrong list.
 """
+
 from datetime import datetime
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
@@ -31,10 +32,11 @@ def odb_dates(monkeypatch):
         return [("G-2019A-0001", "p-1")]
 
     monkeypatch.setattr(
-        schema_module, "gpp",
-        SimpleNamespace(client=SimpleNamespace(scheduler=SimpleNamespace(
-            get_all_reference_labels=_get_all_reference_labels
-        )))
+        schema_module,
+        "gpp",
+        SimpleNamespace(
+            client=SimpleNamespace(scheduler=SimpleNamespace(get_all_reference_labels=_get_all_reference_labels))
+        ),
     )
     return dates
 
@@ -48,9 +50,7 @@ async def clean_build_params():
 
 @pytest.mark.asyncio
 async def test_explicit_night_date_is_forwarded(scheduler_schema, odb_dates):
-    result = await scheduler_schema.execute(
-        _QUERY, variable_values={"d": "2018-10-21"}
-    )
+    result = await scheduler_schema.execute(_QUERY, variable_values={"d": "2018-10-21"})
 
     assert result.errors is None
     assert odb_dates == ["2018-10-21"]
@@ -59,9 +59,7 @@ async def test_explicit_night_date_is_forwarded(scheduler_schema, odb_dates):
 
 @pytest.mark.asyncio
 async def test_falls_back_to_the_build_visibility_start(scheduler_schema, odb_dates):
-    await build_params_store.set(BuildParameters(
-        visibility_start=datetime(2019, 3, 1, 20, tzinfo=ZoneInfo("UTC"))
-    ))
+    await build_params_store.set(BuildParameters(visibility_start=datetime(2019, 3, 1, 20, tzinfo=ZoneInfo("UTC"))))
 
     result = await scheduler_schema.execute(_QUERY, variable_values={"d": None})
 
@@ -71,10 +69,14 @@ async def test_falls_back_to_the_build_visibility_start(scheduler_schema, odb_da
 
 @pytest.mark.asyncio
 async def test_falls_back_to_the_earliest_night_start(scheduler_schema, odb_dates):
-    await build_params_store.set(BuildParameters(night_times={
-        Site.GN: NightTimes(night_start=datetime(2020, 5, 4, 6)),
-        Site.GS: NightTimes(night_start=datetime(2020, 5, 2, 6)),
-    }))
+    await build_params_store.set(
+        BuildParameters(
+            night_times={
+                Site.GN: NightTimes(night_start=datetime(2020, 5, 4, 6)),
+                Site.GS: NightTimes(night_start=datetime(2020, 5, 2, 6)),
+            }
+        )
+    )
 
     result = await scheduler_schema.execute(_QUERY, variable_values={"d": None})
 
@@ -83,9 +85,7 @@ async def test_falls_back_to_the_earliest_night_start(scheduler_schema, odb_date
 
 
 @pytest.mark.asyncio
-async def test_no_build_parameters_leaves_the_date_to_the_client(
-    scheduler_schema, odb_dates
-):
+async def test_no_build_parameters_leaves_the_date_to_the_client(scheduler_schema, odb_dates):
     result = await scheduler_schema.execute(_QUERY, variable_values={"d": None})
 
     assert result.errors is None

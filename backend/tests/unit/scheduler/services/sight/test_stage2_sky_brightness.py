@@ -34,13 +34,13 @@ _MOON_DIST_M = 384_400_000.0
 def _moon_down_inputs(n: int, sun_alt_deg: float):
     """Arrays for a target overhead with the moon well below the horizon."""
     return dict(
-        ra=np.full(n, 150.0),                 # degrees
-        dec=np.full(n, -30.0),                # degrees
-        alt=np.radians(np.full(n, 70.0)),     # radians (target high up)
+        ra=np.full(n, 150.0),  # degrees
+        dec=np.full(n, -30.0),  # degrees
+        alt=np.radians(np.full(n, 70.0)),  # radians (target high up)
         sun_alt=np.radians(np.full(n, sun_alt_deg)),
         moon_alt=np.radians(np.full(n, -45.0)),  # moon below horizon -> dark
-        moon_ra=np.full(n, 330.0),            # degrees (far from target/sun)
-        moon_dec=np.full(n, 10.0),            # degrees
+        moon_ra=np.full(n, 330.0),  # degrees (far from target/sun)
+        moon_dec=np.full(n, 10.0),  # degrees
         sun_moon_ang=np.radians(np.full(n, 180.0)),
         moon_dist_m=np.full(n, _MOON_DIST_M),  # meters, per-slot
     )
@@ -78,7 +78,7 @@ def test_bright_moon_overhead_is_brighter_than_dark():
     bright_inputs = _moon_down_inputs(n, sun_alt_deg=-30.0)
     bright_inputs.update(
         moon_alt=np.radians(np.full(n, 60.0)),  # moon high
-        moon_ra=np.full(n, 150.0),              # near the target
+        moon_ra=np.full(n, 150.0),  # near the target
         moon_dec=np.full(n, -30.0),
         sun_moon_ang=np.radians(np.full(n, 10.0)),  # near full moon
     )
@@ -133,13 +133,11 @@ def test_moon_up_far_separation_not_all_sbany():
     n = 30
     inputs = _moon_down_inputs(n, sun_alt_deg=-30.0)
     inputs.update(
-        moon_alt=np.radians(np.full(n, 30.0)),      # moon up
-        moon_ra=np.full(n, 270.0),                  # ~120 deg from target
+        moon_alt=np.radians(np.full(n, 30.0)),  # moon up
+        moon_ra=np.full(n, 270.0),  # ~120 deg from target
         moon_dec=np.full(n, 10.0),
         sun_moon_ang=np.radians(np.full(n, 60.0)),  # phase 120 deg -> crescent
     )
     sb = _calculate_sky_brightness_array(**inputs)
     assert np.all(np.isfinite(sb))
-    assert not np.all(sb == float(SkyBackground.SBANY)), (
-        "every moon-up slot classified SBANY (the AU-unit bug)"
-    )
+    assert not np.all(sb == float(SkyBackground.SBANY)), "every moon-up slot classified SBANY (the AU-unit bug)"

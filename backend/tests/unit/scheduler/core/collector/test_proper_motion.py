@@ -15,14 +15,16 @@ def time():
 
 @pytest.fixture
 def target():
-    return SiderealTarget(name=TargetName(''),
-                          magnitudes=frozenset(),
-                          type=TargetType.OTHER,
-                          ra=78.85743749999999,
-                          dec=15.630119444444444,
-                          pm_ra=-5.718,
-                          pm_dec=-5.781,
-                          epoch=2000.0)
+    return SiderealTarget(
+        name=TargetName(''),
+        magnitudes=frozenset(),
+        type=TargetType.OTHER,
+        ra=78.85743749999999,
+        dec=15.630119444444444,
+        pm_ra=-5.718,
+        pm_dec=-5.781,
+        epoch=2000.0,
+    )
 
 
 def test_proper_motion(target, time):

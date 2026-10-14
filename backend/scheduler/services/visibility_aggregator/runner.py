@@ -74,17 +74,12 @@ async def _run() -> int:
 
         async with session_scope() as ctrl:
             if await coordination.is_plan_in_progress(ctrl):
-                _logger.info(
-                    "Operation process is computing a plan; skipping cycle."
-                )
+                _logger.info("Operation process is computing a plan; skipping cycle.")
                 return 0
             # Atomically claim the aggregator row.
             acquired = await coordination.acquire_aggregator(ctrl, _holder())
         if not acquired:
-            _logger.info(
-                "Another aggregator run holds the lock (or it is fresh); "
-                "skipping cycle."
-            )
+            _logger.info("Another aggregator run holds the lock (or it is fresh); skipping cycle.")
             return 0
 
         stop_heartbeat = asyncio.Event()
@@ -113,8 +108,7 @@ async def _run() -> int:
                     await coordination.release_aggregator(release)
             except Exception as exc:
                 _logger.warning(
-                    f"Could not release the coordination row cleanly ({exc}); "
-                    f"it will expire after stale_after_seconds."
+                    f"Could not release the coordination row cleanly ({exc}); it will expire after stale_after_seconds."
                 )
         return 0
     except asyncio.CancelledError:
@@ -148,9 +142,11 @@ async def _run() -> int:
 
 def _make_detail_heartbeat():
     """Heartbeat callback that records progress detail on its own session."""
+
     async def _heartbeat(detail: dict) -> None:
         async with session_scope() as session:
             await coordination.heartbeat_aggregator(session, detail)
+
     return _heartbeat
 
 

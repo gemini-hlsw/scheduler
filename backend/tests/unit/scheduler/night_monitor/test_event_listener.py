@@ -12,6 +12,7 @@ from scheduler.night_monitor import EventListener, SubscriptionEndedException
 from scheduler.night_monitor.event_listener import RETRYABLE_EXCEPTIONS
 from scheduler.night_monitor.event_sources import EventSourceType
 
+
 async def mock_subscription_generator(data_list):
     """A mock async generator that yields items from data_list."""
     for item in data_list:
@@ -24,6 +25,7 @@ def mock_client_async():
     mock_client = AsyncMock()
     yield mock_client
     mock_client.reset_mock()
+
 
 @pytest.fixture
 def event_listener(mock_client_async):
@@ -70,7 +72,7 @@ async def test_produce_success(no_retry, event_listener, mock_client_async):
 
 
 @pytest.mark.asyncio
-async def test_producer_ends_gracefully(no_retry, event_listener,  mock_client_async):
+async def test_producer_ends_gracefully(no_retry, event_listener, mock_client_async):
     """Test that the producer correctly raises SubscriptionEndedException."""
     mock_data = ['data1']
     mock_sub_factory = MagicMock(side_effect=lambda session: mock_subscription_generator(mock_data))
@@ -79,11 +81,14 @@ async def test_producer_ends_gracefully(no_retry, event_listener,  mock_client_a
     client = AsyncMock()
     # The producer should raise SubscriptionEndedException when the generator finishes
     with pytest.raises(SubscriptionEndedException):
-        await event_listener._producer(source_type, 'resource_edit', mock_sub_factory,  client)
+        await event_listener._producer(source_type, 'resource_edit', mock_sub_factory, client)
 
     # Check that the data was still processed
     assert event_listener.queue.qsize() == 1, f"queue size should be 1 event but it got {event_listener.queue.qsize()}"
-    assert await event_listener.queue.get() == (source_type, 'resource_edit', 'data1'), "message retrieved is not the same as the one queued"
+    assert await event_listener.queue.get() == (source_type, 'resource_edit', 'data1'), (
+        "message retrieved is not the same as the one queued"
+    )
+
 
 @patch('asyncio.sleep', new_callable=AsyncMock)  # Patch sleep to speed up retry
 @pytest.mark.asyncio
@@ -98,10 +103,7 @@ async def test_producer_retry(mock_sleep, event_listener):
         event_listener._shutdown_event.set()
 
     # Mock factory that fails once with a retryable exception, then succeeds
-    mock_sub_factory.side_effect = [
-        ConnectionError("Simulated connection error"),
-        last_generator(None)
-    ]
+    mock_sub_factory.side_effect = [ConnectionError("Simulated connection error"), last_generator(None)]
 
     source_type = EventSourceType.WEATHER
 
@@ -129,6 +131,7 @@ async def test_producer_reconnects_after_a_graceful_end(mock_sleep, event_listen
     socket and the async-for simply runs out. Before, that raised a SubscriptionEndedException
     that nothing retried, and the ODB events stopped arriving until the process restarted.
     """
+
     async def ends_immediately(session):
         return
         yield  # pragma: no cover - makes this an async generator
@@ -140,9 +143,7 @@ async def test_producer_reconnects_after_a_graceful_end(mock_sleep, event_listen
     mock_sub_factory = MagicMock()
     mock_sub_factory.side_effect = [ends_immediately(None), then_delivers(None)]
 
-    await event_listener._producer(
-        EventSourceType.ODB, 'observation_edit', mock_sub_factory, AsyncMock()
-    )
+    await event_listener._producer(EventSourceType.ODB, 'observation_edit', mock_sub_factory, AsyncMock())
 
     assert mock_sub_factory.call_count == 2, "a graceful end must reconnect"
     assert await event_listener.queue.get() == (EventSourceType.ODB, 'observation_edit', 'data1')
@@ -180,25 +181,24 @@ async def test_listen(no_retry, event_listener, mock_client_async):
     # Factories must be lambdas that return generators directly, not async functions
     def resource_factory(session):
         return mock_subscription_generator(['res_data'])
+
     def weather_factory(session):
         return mock_subscription_generator(['weather_data'])
+
     def odb_factory1(session):
         return mock_subscription_generator(['odb_data1'])
+
     def odb_factory2(session):
         return mock_subscription_generator(['odb_data2'])
 
     # Subscriptions must return 3-tuples: (sub_name, factory, client)
-    mock_resource_source.subscriptions.return_value = [
-        ('resource_edit', resource_factory, mock_client_async)
-    ]
+    mock_resource_source.subscriptions.return_value = [('resource_edit', resource_factory, mock_client_async)]
 
-    mock_weather_source.subscriptions.return_value = [
-        ('weather_change', weather_factory, mock_client_async)
-    ]
+    mock_weather_source.subscriptions.return_value = [('weather_change', weather_factory, mock_client_async)]
 
     mock_odb_source.subscriptions.return_value = [
         ('observation_edit', odb_factory1, mock_client_async),
-        ('observation_edit', odb_factory2, mock_client_async)
+        ('observation_edit', odb_factory2, mock_client_async),
     ]
 
     event_listener._sources = [mock_resource_source, mock_weather_source, mock_odb_source]
@@ -211,8 +211,7 @@ async def test_listen(no_retry, event_listener, mock_client_async):
     mock_odb_source.subscriptions.assert_called_once()
 
     # Check the queue contains all items
-    assert event_listener.queue.qsize() == 4, \
-        f"Expected 4 items in queue but got {event_listener.queue.qsize()}"
+    assert event_listener.queue.qsize() == 4, f"Expected 4 items in queue but got {event_listener.queue.qsize()}"
 
     # Get all items and verify them
     items_in_queue = set()
@@ -223,10 +222,12 @@ async def test_listen(no_retry, event_listener, mock_client_async):
         (EventSourceType.RESOURCE, 'resource_edit', 'res_data'),
         (EventSourceType.WEATHER, 'weather_change', 'weather_data'),
         (EventSourceType.ODB, 'observation_edit', 'odb_data1'),
-        (EventSourceType.ODB, 'observation_edit', 'odb_data2')
+        (EventSourceType.ODB, 'observation_edit', 'odb_data2'),
     }
-    assert items_in_queue == expected_items, \
+    assert items_in_queue == expected_items, (
         f"Queue items don't match. Got: {items_in_queue}, Expected: {expected_items}"
+    )
+
 
 @pytest.mark.asyncio
 async def test_listen_logs_producer_failure(no_retry, event_listener, mock_client_async):
@@ -254,8 +255,9 @@ async def test_listen_logs_producer_failure(no_retry, event_listener, mock_clien
         await event_listener.listen()
 
     error_messages = [str(call) for call in mock_logger.error.call_args_list]
-    assert any('observation_edit' in message for message in error_messages), \
+    assert any('observation_edit' in message for message in error_messages), (
         f"Expected an error log for the dead 'observation_edit' producer, got: {error_messages}"
+    )
 
 
 @pytest.mark.asyncio

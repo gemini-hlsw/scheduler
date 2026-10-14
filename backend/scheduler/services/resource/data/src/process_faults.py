@@ -35,8 +35,10 @@ with file.open() as f:
         else:
             night_date = local_datetime.date()
         end_datetime = local_datetime + duration
-        print(f'{night_date.strftime("%Y-%m-%d")}\t{local_datetime.strftime("%H:%M")}\t'
-              f'{end_datetime.strftime("%H:%M")}\t[FR-{fr_id}: {description}]')
+        print(
+            f'{night_date.strftime("%Y-%m-%d")}\t{local_datetime.strftime("%H:%M")}\t'
+            f'{end_datetime.strftime("%H:%M")}\t[FR-{fr_id}: {description}]'
+        )
         processed += 1
 
 print(f'Processed {processed} entries.')

@@ -11,10 +11,26 @@ import numpy as np
 
 from astropy.time import Time, TimeDelta
 
-from lucupy.minimodel import (ALL_SITES, NightIndex, NightIndices,
-                              Observation, ObservationID, ObservationClass, Program, ProgramID, ProgramTypes, Semester,
-                              Site, Target, TimeslotIndex, QAState, ObservationStatus,
-                              Group, ResourceType, TooType)
+from lucupy.minimodel import (
+    ALL_SITES,
+    NightIndex,
+    NightIndices,
+    Observation,
+    ObservationID,
+    ObservationClass,
+    Program,
+    ProgramID,
+    ProgramTypes,
+    Semester,
+    Site,
+    Target,
+    TimeslotIndex,
+    QAState,
+    ObservationStatus,
+    Group,
+    ResourceType,
+    TooType,
+)
 from lucupy.timeutils import time2slots
 from lucupy.types import Day, ZeroTime
 
@@ -79,6 +95,7 @@ def _obs_to_request(obs: Observation) -> ObservationRequest:
 @dataclass(frozen=True)
 class GroupVisits:
     """Container for holding group information for each visit"""
+
     group: Group
     visits: List[Visit]
 
@@ -109,6 +126,7 @@ class Collector(SchedulerComponent):
     Here, we just perform the necessary calculations, and are not concerned with the number of nights to be
     scheduled.
     """
+
     start_vis_time: datetime
     end_vis_time: datetime
     num_of_nights: int
@@ -133,14 +151,12 @@ class Collector(SchedulerComponent):
     _programs: Dict[ProgramID, Program] = field(default_factory=dict, init=False)
 
     # A set of ObservationIDs per ProgramID.
-    _observations_per_program: Dict[ProgramID, FrozenSet[ObservationID]] = field(
-        default_factory=dict, init=False)
+    _observations_per_program: Dict[ProgramID, FrozenSet[ObservationID]] = field(default_factory=dict, init=False)
 
     # This is a map of observation information that is computed as the programs
     # are read in. It contains both the Observation and the base Target (if any) for
     # the observation.
-    _observations: Dict[ObservationID, Tuple[Observation, Optional[Target]]] = field(
-        default_factory=dict, init=False)
+    _observations: Dict[ObservationID, Tuple[Observation, Optional[Target]]] = field(default_factory=dict, init=False)
 
     # The target information is dependent on the:
     # 1. TargetName
@@ -188,9 +204,9 @@ class Collector(SchedulerComponent):
         # Set up the time grid for the period under consideration in calculations: this is an astropy Time
         # object from start_time to end_time inclusive, with one entry per day.
         # Note that the format is in jdate.
-        self.time_grid = Time(np.arange(self.start_vis_time,
-                                        self.end_vis_time + timedelta(days=1.0),
-                                        timedelta(days=1.0)))
+        self.time_grid = Time(
+            np.arange(self.start_vis_time, self.end_vis_time + timedelta(days=1.0), timedelta(days=1.0))
+        )
 
         # The number of nights for which we are performing calculations.
         self.num_nights_calculated = len(self.time_grid)
@@ -204,18 +220,14 @@ class Collector(SchedulerComponent):
             night_start_time = None
             night_end_time = None
             self.night_events = {
-                site: Collector._night_events_manager.get_night_events(self.time_grid,
-                                                                       night_start_time,
-                                                                       night_end_time,
-                                                                       self.time_slot_length,
-                                                                       site)
+                site: Collector._night_events_manager.get_night_events(
+                    self.time_grid, night_start_time, night_end_time, self.time_slot_length, site
+                )
                 for site in self.sites
             }
         self._resource_service = self.sources.origin.resource
 
-        self.time_accountant = TimeAccountant(
-            self.sites, list(map(lambda x: NightIndex(x), range(self.num_of_nights)))
-        )
+        self.time_accountant = TimeAccountant(self.sites, list(map(lambda x: NightIndex(x), range(self.num_of_nights))))
 
     async def async_init_night_events(self):
         """
@@ -239,7 +251,7 @@ class Collector(SchedulerComponent):
                 night_start_time,
                 night_end_time,
                 self.time_slot_length,
-                site
+                site,
             )
         _logger.info("Night events initialized asynchronously")
 
@@ -258,11 +270,9 @@ class Collector(SchedulerComponent):
             night_start_time = self.night_times[site][0]
             night_end_time = self.night_times[site][1]
 
-        return Collector._night_events_manager.get_night_events(self.time_grid,
-                                                                night_start_time,
-                                                                night_end_time,
-                                                                self.time_slot_length,
-                                                                site)
+        return Collector._night_events_manager.get_night_events(
+            self.time_grid, night_start_time, night_end_time, self.time_slot_length, site
+        )
 
     def get_program_ids(self) -> Iterable[ProgramID]:
         """
@@ -307,8 +317,7 @@ class Collector(SchedulerComponent):
         value = self._observations.get(obs_id, None)
         return None if value is None else value[1]
 
-    def get_observation_and_base_target(
-            self, obs_id: ObservationID) -> Optional[Tuple[Observation, Optional[Target]]]:
+    def get_observation_and_base_target(self, obs_id: ObservationID) -> Optional[Tuple[Observation, Optional[Target]]]:
         """
         Given an ObservationID, if it exists, return the Observation and its Target.
         If not, return None.
@@ -377,7 +386,7 @@ class Collector(SchedulerComponent):
                 else:
                     # This is a dictionary from GPP
                     next_data = next_program
-                
+
                 # Check if id is already in programs, otherwise add new program
                 # program_id = program_provider.get_program_id(next_data)  # TODO: get the ID from the program provider
                 program = program_provider.parse_program(next_data)
@@ -436,12 +445,20 @@ class Collector(SchedulerComponent):
             night_idx = NightIndex(n_idx)
             obs_with_resources.setdefault(night_idx, [])
             for p_id, obs in parsed_observations:
-
                 if "GMOS" in obs.instrument().id:
-                    has_resources = all([resource in nc[obs.site][night_idx].resources for resource in obs.required_resources()])
+                    has_resources = all(
+                        [resource in nc[obs.site][night_idx].resources for resource in obs.required_resources()]
+                    )
                 else:
-                    has_resources = all([resource in nc[obs.site][night_idx].resources for resource in obs.required_resources() if
-                                         resource.type != ResourceType.FILTER and resource.type != ResourceType.DISPERSER and resource.type != ResourceType.FPU])
+                    has_resources = all(
+                        [
+                            resource in nc[obs.site][night_idx].resources
+                            for resource in obs.required_resources()
+                            if resource.type != ResourceType.FILTER
+                            and resource.type != ResourceType.DISPERSER
+                            and resource.type != ResourceType.FPU
+                        ]
+                    )
 
                 if not has_resources:
                     continue
@@ -451,9 +468,8 @@ class Collector(SchedulerComponent):
                 # blocked, so block scheduling must not drop it from the visibility calculation:
                 # without TargetInfo the Selector cannot schedule it once it is activated. The
                 # Selector re-applies the night filter, and the rapid override, per night.
-                prog= self.get_program(p_id)
-                can_schedule = (obs.too_type is TooType.RAPID
-                                or nc[obs.site][night_idx].filter.program_filter(prog))
+                prog = self.get_program(p_id)
+                can_schedule = obs.too_type is TooType.RAPID or nc[obs.site][night_idx].filter.program_filter(prog)
                 if not can_schedule:
                     continue
 
@@ -467,15 +483,13 @@ class Collector(SchedulerComponent):
                 self._load_visibility_from_sight(obs_with_resources)
             except Exception as exc:
                 record_sight_fallback()
-                _logger.warning(
-                    f'Sight visibility load failed ({exc}); falling back to local computation.'
-                )
+                _logger.warning(f'Sight visibility load failed ({exc}); falling back to local computation.')
                 self._compute_visibility_locally(parsed_observations, obs_with_resources)
         for _p_id, _obs in parsed_observations:
             base = _obs.base_target()
             self._observations[_obs.id] = _obs, base
 
-        _logger.info(f'Collected {len(self._observations)} observations: {[ o.id for o in self._observations.keys()]}.')
+        _logger.info(f'Collected {len(self._observations)} observations: {[o.id for o in self._observations.keys()]}.')
 
     def get_visible_observations_for_night(self, night_idx: NightIndex) -> set[ObservationID]:
         return self._visible_obs_by_night.get(night_idx, set())
@@ -494,9 +508,9 @@ class Collector(SchedulerComponent):
             return self.use_local_visibility
         return str(config.collector.visibility_strategy).strip().lower() == 'local'
 
-    def _parse_programs(self,
-                        program_provider: ProgramProvider,
-                        data: Iterable[dict]) -> Tuple[List[Tuple[ProgramID, Observation]], int]:
+    def _parse_programs(
+        self, program_provider: ProgramProvider, data: Iterable[dict]
+    ) -> Tuple[List[Tuple[ProgramID, Observation]], int]:
         """
         Parse the fetched program payloads into this Collector's program tables.
 
@@ -518,7 +532,7 @@ class Collector(SchedulerComponent):
                 if program is None:
                     continue
 
-                #if program.semester is None or program.semester not in self.semesters:
+                # if program.semester is None or program.semester not in self.semesters:
                 #    _logger.debug(f'Program {program.id} has semester {program.semester} (not included, skipping).')
                 #    continue
 
@@ -543,9 +557,9 @@ class Collector(SchedulerComponent):
         return parsed_observations, bad_program_count
 
     def _filter_by_night_configuration(
-            self,
-            parsed_observations: List[Tuple[ProgramID, Observation]],
-            nc: Dict[Site, Dict[NightIndex, NightConfiguration]]
+        self,
+        parsed_observations: List[Tuple[ProgramID, Observation]],
+        nc: Dict[Site, Dict[NightIndex, NightConfiguration]],
     ) -> Dict[NightIndex, List[Observation]]:
         """
         Drop the observations a night cannot run: missing resources, or blocked by the
@@ -574,10 +588,7 @@ class Collector(SchedulerComponent):
         return range(num_scheduled), range(num_scheduled, self.num_nights_calculated)
 
     def _carry_into_remaining_nights(
-            self,
-            parsed_observations: List[Tuple[ProgramID, Observation]],
-            kept_ids: set,
-            reason: str
+        self, parsed_observations: List[Tuple[ProgramID, Observation]], kept_ids: set, reason: str
     ) -> List[Tuple[ProgramID, Observation]]:
         """
         The observations in `kept_ids`, the only ones whose remaining nights are worth computing.
@@ -592,10 +603,10 @@ class Collector(SchedulerComponent):
         return candidates
 
     def _filter_nights(
-            self,
-            observations: List[Tuple[ProgramID, Observation]],
-            nc: Dict[Site, Dict[NightIndex, NightConfiguration]],
-            nights: range
+        self,
+        observations: List[Tuple[ProgramID, Observation]],
+        nc: Dict[Site, Dict[NightIndex, NightConfiguration]],
+        nights: range,
     ) -> Dict[NightIndex, List[Observation]]:
         """
         Apply the night configuration filter to `observations` for each night in `nights`.
@@ -603,10 +614,10 @@ class Collector(SchedulerComponent):
         return {NightIndex(n_idx): self._filter_night(NightIndex(n_idx), observations, nc) for n_idx in nights}
 
     def _filter_night(
-            self,
-            night_idx: NightIndex,
-            observations: List[Tuple[ProgramID, Observation]],
-            nc: Dict[Site, Dict[NightIndex, NightConfiguration]]
+        self,
+        night_idx: NightIndex,
+        observations: List[Tuple[ProgramID, Observation]],
+        nc: Dict[Site, Dict[NightIndex, NightConfiguration]],
     ) -> List[Observation]:
         """
         The observations in `observations` that can run on night `night_idx`.
@@ -634,8 +645,9 @@ class Collector(SchedulerComponent):
                 continue
             # Rapid ToOs bypass block scheduling here so that they always have visibility
             # data available for activation. See the note in load_programs.
-            if (obs.too_type is not TooType.RAPID
-                    and not nc[obs.site][night_idx].filter.program_filter(self.get_program(p_id))):
+            if obs.too_type is not TooType.RAPID and not nc[obs.site][night_idx].filter.program_filter(
+                self.get_program(p_id)
+            ):
                 dropped_by_filter += 1
                 continue
             night_obs.append(obs)
@@ -644,8 +656,7 @@ class Collector(SchedulerComponent):
             f'Night configuration filter night={int(night_idx)}: '
             f'{len(night_obs)}/{len(observations)} schedulable '
             f'({dropped_resources} missing resources, {dropped_by_filter} blocked by program filter)'
-            + (f'; resources not available: {sorted(missing_resources)}'
-               if missing_resources else '')
+            + (f'; resources not available: {sorted(missing_resources)}' if missing_resources else '')
         )
         return night_obs
 
@@ -661,11 +672,7 @@ class Collector(SchedulerComponent):
         _logger.debug("Loading night configurations...")
         nc = {}
         for site in self.sites:
-            nc[site] = await asyncio.to_thread(
-                self.night_configurations,
-                site,
-                np.arange(self.num_nights_calculated)
-            )
+            nc[site] = await asyncio.to_thread(self.night_configurations, site, np.arange(self.num_nights_calculated))
 
             _logger.info(
                 f'Night configurations for {site.name}: '
@@ -677,8 +684,7 @@ class Collector(SchedulerComponent):
             )
 
         # Parsing is CPU bound so we use a thread
-        parsed_observations, bad_program_count = await asyncio.to_thread(
-            self._parse_programs, program_provider, data)
+        parsed_observations, bad_program_count = await asyncio.to_thread(self._parse_programs, program_provider, data)
 
         if not parsed_observations:
             raise Exception('No observations found after parsing programs.')
@@ -695,28 +701,24 @@ class Collector(SchedulerComponent):
                 await self._async_load_visibility_from_sight(parsed_observations, nc)
             except Exception as exc:
                 record_sight_fallback()
-                _logger.warning(
-                    f'Sight visibility load failed ({exc}); falling back to local computation.'
-                )
+                _logger.warning(f'Sight visibility load failed ({exc}); falling back to local computation.')
                 await self._async_load_visibility_locally(parsed_observations, nc)
 
         for _p_id, _obs in parsed_observations:
             self._observations[_obs.id] = _obs, _obs.base_target()
 
-        _logger.info(
-            f'Collected {len(self._observations)} observations: {[o.id for o in self._observations.keys()]}.'
-        )
+        _logger.info(f'Collected {len(self._observations)} observations: {[o.id for o in self._observations.keys()]}.')
 
-    def night_configurations(self,
-                             site: Site,
-                             night_indices: NightIndices) -> Dict[NightIndices, NightConfiguration]:
+    def night_configurations(self, site: Site, night_indices: NightIndices) -> Dict[NightIndices, NightConfiguration]:
         """
         Return the list of NightConfiguration for the site and nights under configuration.
         """
-        return {night_idx: self._resource_service.get_night_configuration(
-            site,
-            self.get_night_events(site).time_grid[night_idx].datetime.date() - Day
-        ) for night_idx in night_indices}
+        return {
+            night_idx: self._resource_service.get_night_configuration(
+                site, self.get_night_events(site).time_grid[night_idx].datetime.date() - Day
+            )
+            for night_idx in night_indices
+        }
 
     def _get_group(self, obs: Observation) -> Group:
         """Return the group that an observation is a member of."""
@@ -739,10 +741,12 @@ class Collector(SchedulerComponent):
         # This should never happen: cannot find observation in program.
         raise RuntimeError(f'Could not find observation {obs.id.id} in program {program.id.id}.')
 
-    def time_accounting(self,
-                        plans: Plans,
-                        sites: FrozenSet[Site] = ALL_SITES,
-                        end_timeslot_bounds: Optional[Dict[Site, Optional[TimeslotIndex]]] = None) -> None:
+    def time_accounting(
+        self,
+        plans: Plans,
+        sites: FrozenSet[Site] = ALL_SITES,
+        end_timeslot_bounds: Optional[Dict[Site, Optional[TimeslotIndex]]] = None,
+    ) -> None:
         """
         For the given plans, which contain a set of plans for all sites for one night,
         perform time accounting on the plans for the specified sites up until the specified
@@ -793,9 +797,9 @@ class Collector(SchedulerComponent):
                     first_visit = grpvisit.visits[0]
                     observation = self.get_observation(first_visit.observation.id)
                     cumul_seq = observation.cumulative_exec_times()
-                    n_slots_atom0 = time2slots(time_slot_length,
-                                               observation.acq_overhead
-                                               + cumul_seq[first_visit.atom_start_idx])  # noqa
+                    n_slots_atom0 = time2slots(
+                        time_slot_length, observation.acq_overhead + cumul_seq[first_visit.atom_start_idx]
+                    )  # noqa
                     slot_atom0_end = first_visit.start_time_slot + n_slots_atom0 - 1
                     charge_group = end_timeslot_bound is None or end_timeslot_bound > slot_atom0_end
 
@@ -808,8 +812,10 @@ class Collector(SchedulerComponent):
                 # Charge to not_charged if the bound occurs during an AND (scheduling) group
                 # TODO: for NIR + telluric, check if the standard was taken before the event, if so then charge for
                 # what was observed and make a new copy of the telluric
-                not_charged = (grpvisit.group.is_scheduling_group() and
-                               grpvisit.start_time_slot() <= end_timeslot_charge <= grpvisit.end_time_slot())
+                not_charged = (
+                    grpvisit.group.is_scheduling_group()
+                    and grpvisit.start_time_slot() <= end_timeslot_charge <= grpvisit.end_time_slot()
+                )
 
                 # prog_obs = grpvisit.group.program_observations()
                 part_obs = grpvisit.group.partner_observations()
@@ -831,16 +837,15 @@ class Collector(SchedulerComponent):
                     for atom_idx in range(visit.atom_start_idx, visit.atom_end_idx + 1):
                         # Slots from the start of the visit through this atom.
                         # These boundaries are the ones GreedyMax._length_visit used to size the visit.
-                        slot_length_visit = time2slots(time_slot_length,
-                                                       observation.acq_overhead + cumul_seq[atom_idx])  # noqa
+                        slot_length_visit = time2slots(time_slot_length, observation.acq_overhead + cumul_seq[atom_idx])  # noqa
                         slot_atom_end = visit.start_time_slot + slot_length_visit - 1
 
                         if atom_idx == visit.atom_start_idx:
                             slot_atom_length = slot_length_visit
                         else:
-                            prev_slot_length_visit = time2slots(time_slot_length,
-                                                                observation.acq_overhead
-                                                                + cumul_seq[atom_idx - 1])  # noqa
+                            prev_slot_length_visit = time2slots(
+                                time_slot_length, observation.acq_overhead + cumul_seq[atom_idx - 1]
+                            )  # noqa
                             slot_atom_length = slot_length_visit - prev_slot_length_visit
                         if slot_atom_length > 0:
                             slot_atom_start = slot_atom_end - slot_atom_length + 1
@@ -863,8 +868,10 @@ class Collector(SchedulerComponent):
                                     if observation.obs_class == ObservationClass.PARTNERCAL:
                                         obs_seq[atom_idx].partner_used += observation.acq_overhead
                                         atom_record.partner_used += observation.acq_overhead
-                                    elif (observation.obs_class == ObservationClass.SCIENCE or
-                                          observation.obs_class == ObservationClass.PROGCAL):
+                                    elif (
+                                        observation.obs_class == ObservationClass.SCIENCE
+                                        or observation.obs_class == ObservationClass.PROGCAL
+                                    ):
                                         obs_seq[atom_idx].program_used += observation.acq_overhead
                                         atom_record.program_used += observation.acq_overhead
 
@@ -878,8 +885,9 @@ class Collector(SchedulerComponent):
                                 # charge to not_charged
                                 atom_record = self.time_accountant.get_record(observation, obs_seq[atom_idx])
 
-                                not_charged_time = (end_timeslot_charge -
-                                                    slot_atom_start + 1) * self.time_slot_length.to_datetime()
+                                not_charged_time = (
+                                    end_timeslot_charge - slot_atom_start + 1
+                                ) * self.time_slot_length.to_datetime()
                                 obs_seq[atom_idx].not_charged += not_charged_time
                                 atom_record.not_charged += not_charged_time
 
@@ -894,8 +902,9 @@ class Collector(SchedulerComponent):
                         if atoms_charged[observation.id] == 0:
                             # The bound fell before any atom of this visit could finish, so
                             # nothing was executed and the status is not ours to change.
-                            _logger.debug(f'No atoms charged for {observation.id.id}: '
-                                          f'leaving status {observation.status.name}.')
+                            _logger.debug(
+                                f'No atoms charged for {observation.id.id}: leaving status {observation.status.name}.'
+                            )
                         elif all(atom.observed for atom in observation.sequence):
                             _logger.debug(f'Marking observation complete: {observation.id.id}')
                             if observation.status != ObservationStatus.OBSERVED:
@@ -914,7 +923,6 @@ class Collector(SchedulerComponent):
 
                 # Evaluate tree here?
 
-
     def _sight_date_args(self) -> tuple:
         """(start_date, end_date, site_ids) args shared by the sight loaders."""
         return (
@@ -924,8 +932,7 @@ class Collector(SchedulerComponent):
         )
 
     def _planned_nights(self) -> frozenset[NightIndex]:
-        """Nights the Selector plans: 0 .. num_of_nights - 1.
-        """
+        """Nights the Selector plans: 0 .. num_of_nights - 1."""
         return frozenset(NightIndex(i) for i in range(self.num_of_nights))
 
     def _load_visibility_from_sight(
@@ -938,9 +945,7 @@ class Collector(SchedulerComponent):
         the synchronous ``load_programs`` pipeline. The async pipeline must use
         ``_async_load_visibility_from_sight`` instead (no nested event loop).
         """
-        per_night = asyncio.run(
-            self._fetch_sight_data(filtered_observations, *self._sight_date_args())
-        )
+        per_night = asyncio.run(self._fetch_sight_data(filtered_observations, *self._sight_date_args()))
         self._apply_sight_visibility(filtered_observations, per_night)
 
     async def _async_load_visibility_locally(
@@ -950,10 +955,8 @@ class Collector(SchedulerComponent):
     ) -> None:
         """Filter by night configuration, then compute the visibility in memory, all off the loop."""
         # Nights x observations, each doing resource set lookups.
-        obs_with_resources = await asyncio.to_thread(
-            self._filter_by_night_configuration, parsed_observations, nc)
-        await asyncio.to_thread(
-            self._compute_visibility_locally, parsed_observations, obs_with_resources)
+        obs_with_resources = await asyncio.to_thread(self._filter_by_night_configuration, parsed_observations, nc)
+        await asyncio.to_thread(self._compute_visibility_locally, parsed_observations, obs_with_resources)
 
     async def _async_load_visibility_from_sight(
         self,
@@ -992,8 +995,7 @@ class Collector(SchedulerComponent):
             visible_obs_ids, stage1, cumulative, ranges_by_obs = per_night[night_index]
             visible_observations = [o for o in observations if o.id.id in visible_obs_ids]
             _logger.info(
-                f'Visibility filter night={int(night_index)}: '
-                f'{len(visible_observations)}/{len(observations)} visible.'
+                f'Visibility filter night={int(night_index)}: {len(visible_observations)}/{len(observations)} visible.'
             )
 
             for obs in visible_observations:
@@ -1009,23 +1011,16 @@ class Collector(SchedulerComponent):
 
                 rem_minutes = cumulative.get(obs.id.id, 0)
                 if rem_minutes > 0:
-                    rem_visibility_frac = (
-                        (obs.exec_time() - obs.total_used()).total_seconds()
-                        / (rem_minutes * 60)
-                    )
+                    rem_visibility_frac = (obs.exec_time() - obs.total_used()).total_seconds() / (rem_minutes * 60)
                 else:
-                    _logger.info(
-                        f'No cumulative remaining time for {obs.id} despite passing visibility filter.'
-                    )
+                    _logger.info(f'No cumulative remaining time for {obs.id} despite passing visibility filter.')
                     rem_visibility_frac = 0.0
 
                 night_date = self.time_grid[int(night_index)].to_datetime().date()
                 stage1_key = f'{obs.site.name}_{night_date.isoformat()}'
                 stage1_entry = stage1.get(base.name, {}).get('nights', {}).get(stage1_key)
                 if stage1_entry is None:
-                    _logger.warning(
-                        f'No Stage-1 data for {base.name} at {stage1_key}; skipping {obs.id.id}.'
-                    )
+                    _logger.warning(f'No Stage-1 data for {base.name} at {stage1_key}; skipping {obs.id.id}.')
                     continue
 
                 expected_length = len(self.night_events[obs.site].times[night_index])
@@ -1033,17 +1028,13 @@ class Collector(SchedulerComponent):
 
                 obs_ranges = ranges_by_obs.get(obs.id.id, [])
                 if obs_ranges:
-                    slot_idx = np.concatenate(
-                        [np.arange(start, end + 1) for start, end in obs_ranges]
-                    )
+                    slot_idx = np.concatenate([np.arange(start, end + 1) for start, end in obs_ranges])
                     slot_idx = slot_idx[(slot_idx >= 0) & (slot_idx < expected_length)]
                     ti.visibility_slot_idx = slot_idx.astype(int)
                 else:
                     ti.visibility_slot_idx = np.array([], dtype=int)
 
-                target_info_map: TargetInfoNightIndexMap = (
-                    self._target_info.setdefault((base.name, obs.id), {})
-                )
+                target_info_map: TargetInfoNightIndexMap = self._target_info.setdefault((base.name, obs.id), {})
                 target_info_map[night_index] = ti
                 self._observations[obs.id] = obs, base
 
@@ -1059,7 +1050,8 @@ class Collector(SchedulerComponent):
             calc = Calculator(session)
             visibility = await self._query_sight_visibility(calc, filtered_observations)
             return await self._fetch_sight_stage1(
-                calc, filtered_observations, visibility, start_date, end_date, site_ids)
+                calc, filtered_observations, visibility, start_date, end_date, site_ids
+            )
 
     async def _fetch_sight_data_for_scheduled_nights(
         self,
@@ -1085,18 +1077,21 @@ class Collector(SchedulerComponent):
             calc = Calculator(session)
 
             filtered_observations = await asyncio.to_thread(
-                self._filter_nights, parsed_observations, nc, scheduled_nights)
+                self._filter_nights, parsed_observations, nc, scheduled_nights
+            )
             visibility = await self._query_sight_visibility(calc, filtered_observations)
 
             visible_ids = {obs_id for visible_ids, _ranges, _rem in visibility.values() for obs_id in visible_ids}
             candidates = self._carry_into_remaining_nights(
-                parsed_observations, {o.id for _p, o in parsed_observations if o.id.id in visible_ids}, 'visible')
+                parsed_observations, {o.id for _p, o in parsed_observations if o.id.id in visible_ids}, 'visible'
+            )
             remaining = await asyncio.to_thread(self._filter_nights, candidates, nc, remaining_nights)
             visibility.update(await self._query_sight_remaining_nights(calc, remaining))
             filtered_observations.update(remaining)
 
             per_night = await self._fetch_sight_stage1(
-                calc, filtered_observations, visibility, start_date, end_date, site_ids)
+                calc, filtered_observations, visibility, start_date, end_date, site_ids
+            )
         return filtered_observations, per_night
 
     async def _query_sight_visibility(
@@ -1144,8 +1139,9 @@ class Collector(SchedulerComponent):
         so the visible ranges are left out. An (observation, night) with no stored row goes
         through `_query_sight_visibility`, which calculates it as before.
         """
-        dates = {night_index: self.time_grid[int(night_index)].to_datetime().date()
-                 for night_index in filtered_observations}
+        dates = {
+            night_index: self.time_grid[int(night_index)].to_datetime().date() for night_index in filtered_observations
+        }
         queried = [night_index for night_index, observations in filtered_observations.items() if observations]
         stored: dict = {}
         if queried:
@@ -1176,7 +1172,8 @@ class Collector(SchedulerComponent):
                 f'{len(missing)} nights have no stored visibility; calculating them.'
             )
             for night_index, (visible_ids, _ranges, remaining_minutes) in (
-                    await self._query_sight_visibility(calc, missing)).items():
+                await self._query_sight_visibility(calc, missing)
+            ).items():
                 visibility[night_index][0].update(visible_ids)
                 visibility[night_index][2].update(remaining_minutes)
         return visibility
@@ -1226,12 +1223,11 @@ class Collector(SchedulerComponent):
         # minutes from night n through the end of the period, so it shrinks toward
         # the end of the run.
         cumulative_by_night = cumulative_remaining_by_night(
-            {night_index: rem_min for night_index, (_ids, _ranges, rem_min) in visibility.items()})
+            {night_index: rem_min for night_index, (_ids, _ranges, rem_min) in visibility.items()}
+        )
 
         for night_index, (visible_ids, ranges, _rem_min) in visibility.items():
-            per_night[night_index] = (
-                visible_ids, stage1, cumulative_by_night.get(night_index, {}), ranges
-            )
+            per_night[night_index] = (visible_ids, stage1, cumulative_by_night.get(night_index, {}), ranges)
         return per_night
 
     @timed_function('collector.visibility_local')
@@ -1267,10 +1263,7 @@ class Collector(SchedulerComponent):
                 night_event_cache[key] = ne
             return ne
 
-        schedulable_by_night = {
-            n_idx: {o.id.id for o in obs_list}
-            for n_idx, obs_list in obs_with_resources.items()
-        }
+        schedulable_by_night = {n_idx: {o.id.id for o in obs_list} for n_idx, obs_list in obs_with_resources.items()}
 
         computed_counts = {NightIndex(n): 0 for n in range(num_nights)}
         visible_counts = {NightIndex(n): 0 for n in range(num_nights)}
@@ -1338,9 +1331,7 @@ class Collector(SchedulerComponent):
                 not_visible_scheduled += 1
                 continue
 
-            target_info_map: TargetInfoNightIndexMap = (
-                self._target_info.setdefault((base.name, obs.id), {})
-            )
+            target_info_map: TargetInfoNightIndexMap = self._target_info.setdefault((base.name, obs.id), {})
 
             # Suffix-sum of remaining_minutes for rem_visibility_frac
             # (same pattern as sight/scripts/dump_sight_targetinfo.py:215-223).
@@ -1358,28 +1349,25 @@ class Collector(SchedulerComponent):
                 n = ne.night_duration_minutes
 
                 stage1_entry = {
-                    'ra':        unpack_array(s1.ra, n),
-                    'dec':       unpack_array(s1.dec, n),
-                    'alt':       unpack_array(s1.alt, n),
-                    'az':        unpack_array(s1.az, n),
+                    'ra': unpack_array(s1.ra, n),
+                    'dec': unpack_array(s1.dec, n),
+                    'alt': unpack_array(s1.alt, n),
+                    'az': unpack_array(s1.az, n),
                     'hourangle': unpack_array(s1.hourangle, n),
-                    'airmass':   unpack_array(s1.airmass, n),
+                    'airmass': unpack_array(s1.airmass, n),
                 }
                 denom = suffix_by_night[night_idx]
                 rem_frac = (rem_obs_seconds / (denom * 60.0)) if denom > 0 else 0.0
                 expected_length = len(self.night_events[site].times[night_idx])
 
                 sched_start = self.night_events[site].times[night_idx][0].to_datetime(timezone.utc)
-                start_offset_slots = round(
-                    (sched_start - ne.night_start).total_seconds() / 60.0
-                )
+                start_offset_slots = round((sched_start - ne.night_start).total_seconds() / 60.0)
                 if start_offset_slots != 0:
                     _logger.warning(
                         f'Sight/scheduler night-start offset of {start_offset_slots} slot(s) '
                         f'for {obs.id.id} night {int(night_idx)}; realigning arrays.'
                     )
-                ti = build_target_info(stage1_entry, rem_frac, expected_length,
-                                       start_offset_slots=start_offset_slots)
+                ti = build_target_info(stage1_entry, rem_frac, expected_length, start_offset_slots=start_offset_slots)
 
                 # build_target_info defaults visibility_slot_idx to np.arange
                 # (every slot visible) for the DB-backed path; override with

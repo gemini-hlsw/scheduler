@@ -16,6 +16,7 @@ _logger = create_logger(__name__, with_id=False)
 
 __all__ = ["ProcessManager", "process_manager"]
 
+
 class ProcessManager:
     """
     Manages multiple scheduler processes, allowing for their creation, monitoring, and termination.
@@ -34,15 +35,10 @@ class ProcessManager:
         self.operation_process_id: Optional[str] = None
         self._lock = asyncio.Lock()
 
-
-    async def add_scheduler_process(
-            self,
-            process_id: str,
-            request_params: Optional[SchedulerParameters]
-    ):
+    async def add_scheduler_process(self, process_id: str, request_params: Optional[SchedulerParameters]):
         """
         Add a new scheduler process to the manager.
-        
+
         Args:
                 process_id (str): A unique identifier for the scheduler process.
                 request_params (SchedulerParameters): The parameters for the scheduler process.
@@ -53,7 +49,7 @@ class ProcessManager:
     async def stop_process(self, process_id: str):
         """
         Stop a scheduler process and remove it from the manager.
-        
+
         Args:
                 process_id (str): The unique identifier of the scheduler process to stop.
         """
@@ -85,11 +81,14 @@ class ProcessManager:
         In OPERATION mode the process must exist, so a missing one raises
         RuntimeError. In every other mode None is a normal answer.
         """
-        process = (self.active_processes.get(self.operation_process_id)
-                   if self.operation_process_id is not None else None)
+        process = (
+            self.active_processes.get(self.operation_process_id) if self.operation_process_id is not None else None
+        )
         if process is None and is_operation:
-            raise RuntimeError("Operation process is not available: the scheduler "
-                               "is in OPERATION mode but no operation process is running.")
+            raise RuntimeError(
+                "Operation process is not available: the scheduler "
+                "is in OPERATION mode but no operation process is running."
+            )
         return process
 
     async def clear_operation_process(self):
@@ -99,7 +98,7 @@ class ProcessManager:
     async def start(self):
         """
         Start the process manager and monitor all scheduler processes.
-        
+
         If in operation mode, start a single scheduler process with the current time as start.
         Otherwise, listen for new scheduler process requests from the scheduler_process_queue.
         """
@@ -110,7 +109,7 @@ class ProcessManager:
             pass
         _logger.info("Process manager started.")
         # Monitor all scheduler processes
-        #while True:
+        # while True:
         #    for process_id, process in self.active_processes.items():
         #        if not process.is_running:
         #            # Let the UI know that the process has stopped

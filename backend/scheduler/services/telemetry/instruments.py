@@ -1,7 +1,6 @@
 # Copyright (c) 2016-2026 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-"""Instrument names, in one place because dashboards and alerts are written against them.
-"""
+"""Instrument names, in one place because dashboards and alerts are written against them."""
 
 __all__ = [
     'LOOP_STALL',

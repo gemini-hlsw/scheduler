@@ -32,4 +32,3 @@ if len(sys.argv) == 2:
         DEFAULT_LOGGING_LEVEL = LoggingLevels[sys.argv[1].upper()]
     except KeyError:
         print(f"Invalid log level: {sys.argv[1]}")
-

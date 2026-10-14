@@ -4,16 +4,33 @@
 """The GPP program provider stores the equivalent hour angle and airmass limits in the Constraints."""
 
 import pytest
-from lucupy.minimodel import (ElevationType, NonsiderealTarget, ObservationClass, SiderealTarget, Site, TargetName,
-                              TargetTag, TargetType)
+from lucupy.minimodel import (
+    ElevationType,
+    NonsiderealTarget,
+    ObservationClass,
+    SiderealTarget,
+    Site,
+    TargetName,
+    TargetTag,
+    TargetType,
+)
 
 from scheduler.core.programprovider.gpp import GppProgramProvider
 from scheduler.core.sources.sources import Sources
 
-SIDEREAL = SiderealTarget(name=TargetName('sidereal'), magnitudes=frozenset(), type=TargetType.BASE,
-                          ra=150.0, dec=-60.0, pm_ra=0.0, pm_dec=0.0, epoch=2000.0)
-NONSIDEREAL = NonsiderealTarget(name=TargetName('Mars'), magnitudes=frozenset(), type=TargetType.BASE,
-                                des='499', tag=TargetTag.MAJORBODY)
+SIDEREAL = SiderealTarget(
+    name=TargetName('sidereal'),
+    magnitudes=frozenset(),
+    type=TargetType.BASE,
+    ra=150.0,
+    dec=-60.0,
+    pm_ra=0.0,
+    pm_dec=0.0,
+    epoch=2000.0,
+)
+NONSIDEREAL = NonsiderealTarget(
+    name=TargetName('Mars'), magnitudes=frozenset(), type=TargetType.BASE, des='499', tag=TargetTag.MAJORBODY
+)
 
 
 @pytest.fixture
@@ -35,8 +52,9 @@ def _data(elevation_range: dict) -> dict:
 
 
 def test_hour_angle_constraints_sidereal_target(provider):
-    constraints = provider.parse_constraints(_data({'hour_angle': {'min_hours': -2.0, 'max_hours': 4.0}}),
-                                             Site.GS, SIDEREAL)
+    constraints = provider.parse_constraints(
+        _data({'hour_angle': {'min_hours': -2.0, 'max_hours': 4.0}}), Site.GS, SIDEREAL
+    )
     elevation = constraints.elevation
     assert elevation.elevation_type == ElevationType.HOUR_ANGLE
     assert (elevation.ha_min, elevation.ha_max) == (-2.0, 4.0)
@@ -55,8 +73,9 @@ def test_airmass_constraints_sidereal_target(provider):
 
 @pytest.mark.parametrize('base', [NONSIDEREAL, None])
 def test_derived_limits_unknown_without_dec(provider, base):
-    constraints = provider.parse_constraints(_data({'hour_angle': {'min_hours': -2.0, 'max_hours': 4.0}}),
-                                             Site.GS, base)
+    constraints = provider.parse_constraints(
+        _data({'hour_angle': {'min_hours': -2.0, 'max_hours': 4.0}}), Site.GS, base
+    )
     elevation = constraints.elevation
     assert (elevation.ha_min, elevation.ha_max) == (-2.0, 4.0)
     assert (elevation.airmass_min, elevation.airmass_max) == (None, None)

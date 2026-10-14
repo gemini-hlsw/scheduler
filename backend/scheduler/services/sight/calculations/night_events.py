@@ -19,10 +19,11 @@ if TYPE_CHECKING:
 class NightEventArrays(BaseModel):
     """
     Night event data ready for database storage.
-    
+
     All arrays are packed as bytes.
     All angles are in radians.
     """
+
     # Scalars
     night_duration_minutes: int
     sunset: datetime
@@ -43,11 +44,11 @@ class NightEventArrays(BaseModel):
     moon_alt: bytes
     moon_az: bytes
     moon_par_ang: bytes
-    moon_ra: bytes   # degrees
+    moon_ra: bytes  # degrees
     moon_dec: bytes  # degrees
     sun_moon_ang: bytes
     local_sidereal_times: bytes
-    
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
@@ -72,24 +73,25 @@ def calculate_night_events_for_night(
 ) -> NightEventArrays:
     """
     Calculate night events for a single night at a site.
-    
+
     Args:
         site: Site model with lat/lon/elevation
         night_date: Date of the night (evening date)
         time_slot_length_minutes: Time slot granularity
-        
+
     Returns:
         NightEventArrays ready for database storage
     """
     location = site_to_earth_location(site)
-    
+
     # Create time grid for single night
     time_grid = Time([datetime(night_date.year, night_date.month, night_date.day)])
-    
+
     # Get timestamps from sky.night_events (returns tuple)
-    midnight, sunset, sunrise, twilight_evening_12, twilight_morning_12, moonrise, moonset = \
-        sky.night_events(time_grid, location, ZoneInfo('UTC'))
-    
+    midnight, sunset, sunrise, twilight_evening_12, twilight_morning_12, moonrise, moonset = sky.night_events(
+        time_grid, location, ZoneInfo('UTC')
+    )
+
     # Extract single night values (index 0)
     midnight_0 = midnight[0]
     sunset_0 = sunset[0]
@@ -98,63 +100,55 @@ def calculate_night_events_for_night(
     twi_mor_0 = twilight_morning_12[0]
     moonrise_0 = moonrise[0] if moonrise is not None else None
     moonset_0 = moonset[0] if moonset is not None else None
-    
+
     # Calculate time slots
     time_slot_length = TimeDelta(time_slot_length_minutes * 60, format='sec')
     timeslot_length_days = time_slot_length.to(u.day).value
-    
+
     # Round to nearest minute
     time_start = _round_minute(twi_eve_0, up=True)
     time_end = _round_minute(twi_mor_0, up=True)
-    
+
     # Number of time slots
     num_slots = int((time_end.jd - time_start.jd) / timeslot_length_days + 0.5)
-    
+
     # Create time array for this night
     times = Time(np.linspace(time_start.jd, time_end.jd - timeslot_length_days, num_slots), format='jd')
-    
+
     # Calculate local sidereal times
     local_sidereal_times = sky.local_sidereal_time(times, location)
-    
+
     # Calculate sun position and alt/az/par_ang
     sun_pos = SkyCoord(sky.Sun.at(times))
-    sun_alt, sun_az, sun_par_ang = sky.Altitude.above(
-        sun_pos.dec, 
-        local_sidereal_times - sun_pos.ra, 
-        location.lat
-    )
-    
+    sun_alt, sun_az, sun_par_ang = sky.Altitude.above(sun_pos.dec, local_sidereal_times - sun_pos.ra, location.lat)
+
     # Calculate moon position and alt/az/par_ang
     moon_pos, moon_dist_obj = sky.Moon().at(times).accurate_location(location)
-    moon_alt, moon_az, moon_par_ang = sky.Altitude.above(
-        moon_pos.dec,
-        local_sidereal_times - moon_pos.ra,
-        location.lat
-    )
+    moon_alt, moon_az, moon_par_ang = sky.Altitude.above(moon_pos.dec, local_sidereal_times - moon_pos.ra, location.lat)
 
     moon_dist_m = np.asarray(moon_dist_obj.to(u.m).value, dtype=np.float64)
     if moon_dist_m.ndim == 0:
         moon_dist_m = np.full(num_slots, float(moon_dist_m))
-    
+
     # Sun-moon angular separation
     sun_moon_ang = sun_pos.separation(moon_pos)
-    
+
     # Convert to numpy arrays
     sun_alt_rad = _angle_to_radians(sun_alt)
     sun_az_rad = _angle_to_radians(sun_az)
     sun_par_ang_rad = _angle_to_radians(sun_par_ang)
-    
+
     moon_alt_rad = _angle_to_radians(moon_alt)
     moon_az_rad = _angle_to_radians(moon_az)
     moon_par_ang_rad = _angle_to_radians(moon_par_ang)
-    
+
     moon_ra_deg = np.asarray(moon_pos.ra.to(u.deg).value, dtype=np.float64)
     moon_dec_deg = np.asarray(moon_pos.dec.to(u.deg).value, dtype=np.float64)
-    
+
     sun_moon_ang_rad = _angle_to_radians(sun_moon_ang)
-    
+
     lst_rad = _angle_to_radians(local_sidereal_times)
-    
+
     return NightEventArrays(
         night_duration_minutes=num_slots,
         sunset=astropy_time_to_datetime(sunset_0),

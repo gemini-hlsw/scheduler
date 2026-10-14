@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import os
+
 os.environ["REDISCLOUD_URL"] = "redis://mock:6379"
 # Tests run without a Sight DB (no DATABASE_URL in CI), so default the Collector
 # to in-process visibility. setdefault lets a dev opt into the sight path by
@@ -16,8 +17,16 @@ import pytest
 
 import astropy.units as u
 from astropy.coordinates import Angle
-from lucupy.minimodel import (ALL_SITES, CloudCover, ImageQuality, NightIndex,
-                              Semester, SemesterHalf, Site, VariantSnapshot)
+from lucupy.minimodel import (
+    ALL_SITES,
+    CloudCover,
+    ImageQuality,
+    NightIndex,
+    Semester,
+    SemesterHalf,
+    Site,
+    VariantSnapshot,
+)
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 
@@ -29,9 +38,14 @@ from scheduler.graphql_mid.server import schema
 from scheduler.core.builder.blueprint import CollectorBlueprint
 from scheduler.core.builder.validationbuilder import ValidationBuilder
 from scheduler.core.sources.sources import Sources
-from scheduler.core.events.queue import (EndOfNightEvent, EventQueue,
-                                         EveningTwilightEvent, MorningTwilightEvent,
-                                         OnDemandScheduleEvent, WeatherChangeEvent)
+from scheduler.core.events.queue import (
+    EndOfNightEvent,
+    EventQueue,
+    EveningTwilightEvent,
+    MorningTwilightEvent,
+    OnDemandScheduleEvent,
+    WeatherChangeEvent,
+)
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.services.sight.database.connection import init_db_engine
 
@@ -51,9 +65,7 @@ def scheduler_collector():
 
     semesters = frozenset([Semester(2018, SemesterHalf.B)])
     collector_blueprint = CollectorBlueprint(
-        obs_class=['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
-        prg_type=['Q', 'LP', 'FT', 'DD'],
-        time_slot_length=1.0
+        obs_class=['SCIENCE', 'PROGCAL', 'PARTNERCAL'], prg_type=['Q', 'LP', 'FT', 'DD'], time_slot_length=1.0
     )
 
     night_indices = frozenset(NightIndex(idx) for idx in range(num_nights_to_schedule))
@@ -66,7 +78,7 @@ def scheduler_collector():
         sites=sites,
         semesters=semesters,
         blueprint=collector_blueprint,
-        night_times={}
+        night_times={},
     )
 
     return collector
@@ -80,6 +92,7 @@ def set_observatory_properties():
 @pytest.fixture(scope="session")
 def scheduler_schema():
     return schema
+
 
 @pytest.fixture
 def setup_basic_components():
@@ -95,11 +108,8 @@ def setup_basic_components():
 
     queue = MagicMock(spec=EventQueue)
 
-    return {
-        'params': params,
-        'scp': scp,
-        'queue': queue
-    }
+    return {'params': params, 'scp': scp, 'queue': queue}
+
 
 @pytest.fixture
 def setup_event_cycle(setup_basic_components):
@@ -107,11 +117,7 @@ def setup_event_cycle(setup_basic_components):
     comps = setup_basic_components
 
     # Create EventCycle
-    event_cycle = EventCycle(
-        params=comps['params'],
-        queue=comps['queue'],
-        scp=comps['scp']
-    )
+    event_cycle = EventCycle(params=comps['params'], queue=comps['queue'], scp=comps['scp'])
 
     # Mock the change monitor
     event_cycle.change_monitor = MagicMock(spec=ChangeMonitor)
@@ -119,7 +125,9 @@ def setup_event_cycle(setup_basic_components):
 
     return event_cycle, comps
 
+
 # --- RT scaffolding (real queue, event factory, idle interlock) --------------
+
 
 @pytest.fixture
 def scheduler_queue():
@@ -133,47 +141,34 @@ class RTEventFactory:
     Every method accepts ``site`` and ``time`` overrides so tests can shape
     scenarios without repeating boilerplate.
     """
+
     DEFAULT_TIME = datetime(2025, 3, 1, 23, 0, 0, tzinfo=UTC)
 
-    def weather(self,
-                site: Site = Site.GN,
-                time: datetime = DEFAULT_TIME,
-                iq: ImageQuality = ImageQuality(0.7),
-                cc: CloudCover = CloudCover.CC50,
-                wind_dir: float = 330.0,
-                wind_spd: float = 5.0) -> WeatherChangeEvent:
-        variant = VariantSnapshot(iq=iq,
-                                  cc=cc,
-                                  wind_dir=Angle(wind_dir, unit=u.deg),
-                                  wind_spd=wind_spd * (u.m / u.s))
-        return WeatherChangeEvent(variant_change=variant,
-                                  site=site,
-                                  time=time,
-                                  description=f'Weather changed for site {site.name}')
+    def weather(
+        self,
+        site: Site = Site.GN,
+        time: datetime = DEFAULT_TIME,
+        iq: ImageQuality = ImageQuality(0.7),
+        cc: CloudCover = CloudCover.CC50,
+        wind_dir: float = 330.0,
+        wind_spd: float = 5.0,
+    ) -> WeatherChangeEvent:
+        variant = VariantSnapshot(iq=iq, cc=cc, wind_dir=Angle(wind_dir, unit=u.deg), wind_spd=wind_spd * (u.m / u.s))
+        return WeatherChangeEvent(
+            variant_change=variant, site=site, time=time, description=f'Weather changed for site {site.name}'
+        )
 
-    def evening_twilight(self,
-                         site: Site = Site.GN,
-                         time: datetime = DEFAULT_TIME) -> EveningTwilightEvent:
-        return EveningTwilightEvent(site=site, time=time,
-                                    description='Evening 12 degree twilight')
+    def evening_twilight(self, site: Site = Site.GN, time: datetime = DEFAULT_TIME) -> EveningTwilightEvent:
+        return EveningTwilightEvent(site=site, time=time, description='Evening 12 degree twilight')
 
-    def morning_twilight(self,
-                         site: Site = Site.GN,
-                         time: datetime = DEFAULT_TIME) -> MorningTwilightEvent:
-        return MorningTwilightEvent(site=site, time=time,
-                                    description='Morning 12 degree twilight')
+    def morning_twilight(self, site: Site = Site.GN, time: datetime = DEFAULT_TIME) -> MorningTwilightEvent:
+        return MorningTwilightEvent(site=site, time=time, description='Morning 12 degree twilight')
 
-    def on_demand(self,
-                  site: Site = Site.GN,
-                  time: datetime = DEFAULT_TIME) -> OnDemandScheduleEvent:
-        return OnDemandScheduleEvent(site=site, time=time,
-                                     description='On-demand schedule requested')
+    def on_demand(self, site: Site = Site.GN, time: datetime = DEFAULT_TIME) -> OnDemandScheduleEvent:
+        return OnDemandScheduleEvent(site=site, time=time, description='On-demand schedule requested')
 
-    def end_of_night(self,
-                     site: Site = Site.GN,
-                     time: datetime = DEFAULT_TIME) -> EndOfNightEvent:
-        return EndOfNightEvent(site=site, time=time,
-                               description='End of night')
+    def end_of_night(self, site: Site = Site.GN, time: datetime = DEFAULT_TIME) -> EndOfNightEvent:
+        return EndOfNightEvent(site=site, time=time, description='End of night')
 
 
 @pytest.fixture
@@ -198,11 +193,17 @@ def mock_coordination_idle(monkeypatch):
         is_plan_in_progress=AsyncMock(return_value=False),
         signal_plan_in_progress=AsyncMock(return_value=None),
         signal_plan_done=AsyncMock(return_value=None),
-        get_aggregator_status=AsyncMock(return_value={
-            'active': False, 'holder': None, 'started_at': None,
-            'heartbeat_at': None, 'finished_at': None, 'stale': False,
-            'detail': None,
-        }),
+        get_aggregator_status=AsyncMock(
+            return_value={
+                'active': False,
+                'holder': None,
+                'started_at': None,
+                'heartbeat_at': None,
+                'finished_at': None,
+                'stale': False,
+                'detail': None,
+            }
+        ),
     )
     for name, mock in vars(mocks).items():
         monkeypatch.setattr(coordination, name, mock)
@@ -221,7 +222,4 @@ def setup_night_events():
     evening_twilight.to_datetime.return_value = base_time
     night_events.twilight_evening_12 = {NightIndex(0): evening_twilight}
 
-    return {
-        'night_events': night_events,
-        'base_time': base_time
-    }
+    return {'night_events': night_events, 'base_time': base_time}

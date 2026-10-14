@@ -11,7 +11,6 @@ __all__ = [
 ]
 
 
-
 @final
 @dataclass(frozen=True)
 class NightStats:

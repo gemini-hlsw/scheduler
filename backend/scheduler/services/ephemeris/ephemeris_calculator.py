@@ -15,9 +15,7 @@ from lucupy.timeutils import time2slots
 from scheduler.services.horizons import horizons_session
 from scheduler.services.logger_factory import create_logger
 
-__all__ = [
-    'EphemerisCalculator'
-]
+__all__ = ['EphemerisCalculator']
 
 logger = create_logger(__name__)
 
@@ -28,15 +26,14 @@ class EphemerisCalculator(metaclass=Singleton):
     Uses either the cached files or the HorizonsClient - in that order - to fetch the ephemeris data
     for a given target from a specified start time and a given number of time slots.
     """
+
     # Use a 1 min timeslot for Horizons queries, this is sampled later to the time grid used by the scheduler instance
     _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(60.0 * u.second)
     # _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(config.collector.time_slot_length * u.min)
 
-    def calculate_coordinates(self,
-                              site: Site,
-                              target: NonsiderealTarget,
-                              start_lookup_time: Time,
-                              end_lookup_time: Time) -> SkyCoord:
+    def calculate_coordinates(
+        self, site: Site, target: NonsiderealTarget, start_lookup_time: Time, end_lookup_time: Time
+    ) -> SkyCoord:
         """
         Perform a lookup for the ephemeris data for a given nonsidereal target at a given site with a specific airmass.
         The lookup is done from the start_lookup_time to the end_lookup_time inclusive at one minute intervals.
@@ -65,16 +62,22 @@ class EphemerisCalculator(metaclass=Singleton):
             logger.error('Cannot calculate ephemeris for end date that occurs before start date.')
             raise ValueError('Cannot calculate ephemeris for end date that occurs before start date.')
 
-        with horizons_session(site, start_lookup_time.to_datetime(), end_lookup_time.to_datetime(),
-                              time_slot_length=1) as hs:
-                                # time_slot_length = config.collector.time_slot_length) as hs:
+        with horizons_session(
+            site, start_lookup_time.to_datetime(), end_lookup_time.to_datetime(), time_slot_length=1
+        ) as hs:
+            # time_slot_length = config.collector.time_slot_length) as hs:
 
             # We don't care about the time. It should match up with the above times.
             coords = hs.get_ephemerides(target).coordinates
 
             # Expected number of slots. Add 1 to make inclusive.
-            expected_slots = time2slots(EphemerisCalculator._DEFAULT_TIMESLOT_LENGTH.to_datetime(),
-                                        end_lookup_time_py - start_lookup_time_py) + 1
+            expected_slots = (
+                time2slots(
+                    EphemerisCalculator._DEFAULT_TIMESLOT_LENGTH.to_datetime(),
+                    end_lookup_time_py - start_lookup_time_py,
+                )
+                + 1
+            )
 
             if abs(expected_slots - len(coords)) > 10:
                 logger.warning(f'Ephemeris expected {expected_slots} entries, but received {len(coords)} entries.')

@@ -20,8 +20,8 @@ from scheduler.services.sight.database.connection import init_db_engine
 
 _logger = logger_factory.create_logger(__name__)
 
-def main(*,
-    programs_ids: Path = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt') -> None:
+
+def main(*, programs_ids: Path = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt') -> None:
 
     # Set lucupy to Gemini
     ObservatoryProperties.set_properties(GeminiProperties)
@@ -32,18 +32,21 @@ def main(*,
         programs_list = [line.strip() for line in file if line.strip()[0] != '#']
 
     # Create Parameters
-    params = SchedulerParameters(start=datetime.fromisoformat("2018-10-01 08:00:00").replace(tzinfo=ZoneInfo("UTC")),
-                                 end=datetime.fromisoformat("2018-10-03 08:00:00").replace(tzinfo=ZoneInfo("UTC")),
-                                 sites=ALL_SITES,
-                                 mode=SchedulerModes.VALIDATION,
-                                 ranker_parameters=RankerParameters(),
-                                 semester_visibility=False,
-                                 num_nights_to_schedule=1,
-                                 programs_list=programs_list,
-                                 use_local_visibility=True)
+    params = SchedulerParameters(
+        start=datetime.fromisoformat("2018-10-01 08:00:00").replace(tzinfo=ZoneInfo("UTC")),
+        end=datetime.fromisoformat("2018-10-03 08:00:00").replace(tzinfo=ZoneInfo("UTC")),
+        sites=ALL_SITES,
+        mode=SchedulerModes.VALIDATION,
+        ranker_parameters=RankerParameters(),
+        semester_visibility=False,
+        num_nights_to_schedule=1,
+        programs_list=programs_list,
+        use_local_visibility=True,
+    )
     engine = Engine(params)
     plan_summary, timelines = engine.schedule()
     timelines.display()
+
 
 if __name__ == '__main__':
     main()

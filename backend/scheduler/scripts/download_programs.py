@@ -24,6 +24,7 @@ class ODBServer:
     * telnet_port: the port at which the server accepts telnet connections to query program lists
     * read_port: the port at which we can perform http queries to retrieve program information
     """
+
     name: str
     telnet_port: int
     read_port: int
@@ -35,32 +36,40 @@ DEFAULT_SERVER = ODBServer('gnodbscheduler', 8224, 8442)
 # These are the semesters of interest that we will download from the ODB,
 # organized by Site.
 DEFAULT_SEMESTERS = {
-    Site.GN: {f'2018{SemesterHalf.A.value}',
-              f'2018{SemesterHalf.B.value}',
-              f'2019{SemesterHalf.A.value}',
-              f'2019{SemesterHalf.B.value}'},
-    Site.GS: {f'2018{SemesterHalf.A.value}',
-              f'2018{SemesterHalf.B.value}',
-              f'2019{SemesterHalf.A.value}',
-              f'2019{SemesterHalf.B.value}'}
+    Site.GN: {
+        f'2018{SemesterHalf.A.value}',
+        f'2018{SemesterHalf.B.value}',
+        f'2019{SemesterHalf.A.value}',
+        f'2019{SemesterHalf.B.value}',
+    },
+    Site.GS: {
+        f'2018{SemesterHalf.A.value}',
+        f'2018{SemesterHalf.B.value}',
+        f'2019{SemesterHalf.A.value}',
+        f'2019{SemesterHalf.B.value}',
+    },
 }
 
 # The default program types to download from the ODB.
-DEFAULT_PROGRAM_TYPES = frozenset([
-    ProgramTypes.Q,
-    # ProgramTypes.C,
-    ProgramTypes.FT,
-    ProgramTypes.DD,
-    # ProgramTypes.DS,
-    # ProgramTypes.SV,
-    ProgramTypes.LP]
+DEFAULT_PROGRAM_TYPES = frozenset(
+    [
+        ProgramTypes.Q,
+        # ProgramTypes.C,
+        ProgramTypes.FT,
+        ProgramTypes.DD,
+        # ProgramTypes.DS,
+        # ProgramTypes.SV,
+        ProgramTypes.LP,
+    ]
 )
 
 
-def download_programs(server: ODBServer = DEFAULT_SERVER,
-                      zip_file: str = os.path.join('..', 'data', 'programs.zip'),
-                      semesters: Mapping[Site, str] = None,
-                      program_types: FrozenSet[ProgramTypes] = DEFAULT_PROGRAM_TYPES) -> None:
+def download_programs(
+    server: ODBServer = DEFAULT_SERVER,
+    zip_file: str = os.path.join('..', 'data', 'programs.zip'),
+    semesters: Mapping[Site, str] = None,
+    program_types: FrozenSet[ProgramTypes] = DEFAULT_PROGRAM_TYPES,
+) -> None:
     """
     Download a list of the programs from the specified server to a temporary directory and produce a zip file.
     * server: an observing database (ODB) server information
@@ -92,8 +101,10 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
             elif program_info[0] not in sites:
                 logger.debug(f'Skipping {program_name}: {program_info[0]} is not a site of interest')
             elif program_info[1] not in semesters[Site[program_info[0]]]:
-                logger.debug(f'Skipping {program_name}: site {program_info[0]}, semester {program_info[1]} '
-                            'is not a semester of interest')
+                logger.debug(
+                    f'Skipping {program_name}: site {program_info[0]}, semester {program_info[1]} '
+                    'is not a semester of interest'
+                )
             elif program_info[2] not in program_codes:
                 logger.debug(f'Skipping {program_name}: {program_info[2]} is not a selected program type')
             else:
@@ -116,7 +127,7 @@ def download_programs(server: ODBServer = DEFAULT_SERVER,
             logger.debug(f'Extracting {program_name}')
             output_file = f'{program_name}.json'
             params = {'id': program_name}
-            r = requests.get(f'http://{server.name}:{server.read_port}/programexport', params) # noqa
+            r = requests.get(f'http://{server.name}:{server.read_port}/programexport', params)  # noqa
             with open(output_file, 'w') as f:
                 if r.status_code == 200:
                     f.write(r.text)

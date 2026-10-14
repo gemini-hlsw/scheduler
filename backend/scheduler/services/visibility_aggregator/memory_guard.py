@@ -17,10 +17,7 @@ class MemoryBudgetExceeded(RuntimeError):
         self.phase = phase
         self.used_mb = used_mb
         self.budget_mb = budget_mb
-        super().__init__(
-            f"{used_mb:.0f} MB in use after {phase}, over the "
-            f"{budget_mb:.0f} MB budget"
-        )
+        super().__init__(f"{used_mb:.0f} MB in use after {phase}, over the {budget_mb:.0f} MB budget")
 
 
 def process_memory_mb() -> float:
@@ -33,11 +30,7 @@ def process_memory_mb() -> float:
     """
     try:
         with open("/proc/self/status") as status:
-            kb = sum(
-                int(line.split()[1])
-                for line in status
-                if line.startswith(("VmRSS:", "VmSwap:"))
-            )
+            kb = sum(int(line.split()[1]) for line in status if line.startswith(("VmRSS:", "VmSwap:")))
         return kb / 1024
     except OSError:
         peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss

@@ -17,16 +17,19 @@ class ResourceManager(metaclass=Singleton):
     """
     A singleton class that manages Resource instances to reuse them as per the flyweight design pattern.
     """
+
     def __init__(self):
         """
         Create an empty dictionary of mappings from name to Resource.
         """
         self._all_resources: Dict[str, Resource] = {}
 
-    def lookup_resource(self,
-                        resource_id: str,
-                        description: Optional[str] = None,
-                        resource_type: Optional[ResourceType] = ResourceType.NONE) -> Optional[Resource]:
+    def lookup_resource(
+        self,
+        resource_id: str,
+        description: Optional[str] = None,
+        resource_type: Optional[ResourceType] = ResourceType.NONE,
+    ) -> Optional[Resource]:
         """
         Function to perform Resource caching and minimize the number of Resource objects by attempting to reuse
         Resource objects with the same ID.

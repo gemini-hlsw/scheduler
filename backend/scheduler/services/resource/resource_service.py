@@ -34,38 +34,46 @@ class ResourceService(ExternalService):
     Then fetch the Resources from here if they exist, and if they do not, then create a new one as per
     the lookup_resource method.
     """
+
     # These are the converters from the OCS FPU names to the ITCD FPU representations.
     # For example, the ODB query extractor would return:
     #    * 'IFU 2 Slits'
     # which we would want to convert to:
     #    * 'IFU-2'
     # since these are the FPU names used in the GMOS[NS]-FPUr######.txt files.
-    _gmosn_ifu_dict: Dict[str, str] = gelidum.freeze({
-        'IFU 2 Slits': 'IFU-2',
-        'IFU Left Slit (blue)': 'IFU-B',
-        'IFU Right Slit (red)': 'IFU-R',
-        'Longslit 0.25 arcsec': '0.25arcsec',
-        'Longslit 0.50 arcsec': '0.5arcsec',
-        'Longslit 0.75 arcsec': '0.75arcsec',
-        'Longslit 1.00 arcsec': '1.0arcsec',
-        'Longslit 1.50 arcsec': '1.5arcsec',
-        'Longslit 2.00 arcsec': '2.0arcsec',
-        'Longslit 5.00 arcsec': '5.0arcsec',
-        'N and S 0.50 arcsec': 'NS0.5arcsec',
-        'N and S 0.75 arcsec': 'NS0.75arcsec',
-        'N and S 1.00 arcsec': 'NS1.0arcsec',
-        'N and S 1.50 arcsec': 'NS1.5arcsec',
-        'N and S 2.00 arcsec': 'NS2.0arcsec',
-        'focus_array_new': 'focus_array_new'
-    })
+    _gmosn_ifu_dict: Dict[str, str] = gelidum.freeze(
+        {
+            'IFU 2 Slits': 'IFU-2',
+            'IFU Left Slit (blue)': 'IFU-B',
+            'IFU Right Slit (red)': 'IFU-R',
+            'Longslit 0.25 arcsec': '0.25arcsec',
+            'Longslit 0.50 arcsec': '0.5arcsec',
+            'Longslit 0.75 arcsec': '0.75arcsec',
+            'Longslit 1.00 arcsec': '1.0arcsec',
+            'Longslit 1.50 arcsec': '1.5arcsec',
+            'Longslit 2.00 arcsec': '2.0arcsec',
+            'Longslit 5.00 arcsec': '5.0arcsec',
+            'N and S 0.50 arcsec': 'NS0.5arcsec',
+            'N and S 0.75 arcsec': 'NS0.75arcsec',
+            'N and S 1.00 arcsec': 'NS1.0arcsec',
+            'N and S 1.50 arcsec': 'NS1.5arcsec',
+            'N and S 2.00 arcsec': 'NS2.0arcsec',
+            'focus_array_new': 'focus_array_new',
+        }
+    )
 
-    _gmoss_ifu_dict: Dict[str, str] = gelidum.freeze({**_gmosn_ifu_dict, **{
-        'IFU N and S 2 Slits': 'IFU-NS-2',
-        'IFU N and S Left Slit (blue)': 'IFU-NS-B',
-        'IFU N and S Right Slit (red)': 'IFU-NS-R',
-        # TODO: Not in OCS? Correct, ENG observations that use this enter it as a Custom Mask
-        'PinholeC': 'PinholeC'
-    }})
+    _gmoss_ifu_dict: Dict[str, str] = gelidum.freeze(
+        {
+            **_gmosn_ifu_dict,
+            **{
+                'IFU N and S 2 Slits': 'IFU-NS-2',
+                'IFU N and S Left Slit (blue)': 'IFU-NS-B',
+                'IFU N and S Right Slit (red)': 'IFU-NS-R',
+                # TODO: Not in OCS? Correct, ENG observations that use this enter it as a Custom Mask
+                'PinholeC': 'PinholeC',
+            },
+        }
+    )
 
     # Constants for converting MDF to barcodes.
     _instd = {'GMOS': '1', 'GMOS-N': '1', 'GMOS-S': '1', 'Flamingos2': '3'}
@@ -120,9 +128,9 @@ class ResourceService(ExternalService):
         self._night_configurations: Dict[Site, Dict[date, NightConfiguration]] = {site: {} for site in self._sites}
 
     @staticmethod
-    def lookup_resource(resource_id: str,
-                        description: Optional[str] = None,
-                        resource_type: Optional[ResourceType] = ResourceType.NONE) -> Optional[Resource]:
+    def lookup_resource(
+        resource_id: str, description: Optional[str] = None, resource_type: Optional[ResourceType] = ResourceType.NONE
+    ) -> Optional[Resource]:
         """
         This is a helper method that just delegates to the ResourceManager cache.
         It is designed to minimize code changes and make the ResourceService use the cache transparently.
@@ -173,11 +181,9 @@ class ResourceService(ExternalService):
             raise ValueError(f'Request for night configuration for site {site.name} for illegal date: {local_date}')
         return self._night_configurations[site][local_date]
 
-    def _get_entries(self,
-                     site: Site,
-                     night_date: date,
-                     name_of_object: str,
-                     entries: Dict[Site, Dict[date, Set[T]]]) -> FrozenSet[T]:
+    def _get_entries(
+        self, site: Site, night_date: date, name_of_object: str, entries: Dict[Site, Dict[date, Set[T]]]
+    ) -> FrozenSet[T]:
         """
         For a site and a local date, return the set of available entries.
         The date is currently the truncation to day of the astropy Time objects in the time_grid, which are in UTC

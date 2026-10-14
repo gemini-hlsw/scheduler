@@ -23,8 +23,6 @@ class LastPlanMock:
 
 
 class PlanDBClient(metaclass=AsyncSingleton):
-
-
     def __init__(self):
         # In reality this should call a database that would store this
         # but for testing this would just store from

@@ -1,6 +1,7 @@
 """
 Script to download a series of visibility calculations
 """
+
 import asyncio
 import os
 import pickle
@@ -32,6 +33,7 @@ eph_calculator = EphemerisCalculator()
 target_coords: dict[str, dict[str, dict[datetime, SkyCoord]]] = {}
 _coords_lock = Lock()
 
+
 def fetch_ephemerides(
     site: Site, target: NonsiderealTarget, start: datetime, end: datetime
 ) -> tuple[str, str, datetime, SkyCoord]:
@@ -39,9 +41,7 @@ def fetch_ephemerides(
     start_time = Time(start.isoformat())
     end_time = Time(end.isoformat())
 
-    sky_coord = eph_calculator.calculate_coordinates(
-        site, target, start_time, end_time
-    )
+    sky_coord = eph_calculator.calculate_coordinates(site, target, start_time, end_time)
     site_name = site.name if hasattr(site, "name") else str(site)
     return target.name, site_name, start, sky_coord
 
@@ -69,9 +69,7 @@ def fetch_batch_ephemerides(
         Snapshot of target_coords populated during this run.
     """
     # Split targets into batches of `batch_size`
-    batches: list[list[NonsiderealTarget]] = [
-        targets[i : i + batch_size] for i in range(0, len(targets), batch_size)
-    ]
+    batches: list[list[NonsiderealTarget]] = [targets[i : i + batch_size] for i in range(0, len(targets), batch_size)]
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {}
@@ -85,9 +83,7 @@ def fetch_batch_ephemerides(
             try:
                 t_name, site_name, dt, sky_coord = future.result()
                 with _coords_lock:
-                    target_coords \
-                        .setdefault(t_name, {}) \
-                        .setdefault(site_name, {})[dt] = sky_coord
+                    target_coords.setdefault(t_name, {}).setdefault(site_name, {})[dt] = sky_coord
             except Exception as exc:
                 print(f"[ERROR] Failed to fetch ephemerides for '{target_name}': {exc}")
 
@@ -143,13 +139,12 @@ async def pickle_and_upload_to_s3(
         async with session.client("s3") as s3:
             await s3.upload_fileobj(buffer, bucket, key)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(
-            f"Failed to upload ephemerides to s3://{bucket}/{key}: {exc}"
-        ) from exc
+        raise RuntimeError(f"Failed to upload ephemerides to s3://{bucket}/{key}: {exc}") from exc
 
     s3_uri = f"s3://{bucket}/{key}"
     print(f"[S3] Uploaded {len(coords)} target(s) -> {s3_uri}")
     return s3_uri
+
 
 async def get_nonsidereal_targets():
 
@@ -165,10 +160,12 @@ async def get_nonsidereal_targets():
             type=t["nonsidereal"]["type"],
             des=t["nonsidereal"]["des"],
             tag=t["nonsidereal"]["keyType"],
-            magnitudes=frozenset()
+            magnitudes=frozenset(),
         )
-        for t in response["matches"] if t["nonsidereal"]
+        for t in response["matches"]
+        if t["nonsidereal"]
     ]
+
 
 async def main():
 
@@ -178,58 +175,62 @@ async def main():
     start = datetime(2026, 3, 24)
     end = datetime(2026, 4, 30)
 
-    #targets = await get_nonsidereal_targets()
-    #print(f"Found {len(targets)} nonsidereal targets.")
+    # targets = await get_nonsidereal_targets()
+    # print(f"Found {len(targets)} nonsidereal targets.")
 
     targets = [
         NonsiderealTarget(
-        name=TargetName("Beer"),
-        des="1971 UC1",
-        type=TargetType.BASE,
-        magnitudes=frozenset(),
-        tag=TargetTag.ASTEROID),
-        NonsiderealTarget(
-            name=TargetName("Atlas"),
-            des="C/2025 N1",
+            name=TargetName("Beer"),
+            des="1971 UC1",
             type=TargetType.BASE,
             magnitudes=frozenset(),
-            tag=TargetTag.COMET),
+            tag=TargetTag.ASTEROID,
+        ),
+        NonsiderealTarget(
+            name=TargetName("Atlas"), des="C/2025 N1", type=TargetType.BASE, magnitudes=frozenset(), tag=TargetTag.COMET
+        ),
         NonsiderealTarget(
             name=TargetName("Kamo`oalewa"),
             des="2016 HO3",
             type=TargetType.BASE,
             magnitudes=frozenset(),
-            tag=TargetTag.ASTEROID),
+            tag=TargetTag.ASTEROID,
+        ),
         NonsiderealTarget(
             name=TargetName("Bienor"),
             des="2000 QC243",
             type=TargetType.BASE,
             magnitudes=frozenset(),
-            tag=TargetTag.ASTEROID),
+            tag=TargetTag.ASTEROID,
+        ),
         NonsiderealTarget(
             name=TargetName("2005 RL43"),
             des="2005 RL43",
             type=TargetType.BASE,
             magnitudes=frozenset(),
-            tag=TargetTag.ASTEROID),
+            tag=TargetTag.ASTEROID,
+        ),
         NonsiderealTarget(
             name=TargetName("2007 RH283"),
             des="2007 RH283",
             type=TargetType.BASE,
             magnitudes=frozenset(),
-            tag=TargetTag.ASTEROID),
+            tag=TargetTag.ASTEROID,
+        ),
         NonsiderealTarget(
             name=TargetName("2003 WL7"),
             des="2003 WL7",
             type=TargetType.BASE,
             magnitudes=frozenset(),
-            tag=TargetTag.ASTEROID),
+            tag=TargetTag.ASTEROID,
+        ),
         NonsiderealTarget(
             name=TargetName("Aphidas"),
             des="1999 XX143",
             type=TargetType.BASE,
             magnitudes=frozenset(),
-            tag=TargetTag.ASTEROID),
+            tag=TargetTag.ASTEROID,
+        ),
     ]
 
     results = fetch_batch_ephemerides(
@@ -250,5 +251,4 @@ async def main():
 
 
 if __name__ == "__main__":
-
     asyncio.run(main())

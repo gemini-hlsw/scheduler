@@ -11,8 +11,7 @@ _PACKAGE_DIR = Path(__file__).resolve().parent
 
 # The CI-generated CalVer file: at the repo root in a dev checkout, next to the
 # scheduler package (/home) in the Docker image.
-_VERSION_FILE_CANDIDATES = (_PACKAGE_DIR.parents[1] / "version.py",
-                            _PACKAGE_DIR.parent / "version.py")
+_VERSION_FILE_CANDIDATES = (_PACKAGE_DIR.parents[1] / "version.py", _PACKAGE_DIR.parent / "version.py")
 
 
 def get_app_version(version_file: Optional[Path] = None) -> str:
@@ -20,8 +19,7 @@ def get_app_version(version_file: Optional[Path] = None) -> str:
     candidates = (version_file,) if version_file is not None else _VERSION_FILE_CANDIDATES
     for candidate in candidates:
         if candidate.exists():
-            match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']',
-                              candidate.read_text())
+            match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', candidate.read_text())
             if match:
                 return match.group(1)
     return "development"

@@ -27,13 +27,26 @@ from lucupy.minimodel import ALL_SITES, Band, ObservationStatus, Priority
 from lucupy.types import MinMax
 from numpy.testing import assert_allclose
 
-from scheduler.core.components.ranker import (AdditiveRanker, DefaultRanker, Ranker,
-                                              RankerBandParameters, RankerParameters)
+from scheduler.core.components.ranker import (
+    AdditiveRanker,
+    DefaultRanker,
+    Ranker,
+    RankerBandParameters,
+    RankerParameters,
+)
 from scheduler.core.components.ranker import additive as additive_mod
 from scheduler.core.components.ranker import default as default_mod
 
-from .conftest import (NIGHTS, N_SLOTS, SITE, FakeGroup, FakeObservation, FakeProgram,
-                       group_data_map, night_configurations)
+from .conftest import (
+    NIGHTS,
+    N_SLOTS,
+    SITE,
+    FakeGroup,
+    FakeObservation,
+    FakeProgram,
+    group_data_map,
+    night_configurations,
+)
 
 # Pre-refactor scores for the baseline scenario in `conftest.collector` with default
 # RankerParameters. Hex of `scores[night].tobytes()`, so the comparison is bit-exact with no
@@ -55,71 +68,79 @@ def _ranker(cls, collector, params=None, nights=NIGHTS):
 def _score(cls, collector, params=None, obs=None, program=None, nc=None, nights=NIGHTS):
     obs = obs or FakeObservation()
     program = program or FakeProgram()
-    return _ranker(cls, collector, params, nights).score_observation(
-        program, obs, nc or night_configurations(), nights)
+    return _ranker(cls, collector, params, nights).score_observation(program, obs, nc or night_configurations(), nights)
 
 
 # --------------------------------------------------------------------------------------
 # Bit-exact snapshots: the actual regression guard.
 # --------------------------------------------------------------------------------------
 
-@pytest.mark.parametrize('cls, golden', [(DefaultRanker, _GOLDEN_DEFAULT),
-                                         (AdditiveRanker, _GOLDEN_ADDITIVE)])
+
+@pytest.mark.parametrize('cls, golden', [(DefaultRanker, _GOLDEN_DEFAULT), (AdditiveRanker, _GOLDEN_ADDITIVE)])
 def test_scores_are_byte_identical_to_pre_refactor(cls, golden, collector):
     scores = _score(cls, collector)
 
     for night_idx in NIGHTS:
         assert scores[night_idx].tobytes().hex() == golden, (
-            f'{cls.__name__} night {night_idx} scores moved; see this module docstring')
+            f'{cls.__name__} night {night_idx} scores moved; see this module docstring'
+        )
 
 
 # --------------------------------------------------------------------------------------
 # The one expression that differs between the two rankers.
 # --------------------------------------------------------------------------------------
 
+
 def _expected_terms(collector, params, night_idx):
     """Rebuild the metric / visibility / wha terms independently of the Ranker."""
     ti = collector.target_info[night_idx]
     program, obs = FakeProgram(), FakeObservation()
-    cplt = (program.total_used(obs.band) + obs.exec_time() - obs.total_used()) / \
-        program.total_awarded(obs.band)
+    cplt = (program.total_used(obs.band) + obs.exec_time() - obs.total_used()) / program.total_awarded(obs.band)
     metric = DefaultRanker(collector, NIGHTS, frozenset({SITE}), params=params).metric_slope(
-        np.array([cplt]), np.array([obs.band.value]), np.array([0.8]), program.thesis)[0][0]
+        np.array([cplt]), np.array([obs.band.value]), np.array([0.8]), program.thesis
+    )[0][0]
     # GS latitude and a -30 deg target are 0.24 deg apart, so the <40 deg coefficients apply.
     c = params.dec_diff_less_40
-    wha = c[0] + c[1] * ti.hourangle / u.hourangle + \
-        (c[2] / u.hourangle ** 2) * ti.hourangle ** 2
-    wha = np.asarray(np.where(wha <= 0., 0., wha))
+    wha = c[0] + c[1] * ti.hourangle / u.hourangle + (c[2] / u.hourangle**2) * ti.hourangle**2
+    wha = np.asarray(np.where(wha <= 0.0, 0.0, wha))
     return metric, ti.rem_visibility_frac, wha, np.min(ti.airmass)
 
 
-@pytest.mark.parametrize('params', [
-    RankerParameters(),
-    RankerParameters(met_power=2.0, vis_power=0.5, wha_power=1.5),
-    RankerParameters(met_power=1.0, vis_power=1.0, wha_power=1.0, air_power=2.0),
-])
+@pytest.mark.parametrize(
+    'params',
+    [
+        RankerParameters(),
+        RankerParameters(met_power=2.0, vis_power=0.5, wha_power=1.5),
+        RankerParameters(met_power=1.0, vis_power=1.0, wha_power=1.0, air_power=2.0),
+    ],
+)
 def test_default_ranker_multiplies_a_product_of_powers(params, collector):
     scores = _score(DefaultRanker, collector, params)
 
     for night_idx in NIGHTS:
         metric, vis, wha, air = _expected_terms(collector, params, night_idx)
-        expected = ((metric ** params.met_power) * (vis ** params.vis_power) *
-                    (wha ** params.wha_power) / (air ** params.air_power))
+        expected = (
+            (metric**params.met_power) * (vis**params.vis_power) * (wha**params.wha_power) / (air**params.air_power)
+        )
         assert_allclose(scores[night_idx], expected, rtol=1e-12)
 
 
-@pytest.mark.parametrize('params', [
-    RankerParameters(),
-    RankerParameters(met_power=2.0, vis_power=0.5, wha_power=1.5),
-    RankerParameters(met_power=1.0, vis_power=1.0, wha_power=1.0, air_power=2.0),
-])
+@pytest.mark.parametrize(
+    'params',
+    [
+        RankerParameters(),
+        RankerParameters(met_power=2.0, vis_power=0.5, wha_power=1.5),
+        RankerParameters(met_power=1.0, vis_power=1.0, wha_power=1.0, air_power=2.0),
+    ],
+)
 def test_additive_ranker_sums_weighted_terms(params, collector):
     scores = _score(AdditiveRanker, collector, params)
 
     for night_idx in NIGHTS:
         metric, vis, wha, air = _expected_terms(collector, params, night_idx)
-        expected = ((metric * params.met_power) + (vis * params.vis_power) +
-                    (wha * params.wha_power)) / (air ** params.air_power)
+        expected = ((metric * params.met_power) + (vis * params.vis_power) + (wha * params.wha_power)) / (
+            air**params.air_power
+        )
         assert_allclose(scores[night_idx], expected, rtol=1e-12)
 
 
@@ -129,11 +150,11 @@ def test_a_zero_wha_slot_zeroes_default_but_not_additive(collector):
     Multiplying, a slot outside the hour-angle window kills the score. Summing, the metric
     and visibility terms still contribute, so the observation stays schedulable there.
     """
-    zeroed = np.flatnonzero(_expected_terms(collector, RankerParameters(), NIGHTS[0])[2] == 0.)
+    zeroed = np.flatnonzero(_expected_terms(collector, RankerParameters(), NIGHTS[0])[2] == 0.0)
     assert zeroed.size, 'the baseline scenario must contain at least one clamped slot'
 
-    assert np.all(_score(DefaultRanker, collector)[NIGHTS[0]][zeroed] == 0.)
-    assert np.all(_score(AdditiveRanker, collector)[NIGHTS[0]][zeroed] > 0.)
+    assert np.all(_score(DefaultRanker, collector)[NIGHTS[0]][zeroed] == 0.0)
+    assert np.all(_score(AdditiveRanker, collector)[NIGHTS[0]][zeroed] > 0.0)
 
 
 # --------------------------------------------------------------------------------------
@@ -145,7 +166,7 @@ BOTH = pytest.mark.parametrize('cls', [DefaultRanker, AdditiveRanker])
 
 @BOTH
 def test_wha_is_clamped_at_zero(cls, collector):
-    assert np.all(_score(cls, collector)[NIGHTS[0]] >= 0.)
+    assert np.all(_score(cls, collector)[NIGHTS[0]] >= 0.0)
 
 
 @BOTH
@@ -156,8 +177,8 @@ def test_slots_outside_the_altitude_limits_score_zero(cls, collector, make_targe
     collector.target_info = {n: make_target_info(alt_deg=alt) for n in NIGHTS}
 
     scores = _score(cls, collector)[NIGHTS[0]]
-    assert scores[0] == 0. and scores[-1] == 0.
-    assert np.all(scores[1:-1] > 0.), 'only the out-of-limit slots may be zeroed'
+    assert scores[0] == 0.0 and scores[-1] == 0.0
+    assert np.all(scores[1:-1] > 0.0), 'only the out-of-limit slots may be zeroed'
 
 
 @BOTH
@@ -170,8 +191,8 @@ def test_a_night_without_target_info_stays_zero(cls, collector, make_target_info
     collector.target_info = {NIGHTS[0]: make_target_info()}
 
     scores = _score(cls, collector)
-    assert np.all(scores[NIGHTS[1]] == 0.)
-    assert np.any(scores[NIGHTS[0]] > 0.)
+    assert np.all(scores[NIGHTS[1]] == 0.0)
+    assert np.any(scores[NIGHTS[0]] > 0.0)
 
 
 @BOTH
@@ -180,7 +201,7 @@ def test_no_target_info_at_all_returns_all_zero_scores(cls, collector):
 
     scores = _score(cls, collector)
     assert sorted(scores) == sorted(NIGHTS)
-    assert all(np.all(scores[n] == 0.) for n in NIGHTS)
+    assert all(np.all(scores[n] == 0.0) for n in NIGHTS)
 
 
 @BOTH
@@ -189,18 +210,21 @@ def test_only_visible_slots_are_scored(cls, collector, make_target_info):
     collector.target_info = {n: make_target_info(visibility_slot_idx=visible) for n in NIGHTS}
 
     scores = _score(cls, collector)[NIGHTS[0]]
-    assert np.all(scores[visible] > 0.)
-    assert np.all(np.delete(scores, visible) == 0.)
+    assert np.all(scores[visible] > 0.0)
+    assert np.all(np.delete(scores, visible) == 0.0)
 
 
 @BOTH
-@pytest.mark.parametrize('kwargs, factor', [
-    ({'preimaging': True}, RankerParameters().preimaging_factor),
-    ({'status': ObservationStatus.ONGOING}, RankerParameters().ongoing_factor),
-    # priority scales as 1 + (priority - mean) / priority_factor; mean_priority() is 1.0.
-    ({'priority': Priority.HIGH}, 1. + (Priority.HIGH.value - 1.) / RankerParameters().priority_factor),
-    ({'priority': Priority.LOW}, 1. + (Priority.LOW.value - 1.) / RankerParameters().priority_factor),
-])
+@pytest.mark.parametrize(
+    'kwargs, factor',
+    [
+        ({'preimaging': True}, RankerParameters().preimaging_factor),
+        ({'status': ObservationStatus.ONGOING}, RankerParameters().ongoing_factor),
+        # priority scales as 1 + (priority - mean) / priority_factor; mean_priority() is 1.0.
+        ({'priority': Priority.HIGH}, 1.0 + (Priority.HIGH.value - 1.0) / RankerParameters().priority_factor),
+        ({'priority': Priority.LOW}, 1.0 + (Priority.LOW.value - 1.0) / RankerParameters().priority_factor),
+    ],
+)
 def test_scale_factors_multiply_the_whole_night(cls, kwargs, factor, collector):
     baseline = _score(cls, collector)[NIGHTS[0]]
 
@@ -242,16 +266,15 @@ def test_the_last_nights_program_priority_is_applied_to_every_night(cls, collect
 @BOTH
 def test_a_far_southern_target_uses_the_wide_dec_coefficients(cls, collector, make_target_info):
     """dec_diff >= 40 deg switches the hour-angle coefficient set."""
-    params = RankerParameters(dec_diff_less_40=np.array([3., 0., -0.08]),
-                              dec_diff=np.array([1., 0., -0.01]))
+    params = RankerParameters(dec_diff_less_40=np.array([3.0, 0.0, -0.08]), dec_diff=np.array([1.0, 0.0, -0.01]))
     collector.target_info = {n: make_target_info(dec_deg=30.0) for n in NIGHTS}
 
     ti = collector.target_info[NIGHTS[0]]
-    wha = params.dec_diff[0] + (params.dec_diff[2] / u.hourangle ** 2) * ti.hourangle ** 2
-    assert np.all(np.asarray(wha) > 0.), 'the wide coefficients must not clamp here'
+    wha = params.dec_diff[0] + (params.dec_diff[2] / u.hourangle**2) * ti.hourangle**2
+    assert np.all(np.asarray(wha) > 0.0), 'the wide coefficients must not clamp here'
 
     scores = _score(cls, collector, params)[NIGHTS[0]]
-    assert np.all(scores > 0.)
+    assert np.all(scores > 0.0)
 
 
 # --------------------------------------------------------------------------------------
@@ -259,42 +282,40 @@ def test_a_far_southern_target_uses_the_wide_dec_coefficients(cls, collector, ma
 # (statscalculator.py:117).
 # --------------------------------------------------------------------------------------
 
+
 @BOTH
 @pytest.mark.parametrize('band', [Band.BAND1, Band.BAND2, Band.BAND3, Band.BAND4])
 @pytest.mark.parametrize('power', [1, 2])
 @pytest.mark.parametrize('thesis', [False, True])
 @pytest.mark.parametrize('completion', [0.0, 1e-9, 0.5, 0.9, 1.0, 1.4])
-def test_metric_slope_matches_its_piecewise_definition(cls, band, power, thesis, completion,
-                                                       collector):
+def test_metric_slope_matches_its_piecewise_definition(cls, band, power, thesis, completion, collector):
     params = RankerParameters(power=power)
     ranker = _ranker(cls, collector, params)
     bp = ranker.band_params[band]
 
-    metric, slope = ranker.metric_slope(np.array([completion]), np.array([band.value]),
-                                        np.array([0.8]), thesis)
+    metric, slope = ranker.metric_slope(np.array([completion]), np.array([band.value]), np.array([0.8]), thesis)
 
     # Band 3 takes xb from the b3min argument instead of the band parameters.
     xb = 0.8 if band == Band.BAND3 else bp.xb
     b2 = (xb * (bp.m1 - bp.m2) + bp.xb0 + bp.b1) if power == 1 else (bp.b2 + bp.xb0 + bp.b1)
-    if completion <= 1.e-7:
+    if completion <= 1.0e-7:
         expected, expected_slope = 0.0, 0.0
     elif completion < xb:
-        expected = bp.m1 * completion ** power + bp.b1
+        expected = bp.m1 * completion**power + bp.b1
         expected_slope = power * bp.m1 * completion ** (power - 1.0)
     elif completion < 1.0:
         expected, expected_slope = bp.m2 * completion + b2, bp.m2
     else:
         expected, expected_slope = bp.m2 + b2 + bp.xc0, bp.m2
 
-    assert_allclose(metric, [expected + (params.thesis_factor if thesis else 0.)], rtol=1e-12)
+    assert_allclose(metric, [expected + (params.thesis_factor if thesis else 0.0)], rtol=1e-12)
     assert_allclose(slope, [expected_slope], rtol=1e-12)
 
 
 @BOTH
 def test_metric_slope_rejects_mismatched_lengths(cls, collector):
     with pytest.raises(ValueError, match='Incompatible lengths'):
-        _ranker(cls, collector).metric_slope(np.array([0.5, 0.6]), np.array([Band.BAND1.value]),
-                                             np.array([0.8]), False)
+        _ranker(cls, collector).metric_slope(np.array([0.5, 0.6]), np.array([Band.BAND1.value]), np.array([0.8]), False)
 
 
 @BOTH
@@ -308,18 +329,17 @@ def test_explicit_band_params_are_used(cls, collector):
     flat = RankerBandParameters(m1=0.0, b1=7.0, m2=0.0, b2=0.0, xb=0.8, xb0=0.0, xc0=0.0)
     custom = {band: flat for band in [Band.BAND1, Band.BAND2, Band.BAND3, Band.BAND4]}
 
-    ranker = cls(collector, NIGHTS, frozenset({SITE}), params=RankerParameters(),
-                 band_params=custom)
+    ranker = cls(collector, NIGHTS, frozenset({SITE}), params=RankerParameters(), band_params=custom)
 
     assert ranker.band_params is custom
-    metric, _ = ranker.metric_slope(np.array([0.5]), np.array([Band.BAND2.value]),
-                                    np.array([0.8]), False)
+    metric, _ = ranker.metric_slope(np.array([0.5]), np.array([Band.BAND2.value]), np.array([0.8]), False)
     assert_allclose(metric, [7.0])
 
 
 # --------------------------------------------------------------------------------------
 # Group scoring: shared, dispatched from the base class.
 # --------------------------------------------------------------------------------------
+
 
 @BOTH
 def test_and_group_takes_the_max_unless_a_child_is_zero(cls, collector):
@@ -328,21 +348,22 @@ def test_and_group_takes_the_max_unless_a_child_is_zero(cls, collector):
     Child arrays must be N_SLOTS long: the group accumulator is pre-shaped (0, N_SLOTS)
     from the collector's night events, and np.append is strict about the row width.
     """
-    a = [1., 0., 3., 4., 2., 9., 0., 5.]
-    b = [2., 5., 0., 4., 7., 1., 0., 5.]
+    a = [1.0, 0.0, 3.0, 4.0, 2.0, 9.0, 0.0, 5.0]
+    b = [2.0, 5.0, 0.0, 4.0, 7.0, 1.0, 0.0, 5.0]
 
     scores = _ranker(cls, collector).score_group(
-        FakeGroup(), group_data_map({'a': {NIGHTS[0]: a}, 'b': {NIGHTS[0]: b}}))
+        FakeGroup(), group_data_map({'a': {NIGHTS[0]: a}, 'b': {NIGHTS[0]: b}})
+    )
 
-    assert_allclose(scores[NIGHTS[0]], [2., 0., 0., 4., 7., 9., 0., 5.])
+    assert_allclose(scores[NIGHTS[0]], [2.0, 0.0, 0.0, 4.0, 7.0, 9.0, 0.0, 5.0])
 
 
 @BOTH
 def test_and_group_rejects_multiple_sites(cls, collector):
     with pytest.raises(ValueError, match='has too many sites'):
         _ranker(cls, collector).score_group(
-            FakeGroup(group_sites=ALL_SITES),
-            group_data_map({'a': {NIGHTS[0]: [1.]}, 'b': {NIGHTS[0]: [1.]}}))
+            FakeGroup(group_sites=ALL_SITES), group_data_map({'a': {NIGHTS[0]: [1.0]}, 'b': {NIGHTS[0]: [1.0]}})
+        )
 
 
 @BOTH
@@ -354,8 +375,11 @@ def test_or_groups_are_not_implemented(cls, collector):
 @BOTH
 def test_score_group_refuses_a_non_group(cls, collector):
     class NotAGroup(FakeGroup):
-        def is_and_group(self): return False
-        def is_or_group(self): return False
+        def is_and_group(self):
+            return False
+
+        def is_or_group(self):
+            return False
 
     with pytest.raises(ValueError, match='can only score groups'):
         _ranker(cls, collector).score_group(NotAGroup(), group_data_map({}))
@@ -365,19 +389,20 @@ def test_score_group_refuses_a_non_group(cls, collector):
 # Structure: what stops the duplication growing back. These fail before GSCHED-1031.
 # --------------------------------------------------------------------------------------
 
-@pytest.mark.parametrize('name', ['score_observation', 'metric_slope', '_score_and_group',
-                                  '_score_or_group', 'score_group'])
+
+@pytest.mark.parametrize(
+    'name', ['score_observation', 'metric_slope', '_score_and_group', '_score_or_group', 'score_group']
+)
 @pytest.mark.parametrize('cls', [DefaultRanker, AdditiveRanker])
 def test_shared_methods_live_only_on_the_base(cls, name):
     assert getattr(cls, name) is getattr(Ranker, name), (
-        f'{cls.__name__}.{name} overrides the shared implementation; that is the '
-        f'duplication GSCHED-1031 removed')
+        f'{cls.__name__}.{name} overrides the shared implementation; that is the duplication GSCHED-1031 removed'
+    )
 
 
 @pytest.mark.parametrize('cls', [DefaultRanker, AdditiveRanker])
 def test_each_ranker_overrides_exactly_the_score_hook(cls):
-    own = {n for n, v in vars(cls).items()
-           if callable(v) and not n.startswith('__')}
+    own = {n for n, v in vars(cls).items() if callable(v) and not n.startswith('__')}
     assert own == {'_combine_score_terms'}, f'{cls.__name__} should differ by one method only'
 
 
@@ -396,20 +421,25 @@ def test_the_parameter_classes_are_not_redefined_per_module(module):
 def test_ranker_parameters_field_order_is_stable():
     """graphql_mid/schema.py:112 constructs RankerParameters positionally."""
     assert [f.name for f in fields(RankerParameters)][:6] == [
-        'thesis_factor', 'power', 'met_power', 'vis_power', 'wha_power', 'air_power']
+        'thesis_factor',
+        'power',
+        'met_power',
+        'vis_power',
+        'wha_power',
+        'air_power',
+    ]
 
 
 def test_altitude_limits_are_validated():
     with pytest.raises(ValueError, match='at least 18 degrees'):
-        RankerParameters(gn_altitude_limits={MinMax.MIN: Angle(5.0 * u.deg),
-                                             MinMax.MAX: Angle(88.0 * u.deg)})
+        RankerParameters(gn_altitude_limits={MinMax.MIN: Angle(5.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)})
     with pytest.raises(ValueError, match='90 degrees or less'):
-        RankerParameters(gs_altitude_limits={MinMax.MIN: Angle(18.0 * u.deg),
-                                             MinMax.MAX: Angle(91.0 * u.deg)})
+        RankerParameters(gs_altitude_limits={MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(91.0 * u.deg)})
 
 
-@pytest.mark.skipif(not os.environ.get('REGENERATE_RANKER_GOLDENS'),
-                    reason='set REGENERATE_RANKER_GOLDENS=1 to print fresh goldens')
+@pytest.mark.skipif(
+    not os.environ.get('REGENERATE_RANKER_GOLDENS'), reason='set REGENERATE_RANKER_GOLDENS=1 to print fresh goldens'
+)
 def test_regenerate_goldens(collector):
     """Print replacements for the _GOLDEN_* constants. Not a check; always fails.
 
@@ -419,6 +449,6 @@ def test_regenerate_goldens(collector):
     for cls in (DefaultRanker, AdditiveRanker):
         digest = _score(cls, collector)[NIGHTS[0]].tobytes().hex()
         lines.append(f'_GOLDEN_{cls.__name__.replace("Ranker", "").upper()} = (')
-        lines += [f"    '{digest[i:i + 64]}'" for i in range(0, len(digest), 64)]
+        lines += [f"    '{digest[i : i + 64]}'" for i in range(0, len(digest), 64)]
         lines.append(')')
     pytest.fail('\n' + '\n'.join(lines), pytrace=False)

@@ -26,6 +26,7 @@ __all__ = [
     'night_end',
 ]
 
+
 @lru_cache(maxsize=16)
 def _morning_twilight(ut_date: date, site: Site) -> datetime:
     """
@@ -127,6 +128,7 @@ class SchedulerParameters:
                                          programs_list=programs_list)
         ```
     """
+
     start: datetime
     end: datetime = None
     sites: FrozenSet[Site] = ALL_SITES
@@ -147,13 +149,19 @@ class SchedulerParameters:
         # real-time engine hardcodes DefaultRanker, so a silently dropped choice would
         # look like it worked and produce plans scored by something else.
         if self.ranker is not None and self.mode is not SchedulerModes.VALIDATION:
-            raise ValueError(f'A ranker can only be selected per run in VALIDATION mode, '
-                             f'not {self.mode.name}. Set config.ranker.name instead.')
+            raise ValueError(
+                f'A ranker can only be selected per run in VALIDATION mode, '
+                f'not {self.mode.name}. Set config.ranker.name instead.'
+            )
 
         if self.end is not None and self.end > self.start:
             # The semester methods work on local dates, so have to subtract 1 day from UT dates
-            self.semesters = frozenset([Semester.find_semester_from_date(self.start - timedelta(days=1)),
-                                        Semester.find_semester_from_date(self.end - timedelta(days=1))])
+            self.semesters = frozenset(
+                [
+                    Semester.find_semester_from_date(self.start - timedelta(days=1)),
+                    Semester.find_semester_from_date(self.end - timedelta(days=1)),
+                ]
+            )
         else:
             self.semesters = frozenset([Semester.find_semester_from_date(self.start - timedelta(days=1))])
 
@@ -176,35 +184,39 @@ class SchedulerParameters:
             self.night_indices = frozenset(NightIndex(idx) for idx in range(self.num_nights_to_schedule))
             self.end_vis = self.end
 
-
     @staticmethod
     def from_json(received_params: dict) -> 'SchedulerParameters':
-        return SchedulerParameters(datetime.fromisoformat(received_params['startTime']),
-                                   datetime.fromisoformat(received_params['endTime']),
-                                   frozenset([Site[received_params['sites'][0]]]) if len(received_params['sites']) < 2 else ALL_SITES,
-                                   SchedulerModes[received_params['schedulerMode']],
-                                   RankerParameters(thesis_factor=float(received_params['rankerParameters']['thesisFactor']),
-                                                    power=int(received_params['rankerParameters']['power']),
-                                                    wha_power=float(received_params['rankerParameters']['whaPower']),
-                                                    met_power=float(received_params['rankerParameters']['metPower']),
-                                                    vis_power=float(received_params['rankerParameters']['visPower'])),
-                                   received_params['semesterVisibility'],
-                                   received_params['numNightsToSchedule'],
-                                   None,
-                                   # Absent in payloads written before the ranker became
-                                   # selectable, so fall back to config.ranker.name.
-                                   ranker=(RankerName[received_params['ranker'].upper()]
-                                           if received_params.get('ranker') else None))
+        return SchedulerParameters(
+            datetime.fromisoformat(received_params['startTime']),
+            datetime.fromisoformat(received_params['endTime']),
+            frozenset([Site[received_params['sites'][0]]]) if len(received_params['sites']) < 2 else ALL_SITES,
+            SchedulerModes[received_params['schedulerMode']],
+            RankerParameters(
+                thesis_factor=float(received_params['rankerParameters']['thesisFactor']),
+                power=int(received_params['rankerParameters']['power']),
+                wha_power=float(received_params['rankerParameters']['whaPower']),
+                met_power=float(received_params['rankerParameters']['metPower']),
+                vis_power=float(received_params['rankerParameters']['visPower']),
+            ),
+            received_params['semesterVisibility'],
+            received_params['numNightsToSchedule'],
+            None,
+            # Absent in payloads written before the ranker became
+            # selectable, so fall back to config.ranker.name.
+            ranker=(RankerName[received_params['ranker'].upper()] if received_params.get('ranker') else None),
+        )
 
     def __str__(self) -> str:
-        return "Scheduler Parameters:\n" + \
-            f"├─start: {self.start}\n" + \
-            f"├─end: {self.end}\n" + \
-            f"├─sites: {', '.join([site.name for site in self.sites])}\n" + \
-            f"├─mode: {self.mode}\n" + \
-            f"├─semester_visibility: {self.semester_visibility}\n" + \
-            f"├─num_nights_to_schedule: {self.num_nights_to_schedule}\n" + \
-            f"└─ranker_parameters: {self.ranker_parameters}"
+        return (
+            "Scheduler Parameters:\n"
+            + f"├─start: {self.start}\n"
+            + f"├─end: {self.end}\n"
+            + f"├─sites: {', '.join([site.name for site in self.sites])}\n"
+            + f"├─mode: {self.mode}\n"
+            + f"├─semester_visibility: {self.semester_visibility}\n"
+            + f"├─num_nights_to_schedule: {self.num_nights_to_schedule}\n"
+            + f"└─ranker_parameters: {self.ranker_parameters}"
+        )
 
 
 class NightTimes(BaseModel):
@@ -231,6 +243,7 @@ class BuildParameters(BaseModel):
     simulated_now (datetime): Pretend the clock reads this instant. Leave unset outside
         testing; see `reference_time`.
     """
+
     night_times: Dict[Site, NightTimes] | None = None
     visibility_start: datetime | None = None
     visibility_end: datetime | None = None
@@ -250,13 +263,15 @@ class BuildParameters(BaseModel):
         ODBEventHandler._reference_time). ``set_at`` is excluded: it is stamped on every
         construction and says nothing about intent.
         """
-        return any((
-            self.night_times,
-            self.visibility_start,
-            self.visibility_end,
-            self.program_list,
-            self.simulated_now,
-        ))
+        return any(
+            (
+                self.night_times,
+                self.visibility_start,
+                self.visibility_end,
+                self.program_list,
+                self.simulated_now,
+            )
+        )
 
     def reference_time(self) -> datetime | None:
         """
@@ -283,8 +298,9 @@ class BuildParameters(BaseModel):
         """
         if self.visibility_start is not None:
             return self.visibility_start.date()
-        night_starts = [nt.night_start for nt in (self.night_times or {}).values()
-                        if nt is not None and nt.night_start is not None]
+        night_starts = [
+            nt.night_start for nt in (self.night_times or {}).values() if nt is not None and nt.night_start is not None
+        ]
         return min(night_starts).date() if night_starts else None
 
     def get_night_times(self) -> Dict[Site, Tuple[Time | None, Time | None]]:
@@ -295,11 +311,13 @@ class BuildParameters(BaseModel):
         """
         if self.night_times is None:
             return {}
-        return {site: (
-                    nt.start_time() if nt.night_start is not None else None,
-                    nt.end_time() if nt.night_end is not None else None
-                )
-            for site, nt in self.night_times.items() if nt is not None
+        return {
+            site: (
+                nt.start_time() if nt.night_start is not None else None,
+                nt.end_time() if nt.night_end is not None else None,
+            )
+            for site, nt in self.night_times.items()
+            if nt is not None
         }
 
     @field_validator("simulated_now")
@@ -307,10 +325,12 @@ class BuildParameters(BaseModel):
     def _as_utc(cls, v: datetime | None) -> datetime | None:
         return v if v is None or v.tzinfo else v.replace(tzinfo=UTC)
 
+
 class BuildParamsStore:
     """
     Control access concurrency for BuildParameters.
     """
+
     def __init__(self) -> None:
         self._params = BuildParameters()
 
@@ -324,4 +344,5 @@ class BuildParamsStore:
         async with self._lock:
             self._params = params
 
-build_params_store = BuildParamsStore() # Singleton
+
+build_params_store = BuildParamsStore()  # Singleton

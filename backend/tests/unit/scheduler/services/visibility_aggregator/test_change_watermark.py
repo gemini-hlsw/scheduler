@@ -6,6 +6,7 @@ timestamp the next aggregator run queries /scheduler/visibility-changes from.
 Reading tolerates a missing or corrupt row (caller falls back to a lookback);
 writing upserts so the first run creates the row.
 """
+
 import asyncio
 from datetime import datetime, timezone
 

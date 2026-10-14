@@ -123,8 +123,7 @@ async def test_schedule_publishes_plans_not_coroutines(set_observatory_propertie
 
             received = await asyncio.wait_for(subscriber_queue.get(), timeout=2)
 
-        assert not asyncio.iscoroutine(received), \
-            "subscriber received the raw coroutine instead of the plans"
+        assert not asyncio.iscoroutine(received), "subscriber received the raw coroutine instead of the plans"
         assert received is plans
     finally:
         plan_response_subscribers.pop("rt14", None)
@@ -143,8 +142,7 @@ async def test_schedule_failure_publishes_night_plans_error(set_observatory_prop
     plan_response_subscribers["rt14"] = {subscriber_queue}
 
     try:
-        with patch('scheduler.graphql_mid.schema.sync_schedule',
-                   side_effect=RuntimeError("collector blew up")):
+        with patch('scheduler.graphql_mid.schema.sync_schedule', side_effect=RuntimeError("collector blew up")):
             result = await scheduler_schema.execute(SCHEDULE_QUERY)
             assert result.errors is None
 

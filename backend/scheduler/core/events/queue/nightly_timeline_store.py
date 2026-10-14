@@ -15,10 +15,7 @@ from scheduler.services import logger_factory
 
 from .nightchanges import NightlyTimeline, TimelineEntry
 
-__all__ = [
-    'NightlyTimelineStore',
-    'TimelineListener'
-]
+__all__ = ['NightlyTimelineStore', 'TimelineListener']
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -37,6 +34,7 @@ class TimelineListener(ABC):
 
     async def on_timeline_reset(self) -> None:
         """The night is over and nothing is in effect any more."""
+
 
 class NightlyTimelineStore:
     """
@@ -143,15 +141,13 @@ class NightlyTimelineStore:
         Events that do not produce a plan (e.g. a fault) are recorded with plan_generated=None,
         so the last entry is not necessarily the last plan. Must be called under the lock.
         """
-        entries = (self._entries(self._timeline.stitched_timeline, site)
-                   or self._entries(self._timeline.timeline, site))
+        entries = self._entries(self._timeline.stitched_timeline, site) or self._entries(self._timeline.timeline, site)
         for entry in reversed(entries):
             if entry.plan_generated is not None:
                 return entry
         return None
 
     @staticmethod
-    def _entries(timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]],
-                 site: Site) -> List[TimelineEntry]:
+    def _entries(timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]], site: Site) -> List[TimelineEntry]:
         # RT only sgh
         return timeline.get(NightIndex(0), {}).get(site, [])

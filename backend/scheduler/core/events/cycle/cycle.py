@@ -17,6 +17,7 @@ NextUpdate = Dict[Site, Optional[TimeCoordinateRecord]]
 
 __all__ = ["EventCycle"]
 
+
 class EventCycle:
     """
     Attributes:
@@ -25,23 +26,23 @@ class EventCycle:
      scp (SCP): The Scheduler Core Pipeline that allows creating plans.
 
     """
-    def __init__(self,
-                 params,
-                 queue: EventQueue,
-                 scp: SCP):
+
+    def __init__(self, params, queue: EventQueue, scp: SCP):
         self.params = params
         self.queue = queue
         self.scp = scp
         self.change_monitor = ChangeMonitor(scp.collector, scp.selector)
 
-    def _perform_time_accounting(self,
-                                 site: Site,
-                                 night_idx: NightIndex,
-                                 update: TimeCoordinateRecord,
-                                 end_timeslot_bounds: Dict[Site, TimeslotIndex],
-                                 plans: Plans,
-                                 current_timeslot: TimeslotIndex,
-                                 nightly_timeline: NightlyTimeline):
+    def _perform_time_accounting(
+        self,
+        site: Site,
+        night_idx: NightIndex,
+        update: TimeCoordinateRecord,
+        end_timeslot_bounds: Dict[Site, TimeslotIndex],
+        plans: Plans,
+        current_timeslot: TimeslotIndex,
+        nightly_timeline: NightlyTimeline,
+    ):
         """Perform time accounting for executed plans.
         Args:
             site: Site being processed
@@ -65,21 +66,21 @@ class EventCycle:
 
         # Run time accounting
         self.scp.collector.time_accounting(
-            plans=plans,
-            sites=frozenset({site}),
-            end_timeslot_bounds=end_timeslot_bounds
+            plans=plans, sites=frozenset({site}), end_timeslot_bounds=end_timeslot_bounds
         )
 
         last_entry = nightly_timeline.timeline[night_idx][site][-1]
         last_entry.accounted_observations = list(self.scp.collector.time_accountant.get_dirty_observations().keys())
 
-    def _create_new_plan(self,
-                         site: Site,
-                         night_idx: NightIndex,
-                         current_timeslot: TimeslotIndex,
-                         update: TimeCoordinateRecord,
-                         plans: Plans,
-                         nightly_timeline: NightlyTimeline):
+    def _create_new_plan(
+        self,
+        site: Site,
+        night_idx: NightIndex,
+        current_timeslot: TimeslotIndex,
+        update: TimeCoordinateRecord,
+        plans: Plans,
+        nightly_timeline: NightlyTimeline,
+    ):
         """Create a new observation plan.
         Args:
             site: Site being processed
@@ -93,44 +94,33 @@ class EventCycle:
         night_indices = np.array([night_idx])
 
         logger.info(
-            f'Retrieving selection for {site.site_name} for night {night_idx} '
-            f'starting at time slot {current_timeslot}.'
+            f'Retrieving selection for {site.site_name} for night {night_idx} starting at time slot {current_timeslot}.'
         )
 
         # If the site is unblocked, perform selection and optimization and add plan to night
         if self.change_monitor.is_site_unblocked(site):
             plans = self.scp.run(site, night_indices, current_timeslot)
-            nightly_timeline.add(
-                NightIndex(night_idx),
-                site,
-                current_timeslot,
-                update.event,
-                plans[site]
-            )
+            nightly_timeline.add(NightIndex(night_idx), site, current_timeslot, update.event, plans[site])
         else:
             # the site becomes unblocked
             logger.debug(f'Site {site.site_name} for {night_idx} blocked at timeslot {current_timeslot}.')
             # import pdb
             # pdb.set_trace()
             # pdb.set_trace = lambda: None
-            nightly_timeline.add(
-                NightIndex(night_idx),
-                site,
-                current_timeslot,
-                update.event,
-                None
-            )
-        
+            nightly_timeline.add(NightIndex(night_idx), site, current_timeslot, update.event, None)
+
         return plans
 
-    def _process_remaining_events(self,
-                                  site: Site,
-                                  night_idx: NightIndex,
-                                  night_events: NightEvents,
-                                  events_by_night: NightEventQueue,
-                                  time_slot_length: timedelta,
-                                  nightly_timeline: NightlyTimeline,
-                                  current_timeslot: TimeslotIndex):
+    def _process_remaining_events(
+        self,
+        site: Site,
+        night_idx: NightIndex,
+        night_events: NightEvents,
+        events_by_night: NightEventQueue,
+        time_slot_length: timedelta,
+        nightly_timeline: NightlyTimeline,
+        current_timeslot: TimeslotIndex,
+    ):
         """Process any events still remaining after night is done.
         Args:
             site (Site): Site being processed
@@ -153,15 +143,17 @@ class EventCycle:
             # Timeslot will be after final timeslot because this event is scheduled later
             nightly_timeline.add(NightIndex(night_idx), site, current_timeslot, event, None)
 
-    def _process_current_events(self,
-                                site: Site,
-                                night_idx: NightIndex,
-                                night_start: datetime,
-                                time_slot_length: timedelta,
-                                events_by_night: NightEventQueue,
-                                plans: Plans,
-                                update: TimeCoordinateRecord,
-                                previous_event_timeslot: TimeslotIndex) -> Tuple[Event, Optional[TimeslotIndex]]:
+    def _process_current_events(
+        self,
+        site: Site,
+        night_idx: NightIndex,
+        night_start: datetime,
+        time_slot_length: timedelta,
+        events_by_night: NightEventQueue,
+        plans: Plans,
+        update: TimeCoordinateRecord,
+        previous_event_timeslot: TimeslotIndex,
+    ) -> Tuple[Event, Optional[TimeslotIndex]]:
         """Process events that occur at the current timeslot.
         Args:
             site (Site): Site being processed
@@ -198,13 +190,15 @@ class EventCycle:
         update = self.change_monitor.process_event(site, event, plans, night_idx)
         return update, current_timeslot
 
-    def _handle_updates(self,
-                        site: Site,
-                        night_idx: NightIndex,
-                        current_timeslot: TimeslotIndex,
-                        update: TimeCoordinateRecord,
-                        plans: Plans,
-                        nightly_timeline: NightlyTimeline):
+    def _handle_updates(
+        self,
+        site: Site,
+        night_idx: NightIndex,
+        current_timeslot: TimeslotIndex,
+        update: TimeCoordinateRecord,
+        plans: Plans,
+        nightly_timeline: NightlyTimeline,
+    ):
         """Handle any scheduled plan updates for the current timeslot.
         Args:
             site (site): Site being processed
@@ -224,38 +218,19 @@ class EventCycle:
             # If there was an old plan and time accounting is needed, process it
             if plans is not None and update.perform_time_accounting:
                 self._perform_time_accounting(
-                    site,
-                    night_idx,
-                    update,
-                    end_timeslot_bounds,
-                    plans,
-                    current_timeslot,
-                    nightly_timeline
+                    site, night_idx, update, end_timeslot_bounds, plans, current_timeslot, nightly_timeline
                 )
 
             # If the night is done, get a final plan and add it to the timeline.
             # Otherwise, get a new selection and request a new plan
             if not update.done:
-                plans = self._create_new_plan(
-                    site,
-                    night_idx,
-                    current_timeslot,
-                    update,
-                    plans,
-                    nightly_timeline
-                )
+                plans = self._create_new_plan(site, night_idx, current_timeslot, update, plans, nightly_timeline)
             else:
                 # TODO: Not needded if the system returns only stitched plans
                 logger.debug('Night done. Adding last empty plan to compute night stats.')
 
-                nightly_timeline.add(
-                    NightIndex(night_idx),
-                    site,
-                    current_timeslot,
-                    update.event,
-                    None
-                )
-        
+                nightly_timeline.add(NightIndex(night_idx), site, current_timeslot, update.event, None)
+
         return plans
 
     def run(self, site: Site, night_idx: NightIndex, nightly_timeline: NightlyTimeline):
@@ -302,37 +277,17 @@ class EventCycle:
         # Loop through events until there are no more events
         while events_by_night.has_more_events():
             update, current_timeslot = self._process_current_events(
-                site,
-                night_idx,
-                night_start,
-                time_slot_length,
-                events_by_night,
-                plans,
-                update,
-                previous_event_timeslot
+                site, night_idx, night_start, time_slot_length, events_by_night, plans, update, previous_event_timeslot
             )
 
-            plans = self._handle_updates(
-                site,
-                night_idx,
-                current_timeslot,
-                update,
-                plans,
-                nightly_timeline
-            )
+            plans = self._handle_updates(site, night_idx, current_timeslot, update, plans, nightly_timeline)
 
             # Set the previous event timeslot
             previous_event_timeslot = current_timeslot
-        
+
         # Process after twilight remaining events (if any)
         self._process_remaining_events(
-            site,
-            night_idx,
-            night_events,
-            events_by_night,
-            time_slot_length,
-            nightly_timeline,
-            current_timeslot
+            site, night_idx, night_events, events_by_night, time_slot_length, nightly_timeline, current_timeslot
         )
 
         # The site should no longer be blocked.

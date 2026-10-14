@@ -10,6 +10,7 @@ The ODB GIDs (``o-…`` / ``p-…``) are matching keys internal to the services,
 no field may expose one, so the UI cannot accidentally show an id an operator
 cannot look up.
 """
+
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
 
@@ -49,23 +50,29 @@ def stub_services(monkeypatch):
     def _install(name, value):
         async def _call(*args, **kwargs):
             return value
+
         monkeypatch.setattr(schema_module, name, _call)
 
     return _install
 
 
 @pytest.mark.asyncio
-async def test_visibility_coverage_reports_totals_and_breakdowns(
-    scheduler_schema, stub_services
-):
-    stub_services("get_coverage_summary", CoverageSummary(
-        expected=4, stored=2, pending=1, missing=1, skipped=0,
-        per_program=[GroupCoverage(key="G-2026A-0001", expected=4, stored=2,
-                                   pending=1, missing=1, skipped=0)],
-        per_site=[GroupCoverage(key="GN", expected=4, stored=2, pending=1,
-                                missing=1, skipped=0)],
-        night_date=_NIGHT, odb_read_at=_READ_AT, pending_known=True,
-    ))
+async def test_visibility_coverage_reports_totals_and_breakdowns(scheduler_schema, stub_services):
+    stub_services(
+        "get_coverage_summary",
+        CoverageSummary(
+            expected=4,
+            stored=2,
+            pending=1,
+            missing=1,
+            skipped=0,
+            per_program=[GroupCoverage(key="G-2026A-0001", expected=4, stored=2, pending=1, missing=1, skipped=0)],
+            per_site=[GroupCoverage(key="GN", expected=4, stored=2, pending=1, missing=1, skipped=0)],
+            night_date=_NIGHT,
+            odb_read_at=_READ_AT,
+            pending_known=True,
+        ),
+    )
 
     result = await scheduler_schema.execute("""
         query {
@@ -88,17 +95,21 @@ async def test_visibility_coverage_reports_totals_and_breakdowns(
 
 
 @pytest.mark.asyncio
-async def test_complete_coverage_is_reported_as_complete(
-    scheduler_schema, stub_services
-):
-    stub_services("get_coverage_summary", CoverageSummary(
-        expected=2, stored=1, pending=0, missing=0, skipped=1,
-        night_date=_NIGHT, odb_read_at=_READ_AT,
-    ))
-
-    result = await scheduler_schema.execute(
-        "query { visibilityCoverage { isComplete skipped } }"
+async def test_complete_coverage_is_reported_as_complete(scheduler_schema, stub_services):
+    stub_services(
+        "get_coverage_summary",
+        CoverageSummary(
+            expected=2,
+            stored=1,
+            pending=0,
+            missing=0,
+            skipped=1,
+            night_date=_NIGHT,
+            odb_read_at=_READ_AT,
+        ),
     )
+
+    result = await scheduler_schema.execute("query { visibilityCoverage { isComplete skipped } }")
 
     assert result.errors is None
     # Skipped observations can never be stored, so they must not block
@@ -108,19 +119,25 @@ async def test_complete_coverage_is_reported_as_complete(
 
 
 @pytest.mark.asyncio
-async def test_observation_coverage_is_paginated_and_label_keyed(
-    scheduler_schema, stub_services
-):
-    stub_services("list_observation_coverage", ObservationCoveragePage(
-        observations=[
-            ObservationCoverage(
-                observation_id="G-2026A-0001-Q-0001",
-                program_label="G-2026A-0001", site="GN", target_name="Vega",
-                status="MISSING", reason="PROBABLY_PARSER_ERROR",
-            ),
-        ],
-        total=137, night_date=_NIGHT, odb_read_at=_READ_AT,
-    ))
+async def test_observation_coverage_is_paginated_and_label_keyed(scheduler_schema, stub_services):
+    stub_services(
+        "list_observation_coverage",
+        ObservationCoveragePage(
+            observations=[
+                ObservationCoverage(
+                    observation_id="G-2026A-0001-Q-0001",
+                    program_label="G-2026A-0001",
+                    site="GN",
+                    target_name="Vega",
+                    status="MISSING",
+                    reason="PROBABLY_PARSER_ERROR",
+                ),
+            ],
+            total=137,
+            night_date=_NIGHT,
+            odb_read_at=_READ_AT,
+        ),
+    )
 
     result = await scheduler_schema.execute("""
         query {
@@ -160,23 +177,32 @@ async def test_observation_coverage_never_exposes_odb_gids(scheduler_schema):
 
 
 @pytest.mark.asyncio
-async def test_visible_observations_returns_intervals_and_remaining_time(
-    scheduler_schema, stub_services
-):
-    stub_services("list_visible_observations", VisibleObservationsPage(
-        site="GN", night_date=_NIGHT, total=12, total_remaining_minutes=300,
-        observations=[
-            VisibleObservation(
-                observation_id="G-2026A-0001-Q-0001", site="GN",
-                target_name="Vega", night_date=_NIGHT,
-                remaining_minutes=120, remaining_minutes_from_now=45,
-                intervals=[VisibleInterval(
-                    start=datetime(2026, 7, 29, 4, 0, tzinfo=timezone.utc),
-                    end=datetime(2026, 7, 29, 6, 0, tzinfo=timezone.utc),
-                )],
-            ),
-        ],
-    ))
+async def test_visible_observations_returns_intervals_and_remaining_time(scheduler_schema, stub_services):
+    stub_services(
+        "list_visible_observations",
+        VisibleObservationsPage(
+            site="GN",
+            night_date=_NIGHT,
+            total=12,
+            total_remaining_minutes=300,
+            observations=[
+                VisibleObservation(
+                    observation_id="G-2026A-0001-Q-0001",
+                    site="GN",
+                    target_name="Vega",
+                    night_date=_NIGHT,
+                    remaining_minutes=120,
+                    remaining_minutes_from_now=45,
+                    intervals=[
+                        VisibleInterval(
+                            start=datetime(2026, 7, 29, 4, 0, tzinfo=timezone.utc),
+                            end=datetime(2026, 7, 29, 6, 0, tzinfo=timezone.utc),
+                        )
+                    ],
+                ),
+            ],
+        ),
+    )
 
     result = await scheduler_schema.execute("""
         query {
@@ -202,16 +228,25 @@ async def test_visible_observations_returns_intervals_and_remaining_time(
 
 
 @pytest.mark.asyncio
-async def test_aggregator_status_exposes_phase_and_eta(
-    scheduler_schema, stub_services
-):
-    stub_services("get_typed_aggregator_status", AggregatorStatus(
-        active=True, stale=False, holder="scheduler.1",
-        started_at="2026-07-29T12:00:00+00:00", heartbeat_at=None,
-        finished_at=None, phase="stage2", progress_current=40,
-        progress_total=184, progress_unit="nights", elapsed_seconds=120.0,
-        eta_seconds=432.0, detail='{"phase": "stage2"}',
-    ))
+async def test_aggregator_status_exposes_phase_and_eta(scheduler_schema, stub_services):
+    stub_services(
+        "get_typed_aggregator_status",
+        AggregatorStatus(
+            active=True,
+            stale=False,
+            holder="scheduler.1",
+            started_at="2026-07-29T12:00:00+00:00",
+            heartbeat_at=None,
+            finished_at=None,
+            phase="stage2",
+            progress_current=40,
+            progress_total=184,
+            progress_unit="nights",
+            elapsed_seconds=120.0,
+            eta_seconds=432.0,
+            detail='{"phase": "stage2"}',
+        ),
+    )
 
     result = await scheduler_schema.execute("""
         query {
@@ -232,15 +267,25 @@ async def test_aggregator_status_exposes_phase_and_eta(
 
 
 @pytest.mark.asyncio
-async def test_idle_aggregator_reports_null_progress(
-    scheduler_schema, stub_services
-):
-    stub_services("get_typed_aggregator_status", AggregatorStatus(
-        active=False, stale=False, holder=None, started_at=None,
-        heartbeat_at=None, finished_at=None, phase=None,
-        progress_current=None, progress_total=None, progress_unit=None,
-        elapsed_seconds=None, eta_seconds=None, detail=None,
-    ))
+async def test_idle_aggregator_reports_null_progress(scheduler_schema, stub_services):
+    stub_services(
+        "get_typed_aggregator_status",
+        AggregatorStatus(
+            active=False,
+            stale=False,
+            holder=None,
+            started_at=None,
+            heartbeat_at=None,
+            finished_at=None,
+            phase=None,
+            progress_current=None,
+            progress_total=None,
+            progress_unit=None,
+            elapsed_seconds=None,
+            eta_seconds=None,
+            detail=None,
+        ),
+    )
 
     result = await scheduler_schema.execute("""
         query {

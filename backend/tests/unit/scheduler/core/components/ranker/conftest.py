@@ -31,10 +31,12 @@ NIGHTS: Tuple[NightIndex, ...] = (NightIndex(0), NightIndex(1))
 N_SLOTS = 8
 
 
-def _target_info(dec_deg: float = -30.0,
-                 rem_visibility_frac: float = 0.42,
-                 alt_deg: Optional[npt.NDArray[float]] = None,
-                 visibility_slot_idx: Optional[npt.NDArray[int]] = None) -> SimpleNamespace:
+def _target_info(
+    dec_deg: float = -30.0,
+    rem_visibility_frac: float = 0.42,
+    alt_deg: Optional[npt.NDArray[float]] = None,
+    visibility_slot_idx: Optional[npt.NDArray[int]] = None,
+) -> SimpleNamespace:
     # Symmetric about the meridian so the quadratic wha weighting is exercised on both
     # sides. The default coefficients give wha = 3 - 0.08*ha**2, which crosses zero at
     # |ha| = 6.12h, so a +/-8h span makes the outer slot on each side clamp to 0.
@@ -46,14 +48,14 @@ def _target_info(dec_deg: float = -30.0,
         airmass=np.linspace(1.05, 1.8, N_SLOTS),
         alt=alt,
         rem_visibility_frac=rem_visibility_frac,
-        visibility_slot_idx=(np.arange(N_SLOTS) if visibility_slot_idx is None
-                             else visibility_slot_idx),
+        visibility_slot_idx=(np.arange(N_SLOTS) if visibility_slot_idx is None else visibility_slot_idx),
     )
 
 
 @dataclass
 class FakeCollector:
     """Only the three accessors the Ranker actually calls."""
+
     target_info: Dict[NightIndex, SimpleNamespace] = field(default_factory=dict)
     program: object = None
     n_slots: int = N_SLOTS
@@ -111,14 +113,22 @@ def night_configurations(program_priority_nights: Tuple[NightIndex, ...] = ()) -
 
     Pass the nights whose calendar marks the program as priority (PV, classical, ...).
     """
-    return {SITE: {night_idx: SimpleNamespace(filter=SimpleNamespace(
-        program_priority_filter_any=lambda _program, _n=night_idx: _n in program_priority_nights))
-        for night_idx in NIGHTS}}
+    return {
+        SITE: {
+            night_idx: SimpleNamespace(
+                filter=SimpleNamespace(
+                    program_priority_filter_any=lambda _program, _n=night_idx: _n in program_priority_nights
+                )
+            )
+            for night_idx in NIGHTS
+        }
+    }
 
 
 @dataclass
 class FakeGroup:
     """Enough of a Group for score_group / _score_and_group."""
+
     children_ids: Tuple[str, ...] = ('a', 'b')
     group_sites: FrozenSet[Site] = frozenset({SITE})
     and_group: bool = True
@@ -138,16 +148,18 @@ class FakeGroup:
 
 
 def group_data_map(scores_by_child: Dict[str, Dict[NightIndex, List[float]]]) -> dict:
-    return {cid: SimpleNamespace(group_info=SimpleNamespace(
-        scores={n: np.asarray(s, dtype=float) for n, s in per_night.items()}))
-        for cid, per_night in scores_by_child.items()}
+    return {
+        cid: SimpleNamespace(
+            group_info=SimpleNamespace(scores={n: np.asarray(s, dtype=float) for n, s in per_night.items()})
+        )
+        for cid, per_night in scores_by_child.items()
+    }
 
 
 @pytest.fixture
 def collector() -> FakeCollector:
     """A collector whose target is visible on both nights."""
-    return FakeCollector(target_info={n: _target_info() for n in NIGHTS},
-                         program=FakeProgram())
+    return FakeCollector(target_info={n: _target_info() for n in NIGHTS}, program=FakeProgram())
 
 
 @pytest.fixture

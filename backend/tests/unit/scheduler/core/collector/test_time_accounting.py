@@ -14,9 +14,28 @@ from typing import List, Optional, Sequence, Tuple
 
 import astropy.units as u
 from astropy.time import TimeDelta
-from lucupy.minimodel import (AndOption, Atom, GROUP_NONE_ID, Group, GroupID, NightIndex, Observation,
-                              ObservationClass, ObservationID, ObservationMode, ObservationStatus, Priority, Program,
-                              ProgramID, ProgramMode, ProgramTypes, QAState, ROOT_GROUP_ID, SetupTimeType, Site)
+from lucupy.minimodel import (
+    AndOption,
+    Atom,
+    GROUP_NONE_ID,
+    Group,
+    GroupID,
+    NightIndex,
+    Observation,
+    ObservationClass,
+    ObservationID,
+    ObservationMode,
+    ObservationStatus,
+    Priority,
+    Program,
+    ProgramID,
+    ProgramMode,
+    ProgramTypes,
+    QAState,
+    ROOT_GROUP_ID,
+    SetupTimeType,
+    Site,
+)
 from lucupy.types import ZeroTime
 
 from scheduler.core.components.collector import Collector
@@ -49,60 +68,67 @@ def _collector(slot_minutes: float = 1.0) -> Collector:
 def _atom(atom_id: int, exec_seconds: int, obs_class: ObservationClass, observed: bool = False) -> Atom:
     exec_time = timedelta(seconds=exec_seconds)
     is_partner = obs_class == ObservationClass.PARTNERCAL
-    return Atom(id=atom_id,
-                exec_time=exec_time,
-                prog_time=ZeroTime if is_partner else exec_time,
-                part_time=exec_time if is_partner else ZeroTime,
-                program_used=ZeroTime,
-                partner_used=ZeroTime,
-                not_charged=ZeroTime,
-                observed=observed,
-                qa_state=QAState.PASS if observed else QAState.NONE,
-                guide_state=True,
-                resources=frozenset(),
-                wavelengths=frozenset(),
-                obs_mode=ObservationMode.IMAGING)
+    return Atom(
+        id=atom_id,
+        exec_time=exec_time,
+        prog_time=ZeroTime if is_partner else exec_time,
+        part_time=exec_time if is_partner else ZeroTime,
+        program_used=ZeroTime,
+        partner_used=ZeroTime,
+        not_charged=ZeroTime,
+        observed=observed,
+        qa_state=QAState.PASS if observed else QAState.NONE,
+        guide_state=True,
+        resources=frozenset(),
+        wavelengths=frozenset(),
+        obs_mode=ObservationMode.IMAGING,
+    )
 
 
-def _observation(obs_id: str,
-                 acq_seconds: int,
-                 atom_specs: Sequence[Tuple[int, bool]],
-                 obs_class: ObservationClass = ObservationClass.SCIENCE,
-                 status: ObservationStatus = ObservationStatus.READY) -> Observation:
+def _observation(
+    obs_id: str,
+    acq_seconds: int,
+    atom_specs: Sequence[Tuple[int, bool]],
+    obs_class: ObservationClass = ObservationClass.SCIENCE,
+    status: ObservationStatus = ObservationStatus.READY,
+) -> Observation:
     """atom_specs is a sequence of (exec_seconds, already_observed) pairs."""
-    return Observation(id=ObservationID(obs_id),
-                       internal_id=obs_id,
-                       order=0,
-                       title=obs_id,
-                       site=_SITE,
-                       status=status,
-                       active=True,
-                       priority=Priority.MEDIUM,
-                       setuptime_type=SetupTimeType.FULL,
-                       acq_overhead=timedelta(seconds=acq_seconds),
-                       obs_class=obs_class,
-                       targets=[],
-                       guiding={},
-                       sequence=[_atom(idx, secs, obs_class, observed)
-                                 for idx, (secs, observed) in enumerate(atom_specs)],
-                       belongs_to=_PROGRAM_ID,
-                       constraints=None)
+    return Observation(
+        id=ObservationID(obs_id),
+        internal_id=obs_id,
+        order=0,
+        title=obs_id,
+        site=_SITE,
+        status=status,
+        active=True,
+        priority=Priority.MEDIUM,
+        setuptime_type=SetupTimeType.FULL,
+        acq_overhead=timedelta(seconds=acq_seconds),
+        obs_class=obs_class,
+        targets=[],
+        guiding={},
+        sequence=[_atom(idx, secs, obs_class, observed) for idx, (secs, observed) in enumerate(atom_specs)],
+        belongs_to=_PROGRAM_ID,
+        constraints=None,
+    )
 
 
 def _group(group_id: GroupID, children, number_to_observe: int) -> Group:
-    return Group(id=group_id,
-                 program_id=_PROGRAM_ID,
-                 group_name=group_id.id,
-                 parent_id=ROOT_GROUP_ID,
-                 previous_id=GROUP_NONE_ID,
-                 next_id=GROUP_NONE_ID,
-                 number_to_observe=number_to_observe,
-                 number_observed=0,
-                 delay_min=ZeroTime,
-                 delay_max=ZeroTime,
-                 active=True,
-                 children=children,
-                 group_option=AndOption.CONSEC_ORDERED)
+    return Group(
+        id=group_id,
+        program_id=_PROGRAM_ID,
+        group_name=group_id.id,
+        parent_id=ROOT_GROUP_ID,
+        previous_id=GROUP_NONE_ID,
+        next_id=GROUP_NONE_ID,
+        number_to_observe=number_to_observe,
+        number_observed=0,
+        delay_min=ZeroTime,
+        delay_max=ZeroTime,
+        active=True,
+        children=children,
+        group_option=AndOption.CONSEC_ORDERED,
+    )
 
 
 def _observation_group(obs: Observation) -> Group:
@@ -110,9 +136,7 @@ def _observation_group(obs: Observation) -> Group:
     return _group(GroupID(obs.id.id), obs, 1)
 
 
-def _register(collector: Collector,
-              observations: List[Observation],
-              scheduling_group: bool = False) -> List[Group]:
+def _register(collector: Collector, observations: List[Observation], scheduling_group: bool = False) -> List[Group]:
     """Populate this collector's tables and return the top-level groups, in root order."""
     obs_groups = [_observation_group(obs) for obs in observations]
     if scheduling_group:
@@ -121,49 +145,51 @@ def _register(collector: Collector,
         top_level = obs_groups
 
     root = _group(ROOT_GROUP_ID, top_level, len(top_level))
-    collector._programs[_PROGRAM_ID] = Program(id=_PROGRAM_ID,
-                                               internal_id=_PROGRAM_ID.id,
-                                               semester=None,
-                                               thesis=False,
-                                               mode=ProgramMode.QUEUE,
-                                               type=ProgramTypes.Q,
-                                               start=_START,
-                                               end=_START + timedelta(days=180),
-                                               allocated_time=frozenset(),
-                                               used_time=frozenset(),
-                                               root_group=root)
+    collector._programs[_PROGRAM_ID] = Program(
+        id=_PROGRAM_ID,
+        internal_id=_PROGRAM_ID.id,
+        semester=None,
+        thesis=False,
+        mode=ProgramMode.QUEUE,
+        type=ProgramTypes.Q,
+        start=_START,
+        end=_START + timedelta(days=180),
+        allocated_time=frozenset(),
+        used_time=frozenset(),
+        root_group=root,
+    )
     for obs in observations:
         collector._observations[obs.id] = (obs, None)
     return top_level
 
 
-def _visit(obs: Observation,
-           atom_start: int,
-           atom_end: int,
-           start_time_slot: int,
-           time_slots: int) -> Visit:
-    return Visit(start_time=_START,
-                 observation=obs,
-                 atom_start_idx=atom_start,
-                 atom_end_idx=atom_end,
-                 start_time_slot=start_time_slot,
-                 time_slots=time_slots,
-                 score=1.0,
-                 peak_score=1.0,
-                 step_start_idx=None,
-                 step_count=None,
-                 completion=f'{atom_end + 1}/{len(obs.sequence)}',
-                 atom_times=[])
+def _visit(obs: Observation, atom_start: int, atom_end: int, start_time_slot: int, time_slots: int) -> Visit:
+    return Visit(
+        start_time=_START,
+        observation=obs,
+        atom_start_idx=atom_start,
+        atom_end_idx=atom_end,
+        start_time_slot=start_time_slot,
+        time_slots=time_slots,
+        score=1.0,
+        peak_score=1.0,
+        step_start_idx=None,
+        step_count=None,
+        completion=f'{atom_end + 1}/{len(obs.sequence)}',
+        atom_times=[],
+    )
 
 
 def _plans(visits: List[Visit], slot_minutes: float = 1.0) -> Plans:
     plans = Plans(night_events={}, night_conditions={}, night_idx=_NIGHT_IDX)
-    plan = Plan(start=_START,
-                end=_START + timedelta(hours=10),
-                time_slot_length=timedelta(minutes=slot_minutes),
-                site=_SITE,
-                _time_slots_left=600,
-                conditions=None)
+    plan = Plan(
+        start=_START,
+        end=_START + timedelta(hours=10),
+        time_slot_length=timedelta(minutes=slot_minutes),
+        site=_SITE,
+        _time_slots_left=600,
+        conditions=None,
+    )
     plan.visits = list(visits)
     plans[_SITE] = plan
     return plans
@@ -171,9 +197,7 @@ def _plans(visits: List[Visit], slot_minutes: float = 1.0) -> Plans:
 
 def _account(collector: Collector, plans: Plans, bound: Optional[int] = None) -> None:
     end_timeslot_bounds = None if bound is None else {_SITE: bound}
-    collector.time_accounting(plans=plans,
-                              sites=frozenset({_SITE}),
-                              end_timeslot_bounds=end_timeslot_bounds)
+    collector.time_accounting(plans=plans, sites=frozenset({_SITE}), end_timeslot_bounds=end_timeslot_bounds)
 
 
 def test_truncated_visit_leaves_observation_ongoing():
@@ -214,8 +238,9 @@ def test_truncated_partner_cal_is_inactivated_not_observed():
     The 'we only needed one standard' semantics of the INACTIVE sweep are deliberately
     kept; what must not happen is the observation being recorded as fully observed.
     """
-    obs = _observation('GN-2018B-Q-101-2', acq_seconds=120, atom_specs=[(300, False)] * 3,
-                       obs_class=ObservationClass.PARTNERCAL)
+    obs = _observation(
+        'GN-2018B-Q-101-2', acq_seconds=120, atom_specs=[(300, False)] * 3, obs_class=ObservationClass.PARTNERCAL
+    )
     collector = _collector()
     group = _register(collector, [obs])[0]
 
@@ -234,10 +259,12 @@ def test_charge_group_with_no_charged_atoms_leaves_status_untouched():
     than the first *unobserved* atom (a separate, still-open TODO), but the bound at slot 5
     precedes atom 1's end at slot 11, so nothing is charged.
     """
-    obs = _observation('GN-2018B-Q-101-1',
-                       acq_seconds=120,
-                       atom_specs=[(60, True), (600, False), (600, False)],
-                       status=ObservationStatus.ONGOING)
+    obs = _observation(
+        'GN-2018B-Q-101-1',
+        acq_seconds=120,
+        atom_specs=[(60, True), (600, False), (600, False)],
+        status=ObservationStatus.ONGOING,
+    )
     collector = _collector()
     group = _register(collector, [obs])[0]
 
@@ -274,8 +301,9 @@ def test_interrupted_scheduling_group_is_not_charged():
     collector = _collector()
     _register(collector, [obs_a, obs_b], scheduling_group=True)
 
-    plans = _plans([_visit(obs_a, 0, 1, start_time_slot=0, time_slots=12),
-                    _visit(obs_b, 0, 1, start_time_slot=12, time_slots=12)])
+    plans = _plans(
+        [_visit(obs_a, 0, 1, start_time_slot=0, time_slots=12), _visit(obs_b, 0, 1, start_time_slot=12, time_slots=12)]
+    )
     _account(collector, plans, bound=18)
 
     for obs in (obs_a, obs_b):
@@ -297,14 +325,20 @@ def test_two_visits_of_one_observation_in_a_night_charge_both():
     collector = _collector()
     group = _register(collector, [obs])[0]
 
-    _account(collector, _plans([_visit(obs, 0, 1, start_time_slot=0, time_slots=12),
-                                _visit(obs, 2, 2, start_time_slot=12, time_slots=7)]))
+    _account(
+        collector,
+        _plans(
+            [_visit(obs, 0, 1, start_time_slot=0, time_slots=12), _visit(obs, 2, 2, start_time_slot=12, time_slots=7)]
+        ),
+    )
 
     assert all(atom.observed for atom in obs.sequence)
     # Acquisition is charged to the first atom of each visit, so atoms 0 and 2 carry it.
-    assert [atom.program_used for atom in obs.sequence] == [timedelta(seconds=420),
-                                                            timedelta(seconds=300),
-                                                            timedelta(seconds=420)]
+    assert [atom.program_used for atom in obs.sequence] == [
+        timedelta(seconds=420),
+        timedelta(seconds=300),
+        timedelta(seconds=420),
+    ]
     assert obs.status is ObservationStatus.OBSERVED
     # Two visits, but one observation completed.
     assert group.number_observed == 1

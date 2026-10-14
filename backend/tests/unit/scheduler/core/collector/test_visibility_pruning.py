@@ -51,8 +51,10 @@ def _collector(num_of_nights: int = 1) -> Collector:
     collector.num_nights_calculated = len(_MINUTES['TONIGHT'])
     collector.sites = frozenset({_SITE})
     collector.end_vis_time = _START + timedelta(days=collector.num_nights_calculated - 1)
-    collector.time_grid = [SimpleNamespace(to_datetime=lambda n=n: _START + timedelta(days=n))
-                           for n in range(collector.num_nights_calculated)]
+    collector.time_grid = [
+        SimpleNamespace(to_datetime=lambda n=n: _START + timedelta(days=n))
+        for n in range(collector.num_nights_calculated)
+    ]
     collector.get_program = MagicMock(return_value=SimpleNamespace(start=None, end=None))
     collector._target_info = {}
     collector._visible_obs_by_night = {}
@@ -87,15 +89,21 @@ class _FakeCalculator:
     async def get_remaining_minutes_in_range(self, observation_ids, start, end):
         nights = [i for i in range(len(_MINUTES['TONIGHT'])) if start <= _night_date(i) <= end]
         self.range_queries.append((sorted(observation_ids), nights))
-        return {(obs_id, _night_date(n)): _MINUTES[obs_id][n]
-                for obs_id in observation_ids for n in nights if (obs_id, n) not in self.unstored}
+        return {
+            (obs_id, _night_date(n)): _MINUTES[obs_id][n]
+            for obs_id in observation_ids
+            for n in nights
+            if (obs_id, n) not in self.unstored
+        }
 
     async def get_visible_observations(self, requests, night_date):
         n = next(i for i in range(len(_MINUTES['TONIGHT'])) if _night_date(i) == night_date)
         self.queried[n] = sorted(requests)
-        return [SimpleNamespace(observation_id=obs_id, visible_ranges=[(0, 1)],
-                                remaining_minutes=_MINUTES[obs_id][n])
-                for obs_id in requests if _MINUTES[obs_id][n] > 0]
+        return [
+            SimpleNamespace(observation_id=obs_id, visible_ranges=[(0, 1)], remaining_minutes=_MINUTES[obs_id][n])
+            for obs_id in requests
+            if _MINUTES[obs_id][n] > 0
+        ]
 
     async def get_stage1_greedymax_bulk(self, target_names, *_args):
         self.stage1_targets = target_names
@@ -110,9 +118,11 @@ async def _session():
 @pytest.fixture
 def sight():
     _FakeCalculator.unstored = set()
-    with patch.object(collector_mod, 'session_scope', _session), \
-            patch.object(collector_mod, 'Calculator', _FakeCalculator), \
-            patch.object(collector_mod, '_obs_to_request', lambda o: o.id.id):
+    with (
+        patch.object(collector_mod, 'session_scope', _session),
+        patch.object(collector_mod, 'Calculator', _FakeCalculator),
+        patch.object(collector_mod, '_obs_to_request', lambda o: o.id.id),
+    ):
         yield
 
 
@@ -123,7 +133,8 @@ async def test_sight_skips_the_remaining_nights_of_observations_not_visible_toni
     parsed = [('p', _obs('TONIGHT')), ('p', _obs('LATER'))]
 
     filtered, per_night = await collector._fetch_sight_data_for_scheduled_nights(
-        parsed, {}, _START.date(), _night_date(2), ['GS'])
+        parsed, {}, _START.date(), _night_date(2), ['GS']
+    )
 
     calc = _FakeCalculator.last
     assert filtered_ids == {0: ['LATER', 'TONIGHT'], 1: ['TONIGHT'], 2: ['TONIGHT']}
@@ -131,10 +142,16 @@ async def test_sight_skips_the_remaining_nights_of_observations_not_visible_toni
     assert calc.queried == {0: ['LATER', 'TONIGHT']}
     assert calc.range_queries == [(['TONIGHT'], [1, 2])]
     assert calc.stage1_targets == ['target-TONIGHT']
-    assert {int(n): [o.id.id for o in obs] for n, obs in filtered.items()} == \
-        {0: ['TONIGHT', 'LATER'], 1: ['TONIGHT'], 2: ['TONIGHT']}
-    assert {int(n): sorted(data[0]) for n, data in per_night.items()} == \
-        {0: ['TONIGHT'], 1: ['TONIGHT'], 2: ['TONIGHT']}
+    assert {int(n): [o.id.id for o in obs] for n, obs in filtered.items()} == {
+        0: ['TONIGHT', 'LATER'],
+        1: ['TONIGHT'],
+        2: ['TONIGHT'],
+    }
+    assert {int(n): sorted(data[0]) for n, data in per_night.items()} == {
+        0: ['TONIGHT'],
+        1: ['TONIGHT'],
+        2: ['TONIGHT'],
+    }
 
 
 @pytest.mark.asyncio
@@ -144,7 +161,8 @@ async def test_sight_remaining_visibility_of_kept_observations_is_unchanged(sigh
     pruned = _collector()
     _record_filter(pruned)
     _, pruned_per_night = await pruned._fetch_sight_data_for_scheduled_nights(
-        parsed, {}, _START.date(), _night_date(2), ['GS'])
+        parsed, {}, _START.date(), _night_date(2), ['GS']
+    )
 
     # Every night over every observation, as before the pruning.
     unpruned = _collector()
@@ -164,7 +182,8 @@ async def test_sight_calculates_later_nights_with_no_stored_row(sight):
     collector = _collector()
     _record_filter(collector)
     _, per_night = await collector._fetch_sight_data_for_scheduled_nights(
-        parsed, {}, _START.date(), _night_date(2), ['GS'])
+        parsed, {}, _START.date(), _night_date(2), ['GS']
+    )
 
     calc = _FakeCalculator.last
     # Only the missing pair goes through the per-night query, which calculates it.
@@ -179,7 +198,8 @@ async def test_sight_with_nothing_visible_tonight_queries_no_remaining_night(sig
     _record_filter(collector)
 
     filtered, per_night = await collector._fetch_sight_data_for_scheduled_nights(
-        [('p', _obs('LATER'))], {}, _START.date(), _night_date(2), ['GS'])
+        [('p', _obs('LATER'))], {}, _START.date(), _night_date(2), ['GS']
+    )
 
     calc = _FakeCalculator.last
     assert calc.queried == {0: ['LATER']}
@@ -194,9 +214,17 @@ def local_stages():
 
     def night_events(_site, night_date):
         n = next(i for i in range(3) if _night_date(i) == night_date)
-        return SimpleNamespace(night=n, night_start=_START + timedelta(days=n), night_duration_minutes=4,
-                               sun_alt=None, moon_alt=None, moon_ra=None, moon_dec=None,
-                               sun_moon_ang=None, moon_dist=None)
+        return SimpleNamespace(
+            night=n,
+            night_start=_START + timedelta(days=n),
+            night_duration_minutes=4,
+            sun_alt=None,
+            moon_alt=None,
+            moon_ra=None,
+            moon_dec=None,
+            sun_moon_ang=None,
+            moon_dist=None,
+        )
 
     def stage1(target, _site, ne):
         key = (target.name.removeprefix('target-'), ne.night)
@@ -208,17 +236,22 @@ def local_stages():
         minutes = _MINUTES[obs_id][n] if kwargs['constraints']['has_resources'] else 0
         return SimpleNamespace(visibility_mask=[minutes > 0] * 4, remaining_minutes=minutes)
 
-    with patch.object(collector_mod, 'site_shim', lambda s: s), \
-            patch.object(collector_mod, 'target_shim', lambda b: b), \
-            patch.object(collector_mod, 'calculate_night_events_for_night', night_events), \
-            patch.object(collector_mod, 'calculate_stage1', stage1), \
-            patch.object(collector_mod, 'stage2_constraints', lambda _obs, **kw: kw), \
-            patch.object(collector_mod, 'sight_calculate_visibility', visibility), \
-            patch.object(collector_mod, 'unpack_array', lambda _b, n: np.zeros(n)), \
-            patch.object(collector_mod, 'build_target_info',
-                         lambda _s1, rem, _n, start_offset_slots=0: SimpleNamespace(rem_visibility_frac=rem)), \
-            patch.object(collector_mod, 'align_to_start', lambda m, _off: m), \
-            patch.object(collector_mod, 'resize_to', lambda m, _n: m):
+    with (
+        patch.object(collector_mod, 'site_shim', lambda s: s),
+        patch.object(collector_mod, 'target_shim', lambda b: b),
+        patch.object(collector_mod, 'calculate_night_events_for_night', night_events),
+        patch.object(collector_mod, 'calculate_stage1', stage1),
+        patch.object(collector_mod, 'stage2_constraints', lambda _obs, **kw: kw),
+        patch.object(collector_mod, 'sight_calculate_visibility', visibility),
+        patch.object(collector_mod, 'unpack_array', lambda _b, n: np.zeros(n)),
+        patch.object(
+            collector_mod,
+            'build_target_info',
+            lambda _s1, rem, _n, start_offset_slots=0: SimpleNamespace(rem_visibility_frac=rem),
+        ),
+        patch.object(collector_mod, 'align_to_start', lambda m, _off: m),
+        patch.object(collector_mod, 'resize_to', lambda m, _n: m),
+    ):
         yield visibility_calls
 
 

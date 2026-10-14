@@ -5,6 +5,7 @@ update_fields must overwrite a target's coordinate fields with fresh ODB values
 and always bump updated_at (a SQL now() expression, not a Python timestamp) so
 Stage-1 staleness detection recomputes the target's night data.
 """
+
 import asyncio
 from unittest.mock import AsyncMock
 
@@ -39,14 +40,16 @@ def test_update_fields_overwrites_coordinates_and_bumps_updated_at():
     repo = TargetRepository(session)
     target = _target()
 
-    result = asyncio.run(repo.update_fields(
-        target,
-        base_ra=11.5,
-        base_dec=-21.5,
-        pm_ra=None,
-        pm_dec=None,
-        epoch=2015.5,
-    ))
+    result = asyncio.run(
+        repo.update_fields(
+            target,
+            base_ra=11.5,
+            base_dec=-21.5,
+            pm_ra=None,
+            pm_dec=None,
+            epoch=2015.5,
+        )
+    )
 
     assert result is target
     assert target.base_ra == 11.5
@@ -64,13 +67,15 @@ def test_update_fields_bumps_updated_at_even_when_values_unchanged():
     repo = TargetRepository(session)
     target = _target()
 
-    asyncio.run(repo.update_fields(
-        target,
-        base_ra=target.base_ra,
-        base_dec=target.base_dec,
-        pm_ra=target.pm_ra,
-        pm_dec=target.pm_dec,
-        epoch=target.epoch,
-    ))
+    asyncio.run(
+        repo.update_fields(
+            target,
+            base_ra=target.base_ra,
+            base_dec=target.base_dec,
+            pm_ra=target.pm_ra,
+            pm_dec=target.pm_dec,
+            epoch=target.epoch,
+        )
+    )
 
     assert isinstance(target.updated_at, sql_now)

@@ -19,9 +19,16 @@ from definitions import ROOT_DIR
 
 T = TypeVar('T')
 
-fpuinst = {'GSAOI': 'instrument:utilityWheel', 'GPI': 'instrument:observingMode', 'Flamingos2': 'instrument:fpu',
-           'NIFS': 'instrument:mask', 'GNIRS': 'instrument:slitWidth', 'GMOS-N': 'instrument:fpu',
-           'GMOS-S': 'instrument:fpu', 'NIRI': 'instrument:mask'}
+fpuinst = {
+    'GSAOI': 'instrument:utilityWheel',
+    'GPI': 'instrument:observingMode',
+    'Flamingos2': 'instrument:fpu',
+    'NIFS': 'instrument:mask',
+    'GNIRS': 'instrument:slitWidth',
+    'GMOS-N': 'instrument:fpu',
+    'GMOS-S': 'instrument:fpu',
+    'NIRI': 'instrument:mask',
+}
 
 gpi_filter_wav = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
 nifs_filter_wav = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
@@ -52,9 +59,7 @@ def short_id(id: str) -> str:
     return id_out
 
 
-def odb_json(prog_id: str,
-             path: Optional[str] = None,
-             overwrite: bool = False):
+def odb_json(prog_id: str, path: Optional[str] = None, overwrite: bool = False):
     """
     Download json of ODB program information
 
@@ -77,8 +82,7 @@ def odb_json(prog_id: str,
         json_str = json_bytes.decode('utf-8')
         json_result = json.loads(json_str)
     else:
-        response = requests.get(
-            'http://gnodbscheduler.hi.gemini.edu:8442/programexport?id=' + prog_id)
+        response = requests.get('http://gnodbscheduler.hi.gemini.edu:8442/programexport?id=' + prog_id)
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as exc:
@@ -116,8 +120,7 @@ def obsmode(config: Dict[str, str]) -> str:
     elif config['inst'] == 'Flamingos2':
         if search_list('LONGSLIT', config['fpu']):
             mode = 'longslit'
-        if search_list('FPU_NONE', config['fpu']) \
-                and search_list('IMAGING', config['disperser']):
+        if search_list('FPU_NONE', config['fpu']) and search_list('IMAGING', config['disperser']):
             mode = 'imaging'
     elif config['inst'] == 'NIRI':
         if search_list('NONE', config['disperser']) and search_list('MASK_IMAGING', config['fpu']):
@@ -195,10 +198,10 @@ def autocorr_lag(x, plot=False):
     if corrmax != 0.0:
         result = result / corrmax
     if plot:
-        plt.plot(result[result.size // 2:])
+        plt.plot(result[result.size // 2 :])
 
     # Pattern offset using first prominent peak
-    peaks, prop = find_peaks(result[result.size // 2:], height=(0, None), prominence=(0.25, None))
+    peaks, prop = find_peaks(result[result.size // 2 :], height=(0, None), prominence=(0.25, None))
     return peaks[0] if any(peaks) else 0
 
 
@@ -254,8 +257,7 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
         else:
             disperser = 'None'
         if inst == 'GNIRS':
-            if step['instrument:acquisitionMirror'] == 'in' and \
-                    step['instrument:decker'] == 'acquisition':
+            if step['instrument:acquisitionMirror'] == 'in' and step['instrument:decker'] == 'acquisition':
                 disperser = 'mirror'
             else:
                 disperser = disperser.strip('grating') + step['instrument:crossDispersed']
@@ -351,8 +353,24 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
 
     # Group by changes in exptimes/coadds?
     # Write results to the Excel worksheet if given
-    columns = ['datalab', 'class', 'type', 'inst', 'exec_time', 'exptime', 'coadds', 'fpu', 'filter',
-               'disperser', 'wavelength', 'p', 'q', 'guiding', 'qa_state', 'atom']
+    columns = [
+        'datalab',
+        'class',
+        'type',
+        'inst',
+        'exec_time',
+        'exptime',
+        'coadds',
+        'fpu',
+        'filter',
+        'disperser',
+        'wavelength',
+        'p',
+        'q',
+        'guiding',
+        'qa_state',
+        'atom',
+    ]
     row = 1
 
     if ws is not None:
@@ -375,7 +393,7 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
 
         observe_class = step['observe:class']
 
-        step_time = step['totalTime'] / 1000.
+        step_time = step['totalTime'] / 1000.0
 
         atomstr = 'Atom for: '
         # Any wavelength/filter change is a new atom
@@ -385,8 +403,11 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
 
         # A change in exposure time or coadds is a new atom for science exposures
         if step['observe:observeType'].upper() not in ['FLAT', 'ARC', 'DARK', 'BIAS']:
-            if (observe_class.upper() == 'SCIENCE' and idx > 0 and
-                    (exptimes[idx] != exptimes[idx_prevobj] or coadds[idx] != coadds[idx_prevobj])):
+            if (
+                observe_class.upper() == 'SCIENCE'
+                and idx > 0
+                and (exptimes[idx] != exptimes[idx_prevobj] or coadds[idx] != coadds[idx_prevobj])
+            ):
                 nextatom = True
                 atomstr += 'exposure time change, '
 
@@ -433,23 +454,34 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
                 atoms[-1]['required_resources']['fpu'] = config['fpu'][idx]
 
                 # Print basic atom info
-                print(" \t exec_time: {:7.2f}, prog_time: {:7.2f}, part_time: {:7.2f}, guide_state: {}".
-                      format(atoms[-1]['exec_time'], atoms[-1]['prog_time'], atoms[-1]['part_time'],
-                             atoms[-1]['guide_state']), file=fid)
+                print(
+                    " \t exec_time: {:7.2f}, prog_time: {:7.2f}, part_time: {:7.2f}, guide_state: {}".format(
+                        atoms[-1]['exec_time'], atoms[-1]['prog_time'], atoms[-1]['part_time'], atoms[-1]['guide_state']
+                    ),
+                    file=fid,
+                )
 
             # New atom entry
             print(atomstr, file=fid)
             natom += 1
-            atoms.append({'id': natom, 'exec_time': 0.0, 'prog_time': 0.0, 'part_time': 0.0,
-                          'class': 'NONE', 'observed': False, 'qa_state': 'NONE', 'guide_state': False,
-                          'wavelength': 0.0,
-                          'required_resources': {'inst': 'NONE', 'filter': 'NONE', 'disperser': 'NONE',
-                                                 'fpu': 'NONE'}})
+            atoms.append(
+                {
+                    'id': natom,
+                    'exec_time': 0.0,
+                    'prog_time': 0.0,
+                    'part_time': 0.0,
+                    'class': 'NONE',
+                    'observed': False,
+                    'qa_state': 'NONE',
+                    'guide_state': False,
+                    'wavelength': 0.0,
+                    'required_resources': {'inst': 'NONE', 'filter': 'NONE', 'disperser': 'NONE', 'fpu': 'NONE'},
+                }
+            )
             classes = []
             guiding = []
             qastates = []
-            if step['observe:observeType'].upper() in ['FLAT', 'ARC', 'DARK', 'BIAS'] \
-                    and npattern == 0:
+            if step['observe:observeType'].upper() in ['FLAT', 'ARC', 'DARK', 'BIAS'] and npattern == 0:
                 npattern = offset_lag
             noffsets = 1
 
@@ -467,17 +499,43 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
         else:
             atoms[-1]['prog_time'] += step_time
 
-        print('{:17} {:3} {:7.2f} {:3d} {:10} {:12} {:10} {:12} {:6.4f} {:8.2f} {:8.2f} {:1} {:3d}'.format(
-            short_id(datalab),
-            observe_class[0:3], exptimes[idx], coadds[idx], config['inst'], config['fpu'][idx],
-            config['filter'][idx], config['disperser'][idx], config['wavelength'][idx], poffsets[idx],
-            qoffsets[idx], guiding[-1], atomlabel),
-            file=fid)
+        print(
+            '{:17} {:3} {:7.2f} {:3d} {:10} {:12} {:10} {:12} {:6.4f} {:8.2f} {:8.2f} {:1} {:3d}'.format(
+                short_id(datalab),
+                observe_class[0:3],
+                exptimes[idx],
+                coadds[idx],
+                config['inst'],
+                config['fpu'][idx],
+                config['filter'][idx],
+                config['disperser'][idx],
+                config['wavelength'][idx],
+                poffsets[idx],
+                qoffsets[idx],
+                guiding[-1],
+                atomlabel,
+            ),
+            file=fid,
+        )
         if ws is not None:
-            data = [datalab, observe_class.upper(), step['observe:observeType'].upper(), config['inst'],
-                    step_time, exptimes[idx], coadds[idx], config['fpu'][idx],
-                    config['filter'][idx], config['disperser'][idx], config['wavelength'][idx], poffsets[idx],
-                    qoffsets[idx], guiding[-1], qastate.upper(), atomlabel]
+            data = [
+                datalab,
+                observe_class.upper(),
+                step['observe:observeType'].upper(),
+                config['inst'],
+                step_time,
+                exptimes[idx],
+                coadds[idx],
+                config['fpu'][idx],
+                config['filter'][idx],
+                config['disperser'][idx],
+                config['wavelength'][idx],
+                poffsets[idx],
+                qoffsets[idx],
+                guiding[-1],
+                qastate.upper(),
+                atomlabel,
+            ]
             for col_idx, col_data in enumerate(data):
                 ws.cell(column=col_idx + 1, row=row, value=col_data)
             row += 1
@@ -500,18 +558,26 @@ def find_atoms(observation, verbose=False, ws=None, fid=sys.stdout):
         atoms[-1]['required_resources']['fpu'] = config['fpu'][idx]
 
         # Print basic atom info
-        print(" \t exec_time: {:7.2f}, prog_time: {:7.2f}, part_time: {:7.2f}, guide_state: {}".
-              format(atoms[-1]['exec_time'], atoms[-1]['prog_time'], atoms[-1]['part_time'],
-                     atoms[-1]['guide_state']), file=fid)
+        print(
+            " \t exec_time: {:7.2f}, prog_time: {:7.2f}, part_time: {:7.2f}, guide_state: {}".format(
+                atoms[-1]['exec_time'], atoms[-1]['prog_time'], atoms[-1]['part_time'], atoms[-1]['guide_state']
+            ),
+            file=fid,
+        )
 
     return atoms
 
 
-def group_proc(group,
-               sel_obs_class: FrozenSet = frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL']),
-               sel_obs_status: FrozenSet = frozenset(['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION', 'ON_HOLD',
-                                                      'READY', 'ONGOING', 'OBSERVED', 'INACTIVE']),
-               fid=sys.stdout, wb=None, verbose=False) -> None:
+def group_proc(
+    group,
+    sel_obs_class: FrozenSet = frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL']),
+    sel_obs_status: FrozenSet = frozenset(
+        ['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION', 'ON_HOLD', 'READY', 'ONGOING', 'OBSERVED', 'INACTIVE']
+    ),
+    fid=sys.stdout,
+    wb=None,
+    verbose=False,
+) -> None:
     """
     Process observations within groups.
     """
@@ -574,12 +640,15 @@ def group_proc(group,
             print('', file=fid)
 
 
-def prog_proc(program,
-              sel_obs_class: FrozenSet[str] = frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL',
-                                                         'ACQ', 'ACQCAL', 'DAYCAL']),
-              sel_obs_status: FrozenSet[str] = frozenset(['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION',
-                                                          'ON_HOLD', 'READY', 'ONGOING', 'OBSERVED', 'INACTIVE']),
-              fid=sys.stdout, xls=None) -> None:
+def prog_proc(
+    program,
+    sel_obs_class: FrozenSet[str] = frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL', 'ACQ', 'ACQCAL', 'DAYCAL']),
+    sel_obs_status: FrozenSet[str] = frozenset(
+        ['PHASE_2', 'FOR_REVIEW', 'IN_REVIEW', 'FOR_ACTIVATION', 'ON_HOLD', 'READY', 'ONGOING', 'OBSERVED', 'INACTIVE']
+    ),
+    fid=sys.stdout,
+    xls=None,
+) -> None:
     """
     Process top-level of program.
     """
@@ -621,8 +690,9 @@ def prog_proc(program,
             for ii in isrt:
                 group = str(grplist[ii]) + '-' + str(grpnum[ii])
                 print(group, program[prog][group]['name'], file=fid)
-                group_proc(program[prog][group], sel_obs_class=sel_obs_class, sel_obs_status=sel_obs_status,
-                           fid=fid, wb=wb)
+                group_proc(
+                    program[prog][group], sel_obs_class=sel_obs_class, sel_obs_status=sel_obs_status, fid=fid, wb=wb
+                )
 
         # Process any observations at the root level
         group_proc(program[prog], sel_obs_class=sel_obs_class, sel_obs_status=sel_obs_status, fid=fid, wb=wb)
@@ -664,11 +734,16 @@ def printseq(sequence, comment: str = '', csv: bool = False, path: str = ''):
         p = step['telescope:p'] if 'telescope:p' in step.keys() else '0.0'
         q = step['telescope:q'] if 'telescope:q' in step.keys() else '0.0'
 
-        print(f'{datalab:25} {observe_class:10} {exptime:7} {coadds:3} {inst:10} {fpu:20} {filter_name:12} '
-              f'{disperser:12} {wavelength:7} {p:5} {q:5}')
+        print(
+            f'{datalab:25} {observe_class:10} {exptime:7} {coadds:3} {inst:10} {fpu:20} {filter_name:12} '
+            f'{disperser:12} {wavelength:7} {p:5} {q:5}'
+        )
         if out_file is not None:
-            print(f'{datalab},{observe_class},{exptime},{coadds},{inst},{fpu},{filter_name},{disperser},{wavelength},'
-                  f'{p},{q},{atom}', file=out_file)
+            print(
+                f'{datalab},{observe_class},{exptime},{coadds},{inst},{fpu},{filter_name},{disperser},{wavelength},'
+                f'{p},{q},{atom}',
+                file=out_file,
+            )
 
     if out_file is not None:
         out_file.close()
@@ -690,8 +765,20 @@ def seqxlsx(sequence, comment: str = '', path: str = '') -> None:
     ws['B1'] = comment
 
     # Columns
-    columns = ['datalab', 'class', 'inst', 'exptime', 'coadds', 'fpu', 'filter_name',
-               'disperser', 'wavelength', 'p', 'q', 'atom']
+    columns = [
+        'datalab',
+        'class',
+        'inst',
+        'exptime',
+        'coadds',
+        'fpu',
+        'filter_name',
+        'disperser',
+        'wavelength',
+        'p',
+        'q',
+        'atom',
+    ]
 
     row = 2
     for col_idx, col_data in enumerate(columns):
@@ -714,9 +801,20 @@ def seqxlsx(sequence, comment: str = '', path: str = '') -> None:
         p = step['telescope:p'] if 'telescope:p' in step.keys() else '0.0'
         q = step['telescope:q'] if 'telescope:q' in step.keys() else '0.0'
 
-        data = [step['observe:dataLabel'], step['observe:class'], inst, float(step['observe:exposureTime']),
-                int(coadds), step[fpuinst[inst]], filter_name, step['instrument:disperser'],
-                float(step['instrument:observingWavelength']), float(p), float(q), int(atom)]
+        data = [
+            step['observe:dataLabel'],
+            step['observe:class'],
+            inst,
+            float(step['observe:exposureTime']),
+            int(coadds),
+            step[fpuinst[inst]],
+            filter_name,
+            step['instrument:disperser'],
+            float(step['instrument:observingWavelength']),
+            float(p),
+            float(q),
+            int(atom),
+        ]
         print(data)
 
         for col_idx, col_data in enumerate(data):
@@ -832,7 +930,7 @@ def xlsxatoms(file: str, path: str, sheet: str = 'None', verbose=False):
 
             if natom == 0:
                 datalab = sequence['datalab'][-1]
-                obs_id = datalab[0:datalab.rfind('-')]
+                obs_id = datalab[0 : datalab.rfind('-')]
 
             if natom == 0 or (natom > 0 and sequence['atom'][-1] != sequence['atom'][-2]):
                 nextatom = True
@@ -857,15 +955,29 @@ def xlsxatoms(file: str, path: str, sheet: str = 'None', verbose=False):
                     atoms[-1]['required_resources']['fpu'] = sequence['fpu'][-1]
 
                     # Print basic atom info
-                    print(" \t exec_time: {:7.2f}, prog_time: {:7.2f}, part_time: {:7.2f}, guide_state: {}".
-                          format(atoms[-1]['exec_time'], atoms[-1]['prog_time'], atoms[-1]['part_time'],
-                                 atoms[-1]['guide_state']))
+                    print(
+                        " \t exec_time: {:7.2f}, prog_time: {:7.2f}, part_time: {:7.2f}, guide_state: {}".format(
+                            atoms[-1]['exec_time'],
+                            atoms[-1]['prog_time'],
+                            atoms[-1]['part_time'],
+                            atoms[-1]['guide_state'],
+                        )
+                    )
                 natom += 1
-                atoms.append({'id': natom, 'exec_time': 0.0, 'prog_time': 0.0, 'part_time': 0.0,
-                              'class': 'NONE', 'observed': False, 'qa_state': 'NONE', 'guide_state': False,
-                              'wavelength': 0.0,
-                              'required_resources': {'inst': 'NONE', 'filter': 'NONE', 'disperser': 'NONE',
-                                                     'fpu': 'NONE'}})
+                atoms.append(
+                    {
+                        'id': natom,
+                        'exec_time': 0.0,
+                        'prog_time': 0.0,
+                        'part_time': 0.0,
+                        'class': 'NONE',
+                        'observed': False,
+                        'qa_state': 'NONE',
+                        'guide_state': False,
+                        'wavelength': 0.0,
+                        'required_resources': {'inst': 'NONE', 'filter': 'NONE', 'disperser': 'NONE', 'fpu': 'NONE'},
+                    }
+                )
                 classes = []
                 guiding = []
                 qastates = []
@@ -903,8 +1015,10 @@ def xlsxatoms(file: str, path: str, sheet: str = 'None', verbose=False):
             atoms[-1]['required_resources']['fpu'] = sequence['fpu'][-1]
 
             # Print basic atom info
-            print(f' \t exec_time: {atoms[-1]["exec_time"]:7.2f}, prog_time: {atoms[-1]["prog_time"]:7.2f}, '
-                  f'part_time: {atoms[-1]["part_time"]:7.2f}, guide_state: {atoms[-1]["guide_state"]}')
+            print(
+                f' \t exec_time: {atoms[-1]["exec_time"]:7.2f}, prog_time: {atoms[-1]["prog_time"]:7.2f}, '
+                f'part_time: {atoms[-1]["part_time"]:7.2f}, guide_state: {atoms[-1]["guide_state"]}'
+            )
 
         if obs_id is not None:
             atoms_dict[obs_id] = atoms
@@ -925,10 +1039,13 @@ if __name__ == '__main__':
     for progid in programs:
         xlsout = os.path.join(path, progid + '.xlsx')
         program = odb_json(progid, path=path)
-        prog_proc(program,
-                  sel_obs_class=frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL']),
-                  sel_obs_status=frozenset(['READY', 'ONGOING', 'OBSERVED']),
-                  xls=xlsout, fid=f)
+        prog_proc(
+            program,
+            sel_obs_class=frozenset(['SCIENCE', 'PROGCAL', 'PARTNERCAL']),
+            sel_obs_status=frozenset(['READY', 'ONGOING', 'OBSERVED']),
+            xls=xlsout,
+            fid=f,
+        )
     if f != sys.stdout:
         f.close()
 

@@ -12,7 +12,6 @@ from scheduler.app import app
 from scheduler.config import config
 
 
-
 heroku_port = os.environ.get("PORT")
 heroku_port = int(heroku_port) if isinstance(heroku_port, str) else heroku_port
 
@@ -22,16 +21,15 @@ async def main():
     # TODO: This should be dynamic but since we are just working with Gemini right now
     #       should not be an issue.
     ObservatoryProperties.set_properties(GeminiProperties)
-    uvicorn_config = uvicorn.Config(app,
-                host=config.server.host,
-                port=heroku_port if heroku_port else config.server.port,
-                ws_ping_interval=50)
+    uvicorn_config = uvicorn.Config(
+        app, host=config.server.host, port=heroku_port if heroku_port else config.server.port, ws_ping_interval=50
+    )
 
     server = uvicorn.Server(uvicorn_config)
 
     # Start the server and the process manager
 
-    await server.serve(),
+    (await server.serve(),)
 
 
 if __name__ == "__main__":

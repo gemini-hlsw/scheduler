@@ -15,9 +15,11 @@ from scheduler.night_monitor.night_tracker import NightTracker
 from scheduler.services.loop_monitor import LoopMonitor
 
 from scheduler.services import logger_factory
+
 _logger = logger_factory.create_logger(__name__)
 
 __all__ = ['NightMonitor']
+
 
 class NightMonitor:
     """
@@ -36,11 +38,14 @@ class NightMonitor:
         _consumer_task (asyncio.Task): Holds the Event Consumer process.
 
     """
-    def __init__(self,
-                 night: datetime,
-                 sites: FrozenSet[Site],
-                 scheduler_queue: SchedulerQueue,
-                 nightly_timeline_store: NightlyTimelineStore):
+
+    def __init__(
+        self,
+        night: datetime,
+        sites: FrozenSet[Site],
+        scheduler_queue: SchedulerQueue,
+        nightly_timeline_store: NightlyTimelineStore,
+    ):
         _logger.debug("Initializing Night Monitor...")
         # The shared queue for events
         self.event_queue = asyncio.Queue()
@@ -54,12 +59,9 @@ class NightMonitor:
         client = gpp.client
         self.listener = EventListener(client, self.event_queue, self._shutdown_event)
         self.consumer = EventConsumer(
-            self.event_queue,
-            self._shutdown_event,
-            self.scheduler_queue,
-            self.nightly_timeline_store
+            self.event_queue, self._shutdown_event, self.scheduler_queue, self.nightly_timeline_store
         )
-        self.night_tracker = NightTracker(night+timedelta(days=1), sites, scheduler_queue)
+        self.night_tracker = NightTracker(night + timedelta(days=1), sites, scheduler_queue)
         # Watches the loop the subscriptions depend on.
         self.loop_monitor = LoopMonitor()
 
@@ -81,7 +83,6 @@ class NightMonitor:
         self._listener_task = asyncio.create_task(self.listener.listen())
         self._consumer_task = asyncio.create_task(self.consumer.consume())
         self._night_tracker_task = asyncio.create_task(self.night_tracker.start_tracking())
-
 
     async def shutdown(self, drain_queue: bool = True):
         """Signals the shutdown of the subcomponents and the Night monitor itself.

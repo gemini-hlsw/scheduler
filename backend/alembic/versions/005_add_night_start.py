@@ -5,6 +5,7 @@ Revises: 004
 Create Date: 2025-02-03
 
 """
+
 from typing import Sequence, Union
 
 
@@ -15,7 +16,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-   pass
+    pass
 
 
 def downgrade() -> None:

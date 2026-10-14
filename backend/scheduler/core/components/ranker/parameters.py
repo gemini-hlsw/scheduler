@@ -24,7 +24,7 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
     The default function used to combine scores for Groups.
     """
     # Note we need to use 0. or applying this function results in an array of int instead of float.
-    return np.array([np.max(x)]) if 0 not in x else np.array([0.])
+    return np.array([np.max(x)]) if 0 not in x else np.array([0.0])
 
 
 # Default telescope altitude limits
@@ -45,12 +45,13 @@ class RankerParameters:
     """
     Global parameters for the Ranker.
     """
+
     thesis_factor: float = 1.1
     power: int = 2
-    met_power: float = 1.0   # DefaultRanker: exponent. AdditiveRanker: linear weight.
-    vis_power: float = 1.0   # DefaultRanker: exponent. AdditiveRanker: linear weight.
-    wha_power: float = 1.0   # DefaultRanker: exponent. AdditiveRanker: linear weight.
-    air_power: float = 0.0   # Always an exponent: score /= min(airmass)**air_power.
+    met_power: float = 1.0  # DefaultRanker: exponent. AdditiveRanker: linear weight.
+    vis_power: float = 1.0  # DefaultRanker: exponent. AdditiveRanker: linear weight.
+    wha_power: float = 1.0  # DefaultRanker: exponent. AdditiveRanker: linear weight.
+    air_power: float = 0.0  # Always an exponent: score /= min(airmass)**air_power.
     program_priority: float = 10.0
     priority_factor: float = 8.0
     preimaging_factor: float = 1.25
@@ -66,11 +67,11 @@ class RankerParameters:
     # Weighted to slightly positive HA, this was the original intention
     # dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0.1, -0.06]))
     # Weighted to the meridian, used most of the time but backwards from the initial intention
-    dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
+    dec_diff_less_40: npt.NDArray[float] = field(default_factory=lambda: np.array([3.0, 0.0, -0.08]))
 
     # HA weighting for zenith distances > 40 deg (Xmin > 1.3)
     # Weighted to 0, the original intention
-    dec_diff: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0., -0.08]))
+    dec_diff: npt.NDArray[float] = field(default_factory=lambda: np.array([3.0, 0.0, -0.08]))
     # Weighted to slightly positive HA, backwards from the intention
     # dec_diff: npt.NDArray[float] = field(default_factory=lambda: np.array([3., 0.1, -0.06]))
 
@@ -82,9 +83,9 @@ class RankerParameters:
         self.altitude_limits = {Site.GS: self.gs_altitude_limits, Site.GN: self.gn_altitude_limits}
 
         for site in ALL_SITES:
-            if self.altitude_limits[site][MinMax.MIN] < Angle(18.0*u.deg):
+            if self.altitude_limits[site][MinMax.MIN] < Angle(18.0 * u.deg):
                 raise ValueError(f'The minimum altitude limit for {site.name} must be at least 18 degrees.')
-            if self.altitude_limits[site][MinMax.MAX] > Angle(90.0*u.deg):
+            if self.altitude_limits[site][MinMax.MAX] > Angle(90.0 * u.deg):
                 raise ValueError(f'The maximum altitude limit for {site.name} must be 90 degrees or less.')
 
     def __altitude_limits_to_str(self) -> str:
@@ -94,29 +95,56 @@ class RankerParameters:
                 text += "\n    ├─" + site.site_name + ": "
                 for midx, minmax in enumerate(self.altitude_limits[site]):
                     if midx != len(self.altitude_limits[site]) - 1:
-                        text += "\n    │ ├─" + str(minmax.name) + ": " + str(self.altitude_limits[site][minmax].value) + " deg"
+                        text += (
+                            "\n    │ ├─"
+                            + str(minmax.name)
+                            + ": "
+                            + str(self.altitude_limits[site][minmax].value)
+                            + " deg"
+                        )
                     else:
-                        text += "\n    │ └─" + str(minmax.name) + ": " + str(self.altitude_limits[site][minmax].value) + " deg"
+                        text += (
+                            "\n    │ └─"
+                            + str(minmax.name)
+                            + ": "
+                            + str(self.altitude_limits[site][minmax].value)
+                            + " deg"
+                        )
             else:
                 text += "\n    └─" + site.site_name + ": "
                 for midx, minmax in enumerate(self.altitude_limits[site]):
                     if midx != len(self.altitude_limits[site]) - 1:
-                        text += "\n      ├─" + str(minmax.name) + ": " + str(self.altitude_limits[site][minmax].value) + " deg"
+                        text += (
+                            "\n      ├─"
+                            + str(minmax.name)
+                            + ": "
+                            + str(self.altitude_limits[site][minmax].value)
+                            + " deg"
+                        )
                     else:
-                        text += "\n      └─" + str(minmax.name) + ": " + str(self.altitude_limits[site][minmax].value) + " deg"
+                        text += (
+                            "\n      └─"
+                            + str(minmax.name)
+                            + ": "
+                            + str(self.altitude_limits[site][minmax].value)
+                            + " deg"
+                        )
         return text
 
     def __str__(self) -> str:
-        return "Ranker Parameters\n" + \
-        f"  ├─thesis_factor: {self.thesis_factor}\n" + \
-        f"  ├─power: {self.power}\n" + \
-        f"  ├─met_power: {self.met_power}\n" + \
-        f"  ├─vis_power: {self.vis_power}\n" + \
-        f"  ├─wha_power: {self.wha_power}\n" + \
-        f"  ├─program_priority: {self.program_priority}\n" + \
-        f"  ├─priority_factor: {self.priority_factor}\n" + \
-        f"  ├─preimaging_factor: {self.preimaging_factor}\n" + \
-        f"  └─altitude_limits: {self.__altitude_limits_to_str()}"
+        return (
+            "Ranker Parameters\n"
+            + f"  ├─thesis_factor: {self.thesis_factor}\n"
+            + f"  ├─power: {self.power}\n"
+            + f"  ├─met_power: {self.met_power}\n"
+            + f"  ├─vis_power: {self.vis_power}\n"
+            + f"  ├─wha_power: {self.wha_power}\n"
+            + f"  ├─program_priority: {self.program_priority}\n"
+            + f"  ├─priority_factor: {self.priority_factor}\n"
+            + f"  ├─preimaging_factor: {self.preimaging_factor}\n"
+            + f"  └─altitude_limits: {self.__altitude_limits_to_str()}"
+        )
+
 
 @final
 @dataclass(frozen=True)
@@ -124,6 +152,7 @@ class RankerBandParameters:
     """
     Parameters per band for the Ranker.
     """
+
     m1: float
     b1: float
     m2: float
@@ -148,10 +177,10 @@ def default_band_params() -> RankerBandParameterMap:
     params = {Band.BAND4: RankerBandParameters(m1=0.00, b1=0.1, m2=0.00, b2=0.0, xb=0.8, xb0=0.0, xc0=0.0)}
     for band in [Band.BAND3, Band.BAND2, Band.BAND1]:
         # Intercept for linear segment.
-        b2 = b1 + 5. - m2[band]
+        b2 = b1 + 5.0 - m2[band]
 
         # Parabola coefficient so that the curves meet at xb: y = m1*xb**2 + b1 = m2*xb + b2.
-        m1 = (m2[band] * xb + b2) / xb ** 2
+        m1 = (m2[band] * xb + b2) / xb**2
         params[band] = RankerBandParameters(m1=m1, b1=b1, m2=m2[band], b2=b2, xb=xb, xb0=0.0, xc0=0.0)
 
         # Zero point for band separation.

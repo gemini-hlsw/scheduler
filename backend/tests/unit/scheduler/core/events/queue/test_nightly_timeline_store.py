@@ -7,24 +7,33 @@ from types import SimpleNamespace
 import pytest
 from lucupy.minimodel import NightIndex, ObservationID, Site, TimeslotIndex
 
-from scheduler.core.events.queue import (NightlyTimeline, NightlyTimelineStore, TimelineEntry,
-                                         TimelineListener, TimeStats)
+from scheduler.core.events.queue import (
+    NightlyTimeline,
+    NightlyTimelineStore,
+    TimelineEntry,
+    TimelineListener,
+    TimeStats,
+)
 
 NIGHT_IDX = NightIndex(0)
 
 
 def fake_plan(*obs_ids):
     """A stand-in for Plan: the store only ever reads visits and deep-copies the whole thing."""
-    return SimpleNamespace(visits=[SimpleNamespace(observation=SimpleNamespace(id=ObservationID(obs_id))) for obs_id in obs_ids])
+    return SimpleNamespace(
+        visits=[SimpleNamespace(observation=SimpleNamespace(id=ObservationID(obs_id))) for obs_id in obs_ids]
+    )
 
 
 def entry(plan):
-    return TimelineEntry(start_time_slot=TimeslotIndex(0),
-                         event=SimpleNamespace(description='test event'),
-                         plan_generated=plan,
-                         accounted_observations=[],
-                         timeloss_windows=[],
-                         timestats=TimeStats(0, 0, 0, 0, 0, 0, 0))
+    return TimelineEntry(
+        start_time_slot=TimeslotIndex(0),
+        event=SimpleNamespace(description='test event'),
+        plan_generated=plan,
+        accounted_observations=[],
+        timeloss_windows=[],
+        timestats=TimeStats(0, 0, 0, 0, 0, 0, 0),
+    )
 
 
 def store_with(site=Site.GN, timeline_plans=(), stitched_plans=()):
@@ -46,7 +55,9 @@ async def test_mutate_exposes_the_live_timeline():
         timeline.timeline[NIGHT_IDX] = {Site.GN: [entry(fake_plan('GN-1'))]}
 
     async with store.mutate() as same_timeline:
-        assert same_timeline.timeline[NIGHT_IDX][Site.GN][0].plan_generated.visits[0].observation.id == ObservationID('GN-1')
+        assert same_timeline.timeline[NIGHT_IDX][Site.GN][0].plan_generated.visits[0].observation.id == ObservationID(
+            'GN-1'
+        )
 
 
 @pytest.mark.asyncio
@@ -63,8 +74,7 @@ async def test_mutate_serializes_concurrent_writers():
 
     await asyncio.gather(writer('a'), writer('b'))
 
-    assert order in (['a-start', 'a-end', 'b-start', 'b-end'],
-                     ['b-start', 'b-end', 'a-start', 'a-end'])
+    assert order in (['a-start', 'a-end', 'b-start', 'b-end'], ['b-start', 'b-end', 'a-start', 'a-end'])
 
 
 @pytest.mark.asyncio
@@ -126,8 +136,7 @@ async def test_reads_on_an_empty_store_are_a_no_op_path():
 async def test_planned_observation_ids_and_has_plan():
     store = store_with(stitched_plans=[fake_plan('GN-1', 'GN-2')])
 
-    assert await store.planned_observation_ids(Site.GN) == frozenset(
-        {ObservationID('GN-1'), ObservationID('GN-2')})
+    assert await store.planned_observation_ids(Site.GN) == frozenset({ObservationID('GN-1'), ObservationID('GN-2')})
     assert await store.has_plan(Site.GN) is True
 
 
@@ -160,6 +169,7 @@ async def test_engine_clears_the_store_at_end_of_night():
 
 
 # --- listeners ------------------------------------------------------------------------------
+
 
 class RecordingListener(TimelineListener):
     """Records what it was told, and reads the store back to prove the lock is free."""
@@ -208,6 +218,7 @@ async def test_a_listener_can_read_the_plan_it_was_told_about():
 @pytest.mark.asyncio
 async def test_a_failing_listener_does_not_stop_the_others():
     """Publishing a plan must not depend on whoever happens to be watching."""
+
     class Broken(TimelineListener):
         async def on_plan_published(self, site):
             raise RuntimeError('boom')

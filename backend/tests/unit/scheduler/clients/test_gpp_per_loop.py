@@ -7,6 +7,7 @@ runs more than one loop: GraphQL is served on the main loop while a scheduler ru
 executes on its own loop in a worker thread. Sharing one client across both means
 sharing sockets across loops, which fails intermittently rather than cleanly.
 """
+
 import asyncio
 import threading
 

@@ -31,6 +31,7 @@ class Selection:
     and as a result, it is not pickled, so any unpickling of a Selection object will have:
     _program_scorer = None.
     """
+
     program_info: Mapping[ProgramID, ProgramInfo]
     schedulable_groups: Mapping[UniqueGroupID, GroupData]
     night_events: Mapping[Site, NightEvents]
@@ -41,25 +42,27 @@ class Selection:
     ranker: Ranker
 
     # Used to re-score programs.
-    _program_scorer: Optional[Callable[[Program,
-                                        FrozenSet[Site],
-                                        NightIndices,
-                                        StartingTimeslots,
-                                        Ranker],
-                              Optional[ProgramCalculations]]] = None
+    _program_scorer: Optional[
+        Callable[[Program, FrozenSet[Site], NightIndices, StartingTimeslots, Ranker], Optional[ProgramCalculations]]
+    ] = None
 
     def __reduce__(self):
         """
         Pickle everything but the _program_scorer.
         """
-        return (self.__class__, (self.program_info,
-                                 self.schedulable_groups,
-                                 self.night_events,
-                                 self.night_indices,
-                                 self.night_conditions,
-                                 self.time_slot_length,
-                                 self.starting_time_slots,
-                                 self.ranker))
+        return (
+            self.__class__,
+            (
+                self.program_info,
+                self.schedulable_groups,
+                self.night_events,
+                self.night_indices,
+                self.night_conditions,
+                self.time_slot_length,
+                self.starting_time_slots,
+                self.ranker,
+            ),
+        )
 
     def score_program(self, program: Program) -> ProgramCalculations:
         """
@@ -69,8 +72,10 @@ class Selection:
         _program_scorer will be None.
         """
         if self._program_scorer is None:
-            raise ValueError('Selection.score_program cannot be called as the selection has a value of None. '
-                             'This could happen if the instance was unpickled.')
+            raise ValueError(
+                'Selection.score_program cannot be called as the selection has a value of None. '
+                'This could happen if the instance was unpickled.'
+            )
 
         return self._program_scorer(program, self.sites, self.night_indices, self.starting_time_slots, self.ranker)
 
@@ -96,8 +101,11 @@ class Selection:
         object.__setattr__(self, 'program_ids', frozenset(self.program_info.keys()))
 
         # Observation group IDs by frozen set and list.
-        obs_group_ids = frozenset(flatten(
-            Selection._get_obs_group_ids(program_info.program.root_group) for program_info in self.program_info.values()
-        ))
+        obs_group_ids = frozenset(
+            flatten(
+                Selection._get_obs_group_ids(program_info.program.root_group)
+                for program_info in self.program_info.values()
+            )
+        )
         object.__setattr__(self, 'obs_group_ids', obs_group_ids)
         object.__setattr__(self, 'obs_group_id_list', list(sorted(obs_group_ids)))

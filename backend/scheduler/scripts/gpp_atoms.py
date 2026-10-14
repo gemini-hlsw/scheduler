@@ -70,4 +70,3 @@ if __name__ == '__main__':
             print(atom.id, atom.obs_mode.name, atom.exec_time, atom.resources, atom.wavelengths)
 
         print("")
-

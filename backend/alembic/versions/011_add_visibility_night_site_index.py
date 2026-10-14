@@ -1,4 +1,3 @@
-
 """Add (night_date, site_id) index on visibility_data
 
 The Visibility tab reads visibility_data by night and site: the "what is visible
@@ -13,6 +12,7 @@ Revises: 010
 Create Date: 2026-07-29
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op

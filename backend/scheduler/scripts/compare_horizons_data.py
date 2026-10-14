@@ -14,7 +14,10 @@ import numpy as np
 from numpy import arctan2, cos, sin, sqrt
 from scipy.interpolate import CubicSpline
 
-def interpolate_coords(time2: list[datetime], coords2: list[Coordinates], timeslot_length: timedelta = timedelta(minutes=1.0)):
+
+def interpolate_coords(
+    time2: list[datetime], coords2: list[Coordinates], timeslot_length: timedelta = timedelta(minutes=1.0)
+):
     """
     Interpolate coords2 at every timeslot between the first and last entry of time2.
 
@@ -47,7 +50,7 @@ def interpolate_coords(time2: list[datetime], coords2: list[Coordinates], timesl
 
     x, y, z = interpolated_vectors[:, 0], interpolated_vectors[:, 1], interpolated_vectors[:, 2]
     new_ra = arctan2(y, x)
-    new_dec = arctan2(z, sqrt(x ** 2 + y ** 2))
+    new_dec = arctan2(z, sqrt(x**2 + y**2))
 
     interpolated_coords = [Coordinates(float(r), float(d)) for r, d in zip(new_ra, new_dec)]
     interpolated_times = interpolated_times64.astype('datetime64[us]').astype(datetime).tolist()
@@ -61,7 +64,7 @@ def get_coords_table(lines: list[str]):
     firstline = lines.index('$$SOE') + 1
     lastline = lines.index('$$EOE') - 1
 
-    for line in lines[firstline:lastline + 1]:
+    for line in lines[firstline : lastline + 1]:
         if line and line[7:15] != 'Daylight' and line[7:14] != 'Airmass':
             values = line.split(' ')
             rah = int(values[-6])
@@ -76,6 +79,7 @@ def get_coords_table(lines: list[str]):
             coords.append(Coordinates(hms2rad(rah, ram, ras), dms2rad(decd, decm, decs, decg)))
 
     return time, coords
+
 
 file_path = Path(ROOT_DIR) / 'scheduler' / 'services' / 'horizons' / 'data'
 file1 = file_path / 'GN_2018_PM20_20181021UT.eph'
@@ -123,15 +127,27 @@ for t in range(len(time2)):
 
 plt.figure(1)
 plt.plot(time, [coord.ra for coord in coords], label='jpl 1m')
-plt.plot(time2[first_sem_time:last_sem_time], [coord.ra for coord in coords2[first_sem_time:last_sem_time]], label='jpl 4h')
-plt.plot(interpolated_times[first_time:last_time], [coord.ra for coord in interpolated_coords[first_time:last_time]], label='interpolated')
+plt.plot(
+    time2[first_sem_time:last_sem_time], [coord.ra for coord in coords2[first_sem_time:last_sem_time]], label='jpl 4h'
+)
+plt.plot(
+    interpolated_times[first_time:last_time],
+    [coord.ra for coord in interpolated_coords[first_time:last_time]],
+    label='interpolated',
+)
 plt.legend()
 plt.title('RA comparison')
 
 plt.figure(2)
 plt.plot(time, [coord.dec for coord in coords], label='jpl')
-plt.plot(time2[first_sem_time:last_sem_time], [coord.dec for coord in coords2[first_sem_time:last_sem_time]], label='jpl 4h')
-plt.plot(interpolated_times[first_time:last_time], [coord.dec for coord in interpolated_coords[first_time:last_time]], label='interpolated')
+plt.plot(
+    time2[first_sem_time:last_sem_time], [coord.dec for coord in coords2[first_sem_time:last_sem_time]], label='jpl 4h'
+)
+plt.plot(
+    interpolated_times[first_time:last_time],
+    [coord.dec for coord in interpolated_coords[first_time:last_time]],
+    label='interpolated',
+)
 plt.legend()
 plt.title('Dec comparison')
 

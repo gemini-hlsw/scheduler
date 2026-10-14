@@ -17,6 +17,7 @@ from scheduler.night_monitor.event_sources import EventSourceType
 def queue():
     return asyncio.Queue()
 
+
 @pytest_asyncio.fixture
 def scheduler_queue():
     return SchedulerQueue()
@@ -33,19 +34,24 @@ def event_consumer(queue, scheduler_queue, nightly_timeline_store):
     Provides an EventConsumer instance.
     Patches handlers so the real ones are not called.
     """
-    with patch('scheduler.night_monitor.event_consumer.ResourceEventHandler', new_callable=MagicMock) as mock_resource_h, \
-            patch('scheduler.night_monitor.event_consumer.WeatherEventHandler', new_callable=MagicMock) as mock_weather_h, \
-            patch('scheduler.night_monitor.event_consumer.ODBEventHandler', new_callable=MagicMock) as mock_odb_h:
+    with (
+        patch('scheduler.night_monitor.event_consumer.ResourceEventHandler', new_callable=MagicMock) as mock_resource_h,
+        patch('scheduler.night_monitor.event_consumer.WeatherEventHandler', new_callable=MagicMock) as mock_weather_h,
+        patch('scheduler.night_monitor.event_consumer.ODBEventHandler', new_callable=MagicMock) as mock_odb_h,
+    ):
         # Configure the 'handle' method on the *mock instances* to be async
         mock_resource_h.return_value.handle = AsyncMock()
         mock_weather_h.return_value.handle = AsyncMock()
         mock_odb_h.return_value.handle = AsyncMock()
 
-        c = EventConsumer(queue,
-                          shutdown_event=asyncio.Event(),
-                          scheduler_queue=scheduler_queue,
-                          nightly_timeline_store=nightly_timeline_store)
+        c = EventConsumer(
+            queue,
+            shutdown_event=asyncio.Event(),
+            scheduler_queue=scheduler_queue,
+            nightly_timeline_store=nightly_timeline_store,
+        )
         yield c
+
 
 @pytest.mark.asyncio
 async def test_match_source_unknown_raises_error(event_consumer):
@@ -115,6 +121,7 @@ async def test_consume_multiple_items(event_consumer, queue):
         await consumer_task
     except asyncio.CancelledError:
         pass
+
 
 @pytest.mark.asyncio
 async def test_unknown_source_logs_and_continues(event_consumer, queue):

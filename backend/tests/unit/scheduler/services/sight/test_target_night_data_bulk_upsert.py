@@ -5,6 +5,7 @@ Stage 1 bulk_upsert must compile to one INSERT ... ON CONFLICT DO UPDATE with
 no RETURNING (so asyncpg pipelines it), overwrite every array column so a
 stale row is refreshed in place, and chunk rows to bound bind buffers.
 """
+
 import asyncio
 from datetime import date, datetime, timezone
 
@@ -33,8 +34,13 @@ def _row(i: int) -> dict:
         'site_id': 1,
         'night_date': date(2026, 10, 1),
         'night_duration_minutes': 600,
-        'ra': array, 'dec': array, 'alt': array, 'az': array,
-        'hourangle': array, 'airmass': array, 'par_ang': None,
+        'ra': array,
+        'dec': array,
+        'alt': array,
+        'az': array,
+        'hourangle': array,
+        'airmass': array,
+        'par_ang': None,
         'target_updated_at': datetime(2026, 10, 1, tzinfo=timezone.utc),
     }
 
@@ -47,9 +53,7 @@ def test_bulk_upsert_statement_shape_and_chunking():
     stored = asyncio.run(repo.bulk_upsert([_row(i) for i in range(n_rows)]))
 
     assert stored == n_rows
-    assert [len(params) for _, params in session.calls] == [
-        BULK_UPSERT_CHUNK, BULK_UPSERT_CHUNK, 7
-    ]
+    assert [len(params) for _, params in session.calls] == [BULK_UPSERT_CHUNK, BULK_UPSERT_CHUNK, 7]
 
     sql = str(session.calls[0][0].compile(dialect=postgresql.dialect()))
     assert 'ON CONFLICT ON CONSTRAINT uq_target_night_data_target_site_night DO UPDATE SET' in sql

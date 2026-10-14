@@ -25,6 +25,7 @@ class TimeCoordinateRecord:
         perform_time_accounting (bool): True if time accounting should be performed, and False to suppress time accounting
         done (bool): True if the night is done, and False otherwise
     """
+
     event: Event
     timeslot_idx: Optional[TimeslotIndex]
     perform_time_accounting: bool = field(default=True)

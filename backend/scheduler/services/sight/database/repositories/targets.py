@@ -11,9 +11,9 @@ from scheduler.services.sight.database.repositories.base import BaseRepository
 
 class TargetRepository(BaseRepository[Target]):
     """Repository for Target operations."""
-    
+
     model = Target
-    
+
     async def get_by_name(self, name: str) -> Target | None:
         """Get target by name."""
         stmt = select(Target).where(Target.name == name)
@@ -36,7 +36,7 @@ class TargetRepository(BaseRepository[Target]):
             duplicated = sorted(name for name, n in counts.items() if n > 1)
             raise MultipleResultsFound(f"More than one target named {duplicated}")
         return by_name
-    
+
     async def get_ids_by_names(self, names: list[str]) -> dict[str, int]:
         """Ids of the targets whose name is in `names`, keyed by name.
 
@@ -54,19 +54,19 @@ class TargetRepository(BaseRepository[Target]):
         stmt = select(Target).where(Target.is_sidereal == True)  # noqa: E712 (SQL expression, keeps the indexable `= true`)
         result = await self.session.execute(stmt)
         return result.scalars().all()
-    
+
     async def get_non_sidereal(self) -> Sequence[Target]:
         """Get all non-sidereal targets (require Horizons)."""
         stmt = select(Target).where(Target.is_sidereal == False)  # noqa: E712 (SQL expression, keeps the indexable `= false`)
         result = await self.session.execute(stmt)
         return result.scalars().all()
-    
+
     async def get_updated_since(self, since: datetime) -> Sequence[Target]:
         """Get targets updated since a given time."""
         stmt = select(Target).where(Target.updated_at >= since)
         result = await self.session.execute(stmt)
         return result.scalars().all()
-    
+
     async def touch(self, target: Target) -> Target:
         """Update the updated_at timestamp to trigger recalculation."""
         target.updated_at = func.now()
@@ -117,7 +117,7 @@ class TargetRepository(BaseRepository[Target]):
         await self.session.flush()
         await self.session.refresh(target)
         return target
-    
+
     async def bulk_create(
         self,
         targets: list[dict],

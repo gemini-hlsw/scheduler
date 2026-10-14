@@ -37,8 +37,8 @@ class ValidationBuilder(SchedulerBuilder):
     """
 
     # The default observations to set to READY in Validation mode.
-    _obs_statuses_to_ready: ClassVar[FrozenSet[ObservationStatus]] = (
-        frozenset([ObservationStatus.ONGOING, ObservationStatus.OBSERVED])
+    _obs_statuses_to_ready: ClassVar[FrozenSet[ObservationStatus]] = frozenset(
+        [ObservationStatus.ONGOING, ObservationStatus.OBSERVED]
     )
 
     def __init__(self, sources: Sources, events: EventQueue):
@@ -46,9 +46,11 @@ class ValidationBuilder(SchedulerBuilder):
         self.stats = StatCalculator
 
     @staticmethod
-    def _clear_observation_info(obs: Iterable[Observation],
-                                obs_statuses_to_ready: FrozenSet[ObservationStatus] = _obs_statuses_to_ready,
-                                observation_filter: Optional[Callable[[Observation], bool]] = None) -> None:
+    def _clear_observation_info(
+        obs: Iterable[Observation],
+        obs_statuses_to_ready: FrozenSet[ObservationStatus] = _obs_statuses_to_ready,
+        observation_filter: Optional[Callable[[Observation], bool]] = None,
+    ) -> None:
         """
         Given a single observation, clear the information associated with the observation.
         This is done when the Scheduler is run in Validation mode in order to start with a fresh observation.
@@ -85,15 +87,14 @@ class ValidationBuilder(SchedulerBuilder):
         the status of all observations to READY.
         """
         ValidationBuilder._clear_observation_info(
-            collector.get_all_observations(),
-            ValidationBuilder._obs_statuses_to_ready
+            collector.get_all_observations(), ValidationBuilder._obs_statuses_to_ready
         )
 
     @staticmethod
     def check_ephemerides():
         """Check that the nonsidereal ephemerides files exist, Untar if needed"""
 
-        ephemeris_path = os.path.join(ROOT_DIR, 'scheduler', 'services' , 'horizons' , 'data')
+        ephemeris_path = os.path.join(ROOT_DIR, 'scheduler', 'services', 'horizons', 'data')
         ephemeris_tarfile = os.path.join(ephemeris_path, 'ephemerides.tar.bz2')
         # print(ephemeris_tarfile)
 
@@ -116,34 +117,35 @@ class ValidationBuilder(SchedulerBuilder):
                 with tarfile.open(ephemeris_tarfile) as f:
                     f.extractall(path=ephemeris_path)
 
-    def build_collector(self,
-                        start: datetime,
-                        end: datetime,
-                        num_of_nights: int,
-                        sites: FrozenSet[Site],
-                        semesters: FrozenSet[Semester],
-                        blueprint: CollectorBlueprint,
-                        night_times: Dict[Site, Tuple[Time, Time]],
-                        program_list: Optional[bytes] = None,
-                        use_local_visibility: Optional[bool] = None) -> Collector:
+    def build_collector(
+        self,
+        start: datetime,
+        end: datetime,
+        num_of_nights: int,
+        sites: FrozenSet[Site],
+        semesters: FrozenSet[Semester],
+        blueprint: CollectorBlueprint,
+        night_times: Dict[Site, Tuple[Time, Time]],
+        program_list: Optional[bytes] = None,
+        use_local_visibility: Optional[bool] = None,
+    ) -> Collector:
 
         # ValidationBuilder.check_ephemerides()
-        collector = super().build_collector(start,
-                                            end,
-                                            num_of_nights,
-                                            sites,
-                                            semesters,
-                                            blueprint,
-                                            night_times,
-                                            use_local_visibility=use_local_visibility)
+        collector = super().build_collector(
+            start,
+            end,
+            num_of_nights,
+            sites,
+            semesters,
+            blueprint,
+            night_times,
+            use_local_visibility=use_local_visibility,
+        )
         collector.load_programs(program_provider_class=OcsProgramProvider, data=ocs_program_data(program_list))
         ValidationBuilder.reset_collector_observations(collector)
         return collector
 
-    def _setup_event_queue(self,
-                           start: datetime,
-                           num_nights_to_schedule: int,
-                           sites: FrozenSet[Site]) -> None:
+    def _setup_event_queue(self, start: datetime, num_nights_to_schedule: int, sites: FrozenSet[Site]) -> None:
         """
         Load all the events for the event queue from the different services for the number of nights to schedule.
         """

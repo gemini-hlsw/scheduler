@@ -34,8 +34,9 @@ def _obs(obs_id: str, instrument: str) -> MagicMock:
 
 
 def _night(*installed: str) -> SimpleNamespace:
-    return SimpleNamespace(resources={_Resource(r, None) for r in installed},
-                           filter=SimpleNamespace(program_filter=lambda _p: True))
+    return SimpleNamespace(
+        resources={_Resource(r, None) for r in installed}, filter=SimpleNamespace(program_filter=lambda _p: True)
+    )
 
 
 def _collector(num_of_nights: int, nights: list) -> tuple[Collector, dict]:

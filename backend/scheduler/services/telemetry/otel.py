@@ -14,14 +14,23 @@ from opentelemetry.sdk.resources import Resource
 
 from scheduler.config import config
 from scheduler.services.logger_factory import create_logger
-from scheduler.services.telemetry.instruments import (LOOP_STALL, OPERATION_DURATION,
-                                                      SERVICE_NAME, SIGHT_FALLBACK)
+from scheduler.services.telemetry.instruments import LOOP_STALL, OPERATION_DURATION, SERVICE_NAME, SIGHT_FALLBACK
 from scheduler.services.telemetry.memory import register_memory_gauges
 from scheduler.version import get_app_version
 
-__all__ = ['Telemetry', 'build_resource', 'duration_views', 'instance_id',
-           'is_enabled_by_config', 'is_sdk_disabled', 'process_type', 'scheduler_mode', 'setup_telemetry',
-           'shutdown_telemetry', 'telemetry']
+__all__ = [
+    'Telemetry',
+    'build_resource',
+    'duration_views',
+    'instance_id',
+    'is_enabled_by_config',
+    'is_sdk_disabled',
+    'process_type',
+    'scheduler_mode',
+    'setup_telemetry',
+    'shutdown_telemetry',
+    'telemetry',
+]
 
 _logger = create_logger(__name__, with_id=False)
 
@@ -29,8 +38,25 @@ _logger = create_logger(__name__, with_id=False)
 _ONE_OFF_PROCESS = 'run'
 
 # Bucket edges in SECONDS.
-_DURATION_BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0,
-                     10.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0)
+_DURATION_BUCKETS = (
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    2.5,
+    5.0,
+    10.0,
+    30.0,
+    60.0,
+    120.0,
+    300.0,
+    600.0,
+    1800.0,
+)
 
 
 def is_enabled_by_config() -> bool:
@@ -66,18 +92,21 @@ def instance_id() -> str:
 
 def duration_views() -> list:
     """Views putting the duration histograms on second-scale buckets."""
-    return [View(instrument_name=name,
-                 aggregation=ExplicitBucketHistogramAggregation(_DURATION_BUCKETS))
-            for name in (OPERATION_DURATION, LOOP_STALL)]
+    return [
+        View(instrument_name=name, aggregation=ExplicitBucketHistogramAggregation(_DURATION_BUCKETS))
+        for name in (OPERATION_DURATION, LOOP_STALL)
+    ]
 
 
 def build_resource() -> Resource:
     """Identity attached to every signal."""
-    return Resource.create({
-        'service.name': SERVICE_NAME,
-        'service.version': get_app_version(),
-        'service.instance.id': instance_id(),
-    })
+    return Resource.create(
+        {
+            'service.name': SERVICE_NAME,
+            'service.version': get_app_version(),
+            'service.instance.id': instance_id(),
+        }
+    )
 
 
 def _build_meter_provider() -> MeterProvider:
@@ -88,14 +117,11 @@ def _build_meter_provider() -> MeterProvider:
     # Cumulative
     reader = PeriodicExportingMetricReader(OTLPMetricExporter())
 
-    return MeterProvider(resource=build_resource(),
-                         metric_readers=[reader],
-                         views=duration_views())
+    return MeterProvider(resource=build_resource(), metric_readers=[reader], views=duration_views())
 
 
 class Telemetry:
-    """Owns the meter provider and the instruments built from it.
-    """
+    """Owns the meter provider and the instruments built from it."""
 
     def __init__(self) -> None:
         self._provider: Optional[MeterProvider] = None
@@ -148,20 +174,16 @@ class Telemetry:
     def _build_instruments(self) -> None:
         meter = self.meter
         self._operation_duration = meter.create_histogram(
-            OPERATION_DURATION,
-            unit='s',
-            description='Wall time of a named scheduler operation.')
+            OPERATION_DURATION, unit='s', description='Wall time of a named scheduler operation.'
+        )
         self._loop_stall = meter.create_histogram(
-            LOOP_STALL,
-            unit='s',
-            description='Time the event loop could not give a waiting task.')
+            LOOP_STALL, unit='s', description='Time the event loop could not give a waiting task.'
+        )
         self._sight_fallback = meter.create_counter(
-            SIGHT_FALLBACK,
-            description='Sight visibility loads that fell back to local computation.')
+            SIGHT_FALLBACK, description='Sight visibility loads that fell back to local computation.'
+        )
 
-    def configure(self,
-                  meter_provider: Optional[MeterProvider] = None,
-                  set_global: bool = True) -> bool:
+    def configure(self, meter_provider: Optional[MeterProvider] = None, set_global: bool = True) -> bool:
         """Install a provider, rebuild the instruments, register the memory gauges.
 
         Args:
@@ -217,8 +239,7 @@ class Telemetry:
 telemetry = Telemetry()
 
 
-def setup_telemetry(meter_provider: Optional[MeterProvider] = None,
-                    set_global: bool = True) -> bool:
+def setup_telemetry(meter_provider: Optional[MeterProvider] = None, set_global: bool = True) -> bool:
     """Configure this process's telemetry. See `Telemetry.configure`."""
     return telemetry.configure(meter_provider=meter_provider, set_global=set_global)
 

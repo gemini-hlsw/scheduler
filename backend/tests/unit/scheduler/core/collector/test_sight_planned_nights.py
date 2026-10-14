@@ -48,11 +48,14 @@ def _collector(num_of_nights, num_nights_calculated: int) -> Collector:
     return obj
 
 
-@pytest.mark.parametrize("num_of_nights, expected", [
-    (1, {0}),            # realtime
-    (3, {0, 1, 2}),      # validation over three nights
-    (0, set()),
-])
+@pytest.mark.parametrize(
+    "num_of_nights, expected",
+    [
+        (1, {0}),  # realtime
+        (3, {0, 1, 2}),  # validation over three nights
+        (0, set()),
+    ],
+)
 def test_planned_nights(num_of_nights, expected):
     assert _collector(num_of_nights, 5)._planned_nights() == {NightIndex(i) for i in expected}
 
@@ -70,9 +73,11 @@ async def _fetch(obj, filtered, visible_per_night):
     calc = MagicMock()
     calc.get_visible_observations = AsyncMock(side_effect=visible_per_night)
     calc.get_stage1_greedymax_bulk = AsyncMock(return_value={})
-    with patch.object(collector_mod, "session_scope", _session), \
-            patch.object(collector_mod, "Calculator", return_value=calc), \
-            patch.object(collector_mod, "_obs_to_request", side_effect=lambda o: o):
+    with (
+        patch.object(collector_mod, "session_scope", _session),
+        patch.object(collector_mod, "Calculator", return_value=calc),
+        patch.object(collector_mod, "_obs_to_request", side_effect=lambda o: o),
+    ):
         per_night = await obj._fetch_sight_data(filtered, START, START + timedelta(days=2), ["GN"])
     return calc, per_night
 

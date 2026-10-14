@@ -70,14 +70,13 @@ def cumulative_remaining_by_night(
     for night_index in sorted(rem_min_by_night, reverse=True):
         for obs_id, rem in rem_min_by_night[night_index].items():
             running[obs_id] = running.get(obs_id, 0) + rem
-        cumulative_by_night[night_index] = {
-            obs_id: running[obs_id] for obs_id in rem_min_by_night[night_index]
-        }
+        cumulative_by_night[night_index] = {obs_id: running[obs_id] for obs_id in rem_min_by_night[night_index]}
     return cumulative_by_night
 
 
-def build_target_info(stage1_entry: dict, rem_visibility_frac: float,
-                      expected_length: int, start_offset_slots: int = 0) -> TargetInfo:
+def build_target_info(
+    stage1_entry: dict, rem_visibility_frac: float, expected_length: int, start_offset_slots: int = 0
+) -> TargetInfo:
     """Construct a TargetInfo from a Sight Stage-1 night entry.
 
     Stage-1 returns ra/dec in degrees and alt/az/hourangle in radians; airmass
@@ -87,6 +86,7 @@ def build_target_info(stage1_entry: dict, rem_visibility_frac: float,
     so downstream consumers that combine target arrays with night_events-sized
     arrays (variants, wind, conditions) don't crash on broadcasting mismatches.
     """
+
     def _fit(key: str) -> np.ndarray:
         return resize_to(
             align_to_start(np.asarray(stage1_entry[key]), start_offset_slots),

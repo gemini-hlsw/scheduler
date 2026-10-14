@@ -48,8 +48,8 @@ def parse_configuration(enum_class: Type[Enum], value: str) -> Any:
 
 
 class Blueprint(ABC):
-    """Base class for a Blueprint.
-    """
+    """Base class for a Blueprint."""
+
     pass
 
 
@@ -59,10 +59,7 @@ class CollectorBlueprint(Blueprint):
     This is based on the configuration in config.yml.
     """
 
-    def __init__(self,
-                 obs_class: List[str],
-                 prg_type: List[str],
-                 time_slot_length: float) -> None:
+    def __init__(self, obs_class: List[str], prg_type: List[str], time_slot_length: float) -> None:
         self.obs_classes: FrozenSet[ObservationClass] = frozenset(
             map(lambda x: parse_configuration(ObservationClass, x), obs_class)
         )
@@ -72,9 +69,7 @@ class CollectorBlueprint(Blueprint):
         self.time_slot_length: TimeDelta = TimeDelta(time_slot_length * u.min)
 
     def __iter__(self):
-        return iter((self.time_slot_length,
-                     self.program_types,
-                     self.obs_classes))
+        return iter((self.time_slot_length, self.program_types, self.obs_classes))
 
 
 @final
@@ -83,15 +78,13 @@ class SelectorBlueprint(Blueprint):
     This is based on the configuration in config.yml used to specify the buffer time to determine by how much programs
     may go over their time limit.
     """
-    def __init__(self,
-                 buffer_type_str: str,
-                 buffer_amount: Optional[float]):
+
+    def __init__(self, buffer_type_str: str, buffer_amount: Optional[float]):
         self.buffer_type_str = buffer_type_str
         self.buffer_amount = buffer_amount
 
     def __iter__(self):
-        return iter((self.buffer_type_str,
-                     self.buffer_amount))
+        return iter((self.buffer_type_str, self.buffer_amount))
 
 
 @final
@@ -117,9 +110,8 @@ class OptimizerBlueprint(Blueprint):
 
 @final
 class Blueprints:
-    collector: CollectorBlueprint = CollectorBlueprint(config.collector.observation_classes,
-                                                       config.collector.program_types,
-                                                       config.collector.time_slot_length)
-    selector: SelectorBlueprint = SelectorBlueprint(config.selector.buffer_type,
-                                                    config.selector.buffer_amount)
+    collector: CollectorBlueprint = CollectorBlueprint(
+        config.collector.observation_classes, config.collector.program_types, config.collector.time_slot_length
+    )
+    selector: SelectorBlueprint = SelectorBlueprint(config.selector.buffer_type, config.selector.buffer_amount)
     optimizer: OptimizerBlueprint = OptimizerBlueprint(config.optimizer.name)

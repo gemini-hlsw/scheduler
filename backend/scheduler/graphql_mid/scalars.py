@@ -13,13 +13,13 @@ from scheduler.core.sources.sources import Origin, Origins
 def parse_sites(sites: Union[str, List[str]]) -> FrozenSet[Site]:
     """Parse Sites from Sites scalar
 
-        Args:
-            sites (Union[str, List[str]]): Option can be a list of sites or a single one
+    Args:
+        sites (Union[str, List[str]]): Option can be a list of sites or a single one
 
-        Returns:
-            FrozenSet[Site]: a frozen site that contains lucupy Site enums
-                corresponding to each site.
-        """
+    Returns:
+        FrozenSet[Site]: a frozen site that contains lucupy Site enums
+            corresponding to each site.
+    """
 
     def parse_specific_site(site: str):
         try:
@@ -46,33 +46,45 @@ def parse_origins(name: str) -> Origin:
         raise KeyError(f'Illegal origin specified: "{name}". Permitted values: {", ".join(o.value for o in Origins)}')
 
 
-Sites = strawberry.scalar(NewType("Sites", FrozenSet[Site]),
-                          description="Depiction of the sites that can be load to the collector",
-                          serialize=lambda x: x,
-                          parse_value=lambda x: parse_sites(x)) # noqa
+Sites = strawberry.scalar(
+    NewType("Sites", FrozenSet[Site]),
+    description="Depiction of the sites that can be load to the collector",
+    serialize=lambda x: x,
+    parse_value=lambda x: parse_sites(x),
+)  # noqa
 
-SObservationID = strawberry.scalar(NewType('SObservationID', ObservationID),
-                                   description='ID of an Observation',
-                                   serialize=lambda x: x.id,
-                                   parse_value=lambda x: ObservationID(x))
+SObservationID = strawberry.scalar(
+    NewType('SObservationID', ObservationID),
+    description='ID of an Observation',
+    serialize=lambda x: x.id,
+    parse_value=lambda x: ObservationID(x),
+)
 
-SUniqueGroupID = strawberry.scalar(NewType('SUniqueGroupID', UniqueGroupID),
-                                   description='Unique ID of a Group',
-                                   serialize=lambda x: x.id,
-                                   parse_value=lambda x: UniqueGroupID(x))
+SUniqueGroupID = strawberry.scalar(
+    NewType('SUniqueGroupID', UniqueGroupID),
+    description='Unique ID of a Group',
+    serialize=lambda x: x.id,
+    parse_value=lambda x: UniqueGroupID(x),
+)
 
-SGroupID = strawberry.scalar(NewType('SGroupID', GroupID),
-                             description='ID of an Group',
-                             serialize=lambda x: x.id,
-                             parse_value=lambda x: GroupID(x))
+SGroupID = strawberry.scalar(
+    NewType('SGroupID', GroupID),
+    description='ID of an Group',
+    serialize=lambda x: x.id,
+    parse_value=lambda x: GroupID(x),
+)
 
-SProgramID = strawberry.scalar(NewType('SProgramID', ProgramID),
-                               description='ID of an Program',
-                               serialize=lambda x: x.id,
-                               parse_value=lambda x: ProgramID(x))
+SProgramID = strawberry.scalar(
+    NewType('SProgramID', ProgramID),
+    description='ID of an Program',
+    serialize=lambda x: x.id,
+    parse_value=lambda x: ProgramID(x),
+)
 
 
-SOrigin = strawberry.scalar(NewType('SOrigin', Origin),
-                            description='Origin of the Source',
-                            serialize=lambda x: str(x),
-                            parse_value=lambda x: parse_origins(x))
+SOrigin = strawberry.scalar(
+    NewType('SOrigin', Origin),
+    description='Origin of the Source',
+    serialize=lambda x: str(x),
+    parse_value=lambda x: parse_origins(x),
+)

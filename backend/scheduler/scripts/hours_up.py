@@ -22,6 +22,7 @@ from lucupy.minimodel import ObservationID
 from definitions import ROOT_DIR
 from scheduler.core.builder.modes import SchedulerModes
 from scheduler.core.components.ranker import RankerParameters
+
 # from scheduler.engine import SchedulerParameters, Engine
 from scheduler.services import logger_factory
 # from scheduler.services.visibility import visibility_calculator
@@ -32,10 +33,12 @@ from scheduler.engine.params import SchedulerParameters
 
 from scheduler.core.builder import Blueprints
 from scheduler.core.builder.modes import dispatch_with
+
 # from scheduler.core.builder.blueprint import OptimizerBlueprint
 # from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
 # from scheduler.core.components.ranker import DefaultRanker
 from scheduler.core.events.queue import EventQueue
+
 # from scheduler.core.queue.nightchanges import NightlyTimeline
 # from scheduler.core.plans import Plans
 from scheduler.core.sources import Sources
@@ -197,11 +200,11 @@ def hours_up(obsid: ObservationID, night_idx: int, airmass_max=2.05):
     # print(f'Midnight LST: {lstmid}')
 
     # Hour angle of target at midnight
-    ha_mid = lstmid - ra.wrap_at(12. * u.hour)
+    ha_mid = lstmid - ra.wrap_at(12.0 * u.hour)
     # print(ha_mid)
 
     # Time of transit (crossing the meridian)
-    deltattran = TimeDelta(ha_mid.hourangle / 24., format='jd') / 1.0027379093
+    deltattran = TimeDelta(ha_mid.hourangle / 24.0, format='jd') / 1.0027379093
     ttransit = midnight - deltattran
 
     # Altitude corresponding to the airmass limit desired
@@ -210,16 +213,16 @@ def hours_up(obsid: ObservationID, night_idx: int, airmass_max=2.05):
 
     if minalt < ALT_LOW and maxalt > ALT_LOW:
         ha = alt_to_hour_angle(dec, site.location.lat, ALT_LOW)
-        dt = TimeDelta(ha.hourangle / 24., format='jd') / 1.0027379093
+        dt = TimeDelta(ha.hourangle / 24.0, format='jd') / 1.0027379093
         jd_1 = ttransit - dt
         jd_2 = ttransit + dt
         uptime = hrs_up(jd_1, jd_2, teventwi12, tmorntwi12)
     elif minalt > ALT_LOW:
-        uptime = (tmorntwi12 - teventwi12)
+        uptime = tmorntwi12 - teventwi12
     elif maxalt < ALT_LOW:
-        uptime = TimeDelta(0., format='jd')
+        uptime = TimeDelta(0.0, format='jd')
 
-    return uptime.sec / 3600.
+    return uptime.sec / 3600.0
 
 
 # Set lucupy to Gemini
@@ -238,14 +241,16 @@ verbose = False
 test_events = True
 
 # Create Parameters
-params = SchedulerParameters(start=datetime.fromisoformat("2018-10-01 08:00:00"),
-                             end=datetime.fromisoformat("2018-10-03 08:00:00"),
-                             sites=ALL_SITES,
-                             mode=SchedulerModes.VALIDATION,   #Options: VALITADION, SIMULATION, OPERATION
-                             ranker_parameters=RankerParameters(),
-                             semester_visibility=False,
-                             num_nights_to_schedule=1,
-                             programs_list=programs_list)
+params = SchedulerParameters(
+    start=datetime.fromisoformat("2018-10-01 08:00:00"),
+    end=datetime.fromisoformat("2018-10-03 08:00:00"),
+    sites=ALL_SITES,
+    mode=SchedulerModes.VALIDATION,  # Options: VALITADION, SIMULATION, OPERATION
+    ranker_parameters=RankerParameters(),
+    semester_visibility=False,
+    num_nights_to_schedule=1,
+    programs_list=programs_list,
+)
 
 # Engine.build
 sources = Sources()
@@ -256,13 +261,15 @@ queue = EventQueue(params.night_indices, params.sites)
 builder = dispatch_with(params.mode, sources, queue)
 
 # Create Collector
-collector = builder.build_collector(start=params.start,
-                                    end=params.end_vis,
-                                    num_of_nights=params.num_nights_to_schedule,
-                                    sites=params.sites,
-                                    semesters=params.semesters,
-                                    blueprint=Blueprints.collector,
-                                    program_list=params.programs_list)
+collector = builder.build_collector(
+    start=params.start,
+    end=params.end_vis,
+    num_of_nights=params.num_nights_to_schedule,
+    sites=params.sites,
+    semesters=params.semesters,
+    blueprint=Blueprints.collector,
+    program_list=params.programs_list,
+)
 
 # Example observation with visibility
 obs_vis = collector.get_observation(ObservationID('GN-2018B-Q-103-16'))
@@ -290,13 +297,3 @@ plt.plot(ti_vis[1].airmass)
 plt.plot(ti_vis[1].visibility_slot_idx, ti_vis[1].airmass[ti_vis[1].visibility_slot_idx], linewidth=4)
 plt.ylim(3.0, 0.95)
 plt.show()
-
-
-
-
-
-
-
-
-
-

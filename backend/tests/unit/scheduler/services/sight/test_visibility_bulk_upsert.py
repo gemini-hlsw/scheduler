@@ -6,6 +6,7 @@ UPDATE with no RETURNING (RETURNING would disable asyncpg's executemany
 pipelining and fall back to row-at-a-time statements), and must chunk the
 submitted rows so bind buffers stay bounded.
 """
+
 import asyncio
 from datetime import date
 

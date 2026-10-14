@@ -42,7 +42,6 @@ class DummyOptimizer(BaseOptimizer):
         """
 
         while not plans.all_done() and len(self.groups) > 0:
-
             ran_group = random.choice(self.groups)
             if self.add(ran_group, plans):
                 # TODO: All observations in the group are being inserted so the whole group

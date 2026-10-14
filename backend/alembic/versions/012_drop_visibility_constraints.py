@@ -1,4 +1,3 @@
-
 """Drop visibility_data.constraints
 
 Each Stage 2 row stored a copy of the observation's constraints. Nothing read
@@ -16,6 +15,7 @@ Revises: 011
 Create Date: 2026-10-07
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op

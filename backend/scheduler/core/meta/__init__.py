@@ -2,10 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 
-__all__ = [
-    'Singleton',
-    'AsyncSingleton'
-]
+__all__ = ['Singleton', 'AsyncSingleton']
 
 import asyncio
 import threading
@@ -16,6 +13,7 @@ class Singleton(type):
     """
     Thread-safe Singleton metaclass.
     """
+
     _instances = {}
 
     def __call__(cls, *args, **kwargs):
@@ -29,16 +27,14 @@ class AsyncSingleton(type):
     Thread-safe async-compatible Singleton metaclass.
     Each class using this metaclass will have its own singleton instance.
     """
+
     _instances: Dict[type, Any] = {}
     _locks: Dict[type, asyncio.Lock] = {}
     _thread_lock = threading.Lock()
 
     def __call__(cls, *args, **kwargs):
         """Prevent direct instantiation."""
-        raise TypeError(
-            f"Cannot instantiate {cls.__name__} directly. "
-            f"Use 'await {cls.__name__}.instance()' instead."
-        )
+        raise TypeError(f"Cannot instantiate {cls.__name__} directly. Use 'await {cls.__name__}.instance()' instead.")
 
     async def instance(cls, *args, **kwargs):
         """

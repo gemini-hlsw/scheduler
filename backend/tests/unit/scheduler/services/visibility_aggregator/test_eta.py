@@ -13,6 +13,7 @@ fabricated number.
 The payload is stored as JSONB (coordination._heartbeat json.dumps it), so every
 value has to be JSON-native.
 """
+
 import json
 
 from scheduler.services.visibility_aggregator.aggregator import (
@@ -23,6 +24,7 @@ from scheduler.services.visibility_aggregator.aggregator import (
 
 
 # --- ETA math ---------------------------------------------------------------
+
 
 def test_eta_extrapolates_from_measured_throughput():
     # 10s for 2 of 10 units -> 5 s/unit, 8 left -> 40s.
@@ -49,6 +51,7 @@ def test_eta_is_unknown_when_there_is_no_work():
 
 # --- duration formatting ----------------------------------------------------
 
+
 def test_format_duration_uses_seconds_below_ninety():
     assert _format_duration(45.0) == "45s"
     assert _format_duration(89.4) == "89s"
@@ -64,6 +67,7 @@ def test_format_duration_uses_hours_beyond_ninety_minutes():
 
 
 # --- heartbeat payload ------------------------------------------------------
+
 
 def test_progress_detail_carries_phase_progress_and_eta():
     detail = progress_detail(
@@ -102,26 +106,20 @@ def test_progress_detail_merges_phase_specific_extras():
 
 
 def test_progress_detail_reports_unknown_eta_as_null():
-    detail = progress_detail(
-        "stage1", done=0, total=100, unit="targets", elapsed_seconds=2.0
-    )
+    detail = progress_detail("stage1", done=0, total=100, unit="targets", elapsed_seconds=2.0)
 
     assert detail["eta_seconds"] is None
 
 
 def test_progress_detail_is_json_serializable():
     # coordination._heartbeat json.dumps this straight into a JSONB column.
-    detail = progress_detail(
-        "stage2", done=3, total=180, unit="nights", elapsed_seconds=30.123456
-    )
+    detail = progress_detail("stage2", done=3, total=180, unit="nights", elapsed_seconds=30.123456)
 
     assert json.loads(json.dumps(detail)) == detail
 
 
 def test_progress_detail_rounds_seconds_for_readability():
-    detail = progress_detail(
-        "stage2", done=3, total=180, unit="nights", elapsed_seconds=30.123456
-    )
+    detail = progress_detail("stage2", done=3, total=180, unit="nights", elapsed_seconds=30.123456)
 
     assert detail["elapsed_seconds"] == 30.1
     assert detail["eta_seconds"] == round(30.123456 / 3 * 177, 1)

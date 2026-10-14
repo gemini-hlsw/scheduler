@@ -28,11 +28,13 @@ class ProperMotionCalculator(metaclass=Singleton):
     # _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(60.0 * u.second)
     _DEFAULT_TIMESLOT_LENGTH: TimeDelta = TimeDelta(config.collector.time_slot_length * u.min)
 
-    def calculate_coordinates(self,
-                              target: SiderealTarget,
-                              start_time: Time,
-                              num_time_slots: int,
-                              time_slot_length: Optional[TimeDelta] = None) -> SkyCoord:
+    def calculate_coordinates(
+        self,
+        target: SiderealTarget,
+        start_time: Time,
+        num_time_slots: int,
+        time_slot_length: Optional[TimeDelta] = None,
+    ) -> SkyCoord:
         if time_slot_length is None:
             time_slot_length = ProperMotionCalculator._DEFAULT_TIMESLOT_LENGTH
 
@@ -43,7 +45,7 @@ class ProperMotionCalculator(metaclass=Singleton):
 
         # Create an array of times at once
         # times = start_time + time_slot_length * np.arange(num_time_slots)
-        times = start_time + time_slot_length * int(num_time_slots/2)
+        times = start_time + time_slot_length * int(num_time_slots / 2)
 
         # Calculate the time offsets for all times at once
         time_offsets_years = (times - epoch_time).to(u.yr).value

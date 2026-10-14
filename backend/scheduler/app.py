@@ -15,6 +15,7 @@ _logger = create_logger(__name__, with_id=False)
 
 _logger.info(f"Running scheduler server version {get_app_version()}")
 
+
 async def lifespan(app: FastAPI):
     try:
         setup_telemetry()
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
         await dispose_engine()
         _logger.info("Sight DB engine disposed")
         shutdown_telemetry()
+
 
 app = FastAPI(lifespan=lifespan)
 

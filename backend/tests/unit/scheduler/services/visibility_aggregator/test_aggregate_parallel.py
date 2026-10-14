@@ -6,6 +6,7 @@ The parallel aggregation cuts work into (night, target chunk) tasks. Every
 chunks sharing one would write the same rows from two workers, and a missing
 one would leave a gap the aggregator later has to fill.
 """
+
 from collections import Counter
 from datetime import date, timedelta
 

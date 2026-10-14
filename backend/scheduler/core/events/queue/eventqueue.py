@@ -42,8 +42,10 @@ class NightEventQueue:
 
 class EventQueue:
     def __init__(self, night_indices: FrozenSet[NightIndex], sites: FrozenSet[Site]):
-        self._events = {night_idx: {site: NightEventQueue(night_idx=night_idx, site=site) for site in sites}
-                        for night_idx in night_indices}
+        self._events = {
+            night_idx: {site: NightEventQueue(night_idx=night_idx, site=site) for site in sites}
+            for night_idx in night_indices
+        }
 
     def add_event(self, night_idx: NightIndex, site: Site, event: Event) -> None:
         match event:
@@ -52,8 +54,10 @@ class EventQueue:
                 if site_events is not None:
                     site_events.add_event(event)
             case _:
-                raise KeyError(f'Could not add event {event} of type {event.__class__.__name__} for night index '
-                               f'{night_idx} to site {site.name}.')
+                raise KeyError(
+                    f'Could not add event {event} of type {event.__class__.__name__} for night index '
+                    f'{night_idx} to site {site.name}.'
+                )
 
     def add_events(self, night_idx: NightIndex, site: Site, events: Iterable[Event]) -> None:
         for event in events:

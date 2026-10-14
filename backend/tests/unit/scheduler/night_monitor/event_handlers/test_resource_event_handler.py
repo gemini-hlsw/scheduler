@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
-from scheduler.night_monitor.event_handlers.resource_event_handler import MockResourceEvent, PDRQueue, ResourceEventHandler
+from scheduler.night_monitor.event_handlers.resource_event_handler import (
+    MockResourceEvent,
+    PDRQueue,
+    ResourceEventHandler,
+)
 
 
 class TestPDRQueue:
@@ -85,6 +89,7 @@ class TestPDRQueue:
         assert len(queue.queue) == 0
         assert len(queue.tasks) == 0
 
+
 class TestResourceEventHandler:
     """Tests for ResourceEventHandler class."""
 
@@ -103,7 +108,9 @@ class TestResourceEventHandler:
         def _mock(resources: list[str]):
             mock = MagicMock()
             mock.resources.return_value = resources
-            return patch('scheduler.night_monitor.event_handlers.resource_event_handler.LastPlanMock', return_value=mock)
+            return patch(
+                'scheduler.night_monitor.event_handlers.resource_event_handler.LastPlanMock', return_value=mock
+            )
 
         return _mock
 

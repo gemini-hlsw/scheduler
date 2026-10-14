@@ -109,11 +109,7 @@ _VARIANTS: dict[str, str] = {
 
 def _query(variant: str) -> str:
     operation = "Probe" + variant.title().replace("-", "")
-    return (
-        f"subscription {operation} {{\n"
-        f"  obscalcUpdate{_VARIANTS[variant]} {{{_SELECTION}}}\n"
-        f"}}"
-    )
+    return f"subscription {operation} {{\n  obscalcUpdate{_VARIANTS[variant]} {{{_SELECTION}}}\n}}"
 
 
 def _stamp() -> str:
@@ -154,9 +150,7 @@ async def _run_variant(
         subprotocols=[Subprotocol(GRAPHQL_TRANSPORT_WS)],
         additional_headers=headers,
     ) as websocket:
-        await websocket.send(
-            json.dumps({"type": "connection_init", "payload": init_payload})
-        )
+        await websocket.send(json.dumps({"type": "connection_init", "payload": init_payload}))
 
         async for raw in websocket:
             message = json.loads(raw)
@@ -205,12 +199,8 @@ def main(
         Optional[float],
         typer.Option(help="Stop after this many seconds. Default: run until Ctrl-C."),
     ] = None,
-    compact: Annotated[
-        bool, typer.Option(help="One summary line per event instead of full JSON.")
-    ] = False,
-    show_queries: Annotated[
-        bool, typer.Option(help="Print each subscription document before connecting.")
-    ] = False,
+    compact: Annotated[bool, typer.Option(help="One summary line per event instead of full JSON.")] = False,
+    show_queries: Annotated[bool, typer.Option(help="Print each subscription document before connecting.")] = False,
 ) -> None:
     """Run the obscalcUpdate subscription variants side by side."""
     variants = list(_VARIANTS)
@@ -261,9 +251,7 @@ async def _probe(variants: list[str], duration: Optional[float], compact: bool) 
         await client.close()
 
     for variant, result in zip(variants, results):
-        if isinstance(result, BaseException) and not isinstance(
-            result, asyncio.CancelledError
-        ):
+        if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
             _emit(variant, "FAILED", f"{type(result).__name__}: {result}")
 
 

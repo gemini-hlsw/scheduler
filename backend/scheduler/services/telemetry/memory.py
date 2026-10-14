@@ -8,8 +8,7 @@ from typing import Any, Dict, Iterable, Optional
 
 from opentelemetry.metrics import CallbackOptions, Meter, Observation
 
-from scheduler.services.telemetry.instruments import (PROCESS_MEMORY_PEAK,
-                                                      PROCESS_MEMORY_RSS)
+from scheduler.services.telemetry.instruments import PROCESS_MEMORY_PEAK, PROCESS_MEMORY_RSS
 
 __all__ = ['MemoryReading', 'parse_proc_status', 'read_memory', 'register_memory_gauges']
 
@@ -20,6 +19,7 @@ _KB = 1024
 @dataclass(frozen=True)
 class MemoryReading:
     """Current and high-water RSS in bytes; ``None`` where the platform cannot say."""
+
     rss_bytes: Optional[int]
     peak_bytes: Optional[int]
 
@@ -76,8 +76,7 @@ def read_memory() -> MemoryReading:
     return MemoryReading(rss_bytes=None, peak_bytes=_rusage_peak_bytes())
 
 
-def register_memory_gauges(meter: Meter,
-                           attributes: Optional[Dict[str, Any]] = None) -> None:
+def register_memory_gauges(meter: Meter, attributes: Optional[Dict[str, Any]] = None) -> None:
     """Attach the RSS and peak observable gauges to ``meter``.
 
     Args:
@@ -100,9 +99,11 @@ def register_memory_gauges(meter: Meter,
         PROCESS_MEMORY_RSS,
         callbacks=[observe_rss],
         unit='By',
-        description='Resident set size of this scheduler process.')
+        description='Resident set size of this scheduler process.',
+    )
     meter.create_observable_gauge(
         PROCESS_MEMORY_PEAK,
         callbacks=[observe_peak],
         unit='By',
-        description='High-water resident set size of this scheduler process.')
+        description='High-water resident set size of this scheduler process.',
+    )

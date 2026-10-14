@@ -36,6 +36,7 @@ class GroupInfo:
     6. A list of indices of the time slots across the nights as to when the group can be scheduled.
     7. The score assigned to the group.
     """
+
     minimum_conditions: Conditions
     is_splittable: bool
     night_filtering: Dict[NightIndex, bool]
@@ -52,6 +53,7 @@ class GroupData:
     Associates Groups with their GroupInfo.
     group is a deep copy.
     """
+
     # Deep-copied.
     group: Group
 

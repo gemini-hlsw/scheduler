@@ -31,9 +31,11 @@ class SchedulerModes(Enum):
     - VALIDATION
 
     """
+
     OPERATION = 'operation'
     SIMULATION = 'simulation'
     VALIDATION = 'validation'
+
 
 try:
     mode_env = os.environ.get("SCHEDULER_MODE")
@@ -53,6 +55,7 @@ except ValueError:
 is_operation = app_mode == SchedulerModes.OPERATION
 is_simulation = app_mode == SchedulerModes.SIMULATION
 is_validation = app_mode == SchedulerModes.VALIDATION
+
 
 def dispatch_with(sources: Sources, events: EventQueue) -> SchedulerBuilder:
     match app_mode:

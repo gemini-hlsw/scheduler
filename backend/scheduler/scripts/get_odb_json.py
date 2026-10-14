@@ -17,11 +17,10 @@ from odb_json import odb_json
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
     parser.add_argument("programid", help="Program IDs, comma separated or prefix with '@' for list file")
-    parser.add_argument("-p","--path", help="Path for json files", default="None")
-    parser.add_argument("-s","--server", help="Server", type=str, choices=["gs", "gn", "sched"])
+    parser.add_argument("-p", "--path", help="Path for json files", default="None")
+    parser.add_argument("-s", "--server", help="Server", type=str, choices=["gs", "gn", "sched"])
     parser.add_argument("-t", "--test", help="Test server?", action="store_true", default=False)
     parser.add_argument("-g", "--gz", help="Gzip output?", action="store_true", default=False)
     parser.add_argument("-o", "--overwrite", help="Overwrite?", action="store_true", default=False)
@@ -37,9 +36,16 @@ if __name__ == '__main__':
                 progids.append(line.strip(' '))
         l_file.close()
     else:
-        progids = args.programid.replace(" ","").split(",")
+        progids = args.programid.replace(" ", "").split(",")
 
     # print(progids)
     for progid in progids:
-        program = odb_json(progid, server=args.server, path=args.path, test=args.test, overwrite=args.overwrite,
-                           gz=args.gz, verbose=args.verbose)
+        program = odb_json(
+            progid,
+            server=args.server,
+            path=args.path,
+            test=args.test,
+            overwrite=args.overwrite,
+            gz=args.gz,
+            verbose=args.verbose,
+        )

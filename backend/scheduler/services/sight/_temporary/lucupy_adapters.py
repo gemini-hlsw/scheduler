@@ -69,8 +69,7 @@ def target_shim(target) -> Optional[SimpleNamespace]:
 
 
 def target_create(target) -> Optional[SightTargetCreate]:
-    """Build a sight ``TargetCreate`` payload from a lucupy Target.
-    """
+    """Build a sight ``TargetCreate`` payload from a lucupy Target."""
     if target is None:
         return None
     if isinstance(target, SiderealTarget):
@@ -98,26 +97,19 @@ def target_create(target) -> Optional[SightTargetCreate]:
 
 
 def elevation_constraints(elevation: ElevationLimits) -> Tuple[SightElevationType, float, float]:
-    """Sight elevation type, min and max from the limits that were given in the lucupy ElevationLimits.
-    """
+    """Sight elevation type, min and max from the limits that were given in the lucupy ElevationLimits."""
     if elevation.elevation_type == ElevationType.HOUR_ANGLE:
         return SightElevationType.HOUR_ANGLE, elevation.ha_min, elevation.ha_max
-    return (SightElevationType(elevation.elevation_type.name.lower()),
-            elevation.airmass_min, elevation.airmass_max)
+    return (SightElevationType(elevation.elevation_type.name.lower()), elevation.airmass_min, elevation.airmass_max)
 
 
 def expand_timing_windows(windows, range_end: datetime) -> List[SightTimingWindow]:
-    """Expand lucupy TimingWindow repeats into flat sight TimingWindow pairs.
-    """
+    """Expand lucupy TimingWindow repeats into flat sight TimingWindow pairs."""
     out: List[SightTimingWindow] = []
-    for tw in (windows or []):
+    for tw in windows or []:
         if tw.start is None or tw.duration is None:
             continue
-        tw_start = (
-            tw.start.to_datetime(timezone.utc)
-            if hasattr(tw.start, 'to_datetime')
-            else tw.start
-        )
+        tw_start = tw.start.to_datetime(timezone.utc) if hasattr(tw.start, 'to_datetime') else tw.start
         if tw_start.tzinfo is None:
             tw_start = tw_start.replace(tzinfo=timezone.utc)
 
@@ -152,16 +144,18 @@ def _to_utc_datetime(t) -> datetime:
 
 
 def program_window(
-    program_start, program_end,
+    program_start,
+    program_end,
 ) -> List[SightTimingWindow]:
-    """Fallback timing window covering the program's active period.
-    """
+    """Fallback timing window covering the program's active period."""
     if program_start is None or program_end is None:
         return []
-    return [SightTimingWindow(
-        start=_to_utc_datetime(program_start),
-        end=_to_utc_datetime(program_end),
-    )]
+    return [
+        SightTimingWindow(
+            start=_to_utc_datetime(program_start),
+            end=_to_utc_datetime(program_end),
+        )
+    ]
 
 
 def stage2_constraints(
@@ -189,7 +183,8 @@ def stage2_constraints(
     cond = getattr(constraints, 'conditions', None)
     target_sb = float(cond.sb.value) if (cond is not None and cond.sb is not None) else 1.0
     timing_windows = expand_timing_windows(
-        getattr(constraints, 'timing_windows', None), range_end,
+        getattr(constraints, 'timing_windows', None),
+        range_end,
     )
     if not timing_windows:
         timing_windows = program_window(program_start, program_end)

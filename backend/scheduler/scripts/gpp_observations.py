@@ -48,7 +48,7 @@ if __name__ == '__main__':
         # obs = explore.observation(o.id)
         obs = {}
 
-        obs_mini = provider.parse_observation(data=obs.__dict__, num=(0,0), program_id=obs.program.id)
+        obs_mini = provider.parse_observation(data=obs.__dict__, num=(0, 0), program_id=obs.program.id)
         print(obs_mini.targets)
         print(obs_mini.guiding)
         print('Output Atoms')

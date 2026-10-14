@@ -7,12 +7,7 @@ from lucupy.minimodel import NightIndex
 import numpy.typing as npt
 
 
-__all__ = [
-    'NightIndex',
-    'NightTimeslotScores',
-    'Scores',
-    'Metrics'
-]
+__all__ = ['NightIndex', 'NightTimeslotScores', 'Scores', 'Metrics']
 
 
 # Scores for the timeslots in a specific night.

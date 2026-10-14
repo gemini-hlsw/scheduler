@@ -7,9 +7,27 @@ from typing import FrozenSet, List, Optional, Tuple
 import astropy.units as u
 import lucupy.sky as sky
 from astropy.coordinates import Angle
-from lucupy.minimodel import (Group, Atom, Conditions, Constraints, ElevationLimits, ElevationType, GroupID,
-                              Magnitude, NonsiderealTarget, Observation, ObservationClass, Program, ProgramID,
-                              QAState, SiderealTarget, Site, Target, TimeAllocation, TimingWindow)
+from lucupy.minimodel import (
+    Group,
+    Atom,
+    Conditions,
+    Constraints,
+    ElevationLimits,
+    ElevationType,
+    GroupID,
+    Magnitude,
+    NonsiderealTarget,
+    Observation,
+    ObservationClass,
+    Program,
+    ProgramID,
+    QAState,
+    SiderealTarget,
+    Site,
+    Target,
+    TimeAllocation,
+    TimingWindow,
+)
 
 from scheduler.core.sources.sources import Sources
 
@@ -36,9 +54,7 @@ class ProgramProvider(ABC):
     * NotImplementedError if the feature is not offered in this provider
     """
 
-    def __init__(self,
-                 obs_classes: FrozenSet[ObservationClass],
-                 sources: Sources):
+    def __init__(self, obs_classes: FrozenSet[ObservationClass], sources: Sources):
         self._obs_classes = obs_classes
         self._sources = sources
 
@@ -74,8 +90,9 @@ class ProgramProvider(ABC):
     #     ...
 
     @abstractmethod
-    def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
-                        split: bool, split_by_iterator: bool) -> Optional[Group]:
+    def parse_group(
+        self, data: dict, program_id: ProgramID, group_id: GroupID, split: bool, split_by_iterator: bool
+    ) -> Optional[Group]:
         """
         Given an associative array that contains the data needed for a group,
         retrieve the data and populate the Group.
@@ -92,12 +109,9 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_observation(self,
-                          data: dict,
-                          num: Tuple[Optional[int], int],
-                          program_id: ProgramID,
-                          split: bool,
-                          split_by_iterator: bool) -> Optional[Observation]:
+    def parse_observation(
+        self, data: dict, num: Tuple[Optional[int], int], program_id: ProgramID, split: bool, split_by_iterator: bool
+    ) -> Optional[Observation]:
         """
         Given an associative array that contains observation data, retrieve the data
         and populate an Observation object, provided the obs_class for the observation is in
@@ -175,11 +189,13 @@ class ProgramProvider(ABC):
         ...
 
     @staticmethod
-    def elevation_limits(elevation_type: ElevationType,
-                         elevation_min: Optional[float],
-                         elevation_max: Optional[float],
-                         site: Site,
-                         base: Optional[Target]) -> ElevationLimits:
+    def elevation_limits(
+        elevation_type: ElevationType,
+        elevation_min: Optional[float],
+        elevation_max: Optional[float],
+        site: Site,
+        base: Optional[Target],
+    ) -> ElevationLimits:
         """
         Create the ElevationLimits of the elevation constraints.
 
@@ -223,8 +239,9 @@ class ProgramProvider(ABC):
         ...
 
     @abstractmethod
-    def parse_atoms(self, site: Site, sequence: List[dict], qa_states: List[QAState],
-                    split: bool, split_by_iterator: bool) -> List[Atom]:
+    def parse_atoms(
+        self, site: Site, sequence: List[dict], qa_states: List[QAState], split: bool, split_by_iterator: bool
+    ) -> List[Atom]:
         """
         Given a list of associative arrays from an observation that contain atom data,
         parse / process the atom data and populate a list of Atom objects.

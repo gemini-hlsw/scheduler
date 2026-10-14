@@ -80,11 +80,8 @@ def _interlock_enabled() -> bool:
 
 # --- low-level helpers (caller owns the transaction / commit) ----------------
 
-async def _acquire(
-    session: AsyncSession,
-    name: str, holder: str,
-    stale_after: float
-) -> bool:
+
+async def _acquire(session: AsyncSession, name: str, holder: str, stale_after: float) -> bool:
     """Atomically take ``name`` if it is inactive or its holder is stale.
 
     Returns True iff this caller now owns the row. Caller must commit.
@@ -106,26 +103,18 @@ async def _acquire(
         RETURNING name
         """
     )
-    result = await session.execute(
-        stmt, {"name": name, "holder": holder, "stale": stale_after}
-    )
+    result = await session.execute(stmt, {"name": name, "holder": holder, "stale": stale_after})
     return result.first() is not None
 
 
-async def _heartbeat(session: AsyncSession, name: str,
-                     detail: Optional[dict]) -> None:
+async def _heartbeat(session: AsyncSession, name: str, detail: Optional[dict]) -> None:
     """Refresh ``heartbeat_at`` (and optionally ``detail``). Caller commits."""
     if detail is None:
-        stmt = text(
-            "UPDATE scheduler_coordination SET heartbeat_at = now() "
-            "WHERE name = :name"
-        )
+        stmt = text("UPDATE scheduler_coordination SET heartbeat_at = now() WHERE name = :name")
         await session.execute(stmt, {"name": name})
     else:
         stmt = text(
-            "UPDATE scheduler_coordination "
-            "SET heartbeat_at = now(), detail = cast(:detail as jsonb) "
-            "WHERE name = :name"
+            "UPDATE scheduler_coordination SET heartbeat_at = now(), detail = cast(:detail as jsonb) WHERE name = :name"
         )
         await session.execute(stmt, {"name": name, "detail": json.dumps(detail)})
 
@@ -133,15 +122,12 @@ async def _heartbeat(session: AsyncSession, name: str,
 async def _release(session: AsyncSession, name: str) -> None:
     """Mark ``name`` inactive. Caller commits."""
     stmt = text(
-        "UPDATE scheduler_coordination "
-        "SET active = false, finished_at = now(), heartbeat_at = now() "
-        "WHERE name = :name"
+        "UPDATE scheduler_coordination SET active = false, finished_at = now(), heartbeat_at = now() WHERE name = :name"
     )
     await session.execute(stmt, {"name": name})
 
 
-async def _is_active(session: AsyncSession, name: str,
-                     stale_after: float) -> bool:
+async def _is_active(session: AsyncSession, name: str, stale_after: float) -> bool:
     """True if ``name`` is active and its heartbeat is fresh."""
     stmt = text(
         """
@@ -155,16 +141,13 @@ async def _is_active(session: AsyncSession, name: str,
     return result.first() is not None
 
 
-
 async def get_change_watermark(session: AsyncSession) -> Optional[datetime]:
     """Read the ODB change-sync watermark, or None if absent/unparseable.
 
     The caller decides the fallback `since` (config
     ``changes_fallback_lookback_hours``) when None is returned.
     """
-    stmt = text(
-        "SELECT detail->>'since' FROM scheduler_coordination WHERE name = :name"
-    )
+    stmt = text("SELECT detail->>'since' FROM scheduler_coordination WHERE name = :name")
     result = await session.execute(stmt, {"name": CHANGE_WATERMARK_NAME})
     row = result.first()
     if row is None or row[0] is None:
@@ -198,13 +181,11 @@ async def set_change_watermark(session: AsyncSession, since: datetime) -> None:
     )
 
 
-async def acquire_aggregator(session: AsyncSession, holder: str,
-                             stale_after: float = STALE_AFTER_SECONDS) -> bool:
+async def acquire_aggregator(session: AsyncSession, holder: str, stale_after: float = STALE_AFTER_SECONDS) -> bool:
     return await _acquire(session, AGGREGATOR_NAME, holder, stale_after)
 
 
-async def heartbeat_aggregator(session: AsyncSession,
-                               detail: Optional[dict] = None) -> None:
+async def heartbeat_aggregator(session: AsyncSession, detail: Optional[dict] = None) -> None:
     await _heartbeat(session, AGGREGATOR_NAME, detail)
 
 
@@ -212,13 +193,11 @@ async def release_aggregator(session: AsyncSession) -> None:
     await _release(session, AGGREGATOR_NAME)
 
 
-async def is_plan_in_progress(session: AsyncSession,
-                              stale_after: float = STALE_AFTER_SECONDS) -> bool:
+async def is_plan_in_progress(session: AsyncSession, stale_after: float = STALE_AFTER_SECONDS) -> bool:
     return await _is_active(session, NIGHT_EXECUTION_NAME, stale_after)
 
 
-async def is_aggregator_active(session: AsyncSession,
-                               stale_after: float = STALE_AFTER_SECONDS) -> bool:
+async def is_aggregator_active(session: AsyncSession, stale_after: float = STALE_AFTER_SECONDS) -> bool:
     return await _is_active(session, AGGREGATOR_NAME, stale_after)
 
 
@@ -233,8 +212,9 @@ def _plan_wait_timeout() -> Optional[float]:
     return float(value) if value is not None else None
 
 
-async def wait_until_aggregator_idle(poll_interval: float = _IDLE_POLL_INTERVAL_SECONDS,
-                                     timeout: Optional[float] = None) -> bool:
+async def wait_until_aggregator_idle(
+    poll_interval: float = _IDLE_POLL_INTERVAL_SECONDS, timeout: Optional[float] = None
+) -> bool:
     """Block until the aggregator row is inactive/stale (the hard interlock).
 
     Each poll uses its own short session so it sees the aggregator's committed
@@ -253,10 +233,7 @@ async def wait_until_aggregator_idle(poll_interval: float = _IDLE_POLL_INTERVAL_
             async with session_scope() as session:
                 if not await is_aggregator_active(session):
                     if waited:
-                        _logger.info(
-                            f"Aggregator finished after waiting {waited:.0f}s; "
-                            f"proceeding with plan creation."
-                        )
+                        _logger.info(f"Aggregator finished after waiting {waited:.0f}s; proceeding with plan creation.")
                     return True
         except Exception as exc:
             # Fail open: a missing DATABASE_URL, a coordination table that hasn't
@@ -275,16 +252,12 @@ async def wait_until_aggregator_idle(poll_interval: float = _IDLE_POLL_INTERVAL_
             )
             return False
         if waited == 0.0:
-            _logger.info(
-                "Visibility aggregator is running; deferring plan creation "
-                "until it finishes."
-            )
+            _logger.info("Visibility aggregator is running; deferring plan creation until it finishes.")
         await asyncio.sleep(poll_interval)
         waited += poll_interval
 
 
-async def signal_plan_in_progress(holder: str = "operation",
-                                  detail: Optional[dict] = None) -> None:
+async def signal_plan_in_progress(holder: str = "operation", detail: Optional[dict] = None) -> None:
     """Mark that the operation process is computing a plan (best-effort)."""
     if not _interlock_enabled():
         return
@@ -317,8 +290,13 @@ async def get_aggregator_status() -> dict:
     marked active but its heartbeat has expired. Safe when DATABASE_URL is unset.
     """
     empty = {
-        "active": False, "holder": None, "started_at": None,
-        "heartbeat_at": None, "finished_at": None, "stale": False, "detail": None,
+        "active": False,
+        "holder": None,
+        "started_at": None,
+        "heartbeat_at": None,
+        "finished_at": None,
+        "stale": False,
+        "detail": None,
     }
     try:
         async with session_scope() as session:
@@ -331,9 +309,11 @@ async def get_aggregator_status() -> dict:
                 WHERE name = :name
                 """
             )
-            row = (await session.execute(
-                stmt, {"name": AGGREGATOR_NAME, "stale": STALE_AFTER_SECONDS}
-            )).mappings().first()
+            row = (
+                (await session.execute(stmt, {"name": AGGREGATOR_NAME, "stale": STALE_AFTER_SECONDS}))
+                .mappings()
+                .first()
+            )
     except Exception as exc:
         # No DB / un-migrated table / transient error: report "not running"
         # rather than failing the GraphQL query.
@@ -356,8 +336,7 @@ async def get_aggregator_status() -> dict:
     }
 
 
-async def _acquire_unconditional(session: AsyncSession, name: str,
-                                 holder: str) -> None:
+async def _acquire_unconditional(session: AsyncSession, name: str, holder: str) -> None:
     """Set ``name`` active unconditionally (single writer, no contention)."""
     stmt = text(
         """

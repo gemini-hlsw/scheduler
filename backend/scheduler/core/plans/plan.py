@@ -26,6 +26,7 @@ class Plan:
 
     night_stats are supposed to be calculated at the end when plans are already generated.
     """
+
     start: datetime
     end: datetime
     time_slot_length: timedelta
@@ -38,11 +39,9 @@ class Plan:
     night_stats: Optional[NightStats] = field(init=False, default=None)
     alt_degs: List[List[float]] = field(init=False, default_factory=list)
 
-
-    def nir_slots(self,
-                  science_obs: List[Observation],
-                  n_slots_filled: int,
-                  len_interval: int) -> Tuple[int, int, ObservationID]:
+    def nir_slots(
+        self, science_obs: List[Observation], n_slots_filled: int, len_interval: int
+    ) -> Tuple[int, int, ObservationID]:
         """
         Return the starting and ending timeline slots (indices) for the NIR science observations
         """
@@ -82,16 +81,18 @@ class Plan:
 
         return slot_start_nir, slot_end_nir, obs_id_nir
 
-    def add(self,
-            obs: Observation,
-            start: datetime,
-            atom_start: int,
-            atom_end: int,
-            start_time_slot: int,
-            time_slots: int,
-            score: float,
-            peak_score: float,
-            atom_times: List[int]) -> None:
+    def add(
+        self,
+        obs: Observation,
+        start: datetime,
+        atom_start: int,
+        atom_end: int,
+        start_time_slot: int,
+        time_slots: int,
+        score: float,
+        peak_score: float,
+        atom_times: List[int],
+    ) -> None:
 
         # Find step numbers
         step_start = None
@@ -119,7 +120,7 @@ class Plan:
             # Completion as planned. Collector.time_accounting restates this from the atoms that
             # were actually observed, since an event can cut the visit short of atom_end.
             f"{atom_end + 1}/{len(obs.sequence)}",
-            atom_times
+            atom_times,
         )
         self.visits.append(visit)
 
@@ -150,8 +151,7 @@ class Plan:
 
             start = start or 0
             stop = stop or visits_timeslots[-1] if stop > 0 else 0
-            plan.visits = [visits_by_timeslot[x] for x in visits_timeslots if
-                           start <= x <= stop]
+            plan.visits = [visits_by_timeslot[x] for x in visits_timeslots if start <= x <= stop]
             return plan
 
     def find(self, obs_id: ObservationID) -> Optional[Observation]:

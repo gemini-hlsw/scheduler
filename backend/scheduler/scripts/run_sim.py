@@ -21,8 +21,8 @@ from scheduler.services.sight.database.connection import init_db_engine
 
 _logger = logger_factory.create_logger(__name__)
 
-def main(*,
-         programs_ids: Path = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt') -> None:
+
+def main(*, programs_ids: Path = Path(ROOT_DIR) / 'scheduler' / 'data' / 'program_ids.txt') -> None:
 
     # Set lucupy to Gemini
     ObservatoryProperties.set_properties(GeminiProperties)
@@ -38,16 +38,18 @@ def main(*,
     # Create Parameters
     # params = SchedulerParameters(start=Time("2025-09-30 08:00:00", format='iso', scale='utc'),
     #                              end=Time("2025-10-05 08:00:00", format='iso', scale='utc'),
-    params=SchedulerParameters(start=datetime.fromisoformat("2026-03-26T08:00:00").replace(tzinfo=ZoneInfo("UTC")),
-                                end = datetime.fromisoformat("2026-03-31T08:00:00").replace(tzinfo=ZoneInfo("UTC")),
-                               # sites=ALL_SITES,
-                               # sites=[Site.GN],
-                               sites=[Site.GS],
-                               mode=SchedulerModes.SIMULATION,
-                               ranker_parameters=RankerParameters(vis_power=1.0, air_power=0.0),
-                               semester_visibility=False,
-                               num_nights_to_schedule=1,
-                               programs_list=programs_list)
+    params = SchedulerParameters(
+        start=datetime.fromisoformat("2026-03-26T08:00:00").replace(tzinfo=ZoneInfo("UTC")),
+        end=datetime.fromisoformat("2026-03-31T08:00:00").replace(tzinfo=ZoneInfo("UTC")),
+        # sites=ALL_SITES,
+        # sites=[Site.GN],
+        sites=[Site.GS],
+        mode=SchedulerModes.SIMULATION,
+        ranker_parameters=RankerParameters(vis_power=1.0, air_power=0.0),
+        semester_visibility=False,
+        num_nights_to_schedule=1,
+        programs_list=programs_list,
+    )
     engine = Engine(params)
     plan_summary, timelines = engine.schedule()
     # File output for future results comparison
@@ -57,7 +59,8 @@ def main(*,
     timelines.display()
     print(plan_summary)
 
+
 if __name__ == '__main__':
     t0 = time.time()
     main(programs_ids=Path(ROOT_DIR) / 'scheduler' / 'data' / 'gpp_program_ids.txt')
-    print(f'Completed in {(time.time() - t0) / 60.} min')
+    print(f'Completed in {(time.time() - t0) / 60.0} min')

@@ -102,10 +102,7 @@ class EphemerisLookup(metaclass=Singleton):
         try:
             return self._table[target_name][site_name][key]
         except KeyError:
-            raise KeyError(
-                f"No ephemeris found for target='{target_name}', "
-                f"site='{site_name}', date={key}"
-            )
+            raise KeyError(f"No ephemeris found for target='{target_name}', site='{site_name}', date={key}")
 
     @property
     def targets(self) -> list[str]:
