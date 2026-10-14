@@ -2,14 +2,12 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-import os
 import time
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from astropy.time import Time
-from lucupy.minimodel.site import ALL_SITES, Site
+from lucupy.minimodel.site import Site
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
 

@@ -9,13 +9,12 @@ from typing import ClassVar, Dict, Tuple, Callable, Awaitable, Optional
 from scheduler.core.events.queue import (Event, NightlyTimelineStore, ObservationActivationEvent,
                                          OnDemandScheduleEvent, TimelineListener)
 from scheduler.night_monitor.event_sources import ODBEventSource
-from .event_handler import EventHandler, LastPlanMock
+from .event_handler import EventHandler
 from .obscalc_visibility import (build_conditions, calculate_and_store_visibility, get_visibility_changes,
                                 refresh_visibility_if_changed, site_key_from_instrument,
                                 sight_visibility_enabled)
 from gpp_client.generated.scheduler_observations_updates import (SchedulerObservationsUpdates,
-                                                                SchedulerObservationsUpdatesObscalcUpdate,
-                                                                SchedulerObservationsUpdatesObscalcUpdateValue)
+                                                                SchedulerObservationsUpdatesObscalcUpdate)
 
 from lucupy.minimodel import ALL_SITES, Site, Observation, ObservationID, ObservationStatus
 

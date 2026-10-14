@@ -11,7 +11,9 @@
 # zip -X programs.zip *.json
 
 import argparse
-from odb_json import *
+import os
+
+from odb_json import odb_json
 
 
 if __name__ == '__main__':

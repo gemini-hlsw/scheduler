@@ -9,7 +9,7 @@ from lucupy.minimodel import CloudCover, Conditions, ImageQuality
 from lucupy.minimodel import SkyBackground as OcsSkyBackground, WaterVapor as OcsWaterVapor
 from lucupy.timeutils import sex2dec
 
-from gpp_client.generated.enums import Instrument, SkyBackground, TimingWindowInclusion
+from gpp_client.generated.enums import SkyBackground, TimingWindowInclusion
 from gpp_client.generated.scheduler_observations_updates import (
     SchedulerObservationsUpdatesObscalcUpdateValue as ObscalcValue,
 )

@@ -6,7 +6,6 @@ from typing import final, ClassVar, Dict, Final, Optional
 from astropy.coordinates import SkyCoord
 from astropy.time import Time, TimeDelta
 import astropy.units as u
-import numpy as np
 
 from lucupy.minimodel import SiderealTarget
 from lucupy.meta import Singleton

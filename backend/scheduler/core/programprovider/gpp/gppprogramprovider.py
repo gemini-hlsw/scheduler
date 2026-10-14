@@ -681,7 +681,7 @@ class GppProgramProvider(ProgramProvider):
             epoch_str = sidereal_object[GppProgramProvider._TargetKeys.EPOCH]
             # Strip off any leading letter, make float
             epoch = float(epoch_str[1:]) if epoch_str[0] in ['B', 'J'] else float(epoch_str)
-        except:
+        except Exception:
             # print(f'Target {name} is missing proper motion, setting to 0')
             pm_ra = 0.0
             pm_dec = 0.0
@@ -840,8 +840,6 @@ class GppProgramProvider(ProgramProvider):
                 atom_id = int(step[GppProgramProvider._AtomKeys.ATOM])
                 observe_class = step[GppProgramProvider._AtomKeys.OBS_CLASS]
                 step_time = int(step[GppProgramProvider._AtomKeys.TOTAL_TIME]) // 1000000 # transform to seconds
-                lamp_types = step['lamp_types']
-                step_types = step['step_types']
                 step_start = int(step['step_index'])
                 step_count = int(step['step_count'])
                 atoms.append(Atom(id=atom_id,
@@ -935,7 +933,7 @@ class GppProgramProvider(ProgramProvider):
         elif data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]:
             return self.parse_nonsidereal_target(data, targ_type)
         else:
-            msg = f'Illegal object type.'
+            msg = 'Illegal object type.'
             raise ValueError(msg)
 
     @staticmethod
@@ -1111,9 +1109,7 @@ class GppProgramProvider(ProgramProvider):
             else f"{program_id.id}-{internal_id.replace('-', '')}"
         # print(f'\n\t\t parse_observation {obs_id}')
 
-        order = None
         obs_class = ObservationClass.NONE
-        belongs_to = program_id
 
         try:
             # doesnt exits anymore
@@ -1451,7 +1447,7 @@ class GppProgramProvider(ProgramProvider):
             number_observed = 0
 
             # Active setting for children
-            child_active = False if (group_option == AndOption.CUSTOM or active == False) else True
+            child_active = False if (group_option == AndOption.CUSTOM or not active) else True
 
             # parent_id = unique_group_id(program_id,
             #                                 GroupID(data.get(GppProgramProvider._GroupKeys.PARENT_ID)))
@@ -1541,7 +1537,7 @@ class GppProgramProvider(ProgramProvider):
                 if group_id != ROOT_GROUP_ID:
                     child.previous_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
                     child.next_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
-                    if group_option == AndOption.CUSTOM and child.previous_id == GROUP_NONE_ID and active != False:
+                    if group_option == AndOption.CUSTOM and child.previous_id == GROUP_NONE_ID and active:
                         child.active = True
 
         # Put all the observations in the one big group and return it.
@@ -1645,7 +1641,7 @@ class GppProgramProvider(ProgramProvider):
         # Extract the semester and program type
         try:
             sem = data['proposal']['call']['semester']  # Program.Proposal.call.semester
-        except:
+        except Exception:
             # For CAL/ENG programs, parse the program_id (G-YYYYS-ENG/CAL...)
             sem = program_id.id[2:7]
         semester = Semester(year=int(sem[0:4]), half=SemesterHalf(sem[-1]))

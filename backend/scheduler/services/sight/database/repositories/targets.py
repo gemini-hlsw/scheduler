@@ -2,9 +2,8 @@ from collections import Counter
 from datetime import datetime
 from typing import Sequence
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, func
 from sqlalchemy.exc import MultipleResultsFound
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from scheduler.services.sight.database.models import Target
 from scheduler.services.sight.database.repositories.base import BaseRepository
@@ -52,13 +51,13 @@ class TargetRepository(BaseRepository[Target]):
 
     async def get_sidereal(self) -> Sequence[Target]:
         """Get all sidereal targets."""
-        stmt = select(Target).where(Target.is_sidereal == True)
+        stmt = select(Target).where(Target.is_sidereal == True)  # noqa: E712 (SQL expression, keeps the indexable `= true`)
         result = await self.session.execute(stmt)
         return result.scalars().all()
     
     async def get_non_sidereal(self) -> Sequence[Target]:
         """Get all non-sidereal targets (require Horizons)."""
-        stmt = select(Target).where(Target.is_sidereal == False)
+        stmt = select(Target).where(Target.is_sidereal == False)  # noqa: E712 (SQL expression, keeps the indexable `= false`)
         result = await self.session.execute(stmt)
         return result.scalars().all()
     

@@ -340,7 +340,8 @@ class Version:
 
 EventsAddedResponse = EventsAddedSuccess | EventsAddedError
 
-from scheduler.engine.params import BuildParameters, NightTimes
+# Imported here, not at the top: scheduler.engine imports engineRT, which imports this module.
+from scheduler.engine.params import BuildParameters, NightTimes  # noqa: E402
 
 
 

@@ -7,7 +7,6 @@ import dateutil.parser
 import requests
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-import time as time_module
 from pathlib import Path
 from typing import final, ContextManager, Dict, Final
 
@@ -189,11 +188,15 @@ class HorizonsClient:
                         overwrite: bool = False) -> EphemerisCoordinates:
         # TODO: ODB extractor must be mofidief.
         match target.tag:
-            case TargetTag.COMET: horizons_name = f'NAME={target.des};CAP'
-            case TargetTag.ASTEROID: horizons_name = f'ASTNAM={target.des};'
-            case TargetTag.MAJORBODY: horizons_name = self.generate_horizons_id(target.des)
+            case TargetTag.COMET:
+                horizons_name = f'NAME={target.des};CAP'
+            case TargetTag.ASTEROID:
+                horizons_name = f'ASTNAM={target.des};'
+            case TargetTag.MAJORBODY:
+                horizons_name = self.generate_horizons_id(target.des)
             # case _: raise ValueError(f'Unknown tag {target.tag}')
-            case _: horizons_name = f'DES={target.des};'
+            case _:
+                horizons_name = f'DES={target.des};'
 
         targ_name = target.des.replace(' ', '_').replace('/','')
         # end is the UT date, the same for both Gemini sites

@@ -12,7 +12,7 @@ class LastPlanMock:
     visits = []
 
     def get_observation(self, observationId):
-        return MockObservation
+        return None
 
     def current_visit(self):
         """Pointer to the current visit. Gets updated when a new visit is executed"""

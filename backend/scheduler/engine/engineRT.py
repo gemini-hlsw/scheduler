@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-import datetime
 from time import time
 import traceback
 import numpy as np
@@ -11,16 +10,14 @@ from scheduler.core.scp.scp import SCP
 from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
-from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
 from scheduler.services.telemetry import timed
 from scheduler.core.events.queue import NightlyTimelineStore
-from scheduler.core.events.queue.events import CustomStartOfNightEvent, Event, EndOfNightEvent
+from scheduler.core.events.queue.events import Event, EndOfNightEvent
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.graphql_mid.types import NewNightPlans, SNightTimelines, SRunSummary
-from scheduler.graphql_mid.types import NightPlansError, SPlans
-from scheduler.graphql_mid.types import NightPlansWithEvent
+from scheduler.graphql_mid.types import NightPlansError
 from scheduler.night_monitor.event_sources import WeatherEventSource
 from scheduler.services.visibility_aggregator import coordination
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site

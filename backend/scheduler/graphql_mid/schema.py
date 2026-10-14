@@ -151,7 +151,7 @@ class Query:
                 time=None
             )
         )
-        return f'Plan is on the queue in the Operation Process!'
+        return 'Plan is on the queue in the Operation Process!'
 
     @strawberry.field
     async def on_demand_schedule(self)-> str:
@@ -168,7 +168,7 @@ class Query:
                 time=datetime.now(UTC)
             )
         )
-        return f'Plan is on the queue in the Operation Process!'
+        return 'Plan is on the queue in the Operation Process!'
 
     @strawberry.field
     async def available_programs(self, night_date: Optional[date] = None)-> list[AvailableProgram]:
@@ -310,9 +310,9 @@ class Subscription:
         try:
             while True:
                 try:
-                    _logger.info(f"Subscription: Waiting for build parameters update")
+                    _logger.info("Subscription: Waiting for build parameters update")
                     result = await client_queue.get()  # Wait for item from the queue
-                    _logger.info(f"Subscription: Received build parameters update")
+                    _logger.info("Subscription: Received build parameters update")
                     _logger.debug(f'Result: {result}')
                     yield BuildParametersResponse(
                         night_times=[NightTimesResponse(
@@ -348,7 +348,7 @@ class Mutation:
             await build_params_store.set(build_params)
             for queue in build_parameters_subscribers:
                 await queue.put(build_params)
-            msg += f'Build Parameters updated successful'
+            msg += 'Build Parameters updated successful'
         except ValidationError as e:
             msg+=f'Error: {e.errors()}'
         return msg

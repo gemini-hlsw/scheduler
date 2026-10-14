@@ -6,7 +6,6 @@ from typing import final, Dict
 
 import numpy.typing as npt
 import numpy as np
-from dotenv import set_key
 from lucupy.minimodel import Site, NightIndex, TimeslotIndex
 
 from scheduler.core.components.collector import Collector

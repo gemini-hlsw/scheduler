@@ -16,7 +16,6 @@ import pytest
 
 import astropy.units as u
 from astropy.coordinates import Angle
-from astropy.time import Time
 from lucupy.minimodel import (ALL_SITES, CloudCover, ImageQuality, NightIndex,
                               Semester, SemesterHalf, Site, VariantSnapshot)
 from lucupy.observatory.abstract import ObservatoryProperties

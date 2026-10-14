@@ -12,7 +12,6 @@ from lucupy.minimodel import NonsiderealTarget, Site
 from lucupy.meta import Singleton
 from lucupy.timeutils import time2slots
 
-from scheduler.config import config
 from scheduler.services.horizons import horizons_session
 from scheduler.services.logger_factory import create_logger
 
@@ -63,8 +62,8 @@ class EphemerisCalculator(metaclass=Singleton):
             raise ValueError('end_lookup_time must be a scalar or single value.')
 
         if start_lookup_time_py > end_lookup_time_py:
-            logger.error(f'Cannot calculate ephemeris for end date that occurs before start date.')
-            raise ValueError(f'Cannot calculate ephemeris for end date that occurs before start date.')
+            logger.error('Cannot calculate ephemeris for end date that occurs before start date.')
+            raise ValueError('Cannot calculate ephemeris for end date that occurs before start date.')
 
         with horizons_session(site, start_lookup_time.to_datetime(), end_lookup_time.to_datetime(),
                               time_slot_length=1) as hs:

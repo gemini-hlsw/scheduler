@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import numpy as np
 from scheduler.core.events.queue.nightchanges import TimelineEntry
 from lucupy.timeutils import time2slots
@@ -8,10 +8,10 @@ from lucupy.timeutils import time2slots
 from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
 from scheduler.core.events.queue import NightlyTimeline, NightEventQueue
 from scheduler.core.events.cycle import EventCycle
-from scheduler.core.plans import Plans, Plan
+from scheduler.core.plans import Plans
 
 
-from lucupy.minimodel import TimeslotIndex, NightIndex, Site
+from lucupy.minimodel import TimeslotIndex, NightIndex
 
 
 class MockEvent:

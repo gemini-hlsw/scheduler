@@ -12,10 +12,9 @@ keyed per event loop and its `client` property calls `asyncio.get_running_loop()
 Sight AsyncSession is bound to the loop that created it.
 """
 
-import asyncio
 import inspect
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from lucupy.minimodel import Site

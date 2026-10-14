@@ -1,6 +1,5 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-import asyncio
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +9,6 @@ from scheduler.orchestration.process_manager import process_manager
 from scheduler.services.sight.database.connection import init_db_engine, dispose_engine
 from scheduler.services.logger_factory import create_logger
 from scheduler.services.telemetry import setup_telemetry, shutdown_telemetry
-from scheduler.core.builder.modes import is_validation, is_operation
 from scheduler.version import get_app_version
 
 _logger = create_logger(__name__, with_id=False)
@@ -63,5 +61,5 @@ app.add_route('/graphql', graphql_server)
 app.add_websocket_route('/graphql', graphql_server)
 
 
-# Import the routes after creating the FastAPI instance
-from scheduler import routes
+# Import the routes after creating the FastAPI instance; the import registers them on `app`
+from scheduler import routes  # noqa: E402, F401

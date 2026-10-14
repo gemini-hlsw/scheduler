@@ -1,5 +1,4 @@
 from typing import Generic, TypeVar, Sequence
-from datetime import date
 
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession

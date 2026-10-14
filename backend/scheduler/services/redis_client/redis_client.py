@@ -4,7 +4,6 @@
 import json
 from typing import Optional
 
-import redis
 import os
 from redis import asyncio as aioredis
 

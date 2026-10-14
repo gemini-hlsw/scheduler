@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, FrozenSet
 
-from lucupy.minimodel import Resource, Site, TimeslotIndex, VariantSnapshot, ObservationID, Target
+from lucupy.minimodel import Resource, Site, TimeslotIndex, VariantSnapshot, ObservationID
 from lucupy.timeutils import time2slots
 
 

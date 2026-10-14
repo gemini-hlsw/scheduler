@@ -69,7 +69,6 @@ def calculate_stage1(
     
     # Build time grid for this night
     night_start = Time(night_event.night_start)
-    time_grid = night_start + np.arange(num_time_slots) * time_slot_length
     
     # Get coordinates based on target type
     if target.is_sidereal:

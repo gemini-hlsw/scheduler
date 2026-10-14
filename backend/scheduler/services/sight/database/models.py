@@ -13,8 +13,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     UniqueConstraint,
-    func,
-    JSON
+    func
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship

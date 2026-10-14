@@ -198,8 +198,6 @@ def _calculate_sky_brightness_array(
 
     Vectorized the results so they can be applied further down the process.
     """
-    n = len(ra)
-
     # Calculate target-moon angular separation
     target_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
     moon_coord = SkyCoord(ra=moon_ra * u.deg, dec=moon_dec * u.deg)

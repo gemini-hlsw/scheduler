@@ -7,7 +7,7 @@ from typing import FrozenSet, Dict, List, Tuple, Optional, ClassVar
 
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import Site, GroupID, ObservationID, NightIndex, Atom, ObservationStatus, Observation
+from lucupy.minimodel import Site, ObservationID, NightIndex, Atom, ObservationStatus, Observation
 from lucupy.types import ZeroTime
 
 

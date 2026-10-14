@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import final, Dict, FrozenSet, List, Optional, Tuple
 from astropy.time import Time
 
@@ -802,7 +802,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
         logger.debug(f"\n\tgreedymax._update_score: updating {program.id.id}")
 
         program_calculations = self.selection.score_program(program)
-        logger.debug(f"\n\tgreedymax._update_score: done")
+        logger.debug("\n\tgreedymax._update_score: done")
 
         if program_calculations is not None:
             # print("Re-score incomplete schedulable_groups")

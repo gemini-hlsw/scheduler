@@ -6,9 +6,7 @@ from typing import final, Dict, TypeAlias, Tuple
 
 import numpy.typing as npt
 from astropy.coordinates import Angle, SkyCoord
-from astropy.time import TimeDelta
-from lucupy.decorators import immutable
-from lucupy.minimodel import NightIndex, ObservationID, SkyBackground, TargetName
+from lucupy.minimodel import NightIndex, ObservationID, TargetName
 
 
 __all__ = [

@@ -2,7 +2,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os, sys
 
 # Requires https://github.com/andrewwstephens/pyexplore
 # sys.path.append(os.path.join(os.environ['PYEXPLORE']))

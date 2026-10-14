@@ -6,7 +6,7 @@ import os
 import pickle
 import io
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import aioboto3
 from astropy.coordinates import SkyCoord

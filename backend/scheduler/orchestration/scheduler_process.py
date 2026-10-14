@@ -4,7 +4,6 @@
 import asyncio
 from datetime import timedelta
 
-from astropy.time import Time
 
 from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue

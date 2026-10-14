@@ -860,7 +860,6 @@ class OcsProgramProvider(ProgramProvider):
                 offset_lag = 0
         # print(f'\t Offset_lag: {p_lag} {q_lag} {offset_lag}')
         # Group by changes in exptimes / coadds?
-        exp_time_groups = False
         n_offsets = 0
         n_pattern = offset_lag
         prev = -1
@@ -870,7 +869,6 @@ class OcsProgramProvider(ProgramProvider):
         has_cal = False if (any(instr in instrument for instr in ['GMOS']) and
                             mode != ObservationMode.IMAGING) else True
         # print(f'\tparse_atoms:')
-        step_start = 0
         step_count = 0
         for step_id, step in enumerate(sequence):
             next_atom = False

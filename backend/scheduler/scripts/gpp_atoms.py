@@ -2,7 +2,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os, sys
 
 # Requires https://github.com/andrewwstephens/pyexplore
 # sys.path.append(os.path.join(os.environ['PYEXPLORE']))
@@ -60,11 +59,11 @@ if __name__ == '__main__':
         #     print(step['atom'], step['class'], step['type'], step['exposure'])
         print(sequence)
 
-        print(f"Atom information")
+        print("Atom information")
         # TODO change pyexplore to other api query
         # explore.sequence_atoms(obs.id, include_acquisition=True)
 
-        print(f"Atom parsing")
+        print("Atom parsing")
         site = provider._site_for_inst[obs.instrument]
         for atom in provider.parse_atoms(site, sequence):
             print('Output Atoms')

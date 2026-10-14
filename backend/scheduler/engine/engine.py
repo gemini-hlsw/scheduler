@@ -76,7 +76,7 @@ class Engine:
         logger.debug(f'\nCollector built in {(t1 - t0) / 60.} min')
         # print(f'Collector built in {(t1 - t0) / 60.} min')
 
-        from lucupy.minimodel import ProgramID, Band, Site
+        from lucupy.minimodel import Band
         # print_collector_info(collector)
         # nc = collector.night_configurations(Site.GS, [0])
         # print(f'\n GS 0: {nc}')

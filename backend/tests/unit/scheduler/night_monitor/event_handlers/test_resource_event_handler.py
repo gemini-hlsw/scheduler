@@ -143,6 +143,7 @@ class TestResourceEventHandler:
 
             # Callback should not have been called since we enabled before timeout
             assert "test_resource" not in handler.pdr.queue
+            mock_cb.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_timeout_triggers_callback(self, handler, schedule_queue):

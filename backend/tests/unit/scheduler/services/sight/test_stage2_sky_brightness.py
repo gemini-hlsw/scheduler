@@ -14,7 +14,6 @@ vectorised behaviour.
 from datetime import datetime, timezone
 
 import numpy as np
-import pytest
 
 from lucupy.minimodel import SkyBackground
 

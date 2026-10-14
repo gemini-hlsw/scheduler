@@ -178,10 +178,14 @@ async def test_listen(no_retry, event_listener, mock_client_async):
     # Mock subscriptions() to return (subscription_name, factory) tuples
     # The factory is a callable that returns an async generator when awaited
     # Factories must be lambdas that return generators directly, not async functions
-    resource_factory = lambda session: mock_subscription_generator(['res_data'])
-    weather_factory = lambda session: mock_subscription_generator(['weather_data'])
-    odb_factory1 = lambda session: mock_subscription_generator(['odb_data1'])
-    odb_factory2 = lambda session: mock_subscription_generator(['odb_data2'])
+    def resource_factory(session):
+        return mock_subscription_generator(['res_data'])
+    def weather_factory(session):
+        return mock_subscription_generator(['weather_data'])
+    def odb_factory1(session):
+        return mock_subscription_generator(['odb_data1'])
+    def odb_factory2(session):
+        return mock_subscription_generator(['odb_data2'])
 
     # Subscriptions must return 3-tuples: (sub_name, factory, client)
     mock_resource_source.subscriptions.return_value = [
@@ -237,7 +241,8 @@ async def test_listen_logs_producer_failure(no_retry, event_listener, mock_clien
     def failing_factory(session):
         raise RuntimeError("subscription exploded")
 
-    ok_factory = lambda session: mock_subscription_generator(['odb_data'])
+    def ok_factory(session):
+        return mock_subscription_generator(['odb_data'])
 
     mock_source.subscriptions.return_value = [
         ('observation_edit', failing_factory, mock_client_async),

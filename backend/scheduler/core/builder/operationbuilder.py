@@ -4,7 +4,6 @@
 from typing import final, FrozenSet
 from datetime import datetime
 
-from astropy.time import Time
 from lucupy.minimodel import Site
 
 from .schedulerbuilder import SchedulerBuilder

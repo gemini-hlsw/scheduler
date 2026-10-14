@@ -167,7 +167,7 @@ class ChangeMonitor(SchedulerComponent):
                 current_variant = self.selector.get_current_variant(site)
                 if current_variant.iq == variant_change.iq and current_variant.cc == variant_change.cc:
                     logger.info(
-                        f'We skip this as is the same conditions as current variant.' +
+                        'We skip this as is the same conditions as current variant.' +
                         f'\n\t current IQ: {current_variant.iq} vs new IQ: {variant_change.iq}.'
                         f'\n\t current CC: {current_variant.cc} vs new CC: {variant_change.cc}.'
                     )

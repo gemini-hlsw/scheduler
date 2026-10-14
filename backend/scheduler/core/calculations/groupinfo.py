@@ -7,7 +7,7 @@ from typing import final, Dict, TypeAlias
 from lucupy.minimodel import Conditions, Group, NightIndex, TimeslotIndex, UniqueGroupID
 import numpy.typing as npt
 
-from .scores import Scores, Metrics
+from .scores import Scores
 
 
 __all__ = [

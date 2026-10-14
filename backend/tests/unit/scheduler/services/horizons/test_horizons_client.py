@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from datetime import datetime, timedelta
-from typing import Final, List, Tuple
+from typing import Final, Tuple
 
 import numpy as np
 import pytest

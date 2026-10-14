@@ -14,7 +14,7 @@ from astropy.coordinates import Angle
 from astropy.units import Quantity
 import lucupy.sky as sky
 from lucupy.helpers import is_contiguous
-from lucupy.minimodel import (Group, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
+from lucupy.minimodel import (Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
                               ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, TimeslotIndex,
                               UniqueGroupID, Variant, VariantSnapshot, AndOption)
 from lucupy.minimodel import CloudCover, ImageQuality

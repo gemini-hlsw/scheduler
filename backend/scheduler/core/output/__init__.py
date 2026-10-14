@@ -16,7 +16,6 @@ from pandas import DataFrame
 import numpy as np
 
 from scheduler.core.components.collector import Collector
-from scheduler.core.components.nighteventsmanager import NightEventsManager
 from scheduler.core.plans import Plans
 from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.programprovider.ocs import OcsProgramProvider
@@ -57,7 +56,6 @@ def print_collector_info(collector: Collector) -> None:
     print(f'   time slot length: {collector.time_slot_length.to(u.min)}')
 
     # Print out sampled calculation for every hour as there are far too many results to print in full.
-    time_grid = collector.time_grid
     #for site in collector.sites:
         #nc = collector.night_configurations(site, np.arange(collector.num_nights_calculated))
         # print(f'\n\n+++++ NIGHT EVENTS FOR {site.name} +++++')

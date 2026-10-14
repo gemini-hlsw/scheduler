@@ -1,5 +1,4 @@
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from scheduler.services.sight.database.models import Site
 from scheduler.services.sight.database.repositories.base import BaseRepository

@@ -3,7 +3,6 @@ from datetime import date, datetime
 from typing import Sequence
 
 from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from scheduler.services.sight.database.models import NightEvent
 from scheduler.services.sight.database.repositories.base import BaseRepository

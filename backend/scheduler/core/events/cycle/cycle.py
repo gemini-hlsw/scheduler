@@ -7,7 +7,7 @@ from lucupy.minimodel import TimeslotIndex, NightIndex, Site
 from scheduler.core.calculations import NightEvents
 from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
 from scheduler.core.events.queue import Event, NightlyTimeline, EventQueue, NightEventQueue
-from scheduler.core.plans import Plans, Plan
+from scheduler.core.plans import Plans
 from scheduler.core.scp import SCP
 from scheduler.services import logger_factory
 

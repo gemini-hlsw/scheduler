@@ -1,9 +1,8 @@
-from datetime import date, datetime
+from datetime import date
 from typing import Sequence
 
 from sqlalchemy import select, and_, delete, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from scheduler.services.sight.database.models import Target, TargetNightData
 from scheduler.services.sight.database.repositories.base import BaseRepository

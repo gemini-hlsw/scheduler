@@ -27,12 +27,14 @@ _logger = logger_factory.create_logger(__name__)
 __all__ = ['EventListener', 'SubscriptionEndedException', 'SourceMisconfiguredException']
 
 
-class SubscriptionEndedException(Exception): pass
+class SubscriptionEndedException(Exception):
+    pass
 # SubscriptionEndedException is raised below when a subscription ends without an
 # error, which is what a server-side `complete` frame looks like.
 
 
-class SourceMisconfiguredException(Exception): pass
+class SourceMisconfiguredException(Exception):
+    pass
 # A source was wired up without the client it needs.
 
 

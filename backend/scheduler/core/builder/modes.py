@@ -11,7 +11,6 @@ from .simulationbuilder import SimulationBuilder
 from .schedulerbuilder import SchedulerBuilder
 from .validationbuilder import ValidationBuilder
 from scheduler.core.events.queue import EventQueue
-from scheduler.config import config
 
 
 __all__ = [
