@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import numpy as np
 from scheduler.core.events.queue.nightchanges import TimelineEntry
 from lucupy.timeutils import time2slots
@@ -8,10 +8,10 @@ from lucupy.timeutils import time2slots
 from scheduler.core.components.changemonitor import ChangeMonitor, TimeCoordinateRecord
 from scheduler.core.events.queue import NightlyTimeline, NightEventQueue
 from scheduler.core.events.cycle import EventCycle
-from scheduler.core.plans import Plans, Plan
+from scheduler.core.plans import Plans
 
 
-from lucupy.minimodel import TimeslotIndex, NightIndex, Site
+from lucupy.minimodel import TimeslotIndex, NightIndex
 
 
 class MockEvent:
@@ -26,16 +26,11 @@ class MockEvent:
 
 
 class TestEventCycle:
-
     def test_init(self, setup_basic_components):
         """Test initialization of EventCycle."""
         comps = setup_basic_components
 
-        event_cycle = EventCycle(
-            params=comps['params'],
-            queue=comps['queue'],
-            scp=comps['scp']
-        )
+        event_cycle = EventCycle(params=comps['params'], queue=comps['queue'], scp=comps['scp'])
 
         assert event_cycle.params == comps['params']
         assert event_cycle.queue == comps['queue']
@@ -79,8 +74,7 @@ class TestEventCycle:
         plans = MagicMock(spec=Plans)
 
         update, current_timeslot = event_cycle._process_current_events(
-            site, night_idx, night_start, time_slot_length,
-            events_by_night, plans, None, None
+            site, night_idx, night_start, time_slot_length, events_by_night, plans, None, None
         )
 
         # Should return the same next_event and next_event_timeslot
@@ -111,15 +105,13 @@ class TestEventCycle:
         update.timeslot_idx = TimeslotIndex(10)
 
         update_result, current_timeslot = event_cycle._process_current_events(
-            site, night_idx, night_start, time_slot_length,
-            events_by_night, plans, update, previous_timeslot
+            site, night_idx, night_start, time_slot_length, events_by_night, plans, update, previous_timeslot
         )
 
         # Should update next_event and next_event_timeslot
         assert current_timeslot == update.timeslot_idx
         # Should not process the event yet
         events_by_night.pop_next_event.assert_not_called()
-
 
     def test_process_current_events_future_event_sooner_timeslot(self, setup_event_cycle, setup_night_events):
         """Test processing with an event in the future."""
@@ -146,8 +138,7 @@ class TestEventCycle:
         update.timeslot_idx = TimeslotIndex(120)
 
         _, current_timeslot = event_cycle._process_current_events(
-            site, night_idx, night_start, time_slot_length,
-            events_by_night, plans, update, previous_timeslot
+            site, night_idx, night_start, time_slot_length, events_by_night, plans, update, previous_timeslot
         )
 
         # Should update next_event and next_event_timeslot
@@ -166,9 +157,7 @@ class TestEventCycle:
         plans = MagicMock(spec=Plans)
         nightly_timeline = MagicMock(spec=NightlyTimeline)
 
-        result_plans = event_cycle._handle_updates(
-            site, night_idx, current_timeslot, update, plans, nightly_timeline
-        )
+        result_plans = event_cycle._handle_updates(site, night_idx, current_timeslot, update, plans, nightly_timeline)
 
         # Should not change anything
         assert result_plans == plans
@@ -186,7 +175,7 @@ class TestEventCycle:
             timeslot_idx=TimeslotIndex(5),  # Future timeslot
             event=update_event,
             done=False,
-            perform_time_accounting=True
+            perform_time_accounting=True,
         )
         next_update = time_record
 
@@ -210,10 +199,7 @@ class TestEventCycle:
 
         update_event = MockEvent(datetime.now(), "Update Event")
         time_record = TimeCoordinateRecord(
-            timeslot_idx=TimeslotIndex(5),
-            event=update_event,
-            done=False,
-            perform_time_accounting=True
+            timeslot_idx=TimeslotIndex(5), event=update_event, done=False, perform_time_accounting=True
         )
         next_update = time_record
 
@@ -246,10 +232,7 @@ class TestEventCycle:
 
         update_event = MockEvent(datetime.now(), "Update Event")
         time_record = TimeCoordinateRecord(
-            timeslot_idx=TimeslotIndex(5),
-            event=update_event,
-            done=True,
-            perform_time_accounting=True
+            timeslot_idx=TimeslotIndex(5), event=update_event, done=True, perform_time_accounting=True
         )
         next_update = time_record
 
@@ -278,10 +261,7 @@ class TestEventCycle:
 
         update_event = MockEvent(datetime.now(), "Update Event")
         update = TimeCoordinateRecord(
-            timeslot_idx=TimeslotIndex(5),
-            event=update_event,
-            done=False,
-            perform_time_accounting=True
+            timeslot_idx=TimeslotIndex(5), event=update_event, done=False, perform_time_accounting=True
         )
 
         end_timeslot_bounds = {site: update.timeslot_idx}
@@ -299,12 +279,9 @@ class TestEventCycle:
 
         # Should call time_accounting but not add a final plan
         comps['scp'].collector.time_accounting.assert_called_once_with(
-            plans=plans,
-            sites=frozenset({site}),
-            end_timeslot_bounds=end_timeslot_bounds
+            plans=plans, sites=frozenset({site}), end_timeslot_bounds=end_timeslot_bounds
         )
         nightly_timeline.add.assert_not_called()
-
 
     def test_create_new_plan_unblocked(self, setup_event_cycle):
         """Test creating a new plan when site is unblocked."""
@@ -316,10 +293,7 @@ class TestEventCycle:
 
         update_event = MockEvent(datetime.now(), "Update Event")
         update = TimeCoordinateRecord(
-            timeslot_idx=TimeslotIndex(5),
-            event=update_event,
-            done=False,
-            perform_time_accounting=True
+            timeslot_idx=TimeslotIndex(5), event=update_event, done=False, perform_time_accounting=True
         )
 
         plans = MagicMock(spec=Plans)
@@ -332,9 +306,7 @@ class TestEventCycle:
 
         event_cycle.change_monitor.is_site_unblocked.return_value = True
 
-        result_plans = event_cycle._create_new_plan(
-            site, night_idx, current_timeslot, update, plans, nightly_timeline
-        )
+        result_plans = event_cycle._create_new_plan(site, night_idx, current_timeslot, update, plans, nightly_timeline)
 
         # Should run SCP and add plan to timeline
         comps['scp'].run.assert_called_once_with(site, np.array([night_idx]), current_timeslot)
@@ -353,10 +325,7 @@ class TestEventCycle:
 
         update_event = MockEvent(datetime.now(), "Update Event")
         update = TimeCoordinateRecord(
-            timeslot_idx=TimeslotIndex(5),
-            event=update_event,
-            done=False,
-            perform_time_accounting=True
+            timeslot_idx=TimeslotIndex(5), event=update_event, done=False, perform_time_accounting=True
         )
 
         plans = MagicMock(spec=Plans)
@@ -364,13 +333,9 @@ class TestEventCycle:
 
         event_cycle.change_monitor.is_site_unblocked.return_value = False
 
-        result_plans = event_cycle._create_new_plan(
-            site, night_idx, current_timeslot, update, plans, nightly_timeline
-        )
+        result_plans = event_cycle._create_new_plan(site, night_idx, current_timeslot, update, plans, nightly_timeline)
 
         # Should not run SCP but add None plan to timeline
         comps['scp'].run.assert_not_called()
-        nightly_timeline.add.assert_called_once_with(
-            NightIndex(night_idx), site, current_timeslot, update_event, None
-        )
+        nightly_timeline.add.assert_called_once_with(NightIndex(night_idx), site, current_timeslot, update_event, None)
         assert result_plans == plans

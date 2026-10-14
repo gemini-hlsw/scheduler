@@ -9,14 +9,9 @@ from scheduler.orchestration.process_manager import process_manager
 # Root API
 @app.get("/", include_in_schema=False)
 def root() -> JSONResponse:
-    return JSONResponse(status_code=200,
-                        content={
-                            "message": "Welcome to Server"})
+    return JSONResponse(status_code=200, content={"message": "Welcome to Server"})
+
 
 @app.get("/get_operation_id")
 def get_operation_id() -> JSONResponse:
-    return JSONResponse(
-        status_code=200,
-        content={
-            "message": process_manager.get_operation_id()
-    })
+    return JSONResponse(status_code=200, content={"message": process_manager.get_operation_id()})

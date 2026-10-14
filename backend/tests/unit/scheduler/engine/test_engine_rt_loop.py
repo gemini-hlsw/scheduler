@@ -41,6 +41,7 @@ def _timeline_store() -> MagicMock:
     A bare MagicMock would yield an AsyncMock, turning the synchronous timeline writes
     into un-awaited coroutines and hiding real mistakes behind warnings.
     """
+
     @asynccontextmanager
     async def mutate():
         yield MagicMock()
@@ -55,17 +56,17 @@ def _timeline_store() -> MagicMock:
 def _engine() -> EngineRT:
     params = MagicMock()
     params.sites = _SITES
-    return EngineRT(params,
-                    scheduler_queue=MagicMock(),
-                    process_id="test",
-                    weather_source=MagicMock(),
-                    nightly_timeline_store=_timeline_store())
+    return EngineRT(
+        params,
+        scheduler_queue=MagicMock(),
+        process_id="test",
+        weather_source=MagicMock(),
+        nightly_timeline_store=_timeline_store(),
+    )
 
 
 def _event() -> OnDemandScheduleEvent:
-    return OnDemandScheduleEvent(site=Site.GN,
-                                 time=datetime(2026, 8, 26, 6, 0, tzinfo=UTC),
-                                 description="test event")
+    return OnDemandScheduleEvent(site=Site.GN, time=datetime(2026, 8, 26, 6, 0, tzinfo=UTC), description="test event")
 
 
 def _stub_plan_pipeline(engine: EngineRT, run_rt):
@@ -75,8 +76,12 @@ def _stub_plan_pipeline(engine: EngineRT, run_rt):
     engine._compute_event_start_timeslot = AsyncMock(return_value={Site.GN: {0: 0}})
     engine.scp = MagicMock()
     engine.scp.run_rt = run_rt
-    return (patch(f"{_MODULE}.StatCalculator"), patch(f"{_MODULE}.SNightTimelines"),
-            patch(f"{_MODULE}.SRunSummary"), patch(f"{_MODULE}.NewNightPlans"))
+    return (
+        patch(f"{_MODULE}.StatCalculator"),
+        patch(f"{_MODULE}.SNightTimelines"),
+        patch(f"{_MODULE}.SRunSummary"),
+        patch(f"{_MODULE}.NewNightPlans"),
+    )
 
 
 @pytest.mark.asyncio
@@ -92,8 +97,9 @@ async def test_run_rt_does_not_run_on_the_loop_thread():
     with stats, timelines, summary, plans:
         await engine._compute_event_plan(_event())
 
-    assert ran_on["thread"] != threading.get_ident(), \
+    assert ran_on["thread"] != threading.get_ident(), (
         "run_rt must be offloaded; on the loop's thread it starves the ODB subscription"
+    )
 
 
 @pytest.mark.asyncio
@@ -112,9 +118,7 @@ async def test_the_loop_keeps_running_while_a_plan_computes():
             await asyncio.sleep(0.01)
             ticks += 1
 
-    stats, timelines, summary, plans = _stub_plan_pipeline(
-        engine, lambda _s: (time.sleep(0.3), MagicMock())[1]
-    )
+    stats, timelines, summary, plans = _stub_plan_pipeline(engine, lambda _s: (time.sleep(0.3), MagicMock())[1])
     task = asyncio.create_task(ticker())
     try:
         with stats, timelines, summary, plans:

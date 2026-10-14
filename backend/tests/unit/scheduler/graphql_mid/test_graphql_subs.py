@@ -1,70 +1,67 @@
 import pytest
 
-from lucupy.observatory.abstract import ObservatoryProperties
-from lucupy.observatory.gemini import GeminiProperties
 
-from scheduler.graphql_mid.server import schema
-
-
-@pytest.mark.asyncio
-async def test_schedule_sub(visibility_calculator_fixture, set_observatory_properties, scheduler_schema):
-
-    query = """
-            query Schedule {
-                schedule(scheduleId: "1", 
-                         newScheduleInput: {startTime: "2018-10-21 08:00:00",
-                                            endTime: "2018-10-24 08:00:00"
-                                            sites: "GN", 
-                                            mode: VALIDATION,
-                                            semesterVisibility:false,
-                                            numNightsToSchedule:1})
-            }
-    """
-    sub = """
-    subscription QueueSchedule {
-      queueSchedule(scheduleId: "1") {
-        __typename
-        ... on NewNightPlans {
-          nightPlans {
-            nightTimeline {
-              nightIndex
-              timeEntriesBySite {
-                site
-                timeLosses
-                timeEntries {
-                  event
-                  plan {
-                    startTime
-                    endTime
-                    nightConditions {
-                      iq
-                      cc
-                    }
-                    visits {
-                      obsId
-                    }
-                    nightStats {
-                      planScore
-                      timeLoss
-                    }
-                  }
+QUEUE_SCHEDULE_QUERY = """
+        query Schedule {
+            schedule(scheduleId: "1", 
+                     newScheduleInput: {startTime: "2018-10-21 08:00:00",
+                                        endTime: "2018-10-24 08:00:00"
+                                        sites: "GN", 
+                                        mode: VALIDATION,
+                                        semesterVisibility:false,
+                                        numNightsToSchedule:1})
+        }
+"""
+QUEUE_SCHEDULE_SUB = """
+subscription QueueSchedule {
+  queueSchedule(scheduleId: "1") {
+    __typename
+    ... on NewNightPlans {
+      nightPlans {
+        nightTimeline {
+          nightIndex
+          timeEntriesBySite {
+            site
+            timeLosses
+            timeEntries {
+              event
+              plan {
+                startTime
+                endTime
+                nightConditions {
+                  iq
+                  cc
+                }
+                visits {
+                  obsId
+                }
+                nightStats {
+                  planScore
+                  timeLoss
                 }
               }
             }
           }
-          plansSummary{
-            metricsPerBand
-            summary
-          }
-        }
-        ... on NightPlansError {
-          error
         }
       }
+      plansSummary{
+        metricsPerBand
+        summary
+      }
     }
-    """
-    # sub_response = await scheduler_schema.subscribe(sub)
-    # _ = await scheduler_schema.execute(query)
+    ... on NightPlansError {
+      error
+    }
+  }
+}
+"""
+
+
+@pytest.mark.skip(reason="Body is commented out; re-enable once the queueSchedule subscription test is restored.")
+@pytest.mark.asyncio
+async def test_schedule_sub(visibility_calculator_fixture, set_observatory_properties, scheduler_schema):
+    # sub_response = await scheduler_schema.subscribe(QUEUE_SCHEDULE_SUB)
+    # _ = await scheduler_schema.execute(QUEUE_SCHEDULE_QUERY)
 
     # async for result in sub_response:
     #    # Check return without errors
@@ -89,6 +86,7 @@ async def test_schedule_sub(visibility_calculator_fixture, set_observatory_prope
     #    assert night["plan"]["nightStats"]["planScore"] > 0, "Plan score is zero or negative value"
 
     #    break
+    pass
 
 
 SCHEDULE_QUERY = """
@@ -125,8 +123,7 @@ async def test_schedule_publishes_plans_not_coroutines(set_observatory_propertie
 
             received = await asyncio.wait_for(subscriber_queue.get(), timeout=2)
 
-        assert not asyncio.iscoroutine(received), \
-            "subscriber received the raw coroutine instead of the plans"
+        assert not asyncio.iscoroutine(received), "subscriber received the raw coroutine instead of the plans"
         assert received is plans
     finally:
         plan_response_subscribers.pop("rt14", None)
@@ -145,8 +142,7 @@ async def test_schedule_failure_publishes_night_plans_error(set_observatory_prop
     plan_response_subscribers["rt14"] = {subscriber_queue}
 
     try:
-        with patch('scheduler.graphql_mid.schema.sync_schedule',
-                   side_effect=RuntimeError("collector blew up")):
+        with patch('scheduler.graphql_mid.schema.sync_schedule', side_effect=RuntimeError("collector blew up")):
             result = await scheduler_schema.execute(SCHEDULE_QUERY)
             assert result.errors is None
 

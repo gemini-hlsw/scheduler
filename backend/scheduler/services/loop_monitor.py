@@ -21,9 +21,7 @@ class LoopMonitor:
     millisecond, so anything above `warn_after` is time some coroutine spent not yielding.
     """
 
-    def __init__(self,
-                 interval: float = 0.1,
-                 warn_after: float = 1.0) -> None:
+    def __init__(self, interval: float = 0.1, warn_after: float = 1.0) -> None:
         """
         Args:
             interval: seconds between samples. Small enough to catch a stall, large enough

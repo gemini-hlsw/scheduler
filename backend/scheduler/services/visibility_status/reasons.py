@@ -33,9 +33,7 @@ UNSUPPORTED_TARGET = "UNSUPPORTED_TARGET"
 # A sidereal target whose coordinates are absent in the ODB.
 NO_COORDINATES = "NO_COORDINATES"
 
-TERMINAL_REASONS = frozenset(
-    {NON_SIDEREAL, NO_SITE, UNSUPPORTED_TARGET, NO_COORDINATES}
-)
+TERMINAL_REASONS = frozenset({NON_SIDEREAL, NO_SITE, UNSUPPORTED_TARGET, NO_COORDINATES})
 
 # --- stored, but no longer current -------------------------------------------
 

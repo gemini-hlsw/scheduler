@@ -27,16 +27,20 @@ def test_interlock_enabled_reads_config():
 
 @pytest.mark.asyncio
 async def test_wait_until_idle_short_circuits_when_disabled():
-    with patch.object(coordination, "_interlock_enabled", return_value=False), \
-         patch.object(coordination, "session_scope", _boom):
+    with (
+        patch.object(coordination, "_interlock_enabled", return_value=False),
+        patch.object(coordination, "session_scope", _boom),
+    ):
         # Returns immediately as "idle" without touching the DB.
         assert await coordination.wait_until_aggregator_idle() is True
 
 
 @pytest.mark.asyncio
 async def test_signal_helpers_are_noops_when_disabled():
-    with patch.object(coordination, "_interlock_enabled", return_value=False), \
-         patch.object(coordination, "session_scope", _boom):
+    with (
+        patch.object(coordination, "_interlock_enabled", return_value=False),
+        patch.object(coordination, "session_scope", _boom),
+    ):
         # No DB access => no AssertionError raised.
         await coordination.signal_plan_in_progress()
         await coordination.signal_plan_done()

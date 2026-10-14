@@ -2,7 +2,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os, sys
 
 # Requires https://github.com/andrewwstephens/pyexplore
 # sys.path.append(os.path.join(os.environ['PYEXPLORE']))
@@ -17,7 +16,6 @@ from scheduler.core.sources.sources import Sources
 from lucupy.minimodel.observation import ObservationClass
 
 if __name__ == '__main__':
-
     sources = Sources()
     provider = GppProgramProvider(frozenset([ObservationClass.SCIENCE]), sources)
 
@@ -52,5 +50,3 @@ if __name__ == '__main__':
     print(prog_mini.bands())
     for alloc in prog_mini.allocated_time:
         print(alloc.category.name, alloc.program_awarded, alloc.band.name)
-
-

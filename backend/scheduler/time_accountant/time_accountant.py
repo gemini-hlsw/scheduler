@@ -7,12 +7,12 @@ from typing import FrozenSet, Dict, List, Tuple, Optional, ClassVar
 
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import Site, GroupID, ObservationID, NightIndex, Atom, ObservationStatus, Observation
+from lucupy.minimodel import Site, ObservationID, NightIndex, Atom, ObservationStatus, Observation
 from lucupy.types import ZeroTime
 
 
-
 __all__ = ["TimeAccountant"]
+
 
 @dataclass
 class AtomAccountingRecord:
@@ -21,6 +21,7 @@ class AtomAccountingRecord:
 
     _dirty flag helps to check if any parameters where modified in the time accounting process.
     """
+
     exec_time: timedelta = field(hash=False, compare=False)
     prog_time: timedelta = field(hash=False, compare=False)
     part_time: timedelta = field(hash=False, compare=False)
@@ -30,10 +31,9 @@ class AtomAccountingRecord:
     observed: bool
 
     _dirty: bool = field(default=False, repr=False, init=False)
-    _tracked_fields: ClassVar[frozenset] = frozenset({
-        'exec_time', 'prog_time', 'part_time',
-        'program_used', 'partner_used', 'not_charged', 'observed'
-    })
+    _tracked_fields: ClassVar[frozenset] = frozenset(
+        {'exec_time', 'prog_time', 'part_time', 'program_used', 'partner_used', 'not_charged', 'observed'}
+    )
 
     def __setattr__(self, name, value):
         if name in self._tracked_fields and hasattr(self, name):
@@ -44,20 +44,19 @@ class AtomAccountingRecord:
     def clear_dirty(self):
         object.__setattr__(self, '_dirty', False)
 
+
 @dataclass
 class ObservationAccountingRecord:
     """
     Records Observation and atom records for an observation.
     """
+
     status: ObservationStatus
-    atoms_records: List[Tuple[Atom,AtomAccountingRecord]]
+    atoms_records: List[Tuple[Atom, AtomAccountingRecord]]
 
     @property
     def exec_time(self) -> timedelta:
-        return sum(
-            (atom.exec_time for atom, atom_record in self.atoms_records),
-            start=timedelta()
-        )
+        return sum((atom.exec_time for atom, atom_record in self.atoms_records), start=timedelta())
 
     @property
     def cum_seq(self) -> npt.NDArray[timedelta]:
@@ -76,20 +75,15 @@ class TimeAccountant:
     TODO: Add time accounting method from collector in here.
 
     """
+
     def __init__(self, sites: FrozenSet[Site], night_indices: List[NightIndex]):
         """
         The structure separates the records for specific sites and night_indices.
         each ObservationAccountingRecord records a list of atoms records that hold the TA calculations.
         """
 
-        self._time_accounting_table: Dict[
-            Site, Dict[NightIndex, Dict[ObservationID, ObservationAccountingRecord]]
-        ] = {
-            site: {
-                night_idx: {}
-                for night_idx in night_indices
-            }
-            for site in sites
+        self._time_accounting_table: Dict[Site, Dict[NightIndex, Dict[ObservationID, ObservationAccountingRecord]]] = {
+            site: {night_idx: {} for night_idx in night_indices} for site in sites
         }
 
         self._current_site: Optional[Site] = None
@@ -112,9 +106,7 @@ class TimeAccountant:
         self._current_night = night_index
         self._current_data = self._time_accounting_table[site][night_index]
 
-    def get_record(
-            self, obs: Observation, atom: Atom
-    ) -> AtomAccountingRecord:
+    def get_record(self, obs: Observation, atom: Atom) -> AtomAccountingRecord:
         """
         Get the AtomAccountingRecord in the current context.
         If the record does not exist, create it and return it.
@@ -126,16 +118,20 @@ class TimeAccountant:
             data[obs.id] = ObservationAccountingRecord(
                 status=obs.status,
                 atoms_records=[
-                    (a, AtomAccountingRecord(
-                        exec_time=a.exec_time,
-                        prog_time=a.prog_time,
-                        part_time=a.part_time,
-                        program_used=a.program_used,
-                        partner_used=a.partner_used,
-                        not_charged=a.not_charged,
-                        observed=a.observed,
-                    )) for a in obs.sequence
-                ]
+                    (
+                        a,
+                        AtomAccountingRecord(
+                            exec_time=a.exec_time,
+                            prog_time=a.prog_time,
+                            part_time=a.part_time,
+                            program_used=a.program_used,
+                            partner_used=a.partner_used,
+                            not_charged=a.not_charged,
+                            observed=a.observed,
+                        ),
+                    )
+                    for a in obs.sequence
+                ],
             )
             # Mark all atoms in new observation as dirty
             for _, record in data[obs.id].atoms_records:

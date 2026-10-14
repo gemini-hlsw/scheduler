@@ -17,8 +17,16 @@ from scheduler.services.telemetry import otel
 from scheduler.services.telemetry.instruments import OPERATION_DURATION
 from scheduler.version import get_app_version
 
-__all__ = ['OPERATION_DURATION', 'PERF_LOGGER_NAME', 'Timing', 'perf_event',
-           'record_loop_stall', 'record_sight_fallback', 'timed', 'timed_function']
+__all__ = [
+    'OPERATION_DURATION',
+    'PERF_LOGGER_NAME',
+    'Timing',
+    'perf_event',
+    'record_loop_stall',
+    'record_sight_fallback',
+    'timed',
+    'timed_function',
+]
 
 F = TypeVar('F', bound=Callable[..., Any])
 
@@ -50,6 +58,7 @@ _perf_logger = _build_perf_logger()
 
 class Timing:
     """Handle yielded by `timed`. `.elapsed` feeds the caller's own log line."""
+
     __slots__ = ('elapsed',)
 
     def __init__(self) -> None:
@@ -101,18 +110,22 @@ def timed_function(operation: str, **fields: Any) -> Callable[[F], F]:
     form would time only how long it took to *create* the coroutine, which is the kind
     of measurement that looks fine and means nothing.
     """
+
     def decorate(func: F) -> F:
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 with timed(operation, **fields):
                     return await func(*args, **kwargs)
+
             return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             with timed(operation, **fields):
                 return func(*args, **kwargs)
+
         return wrapper  # type: ignore[return-value]
 
     return decorate
@@ -168,15 +181,11 @@ def timed(operation: str, **fields: Any) -> Iterator[Timing]:
             try:
                 # `error` stays out of the metric attributes on purpose: exception class
                 # names are an open set, and each one would be another series.
-                otel.telemetry.operation_duration.record(timing.elapsed,
-                                                         {'operation': operation, 'ok': ok})
+                otel.telemetry.operation_duration.record(timing.elapsed, {'operation': operation, 'ok': ok})
             except Exception:  # pragma: no cover - defensive
                 pass
 
             event_fields = dict(fields)
             if error is not None:
                 event_fields['error'] = error
-            perf_event(operation,
-                       duration_s=round(timing.elapsed, 6),
-                       ok=ok,
-                       **event_fields)
+            perf_event(operation, duration_s=round(timing.elapsed, 6), ok=ok, **event_fields)

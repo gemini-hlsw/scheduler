@@ -13,8 +13,8 @@ __all__ = ["SchedulerQueue"]
 
 _logger = logger_factory.create_logger(__name__)
 
-class SchedulerQueue:
 
+class SchedulerQueue:
     def __init__(self):
         self._queue = asyncio.Queue()
 
@@ -53,7 +53,7 @@ class SchedulerQueue:
                 _logger.info("Callback executed successfully")
             else:
                 raise ValueError('No callback function provided')
-            
+
             return event, result
 
         except Exception as e:
@@ -70,5 +70,3 @@ class SchedulerQueue:
                 self._queue.task_done()
             except asyncio.QueueEmpty:
                 break
-
-

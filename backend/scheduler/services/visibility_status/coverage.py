@@ -133,14 +133,16 @@ def classify(
             status = STATUS_STORED
         else:
             status = STATUS_MISSING
-        rows.append(ObservationCoverage(
-            observation_id=observation.observation_id,
-            program_label=observation.program_label,
-            site=observation.site,
-            target_name=observation.target_name,
-            status=status,
-            reason=reason,
-        ))
+        rows.append(
+            ObservationCoverage(
+                observation_id=observation.observation_id,
+                program_label=observation.program_label,
+                site=observation.site,
+                target_name=observation.target_name,
+                status=status,
+                reason=reason,
+            )
+        )
     return rows
 
 
@@ -153,25 +155,20 @@ def explain(
     Pure, and rows of any other status are returned untouched.
     """
     return [
-        replace(row, reason=missing_reason(row.target_name, row.site, state))
-        if row.status == STATUS_MISSING else row
+        replace(row, reason=missing_reason(row.target_name, row.site, state)) if row.status == STATUS_MISSING else row
         for row in rows
     ]
 
 
 def _tally(rows: Iterable[ObservationCoverage], key) -> list[GroupCoverage]:
     counts: dict[str, dict] = defaultdict(
-        lambda: {"expected": 0, "stored": 0, "pending": 0, "missing": 0,
-                 "skipped": 0}
+        lambda: {"expected": 0, "stored": 0, "pending": 0, "missing": 0, "skipped": 0}
     )
     for row in rows:
         bucket = counts[key(row) or "—"]
         bucket["expected"] += 1
         bucket[row.status.lower()] += 1
-    return [
-        GroupCoverage(key=name, **values)
-        for name, values in sorted(counts.items())
-    ]
+    return [GroupCoverage(key=name, **values) for name, values in sorted(counts.items())]
 
 
 def summarize(
@@ -206,7 +203,8 @@ def paginate(
 ) -> tuple[list[ObservationCoverage], int]:
     """Filter, order and slice. Returns the page and the unpaginated total."""
     matched = [
-        row for row in rows
+        row
+        for row in rows
         if (status is None or row.status == status)
         and (site is None or row.site == site)
         and (program_label is None or row.program_label == program_label)
@@ -215,7 +213,7 @@ def paginate(
     # Stable order, so paging does not shuffle rows between requests.
     matched.sort(key=lambda r: r.observation_id)
     total = len(matched)
-    page = matched[offset:] if limit is None else matched[offset:offset + limit]
+    page = matched[offset:] if limit is None else matched[offset : offset + limit]
     return page, total
 
 
@@ -245,15 +243,10 @@ async def _sight_night_state(
 
     try:
         site_ids = {
-            site: SITE_KEY_TO_ID[site]
-            for site in {row.site for row in missing if row.site}
-            if site in SITE_KEY_TO_ID
+            site: SITE_KEY_TO_ID[site] for site in {row.site for row in missing if row.site} if site in SITE_KEY_TO_ID
         }
         night_repo = NightEventRepository(session)
-        nights_computed = {
-            site for site, site_id in site_ids.items()
-            if await night_repo.exists(site_id, night_date)
-        }
+        nights_computed = {site for site, site_id in site_ids.items() if await night_repo.exists(site_id, night_date)}
 
         names = sorted({row.target_name for row in missing if row.target_name})
         ids_by_name = await TargetRepository(session).get_ids_by_names(names)
@@ -264,17 +257,10 @@ async def _sight_night_state(
         # Only sites with night events: without them there is no Stage 1
         # either, so the rest are not worth a query.
         for site in nights_computed:
-            ready = await data_repo.get_target_ids_on_night(
-                site_ids[site], night_date, list(ids_by_name.values())
-            )
-            stage1_ready.update(
-                (name_by_id[id_], site) for id_ in ready if id_ in name_by_id
-            )
+            ready = await data_repo.get_target_ids_on_night(site_ids[site], night_date, list(ids_by_name.values()))
+            stage1_ready.update((name_by_id[id_], site) for id_ in ready if id_ in name_by_id)
     except Exception as exc:
-        _logger.warning(
-            f"Could not read Sight state for {night_date}; missing rows will "
-            f"go unexplained: {exc}"
-        )
+        _logger.warning(f"Could not read Sight state for {night_date}; missing rows will go unexplained: {exc}")
         return None
 
     return SightNightState(
@@ -313,14 +299,10 @@ async def _coverage_rows(
             # Sites can be on different nights at the same instant; GN is the
             # anchor for the shared view, and the per-site tabs resolve their
             # own.
-            night_date = await current_night_date(
-                night_repo, SITE_KEY_TO_ID["GN"], now
-            )
+            night_date = await current_night_date(night_repo, SITE_KEY_TO_ID["GN"], now)
 
         visibility_repo = VisibilityDataRepository(session)
-        stored_ids = await visibility_repo.get_stored_observation_ids_on_night(
-            night_date
-        )
+        stored_ids = await visibility_repo.get_stored_observation_ids_on_night(night_date)
 
         pending = await get_pending_changes(session, now=now)
 
@@ -374,9 +356,7 @@ async def get_coverage_summary(
     night_date: Optional[date] = None,
 ) -> CoverageSummary:
     """Totals and breakdowns for a night. Reads the ODB live on every call."""
-    rows, night_date, odb_read_at, pending_known = await _shared_coverage_rows(
-        night_date
-    )
+    rows, night_date, odb_read_at, pending_known = await _shared_coverage_rows(night_date)
     return summarize(rows, night_date, odb_read_at, pending_known)
 
 

@@ -8,8 +8,17 @@ from typing import Dict, FrozenSet, Tuple
 import astropy.units as u
 import numpy as np
 import numpy.typing as npt
-from lucupy.minimodel import (ALL_SITES, Band, Group, NightIndex, NightIndices, Observation, ObservationStatus,
-                              Program, Site)
+from lucupy.minimodel import (
+    ALL_SITES,
+    Band,
+    Group,
+    NightIndex,
+    NightIndices,
+    Observation,
+    ObservationStatus,
+    Program,
+    Site,
+)
 from lucupy.types import ListOrNDArray, MinMax
 
 # from scheduler.core.calculations import Scores, GroupDataMap
@@ -28,12 +37,14 @@ class Ranker(ABC):
     it to agglomerate the scores for a specified Group.
     """
 
-    def __init__(self,
-                 collector,  # Creates a circular input if we typehint this.
-                 night_indices: NightIndices,
-                 sites: FrozenSet[Site] = ALL_SITES,
-                 params: RankerParameters = RankerParameters(),
-                 band_params: RankerBandParameterMap = None):
+    def __init__(
+        self,
+        collector,  # Creates a circular input if we typehint this.
+        night_indices: NightIndices,
+        sites: FrozenSet[Site] = ALL_SITES,
+        params: RankerParameters = RankerParameters(),
+        band_params: RankerBandParameterMap = None,
+    ):
         """
         We only want to calculate the parameters once since they do not change.
         """
@@ -54,20 +65,21 @@ class Ranker(ABC):
             night_events = collector.get_night_events(site)
 
             # Create a full zero score that fits the sites, nights, and time slots for observations.
-            self._empty_obs_scores[site] = {night_idx: np.zeros(len(night_events.times[night_idx]), dtype=float)
-                                            for night_idx in self.night_indices}
+            self._empty_obs_scores[site] = {
+                night_idx: np.zeros(len(night_events.times[night_idx]), dtype=float) for night_idx in self.night_indices
+            }
 
             # Create a full zero score that fits the sites, nights, and time slots for group calculations.
             # As this must collect the subgroups, the dimensions are different from observation scores.
-            self._empty_group_scores[site] = {night_idx: np.zeros((0, len(night_events.times[night_idx])), dtype=float)
-                                              for night_idx in self.night_indices}
+            self._empty_group_scores[site] = {
+                night_idx: np.zeros((0, len(night_events.times[night_idx])), dtype=float)
+                for night_idx in self.night_indices
+            }
 
     @abstractmethod
-    def _combine_score_terms(self,
-                             scale_factor: float,
-                             metric: float,
-                             vis_frac: float,
-                             wha: npt.NDArray[float]) -> npt.NDArray[float]:
+    def _combine_score_terms(
+        self, scale_factor: float, metric: float, vis_frac: float, wha: npt.NDArray[float]
+    ) -> npt.NDArray[float]:
         """
         Combine the program metric, the remaining visibility fraction and the hour angle
         weighting into a per-time-slot score for one night, scaled by scale_factor.
@@ -99,11 +111,9 @@ class Ranker(ABC):
         else:
             raise ValueError('Ranker group scoring can only score groups.')
 
-    def metric_slope(self,
-                      completion: ListOrNDArray[float],
-                      band: ListOrNDArray[Band],
-                      b3min: ListOrNDArray[float],
-                      thesis: bool) -> Tuple[npt.NDArray[float], npt.NDArray[float]]:
+    def metric_slope(
+        self, completion: ListOrNDArray[float], band: ListOrNDArray[Band], b3min: ListOrNDArray[float], thesis: bool
+    ) -> Tuple[npt.NDArray[float], npt.NDArray[float]]:
         """
         Compute the metric and the slope as a function of completeness fraction and band.
 
@@ -116,10 +126,12 @@ class Ranker(ABC):
         """
         # TODO: Add error checking to make sure arrays are the appropriate lengths?
         if len(band) != len(completion):
-            raise ValueError(f'Incompatible lengths (band={len(band)}, completion={len(completion)}) between band '
-                             f'{band} and completion {completion} arrays')
+            raise ValueError(
+                f'Incompatible lengths (band={len(band)}, completion={len(completion)}) between band '
+                f'{band} and completion {completion} arrays'
+            )
 
-        eps = 1.e-7
+        eps = 1.0e-7
         completion = np.asarray(completion)
         nn = len(completion)
         metric = np.zeros(nn)
@@ -137,8 +149,11 @@ class Ranker(ABC):
             # Determine the intercept for the second piece (b2) so that the functions are continuous
             b2 = 0.0
             if self.params.power == 1:
-                b2 = (xb * (self.band_params[curr_band].m1 - self.band_params[curr_band].m2) +
-                      self.band_params[curr_band].xb0 + self.band_params[curr_band].b1)
+                b2 = (
+                    xb * (self.band_params[curr_band].m1 - self.band_params[curr_band].m2)
+                    + self.band_params[curr_band].xb0
+                    + self.band_params[curr_band].b1
+                )
             elif self.params.power == 2:
                 b2 = self.band_params[curr_band].b2 + self.band_params[curr_band].xb0 + self.band_params[curr_band].b1
 
@@ -147,10 +162,13 @@ class Ranker(ABC):
                 metric[idx] = 0.0
                 metric_slope[idx] = 0.0
             elif completion[idx] < xb:
-                metric[idx] = (self.band_params[curr_band].m1 * completion[idx] ** self.params.power
-                               + self.band_params[curr_band].b1)
-                metric_slope[idx] = (self.params.power * self.band_params[curr_band].m1
-                                     * completion[idx] ** (self.params.power - 1.0))
+                metric[idx] = (
+                    self.band_params[curr_band].m1 * completion[idx] ** self.params.power
+                    + self.band_params[curr_band].b1
+                )
+                metric_slope[idx] = (
+                    self.params.power * self.band_params[curr_band].m1 * completion[idx] ** (self.params.power - 1.0)
+                )
             elif completion[idx] < 1.0:
                 metric[idx] = self.band_params[curr_band].m2 * completion[idx] + b2
                 metric_slope[idx] = self.band_params[curr_band].m2
@@ -163,8 +181,9 @@ class Ranker(ABC):
 
         return metric, metric_slope
 
-    def score_observation(self, program: Program, obs: Observation, night_configurations: dict,
-                          night_indices: NightIndices):
+    def score_observation(
+        self, program: Program, obs: Observation, night_configurations: dict, night_indices: NightIndices
+    ):
         """
         Calculate the scores for an observation for each night for each time slot index.
         These are returned as a list indexed by night index as per the night_indices supplied,
@@ -178,7 +197,6 @@ class Ranker(ABC):
         if target_info is None:
             return scores
 
-
         obs_nights = sorted(set(night_indices) & target_info.keys())
         if not obs_nights:
             return scores
@@ -187,10 +205,9 @@ class Ranker(ABC):
         # GPP supports allocated and used times by band, this should give the same results for OCS
         cplt = (program.total_used(obs.band) + remaining) / program.total_awarded(obs.band)
 
-        metric, metric_s = self.metric_slope(np.array([cplt]),
-                                              np.array([obs.band.value]),
-                                              np.array([0.8]),
-                                              program.thesis)
+        metric, metric_s = self.metric_slope(
+            np.array([cplt]), np.array([obs.band.value]), np.array([0.8]), program.thesis
+        )
 
         # Declination for the base target per night.
         dec = {night_idx: target_info[night_idx].coord.dec for night_idx in obs_nights}
@@ -201,31 +218,42 @@ class Ranker(ABC):
 
         # Get the latitude associated with the site.
         site_latitude = obs.site.location.lat
-        if site_latitude < 0. * u.deg:
+        if site_latitude < 0.0 * u.deg:
             dec_diff = {night_idx: np.abs(site_latitude - np.max(dec[night_idx])) for night_idx in obs_nights}
         else:
             dec_diff = {night_idx: np.abs(np.min(dec[night_idx]) - site_latitude) for night_idx in obs_nights}
 
-        c = {night_idx: self.params.dec_diff_less_40 if angle < 40. * u.deg else self.params.dec_diff
-             for night_idx, angle in dec_diff.items()}
+        c = {
+            night_idx: self.params.dec_diff_less_40 if angle < 40.0 * u.deg else self.params.dec_diff
+            for night_idx, angle in dec_diff.items()
+        }
         # c = np.array([self.params.dec_diff_less_40 if angle < 40. * u.deg
         #               else self.params.dec_diff for angle in dec_diff])
 
         # Todo: check units for hour angle are correct!!!
-        wha = {night_idx: c[night_idx][0] + c[night_idx][1] * ha[night_idx] / u.hourangle
-               + (c[night_idx][2] / u.hourangle ** 2) * ha[night_idx] ** 2
-               for night_idx in obs_nights}
-        kk = {night_idx: np.where(wha[night_idx] <= 0.)[0] for night_idx in obs_nights}
+        wha = {
+            night_idx: c[night_idx][0]
+            + c[night_idx][1] * ha[night_idx] / u.hourangle
+            + (c[night_idx][2] / u.hourangle**2) * ha[night_idx] ** 2
+            for night_idx in obs_nights
+        }
+        kk = {night_idx: np.where(wha[night_idx] <= 0.0)[0] for night_idx in obs_nights}
         for night_idx in obs_nights:
-            wha[night_idx][kk[night_idx]] = 0.
+            wha[night_idx][kk[night_idx]] = 0.0
         # print(f'   max wha: {np.max(wha[0]):.2f}  visfrac: {target_info[0].rem_visibility_frac:.5f}')
 
         # Telescope altitude restrictions - set score to 0 if the altitude is outside the limits
         targ_alt = {night_idx: target_info[night_idx].alt for night_idx in obs_nights}
         alt_include = {night_idx: np.ones(len(targ_alt[night_idx])) for night_idx in obs_nights}
-        jj = {night_idx: np.where(np.logical_or(targ_alt[night_idx] < self.params.altitude_limits[obs.site][MinMax.MIN],
-                                                 targ_alt[night_idx] > self.params.altitude_limits[obs.site][MinMax.MAX]))[0]
-              for night_idx in obs_nights}
+        jj = {
+            night_idx: np.where(
+                np.logical_or(
+                    targ_alt[night_idx] < self.params.altitude_limits[obs.site][MinMax.MIN],
+                    targ_alt[night_idx] > self.params.altitude_limits[obs.site][MinMax.MAX],
+                )
+            )[0]
+            for night_idx in obs_nights
+        }
         for night_idx in obs_nights:
             alt_include[night_idx][jj[night_idx]] = 0.0
 
@@ -241,18 +269,22 @@ class Ranker(ABC):
         priority_value = obs.priority.value
         # if obs.status ==  ObservationStatus.ONGOING and obs.total_used() > ZeroTime:
         #     priority_value += 1
-        scale_factor *= 1. + (priority_value - program.mean_priority())/self.params.priority_factor
+        scale_factor *= 1.0 + (priority_value - program.mean_priority()) / self.params.priority_factor
 
         # If Ongoing give boost
         # if obs.status ==  ObservationStatus.ONGOING and obs.total_used() > ZeroTime:
-        if obs.status ==  ObservationStatus.ONGOING:
+        if obs.status == ObservationStatus.ONGOING:
             scale_factor *= self.params.ongoing_factor
 
         # Program priority (from calendar, e.g. PV, classical)
         nc = night_configurations[obs.site]
         program = self.collector.get_program(obs.id.program_id())
-        prog_priority = {night_idx: self.params.program_priority if nc[night_idx].filter.program_priority_filter_any(program)
-                         else 1.0 for night_idx in obs_nights}
+        prog_priority = {
+            night_idx: self.params.program_priority
+            if nc[night_idx].filter.program_priority_filter_any(program)
+            else 1.0
+            for night_idx in obs_nights
+        }
 
         scale_factor *= prog_priority[obs_nights[-1]]
 
@@ -264,12 +296,14 @@ class Ranker(ABC):
         # scale_factor *= inst_priority[night_idx]
 
         # Divide by the minimum airmass (mainly for cross-site scoring tests)
-        p = {night_idx: self._combine_score_terms(scale_factor,
-                                                  metric[0],
-                                                  target_info[night_idx].rem_visibility_frac,
-                                                  wha[night_idx]) * alt_include[night_idx] /
-                        (np.min(airmass[night_idx]) ** self.params.air_power)
-             for night_idx in obs_nights}
+        p = {
+            night_idx: self._combine_score_terms(
+                scale_factor, metric[0], target_info[night_idx].rem_visibility_frac, wha[night_idx]
+            )
+            * alt_include[night_idx]
+            / (np.min(airmass[night_idx]) ** self.params.air_power)
+            for night_idx in obs_nights
+        }
 
         # Assign scores in p to all indices where visibility constraints are met.
         # They will otherwise be 0 as originally defined.
@@ -310,8 +344,10 @@ class Ranker(ABC):
 
         # Combine the scores as per the score_combiner and return.
         # apply_along_axis results in a (1, #timeslots in night) array, so we have to take index 0.
-        combine_scores = {night_idx: np.apply_along_axis(self.params.score_combiner, 0, scores[night_idx])[0]
-                          for night_idx in nights_to_schedule}
+        combine_scores = {
+            night_idx: np.apply_along_axis(self.params.score_combiner, 0, scores[night_idx])[0]
+            for night_idx in nights_to_schedule
+        }
         # print(group.id.id, combine_scores[nights_to_schedule[0]])
         return combine_scores
 

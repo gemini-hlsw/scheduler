@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2016-2026 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-"""Fill the Sight DB from the aggregator's ODB program set, in parallel. Local only.
-"""
+"""Fill the Sight DB from the aggregator's ODB program set, in parallel. Local only."""
 
 import argparse
 import asyncio
@@ -63,6 +62,7 @@ class TargetSnapshot:
 
     Pickled into each worker once at start-up instead of re-queried per task.
     """
+
     id: int
     name: str
     is_sidereal: bool
@@ -120,12 +120,9 @@ def plan_chunks(
     chunks: list[tuple[date, tuple[str, ...]]] = []
     night = first
     while night <= last:
-        due = sorted(
-            name for name, (start, end) in windows_by_target.items()
-            if start <= night <= end
-        )
+        due = sorted(name for name, (start, end) in windows_by_target.items() if start <= night <= end)
         for offset in range(0, len(due), chunk_size):
-            chunks.append((night, tuple(due[offset:offset + chunk_size])))
+            chunks.append((night, tuple(due[offset : offset + chunk_size])))
         night += timedelta(days=1)
     return chunks
 
@@ -166,9 +163,7 @@ async def _find_missing_night_events(nights: list[date]) -> list[tuple[int, date
         calc = Calculator(session)
         missing = []
         for site_id in sorted(await calc.get_sites()):
-            existing = await calc.night_repo.get_existing_dates(
-                site_id, nights[0], nights[-1]
-            )
+            existing = await calc.night_repo.get_existing_dates(site_id, nights[0], nights[-1])
             missing += [(site_id, night) for night in nights if night not in existing]
     return missing
 
@@ -201,14 +196,8 @@ async def build_plan(
     # Non-sidereal targets read Horizons files that may not be cached yet, so
     # their chunks wait while one worker downloads the files and the rest
     # compute the sidereal chunks.
-    sidereal = {
-        name: window for name, window in windows_by_target.items()
-        if payloads[name].is_sidereal
-    }
-    nonsidereal = {
-        name: window for name, window in windows_by_target.items()
-        if name not in sidereal
-    }
+    sidereal = {name: window for name, window in windows_by_target.items() if payloads[name].is_sidereal}
+    nonsidereal = {name: window for name, window in windows_by_target.items() if name not in sidereal}
     chunks = plan_chunks(sidereal, first, last, chunk_size)
     deferred_chunks = plan_chunks(nonsidereal, first, last, chunk_size)
     nights = sorted({night for night, _ in chunks + deferred_chunks})
@@ -227,12 +216,16 @@ async def build_plan(
     for request in requests:
         if request.observation_id in windows:
             requests_by_target.setdefault(request.target_name, []).append(request)
-    targets = await _ensure_targets(
-        {name: payloads[name] for name in windows_by_target}
-    )
+    targets = await _ensure_targets({name: payloads[name] for name in windows_by_target})
     return Plan(
-        targets, requests_by_target, windows, missing_night_events,
-        chunks, deferred_chunks, first, last,
+        targets,
+        requests_by_target,
+        windows,
+        missing_night_events,
+        chunks,
+        deferred_chunks,
+        first,
+        last,
     )
 
 
@@ -289,10 +282,13 @@ async def _fill_ephemerides(first: date, last: date) -> EphemeridesResult:
     t0 = time.perf_counter()
     async with session_scope() as session:
         sites = await Calculator(session).get_sites()
-        rows = (await session.execute(
-            select(NightEvent.site_id, NightEvent.night_date, NightEvent.sunset, NightEvent.sunrise)
-            .where(NightEvent.night_date.between(first, last))
-        )).all()
+        rows = (
+            await session.execute(
+                select(NightEvent.site_id, NightEvent.night_date, NightEvent.sunset, NightEvent.sunrise).where(
+                    NightEvent.night_date.between(first, last)
+                )
+            )
+        ).all()
     # Naive UTC, as Stage 1 hands them to the Horizons client.
     night_times = {
         (site_id, night): (
@@ -301,10 +297,7 @@ async def _fill_ephemerides(first: date, last: date) -> EphemeridesResult:
         )
         for site_id, night, sunset, sunrise in rows
     }
-    semesters = {
-        key: Semester.find_semester_from_date(sunset)
-        for key, (sunset, _) in night_times.items()
-    }
+    semesters = {key: Semester.find_semester_from_date(sunset) for key, (sunset, _) in night_times.items()}
 
     requests = [r for rs in _worker["requests_by_target"].values() for r in rs]
     calls: dict[tuple[str, int, Semester], tuple[datetime, datetime]] = {}
@@ -351,18 +344,13 @@ async def _fill_chunk(night: date, names: tuple[str, ...]) -> ChunkResult:
     async with session_scope() as session:
         calc = Calculator(session)
         sites = await calc.get_sites()
-        night_events = {
-            ne.site_id: ne
-            for ne in await calc.night_repo.get_for_multiple_sites(list(sites), night)
-        }
+        night_events = {ne.site_id: ne for ne in await calc.night_repo.get_for_multiple_sites(list(sites), night)}
         if len(night_events) != len(sites):
             raise RuntimeError(f"Night events missing on {night}; run the night-event phase first.")
 
         # Stage 1 for every site, as the aggregator does: alt/az does not depend
         # on which site observes the target, and the scheduler may try both.
-        fresh = await calc.target_data_repo.get_fresh_night_dates_for_targets(
-            targets, list(sites), night, night
-        )
+        fresh = await calc.target_data_repo.get_fresh_night_dates_for_targets(targets, list(sites), night, night)
         stage1_rows = [
             calc._stage1_row(target, sites[site_id], night_events[site_id])
             for target in targets
@@ -370,10 +358,7 @@ async def _fill_chunk(night: date, names: tuple[str, ...]) -> ChunkResult:
             if night not in fresh.get((target.id, site_id), ())
         ]
         await calc.target_data_repo.bulk_upsert(stage1_rows)
-        stage1 = {
-            (row["target_id"], row["site_id"]): SimpleNamespace(**row)
-            for row in stage1_rows
-        }
+        stage1 = {(row["target_id"], row["site_id"]): SimpleNamespace(**row) for row in stage1_rows}
 
         due = [
             request
@@ -381,9 +366,7 @@ async def _fill_chunk(night: date, names: tuple[str, ...]) -> ChunkResult:
             for request in _worker["requests_by_target"].get(name, ())
             if windows[request.observation_id][0] <= night <= windows[request.observation_id][1]
         ]
-        stored = await calc.visibility_repo.get_stored_observation_nights(
-            [r.observation_id for r in due], night, night
-        )
+        stored = await calc.visibility_repo.get_stored_observation_nights([r.observation_id for r in due], night, night)
         missing = [r for r in due if (r.observation_id, night) not in stored]
 
         # Only Stage 1 that was already fresh has to come back from the DB.
@@ -393,9 +376,7 @@ async def _fill_chunk(night: date, names: tuple[str, ...]) -> ChunkResult:
             if key not in stage1:
                 to_read.setdefault(key[1], set()).add(key[0])
         for site_id, target_ids in to_read.items():
-            for data in await calc.target_data_repo.get_for_targets_on_night(
-                list(target_ids), site_id, night
-            ):
+            for data in await calc.target_data_repo.get_for_targets_on_night(list(target_ids), site_id, night):
                 stage1[(data.target_id, data.site_id)] = data
 
         stage2_rows = []
@@ -406,20 +387,23 @@ async def _fill_chunk(night: date, names: tuple[str, ...]) -> ChunkResult:
             if data is None:
                 continue
             result = calc._calculate_stage2(request, night_events[site_id], data, target.name)
-            stage2_rows.append(dict(
-                observation_id=result.observation_id,
-                target_id=target.id,
-                site_id=site_id,
-                night_date=result.night_date,
-                remaining_minutes=result.remaining_minutes,
-                visible_ranges=result.visible_ranges,
-            ))
+            stage2_rows.append(
+                dict(
+                    observation_id=result.observation_id,
+                    target_id=target.id,
+                    site_id=site_id,
+                    night_date=result.night_date,
+                    remaining_minutes=result.remaining_minutes,
+                    visible_ranges=result.visible_ranges,
+                )
+            )
         await calc.visibility_repo.bulk_upsert(stage2_rows)
 
     return ChunkResult(len(stage1_rows), len(stage2_rows))
 
 
 # --- parent side ---------------------------------------------------------------
+
 
 def execute(plan: Plan, workers: int) -> int:
     """Run the plan in a process pool. Returns the number of failed chunks."""
@@ -448,25 +432,17 @@ def _execute(plan: Plan, workers: int, program_set_path: str) -> int:
         if plan.missing_night_events:
             t0 = time.perf_counter()
             event_futures = [
-                pool.submit(fill_night_events, site_id, night)
-                for site_id, night in plan.missing_night_events
+                pool.submit(fill_night_events, site_id, night) for site_id, night in plan.missing_night_events
             ]
             for future in as_completed(event_futures):
                 # Every chunk of a night needs its night events: stop on the first failure.
                 future.result()
-            _logger.info(
-                f"Night events: {len(event_futures)} stored in "
-                f"{time.perf_counter() - t0:.1f}s."
-            )
+            _logger.info(f"Night events: {len(event_futures)} stored in {time.perf_counter() - t0:.1f}s.")
 
         # Submitted first so one worker starts downloading right away.
-        ephemerides = (
-            pool.submit(fill_ephemerides, plan.first, plan.last)
-            if plan.deferred_chunks else None
-        )
+        ephemerides = pool.submit(fill_ephemerides, plan.first, plan.last) if plan.deferred_chunks else None
         futures: dict[Future, tuple[date, tuple[str, ...]]] = {
-            pool.submit(fill_chunk, night, names): (night, names)
-            for night, names in plan.chunks
+            pool.submit(fill_chunk, night, names): (night, names) for night, names in plan.chunks
         }
         return _drain_chunks(pool, futures, ephemerides, plan.deferred_chunks)
     except KeyboardInterrupt:
@@ -550,9 +526,7 @@ async def _prepare(args: argparse.Namespace) -> Optional[Plan]:
     labels = await gpp.client.scheduler.get_all_reference_labels()
     program_ids = [label[1] for label in labels]
     t0 = time.perf_counter()
-    payloads, requests, windows, _, counts = await _collect_requests(
-        program_ids, MemoryGuard(None)
-    )
+    payloads, requests, windows, _, counts = await _collect_requests(program_ids, MemoryGuard(None))
     _logger.info(
         f"Parsed {len(program_ids)} programs in {time.perf_counter() - t0:.1f}s: "
         f"{len(payloads)} targets, {len(requests)} observations "
@@ -561,9 +535,13 @@ async def _prepare(args: argparse.Namespace) -> Optional[Plan]:
     await init_db_engine()
     try:
         return await build_plan(
-            payloads, requests, windows,
-            start=args.start, end=args.end,
-            chunk_size=args.chunk_size, dry_run=args.dry_run,
+            payloads,
+            requests,
+            windows,
+            start=args.start,
+            end=args.end,
+            chunk_size=args.chunk_size,
+            dry_run=args.dry_run,
         )
     finally:
         await dispose_engine()
@@ -574,23 +552,31 @@ def main(argv: Optional[list[str]] = None) -> int:
         description="Fill the Sight DB from the ODB program set using a process pool (local only)."
     )
     parser.add_argument(
-        "--workers", type=int, default=max(1, (os.cpu_count() or 2) - 2),
+        "--workers",
+        type=int,
+        default=max(1, (os.cpu_count() or 2) - 2),
         help="worker processes, each with its own DB connection (default: CPUs - 2)",
     )
     parser.add_argument(
-        "--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE,
+        "--chunk-size",
+        type=int,
+        default=DEFAULT_CHUNK_SIZE,
         help=f"targets per task (default: {DEFAULT_CHUNK_SIZE})",
     )
     parser.add_argument(
-        "--start", type=date.fromisoformat,
+        "--start",
+        type=date.fromisoformat,
         help="first night, YYYY-MM-DD (default: earliest program window)",
     )
     parser.add_argument(
-        "--end", type=date.fromisoformat,
+        "--end",
+        type=date.fromisoformat,
         help="last night, YYYY-MM-DD (default: latest program window)",
     )
     parser.add_argument(
-        "--dry-run", action="store_true", help="parse and report the plan; write nothing",
+        "--dry-run",
+        action="store_true",
+        help="parse and report the plan; write nothing",
     )
     args = parser.parse_args(argv)
 

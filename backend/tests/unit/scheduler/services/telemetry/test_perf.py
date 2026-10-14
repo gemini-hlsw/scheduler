@@ -36,12 +36,14 @@ def points_for(reader, name=OPERATION_DURATION):
     data = reader.get_metrics_data()
     if data is None:
         return []
-    return [point
-            for resource_metric in data.resource_metrics
-            for scope_metric in resource_metric.scope_metrics
-            for metric in scope_metric.metrics
-            if metric.name == name
-            for point in metric.data.data_points]
+    return [
+        point
+        for resource_metric in data.resource_metrics
+        for scope_metric in resource_metric.scope_metrics
+        for metric in scope_metric.metrics
+        if metric.name == name
+        for point in metric.data.data_points
+    ]
 
 
 def test_a_timed_block_records_one_measurement(reader):
@@ -116,8 +118,7 @@ def test_instruments_follow_the_current_provider(reader):
     assert len(points_for(reader)) == 1
 
     second = InMemoryMetricReader()
-    otel.setup_telemetry(meter_provider=MeterProvider(metric_readers=[second]),
-                         set_global=False)
+    otel.setup_telemetry(meter_provider=MeterProvider(metric_readers=[second]), set_global=False)
     with timed('engine.plan'):
         pass
 
@@ -213,12 +214,15 @@ def test_an_unserialisable_field_does_not_break_the_caller(emitted):
     assert len(emitted) == 1
 
 
-@pytest.mark.parametrize('dyno, expected', [
-    ('web.1', 'web'),
-    ('run.1234', 'run'),          # Heroku one-off dynos; the number is unbounded
-    ('scheduler.1', 'scheduler'),
-    ('', 'local'),
-])
+@pytest.mark.parametrize(
+    'dyno, expected',
+    [
+        ('web.1', 'web'),
+        ('run.1234', 'run'),  # Heroku one-off dynos; the number is unbounded
+        ('scheduler.1', 'scheduler'),
+        ('', 'local'),
+    ],
+)
 def test_the_process_type_drops_the_dyno_number(monkeypatch, dyno, expected):
     # The bare dyno name would mint a fresh metric series per aggregator run and eat
     # the shared Grafana stack's budget.
@@ -245,8 +249,7 @@ def test_the_instance_id_is_bounded(monkeypatch):
 def test_the_service_identity_survives_a_hostile_env(monkeypatch):
     # service.name is how the shared stack separates our signals from everyone else's,
     # so a stray OTEL_RESOURCE_ATTRIBUTES must not be able to rename us.
-    monkeypatch.setenv('OTEL_RESOURCE_ATTRIBUTES',
-                       'service.name=something-else,deployment.environment=staging')
+    monkeypatch.setenv('OTEL_RESOURCE_ATTRIBUTES', 'service.name=something-else,deployment.environment=staging')
     attributes = otel.build_resource().attributes
 
     assert attributes['service.name'] == 'scheduler'

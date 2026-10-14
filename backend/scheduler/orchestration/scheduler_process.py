@@ -4,7 +4,6 @@
 import asyncio
 from datetime import timedelta
 
-from astropy.time import Time
 
 from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
@@ -19,20 +18,19 @@ _logger = create_logger(__name__, with_id=False)
 
 __all__ = ["SchedulerProcess"]
 
+
 class SchedulerProcess:
     """
-    Class to manage a scheduler process should be able to start, stop, 
+    Class to manage a scheduler process should be able to start, stop,
     and monitor a scheduler process asynchronously.
     Should be able to run through multiple nights until stopped by the UI
     or reached the specified number of nights or date.
     """
 
-    def __init__(self,
-                 process_id: str,
-                 params: SchedulerParameters):
+    def __init__(self, process_id: str, params: SchedulerParameters):
         """
         Initialize the scheduler process
-        
+
         Args:
             process_id (str): A unique identifier for the scheduler process.
             params (SchedulerParameters): The parameters for the scheduler process.
@@ -95,14 +93,12 @@ class SchedulerProcess:
 
         _logger.info("Start running scheduler process...")
 
-
         night_index = 0
         current_night = self.params.start + timedelta(days=night_index)
         # Initialize the night monitor
-        self.night_monitor = NightMonitor(current_night,
-                                          self.params.sites,
-                                          self.scheduler_queue,
-                                          self.nightly_timeline_store)
+        self.night_monitor = NightMonitor(
+            current_night, self.params.sites, self.scheduler_queue, self.nightly_timeline_store
+        )
 
         # Start night monitor
         await self.night_monitor.start()
@@ -112,11 +108,13 @@ class SchedulerProcess:
         weather_source = self.night_monitor.get_weather_source()
 
         # Initialize Real Time Engine
-        self.engine = EngineRT(self.params,
-                               self.scheduler_queue,
-                               self.process_id,
-                               weather_source=weather_source,
-                               nightly_timeline_store=self.nightly_timeline_store)
+        self.engine = EngineRT(
+            self.params,
+            self.scheduler_queue,
+            self.process_id,
+            weather_source=weather_source,
+            nightly_timeline_store=self.nightly_timeline_store,
+        )
 
         # Initialize the engine variants
         self._engine_task = asyncio.create_task(self.engine.run())
@@ -140,8 +138,7 @@ class SchedulerProcess:
             self.running_event.clear()
             return
 
-        _logger.error(f"Engine task for process '{self.process_id}' crashed.",
-                      exc_info=exc)
+        _logger.error(f"Engine task for process '{self.process_id}' crashed.", exc_info=exc)
         self.running_event.clear()
         # asyncio.Queue is unbounded, so put_nowait cannot raise QueueFull.
         for q in plan_response_subscribers.get(self.process_id, set()):

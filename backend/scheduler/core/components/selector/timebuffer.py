@@ -29,7 +29,7 @@ class TimeBuffer(ABC):
     def __call__(self, *args, **kwargs):
         if len(args) != 1 or kwargs:
             raise ValueError("TimeBuffer expects exactly one positional argument (Program) with no keyword arguments.")
-        p, = args
+        (p,) = args
 
         if not isinstance(p, Program):
             raise TypeError("TimeBuffer argument must be an instance of Program.")
@@ -37,8 +37,7 @@ class TimeBuffer(ABC):
         return self._calculate_time(p)
 
     @abstractmethod
-    def _calculate_time(self, program: Program) -> timedelta:
-        ...
+    def _calculate_time(self, program: Program) -> timedelta: ...
 
 
 @final
@@ -66,8 +65,7 @@ class FlatTimeBuffer(TimeBuffer):
         return self.time_amount
 
 
-def create_time_buffer(buffer_type_str: str,
-                       buffer_amount: Optional[float]) -> TimeBuffer:
+def create_time_buffer(buffer_type_str: str, buffer_amount: Optional[float]) -> TimeBuffer:
     """
     Create a TimeBuffer based on the configuration parameters in config.yaml.
 

@@ -25,6 +25,7 @@ class RankerName(Enum):
     Selectable per run in VALIDATION only, so the scoring algorithm can be compared side by
     side without a redeploy. Every other mode uses `config.ranker.name`.
     """
+
     DEFAULT = 'default'
     ADDITIVE = 'additive'
 

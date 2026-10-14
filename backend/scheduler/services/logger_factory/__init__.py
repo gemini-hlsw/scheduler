@@ -16,9 +16,10 @@ class ContextLoggerAdapter(logging.LoggerAdapter):
         else:
             return msg, kwargs
 
-def create_logger(name: str,
-                  level: Optional[int] = DEFAULT_LOGGING_LEVEL,
-                  with_id: bool = True) -> Union[logging.LoggerAdapter, logging.Logger]:
+
+def create_logger(
+    name: str, level: Optional[int] = DEFAULT_LOGGING_LEVEL, with_id: bool = True
+) -> Union[logging.LoggerAdapter, logging.Logger]:
     """
     Create a Logger to be used for logging, configured with the given name, which should be the class
     or module from where the logging is being done.

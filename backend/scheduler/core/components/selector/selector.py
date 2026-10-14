@@ -4,6 +4,7 @@
 import logging
 from copy import deepcopy
 from dataclasses import dataclass, field
+
 # from enum import Enum, IntEnum
 from typing import final, ClassVar, Dict, FrozenSet, Optional, TypeAlias
 
@@ -14,9 +15,25 @@ from astropy.coordinates import Angle
 from astropy.units import Quantity
 import lucupy.sky as sky
 from lucupy.helpers import is_contiguous
-from lucupy.minimodel import (Group, Conditions, Group, Observation, ObservationClass, ObservationStatus, Program,
-                              ProgramID, ROOT_GROUP_ID, Site, TooType, NightIndex, NightIndices, TimeslotIndex,
-                              UniqueGroupID, Variant, VariantSnapshot, AndOption)
+from lucupy.minimodel import (
+    Conditions,
+    Group,
+    Observation,
+    ObservationClass,
+    ObservationStatus,
+    Program,
+    ProgramID,
+    ROOT_GROUP_ID,
+    Site,
+    TooType,
+    NightIndex,
+    NightIndices,
+    TimeslotIndex,
+    UniqueGroupID,
+    Variant,
+    VariantSnapshot,
+    AndOption,
+)
 from lucupy.minimodel import CloudCover, ImageQuality
 from lucupy.timeutils import time2slots
 
@@ -56,6 +73,7 @@ class Selector(SchedulerComponent):
     The collector is the data repository that contains all the data and calculations necessary for scheduling.
     The num_nights indicates the number of nights for which we wish to schedule.
     """
+
     collector: Collector
     num_nights_to_schedule: int
     time_buffer: TimeBuffer
@@ -65,28 +83,28 @@ class Selector(SchedulerComponent):
     # These start off empty, but will reset at the beginning of each night by the event loop.
     _variant_snapshot_per_site: Dict[Site, VariantSnapshot] = field(init=False, default_factory=dict)
 
-    _wind_sep: ClassVar[Angle] = 20. * u.deg
-    _wind_spd_bound: ClassVar[Quantity] = 10. * u.m / u.s
+    _wind_sep: ClassVar[Angle] = 20.0 * u.deg
+    _wind_spd_bound: ClassVar[Quantity] = 10.0 * u.m / u.s
 
     # Default values for resetting variants.
     _default_iq: ClassVar[ImageQuality] = ImageQuality(0.7)
     _default_cc: ClassVar[CloudCover] = CloudCover.CC70
-    _default_wind_dir: ClassVar[Angle] = Angle(0., unit=u.deg)
+    _default_wind_dir: ClassVar[Angle] = Angle(0.0, unit=u.deg)
     _default_wind_spd: ClassVar[Quantity] = 0.0 * (u.m / u.s)
 
-    _default_variant_snapshot: ClassVar[VariantSnapshot] = VariantSnapshot(iq=_default_iq,
-                                                                           cc=_default_cc,
-                                                                           wind_dir=_default_wind_dir,
-                                                                           wind_spd=_default_wind_spd)
+    _default_variant_snapshot: ClassVar[VariantSnapshot] = VariantSnapshot(
+        iq=_default_iq, cc=_default_cc, wind_dir=_default_wind_dir, wind_spd=_default_wind_spd
+    )
 
     def __post_init__(self):
         # Make sure the number of nights to schedule is not larger than the number of nights used in visibility
         # calculations.
-        if (self.num_nights_to_schedule < 0 or
-                self.num_nights_to_schedule > self.collector.num_nights_calculated):
-            raise ValueError(f'Scheduling requested for {self.num_nights_to_schedule} nights, but visibility '
-                             f'calculations only performed for {self.collector.num_nights_calculated}. '
-                             'Cannot proceed.')
+        if self.num_nights_to_schedule < 0 or self.num_nights_to_schedule > self.collector.num_nights_calculated:
+            raise ValueError(
+                f'Scheduling requested for {self.num_nights_to_schedule} nights, but visibility '
+                f'calculations only performed for {self.collector.num_nights_calculated}. '
+                'Cannot proceed.'
+            )
 
         # Calculate the blocked indices per night that the Scheduler knows in advance, e.g. engineering tasks.
         self._blocked_timeslots = self._calculate_blocked_timeslots()
@@ -94,12 +112,13 @@ class Selector(SchedulerComponent):
         self.night_configurations = {}
         for site in self.collector.sites:
             self.night_configurations[site] = self.collector.night_configurations(
-                site, np.arange(self.collector.num_nights_calculated))
+                site, np.arange(self.collector.num_nights_calculated)
+            )
 
     @staticmethod
-    def _process_starting_time_slots(sites: FrozenSet[Site],
-                                     night_indices: NightIndices,
-                                     starting_time_slots: Optional[StartingTimeslots]) -> StartingTimeslots:
+    def _process_starting_time_slots(
+        sites: FrozenSet[Site], night_indices: NightIndices, starting_time_slots: Optional[StartingTimeslots]
+    ) -> StartingTimeslots:
         """
         Determine the starting timeslots for each night. These should typically be 0 unless we are only calculating
         a fraction of a night, e.g. if a new selection is being done for part of the night.
@@ -184,15 +203,14 @@ class Selector(SchedulerComponent):
                     #                                       np.arange(start_timeslot_idx, end_timeslot_idx))
 
                     # Continue to take the union of the time slots that are blocked off for the site for the night_idx.
-                    blocked_timeslot_indices = np.union1d(blocked_timeslot_indices,
-                                                          np.arange(start_timeslot_idx, end_timeslot_idx))
+                    blocked_timeslot_indices = np.union1d(
+                        blocked_timeslot_indices, np.arange(start_timeslot_idx, end_timeslot_idx)
+                    )
                 blocked_indices_by_night[night_idx] = blocked_timeslot_indices
             blocked_indices_by_site[site] = blocked_indices_by_night
         return blocked_indices_by_site
 
-    def update_site_variant(self,
-                            site: Site,
-                            variant_snapshot: Optional[VariantSnapshot] = None) -> None:
+    def update_site_variant(self, site: Site, variant_snapshot: Optional[VariantSnapshot] = None) -> None:
         """
         Extract the CC and IQ values from the new conditions and update them for the given site.
         """
@@ -202,15 +220,16 @@ class Selector(SchedulerComponent):
             variant_snapshot = Selector._default_variant_snapshot
         self._variant_snapshot_per_site[site] = variant_snapshot
 
-    def get_current_variant(self,
-                            site: Site):
+    def get_current_variant(self, site: Site):
         return self._variant_snapshot_per_site[site]
 
-    def select(self,
-               sites: Optional[FrozenSet[Site]] = None,
-               night_indices: Optional[NightIndices] = None,
-               starting_time_slots: Optional[StartingTimeslots] = None,
-               ranker: Optional[Ranker] = None) -> Selection:
+    def select(
+        self,
+        sites: Optional[FrozenSet[Site]] = None,
+        night_indices: Optional[NightIndices] = None,
+        starting_time_slots: Optional[StartingTimeslots] = None,
+        ranker: Optional[Ranker] = None,
+    ) -> Selection:
         """
         Perform the selection of the groups based on:
         * Resource availability
@@ -268,8 +287,7 @@ class Selector(SchedulerComponent):
             # Scoring only. The deepcopy above is deliberately outside it, so
             # `scp.select` minus the sum of these shows what the copying costs.
             with timed('scp.score_program'):
-                program_calculations = self.score_program(program, sites, night_indices,
-                                                          starting_time_slots, ranker)
+                program_calculations = self.score_program(program, sites, night_indices, starting_time_slots, ranker)
             if program_calculations is None:
                 # Warning is already issued in scorer.
                 # print(f"Selector: {program_id} has no schedulable groups")
@@ -293,7 +311,7 @@ class Selector(SchedulerComponent):
             starting_time_slots=starting_time_slots,
             time_slot_length=self.collector.time_slot_length.to_datetime(),
             ranker=ranker,
-            _program_scorer=self.score_program
+            _program_scorer=self.score_program,
         )
 
     def is_rising(self, obs, target_info):
@@ -302,9 +320,9 @@ class Selector(SchedulerComponent):
         logger.debug(f'\nis_rising for {obs.id.id} with {obs.constraints.elevation}')
 
         # Get Hour Angle constraints. They are only missing if the dec was not known when parsing, e.g. nonsidereal.
-        limits = sky.complete_elevation_limits(obs.constraints.elevation,
-                                               target_info.coord.dec[0],
-                                               obs.site.location.lat)
+        limits = sky.complete_elevation_limits(
+            obs.constraints.elevation, target_info.coord.dec[0], obs.site.location.lat
+        )
         halim_min = limits.ha_min * u.hourangle
         halim_max = limits.ha_max * u.hourangle
 
@@ -316,12 +334,14 @@ class Selector(SchedulerComponent):
         # Target is rising if the first HA that meets constraints is negative
         return True if len(ha_match) == 0 or target_info.hourangle[ha_match[0]] < 0 else False
 
-    def score_program(self,
-                      program: Program,
-                      sites: FrozenSet[Site],
-                      night_indices: NightIndices,
-                      starting_time_slots: StartingTimeslots,
-                      ranker: Ranker) -> Optional[ProgramCalculations]:
+    def score_program(
+        self,
+        program: Program,
+        sites: FrozenSet[Site],
+        night_indices: NightIndices,
+        starting_time_slots: StartingTimeslots,
+        ranker: Ranker,
+    ) -> Optional[ProgramCalculations]:
         """
         Given a program and an array of night indices, score the program for the specified night indices
         starting at the specified time slot.
@@ -351,10 +371,12 @@ class Selector(SchedulerComponent):
         if not night_indices_set.issubset(ranker.night_indices):
             ranker_night_indices = set(ranker.night_indices)
             invalid_night_indices = night_indices_set - ranker_night_indices
-            raise ValueError(f'Selector is attempting to score program {program.id} on invalid night indices:\n'
-                             f'\tAvailable night indices: {ranker.night_indices}\n'
-                             f'\tNight indices to score: {night_indices_set}\n'
-                             f'\tInvalid night indices: {invalid_night_indices}')
+            raise ValueError(
+                f'Selector is attempting to score program {program.id} on invalid night indices:\n'
+                f'\tAvailable night indices: {ranker.night_indices}\n'
+                f'\tNight indices to score: {night_indices_set}\n'
+                f'\tInvalid night indices: {invalid_night_indices}'
+            )
 
         # Get the night configuration for all nights.
         night_configurations = {site: self.collector.night_configurations(site, night_indices) for site in sites}
@@ -363,18 +385,17 @@ class Selector(SchedulerComponent):
         # Calculate the group info and put it in the structure if there is actually group
         # info data inside it, i.e. feasible time slots for it in the plan.
         # This will filter out all GroupInfo objects that do not have schedulable slots.
-        unfiltered_group_data_map = self._calculate_group(program,
-                                                          program.root_group,
-                                                          sites,
-                                                          night_indices,
-                                                          starting_time_slots,
-                                                          night_configurations,
-                                                          ranker)
+        unfiltered_group_data_map = self._calculate_group(
+            program, program.root_group, sites, night_indices, starting_time_slots, night_configurations, ranker
+        )
 
         # We want to check if there are any time slots where a group can be scheduled: otherwise, we omit it.
-        group_data_map = {gp_id: gp_data for gp_id, gp_data in unfiltered_group_data_map.items()
-                          if any(indices.size > 0 for indices in gp_data.group_info.schedulable_slot_indices.values())
-                          and gp_data.group.id != ROOT_GROUP_ID}
+        group_data_map = {
+            gp_id: gp_data
+            for gp_id, gp_data in unfiltered_group_data_map.items()
+            if any(indices.size > 0 for indices in gp_data.group_info.schedulable_slot_indices.values())
+            and gp_data.group.id != ROOT_GROUP_ID
+        }
         if verbose:
             print(f'group_data_map keys: {group_data_map.keys()}')
             for gp_id, gp_data in unfiltered_group_data_map.items():
@@ -382,34 +403,35 @@ class Selector(SchedulerComponent):
 
         # In an observation group, the only child is an Observation:
         # hence, references here to group.children are simply the Observation.
-        observations = {group_data.group.children.id: group_data.group.children
-                        for group_data in group_data_map.values()
-                        if group_data.group.is_observation_group()}
+        observations = {
+            group_data.group.children.id: group_data.group.children
+            for group_data in group_data_map.values()
+            if group_data.group.is_observation_group()
+        }
         target_info = {obs_id: self.collector.get_target_info(obs_id) for obs_id, obs in observations.items()}
 
         program_info = ProgramInfo(
-            program=program,
-            group_data_map=group_data_map,
-            observations=observations,
-            target_info=target_info
+            program=program, group_data_map=group_data_map, observations=observations, target_info=target_info
         )
 
         return ProgramCalculations(
             program_info=program_info,
             night_indices=night_indices,
             group_data_map=group_data_map,
-            unfiltered_group_data_map=unfiltered_group_data_map
+            unfiltered_group_data_map=unfiltered_group_data_map,
         )
 
-    def _calculate_group(self,
-                         program: Program,
-                         group: Group,
-                         sites: FrozenSet[Site],
-                         night_indices: NightIndices,
-                         starting_time_slots: StartingTimeslots,
-                         night_configurations: NightConfigurationData,
-                         ranker: Ranker,
-                         group_data_map: GroupDataMap = None) -> GroupDataMap:
+    def _calculate_group(
+        self,
+        program: Program,
+        group: Group,
+        sites: FrozenSet[Site],
+        night_indices: NightIndices,
+        starting_time_slots: StartingTimeslots,
+        night_configurations: NightConfigurationData,
+        ranker: Ranker,
+        group_data_map: GroupDataMap = None,
+    ) -> GroupDataMap:
         """
         Delegate this group to the proper calculation method.
         """
@@ -426,24 +448,21 @@ class Selector(SchedulerComponent):
         else:
             raise ValueError(f'Could not process group {group.id}')
 
-        return processor(program,
-                         group,
-                         sites,
-                         night_indices,
-                         starting_time_slots,
-                         night_configurations,
-                         ranker,
-                         group_data_map)
+        return processor(
+            program, group, sites, night_indices, starting_time_slots, night_configurations, ranker, group_data_map
+        )
 
-    def _calculate_observation_group(self,
-                                     program: Program,
-                                     group: Group,
-                                     sites: FrozenSet[Site],
-                                     night_indices: NightIndices,
-                                     starting_time_slots: StartingTimeslots,
-                                     night_configurations: NightConfigurationData,
-                                     ranker: Ranker,
-                                     group_data_map: GroupDataMap) -> GroupDataMap:
+    def _calculate_observation_group(
+        self,
+        program: Program,
+        group: Group,
+        sites: FrozenSet[Site],
+        night_indices: NightIndices,
+        starting_time_slots: StartingTimeslots,
+        night_configurations: NightConfigurationData,
+        ranker: Ranker,
+        group_data_map: GroupDataMap,
+    ) -> GroupDataMap:
         """
         Calculate the GroupInfo for a group that contains an observation and add it to
         the group_data_map.
@@ -495,7 +514,7 @@ class Selector(SchedulerComponent):
         if not obs_nights:
             logger.debug(f'Selector skipping {obs.id}: not visible in any scheduled night.')
             return group_data_map
-        
+
         # Conditions constraints
         mrc = obs.constraints.conditions
         # ToDo: check this
@@ -506,8 +525,10 @@ class Selector(SchedulerComponent):
         # Standard ToOs stay tied to their program's calendar filter. The override only applies on
         # nights that accept ToOs (too_status is also False on closed / engineering nights), and the
         # group filter, which carries resource availability, still applies below.
-        is_activated_rapid_too = (obs.too_type >= TooType.RAPID
-                                  and obs.status in {ObservationStatus.READY, ObservationStatus.ONGOING})
+        is_activated_rapid_too = obs.too_type >= TooType.RAPID and obs.status in {
+            ObservationStatus.READY,
+            ObservationStatus.ONGOING,
+        }
 
         # Calculate a numpy array of bool indexed by night to determine when the group can be added to the plan
         # based on the night configuration filtering.
@@ -517,8 +538,9 @@ class Selector(SchedulerComponent):
         for night_idx in obs_nights:
             night_configuration = night_configurations[obs.site][night_idx]
             night_filter = night_configuration.filter
-            program_filtering = (night_filter.program_filter(program)
-                                 or (is_activated_rapid_too and night_configuration.too_status))
+            program_filtering = night_filter.program_filter(program) or (
+                is_activated_rapid_too and night_configuration.too_status
+            )
             # NOTE: to only do group filtering, comment out the first line and use the second line.
             night_filtering[night_idx] = program_filtering and night_filter.group_filter(group)
             # night_filtering[night_idx] = night_filter.group_filter(group)
@@ -558,11 +580,11 @@ class Selector(SchedulerComponent):
             # which costs ~8 ms per observation even when DEBUG is off.
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
-                    f'\nSelector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}\n'+
-                    f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}\n'+
-                    f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}\n'+
-                    f'rising: {rising[night_idx]}, Too: {too_type.name}\n'+
-                    f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}\n'
+                    f'\nSelector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}\n'
+                    + f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}\n'
+                    + f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}\n'
+                    + f'rising: {rising[night_idx]}, Too: {too_type.name}\n'
+                    + f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}\n'
                 )
             # print(f'_calc_observation_group conditions: {conditions_score[night_idx]}')
 
@@ -582,9 +604,12 @@ class Selector(SchedulerComponent):
         obs_scores = ranker.score_observation(program, obs, self.night_configurations, night_indices)
 
         # Calculate the scores for the observation across all night indices across all timeslots.
-        scores = {night_idx: np.multiply(
-                np.multiply(conditions_score[night_idx], obs_scores[night_idx]),
-                wind_score[night_idx]) for night_idx in obs_nights}
+        scores = {
+            night_idx: np.multiply(
+                np.multiply(conditions_score[night_idx], obs_scores[night_idx]), wind_score[night_idx]
+            )
+            for night_idx in obs_nights
+        }
 
         # Zero out the scores for the blocked timeslots.
         blocked_timeslots = self._blocked_timeslots[obs.site]
@@ -607,21 +632,23 @@ class Selector(SchedulerComponent):
             conditions_score=conditions_score,
             wind_score=wind_score,
             schedulable_slot_indices=schedulable_slot_indices,
-            scores=scores
+            scores=scores,
         )
 
         group_data_map[group.unique_id] = GroupData(group, group_info)
         return group_data_map
 
-    def _calculate_and_group(self,
-                             program: Program,
-                             group: Group,
-                             sites: FrozenSet[Site],
-                             night_indices: NightIndices,
-                             starting_time_slots: StartingTimeslots,
-                             night_configurations: NightConfigurationData,
-                             ranker: Ranker,
-                             group_data_map: GroupDataMap) -> GroupDataMap:
+    def _calculate_and_group(
+        self,
+        program: Program,
+        group: Group,
+        sites: FrozenSet[Site],
+        night_indices: NightIndices,
+        starting_time_slots: StartingTimeslots,
+        night_configurations: NightConfigurationData,
+        ranker: Ranker,
+        group_data_map: GroupDataMap,
+    ) -> GroupDataMap:
         """
         Calculate the GroupInfo for an AND group that contains subgroups and add it to
         the group_data_map.
@@ -643,8 +670,16 @@ class Selector(SchedulerComponent):
             if verbose:
                 print(f'\t\tsubgroup: {subgroup.unique_id.id}')
             logger.debug(f'\n\t\tsubgroup: {subgroup.unique_id.id}')
-            self._calculate_group(program, subgroup, sites, night_indices, starting_time_slots, night_configurations,
-                                  ranker, group_data_map)
+            self._calculate_group(
+                program,
+                subgroup,
+                sites,
+                night_indices,
+                starting_time_slots,
+                night_configurations,
+                ranker,
+                group_data_map,
+            )
 
         # We can only schedule this group if its sites are all being scheduled; however, we still want to
         # score this group's children if their sites are covered: hence the check after the child scoring.
@@ -658,12 +693,13 @@ class Selector(SchedulerComponent):
             if group.id != ROOT_GROUP_ID:
                 missing_subgroups = [sg.unique_id.id for sg in group.children if sg.unique_id not in group_data_map]
                 missing_str = ', '.join(missing_subgroups)
-                logger.warning(f'Selector skipping group {group.unique_id}: scores missing for children: '
-                               f'{missing_str}.')
+                logger.warning(
+                    f'Selector skipping group {group.unique_id}: scores missing for children: {missing_str}.'
+                )
             return group_data_map
 
         # Calculate the most restrictive conditions.
-        subgroup_conditions = ([group_data_map[sg.unique_id].group_info.minimum_conditions for sg in group.children])
+        subgroup_conditions = [group_data_map[sg.unique_id].group_info.minimum_conditions for sg in group.children]
         mrc = Conditions.most_restrictive_conditions(subgroup_conditions)
 
         # This group will always be splittable unless we have some bizarre nesting.
@@ -671,10 +707,10 @@ class Selector(SchedulerComponent):
         is_splittable = len(group.observations()) > 1 or len(group.observations()[0].sequence) > 1
 
         # The group is filtered in for a night_idx if all its subgroups are filtered in for that night_idx.
-        night_filtering = {night_idx: all(
-                                  group_data_map[sg.unique_id].group_info.night_filtering[night_idx]
-                                  for sg in group.children
-        ) for night_idx in night_indices}
+        night_filtering = {
+            night_idx: all(group_data_map[sg.unique_id].group_info.night_filtering[night_idx] for sg in group.children)
+            for night_idx in night_indices
+        }
         # print(f'night_filtering\n{night_filtering[night_indices[0]]}')
 
         # The conditions score is the product of the conditions scores for each subgroup across each night.
@@ -682,16 +718,18 @@ class Selector(SchedulerComponent):
         for night_idx in night_indices:
             # for sg in group.children:
             #     logger.debug(f'\n{sg.unique_id.id} {group_data_map[sg.unique_id].group_info.conditions_score[night_idx]}')
-            conditions_scores_for_night = [group_data_map[sg.unique_id].group_info.conditions_score[night_idx]
-                                           for sg in group.children]
+            conditions_scores_for_night = [
+                group_data_map[sg.unique_id].group_info.conditions_score[night_idx] for sg in group.children
+            ]
             conditions_score[night_idx] = np.multiply.reduce(conditions_scores_for_night)
         # logger.debug(f'\nconditions_score\n{conditions_score[night_indices[0]]}')
 
         # The wind score is the product of the wind scores for each subgroup across each night.
         wind_score = {}
         for night_idx in night_indices:
-            wind_scores_for_night = [group_data_map[sg.unique_id].group_info.wind_score[night_idx]
-                                     for sg in group.children]
+            wind_scores_for_night = [
+                group_data_map[sg.unique_id].group_info.wind_score[night_idx] for sg in group.children
+            ]
             wind_score[night_idx] = np.multiply.reduce(wind_scores_for_night)
         # print(f'wind_score\n{wind_score[night_indices[0]]}')
 
@@ -703,10 +741,14 @@ class Selector(SchedulerComponent):
             night_idx:
             # For each night, take the concatenation of the schedulable time slots for all children of the group
             # and make it unique, which also puts it in sorted order.
-            np.unique(np.concatenate([
-                group_data_map[sg.unique_id].group_info.schedulable_slot_indices[night_idx]
-                for sg in group.children
-            ]))
+            np.unique(
+                np.concatenate(
+                    [
+                        group_data_map[sg.unique_id].group_info.schedulable_slot_indices[night_idx]
+                        for sg in group.children
+                    ]
+                )
+            )
             # If we want intersection of schedulable nights instead of union, use this code.
             # Requires: from functools import reduce
             # np.array([reduce(np.intersect1d,
@@ -721,8 +763,9 @@ class Selector(SchedulerComponent):
         # Check if executing the rest of the group would cause the program to run over the allocated time per band
         # If so, set the scores to 0.
         for band in group.bands():
-            if program.program_used(band=band) + group.prog_time(band=band) - group.program_used(band=band) > \
-                (program.program_awarded(band=band) + self.time_buffer(program)):
+            if program.program_used(band=band) + group.prog_time(band=band) - group.program_used(band=band) > (
+                program.program_awarded(band=band) + self.time_buffer(program)
+            ):
                 # print(f'Group {group.unique_id.id} would exceed {program.program_awarded(band=band)} in band {band}.')
                 for night_idx in night_indices:
                     scores[night_idx] *= 0.0
@@ -739,20 +782,22 @@ class Selector(SchedulerComponent):
             conditions_score=conditions_score,
             wind_score=wind_score,
             schedulable_slot_indices=schedulable_slot_indices,
-            scores=scores
+            scores=scores,
         )
         group_data_map[group.unique_id] = GroupData(group, group_info)
         return group_data_map
 
-    def _calculate_nonconsec_group(self,
-                            program: Program,
-                            group: Group,
-                            sites: FrozenSet[Site],
-                            night_indices: NightIndices,
-                            starting_time_slots: StartingTimeslots,
-                            night_configurations: NightConfigurationData,
-                            ranker: Ranker,
-                            group_data_map: GroupDataMap) -> GroupDataMap:
+    def _calculate_nonconsec_group(
+        self,
+        program: Program,
+        group: Group,
+        sites: FrozenSet[Site],
+        night_indices: NightIndices,
+        starting_time_slots: StartingTimeslots,
+        night_configurations: NightConfigurationData,
+        ranker: Ranker,
+        group_data_map: GroupDataMap,
+    ) -> GroupDataMap:
         """
         Process an OR group
         There is no score for an OR or non-consecutive AND groups, just have to process the members.
@@ -772,34 +817,43 @@ class Selector(SchedulerComponent):
         for subgroup in group.children:
             if verbose:
                 print(f'\t\tsubgroup: {subgroup.unique_id.id}')
-            self._calculate_group(program, subgroup, sites, night_indices, starting_time_slots, night_configurations,
-                                  ranker, group_data_map)
+            self._calculate_group(
+                program,
+                subgroup,
+                sites,
+                night_indices,
+                starting_time_slots,
+                night_configurations,
+                ranker,
+                group_data_map,
+            )
 
         return group_data_map
 
         # raise NotImplementedError(f'Selector does not yet handle OR groups: {group.id}')
 
     @staticmethod
-    def _wind_conditions(variant: Variant,
-                         azimuth: Angle) -> npt.NDArray[float]:
+    def _wind_conditions(variant: Variant, azimuth: Angle) -> npt.NDArray[float]:
         """
         Calculate the effect of the wind conditions on the score of an observation.
         """
         wind = np.ones(len(azimuth))
         az_wd = np.abs(azimuth.degree - variant.wind_dir.to_value())
-        idx = np.where(np.logical_and(variant.wind_spd > Selector._wind_spd_bound,  # * u.m / u.s
-                                      np.logical_or(az_wd <= Selector._wind_sep.to_value(),
-                                                    360 - az_wd <= Selector._wind_sep.to_value())))[0]
+        idx = np.where(
+            np.logical_and(
+                variant.wind_spd > Selector._wind_spd_bound,  # * u.m / u.s
+                np.logical_or(az_wd <= Selector._wind_sep.to_value(), 360 - az_wd <= Selector._wind_sep.to_value()),
+            )
+        )[0]
 
         # Adjust down to 0 if the wind conditions are not adequate.
         wind[idx] = 0
         return wind
 
     @staticmethod
-    def match_conditions(required_conditions: Conditions,
-                         actual_conditions: Variant,
-                         rising: bool,
-                         too_status: Optional[TooType]) -> npt.NDArray[float]:
+    def match_conditions(
+        required_conditions: Conditions, actual_conditions: Variant, rising: bool, too_status: Optional[TooType]
+    ) -> npt.NDArray[float]:
         """
         Determine if the required conditions are satisfied by the actual conditions variant.
         * required_conditions: the conditions required by an observation
@@ -838,13 +892,15 @@ class Selector(SchedulerComponent):
         # We must be working with required_conditions that are either scalars or the same
         # length as the actual_conditions.
         if len(required_conditions) not in {1, length}:
-            raise ValueError(f'Cannot match conditions between arrays of different sizes: {actual_conditions} '
-                             f'and {required_conditions}')
+            raise ValueError(
+                f'Cannot match conditions between arrays of different sizes: {actual_conditions} '
+                f'and {required_conditions}'
+            )
 
         # Determine the positions where the actual conditions are worse than the requirements.
         # TODO remove the if clause when weather service get updated
         if required_conditions.iq >= 0.2:
-            bad_iq = actual_iq > required_conditions.iq 
+            bad_iq = actual_iq > required_conditions.iq
         else:
             bad_iq = actual_iq > 0.2
         bad_cc = actual_cc > required_conditions.cc

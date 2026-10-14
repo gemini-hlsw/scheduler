@@ -24,6 +24,7 @@ __all__ = [
 
 logger = logger_factory.create_logger(__name__)
 
+
 class StatCalculator:
     """
     Interface for stats in the calculation and results of plans.
@@ -33,13 +34,10 @@ class StatCalculator:
     _WEATHER_KEY: TimeLossType = 'weather'
     _FAULT_KEY: TimeLossType = 'faults'
 
-
     @staticmethod
-    def calculate_stitched_timeline_stats(timeline: NightlyTimeline,
-                                          nights: FrozenSet[NightIndex],
-                                          sites: Sites,
-                                          collector: Collector,
-                                          ranker: Ranker) -> RunSummary:
+    def calculate_stitched_timeline_stats(
+        timeline: NightlyTimeline, nights: FrozenSet[NightIndex], sites: Sites, collector: Collector, ranker: Ranker
+    ) -> RunSummary:
 
         # scores_per_program: Dict[ProgramID, float] = {}
         metrics_per_program: Dict[ProgramID, float] = {}
@@ -63,8 +61,10 @@ class StatCalculator:
                             obs = v.observation
                             program = collector.get_program(obs.belongs_to)
                             if program is None:
-                                logger.warning(f'Program {obs.belongs_to.id} for observation {obs.id.id} '
-                                               f'not found in the collector, skipping it in the run summary.')
+                                logger.warning(
+                                    f'Program {obs.belongs_to.id} for observation {obs.id.id} '
+                                    f'not found in the collector, skipping it in the run summary.'
+                                )
                                 continue
 
                             # Check if program is on the table
@@ -113,18 +113,15 @@ class StatCalculator:
                             plan.alt_degs.append([])
                             continue
                         end_time_slot = visit.start_time_slot + visit.time_slots
-                        values = ti[night_idx].alt[visit.start_time_slot: end_time_slot]
+                        values = ti[night_idx].alt[visit.start_time_slot : end_time_slot]
                         alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
                         plan.alt_degs.append(alt_degs)
 
-                    program_completion = {p.id: StatCalculator.calculate_program_completion(programs[p])
-                                            for p in programs}
+                    program_completion = {
+                        p.id: StatCalculator.calculate_program_completion(programs[p]) for p in programs
+                    }
                     # TODO: this should be populated inside the plan. At runtime even.
-                    plan.night_stats = NightStats(plan_score,
-                                                  n_toos,
-                                                  completion_fraction,
-                                                  program_completion)
-
+                    plan.night_stats = NightStats(plan_score, n_toos, completion_fraction, program_completion)
 
         plans_summary: Summary = {}
         for p_id in metrics_per_program:
@@ -133,10 +130,9 @@ class StatCalculator:
             completion_str = StatCalculator.calculate_program_completion(program)
             metric_total = 0.0
             for band in completion_bands.keys():
-                metric, _ = ranker.metric_slope(np.array([completion_bands[band]]),
-                                            np.array([band.value]),
-                                            np.array([0.8]),
-                                            program.thesis)
+                metric, _ = ranker.metric_slope(
+                    np.array([completion_bands[band]]), np.array([band.value]), np.array([0.8]), program.thesis
+                )
                 metrics_per_band[band.name] += metric[0]
                 # For now sum all the metrics
                 metric_total += metric[0]

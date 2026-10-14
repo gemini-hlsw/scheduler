@@ -10,6 +10,7 @@ statement: fetching them per row would be an N+1 over a page of results.
 
 Statement shape is asserted against the compiled SQL — CI has no database.
 """
+
 import asyncio
 from datetime import date, datetime, timezone
 
@@ -66,9 +67,7 @@ def test_visible_rows_filter_by_night_and_site_and_join_the_target():
     session = _CapturingSession()
     repo = VisibilityDataRepository(session)
 
-    asyncio.run(repo.get_visible_on_night(
-        night_date=_NIGHT, site_id=1, min_remaining_minutes=1, limit=50, offset=100
-    ))
+    asyncio.run(repo.get_visible_on_night(night_date=_NIGHT, site_id=1, min_remaining_minutes=1, limit=50, offset=100))
 
     sql = _sql(session.statements[0])
     assert "visibility_data.night_date =" in sql
@@ -94,9 +93,7 @@ def test_visible_rows_can_exclude_never_visible_observations():
     session = _CapturingSession()
     repo = VisibilityDataRepository(session)
 
-    asyncio.run(repo.get_visible_on_night(
-        night_date=_NIGHT, site_id=1, min_remaining_minutes=1
-    ))
+    asyncio.run(repo.get_visible_on_night(night_date=_NIGHT, site_id=1, min_remaining_minutes=1))
 
     assert "remaining_minutes >=" in _sql(session.statements[0])
 
@@ -143,9 +140,7 @@ def test_remaining_minutes_are_read_in_one_range_query_without_the_ranges():
     session = _CapturingSession(rows=[("o-1", _NIGHT, 30)])
     repo = VisibilityDataRepository(session)
 
-    rows = asyncio.run(repo.get_remaining_minutes_in_range(
-        ["o-1", "o-2"], date(2026, 7, 29), date(2026, 12, 31)
-    ))
+    rows = asyncio.run(repo.get_remaining_minutes_in_range(["o-1", "o-2"], date(2026, 7, 29), date(2026, 12, 31)))
 
     assert rows == [("o-1", _NIGHT, 30)]
     assert len(session.statements) == 1

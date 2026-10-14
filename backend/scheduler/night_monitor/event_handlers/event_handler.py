@@ -3,21 +3,15 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime, UTC
-from typing import  Optional, Dict, Tuple, Callable
+from typing import Optional, Dict, Tuple, Callable
 
-from gpp_client.generated.custom_fields import TargetEnvironmentFields, ConstraintSetFields, \
-    CalculatedObservationWorkflowFields, VisitFields
 
 from lucupy.minimodel import ALL_SITES, Site
-from pydantic import BaseModel
 from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.engine.params import build_params_store
 
-__all__ = [
-    'EventHandler',
-    'LastPlanMock'
-]
+__all__ = ['EventHandler', 'LastPlanMock']
 
 
 class LastPlanMock:
@@ -40,9 +34,7 @@ class EventHandler(ABC):
 
     _DISPATCH_MAP: Dict[str, Tuple[callable, callable]]
 
-    def __init__(self,
-                 scheduler_queue: SchedulerQueue,
-                 nightly_timeline_store: Optional[NightlyTimelineStore] = None):
+    def __init__(self, scheduler_queue: SchedulerQueue, nightly_timeline_store: Optional[NightlyTimelineStore] = None):
         """
         Args:
             scheduler_queue (SchedulerQueue): Use to send new schedule requests to the Engine.

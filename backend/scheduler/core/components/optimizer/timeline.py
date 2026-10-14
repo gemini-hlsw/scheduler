@@ -26,6 +26,7 @@ class Timeline:
     entry for each time slot for the night. Each value needs to be an index to the observation
     scheduled in that slot.
     """
+
     start: datetime
     end: datetime
     time_slot_length: timedelta
@@ -84,7 +85,7 @@ class Timeline:
             first_open_slot = interval_empty_slots[0]
 
             # and if so, set values of time_slots to the observation index.
-            self.time_slots[interval[first_open_slot:first_open_slot + required_time_slots]] = obs_idx
+            self.time_slots[interval[first_open_slot : first_open_slot + required_time_slots]] = obs_idx
 
             # First time slot
             start_time_slot = interval[first_open_slot]
@@ -140,8 +141,10 @@ class Timeline:
                 # t_end = self.start.astimezone(tz=timezone.utc) + i_end * self.time_slot_length + delta
                 t_end = t_start + (i_end - i_start) * self.time_slot_length
 
-                print(f'{idx:5d} {i_start:5d} {i_end:5d}   {obs_id.id:20} {t_start.strftime("%Y-%m-%d %H:%M:%S")} '
-                      f'{t_end.strftime("%Y-%m-%d %H:%M:%S")}')
+                print(
+                    f'{idx:5d} {i_start:5d} {i_end:5d}   {obs_id.id:20} {t_start.strftime("%Y-%m-%d %H:%M:%S")} '
+                    f'{t_end.strftime("%Y-%m-%d %H:%M:%S")}'
+                )
 
 
 class Timelines:
@@ -155,11 +158,13 @@ class Timelines:
         self.night_idx = night_idx
         for site, ne in night_events.items():
             if ne is not None:
-                self.timelines[site] = Timeline(ne.local_times[night_idx][0],
-                                                ne.local_times[night_idx][-1],
-                                                ne.time_slot_length.to_datetime(),
-                                                site,
-                                                len(ne.times[night_idx]))
+                self.timelines[site] = Timeline(
+                    ne.local_times[night_idx][0],
+                    ne.local_times[night_idx][-1],
+                    ne.time_slot_length.to_datetime(),
+                    site,
+                    len(ne.times[night_idx]),
+                )
 
     def __getitem__(self, site: Site) -> Timeline:
         return self.timelines[site]

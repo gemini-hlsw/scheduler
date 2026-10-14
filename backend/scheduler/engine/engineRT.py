@@ -2,7 +2,6 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-import datetime
 from time import time
 import traceback
 import numpy as np
@@ -11,16 +10,14 @@ from scheduler.core.scp.scp import SCP
 from scheduler.core.builder.modes import dispatch_with
 from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
-from scheduler.core.plans import NightStats
 from scheduler.services import logger_factory
 from scheduler.services.telemetry import timed
 from scheduler.core.events.queue import NightlyTimelineStore
-from scheduler.core.events.queue.events import CustomStartOfNightEvent, Event, EndOfNightEvent
+from scheduler.core.events.queue.events import Event, EndOfNightEvent
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.graphql_mid.types import NewNightPlans, SNightTimelines, SRunSummary
-from scheduler.graphql_mid.types import NightPlansError, SPlans
-from scheduler.graphql_mid.types import NightPlansWithEvent
+from scheduler.graphql_mid.types import NightPlansError
 from scheduler.night_monitor.event_sources import WeatherEventSource
 from scheduler.services.visibility_aggregator import coordination
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site
@@ -28,9 +25,7 @@ from astropy.coordinates import Angle
 from astropy import units as u
 
 
-__all__ = [
-    'EngineRT'
-]
+__all__ = ['EngineRT']
 
 from ..core.components.ranker import DefaultRanker
 from ..shared_queue import plan_response_subscribers
@@ -39,14 +34,13 @@ _logger = logger_factory.create_logger(__name__)
 
 
 class EngineRT:
-
     def __init__(
         self,
         params: SchedulerParameters,
         scheduler_queue: SchedulerQueue,
         process_id: str,
         weather_source: WeatherEventSource,
-        nightly_timeline_store: NightlyTimelineStore
+        nightly_timeline_store: NightlyTimelineStore,
     ):
         """
         Initializes the EngineRT with the given parameters.
@@ -117,15 +111,16 @@ class EngineRT:
         self._refresh_default_night(build_params)
         night_times = build_params.get_night_times()
         _logger.info(
-            f"Build params: vis_start={build_params.visibility_start}, vis_end={build_params.visibility_end}, night_times={night_times}")
+            f"Build params: vis_start={build_params.visibility_start}, vis_end={build_params.visibility_end}, night_times={night_times}"
+        )
 
         vis_start = build_params.visibility_start or self.params.start
         vis_end = build_params.visibility_end or self.params.end_vis
         programs_list = build_params.program_list or self.params.programs_list
 
         _logger.info(
-            f"Program list for this build: "
-            f"{len(programs_list) if programs_list else 'all programs active today'}")
+            f"Program list for this build: {len(programs_list) if programs_list else 'all programs active today'}"
+        )
 
         with timed('scp.build_collector'):
             collector = await builder.async_build_collector(
@@ -136,23 +131,22 @@ class EngineRT:
                 semesters=self.params.semesters,
                 blueprint=Blueprints.collector,
                 night_times=night_times,
-                program_list=programs_list
+                program_list=programs_list,
             )
 
-
-        selector = builder.build_selector(collector=collector,
-                                          num_nights_to_schedule=self.params.num_nights_to_schedule,
-                                          blueprint=Blueprints.selector)
+        selector = builder.build_selector(
+            collector=collector,
+            num_nights_to_schedule=self.params.num_nights_to_schedule,
+            blueprint=Blueprints.selector,
+        )
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
-        ranker = DefaultRanker(collector,
-                               self.params.night_indices,
-                               self.params.sites,
-                               params=self.params.ranker_parameters)
+        ranker = DefaultRanker(
+            collector, self.params.night_indices, self.params.sites, params=self.params.ranker_parameters
+        )
 
         self.scp = SCP(collector, selector, optimizer, ranker)
         _logger.info("SCP successfully built.")
-
 
     async def clear_timelines_if_needed(self) -> None:
         build_params = await build_params_store.get()
@@ -172,10 +166,12 @@ class EngineRT:
         _logger.info("Updating initial variants...")
         current_state = await self.weather_source.get_current_state()
         for site_state in current_state:
-            initial_variant = VariantSnapshot(iq=ImageQuality(site_state["imageQuality"]),
-                                          cc=CloudCover(site_state["cloudCover"]),
-                                          wind_dir=Angle(site_state["windDirection"], unit=u.deg),
-                                          wind_spd=site_state["windSpeed"] * (u.m / u.s))
+            initial_variant = VariantSnapshot(
+                iq=ImageQuality(site_state["imageQuality"]),
+                cc=CloudCover(site_state["cloudCover"]),
+                wind_dir=Angle(site_state["windDirection"], unit=u.deg),
+                wind_spd=site_state["windSpeed"] * (u.m / u.s),
+            )
 
             _logger.info(f"Initial variant for site {site_state['site']} is {initial_variant}")
             self.scp.selector.update_site_variant(Site[site_state["site"]], initial_variant)
@@ -203,14 +199,10 @@ class EngineRT:
         except Exception:
             # `plan.elapsed` is already set: `timed` fills it in its own finally, which
             # runs before the exception reaches us here.
-            _logger.warning(
-                f"Plan for '{event.description}' failed after {plan.elapsed:.1f}s."
-            )
+            _logger.warning(f"Plan for '{event.description}' failed after {plan.elapsed:.1f}s.")
             raise
         else:
-            _logger.info(
-                f"Plan for '{event.description}' computed in {plan.elapsed:.1f}s."
-            )
+            _logger.info(f"Plan for '{event.description}' computed in {plan.elapsed:.1f}s.")
             return plans
         finally:
             await coordination.signal_plan_done()
@@ -235,13 +227,12 @@ class EngineRT:
                 night_start, night_end = self.scp.collector.get_night_length(site, 0)
                 nightly_timeline.set_night_length(0, site, night_start, night_end)
 
-                event_timeslot = event.to_timeslot_idx(
-                    night_start,
-                    self.scp.collector.time_slot_length.to_datetime()
-                )
+                event_timeslot = event.to_timeslot_idx(night_start, self.scp.collector.time_slot_length.to_datetime())
 
-                _logger.info(f"Computing plan for site {site.name} starting on timeslot: {event_timeslot if event_timeslot > 0 else 0}, "
-                             f"night_start={night_start}, event_time={event.time}")
+                _logger.info(
+                    f"Computing plan for site {site.name} starting on timeslot: {event_timeslot if event_timeslot > 0 else 0}, "
+                    f"night_start={night_start}, event_time={event.time}"
+                )
                 start_timeslot[site] = {np.int64(0): event_timeslot if event_timeslot > 0 else 0}
 
         return start_timeslot
@@ -279,11 +270,9 @@ class EngineRT:
             for site in self.params.sites:
                 nightly_timeline.add(plans.night_idx, site, start_timeslot[site][0], event, plans.plans[site])
                 nightly_timeline.calculate_time_losses(plans.night_idx, site)
-            run_summary = StatCalculator.calculate_stitched_timeline_stats(nightly_timeline,
-                                                                          self.params.night_indices,
-                                                                          self.params.sites,
-                                                                          self.scp.collector,
-                                                                          self.scp.ranker)
+            run_summary = StatCalculator.calculate_stitched_timeline_stats(
+                nightly_timeline, self.params.night_indices, self.params.sites, self.scp.collector, self.scp.ranker
+            )
             s_timelines = SNightTimelines.from_computed_stitched_timelines(nightly_timeline)
         s_plan_summary = SRunSummary.from_computed_run_summary(run_summary)
 

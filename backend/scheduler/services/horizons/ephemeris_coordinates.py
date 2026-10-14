@@ -10,9 +10,7 @@ import numpy.typing as npt
 
 from .coordinates import Coordinates
 
-__all__ = [
-    "EphemerisCoordinates"
-]
+__all__ = ["EphemerisCoordinates"]
 
 
 @final

@@ -59,14 +59,10 @@ class GPPClientInstance(metaclass=Singleton):
         for key in dead:
             del self._clients[key]
         if dead:
-            _logger.debug(
-                f"Dropped {len(dead)} GPP client(s) belonging to finished event "
-                f"loops."
-            )
+            _logger.debug(f"Dropped {len(dead)} GPP client(s) belonging to finished event loops.")
 
     async def close(self) -> None:
-        """Close the running loop's client, if it has one.
-        """
+        """Close the running loop's client, if it has one."""
         loop = asyncio.get_running_loop()
         key = id(loop)
         entry = self._clients.get(key)

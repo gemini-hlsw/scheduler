@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
-from scheduler.night_monitor.event_handlers.resource_event_handler import MockResourceEvent, PDRQueue, ResourceEventHandler
+from scheduler.night_monitor.event_handlers.resource_event_handler import (
+    MockResourceEvent,
+    PDRQueue,
+    ResourceEventHandler,
+)
 
 
 class TestPDRQueue:
@@ -85,6 +89,7 @@ class TestPDRQueue:
         assert len(queue.queue) == 0
         assert len(queue.tasks) == 0
 
+
 class TestResourceEventHandler:
     """Tests for ResourceEventHandler class."""
 
@@ -103,7 +108,9 @@ class TestResourceEventHandler:
         def _mock(resources: list[str]):
             mock = MagicMock()
             mock.resources.return_value = resources
-            return patch('scheduler.night_monitor.event_handlers.resource_event_handler.LastPlanMock', return_value=mock)
+            return patch(
+                'scheduler.night_monitor.event_handlers.resource_event_handler.LastPlanMock', return_value=mock
+            )
 
         return _mock
 
@@ -143,6 +150,7 @@ class TestResourceEventHandler:
 
             # Callback should not have been called since we enabled before timeout
             assert "test_resource" not in handler.pdr.queue
+            mock_cb.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_timeout_triggers_callback(self, handler, schedule_queue):

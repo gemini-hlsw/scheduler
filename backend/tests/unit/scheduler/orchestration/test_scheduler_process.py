@@ -49,10 +49,12 @@ async def test_night_monitor_shutdown_cancels_night_tracker():
     no shutdown_event of its own."""
     from scheduler.night_monitor.night_monitor import NightMonitor
 
-    with patch('scheduler.night_monitor.night_monitor.gpp'), \
-         patch('scheduler.night_monitor.night_monitor.EventListener'), \
-         patch('scheduler.night_monitor.night_monitor.EventConsumer'), \
-         patch('scheduler.night_monitor.night_monitor.NightTracker'):
+    with (
+        patch('scheduler.night_monitor.night_monitor.gpp'),
+        patch('scheduler.night_monitor.night_monitor.EventListener'),
+        patch('scheduler.night_monitor.night_monitor.EventConsumer'),
+        patch('scheduler.night_monitor.night_monitor.NightTracker'),
+    ):
         monitor = NightMonitor(MagicMock(), frozenset(), MagicMock(), MagicMock())
 
     monitor._listener_task = asyncio.create_task(_sleep_forever())
@@ -69,8 +71,10 @@ async def test_night_monitor_shutdown_cancels_night_tracker():
 async def _start_process_with_engine(process, engine_run_coro):
     """Run SchedulerProcess.run() with NightMonitor/EngineRT mocked out, the
     engine task backed by engine_run_coro."""
-    with patch('scheduler.orchestration.scheduler_process.NightMonitor') as mock_nm, \
-         patch('scheduler.orchestration.scheduler_process.EngineRT') as mock_engine:
+    with (
+        patch('scheduler.orchestration.scheduler_process.NightMonitor') as mock_nm,
+        patch('scheduler.orchestration.scheduler_process.EngineRT') as mock_engine,
+    ):
         mock_nm.return_value.start = AsyncMock()
         mock_nm.return_value.shutdown = AsyncMock()
         mock_engine.return_value.run = engine_run_coro

@@ -31,16 +31,18 @@ class Sources:
     def set_origin(self, origin: Origin):
         self.origin = origin.load()
 
-    def use_file(self,
-                 sites: FrozenSet[Site],
-                 service: Services,
-                 calendar: BytesIO,
-                 gmos_fpu: BytesIO,
-                 gmos_gratings: BytesIO,
-                 faults: BytesIO,
-                 eng_tasks: BytesIO,
-                 gmos_filters: BytesIO,
-                 weather_closures: BytesIO) -> bool:
+    def use_file(
+        self,
+        sites: FrozenSet[Site],
+        service: Services,
+        calendar: BytesIO,
+        gmos_fpu: BytesIO,
+        gmos_gratings: BytesIO,
+        faults: BytesIO,
+        eng_tasks: BytesIO,
+        gmos_filters: BytesIO,
+        weather_closures: BytesIO,
+    ) -> bool:
 
         match service:
             case Services.ENV:
@@ -54,15 +56,17 @@ class Sources:
 
                     for site in sites:
                         suffix = ('s' if site == Site.GS else 'n').upper()
-                        file_resource_service.load_files(site,
-                                                         f'GMOS{suffix}_fpu_barcode.txt',
-                                                         gmos_fpu,
-                                                         gmos_gratings,
-                                                         faults,
-                                                         eng_tasks,
-                                                         weather_closures,
-                                                         gmos_filters,
-                                                         'telescope_schedules.xlsx')
+                        file_resource_service.load_files(
+                            site,
+                            f'GMOS{suffix}_fpu_barcode.txt',
+                            gmos_fpu,
+                            gmos_gratings,
+                            faults,
+                            eng_tasks,
+                            weather_closures,
+                            gmos_filters,
+                            'telescope_schedules.xlsx',
+                        )
 
                     self.set_origin(Origins.FILE.value())
                     self.origin.resource = file_resource_service

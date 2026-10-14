@@ -1,4 +1,3 @@
-
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -50,9 +49,7 @@ async def init_db_engine() -> None:
         return
     settings = get_db_settings()
     if settings is None:
-        _logger.info(
-            "DATABASE_URL not set; Sight engine left uninitialised."
-        )
+        _logger.info("DATABASE_URL not set; Sight engine left uninitialised.")
         return
     url_str = str(settings.url)
     connect_args: dict = {}

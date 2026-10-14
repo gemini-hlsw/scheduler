@@ -27,8 +27,9 @@ def _obs(timing_windows, with_constraints=True):
     cond = SimpleNamespace(sb=SkyBackground.SBANY)
     constraints = SimpleNamespace(
         conditions=cond,
-        elevation=ElevationLimits(elevation_type=ElevationType.AIRMASS,
-                                  ha_min=None, ha_max=None, airmass_min=1.0, airmass_max=2.0),
+        elevation=ElevationLimits(
+            elevation_type=ElevationType.AIRMASS, ha_min=None, ha_max=None, airmass_min=1.0, airmass_max=2.0
+        ),
         timing_windows=timing_windows,
     )
     return SimpleNamespace(constraints=constraints)
@@ -48,8 +49,12 @@ def test_program_window_helper_empty_without_dates():
 
 def test_no_timing_windows_falls_back_to_program_window():
     c = stage2_constraints(
-        _obs([]), has_resources=True, can_schedule=True, range_end=RANGE_END,
-        program_start=PROG_START, program_end=PROG_END,
+        _obs([]),
+        has_resources=True,
+        can_schedule=True,
+        range_end=RANGE_END,
+        program_start=PROG_START,
+        program_end=PROG_END,
     )
     assert len(c.timing_windows) == 1
     assert c.timing_windows[0].start == PROG_START.replace(tzinfo=timezone.utc)
@@ -59,8 +64,11 @@ def test_no_timing_windows_falls_back_to_program_window():
 def test_no_constraints_falls_back_to_program_window():
     c = stage2_constraints(
         _obs(None, with_constraints=False),
-        has_resources=True, can_schedule=True, range_end=RANGE_END,
-        program_start=PROG_START, program_end=PROG_END,
+        has_resources=True,
+        can_schedule=True,
+        range_end=RANGE_END,
+        program_start=PROG_START,
+        program_end=PROG_END,
     )
     assert len(c.timing_windows) == 1
     assert c.timing_windows[0].start == PROG_START.replace(tzinfo=timezone.utc)
@@ -74,8 +82,12 @@ def test_explicit_timing_windows_are_not_overridden():
         repeat=0,  # NON_REPEATING
     )
     c = stage2_constraints(
-        _obs([tw]), has_resources=True, can_schedule=True, range_end=RANGE_END,
-        program_start=PROG_START, program_end=PROG_END,
+        _obs([tw]),
+        has_resources=True,
+        can_schedule=True,
+        range_end=RANGE_END,
+        program_start=PROG_START,
+        program_end=PROG_END,
     )
     # The single explicit 2h window is kept; the program window is NOT added.
     assert len(c.timing_windows) == 1
@@ -85,6 +97,9 @@ def test_explicit_timing_windows_are_not_overridden():
 
 def test_no_program_dates_leaves_unrestricted():
     c = stage2_constraints(
-        _obs([]), has_resources=True, can_schedule=True, range_end=RANGE_END,
+        _obs([]),
+        has_resources=True,
+        can_schedule=True,
+        range_end=RANGE_END,
     )
     assert c.timing_windows == []

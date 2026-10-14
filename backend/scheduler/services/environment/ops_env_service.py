@@ -61,8 +61,9 @@ class OpsEnvService(ExternalService):
 
             with open(initial_conditions_path, 'r') as conditions_file:
                 df = pd.read_csv(conditions_file)
-                df[OpsEnvService._night_time_col_initial] = pd.to_datetime(df[OpsEnvService._night_time_col_initial],
-                                                                           errors='coerce', format='%Y-%m-%d')
+                df[OpsEnvService._night_time_col_initial] = pd.to_datetime(
+                    df[OpsEnvService._night_time_col_initial], errors='coerce', format='%Y-%m-%d'
+                )
                 self._initial_conditions[site] = df
 
     @staticmethod
@@ -76,15 +77,10 @@ class OpsEnvService(ExternalService):
         wind_dir = Angle(row[OpsEnvService._wind_dir_col], unit=u.deg)
         wind_spd = row[OpsEnvService._wind_speed_col] * (u.m / u.s)
 
-        variant_change = VariantSnapshot(iq=iq,
-                                         cc=cc,
-                                         wind_dir=wind_dir,
-                                         wind_spd=wind_spd)
+        variant_change = VariantSnapshot(iq=iq, cc=cc, wind_dir=wind_dir, wind_spd=wind_spd)
         return timestamp, variant_change
 
-    def get_variant_changes_for_night(self,
-                                      site: Site,
-                                      night_date: date) -> Dict[datetime, VariantSnapshot]:
+    def get_variant_changes_for_night(self, site: Site, night_date: date) -> Dict[datetime, VariantSnapshot]:
         """
         Return the weather variant.
         This should be site-based and time-based.
@@ -96,9 +92,7 @@ class OpsEnvService(ExternalService):
         variant_list = filtered_df.apply(OpsEnvService._convert_to_variant, axis=1).values.tolist()
         return {dt: v for dt, v in variant_list}
 
-    def get_initial_conditions(self,
-                               site: Site,
-                               night_date: date) -> Optional[VariantSnapshot]:
+    def get_initial_conditions(self, site: Site, night_date: date) -> Optional[VariantSnapshot]:
         ut_night_date = night_date + timedelta(days=1)
 
         df = self._initial_conditions.get(site)
@@ -110,11 +104,14 @@ class OpsEnvService(ExternalService):
             return None
 
         df_iq = filtered_df[OpsEnvService._iq_col_initial].iloc[0]
-        iq = ImageQuality(0.7) if df_iq == 'na' else (ImageQuality(int(df_iq)/100) if df_iq != 'ANY' else ImageQuality(1.0))
+        iq = (
+            ImageQuality(0.7)
+            if df_iq == 'na'
+            else (ImageQuality(int(df_iq) / 100) if df_iq != 'ANY' else ImageQuality(1.0))
+        )
         df_cc = filtered_df[OpsEnvService._cc_col_initial].iloc[0]
-        cc = CloudCover.CC70 if df_cc == 'na' else (CloudCover(int(df_cc)/100) if df_cc != 'ANY' else CloudCover.CCANY)
+        cc = (
+            CloudCover.CC70 if df_cc == 'na' else (CloudCover(int(df_cc) / 100) if df_cc != 'ANY' else CloudCover.CCANY)
+        )
 
-        return VariantSnapshot(iq=iq,
-                               cc=cc,
-                               wind_dir=Angle(292, unit=u.deg),
-                               wind_spd=3 * (u.m / u.s))
+        return VariantSnapshot(iq=iq, cc=cc, wind_dir=Angle(292, unit=u.deg), wind_spd=3 * (u.m / u.s))

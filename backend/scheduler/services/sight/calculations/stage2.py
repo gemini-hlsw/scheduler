@@ -23,24 +23,25 @@ class ElevationType(str, Enum):
 
 class TimingWindow(BaseModel):
     """Time window when observation can occur."""
+
     start: datetime
     end: datetime
 
 
 class ObservationConstraints(BaseModel):
     """Observation constraints for Stage 2 calculation."""
-    
+
     # Sky background
     target_sb: float = 1.0
-    
+
     # Elevation
     elevation_type: ElevationType = ElevationType.AIRMASS
     elevation_min: float = Constraints.DEFAULT_AIRMASS_ELEVATION_MIN
     elevation_max: float = Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
-    
+
     # Timing windows
     timing_windows: list[TimingWindow] = Field(default_factory=list)
-    
+
     # External flags
     has_resources: bool = True
     can_schedule: bool = True
@@ -48,10 +49,11 @@ class ObservationConstraints(BaseModel):
 
 class Stage2Result(BaseModel):
     """Result of Stage 2 visibility calculation."""
+
     visibility_mask: list[bool]
     remaining_minutes: int
     sky_brightness: list[float] | None = None
-    
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
@@ -80,7 +82,7 @@ def calculate_visibility(
     Calculate visibility mask based on Stage 1 data and observation constraints.
     """
     n = night_duration_minutes
-    
+
     # Early exit if resources unavailable or can't schedule
     if not constraints.has_resources or not constraints.can_schedule:
         return Stage2Result(
@@ -88,7 +90,7 @@ def calculate_visibility(
             remaining_minutes=0,
             sky_brightness=None,
         )
-    
+
     # Unpack arrays
     alt = unpack_array(alt_bytes, n)  # radians
     airmass = unpack_array(airmass_bytes, n)
@@ -101,11 +103,11 @@ def calculate_visibility(
     moon_dec = unpack_array(moon_dec_bytes, n)
     sun_moon_ang = unpack_array(sun_moon_ang_bytes, n)
     moon_dist_m = unpack_array(moon_dist_bytes, n)  # meters, per-slot
-    
+
     # Step 1: Sun altitude filter (astronomical twilight, sun < -12°)
     sun_alt_deg = np.degrees(sun_alt)
     mask = sun_alt_deg <= -12.0
-    
+
     # Step 2: Elevation constraints
     if constraints.elevation_type == ElevationType.AIRMASS:
         mask &= (airmass >= constraints.elevation_min) & (airmass <= constraints.elevation_max)
@@ -118,9 +120,10 @@ def calculate_visibility(
         mask &= airmass <= ElevationLimits.AIRMASS_LIMIT
     # NONE: use default airmass
     elif constraints.elevation_type == ElevationType.NONE:
-        mask &= ((airmass >= Constraints.DEFAULT_AIRMASS_ELEVATION_MIN) &
-                 (airmass <= Constraints.DEFAULT_AIRMASS_ELEVATION_MAX))
-    
+        mask &= (airmass >= Constraints.DEFAULT_AIRMASS_ELEVATION_MIN) & (
+            airmass <= Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
+        )
+
     # Step 3: Sky brightness constraint
     sky_brightness_arr = None
     if constraints.target_sb < 1.0:
@@ -136,7 +139,7 @@ def calculate_visibility(
             moon_dist_m=moon_dist_m,
         )
         mask &= sky_brightness_arr <= constraints.target_sb
-    
+
     # Step 4: Timing windows
     if constraints.timing_windows:
         timing_mask = np.zeros(n, dtype=bool)
@@ -155,11 +158,11 @@ def calculate_visibility(
 
             if tw_start_min < tw_end_min:
                 timing_mask[tw_start_min:tw_end_min] = True
-        
+
         mask &= timing_mask
-    
+
     remaining_minutes = int(np.sum(mask))
-    
+
     return Stage2Result(
         visibility_mask=mask.tolist(),
         remaining_minutes=remaining_minutes,
@@ -198,8 +201,6 @@ def _calculate_sky_brightness_array(
 
     Vectorized the results so they can be applied further down the process.
     """
-    n = len(ra)
-
     # Calculate target-moon angular separation
     target_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
     moon_coord = SkyCoord(ra=moon_ra * u.deg, dec=moon_dec * u.deg)
@@ -219,6 +220,4 @@ def _calculate_sky_brightness_array(
         target_zenith,
         sun_zenith,
     )
-    return np.asarray(
-        sky.brightness.convert_to_sky_background(raw), dtype=np.float64
-    )
+    return np.asarray(sky.brightness.convert_to_sky_background(raw), dtype=np.float64)

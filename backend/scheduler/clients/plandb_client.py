@@ -12,7 +12,7 @@ class LastPlanMock:
     visits = []
 
     def get_observation(self, observationId):
-        return MockObservation
+        return None
 
     def current_visit(self):
         """Pointer to the current visit. Gets updated when a new visit is executed"""
@@ -23,8 +23,6 @@ class LastPlanMock:
 
 
 class PlanDBClient(metaclass=AsyncSingleton):
-
-
     def __init__(self):
         # In reality this should call a database that would store this
         # but for testing this would just store from

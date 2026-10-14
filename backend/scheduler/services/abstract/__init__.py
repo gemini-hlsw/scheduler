@@ -9,4 +9,5 @@ class ExternalService(metaclass=Singleton):
     Use as common type to all external services used for the scheduler,
     regardless of Origin (GPP, OCS, Files, etc)
     """
+
     pass

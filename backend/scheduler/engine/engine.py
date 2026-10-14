@@ -22,9 +22,7 @@ from scheduler.services import logger_factory
 from time import time
 
 
-__all__ = [
-    'Engine'
-]
+__all__ = ['Engine']
 
 from ..core.components.ranker import ranker_class
 
@@ -37,8 +35,9 @@ logger = logger_factory.create_logger(__name__)
 
 
 class Engine:
-
-    def __init__(self, params: SchedulerParameters, night_start_time: Time | None = None, night_end_time: Time | None = None):
+    def __init__(
+        self, params: SchedulerParameters, night_start_time: Time | None = None, night_end_time: Time | None = None
+    ):
         self.params = params
         self.sources = Sources()
         self.change_monitor = None
@@ -58,25 +57,25 @@ class Engine:
         # Create builder based in the mode to create SCP
         builder = dispatch_with(self.sources, self.queue)
 
-        night_times = { site: (self.night_start_time, self.night_end_time)
-            for site in self.params.sites
-        }
+        night_times = {site: (self.night_start_time, self.night_end_time) for site in self.params.sites}
 
         t0 = time()
-        collector = builder.build_collector(start=self.params.start,
-                                            end=self.params.end_vis,
-                                            num_of_nights=self.params.num_nights_to_schedule,
-                                            sites=self.params.sites,
-                                            semesters=self.params.semesters,
-                                            blueprint=Blueprints.collector,
-                                            night_times=night_times,
-                                            program_list=self.params.programs_list,
-                                            use_local_visibility=self.params.use_local_visibility)
+        collector = builder.build_collector(
+            start=self.params.start,
+            end=self.params.end_vis,
+            num_of_nights=self.params.num_nights_to_schedule,
+            sites=self.params.sites,
+            semesters=self.params.semesters,
+            blueprint=Blueprints.collector,
+            night_times=night_times,
+            program_list=self.params.programs_list,
+            use_local_visibility=self.params.use_local_visibility,
+        )
         t1 = time()
-        logger.debug(f'\nCollector built in {(t1 - t0) / 60.} min')
+        logger.debug(f'\nCollector built in {(t1 - t0) / 60.0} min')
         # print(f'Collector built in {(t1 - t0) / 60.} min')
 
-        from lucupy.minimodel import ProgramID, Band, Site
+        from lucupy.minimodel import Band
         # print_collector_info(collector)
         # nc = collector.night_configurations(Site.GS, [0])
         # print(f'\n GS 0: {nc}')
@@ -99,9 +98,11 @@ class Engine:
             print(f"Program used: {p.program_used()}, Band 1: {p.program_used(Band(1))}")
             p.show()
 
-        selector = builder.build_selector(collector=collector,
-                                          num_nights_to_schedule=self.params.num_nights_to_schedule,
-                                          blueprint=Blueprints.selector)
+        selector = builder.build_selector(
+            collector=collector,
+            num_nights_to_schedule=self.params.num_nights_to_schedule,
+            blueprint=Blueprints.selector,
+        )
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
 
@@ -110,10 +111,9 @@ class Engine:
             ranker_cls = ranker_class(requested_ranker)
         except KeyError:
             raise ConfigurationError('Ranker', requested_ranker)
-        ranker = ranker_cls(collector,
-                            self.params.night_indices,
-                            self.params.sites,
-                            params=self.params.ranker_parameters)
+        ranker = ranker_cls(
+            collector, self.params.night_indices, self.params.sites, params=self.params.ranker_parameters
+        )
 
         return SCP(collector, selector, optimizer, ranker)
 
@@ -144,8 +144,9 @@ class Engine:
 
                 # Get the weather events for the site for the given night date.
                 night_date = eve_twi_time.date()
-                morn_twi_time = night_events.twilight_morning_12[night_idx].to_datetime(
-                    site.timezone) - time_slot_length
+                morn_twi_time = (
+                    night_events.twilight_morning_12[night_idx].to_datetime(site.timezone) - time_slot_length
+                )
                 # morn_twi_slot = time2slots(time_slot_length, morn_twi_time - eve_twi_time)
                 morn_twi_slot = night_events.num_timeslots_per_night[night_idx]
 
@@ -159,23 +160,30 @@ class Engine:
                     # The closer to the first time slot, the more accurate, and the ordering on them will overwrite
                     # the previous values.
                     if variant_timeslot <= 0:
-                        logger.debug(f'WeatherChange for site {site.name}, night {night_idx}, occurs before '
-                                      '0: ignoring.')
+                        logger.debug(
+                            f'WeatherChange for site {site.name}, night {night_idx}, occurs before 0: ignoring.'
+                        )
                         continue
 
                     if variant_timeslot >= morn_twi_slot:
-                        logger.debug(f'WeatherChange for site {site.name}, night {night_idx}, occurs after '
-                                      f'{morn_twi_slot}: ignoring.')
+                        logger.debug(
+                            f'WeatherChange for site {site.name}, night {night_idx}, occurs after '
+                            f'{morn_twi_slot}: ignoring.'
+                        )
                         continue
 
                     variant_datetime_str = variant_datetime.strftime('%Y-%m-%d %H:%M')
-                    weather_change_description = (f'Weather change at {site.name}, {variant_datetime_str}: '
-                                                  f'IQ -> {variant_snapshot.iq.name}, '
-                                                  f'CC -> {variant_snapshot.cc.name}')
-                    weather_change_event = WeatherChangeEvent(site=site,
-                                                              time=variant_datetime,
-                                                              description=weather_change_description,
-                                                              variant_change=variant_snapshot)
+                    weather_change_description = (
+                        f'Weather change at {site.name}, {variant_datetime_str}: '
+                        f'IQ -> {variant_snapshot.iq.name}, '
+                        f'CC -> {variant_snapshot.cc.name}'
+                    )
+                    weather_change_event = WeatherChangeEvent(
+                        site=site,
+                        time=variant_datetime,
+                        description=weather_change_description,
+                        variant_change=variant_snapshot,
+                    )
                     queue.add_event(night_idx, site, weather_change_event)
 
                 # Process the unexpected closures for the night at the site -> Weather loss events
@@ -226,12 +234,10 @@ class Engine:
             # tn0 = tn1
 
         # TODO: Add plan summary to nightlyTimeline
-        run_summary = StatCalculator.calculate_stitched_timeline_stats(nightly_timeline,
-                                                              self.params.night_indices,
-                                                              self.params.sites,
-                                                              scp.collector,
-                                                              scp.ranker)
-        
+        run_summary = StatCalculator.calculate_stitched_timeline_stats(
+            nightly_timeline, self.params.night_indices, self.params.sites, scp.collector, scp.ranker
+        )
+
         logger.info(f'Plan calculated in {time() - self.start_time}')
 
         return run_summary, nightly_timeline

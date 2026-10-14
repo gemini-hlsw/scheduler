@@ -24,6 +24,7 @@ class ProgramInfo:
     This represents the information for a program that contains schedulable components during the time frame
     under consideration, along with those schedulable components.
     """
+
     # Deep-copied.
     program: Program
 
@@ -69,6 +70,7 @@ class ProgramCalculations:
     * has_schedulable_groups, indicating if the Program has any schedulable groups.
     * top_level_groups, a FrozenSet of UniqueGroupID for the top-level groups.
     """
+
     program_info: ProgramInfo
     night_indices: NightIndices
     group_data_map: GroupDataMap
@@ -88,18 +90,26 @@ class ProgramCalculations:
         # Get all scheduling groups excluding the root.
         # We compare on GroupID here instead of UniqueGroupID since it is easier as all root groups have the same
         # GroupID, but different UniqueGroupIDs.
-        scheduling_groups = [group for (group, _) in self.group_data_map.values()
-                             if group.id != ROOT_GROUP_ID and group.is_scheduling_group()]
+        scheduling_groups = [
+            group
+            for (group, _) in self.group_data_map.values()
+            if group.id != ROOT_GROUP_ID and group.is_scheduling_group()
+        ]
 
         # Extract the children's names of all scheduling groups except the root into a set.
         # This way, we only have to check IDs for equality instead of the entire group structure.
-        scheduling_group_children_names = {
-            child.unique_id for group in scheduling_groups for child in group.children
-        }
+        scheduling_group_children_names = {child.unique_id for group in scheduling_groups for child in group.children}
 
         # Find the group_data for groups that are not the root group and are not in any scheduling_group.
-        top_level_groups = frozenset({group_data.group.unique_id for group_data in self.group_data_map.values()
-                                      if (group_data.group.id != ROOT_GROUP_ID and
-                                          group_data.group.unique_id not in scheduling_group_children_names)})
+        top_level_groups = frozenset(
+            {
+                group_data.group.unique_id
+                for group_data in self.group_data_map.values()
+                if (
+                    group_data.group.id != ROOT_GROUP_ID
+                    and group_data.group.unique_id not in scheduling_group_children_names
+                )
+            }
+        )
 
         object.__setattr__(self, 'top_level_groups', top_level_groups)

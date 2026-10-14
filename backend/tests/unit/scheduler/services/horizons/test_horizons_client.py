@@ -2,7 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from datetime import datetime, timedelta
-from typing import Final, List, Tuple
+from typing import Final, Tuple
 
 import numpy as np
 import pytest
@@ -48,19 +48,15 @@ def coordinates(draw) -> Coordinates:
     ra = draw(st.floats(min_value=0, max_value=2 * np.pi, exclude_max=True))
 
     # Dec is in (-pi / 2, pi / 2) radians.
-    dec = draw(st.floats(min_value=-np.pi/2, exclude_min=True,
-                         max_value=np.pi/2, exclude_max=True))
+    dec = draw(st.floats(min_value=-np.pi / 2, exclude_min=True, max_value=np.pi / 2, exclude_max=True))
     return Coordinates(ra, dec)
 
 
 @pytest.fixture
 def target() -> NonsiderealTarget:
     return NonsiderealTarget(
-        name=TargetName('Jupiter'),
-        magnitudes=frozenset(),
-        type=TargetType.BASE,
-        tag=TargetTag.MAJORBODY,
-        des='jupiter')
+        name=TargetName('Jupiter'), magnitudes=frozenset(), type=TargetType.BASE, tag=TargetTag.MAJORBODY, des='jupiter'
+    )
 
 
 @pytest.fixture(scope='module')
@@ -174,14 +170,11 @@ def test_interpolate_coords_length_matches_step_count(horizons_client: HorizonsC
     The number of interpolated points in each inter-knot segment should be the
     number of timeslots that fit (via integer division) in that segment's duration.
     """
-    time_list = [datetime(2019, 2, 1, 0, 0, 0),
-                 datetime(2019, 2, 1, 0, 2, 0),
-                 datetime(2019, 2, 1, 0, 5, 0)]
+    time_list = [datetime(2019, 2, 1, 0, 0, 0), datetime(2019, 2, 1, 0, 2, 0), datetime(2019, 2, 1, 0, 5, 0)]
     coord_list = [c1, c2, c3]
     timeslot_length = timedelta(seconds=30)
 
-    interpolated_times, interpolated_coords = horizons_client.interpolate_coords(
-        time_list, coord_list, timeslot_length)
+    interpolated_times, interpolated_coords = horizons_client.interpolate_coords(time_list, coord_list, timeslot_length)
 
     # First segment is 2 minutes / 30s = 4 slots, second is 3 minutes / 30s = 6 slots.
     assert len(interpolated_times) == 10
@@ -194,9 +187,7 @@ def test_interpolate_coords_time_grid(horizons_client: HorizonsClient, c1, c2, c
     Interpolated times must start at the first entry of time_list, be evenly spaced by
     timeslot_length, and never reach (or pass) the final entry of time_list.
     """
-    time_list = [datetime(2019, 2, 1, 0, 0, 0),
-                 datetime(2019, 2, 1, 0, 2, 0),
-                 datetime(2019, 2, 1, 0, 5, 0)]
+    time_list = [datetime(2019, 2, 1, 0, 0, 0), datetime(2019, 2, 1, 0, 2, 0), datetime(2019, 2, 1, 0, 5, 0)]
     coord_list = [c1, c2, c3]
     timeslot_length = timedelta(seconds=30)
 
@@ -215,21 +206,19 @@ def test_interpolate_coords_passes_through_knots(horizons_client: HorizonsClient
     at a time coinciding with an original (non-final) knot must match that knot's
     coordinates, to well within 1 microarcsecond.
     """
-    time_list = [datetime(2019, 2, 1, 0, 0, 0),
-                 datetime(2019, 2, 1, 0, 2, 0),
-                 datetime(2019, 2, 1, 0, 5, 0)]
+    time_list = [datetime(2019, 2, 1, 0, 0, 0), datetime(2019, 2, 1, 0, 2, 0), datetime(2019, 2, 1, 0, 5, 0)]
     coord_list = [c1, c2, c3]
     timeslot_length = timedelta(seconds=30)
 
-    _, interpolated_coords = horizons_client.interpolate_coords(
-        time_list, coord_list, timeslot_length)
+    _, interpolated_coords = horizons_client.interpolate_coords(time_list, coord_list, timeslot_length)
 
     # Index 0 coincides with time_list[0], index 4 (4 slots into the first 2-minute
     # segment) coincides with time_list[1].
     for index, knot_coord in [(0, c1), (4, c2)]:
         delta_arcsec = _angular_distance_arcsec(interpolated_coords[index], knot_coord)
-        note(f'index={index}, knot={knot_coord}, interpolated={interpolated_coords[index]}, '
-             f'delta_arcsec={delta_arcsec}')
+        note(
+            f'index={index}, knot={knot_coord}, interpolated={interpolated_coords[index]}, delta_arcsec={delta_arcsec}'
+        )
         assert delta_arcsec < 1e-6
 
 
@@ -242,8 +231,7 @@ def test_interpolate_coords_uneven_gap_truncates_extra_slots(horizons_client: Ho
     coord_list = [Coordinates(0.1, 0.1), Coordinates(0.2, 0.2)]
     timeslot_length = timedelta(seconds=30)
 
-    interpolated_times, interpolated_coords = horizons_client.interpolate_coords(
-        time_list, coord_list, timeslot_length)
+    interpolated_times, interpolated_coords = horizons_client.interpolate_coords(time_list, coord_list, timeslot_length)
 
     # 70 seconds / 30 seconds = 2 whole slots (the trailing 10 seconds is dropped).
     assert len(interpolated_times) == 2
@@ -251,8 +239,7 @@ def test_interpolate_coords_uneven_gap_truncates_extra_slots(horizons_client: Ho
     assert interpolated_times == [time_list[0], time_list[0] + timeslot_length]
 
 
-def test_horizons_client_query(target: NonsiderealTarget,
-                               session_parameters: dict):
+def test_horizons_client_query(target: NonsiderealTarget, session_parameters: dict):
     """
     HorizonsClient.query should return a list of Coordinates
     """

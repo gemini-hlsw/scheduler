@@ -23,6 +23,7 @@ __all__ = [
 # too tight for an ODB that is recovering: see ODBEventSource._subscribe_to_calculation_updates.
 ODB_OPEN_TIMEOUT = float(environ.get('ODB_WS_OPEN_TIMEOUT', 60.0))
 
+
 class EventSourceType(Enum):
     RESOURCE = 'resource'
     WEATHER = 'weather'
@@ -31,8 +32,9 @@ class EventSourceType(Enum):
 
 class EventSource:
     def __init__(self, client, source_type: EventSourceType):
-        self._client = client # TODO: Singleton of gpp-client/ocs-client
+        self._client = client  # TODO: Singleton of gpp-client/ocs-client
         self.source_type = source_type
+
 
 class ResourceEventSource(EventSource):
     RESOURCE_EDIT = 'resource_edit'
@@ -43,7 +45,7 @@ class ResourceEventSource(EventSource):
     def get_current_state(self) -> Any:
         return
 
-    def subscriptions(self) -> List[Tuple[str ,callable]]:
+    def subscriptions(self) -> List[Tuple[str, callable]]:
         # No subscriptions yet!
         return [
             # (
@@ -53,8 +55,8 @@ class ResourceEventSource(EventSource):
             # )
         ]
 
-class WeatherEventSource(EventSource):
 
+class WeatherEventSource(EventSource):
     WEATHER_CHANGE = 'weather_change'
 
     def __init__(self, client):
@@ -97,22 +99,15 @@ class WeatherEventSource(EventSource):
         self.ws_weather_client = Client(transport=self.ws_transport)
         self.weather_client = Client(transport=self.transport)
 
-
     async def get_current_state(self) -> Any:
         result = await self.weather_client.execute_async(self.query)
         return result['weather']
 
     def subscriptions(self) -> List[Tuple[str, callable, Any]]:
-        return [
-            (
-                WeatherEventSource.WEATHER_CHANGE,
-                lambda x: x.subscribe(self.subscription),
-                self.ws_weather_client
-            )
-        ]
+        return [(WeatherEventSource.WEATHER_CHANGE, lambda x: x.subscribe(self.subscription), self.ws_weather_client)]
+
 
 class ODBEventSource(EventSource):
-
     OBSERVATION_EDIT = 'observation_edit'
     VISIT_EXECUTED = 'visit_executed'
 
@@ -141,16 +136,12 @@ class ODBEventSource(EventSource):
             open_timeout=ODB_OPEN_TIMEOUT,
         )
 
-    def subscriptions(self) -> List[Tuple[str ,callable]]:
+    def subscriptions(self) -> List[Tuple[str, callable]]:
         return [
             # (
             #     ODBEventSource.OBSERVATION_EDIT,
             #     lambda x: self._client.subscribe(ODBEventSource.OBSERVATION_EDIT),
             #     None
             # ),
-            (
-                ODBEventSource.OBSERVATION_EDIT,
-                lambda x: self._subscribe_to_calculation_updates(),
-                None
-            )
+            (ODBEventSource.OBSERVATION_EDIT, lambda x: self._subscribe_to_calculation_updates(), None)
         ]

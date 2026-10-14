@@ -4,7 +4,6 @@
 from typing import final, FrozenSet
 from datetime import datetime
 
-from astropy.time import Time
 from lucupy.minimodel import Site
 
 from .schedulerbuilder import SchedulerBuilder
@@ -17,10 +16,7 @@ __all__ = [
 
 @final
 class OperationBuilder(SchedulerBuilder):
-    def _setup_event_queue(self,
-                           start: datetime,
-                           num_nights_to_schedule: int,
-                           sites: FrozenSet[Site]) -> None:
+    def _setup_event_queue(self, start: datetime, num_nights_to_schedule: int, sites: FrozenSet[Site]) -> None:
         """
         Set up the event queue for this particular mode of the Scheduler.
         """

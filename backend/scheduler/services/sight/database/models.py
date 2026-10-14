@@ -14,22 +14,25 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
-    JSON
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from enum import Enum
 
+
 class TargetTag(str, Enum):
     """Type of non-sidereal target."""
+
     MAJORBODY = "majorbody"
     ASTEROID = "asteroid"
     COMET = "comet"
     OTHER = "other"
 
+
 class Base(DeclarativeBase):
     """Base class for all models."""
+
     pass
 
 
@@ -37,6 +40,7 @@ class Site(Base):
     """
     Observatory site.
     """
+
     __tablename__ = "sites"
 
     id: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
@@ -56,10 +60,11 @@ class Site(Base):
 class NightEvent(Base):
     """
     Night events and ephemeris data for a single night at a single site.
-    
+
     Timestamps are stored as UTC datetime.
     Arrays (sun_alt, moon_alt, etc.) have shape (night_duration_minutes,).
     """
+
     __tablename__ = "night_events"
     __table_args__ = (
         UniqueConstraint("site_id", "night_date", name="uq_night_events_site_night"),
@@ -97,8 +102,9 @@ class NightEvent(Base):
     moon_par_ang: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
     moon_ra: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, comment="Degrees")
     moon_dec: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, comment="Degrees")
-    moon_dist: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, comment="Meters, shape (night_duration_minutes,)")
-
+    moon_dist: Mapped[bytes] = mapped_column(
+        LargeBinary, nullable=False, comment="Meters, shape (night_duration_minutes,)"
+    )
 
     # Sun-moon angular separation
     sun_moon_ang: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
@@ -107,11 +113,7 @@ class NightEvent(Base):
     local_sidereal_times: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
 
     # Metadata
-    computed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), 
-        nullable=False, 
-        server_default=func.now()
-    )
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Relationships
     site: Mapped["Site"] = relationship(back_populates="night_events")
@@ -123,15 +125,14 @@ class NightEvent(Base):
 class Target(Base):
     """
     Astronomical target.
-    
+
     For sidereal targets, base_ra and base_dec are the fixed coordinates.
     For non-sidereal targets, coordinates are computed via Horizons and stored
     in TargetNightData as arrays.
     """
+
     __tablename__ = "targets"
-    __table_args__ = (
-        Index("ix_targets_is_sidereal", "is_sidereal"),
-    )
+    __table_args__ = (Index("ix_targets_is_sidereal", "is_sidereal"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -139,28 +140,20 @@ class Target(Base):
 
     base_ra: Mapped[Optional[float]] = mapped_column(Float, nullable=True, comment="Degrees")
     base_dec: Mapped[Optional[float]] = mapped_column(Float, nullable=True, comment="Degrees")
-    pm_ra: Mapped[float | None] = mapped_column(
-        Float, nullable=True, comment="Proper motion RA, mas/yr"
-    )
-    pm_dec: Mapped[float | None] = mapped_column(
-        Float, nullable=True, comment="Proper motion Dec, mas/yr"
-    )
-    
+    pm_ra: Mapped[float | None] = mapped_column(Float, nullable=True, comment="Proper motion RA, mas/yr")
+    pm_dec: Mapped[float | None] = mapped_column(Float, nullable=True, comment="Proper motion Dec, mas/yr")
+
     # Epoch for coordinates
     epoch: Mapped[float | None] = mapped_column(
         Float, nullable=True, default=2000.0, comment="Coordinate epoch, e.g. 2000.0"
     )
 
-    #Nonsidereal targets
+    # Nonsidereal targets
     horizons_id: Mapped[Optional[str]] = mapped_column(
-        String(100), 
-        nullable=True,
-        comment="NAIF ID or name for Horizons lookup"
+        String(100), nullable=True, comment="NAIF ID or name for Horizons lookup"
     )
     tag: Mapped[Optional[str]] = mapped_column(
-        String(50),
-        nullable=True,
-        comment="Target type: majorbody, asteroid, comet, other"
+        String(50), nullable=True, comment="Target type: majorbody, asteroid, comet, other"
     )
 
     # Timestamps for cache invalidation
@@ -186,19 +179,17 @@ class Target(Base):
 class TargetNightData(Base):
     """
     Stage 1 calculation results: target position data for a single night at a single site.
-    
+
     All angular arrays are stored in radians with shape (night_duration_minutes,).
     RA/Dec arrays are in degrees.
-    
+
     For sidereal targets, ra/dec arrays are constant (but stored as arrays for uniform handling).
     For non-sidereal targets, ra/dec vary per minute (from Horizons).
     """
+
     __tablename__ = "target_night_data"
     __table_args__ = (
-        UniqueConstraint(
-            "target_id", "site_id", "night_date", 
-            name="uq_target_night_data_target_site_night"
-        ),
+        UniqueConstraint("target_id", "site_id", "night_date", name="uq_target_night_data_target_site_night"),
         Index("ix_target_night_data_night_date", "night_date"),
         Index("ix_target_night_data_target_id", "target_id"),
     )
@@ -240,16 +231,17 @@ class TargetNightData(Base):
 
     def __repr__(self) -> str:
         return f"<TargetNightData target={self.target_id} site={self.site_id} night={self.night_date}>"
-    
+
+
 class VisibilityData(Base):
     """
     Pre-calculated Stage 2 visibility data.
     """
+
     __tablename__ = "visibility_data"
     __table_args__ = (
         UniqueConstraint(
-            "observation_id", "target_id", "site_id", "night_date",
-            name="uq_visibility_observation_night"
+            "observation_id", "target_id", "site_id", "night_date", name="uq_visibility_observation_night"
         ),
         Index("ix_visibility_target_date", "target_id", "night_date"),
         Index("ix_visibility_observation", "observation_id"),
@@ -260,15 +252,15 @@ class VisibilityData(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    
+
     # Observation reference
     observation_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    
+
     # Target and site
     target_id: Mapped[int] = mapped_column(Integer, ForeignKey("targets.id"), nullable=False)
     site_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("sites.id"), nullable=False)
     night_date: Mapped[date] = mapped_column(Date, nullable=False)
-    
+
     # Results
     remaining_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     visible_ranges: Mapped[list] = mapped_column(JSONB, nullable=False)  # [[start, end], ...]
@@ -302,6 +294,7 @@ class SchedulerCoordination(Base):
     ``heartbeat_at`` plus a staleness threshold lets a consumer treat a crashed
     holder's row as inactive instead of wedging the interlock forever.
     """
+
     __tablename__ = "scheduler_coordination"
 
     name: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -309,17 +302,10 @@ class SchedulerCoordination(Base):
     holder: Mapped[Optional[str]] = mapped_column(
         String(255), nullable=True, comment="Dyno / process that owns the row"
     )
-    started_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    heartbeat_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    finished_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    heartbeat_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     detail: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     def __repr__(self) -> str:
         return f"<SchedulerCoordination {self.name} active={self.active}>"
-        

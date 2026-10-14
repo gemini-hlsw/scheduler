@@ -1,4 +1,3 @@
-
 """Store per-slot moon distance in meters (packed) instead of nightly mean AU
 
 The sky-brightness moon term needs the earth-moon distance in meters
@@ -20,6 +19,7 @@ Revises: 009
 Create Date: 2026-07-14
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op

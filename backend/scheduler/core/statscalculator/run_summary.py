@@ -7,6 +7,7 @@ MetricPerBand: TypeAlias = Dict[str, float]
 
 __all__ = ['RunSummary']
 
+
 @final
 @dataclass
 class RunSummary:

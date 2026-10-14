@@ -46,16 +46,18 @@ class SimResourceService(FileBasedResourceService):
         for site in self._sites:
             suffix = ('s' if site == Site.GS else 'n').upper()
 
-            self.load_files(site,
-                            f'GMOS{suffix}_fpu_barcode.txt',
-                            f'GMOS{suffix}_FPUr202407.txt',
-                            f'GMOS{suffix}_GRAT202407.txt',
-                            f'G{suffix}_faults.txt',
-                            f'G{suffix}_engtasks.txt',
-                            f'G{suffix}_weather_loss.txt',
-                            f'GMOS{suffix}_filters.txt',
-                            f'G{suffix}_toos.txt',
-                            SimResourceService._TEL_CALENDAR_FILE)
+            self.load_files(
+                site,
+                f'GMOS{suffix}_fpu_barcode.txt',
+                f'GMOS{suffix}_FPUr202407.txt',
+                f'GMOS{suffix}_GRAT202407.txt',
+                f'G{suffix}_faults.txt',
+                f'G{suffix}_engtasks.txt',
+                f'G{suffix}_weather_loss.txt',
+                f'GMOS{suffix}_filters.txt',
+                f'G{suffix}_toos.txt',
+                SimResourceService._TEL_CALENDAR_FILE,
+            )
 
         # TODO: Remove this after discussion with science.
         # TODO: There are entries here outside of the Telescope Schedules Spreadsheet.
@@ -88,9 +90,8 @@ class SimResourceService(FileBasedResourceService):
                     too_status=(d not in self._blocked[site] and self._too[site][d]),
                     filter=composite_filter,
                     resources=frozenset(self._resources[site][d]),
-
                     # There may not be eng_tasks for the site or for the date at the site.
-                    eng_tasks=frozenset(self._eng_tasks.get(site, {}).get(d, {}))
+                    eng_tasks=frozenset(self._eng_tasks.get(site, {}).get(d, {})),
                 )
 
                 d += FileBasedResourceService._day

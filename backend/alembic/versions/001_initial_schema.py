@@ -1,10 +1,11 @@
 """Initial schema: sites, night_events, targets, target_night_data
 
 Revision ID: 001
-Revises: 
+Revises:
 Create Date: 2025-02-03
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op

@@ -31,10 +31,9 @@ logger = create_logger(__name__)
 
 
 class Origin(ABC):
-    def __init__(self,
-                 resource: Optional[ExternalService] = None,
-                 env: Optional[ExternalService] = None,
-                 is_loaded: bool = False):
+    def __init__(
+        self, resource: Optional[ExternalService] = None, env: Optional[ExternalService] = None, is_loaded: bool = False
+    ):
         self.resource = resource
         self.env = env
         self.is_loaded = is_loaded
@@ -50,6 +49,7 @@ class Origin(ABC):
 @final
 class OcsOrigin(Origin):
     """Validation mode legacy OCS file data origina"""
+
     _env_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'ocsenv.pickle'
     _resource_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'ocsresource.pickle'
 
@@ -89,6 +89,7 @@ class OcsOrigin(Origin):
 @final
 class SimOrigin(Origin):
     """Simulation mode GPP with file data origins"""
+
     _env_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'simenv.pickle'
     _resource_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'simresource.pickle'
 
@@ -128,6 +129,7 @@ class SimOrigin(Origin):
 @final
 class OpsOrigin(Origin):
     """Operations (RT) mode GPP with file data origins"""
+
     _env_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'opsenv.pickle'
     _resource_path: Final[Path] = Path(ROOT_DIR) / 'scheduler' / 'pickles' / 'opsresource.pickle'
 
@@ -167,6 +169,7 @@ class OpsOrigin(Origin):
 @final
 class GppOrigin(Origin):
     """Real-time mode GPP data origins"""
+
     def load(self) -> NoReturn:
         raise NotImplementedError('GPP sources are not implemented')
 

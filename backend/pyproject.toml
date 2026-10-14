@@ -67,3 +67,15 @@ conflicts = [
 
 # Towncrier config moved to towncrier.toml at the repo root so it is
 # picked up when towncrier runs from the root (where changelog.d/ lives).
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+# Keep the quotes already in the code instead of rewriting them all to double quotes.
+quote-style = "preserve"
+
+[tool.ruff.lint.per-file-ignores]
+# Packages re-export their modules' public names with `from .module import *`,
+# each module declaring what it exports through `__all__`.
+"__init__.py" = ["F403"]

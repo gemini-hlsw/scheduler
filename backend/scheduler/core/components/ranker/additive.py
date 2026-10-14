@@ -16,12 +16,10 @@ class AdditiveRanker(Ranker):
     multiplication like the default.
     """
 
-    def _combine_score_terms(self,
-                             scale_factor: float,
-                             metric: float,
-                             vis_frac: float,
-                             wha: npt.NDArray[float]) -> npt.NDArray[float]:
+    def _combine_score_terms(
+        self, scale_factor: float, metric: float, vis_frac: float, wha: npt.NDArray[float]
+    ) -> npt.NDArray[float]:
         """metric*met_power + vis_frac*vis_power + wha*wha_power (weighted sum)."""
-        return scale_factor * ((metric * self.params.met_power)
-                               + (vis_frac * self.params.vis_power)
-                               + (wha * self.params.wha_power))
+        return scale_factor * (
+            (metric * self.params.met_power) + (vis_frac * self.params.vis_power) + (wha * self.params.wha_power)
+        )

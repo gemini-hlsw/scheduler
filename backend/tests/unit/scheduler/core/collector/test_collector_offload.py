@@ -12,10 +12,9 @@ keyed per event loop and its `client` property calls `asyncio.get_running_loop()
 Sight AsyncSession is bound to the loop that created it.
 """
 
-import asyncio
 import inspect
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from lucupy.minimodel import Site
@@ -64,8 +63,7 @@ async def test_program_parsing_runs_off_the_loop():
 
     await collector.async_load_programs(_DummyProvider, [])
 
-    assert ran_on["thread"] != threading.get_ident(), \
-        "parsing on the loop's thread starves the ODB subscription"
+    assert ran_on["thread"] != threading.get_ident(), "parsing on the loop's thread starves the ODB subscription"
 
 
 @pytest.mark.asyncio
@@ -126,8 +124,7 @@ def test_the_sight_fetch_is_not_offloaded():
     """
     src = inspect.getsource(Collector._async_load_visibility_from_sight)
     assert "await self._fetch_sight_data_for_scheduled_nights" in src, "the Sight read must stay on the loop"
-    assert "to_thread(self._apply_sight_visibility" in src, \
-        "the TargetInfo build is CPU-bound and belongs off the loop"
+    assert "to_thread(self._apply_sight_visibility" in src, "the TargetInfo build is CPU-bound and belongs off the loop"
 
 
 def test_the_odb_fetch_is_not_offloaded():
@@ -137,6 +134,7 @@ def test_the_odb_fetch_is_not_offloaded():
     and churn the registry the ODB subscription's own client lives in.
     """
     from scheduler.core.builder import simulationbuilder
+
     src = inspect.getsource(simulationbuilder.SimulationBuilder.async_build_collector)
     assert "await gpp_program_data" in src
     assert "to_thread" not in src

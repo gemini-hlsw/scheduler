@@ -64,8 +64,9 @@ class OcsEnvService(ExternalService):
 
             with open(initial_conditions_path, 'r') as conditions_file:
                 df = pd.read_csv(conditions_file)
-                df[OcsEnvService._night_time_col_initial] = pd.to_datetime(df[OcsEnvService._night_time_col_initial],
-                                                                           errors='coerce', format='%Y-%m-%d')
+                df[OcsEnvService._night_time_col_initial] = pd.to_datetime(
+                    df[OcsEnvService._night_time_col_initial], errors='coerce', format='%Y-%m-%d'
+                )
                 self._initial_conditions[site] = df
 
     @staticmethod
@@ -79,15 +80,10 @@ class OcsEnvService(ExternalService):
         wind_dir = Angle(row[OcsEnvService._wind_dir_col], unit=u.deg)
         wind_spd = row[OcsEnvService._wind_speed_col] * (u.m / u.s)
 
-        variant_change = VariantSnapshot(iq=iq,
-                                         cc=cc,
-                                         wind_dir=wind_dir,
-                                         wind_spd=wind_spd)
+        variant_change = VariantSnapshot(iq=iq, cc=cc, wind_dir=wind_dir, wind_spd=wind_spd)
         return timestamp, variant_change
 
-    def get_variant_changes_for_night(self,
-                                      site: Site,
-                                      night_date: date) -> Dict[datetime, VariantSnapshot]:
+    def get_variant_changes_for_night(self, site: Site, night_date: date) -> Dict[datetime, VariantSnapshot]:
         """
         Return the weather variant.
         This should be site-based and time-based.
@@ -100,9 +96,8 @@ class OcsEnvService(ExternalService):
         variant_list = filtered_df.apply(OcsEnvService._convert_to_variant, axis=1).values.tolist()
 
         # If there are 0 or 1 entries, just return them.
-        if (len(variant_list) < 2):
+        if len(variant_list) < 2:
             return {dt: v for dt, v in variant_list}
-
 
         # If there are 2 or more variants, filter out the ones that are too close together
         # Make sure the list is sorted by time
@@ -117,9 +112,7 @@ class OcsEnvService(ExternalService):
 
         return variant_dict
 
-    def get_initial_conditions(self,
-                               site: Site,
-                               night_date: date) -> Optional[VariantSnapshot]:
+    def get_initial_conditions(self, site: Site, night_date: date) -> Optional[VariantSnapshot]:
 
         ut_night_date = night_date + timedelta(days=1)
 
@@ -132,11 +125,14 @@ class OcsEnvService(ExternalService):
             return None
 
         df_iq = filtered_df[OcsEnvService._iq_col_initial].iloc[0]
-        iq = ImageQuality(0.7) if df_iq == 'na' else (ImageQuality(int(df_iq)/100) if df_iq != 'ANY' else ImageQuality(1.0))
+        iq = (
+            ImageQuality(0.7)
+            if df_iq == 'na'
+            else (ImageQuality(int(df_iq) / 100) if df_iq != 'ANY' else ImageQuality(1.0))
+        )
         df_cc = filtered_df[OcsEnvService._cc_col_initial].iloc[0]
-        cc = CloudCover.CC70 if df_cc == 'na' else (CloudCover(int(df_cc)/100) if df_cc != 'ANY' else CloudCover.CCANY)
+        cc = (
+            CloudCover.CC70 if df_cc == 'na' else (CloudCover(int(df_cc) / 100) if df_cc != 'ANY' else CloudCover.CCANY)
+        )
 
-        return VariantSnapshot(iq=iq,
-                               cc=cc,
-                               wind_dir=Angle(292, unit=u.deg),
-                               wind_spd=3 * (u.m / u.s))
+        return VariantSnapshot(iq=iq, cc=cc, wind_dir=Angle(292, unit=u.deg), wind_spd=3 * (u.m / u.s))

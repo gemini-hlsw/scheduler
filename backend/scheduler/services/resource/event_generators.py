@@ -8,9 +8,15 @@ from typing import FrozenSet, Optional
 
 from lucupy.minimodel import Resource, Site, ObservationID
 
-from scheduler.core.events.queue import (FaultEvent, FaultResolutionEvent,
-                                         InterruptionEvent, InterruptionResolutionEvent,
-                                         WeatherClosureEvent, WeatherClosureResolutionEvent, ToOActivationEvent)
+from scheduler.core.events.queue import (
+    FaultEvent,
+    FaultResolutionEvent,
+    InterruptionEvent,
+    InterruptionResolutionEvent,
+    WeatherClosureEvent,
+    WeatherClosureResolutionEvent,
+    ToOActivationEvent,
+)
 
 
 __all__ = [
@@ -27,6 +33,7 @@ class EngineeringTask:
     The information record for an Engineering Task.
     Note that Engineering tasks are planned and are not "surprises" to the Scheduler.
     """
+
     site: Site
     start_time: datetime
     end_time: datetime
@@ -44,6 +51,7 @@ class Interruption(ABC):
     TODO: Determine with GPP team how resolutions to faults and weather closures will be dispatched.
     TODO: Asked in #GPP slack on 2024-02-29,
     """
+
     site: Site
     start_time: datetime
     end_time: datetime
@@ -83,14 +91,12 @@ class Fault(Interruption):
         else:
             fault_description = 'Fault'
             resolution_description = 'Fault resolved'
-        fault_event = FaultEvent(time=self.start_time,
-                                 description=fault_description,
-                                 affects=self.affects,
-                                 site=self.site)
-        fault_resolution_event = FaultResolutionEvent(time=self.end_time,
-                                                      description=resolution_description,
-                                                      uuid_identified=fault_event,
-                                                      site=self.site)
+        fault_event = FaultEvent(
+            time=self.start_time, description=fault_description, affects=self.affects, site=self.site
+        )
+        fault_resolution_event = FaultResolutionEvent(
+            time=self.end_time, description=resolution_description, uuid_identified=fault_event, site=self.site
+        )
         return fault_event, fault_resolution_event
 
 
@@ -105,13 +111,10 @@ class WeatherClosure(Interruption):
         else:
             closure_description = 'Closure'
             resolution_description = 'Closure resolved'
-        closure_event = WeatherClosureEvent(time=self.start_time,
-                                            description=closure_description,
-                                            site=self.site)
-        closure_resolution_event = WeatherClosureResolutionEvent(time=self.end_time,
-                                                                 description=resolution_description,
-                                                                 uuid_identified=closure_event,
-                                                                 site=self.site)
+        closure_event = WeatherClosureEvent(time=self.start_time, description=closure_description, site=self.site)
+        closure_resolution_event = WeatherClosureResolutionEvent(
+            time=self.end_time, description=resolution_description, uuid_identified=closure_event, site=self.site
+        )
         return closure_event, closure_resolution_event
 
 
@@ -122,7 +125,6 @@ class ToOActivation:
     start_time: datetime
 
     def to_event(self) -> ToOActivationEvent:
-        return ToOActivationEvent(site=self.site,
-                                  time=self.start_time,
-                                  too_id=self.too_id,
-                                  description=f'Activation for {self.too_id.id}')
+        return ToOActivationEvent(
+            site=self.site, time=self.start_time, too_id=self.too_id, description=f'Activation for {self.too_id.id}'
+        )

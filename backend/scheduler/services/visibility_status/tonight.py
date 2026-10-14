@@ -52,9 +52,7 @@ class VisibleObservation:
     intervals: list[VisibleInterval]
 
 
-def ranges_to_intervals(
-    visible_ranges: Optional[Sequence], night_start: datetime
-) -> list[VisibleInterval]:
+def ranges_to_intervals(visible_ranges: Optional[Sequence], night_start: datetime) -> list[VisibleInterval]:
     """Convert Stage-2 index pairs into UTC intervals.
 
     ``visible_ranges`` comes straight out of a JSONB column, so a malformed
@@ -73,18 +71,18 @@ def ranges_to_intervals(
         if end_index < start_index:
             _logger.warning(f"Skipping inverted visible_range entry {entry!r}.")
             continue
-        intervals.append(VisibleInterval(
-            start=night_start + timedelta(minutes=start_index),
-            # Inclusive of end_index, so the window runs to the end of that
-            # minute.
-            end=night_start + timedelta(minutes=end_index + 1),
-        ))
+        intervals.append(
+            VisibleInterval(
+                start=night_start + timedelta(minutes=start_index),
+                # Inclusive of end_index, so the window runs to the end of that
+                # minute.
+                end=night_start + timedelta(minutes=end_index + 1),
+            )
+        )
     return intervals
 
 
-def remaining_minutes_from_now(
-    intervals: Sequence[VisibleInterval], now: datetime
-) -> int:
+def remaining_minutes_from_now(intervals: Sequence[VisibleInterval], now: datetime) -> int:
     """Minutes of visibility still ahead of ``now``.
 
     Windows already past contribute nothing; the one in progress contributes
@@ -99,9 +97,7 @@ def remaining_minutes_from_now(
     return int(total.total_seconds() // 60)
 
 
-async def current_night_date(
-    night_repo, site_id: int, now: Optional[datetime] = None
-) -> date:
+async def current_night_date(night_repo, site_id: int, now: Optional[datetime] = None) -> date:
     """The night to show for a site: the one in progress, else the next one.
 
     During the day no window contains ``now``, and the useful answer is the
@@ -119,10 +115,7 @@ async def current_night_date(
     if upcoming is not None:
         return upcoming.night_date
 
-    _logger.info(
-        f"No night_events for site {site_id} around {now.isoformat()}; "
-        f"falling back to the UTC date."
-    )
+    _logger.info(f"No night_events for site {site_id} around {now.isoformat()}; falling back to the UTC date.")
     return now.date()
 
 
@@ -190,10 +183,7 @@ async def list_visible_observations(
     if night_event is None:
         # Nothing computed for that night yet: an empty page is the honest
         # answer, and it keeps the tab usable against a partially filled DB.
-        _logger.info(
-            f"No night_events row for site {site} on {night_date}; "
-            f"returning an empty page."
-        )
+        _logger.info(f"No night_events row for site {site} on {night_date}; returning an empty page.")
         return VisibleObservationsPage(
             site=site,
             night_date=night_date,
@@ -216,10 +206,7 @@ async def list_visible_observations(
     )
 
     observations = [
-        build_visible_observation(
-            row, night_event.night_start, site, target_name, now
-        )
-        for row, target_name in rows
+        build_visible_observation(row, night_event.night_start, site, target_name, now) for row, target_name in rows
     ]
     return VisibleObservationsPage(
         site=site,
@@ -228,7 +215,5 @@ async def list_visible_observations(
         total=total,
         # Page-scoped, and labelled as such in the UI: summing the whole night
         # would mean pulling every row back just to add them up.
-        total_remaining_minutes=sum(
-            o.remaining_minutes_from_now for o in observations
-        ),
+        total_remaining_minutes=sum(o.remaining_minutes_from_now for o in observations),
     )

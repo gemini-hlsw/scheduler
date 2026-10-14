@@ -61,11 +61,13 @@ __all__ = [
 # coordination row (and surface progress) between chunks of work.
 Heartbeat = Callable[[dict], Awaitable[None]]
 
-_OBS_CLASSES = frozenset({
-    ObservationClass.SCIENCE,
-    ObservationClass.PROGCAL,
-    ObservationClass.PARTNERCAL,
-})
+_OBS_CLASSES = frozenset(
+    {
+        ObservationClass.SCIENCE,
+        ObservationClass.PROGCAL,
+        ObservationClass.PARTNERCAL,
+    }
+)
 
 # Only these observations are schedulable, so only these are worth refreshing.
 # Same states gpp-client's SchedulerDomain.get_all filters the program dump to,
@@ -99,9 +101,7 @@ def _format_duration(seconds: float) -> str:
     return f"{seconds / 3600:.1f}h"
 
 
-def progress_eta_seconds(
-    *, elapsed_seconds: float, done: int, total: int
-) -> Optional[float]:
+def progress_eta_seconds(*, elapsed_seconds: float, done: int, total: int) -> Optional[float]:
     """Seconds remaining, extrapolated from throughput measured so far.
 
     Returns None when there is nothing to extrapolate from — no units finished
@@ -130,9 +130,7 @@ def progress_detail(
     Visibility tab reads it back, so every value has to be JSON-native — hence
     the rounding rather than raw floats.
     """
-    eta = progress_eta_seconds(
-        elapsed_seconds=elapsed_seconds, done=done, total=total
-    )
+    eta = progress_eta_seconds(elapsed_seconds=elapsed_seconds, done=done, total=total)
     return {
         "phase": phase,
         "progress_current": done,
@@ -165,10 +163,7 @@ def is_night_in_progress(now: Optional[datetime] = None) -> bool:
                 _logger.warning(f"night_events failed for {site.name}: {exc}")
                 continue
             if eve_twi <= now <= morn_twi:
-                _logger.info(
-                    f"Dark time in progress at {site.name} "
-                    f"({eve_twi.isoformat()} .. {morn_twi.isoformat()})."
-                )
+                _logger.info(f"Dark time in progress at {site.name} ({eve_twi.isoformat()} .. {morn_twi.isoformat()}).")
                 return True
     return False
 
@@ -188,8 +183,8 @@ def target_windows(
         if window is None:
             continue
         current = out.get(request.target_name)
-        out[request.target_name] = window if current is None else (
-            min(current[0], window[0]), max(current[1], window[1])
+        out[request.target_name] = (
+            window if current is None else (min(current[0], window[0]), max(current[1], window[1]))
         )
     return out
 
@@ -260,21 +255,23 @@ async def _collect_requests(program_ids: list[str], guard: MemoryGuard):
                 targets_by_name.setdefault(payload.name, payload)
                 labels_by_internal_id[str(obs.internal_id)] = obs.id.id
                 windows[obs.id.id] = program_window(program.start, program.end)
-                requests.append(ObservationRequest(
-                    observation_id=obs.id.id,
-                    target_name=str(base.name),
-                    site_id=obs.site.name,
-                    constraints=stage2_constraints(
-                        obs,
-                        has_resources=True,
-                        can_schedule=True,
-                        # Open-ended timing windows are clipped to the program's
-                        # own end, not to a calendar semester.
-                        range_end=program.end,
-                        program_start=program.start,
-                        program_end=program.end,
-                    ),
-                ))
+                requests.append(
+                    ObservationRequest(
+                        observation_id=obs.id.id,
+                        target_name=str(base.name),
+                        site_id=obs.site.name,
+                        constraints=stage2_constraints(
+                            obs,
+                            has_resources=True,
+                            can_schedule=True,
+                            # Open-ended timing windows are clipped to the program's
+                            # own end, not to a calendar semester.
+                            range_end=program.end,
+                            program_start=program.start,
+                            program_end=program.end,
+                        ),
+                    )
+                )
         except Exception as exc:
             bad_programs += 1
             _logger.warning(f"Failed to process a program: {exc}")
@@ -305,9 +302,7 @@ async def _load_changes(
     Returns the parsed changes plus the fetch time (captured before the HTTP
     call; the new watermark is derived from it, minus the safety overlap).
     """
-    lookback = timedelta(
-        hours=float(config.visibility_aggregator.changes_fallback_lookback_hours)
-    )
+    lookback = timedelta(hours=float(config.visibility_aggregator.changes_fallback_lookback_hours))
     watermark = await get_change_watermark(session)
     since = watermark or (now - lookback)
     fetch_time = datetime.now(timezone.utc)
@@ -325,8 +320,7 @@ async def _load_changes(
                 )
                 raise
             _logger.warning(
-                f"Visibility-changes fetch attempt {attempt}/{attempts} failed "
-                f"({exc}); retrying in {backoff:.0f}s."
+                f"Visibility-changes fetch attempt {attempt}/{attempts} failed ({exc}); retrying in {backoff:.0f}s."
             )
             await asyncio.sleep(backoff)
     _logger.info(
@@ -346,16 +340,14 @@ async def resolve_target_names(internal_ids: list[str]) -> dict[str, str]:
     """
     names: dict[str, str] = {}
     for start in range(0, len(internal_ids), _ODB_ID_CHUNK):
-        chunk = internal_ids[start:start + _ODB_ID_CHUNK]
+        chunk = internal_ids[start : start + _ODB_ID_CHUNK]
         try:
             response = await gpp.client.target.get_all(
                 where=WhereTarget(id=WhereOrderTargetId(in_=chunk)),
                 limit=len(chunk),
             )
         except Exception as exc:
-            _logger.warning(
-                f"Could not resolve a chunk of {len(chunk)} changed targets: {exc}"
-            )
+            _logger.warning(f"Could not resolve a chunk of {len(chunk)} changed targets: {exc}")
             continue
         for match in response.targets.matches:
             if match.name is not None:
@@ -392,25 +384,20 @@ async def resolve_schedulable_observation_labels(
     labels: dict[str, str] = {}
     failed_chunks = 0
     for start in range(0, len(internal_ids), _ODB_ID_CHUNK):
-        chunk = internal_ids[start:start + _ODB_ID_CHUNK]
+        chunk = internal_ids[start : start + _ODB_ID_CHUNK]
         try:
             response = await gpp.client.observation.get_all(
                 where=WhereObservation(
                     id=WhereOrderObservationId(in_=chunk),
                     workflow=WhereCalculatedObservationWorkflow(
-                        workflow_state=WhereOrderObservationWorkflowState(
-                            in_=SCHEDULABLE_STATES
-                        )
+                        workflow_state=WhereOrderObservationWorkflowState(in_=SCHEDULABLE_STATES)
                     ),
                 ),
                 limit=len(chunk),
             )
         except Exception as exc:
             failed_chunks += 1
-            _logger.warning(
-                f"Could not resolve a chunk of {len(chunk)} changed "
-                f"observations: {exc}"
-            )
+            _logger.warning(f"Could not resolve a chunk of {len(chunk)} changed observations: {exc}")
             continue
         for match in response.observations.matches:
             reference = match.reference
@@ -449,9 +436,7 @@ async def _apply_odb_changes(
     """
     labels_by_target: dict[str, list[str]] = {}
     for request in requests:
-        labels_by_target.setdefault(request.target_name, []).append(
-            request.observation_id
-        )
+        labels_by_target.setdefault(request.target_name, []).append(request.observation_id)
 
     labels_to_invalidate: set[str] = set()
     targets_updated = 0
@@ -473,10 +458,7 @@ async def _apply_odb_changes(
         if name is None:
             # The ODB did not return it: deleted (the query excludes deleted
             # targets), or its chunk query failed and warned above.
-            _logger.info(
-                f"Changed target {internal_id} could not be resolved in the "
-                f"ODB; skipping."
-            )
+            _logger.info(f"Changed target {internal_id} could not be resolved in the ODB; skipping.")
             targets_unresolved += 1
             continue
         if name not in targets_by_name:
@@ -485,10 +467,7 @@ async def _apply_odb_changes(
             # READY/ONGOING observations in this run's programs. A renamed
             # target is re-created under its new name by the normal flow; the
             # old-name rows stay behind.
-            _logger.info(
-                f"Changed target {internal_id} ({name!r}) is not in this "
-                f"run's parse set; skipping."
-            )
+            _logger.info(f"Changed target {internal_id} ({name!r}) is not in this run's parse set; skipping.")
             targets_not_in_parse_set += 1
             continue
         internal_ids_by_name.setdefault(name, []).append(internal_id)
@@ -500,10 +479,7 @@ async def _apply_odb_changes(
             # Relevant, but Sight has no row yet. The Stage-1 loop right after
             # creates it from these same fresh coordinates, so there is
             # nothing to update and nothing is lost.
-            _logger.info(
-                f"Changed target {name!r} is not in Sight yet; Stage 1 will "
-                f"create it."
-            )
+            _logger.info(f"Changed target {name!r} is not in Sight yet; Stage 1 will create it.")
             targets_pending_create += len(internal_ids)
             continue
         payload = targets_by_name[name]
@@ -534,27 +510,15 @@ async def _apply_odb_changes(
     # schedulable by construction (the program dump uses the same workflow
     # filter). Only the leftovers need an ODB round trip, which drops any that
     # are not READY/ONGOING before their Stage 2 is touched.
-    unmapped = [
-        i for i in sorted(changes.observation_ids)
-        if i not in labels_by_internal_id
-    ]
+    unmapped = [i for i in sorted(changes.observation_ids) if i not in labels_by_internal_id]
     # A failed chunk is ignored here on purpose: one unresolved label means one
     # less invalidation this tick, and the next run retries the same window.
-    resolved_labels = (
-        (await resolve_schedulable_observation_labels(unmapped)).labels
-        if unmapped else {}
-    )
+    resolved_labels = (await resolve_schedulable_observation_labels(unmapped)).labels if unmapped else {}
     for internal_id in sorted(changes.observation_ids):
-        label = (
-            labels_by_internal_id.get(internal_id)
-            or resolved_labels.get(internal_id)
-        )
+        label = labels_by_internal_id.get(internal_id) or resolved_labels.get(internal_id)
         if label is None:
             # Not schedulable, deleted, or without a reference label.
-            _logger.info(
-                f"Changed observation {internal_id} is not schedulable or "
-                f"could not be resolved; skipping."
-            )
+            _logger.info(f"Changed observation {internal_id} is not schedulable or could not be resolved; skipping.")
             obs_skipped += 1
             continue
         labels_to_invalidate.add(label)
@@ -564,12 +528,7 @@ async def _apply_odb_changes(
         stage2_deleted += await calc.visibility_repo.delete_by_observation(label)
     await calc.session.commit()
 
-    targets_skipped = (
-        targets_unresolved
-        + targets_not_in_parse_set
-        + targets_pending_create
-        + targets_update_failed
-    )
+    targets_skipped = targets_unresolved + targets_not_in_parse_set + targets_pending_create + targets_update_failed
     counts = {
         "targets_updated": targets_updated,
         "targets_skipped": targets_skipped,
@@ -625,17 +584,12 @@ async def _store_missing_visibility(
         nights_done = (current - start_date).days + 1
         loop_elapsed = time.perf_counter() - loop_t0
 
-        due = [
-            r for r in due_requests
-            if windows[r.observation_id][0] <= current <= windows[r.observation_id][1]
-        ]
+        due = [r for r in due_requests if windows[r.observation_id][0] <= current <= windows[r.observation_id][1]]
         if due:
             # One indexed lookup per night rather than one set spanning the whole
             # union: with per-program windows that range can cover years, and the
             # whole-range pair set would be millions of tuples held in memory.
-            stored_ids = await calc.visibility_repo.get_stored_observation_ids_on_night(
-                current
-            )
+            stored_ids = await calc.visibility_repo.get_stored_observation_ids_on_night(current)
             missing = [r for r in due if r.observation_id not in stored_ids]
         else:
             missing = []
@@ -665,16 +619,18 @@ async def _store_missing_visibility(
             )
 
         if heartbeat is not None:
-            await heartbeat(progress_detail(
-                "stage2",
-                done=nights_done,
-                total=total_nights,
-                unit="nights",
-                elapsed_seconds=loop_elapsed,
-                started_at=started_at,
-                night=current.isoformat(),
-                stored=stored,
-            ))
+            await heartbeat(
+                progress_detail(
+                    "stage2",
+                    done=nights_done,
+                    total=total_nights,
+                    unit="nights",
+                    elapsed_seconds=loop_elapsed,
+                    started_at=started_at,
+                    night=current.isoformat(),
+                    stored=stored,
+                )
+            )
         current += timedelta(days=1)
 
     return stored
@@ -710,12 +666,14 @@ async def run_aggregation(
         changes, fetch_time = await _load_changes(session, now)
     changes_elapsed = fetch.elapsed
     if heartbeat is not None:
-        await heartbeat({
-            "phase": "changes",
-            "started_at": started_at,
-            "changed_observations": len(changes.observation_ids),
-            "changed_targets": len(changes.target_ids),
-        })
+        await heartbeat(
+            {
+                "phase": "changes",
+                "started_at": started_at,
+                "changed_observations": len(changes.observation_ids),
+                "changed_targets": len(changes.target_ids),
+            }
+        )
 
     labels = await gpp.client.scheduler.get_all_reference_labels()
     program_ids = [label[1] for label in labels]
@@ -725,8 +683,9 @@ async def run_aggregation(
     )
 
     with timed('vis_agg.parse') as parse:
-        (targets_by_name, requests, windows,
-         labels_by_internal_id, counts) = await _collect_requests(program_ids, guard)
+        (targets_by_name, requests, windows, labels_by_internal_id, counts) = await _collect_requests(
+            program_ids, guard
+        )
     parsed_mb = guard.check(f"parsing {len(program_ids)} programs")
     parse_elapsed = parse.elapsed
     start_date = min((w[0] for w in windows.values()), default=today)
@@ -739,13 +698,15 @@ async def run_aggregation(
         f"{parsed_mb:.0f} MB in use."
     )
     if heartbeat is not None:
-        await heartbeat({
-            "phase": "parsed",
-            "started_at": started_at,
-            "programs": len(program_ids),
-            "targets": len(targets_by_name),
-            "observations": len(requests),
-        })
+        await heartbeat(
+            {
+                "phase": "parsed",
+                "started_at": started_at,
+                "programs": len(program_ids),
+                "targets": len(targets_by_name),
+                "observations": len(requests),
+            }
+        )
 
     calc = Calculator(session)
 
@@ -753,14 +714,10 @@ async def run_aggregation(
     # updated targets are recomputed as stale and invalidated observations are
     # refilled as missing.
     with timed('vis_agg.apply') as apply_changes:
-        change_counts = await _apply_odb_changes(
-            calc, changes, targets_by_name, requests, labels_by_internal_id
-        )
+        change_counts = await _apply_odb_changes(calc, changes, targets_by_name, requests, labels_by_internal_id)
     apply_elapsed = apply_changes.elapsed
     if heartbeat is not None:
-        await heartbeat({
-            "phase": "changes_applied", "started_at": started_at, **change_counts
-        })
+        await heartbeat({"phase": "changes_applied", "started_at": started_at, **change_counts})
 
     targets = list(targets_by_name.values())
     batch_size = max(1, int(config.visibility_aggregator.target_batch_size))
@@ -783,13 +740,11 @@ async def run_aggregation(
     stage1_t0 = time.perf_counter()
     for (window_start, window_end), group in sorted(groups.items()):
         for offset in range(0, len(group), batch_size):
-            chunk = group[offset:offset + batch_size]
+            chunk = group[offset : offset + batch_size]
             with timed('vis_agg.stage1_batch') as batch:
                 created = await calc.create_targets_bulk(chunk, window_start, window_end)
                 created_total += created.created
-                await calc.precompute_stage1(
-                    window_start, window_end, target_names=[t.name for t in chunk]
-                )
+                await calc.precompute_stage1(window_start, window_end, target_names=[t.name for t in chunk])
                 await session.commit()
             batch_elapsed = batch.elapsed
             done += len(chunk)
@@ -797,9 +752,7 @@ async def run_aggregation(
             used_mb = guard.check(f"Stage 1 batch {batch_number}")
             loop_elapsed = time.perf_counter() - stage1_t0
             # Same moving ETA as Stage 2: measured seconds/target x targets left.
-            eta = progress_eta_seconds(
-                elapsed_seconds=loop_elapsed, done=done, total=total_targets
-            )
+            eta = progress_eta_seconds(elapsed_seconds=loop_elapsed, done=done, total=total_targets)
             _logger.info(
                 f"Stage 1 batch {batch_number} [{window_start}..{window_end}]: "
                 f"{len(chunk)} targets in {batch_elapsed:.1f}s "
@@ -809,15 +762,17 @@ async def run_aggregation(
                 f"{used_mb:.0f} MB in use."
             )
             if heartbeat is not None:
-                await heartbeat(progress_detail(
-                    "stage1",
-                    done=done,
-                    total=total_targets,
-                    unit="targets",
-                    elapsed_seconds=loop_elapsed,
-                    started_at=started_at,
-                    created=created_total,
-                ))
+                await heartbeat(
+                    progress_detail(
+                        "stage1",
+                        done=done,
+                        total=total_targets,
+                        unit="targets",
+                        elapsed_seconds=loop_elapsed,
+                        started_at=started_at,
+                        created=created_total,
+                    )
+                )
     stage1_elapsed = time.perf_counter() - stage1_t0
     avg_target = stage1_elapsed / total_targets if total_targets else 0.0
     _logger.info(
@@ -829,18 +784,14 @@ async def run_aggregation(
     # Stage 2: store visibility for observations missing it on each night of
     # their own program's window.
     stage2_t0 = time.perf_counter()
-    stored = await _store_missing_visibility(
-        calc, requests, windows, heartbeat, started_at, guard
-    )
+    stored = await _store_missing_visibility(calc, requests, windows, heartbeat, started_at, guard)
     stage2_elapsed = time.perf_counter() - stage2_t0
     _logger.info(f"Stage 2: stored {stored} new visibility rows in {stage2_elapsed:.1f}s.")
 
     # The whole run succeeded: advance the changes watermark to this run's
     # fetch time minus a safety overlap (clock skew; re-applying is idempotent).
     # A failed run never reaches this, so its window is retried next run.
-    overlap = timedelta(
-        seconds=float(config.visibility_aggregator.changes_overlap_seconds)
-    )
+    overlap = timedelta(seconds=float(config.visibility_aggregator.changes_overlap_seconds))
     watermark_since = fetch_time - overlap
     await set_change_watermark(session, watermark_since)
     await session.commit()

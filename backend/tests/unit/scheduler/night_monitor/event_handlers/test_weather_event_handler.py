@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from lucupy.minimodel import CloudCover, ImageQuality, Site
+from lucupy.minimodel import CloudCover, Site
 
 from scheduler.engine.params import BuildParameters
 from scheduler.night_monitor.event_handlers.weather_event_handler import WeatherEventHandler

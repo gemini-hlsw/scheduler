@@ -6,16 +6,27 @@ from datetime import timedelta
 from functools import partial
 from typing import ClassVar, Dict, Tuple, Callable, Awaitable, Optional
 
-from scheduler.core.events.queue import (Event, NightlyTimelineStore, ObservationActivationEvent,
-                                         OnDemandScheduleEvent, TimelineListener)
+from scheduler.core.events.queue import (
+    Event,
+    NightlyTimelineStore,
+    ObservationActivationEvent,
+    OnDemandScheduleEvent,
+    TimelineListener,
+)
 from scheduler.night_monitor.event_sources import ODBEventSource
-from .event_handler import EventHandler, LastPlanMock
-from .obscalc_visibility import (build_conditions, calculate_and_store_visibility, get_visibility_changes,
-                                refresh_visibility_if_changed, site_key_from_instrument,
-                                sight_visibility_enabled)
-from gpp_client.generated.scheduler_observations_updates import (SchedulerObservationsUpdates,
-                                                                SchedulerObservationsUpdatesObscalcUpdate,
-                                                                SchedulerObservationsUpdatesObscalcUpdateValue)
+from .event_handler import EventHandler
+from .obscalc_visibility import (
+    build_conditions,
+    calculate_and_store_visibility,
+    get_visibility_changes,
+    refresh_visibility_if_changed,
+    site_key_from_instrument,
+    sight_visibility_enabled,
+)
+from gpp_client.generated.scheduler_observations_updates import (
+    SchedulerObservationsUpdates,
+    SchedulerObservationsUpdatesObscalcUpdate,
+)
 
 from lucupy.minimodel import ALL_SITES, Site, Observation, ObservationID, ObservationStatus
 
@@ -65,6 +76,7 @@ class SchedulerIdleTimer:
     def pending(self) -> bool:
         return self._task is not None and not self._task.done()
 
+
 class ODBEventHandler(EventHandler, TimelineListener):
     """
     Handles ODB events. To check the different subscriptions go to ODBEventSource.
@@ -78,19 +90,14 @@ class ODBEventHandler(EventHandler, TimelineListener):
 
     _DISPATCH_MAP: Dict[str, Tuple[callable, callable]]
 
-
-    def __init__(self,
-                 scheduler_queue: SchedulerQueue,
-                 nightly_timeline_store: Optional[NightlyTimelineStore] = None):
+    def __init__(self, scheduler_queue: SchedulerQueue, nightly_timeline_store: Optional[NightlyTimelineStore] = None):
         super().__init__(scheduler_queue, nightly_timeline_store)
         # Per site: the sites execute independently, so a GN observation running must not keep
         # GS from noticing that it has gone quiet.
         self.observation_execution_timer: Dict[Site, SchedulerIdleTimer] = {
             site: SchedulerIdleTimer() for site in ALL_SITES
         }
-        self.idle_timer: Dict[Site, SchedulerIdleTimer] = {
-            site: SchedulerIdleTimer() for site in ALL_SITES
-        }
+        self.idle_timer: Dict[Site, SchedulerIdleTimer] = {site: SchedulerIdleTimer() for site in ALL_SITES}
 
     @staticmethod
     def _sites_of(event: Event) -> Tuple[Site, ...]:
@@ -175,7 +182,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
             OnDemandScheduleEvent(
                 site=site,
                 time=await self._reference_time(site),
-                description=f'Scheduler idle at {site.name} for {ODBEventHandler.WAITING_THRESHOLD}. Recalculate...'
+                description=f'Scheduler idle at {site.name} for {ODBEventHandler.WAITING_THRESHOLD}. Recalculate...',
             )
         )
 
@@ -188,7 +195,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
                 observation_id=obs_id,
                 time=await self._reference_time(site),
                 description=f'Observation {obs_id.id} did not complete within its estimated execution time. '
-                            f'Recalculate...'
+                f'Recalculate...',
             )
         )
 
@@ -215,7 +222,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
             too = event.value.target_environment.first_science_target(include_deleted=False).opportunity()
             if too is not None:
                 # TODO: For now we do nothing until we implement the logic for different types of ToOs.
-                pass # Check the type of opportunity
+                pass  # Check the type of opportunity
 
             # TODO create an appropriate event to trigger a new plan, for now we just send
             # an observation activation
@@ -224,7 +231,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
                     site=ALL_SITES,
                     observation_id=event.value.id,
                     time=await self._reference_time(),
-                    description=f'Observation {event.value.id} created from plan: {event.edit_type}'
+                    description=f'Observation {event.value.id} created from plan: {event.edit_type}',
                 )
             )
 
@@ -251,10 +258,10 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         site=site,
                         observation_id=event.value.id,
                         time=await self._reference_time(site),
-                        description=f'Observation {deleted_obs} deleted from plan'
+                        description=f'Observation {deleted_obs} deleted from plan',
                     )
                 )
-                break # to not trigger two events
+                break  # to not trigger two events
 
     async def _on_updated_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
         """
@@ -274,9 +281,8 @@ class ODBEventHandler(EventHandler, TimelineListener):
         # When the event happened, as far as the plan is concerned.
         when = await self._reference_time(site)
 
-
         updated_obs = event.value
-        label = updated_obs.reference.label # lucupy.ObservationID
+        label = updated_obs.reference.label  # lucupy.ObservationID
 
         last_plan = await self.nightly_timeline_store.last_plan(site)
         if last_plan is None:
@@ -308,7 +314,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
                             site=site,
                             observation_id=updated_obs.id,
                             time=when,
-                            description=f'Plan was expecting {expecting} but got {label}. Recalculate...'
+                            description=f'Plan was expecting {expecting} but got {label}. Recalculate...',
                         )
                     )
                 else:
@@ -332,11 +338,10 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         site=site,
                         observation_id=updated_obs.id,
                         time=await self._reference_time(site),
-                        description=f'Observation {label} is currently being executed. {msg}'
+                        description=f'Observation {label} is currently being executed. {msg}',
                     )
                 )
         if updated_obs.workflow.value.state == 'READY':
-
             if is_in_the_plan:
                 # READY -> READY: the observation was edited while still pending.
                 if last_obs.status is ObservationStatus.READY:
@@ -346,7 +351,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
                     found = []
 
                     try:
-                    # Transform from GPP to OCS
+                        # Transform from GPP to OCS
                         required = build_conditions(updated_obs)
                     except (AttributeError, KeyError, TypeError, ValueError) as exc:
                         _logger.warning(f'Could not read the constraints of {label}: {exc}')
@@ -366,8 +371,9 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         # observation no longer belongs where the plan put it.
                         sky = last_plan.conditions
                         if sky is not None and not (sky.cc <= required.cc and sky.iq <= required.iq):
-                            found.append(f'no longer fits the conditions the plan assumed '
-                                         f'(cc={sky.cc.name}, iq={sky.iq.name})')
+                            found.append(
+                                f'no longer fits the conditions the plan assumed (cc={sky.cc.name}, iq={sky.iq.name})'
+                            )
 
                     if sight_visibility_enabled():
                         # With the local strategy nothing is stored ahead of time, so there is
@@ -392,7 +398,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
                             site=site,
                             observation_id=updated_obs.id,
                             time=await self._reference_time(site),
-                            description=f'Observation {label} was modified: {changed}.'
+                            description=f'Observation {label} was modified: {changed}.',
                         )
                     )
             else:
@@ -420,7 +426,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         site=site,
                         observation_id=event.value.id,
                         time=await self._reference_time(site),
-                        description=f'New observation in the ODB: {updated_obs.reference.label}'
+                        description=f'New observation in the ODB: {updated_obs.reference.label}',
                     )
                 )
 
@@ -431,7 +437,6 @@ class ODBEventHandler(EventHandler, TimelineListener):
                 # WAITING_THRESHOLD, the idle timer replans.
                 _logger.info(f'Observation {label} completed as planned. Watching {site.name} for idle time.')
                 self._arm_idle_timer(site)
-
 
     async def _on_observation_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
         """
@@ -451,7 +456,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
 
         match event.edit_type:
             case 'CREATED':
-               await self._on_created_edit(event)
+                await self._on_created_edit(event)
             case 'UPDATED':
                 await self._on_updated_edit(event)
             case 'HARD_DELETE':
@@ -459,7 +464,8 @@ class ODBEventHandler(EventHandler, TimelineListener):
             case _:
                 raise NotImplementedError(f'Missing logic for this type of edit {event.edit_type}')
 
-
     @staticmethod
-    def parse_observation_edit_event(raw_event: SchedulerObservationsUpdates) -> SchedulerObservationsUpdatesObscalcUpdate:
+    def parse_observation_edit_event(
+        raw_event: SchedulerObservationsUpdates,
+    ) -> SchedulerObservationsUpdatesObscalcUpdate:
         return raw_event.obscalc_update

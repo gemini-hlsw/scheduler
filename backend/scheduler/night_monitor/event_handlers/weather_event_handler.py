@@ -13,8 +13,8 @@ from .event_handler import EventHandler
 
 __all__ = ['WeatherEventHandler']
 
-class WeatherEventHandler(EventHandler):
 
+class WeatherEventHandler(EventHandler):
     def _build_dispatch_map(self) -> Dict[str, Tuple[Callable, Callable]]:
         return {
             "weather_change": (
@@ -32,17 +32,21 @@ class WeatherEventHandler(EventHandler):
         wind_speed = raw_event['weatherUpdates']['windSpeed']
         wind_direction = raw_event['weatherUpdates']['windDirection']
 
-        variant = VariantSnapshot(iq=image_quality,
-                                  cc=cloud_cover,
-                                  wind_dir=Angle(wind_direction, unit=u.deg),
-                                  wind_spd=wind_speed * (u.m / u.s))
-        
+        variant = VariantSnapshot(
+            iq=image_quality,
+            cc=cloud_cover,
+            wind_dir=Angle(wind_direction, unit=u.deg),
+            wind_spd=wind_speed * (u.m / u.s),
+        )
+
         # Placeholder: the parser is synchronous, so _on_weather_change restamps this with the
         # time the plan is running on before the event reaches the Engine.
-        return WeatherChangeEvent(variant_change=variant,
-                                  time=datetime.now(UTC),
-                                  site=site,
-                                  description=f"Weather changed for site {site.name}")
+        return WeatherChangeEvent(
+            variant_change=variant,
+            time=datetime.now(UTC),
+            site=site,
+            description=f"Weather changed for site {site.name}",
+        )
 
     async def _on_weather_change(self, event: WeatherChangeEvent):
         when = await self._reference_time(event.site)

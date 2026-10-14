@@ -24,8 +24,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from gpp_client.generated.enums import Instrument, ObservationWorkflowState
-from lucupy.minimodel import (ALL_SITES, CloudCover, Conditions, ImageQuality, ObservationID,
-                              ObservationStatus, Site, SkyBackground, WaterVapor)
+from lucupy.minimodel import (
+    ALL_SITES,
+    CloudCover,
+    Conditions,
+    ImageQuality,
+    ObservationID,
+    ObservationStatus,
+    Site,
+    SkyBackground,
+    WaterVapor,
+)
 
 from scheduler.core.events.queue import ObservationActivationEvent
 from scheduler.engine.params import BuildParameters
@@ -45,6 +54,7 @@ _LABEL = "G-2026A-0500-Q-0018"
 
 # --- builders -------------------------------------------------------------------------------
 
+
 def _constraint_set(iq="POINT_EIGHT", cc="POINT_THREE", sb="GRAY", wv="MEDIAN", airmass_max=1.2):
     """A constraint set shaped like the event's, i.e. GPP presets, not OCS bins."""
     return SimpleNamespace(
@@ -59,8 +69,9 @@ def _constraint_set(iq="POINT_EIGHT", cc="POINT_THREE", sb="GRAY", wv="MEDIAN", 
     )
 
 
-def _value(state, label=_LABEL, obs_id="o-5e1e", instrument=Instrument.GMOS_SOUTH,
-           opportunity=None, constraint_set=None):
+def _value(
+    state, label=_LABEL, obs_id="o-5e1e", instrument=Instrument.GMOS_SOUTH, opportunity=None, constraint_set=None
+):
     """The ``value`` of an obscalc update: the observation as the ODB now sees it."""
     target = SimpleNamespace(opportunity=lambda: opportunity)
     return SimpleNamespace(
@@ -84,16 +95,14 @@ def _event(state, edit_type="UPDATED", **kwargs):
     )
 
 
-def _observation(label=_LABEL, status=ObservationStatus.READY, exec_minutes=30,
-                 conditions=None):
+def _observation(label=_LABEL, status=ObservationStatus.READY, exec_minutes=30, conditions=None):
     """The observation as the *last plan* recorded it, which is what the handler compares to.
 
     ``conditions`` defaults to the OCS bins ``_constraint_set()`` converts to, so an event
     built from the same defaults reads as unchanged.
     """
     if conditions is None:
-        conditions = Conditions(cc=CloudCover.CC70, iq=ImageQuality(0.7),
-                                sb=SkyBackground.SB80, wv=WaterVapor.WV80)
+        conditions = Conditions(cc=CloudCover.CC70, iq=ImageQuality(0.7), sb=SkyBackground.SB80, wv=WaterVapor.WV80)
     return SimpleNamespace(
         id=ObservationID(label),
         status=status,
@@ -117,9 +126,7 @@ def _plan(visits=(), found=None, slot_minutes=1, conditions=None):
         visits=list(visits),
         time_slot_length=timedelta(minutes=slot_minutes),
         find=lambda obs_id: found,
-        conditions=conditions if conditions is not None else SimpleNamespace(
-            cc=CloudCover.CC50, iq=ImageQuality(0.2)
-        ),
+        conditions=conditions if conditions is not None else SimpleNamespace(cc=CloudCover.CC50, iq=ImageQuality(0.2)),
     )
 
 
@@ -170,12 +177,16 @@ def _queued_event(handler):
 
 # --- dispatch -------------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("edit_type,expected", [
-    ("CREATED", "_on_created_edit"),
-    ("UPDATED", "_on_updated_edit"),
-    ("HARD_DELETE", "_on_deleted_edit"),
-])
+@pytest.mark.parametrize(
+    "edit_type,expected",
+    [
+        ("CREATED", "_on_created_edit"),
+        ("UPDATED", "_on_updated_edit"),
+        ("HARD_DELETE", "_on_deleted_edit"),
+    ],
+)
 async def test_observation_edit_dispatches_by_edit_type(handler_factory, edit_type, expected):
     handler = handler_factory()
     event = _event(ObservationWorkflowState.READY, edit_type=edit_type)
@@ -205,6 +216,7 @@ def test_parse_observation_edit_event_unwraps_obscalc_update():
 
 # --- CREATED --------------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_created_ready_requests_plan_for_all_sites(handler_factory):
     handler = handler_factory()
@@ -227,6 +239,7 @@ async def test_created_not_ready_is_noop(handler_factory):
 
 
 # --- HARD_DELETE ----------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_deleted_in_plan_requests_plan_for_that_site(handler_factory):
@@ -263,6 +276,7 @@ async def test_deleted_not_in_plan_is_noop(handler_factory):
 # The time-sensitive branch. `now` is the handler's reference time (visibility_start is unset,
 # see the _reference_time_is_now fixture), so a visit spanning `now` is the one the plan
 # expects to be running.
+
 
 def _visit_spanning_now(observation, slot_minutes=1, time_slots=10):
     now = datetime.now(UTC)
@@ -347,6 +361,7 @@ async def test_ongoing_already_ongoing_in_plan_does_not_rearm(handler_factory):
 
 # --- UPDATED / READY ------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_ready_in_plan_and_still_ready_requests_plan(handler_factory):
     # READY -> READY on an observation already in the plan means it was edited, so the plan
@@ -365,8 +380,7 @@ async def test_ready_in_plan_reports_changed_constraints(handler_factory):
     # description says what moved instead of just "was modified".
     planned = _observation(
         status=ObservationStatus.READY,
-        conditions=Conditions(cc=CloudCover.CC50, iq=ImageQuality(0.2),
-                              sb=SkyBackground.SB20, wv=WaterVapor.WV20),
+        conditions=Conditions(cc=CloudCover.CC50, iq=ImageQuality(0.2), sb=SkyBackground.SB20, wv=WaterVapor.WV20),
     )
     handler = handler_factory(_plan(visits=[_visit_spanning_now(planned)], found=planned))
 
@@ -393,11 +407,13 @@ async def test_ready_in_plan_with_untouched_constraints_says_so(handler_factory)
 async def test_ready_in_plan_flags_conditions_the_plan_cannot_meet(handler_factory):
     # The plan was built against poor sky; the observation now needs better than that.
     planned = _observation(status=ObservationStatus.READY)
-    handler = handler_factory(_plan(
-        visits=[_visit_spanning_now(planned)],
-        found=planned,
-        conditions=SimpleNamespace(cc=CloudCover.CCANY, iq=ImageQuality(1.0)),
-    ))
+    handler = handler_factory(
+        _plan(
+            visits=[_visit_spanning_now(planned)],
+            found=planned,
+            conditions=SimpleNamespace(cc=CloudCover.CCANY, iq=ImageQuality(1.0)),
+        )
+    )
 
     await handler._on_updated_edit(_event(ObservationWorkflowState.READY))
 
@@ -413,12 +429,12 @@ async def test_ready_in_plan_refreshes_stale_visibility_before_replanning(handle
     changes = object()
     anchor = datetime(2026, 5, 13, 3, 30, tzinfo=UTC)
 
-    with _params(simulated_now=anchor), \
-            patch(f"{_HANDLER_MODULE}.sight_visibility_enabled", return_value=True), \
-            patch(f"{_HANDLER_MODULE}.get_visibility_changes",
-                  AsyncMock(return_value=changes)) as changes_fetch, \
-            patch(f"{_HANDLER_MODULE}.refresh_visibility_if_changed",
-                  AsyncMock(return_value={"stored": 3})) as refresh:
+    with (
+        _params(simulated_now=anchor),
+        patch(f"{_HANDLER_MODULE}.sight_visibility_enabled", return_value=True),
+        patch(f"{_HANDLER_MODULE}.get_visibility_changes", AsyncMock(return_value=changes)) as changes_fetch,
+        patch(f"{_HANDLER_MODULE}.refresh_visibility_if_changed", AsyncMock(return_value={"stored": 3})) as refresh,
+    ):
         await handler._on_updated_edit(_event(ObservationWorkflowState.READY))
 
     refresh.assert_awaited_once()
@@ -438,9 +454,10 @@ async def test_ready_in_plan_still_replans_when_visibility_refresh_fails(handler
     planned = _observation(status=ObservationStatus.READY)
     handler = handler_factory(_plan(visits=[_visit_spanning_now(planned)], found=planned))
 
-    with patch(f"{_HANDLER_MODULE}.sight_visibility_enabled", return_value=True), \
-            patch(f"{_HANDLER_MODULE}.get_visibility_changes",
-                  AsyncMock(side_effect=RuntimeError("ODB down"))):
+    with (
+        patch(f"{_HANDLER_MODULE}.sight_visibility_enabled", return_value=True),
+        patch(f"{_HANDLER_MODULE}.get_visibility_changes", AsyncMock(side_effect=RuntimeError("ODB down"))),
+    ):
         await handler._on_updated_edit(_event(ObservationWorkflowState.READY))
 
     handler.scheduler_queue.add_schedule_event.assert_awaited_once()
@@ -458,6 +475,7 @@ async def test_ready_in_plan_but_not_ready_there_is_noop(handler_factory):
 
 
 # --- UPDATED / COMPLETED --------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_completed_in_plan_arms_idle_timer(handler_factory):
@@ -486,6 +504,7 @@ async def test_completed_not_in_plan_is_noop(handler_factory):
 
 # --- guards ---------------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_updated_without_instrument_never_reads_the_plan(handler_factory):
     handler = handler_factory(_plan())
@@ -508,6 +527,7 @@ async def test_updated_with_no_plan_in_effect_is_noop(handler_factory):
 
 # --- _request_new_plan ----------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_request_new_plan_drops_pending_waits_and_rearms_idle(handler_factory):
     # Once a new plan is requested the observation being waited on is no longer the one the
@@ -516,8 +536,7 @@ async def test_request_new_plan_drops_pending_waits_and_rearms_idle(handler_fact
     handler.observation_execution_timer[_SITE].set(3600, AsyncMock())
 
     await handler._request_new_plan(
-        ObservationActivationEvent(site=_SITE, observation_id="o-1",
-                                   time=datetime.now(UTC), description="test")
+        ObservationActivationEvent(site=_SITE, observation_id="o-1", time=datetime.now(UTC), description="test")
     )
 
     assert not handler.observation_execution_timer[_SITE].pending
@@ -529,14 +548,14 @@ async def test_request_new_plan_for_all_sites_rearms_every_site(handler_factory)
     handler = handler_factory()
 
     await handler._request_new_plan(
-        ObservationActivationEvent(site=ALL_SITES, observation_id="o-1",
-                                   time=datetime.now(UTC), description="test")
+        ObservationActivationEvent(site=ALL_SITES, observation_id="o-1", time=datetime.now(UTC), description="test")
     )
 
     assert all(handler.idle_timer[site].pending for site in ALL_SITES)
 
 
 # --- the plan in effect changing --------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_published_plan_starts_the_idle_watch(handler_factory):
@@ -587,6 +606,7 @@ async def test_timeline_reset_stands_every_timer_down(handler_factory):
 
 
 # --- SchedulerIdleTimer ---------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_timer_set_replaces_the_pending_wakeup():
@@ -654,6 +674,7 @@ async def test_timer_with_offset_adds_the_grace_period():
 
 async def _tick(seconds):
     import asyncio
+
     await asyncio.sleep(seconds)
 
 
@@ -661,6 +682,7 @@ async def _tick(seconds):
 #
 # What makes a past night testable from a live ODB: `simulated_now` moves the handler's clock
 # into that night, and keeps moving with the real one.
+
 
 def _params(**kwargs):
     store = MagicMock()
@@ -779,9 +801,7 @@ async def test_created_event_carries_the_simulated_clock(handler_factory):
     handler = handler_factory()
 
     with _params(simulated_now=anchor):
-        await handler._on_created_edit(
-            _event(ObservationWorkflowState.READY, edit_type="CREATED")
-        )
+        await handler._on_created_edit(_event(ObservationWorkflowState.READY, edit_type="CREATED"))
 
     assert abs(_queued_event(handler).time - anchor) < timedelta(seconds=5)
 
@@ -797,11 +817,14 @@ def test_default_build_parameters_are_not_customized():
     assert BuildParameters().is_customized() is False
 
 
-@pytest.mark.parametrize("field,value", [
-    ("visibility_start", datetime(2026, 5, 13, tzinfo=UTC)),
-    ("visibility_end", datetime(2026, 5, 16, tzinfo=UTC)),
-    ("program_list", ["G-2026A-0500-Q"]),
-    ("simulated_now", datetime(2026, 5, 13, 2, 30, tzinfo=UTC)),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("visibility_start", datetime(2026, 5, 13, tzinfo=UTC)),
+        ("visibility_end", datetime(2026, 5, 16, tzinfo=UTC)),
+        ("program_list", ["G-2026A-0500-Q"]),
+        ("simulated_now", datetime(2026, 5, 13, 2, 30, tzinfo=UTC)),
+    ],
+)
 def test_any_set_build_parameter_counts_as_customized(field, value):
     assert BuildParameters(**{field: value}).is_customized() is True

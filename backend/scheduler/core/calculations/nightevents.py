@@ -42,6 +42,7 @@ class NightEvents:
     This data is maintained unless the time_grid or granularity are no longer
     compatible with the original data.
     """
+
     time_grid: Time
     night_start_time: Time
     night_end_time: Time
@@ -117,8 +118,10 @@ class NightEvents:
 
         # Calculate a list of arrays per night of the times.
         # We want this as a Python list because the arrays will have different lengths.
-        times = [Time(np.linspace(start.jd, end.jd - timeslot_length_days, i), format='jd')
-                 for start, end, i in zip(time_starts, time_ends, n)]
+        times = [
+            Time(np.linspace(start.jd, end.jd - timeslot_length_days, i), format='jd')
+            for start, end, i in zip(time_starts, time_ends, n)
+        ]
         object.__setattr__(self, 'num_nights', len(times))
         object.__setattr__(self, 'times', times)
 
@@ -126,9 +129,12 @@ class NightEvents:
         # We want these as Python lists because the entries will have different lengths.
         dt_time_starts = time_starts.to_datetime()
         dt_time_ends = time_ends.to_datetime()
-        utc_times = [pandas.date_range(start, end - self.time_slot_length.to_datetime(),
-                                          freq=self.time_slot_length.to_datetime(), tz='UTC')
-                    for start, end in zip(dt_time_starts, dt_time_ends)]
+        utc_times = [
+            pandas.date_range(
+                start, end - self.time_slot_length.to_datetime(), freq=self.time_slot_length.to_datetime(), tz='UTC'
+            )
+            for start, end in zip(dt_time_starts, dt_time_ends)
+        ]
         local_times = [dt.tz_convert(self.site.timezone) for dt in utc_times]
         utc_times = [dt.to_pydatetime() for dt in utc_times]
         local_times = [dt.to_pydatetime() for dt in local_times]
@@ -147,8 +153,10 @@ class NightEvents:
             3. parallactic angle
             """
             alt, az, par_ang = zip(
-                *[sky.Altitude.above(p.dec, lst - p.ra, self.site.location.lat)
-                  for p, lst in zip(pos, local_sidereal_times)]
+                *[
+                    sky.Altitude.above(p.dec, lst - p.ra, self.site.location.lat)
+                    for p, lst in zip(pos, local_sidereal_times)
+                ]
             )
 
             return alt, az, par_ang
@@ -220,9 +228,9 @@ class NightEvents:
         return _time_coords_to_dt(night_idx, timeslot_idx, self.utc_times)
 
 
-def _dt_to_time_coords(dt: datetime,
-                       timeslot_length: timedelta,
-                       times: List[List[datetime]]) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
+def _dt_to_time_coords(
+    dt: datetime, timeslot_length: timedelta, times: List[List[datetime]]
+) -> Optional[Tuple[NightIndex, TimeslotIndex]]:
     """
     Given:
     * a datetime
@@ -252,9 +260,9 @@ def _dt_to_time_coords(dt: datetime,
     return NightIndex(night_idx), TimeslotIndex(timeslot_idx)
 
 
-def _time_coords_to_dt(night_idx: NightIndex,
-                       timeslot_idx: TimeslotIndex,
-                       times: List[List[datetime]]) -> Optional[datetime]:
+def _time_coords_to_dt(
+    night_idx: NightIndex, timeslot_idx: TimeslotIndex, times: List[List[datetime]]
+) -> Optional[datetime]:
     """
     Given night coordinates (a night index and a timeslot index) and an array of night data, convert the time
     coordinates to a time in the night data.

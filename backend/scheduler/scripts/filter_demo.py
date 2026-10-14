@@ -20,8 +20,15 @@ from scheduler.core.events.queue import EventQueue
 from scheduler.core.output import print_collector_info
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
-from scheduler.services.resource import (CompositeFilter, OcsResourceService, ProgramPriorityFilter, TimeAccountingCodeFilter,
-                                         ProgramPermissionFilter, ResourcesAvailableFilter, ResourceService)
+from scheduler.services.resource import (
+    CompositeFilter,
+    OcsResourceService,
+    ProgramPriorityFilter,
+    TimeAccountingCodeFilter,
+    ProgramPermissionFilter,
+    ResourcesAvailableFilter,
+    ResourceService,
+)
 
 # This is a demo or QA testing ground for the filter functionality.
 if __name__ == '__main__':
@@ -34,18 +41,14 @@ if __name__ == '__main__':
     builder = ValidationBuilder(Sources(), queue)
 
     # Create the Collector and load the programs.
-    collector_blueprint = CollectorBlueprint(
-        ['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
-        ['Q', 'LP', 'FT', 'DD'],
-        1.0
-    )
+    collector_blueprint = CollectorBlueprint(['SCIENCE', 'PROGCAL', 'PARTNERCAL'], ['Q', 'LP', 'FT', 'DD'], 1.0)
     collector = builder.build_collector(
         start=Time("2018-10-01 08:00:00", format='iso', scale='utc'),
         end=Time("2018-10-03 08:00:00", format='iso', scale='utc'),
         num_of_nights=num_nights_to_schedule,
         semesters=frozenset({Semester(2018, SemesterHalf.B)}),
         sites=ALL_SITES,
-        blueprint=collector_blueprint
+        blueprint=collector_blueprint,
     )
 
     # Output the state of and information calculated by the Collector.
@@ -67,13 +70,8 @@ if __name__ == '__main__':
             print(f'\tGroupID: {group.unique_id}, resources needed: f{group.required_resources()}')
 
     # ProgramPermissionFilter:
-    program_ids = frozenset({
-        ProgramID('GS-2018B-Q-103'),
-        ProgramID('GS-2018B-Q-105')
-    })
-    f_program_filtering = ProgramPermissionFilter(
-        program_ids=program_ids
-    )
+    program_ids = frozenset({ProgramID('GS-2018B-Q-103'), ProgramID('GS-2018B-Q-105')})
+    f_program_filtering = ProgramPermissionFilter(program_ids=program_ids)
 
     print(f'\n\nPROGRAM FILTERING ON {program_ids}:')
     for pid, program in program_data.items():
@@ -82,9 +80,7 @@ if __name__ == '__main__':
         else:
             print(f'--- Program {pid} is rejected.')
 
-    f_neg_program_filtering = CompositeFilter(
-        negative_filters=frozenset({f_program_filtering})
-    )
+    f_neg_program_filtering = CompositeFilter(negative_filters=frozenset({f_program_filtering}))
     print(f'\n\nASIDE: NEGATIVE PROGRAM FILTERING ON {program_ids}:')
     for pid, program in program_data.items():
         if f_neg_program_filtering.program_filter(program):
@@ -92,17 +88,17 @@ if __name__ == '__main__':
         else:
             print(f'--- Program {pid} is rejected.')
 
-    resources = frozenset({
-        ResourceService.lookup_resource('Gemini South'),
-        ResourceService.lookup_resource('GMOS-S'),
-        ResourceService.lookup_resource('Mirror'),
-        ResourceService.lookup_resource('B600'),
-        ResourceService.lookup_resource('10005374'),
-        ResourceService.lookup_resource('10000009')
-    })
-    f_resources_available = ResourcesAvailableFilter(
-        resources=resources
+    resources = frozenset(
+        {
+            ResourceService.lookup_resource('Gemini South'),
+            ResourceService.lookup_resource('GMOS-S'),
+            ResourceService.lookup_resource('Mirror'),
+            ResourceService.lookup_resource('B600'),
+            ResourceService.lookup_resource('10005374'),
+            ResourceService.lookup_resource('10000009'),
+        }
     )
+    f_resources_available = ResourcesAvailableFilter(resources=resources)
 
     # Apply the filter.
     print(f'\n\nRESOURCE FILTERING GROUPS ON {resources}:')
@@ -111,18 +107,18 @@ if __name__ == '__main__':
         root_group = program.root_group
         for group in root_group.children:
             if f_resources_available.group_filter(group):
-                print(f'+++ Group {group.unique_id} is accepted: '
-                      f'{", ".join(r.id for r in group.required_resources())} available.')
+                print(
+                    f'+++ Group {group.unique_id} is accepted: '
+                    f'{", ".join(r.id for r in group.required_resources())} available.'
+                )
             else:
-                print(f'--- Group {group.unique_id} is rejected: '
-                      f'{", ".join(r.id for r in group.required_resources() - resources)} unavailable.')
+                print(
+                    f'--- Group {group.unique_id} is rejected: '
+                    f'{", ".join(r.id for r in group.required_resources() - resources)} unavailable.'
+                )
 
-    priority_program_ids = frozenset({
-        ProgramID('GS-2018B-Q-103')
-    })
-    f_program_priority = ProgramPriorityFilter(
-        program_ids=priority_program_ids
-    )
+    priority_program_ids = frozenset({ProgramID('GS-2018B-Q-103')})
+    f_program_priority = ProgramPriorityFilter(program_ids=priority_program_ids)
 
     # Apply the filter.
     print(f'\n\nFILTERING ON PRIORITY FOR {priority_program_ids}:')
@@ -137,12 +133,8 @@ if __name__ == '__main__':
     )
 
     # Partner filter
-    partner_codes = frozenset({
-        TimeAccountingCode.KR
-    })
-    f_partner_code = TimeAccountingCodeFilter(
-        codes=partner_codes
-    )
+    partner_codes = frozenset({TimeAccountingCode.KR})
+    f_partner_code = TimeAccountingCodeFilter(codes=partner_codes)
     # Apply the filter.
     print(f'\n\nFILTERING ON PARTNER FOR {partner_codes}:')
     for pid, program in Collector._programs.items():  # noqa
@@ -152,9 +144,7 @@ if __name__ == '__main__':
             print(f'--- Program {pid} does not include partner.')
 
     # Negative partner filter
-    f_neg_partner_filter = CompositeFilter(
-        negative_filters=frozenset({f_partner_code})
-    )
+    f_neg_partner_filter = CompositeFilter(negative_filters=frozenset({f_partner_code}))
     # Apply the filter.
     print(f'\n\nNEGATIVE FILTERING ON PARTNER FOR {partner_codes}:')
     for pid, program in Collector._programs.items():  # noqa

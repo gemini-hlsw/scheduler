@@ -10,8 +10,6 @@ __all__ = [
     'NightStats',
 ]
 
-from scheduler.core.types import TimeLossType
-
 
 @final
 @dataclass(frozen=True)

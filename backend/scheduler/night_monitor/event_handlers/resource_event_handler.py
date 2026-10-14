@@ -17,6 +17,7 @@ class MockResourceEvent(BaseModel):
     resource_status: str
     resource_name: str
 
+
 class PDRQueue:
     """
     Potential Disabled Resource Queue stores events for resources that present a fault,
@@ -27,6 +28,7 @@ class PDRQueue:
         queue: (Dict[str,)
 
     """
+
     def __init__(self, timeout: float = 15.0):
         """
         Initialize the PDR queue where elements are automatically popped after a timeout.
@@ -42,13 +44,8 @@ class PDRQueue:
         self.disabled_resources = set()
         self._counter = 0
 
-
     async def _auto_pop(
-            self,
-            resource_name: str,
-            delay: float,
-            scheduler_queue: SchedulerQueue,
-            callback: callable
+        self, resource_name: str, delay: float, scheduler_queue: SchedulerQueue, callback: callable
     ) -> MockResourceEvent:
         """
         When the timeout gets triggered, the callback function will be called to
@@ -80,11 +77,7 @@ class PDRQueue:
             pass
 
     async def put(
-            self,
-            event: MockResourceEvent,
-            scheduler_queue: SchedulerQueue,
-            callback: callable,
-            timeout: float = 15.0
+        self, event: MockResourceEvent, scheduler_queue: SchedulerQueue, callback: callable, timeout: float = 15.0
     ):
         """
         Add element to the queue and start timer to trigger a callback.
@@ -101,7 +94,6 @@ class PDRQueue:
             timer_duration = timeout if timeout is not None else self.timeout
             task = asyncio.create_task(self._auto_pop(event.resource_name, timer_duration, scheduler_queue, callback))
             self.tasks[event.resource_name] = task
-
 
     async def force_pop(self, resource_name: str):
         """
@@ -137,19 +129,15 @@ class PDRQueue:
             print("Queue cleared")
 
 
-
 class ResourceEventHandler(EventHandler):
     """
     Handles all events from Resource.
     Resources can be disabled or enabled and updates are received here.
     """
 
-    def __init__(self,
-                 scheduler_queue: SchedulerQueue,
-                 nightly_timeline_store: Optional[NightlyTimelineStore] = None):
+    def __init__(self, scheduler_queue: SchedulerQueue, nightly_timeline_store: Optional[NightlyTimelineStore] = None):
         super().__init__(scheduler_queue, nightly_timeline_store)
         self.pdr = PDRQueue()
-
 
     def _build_dispatch_map(self) -> Dict[str, Tuple[Callable, Callable]]:
         return {

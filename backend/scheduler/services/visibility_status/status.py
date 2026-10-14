@@ -86,10 +86,7 @@ async def get_aggregator_status() -> AggregatorStatus:
         phase=str(phase) if isinstance(phase, str) else None,
         progress_current=_as(int, detail.get("progress_current")),
         progress_total=_as(int, detail.get("progress_total")),
-        progress_unit=(
-            detail.get("progress_unit")
-            if isinstance(detail.get("progress_unit"), str) else None
-        ),
+        progress_unit=(detail.get("progress_unit") if isinstance(detail.get("progress_unit"), str) else None),
         elapsed_seconds=_as(float, detail.get("elapsed_seconds")),
         eta_seconds=_as(float, detail.get("eta_seconds")),
         detail=row.get("detail"),

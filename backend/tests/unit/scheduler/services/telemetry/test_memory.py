@@ -47,8 +47,7 @@ def test_reading_memory_never_raises():
     assert reading is not None
 
 
-@pytest.mark.skipif(not __import__('sys').platform.startswith('linux'),
-                    reason='/proc is Linux-only')
+@pytest.mark.skipif(not __import__('sys').platform.startswith('linux'), reason='/proc is Linux-only')
 def test_linux_reports_a_live_rss():
     assert read_memory().rss_bytes > 0
 

@@ -62,8 +62,7 @@ async def test_prepare_runs_off_the_event_loop():
     with patch.object(tracker, "_compute_sorted_night_events", record):
         await tracker.prepare()
 
-    assert ran_on["thread"] != threading.get_ident(), \
-        "the sky math must not run on the loop's thread"
+    assert ran_on["thread"] != threading.get_ident(), "the sky math must not run on the loop's thread"
 
 
 @pytest.mark.asyncio

@@ -22,6 +22,7 @@ from scheduler.services.sight.calculator.models import ElevationType
 
 # --- builders for fake obscalc event values -------------------------------------------------
 
+
 def _sidereal(hms="05:35:16.8", dms="-05:23:24.0", epoch="J2000.000"):
     # Coords come from the sexagesimal hms/dms strings (the degrees fields are
     # buggy for negative dec). Defaults are M42: RA ~83.82 deg, Dec ~-5.39 deg.
@@ -59,10 +60,19 @@ def _tw(start_utc, end, inclusion=TimingWindowInclusion.INCLUDE):
     return SimpleNamespace(inclusion=inclusion, start_utc=start_utc, end=end)
 
 
-def _value(asterism=None, air_mass=None, hour_angle=None, sb=SkyBackground.DARK,
-           timing_windows=None, start="2025-02-01", end="2025-02-05",
-           state=ObservationWorkflowState.READY, obs_id="o-123",
-           instrument=Instrument.GMOS_SOUTH, label="G-2026A-0397-D-0067"):
+def _value(
+    asterism=None,
+    air_mass=None,
+    hour_angle=None,
+    sb=SkyBackground.DARK,
+    timing_windows=None,
+    start="2025-02-01",
+    end="2025-02-05",
+    state=ObservationWorkflowState.READY,
+    obs_id="o-123",
+    instrument=Instrument.GMOS_SOUTH,
+    label="G-2026A-0397-D-0067",
+):
     return SimpleNamespace(
         id=obs_id,
         instrument=instrument,
@@ -83,20 +93,25 @@ _RANGE_END = datetime(2025, 2, 5, tzinfo=timezone.utc)
 
 # --- site_key_from_instrument ---------------------------------------------------------------
 
-@pytest.mark.parametrize("instrument,expected", [
-    (Instrument.GMOS_NORTH, "GN"),    # NORTH suffix
-    (Instrument.GMOS_SOUTH, "GS"),    # SOUTH suffix
-    (Instrument.ACQ_CAM_NORTH, "GN"),  # suffix
-    (Instrument.FLAMINGOS2, "GS"),    # explicit map
-    (Instrument.GNIRS, "GN"),         # explicit map
-    (Instrument.GHOST, "GS"),         # explicit map
-    (None, None),
-])
+
+@pytest.mark.parametrize(
+    "instrument,expected",
+    [
+        (Instrument.GMOS_NORTH, "GN"),  # NORTH suffix
+        (Instrument.GMOS_SOUTH, "GS"),  # SOUTH suffix
+        (Instrument.ACQ_CAM_NORTH, "GN"),  # suffix
+        (Instrument.FLAMINGOS2, "GS"),  # explicit map
+        (Instrument.GNIRS, "GN"),  # explicit map
+        (Instrument.GHOST, "GS"),  # explicit map
+        (None, None),
+    ],
+)
 def test_site_key_from_instrument(instrument, expected):
     assert ov.site_key_from_instrument(instrument) == expected
 
 
 # --- build_target_create --------------------------------------------------------------------
+
 
 def test_build_target_create_sidereal():
     value = _value(asterism=[_asterism("M42", sidereal=_sidereal())])
@@ -117,21 +132,23 @@ def test_build_target_create_negative_dec():
     assert payload.base_dec == pytest.approx(-33.05, abs=1e-2)
 
 
-@pytest.mark.parametrize("raw,expected", [
-    ("J2000.000", 2000.0),
-    ("B1950.000", 1950.0),
-    (2000.0, 2000.0),
-    ("2015.5", 2015.5),
-    (None, 2000.0),
-    ("garbage", 2000.0),
-])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("J2000.000", 2000.0),
+        ("B1950.000", 1950.0),
+        (2000.0, 2000.0),
+        ("2015.5", 2015.5),
+        (None, 2000.0),
+        ("garbage", 2000.0),
+    ],
+)
 def test_parse_epoch(raw, expected):
     assert ov._parse_epoch(raw) == pytest.approx(expected)
 
 
 def test_build_target_create_nonsidereal_skipped():
-    value = _value(asterism=[_asterism("Ceres", sidereal=None,
-                                       nonsidereal=SimpleNamespace(des="1"))])
+    value = _value(asterism=[_asterism("Ceres", sidereal=None, nonsidereal=SimpleNamespace(des="1"))])
     assert ov.build_target_create(value) is None
 
 
@@ -140,6 +157,7 @@ def test_build_target_create_no_asterism():
 
 
 # --- build_constraints ----------------------------------------------------------------------
+
 
 def test_build_constraints_airmass():
     value = _value(air_mass=_airmass(1.0, 1.6), sb=SkyBackground.DARK)
@@ -167,12 +185,15 @@ def test_build_constraints_default_elevation():
     assert c.elevation_max == pytest.approx(2.0)
 
 
-@pytest.mark.parametrize("sb,frac", [
-    (SkyBackground.DARKEST, 0.2),
-    (SkyBackground.DARK, 0.5),
-    (SkyBackground.GRAY, 0.8),
-    (SkyBackground.BRIGHT, 1.0),
-])
+@pytest.mark.parametrize(
+    "sb,frac",
+    [
+        (SkyBackground.DARKEST, 0.2),
+        (SkyBackground.DARK, 0.5),
+        (SkyBackground.GRAY, 0.8),
+        (SkyBackground.BRIGHT, 1.0),
+    ],
+)
 def test_sky_background_mapping(sb, frac):
     c = ov.build_constraints(_value(air_mass=_airmass(1.0, 2.0), sb=sb), _RANGE_END)
     assert c.target_sb == pytest.approx(frac)
@@ -180,19 +201,16 @@ def test_sky_background_mapping(sb, frac):
 
 # --- expand_event_timing_windows ------------------------------------------------------------
 
+
 def test_expand_end_at():
-    out = ov.expand_event_timing_windows(
-        [_tw("2025-02-01 00:00:00", _end_at("2025-02-02 00:00:00"))], _RANGE_END
-    )
+    out = ov.expand_event_timing_windows([_tw("2025-02-01 00:00:00", _end_at("2025-02-02 00:00:00"))], _RANGE_END)
     assert len(out) == 1
     assert out[0].start == datetime(2025, 2, 1, tzinfo=timezone.utc)
     assert out[0].end == datetime(2025, 2, 2, tzinfo=timezone.utc)
 
 
 def test_expand_end_after_non_repeating():
-    out = ov.expand_event_timing_windows(
-        [_tw("2025-02-01 00:00:00", _end_after(3600))], _RANGE_END
-    )
+    out = ov.expand_event_timing_windows([_tw("2025-02-01 00:00:00", _end_after(3600))], _RANGE_END)
     assert len(out) == 1
     assert (out[0].end - out[0].start).total_seconds() == pytest.approx(3600)
 
@@ -217,23 +235,21 @@ def test_expand_end_after_forever_capped_by_range_end():
 
 
 def test_expand_open_ended_capped_by_range_end():
-    out = ov.expand_event_timing_windows(
-        [_tw("2025-02-01 00:00:00", None)], _RANGE_END
-    )
+    out = ov.expand_event_timing_windows([_tw("2025-02-01 00:00:00", None)], _RANGE_END)
     assert len(out) == 1
     assert out[0].end == _RANGE_END
 
 
 def test_expand_skips_exclude():
     out = ov.expand_event_timing_windows(
-        [_tw("2025-02-01 00:00:00", _end_at("2025-02-02 00:00:00"),
-             inclusion=TimingWindowInclusion.EXCLUDE)],
+        [_tw("2025-02-01 00:00:00", _end_at("2025-02-02 00:00:00"), inclusion=TimingWindowInclusion.EXCLUDE)],
         _RANGE_END,
     )
     assert out == []
 
 
 # --- calculate_and_store_visibility orchestrator --------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_calculate_and_store_visibility_invokes_calculator():
@@ -245,19 +261,14 @@ async def test_calculate_and_store_visibility_invokes_calculator():
     # New target: get_by_name returns None, so create is called.
     mock_calc.target_repo.get_by_name = AsyncMock(return_value=None)
     mock_calc.target_repo.create = AsyncMock()
-    mock_calc.store_missing_visibility = AsyncMock(
-        return_value={"stored": 5, "nights": 5, "already_present": 0}
-    )
+    mock_calc.store_missing_visibility = AsyncMock(return_value={"stored": 5, "nights": 5, "already_present": 0})
 
     @asynccontextmanager
     async def fake_scope():
         yield MagicMock()
 
-    with patch.object(ov, "session_scope", fake_scope), \
-         patch.object(ov, "Calculator", return_value=mock_calc):
-        result = await ov.calculate_and_store_visibility(
-            value, observation_id="GS-2025A-Q-101-23", site_key="GS"
-        )
+    with patch.object(ov, "session_scope", fake_scope), patch.object(ov, "Calculator", return_value=mock_calc):
+        result = await ov.calculate_and_store_visibility(value, observation_id="GS-2025A-Q-101-23", site_key="GS")
 
     mock_calc.target_repo.create.assert_awaited_once()
     mock_calc.store_missing_visibility.assert_awaited_once()
@@ -280,19 +291,14 @@ async def test_calculate_and_store_visibility_skips_create_for_existing_target()
     # Existing target: get_by_name returns a target, so create must NOT be called.
     mock_calc.target_repo.get_by_name = AsyncMock(return_value=MagicMock())
     mock_calc.target_repo.create = AsyncMock()
-    mock_calc.store_missing_visibility = AsyncMock(
-        return_value={"stored": 0, "nights": 5, "already_present": 5}
-    )
+    mock_calc.store_missing_visibility = AsyncMock(return_value={"stored": 0, "nights": 5, "already_present": 5})
 
     @asynccontextmanager
     async def fake_scope():
         yield MagicMock()
 
-    with patch.object(ov, "session_scope", fake_scope), \
-         patch.object(ov, "Calculator", return_value=mock_calc):
-        result = await ov.calculate_and_store_visibility(
-            value, observation_id="GS-2025A-Q-101-23", site_key="GS"
-        )
+    with patch.object(ov, "session_scope", fake_scope), patch.object(ov, "Calculator", return_value=mock_calc):
+        result = await ov.calculate_and_store_visibility(value, observation_id="GS-2025A-Q-101-23", site_key="GS")
 
     mock_calc.target_repo.create.assert_not_called()
     assert result["target_existed"] is True
@@ -309,6 +315,7 @@ async def test_calculate_and_store_visibility_skips_non_sidereal():
 
 
 # --- _on_updated_edit handler ---------------------------------------------------------------
+
 
 def _plan(visits=(), found=None):
     """
@@ -359,10 +366,13 @@ async def test_on_updated_edit_ready_computes_and_replans(handler_factory):
     value = _value(state=ObservationWorkflowState.READY, obs_id="o-1")
     event = SimpleNamespace(value=value, edit_type="UPDATED")
 
-    with patch("scheduler.night_monitor.event_handlers.odb_event_handler."
-               "sight_visibility_enabled", return_value=True), \
-         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
-               "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
+    with (
+        patch("scheduler.night_monitor.event_handlers.odb_event_handler.sight_visibility_enabled", return_value=True),
+        patch(
+            "scheduler.night_monitor.event_handlers.odb_event_handler.calculate_and_store_visibility",
+            new_callable=AsyncMock,
+        ) as mock_calc,
+    ):
         await handler._on_updated_edit(event)
 
     mock_calc.assert_awaited_once()
@@ -379,8 +389,10 @@ async def test_on_updated_edit_not_ready_is_noop(handler_factory):
     value = _value(state=ObservationWorkflowState.DEFINED)
     event = SimpleNamespace(value=value, edit_type="UPDATED")
 
-    with patch("scheduler.night_monitor.event_handlers.odb_event_handler."
-               "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
+    with patch(
+        "scheduler.night_monitor.event_handlers.odb_event_handler.calculate_and_store_visibility",
+        new_callable=AsyncMock,
+    ) as mock_calc:
         await handler._on_updated_edit(event)
 
     mock_calc.assert_not_called()
@@ -395,10 +407,13 @@ async def test_on_updated_edit_without_instrument_is_dropped(handler_factory):
     value = _value(state=ObservationWorkflowState.READY, obs_id="o-2", instrument=None)
     event = SimpleNamespace(value=value, edit_type="UPDATED")
 
-    with patch("scheduler.night_monitor.event_handlers.odb_event_handler."
-               "sight_visibility_enabled", return_value=True), \
-         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
-               "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
+    with (
+        patch("scheduler.night_monitor.event_handlers.odb_event_handler.sight_visibility_enabled", return_value=True),
+        patch(
+            "scheduler.night_monitor.event_handlers.odb_event_handler.calculate_and_store_visibility",
+            new_callable=AsyncMock,
+        ) as mock_calc,
+    ):
         await handler._on_updated_edit(event)
 
     mock_calc.assert_not_called()
@@ -414,10 +429,13 @@ async def test_on_updated_edit_no_plan_in_effect_is_dropped(handler_factory):
     value = _value(state=ObservationWorkflowState.READY, obs_id="o-4")
     event = SimpleNamespace(value=value, edit_type="UPDATED")
 
-    with patch("scheduler.night_monitor.event_handlers.odb_event_handler."
-               "sight_visibility_enabled", return_value=True), \
-         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
-               "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
+    with (
+        patch("scheduler.night_monitor.event_handlers.odb_event_handler.sight_visibility_enabled", return_value=True),
+        patch(
+            "scheduler.night_monitor.event_handlers.odb_event_handler.calculate_and_store_visibility",
+            new_callable=AsyncMock,
+        ) as mock_calc,
+    ):
         await handler._on_updated_edit(event)
 
     mock_calc.assert_not_called()
@@ -432,10 +450,13 @@ async def test_on_updated_edit_local_strategy_skips_sight(handler_factory):
     value = _value(state=ObservationWorkflowState.READY, obs_id="o-3")
     event = SimpleNamespace(value=value, edit_type="UPDATED")
 
-    with patch("scheduler.night_monitor.event_handlers.odb_event_handler."
-               "sight_visibility_enabled", return_value=False), \
-         patch("scheduler.night_monitor.event_handlers.odb_event_handler."
-               "calculate_and_store_visibility", new_callable=AsyncMock) as mock_calc:
+    with (
+        patch("scheduler.night_monitor.event_handlers.odb_event_handler.sight_visibility_enabled", return_value=False),
+        patch(
+            "scheduler.night_monitor.event_handlers.odb_event_handler.calculate_and_store_visibility",
+            new_callable=AsyncMock,
+        ) as mock_calc,
+    ):
         await handler._on_updated_edit(event)
 
     mock_calc.assert_not_called()
@@ -443,6 +464,7 @@ async def test_on_updated_edit_local_strategy_skips_sight(handler_factory):
 
 
 # --- the change-log window ------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_change_lookup_uses_the_wall_clock_not_the_simulated_night():
@@ -469,14 +491,17 @@ async def test_change_lookup_uses_the_wall_clock_not_the_simulated_night():
 
     before = datetime.now(timezone.utc)
     # gpp.client is a per-event-loop property, so it has to be patched on the class.
-    with patch.object(type(ov.gpp), 'client', new_callable=PropertyMock, return_value=client), \
-            patch('scheduler.night_monitor.event_handlers.event_handler.build_params_store', store):
+    with (
+        patch.object(type(ov.gpp), 'client', new_callable=PropertyMock, return_value=client),
+        patch('scheduler.night_monitor.event_handlers.event_handler.build_params_store', store),
+    ):
         assert await ov.get_visibility_changes() == 'changes'
     after = datetime.now(timezone.utc)
 
     since = captured['since']
-    assert before - ov._CHANGES_WINDOW <= since <= after - ov._CHANGES_WINDOW, \
+    assert before - ov._CHANGES_WINDOW <= since <= after - ov._CHANGES_WINDOW, (
         f'window started at {since}, not the last {ov._CHANGES_WINDOW} of real time'
+    )
 
 
 @pytest.mark.asyncio
@@ -484,5 +509,6 @@ async def test_change_lookup_takes_no_clock():
     """A guard: the bug was a caller handing it a plausible-looking datetime."""
     import inspect
 
-    assert not inspect.signature(ov.get_visibility_changes).parameters, \
+    assert not inspect.signature(ov.get_visibility_changes).parameters, (
         'get_visibility_changes must read the wall clock itself, not accept one'
+    )

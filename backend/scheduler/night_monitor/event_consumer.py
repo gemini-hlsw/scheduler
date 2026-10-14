@@ -8,14 +8,17 @@ from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineSt
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor.event_sources import EventSourceType
 from scheduler.night_monitor.event_handlers import (
-    EventHandler, WeatherEventHandler,
-    ODBEventHandler, ResourceEventHandler
+    EventHandler,
+    WeatherEventHandler,
+    ODBEventHandler,
+    ResourceEventHandler,
 )
 from scheduler.services import logger_factory
 
 __all__ = ['EventConsumer']
 
 _logger = logger_factory.create_logger(__name__)
+
 
 class EventConsumer:
     """
@@ -37,7 +40,7 @@ class EventConsumer:
         event_queue: asyncio.Queue,
         shutdown_event: asyncio.Event,
         scheduler_queue: SchedulerQueue,
-        nightly_timeline_store: NightlyTimelineStore
+        nightly_timeline_store: NightlyTimelineStore,
     ):
         self.queue = event_queue
         self.scheduler_queue = scheduler_queue
@@ -49,7 +52,6 @@ class EventConsumer:
         # not only when the ODB reports something. The store tells it when that happens.
         nightly_timeline_store.add_listener(self.odb_handler)
         self._shutdown_event = shutdown_event
-
 
     def _match_source_to_handler(self, source: EventSourceType) -> EventHandler:
         """
@@ -83,26 +85,25 @@ class EventConsumer:
         and skipped: it must not kill the consumer for the rest of the night.
         """
         while not self._shutdown_event.is_set():
-           try:
-               # Check if the queue is backlogged
-               item = await self.queue.get()
-               backlog = self.queue.qsize()
-               if backlog >= self.BACKLOG_WARN_THRESHOLD:
-                   _logger.warning(
-                       f'Event backlog is {backlog}; the consumer is not keeping up with '
-                       f'the subscriptions.'
-                   )
-               try:
-                   source, sub_name, data = item
-                   handler = self._match_source_to_handler(source)
-                   await handler.handle(sub_name, data)
-               except asyncio.CancelledError:
-                   raise
-               except Exception:
-                   _logger.exception(f'Failed to handle event {repr(item)}; skipping it.')
-               finally:
-                   self.queue.task_done()
+            try:
+                # Check if the queue is backlogged
+                item = await self.queue.get()
+                backlog = self.queue.qsize()
+                if backlog >= self.BACKLOG_WARN_THRESHOLD:
+                    _logger.warning(
+                        f'Event backlog is {backlog}; the consumer is not keeping up with the subscriptions.'
+                    )
+                try:
+                    source, sub_name, data = item
+                    handler = self._match_source_to_handler(source)
+                    await handler.handle(sub_name, data)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    _logger.exception(f'Failed to handle event {repr(item)}; skipping it.')
+                finally:
+                    self.queue.task_done()
 
-           except asyncio.CancelledError:
-               _logger.info('Event consumer cancelled.')
-               break
+            except asyncio.CancelledError:
+                _logger.info('Event consumer cancelled.')
+                break

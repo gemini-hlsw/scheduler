@@ -218,10 +218,7 @@ RetryOpt = Annotated[
     bool,
     typer.Option(
         "--retry",
-        help=(
-            "Retry while the observation's background calculation is not READY, "
-            "instead of failing immediately."
-        ),
+        help=("Retry while the observation's background calculation is not READY, instead of failing immediately."),
     ),
 ]
 
@@ -252,9 +249,7 @@ async def _gql(
     return client._graphql.get_data(response)
 
 
-async def _fetch_observation(
-    client: GPPClient, observation: str
-) -> tuple[str, dict[str, Any]]:
+async def _fetch_observation(client: GPPClient, observation: str) -> tuple[str, dict[str, Any]]:
     """
     Return the observation ID and payload for an ID or a reference label.
 
@@ -338,10 +333,7 @@ async def _next_step_id(client: GPPClient, observation_id: str) -> str:
     data = await _gql(client, _NEXT_STEP_QUERY, {"observationId": observation_id})
     config = data.get("executionConfig")
     if config is None:
-        raise typer.BadParameter(
-            f"No sequence could be generated for {observation_id}; it cannot be "
-            "executed yet."
-        )
+        raise typer.BadParameter(f"No sequence could be generated for {observation_id}; it cannot be executed yet.")
 
     # Exactly one instrument field is non-null, so whichever one is populated
     # is the mode in use. Reading them off the response rather than a hardcoded
@@ -359,8 +351,7 @@ async def _next_step_id(client: GPPClient, observation_id: str) -> str:
                 return steps[0]["id"]
 
     raise typer.BadParameter(
-        f"The sequence for {observation_id} ({config.get('instrument')}) has no "
-        "steps left to execute."
+        f"The sequence for {observation_id} ({config.get('instrument')}) has no steps left to execute."
     )
 
 
@@ -401,8 +392,7 @@ async def _transition(
                 break
             if attempt == attempts:
                 raise typer.BadParameter(
-                    f"{observation_id} is still calculating "
-                    f"({workflow['calculationState']}). Retry with --retry."
+                    f"{observation_id} is still calculating ({workflow['calculationState']}). Retry with --retry."
                 )
             await asyncio.sleep(_CALC_RETRY_DELAY)
             _, obs = await _fetch_observation(client, observation_id)
@@ -427,9 +417,7 @@ async def _transition(
         # query reports ONGOING and offers COMPLETED, while the mutation
         # rejects it claiming the current state is READY. Showing what we read
         # makes that contradiction visible in the failure itself.
-        output.dim_info(
-            f"{observation_id} reads {current}, offering {', '.join(valid)}"
-        )
+        output.dim_info(f"{observation_id} reads {current}, offering {', '.join(valid)}")
 
         # ObservationWorkflowService.getWorkflowsModesAndRoles keeps execution
         # state only for observations whose validation map is *empty*, so a
@@ -475,9 +463,7 @@ async def _start_execution(observation: str) -> None:
         step_id = await _next_step_id(client, observation_id)
 
         output.procedure(f"Recording a visit for {observation_id}...")
-        visit = await _gql(
-            client, _RECORD_VISIT_MUTATION, {"observationId": observation_id}
-        )
+        visit = await _gql(client, _RECORD_VISIT_MUTATION, {"observationId": observation_id})
         visit_id = visit["recordVisit"]["visit"]["id"]
         output.dim_info(f"Visit {visit_id}")
 
@@ -512,17 +498,13 @@ async def _start_execution(observation: str) -> None:
 
     execution_state = obs["execution"]["executionState"]
     workflow_state = obs["workflow"]["value"]["state"]
-    output.success(
-        f"{observation_id}: executionState {execution_state}, workflow "
-        f"{workflow_state}."
-    )
+    output.success(f"{observation_id}: executionState {execution_state}, workflow {workflow_state}.")
     # executionState is the honest signal. The workflow value is a cached
     # calculation that can read ONGOING briefly and then revert to READY, so a
     # NOT_STARTED here means nothing durable was recorded.
     if execution_state == "NOT_STARTED":
         output.warning(
-            "The ODB still reports NOT_STARTED, so this observation will fall "
-            "back to READY. Execution did not take."
+            "The ODB still reports NOT_STARTED, so this observation will fall back to READY. Execution did not take."
         )
 
 

@@ -64,12 +64,7 @@ def _missing_coordinates(sidereal) -> bool:
     """
     ra = getattr(sidereal, "ra", None)
     dec = getattr(sidereal, "dec", None)
-    return (
-        ra is None
-        or dec is None
-        or getattr(ra, "degrees", None) is None
-        or getattr(dec, "degrees", None) is None
-    )
+    return ra is None or dec is None or getattr(ra, "degrees", None) is None or getattr(dec, "degrees", None) is None
 
 
 def _classify(match, program_label: str) -> Optional[ExpectedObservation]:
@@ -101,9 +96,7 @@ def _classify(match, program_label: str) -> Optional[ExpectedObservation]:
     target_name = str(base.name) if base is not None and base.name else None
 
     if base is None or target_name is None:
-        _logger.debug(
-            f"Observation {label} has no target; not a visibility subject."
-        )
+        _logger.debug(f"Observation {label} has no target; not a visibility subject.")
         return None
 
     sidereal = getattr(base, "sidereal", None)
@@ -144,21 +137,15 @@ async def get_expected_observations() -> list[ExpectedObservation]:
     pagination stops making progress — never returns a partial set.
     """
     programs = await gpp.client.scheduler.get_all_reference_labels()
-    labels_by_program_id = {
-        str(program_id): str(label) for label, program_id in programs
-    }
+    labels_by_program_id = {str(program_id): str(label) for label, program_id in programs}
     if not labels_by_program_id:
         _logger.info("No available programs; expected set is empty.")
         return []
 
     where = WhereObservation(
-        program=WhereProgram(
-            id=WhereOrderProgramId(in_=list(labels_by_program_id))
-        ),
+        program=WhereProgram(id=WhereOrderProgramId(in_=list(labels_by_program_id))),
         workflow=WhereCalculatedObservationWorkflow(
-            workflow_state=WhereOrderObservationWorkflowState(
-                in_=SCHEDULABLE_STATES
-            )
+            workflow_state=WhereOrderObservationWorkflowState(in_=SCHEDULABLE_STATES)
         ),
     )
 
@@ -168,9 +155,7 @@ async def get_expected_observations() -> list[ExpectedObservation]:
     pages = 0
 
     while True:
-        response = await gpp.client.observation.get_all(
-            where=where, offset=offset, limit=_PAGE_SIZE
-        )
+        response = await gpp.client.observation.get_all(where=where, offset=offset, limit=_PAGE_SIZE)
         pages += 1
         matches = response.observations.matches
         # The ODB cursor is inclusive of the offset id, so a page repeats the
@@ -179,9 +164,7 @@ async def get_expected_observations() -> list[ExpectedObservation]:
         fresh = [m for m in matches if str(m.id) not in seen]
         for match in fresh:
             seen.add(str(match.id))
-            observation = _classify(
-                match, labels_by_program_id.get(str(match.program.id), "")
-            )
+            observation = _classify(match, labels_by_program_id.get(str(match.program.id), ""))
             if observation is not None:
                 expected.append(observation)
 
@@ -198,7 +181,6 @@ async def get_expected_observations() -> list[ExpectedObservation]:
         offset = str(matches[-1].id)
 
     _logger.info(
-        f"Expected set: {len(expected)} observations across "
-        f"{len(labels_by_program_id)} programs in {pages} ODB pages."
+        f"Expected set: {len(expected)} observations across {len(labels_by_program_id)} programs in {pages} ODB pages."
     )
     return expected

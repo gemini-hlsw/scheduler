@@ -25,6 +25,7 @@ class MaxGroup:
     """
     Store information about the selected group (max score)
     """
+
     group_data: GroupData
     max_score: float
     interval: Interval
@@ -53,13 +54,10 @@ class BaseOptimizer(ABC):
             self._run(plans)
 
     @abstractmethod
-    def _run(self, plans: Plans):
-        ...
+    def _run(self, plans: Plans): ...
 
     @abstractmethod
-    def setup(self, selection: Selection):
-        ...
+    def setup(self, selection: Selection): ...
 
     @abstractmethod
-    def add(self, night: int, max_group_info: GroupData | MaxGroup):
-        ...
+    def add(self, night: int, max_group_info: GroupData | MaxGroup): ...

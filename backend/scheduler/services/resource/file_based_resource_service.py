@@ -16,8 +16,15 @@ from lucupy.sky import night_events
 
 from scheduler.services import logger_factory
 from .event_generators import EngineeringTask, Fault, WeatherClosure, ToOActivation
-from .filters import (LgsFilter, NothingFilter, ProgramPermissionFilter, ProgramPriorityFilter, ResourcePriorityFilter,
-                      TimeAccountingCodeFilter, TooFilter)
+from .filters import (
+    LgsFilter,
+    NothingFilter,
+    ProgramPermissionFilter,
+    ProgramPriorityFilter,
+    ResourcePriorityFilter,
+    TimeAccountingCodeFilter,
+    TooFilter,
+)
 from .resource_service import ResourceService
 
 
@@ -34,6 +41,7 @@ class FileBasedResourceService(ResourceService):
     """
     This is the base for both OCS and File-uploaded services
     """
+
     # Definition of a day to not have to redeclare constantly.
     _day: Final[timedelta] = timedelta(days=1)
     _noon: Final[time] = time(hour=12, minute=0)
@@ -48,8 +56,7 @@ class FileBasedResourceService(ResourceService):
     # Minimum duration
     _MINIMUM_LOSS_DURATION: Final[timedelta] = timedelta(minutes=20)
 
-    def _load_fpu_to_barcodes(self, site: Site,
-                              filename: str) -> None:
+    def _load_fpu_to_barcodes(self, site: Site, filename: str) -> None:
         """
         FPUs at each site map to a unique barcode as defined in the files:
             * gmos[ns]_fpu_barcode.txt
@@ -61,16 +68,18 @@ class FileBasedResourceService(ResourceService):
 
                 # Only map if the FPU is a resource.
                 if fpu is not None:
-                    self._itcd_fpu_to_barcode[site][fpu] = self.lookup_resource(barcode,
-                                                                                description=fpu,
-                                                                                resource_type=ResourceType.FPU)
+                    self._itcd_fpu_to_barcode[site][fpu] = self.lookup_resource(
+                        barcode, description=fpu, resource_type=ResourceType.FPU
+                    )
 
-    def _load_csv(self,
-                  site: Site,
-                  c: Callable[[List[str], Site], Set[str]],
-                  data_source: Union[str, BytesIO],
-                  desc: Optional[str] = None,
-                  resource_type: Optional[ResourceType] = ResourceType.NONE) -> None:
+    def _load_csv(
+        self,
+        site: Site,
+        c: Callable[[List[str], Site], Set[str]],
+        data_source: Union[str, BytesIO],
+        desc: Optional[str] = None,
+        resource_type: Optional[ResourceType] = ResourceType.NONE,
+    ) -> None:
         """
         Process a CSV file as a table, where:
 
@@ -80,6 +89,7 @@ class FileBasedResourceService(ResourceService):
         If a date is missing from the CSV file, copy the data from the previously defined date through to just before
         the new date.
         """
+
         def _process_file(io) -> None:
             reader = csv.reader(io, delimiter=',')
             prev_row_date: Optional[date] = None
@@ -101,8 +111,11 @@ class FileBasedResourceService(ResourceService):
                 # Get or create date_set for the date, and append new resources from table, ignoring blank entries.
                 date_set = self._resources[site].setdefault(row_date, set())
                 # new_entries = {self.lookup_resource(r) for r in c(row[1:], site) if r}
-                new_entries = {self.lookup_resource(r, description=desc, resource_type=resource_type)
-                               for r in c(row[1:], site) if r}
+                new_entries = {
+                    self.lookup_resource(r, description=desc, resource_type=resource_type)
+                    for r in c(row[1:], site)
+                    if r
+                }
                 self._resources[site][row_date] = date_set | new_entries
 
                 # Advance the previous row date where data was defined.
@@ -135,23 +148,23 @@ class FileBasedResourceService(ResourceService):
             date_set.add(add_date)
 
     @staticmethod
-    def _add_dates_to_partdict(part_dict: Dict[TimeAccountingCode, Set[date]],
-                               code: TimeAccountingCode, add_date: date) -> None:
+    def _add_dates_to_partdict(
+        part_dict: Dict[TimeAccountingCode, Set[date]], code: TimeAccountingCode, add_date: date
+    ) -> None:
         """
         Add the specified date to each set associated with the partner code.
         """
         date_set = part_dict.setdefault(code, set())
         date_set.add(add_date)
 
-    def _load_instrument_data(self,
-                              site: Site,
-                              filename: str) -> None:
+    def _load_instrument_data(self, site: Site, filename: str) -> None:
         """
         Process an Excel spreadsheet containing instrument, mode, and LGS information.
 
         The Excel spreadsheets have information available for every date, so we do not have to concern ourselves
         as in the _load_csv file above.
         """
+
         def none_to_str(value) -> str:
             return '' if value is None else value
 
@@ -160,19 +173,17 @@ class FileBasedResourceService(ResourceService):
 
         file_path = self._subdir / filename
         if not file_path.exists():
-            raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: '
-                                    f'{file_path}')
+            raise FileNotFoundError(f'No site configuration data available for {__class__.__name__} at: {file_path}')
 
-        workbook = load_workbook(filename=file_path,
-                                 read_only=True,
-                                 data_only=True)
+        workbook = load_workbook(filename=file_path, read_only=True, data_only=True)
 
         try:
             sheet = workbook[site.name]
         except KeyError:
             # Make the KeyError more clear.
-            raise KeyError(f'{__class__.__name__}: No tab for {site.name} in the '
-                           'telescope schedule configuration spreadsheet.')
+            raise KeyError(
+                f'{__class__.__name__}: No tab for {site.name} in the telescope schedule configuration spreadsheet.'
+            )
 
         # A set consisting of the dates that are not blocked.
         dates: Set[date] = set()
@@ -250,8 +261,10 @@ class FileBasedResourceService(ResourceService):
             modes_entry = re.sub(r"\([^)]*\)", "", modes_entry).upper().strip()
 
             # If ENGINEERING or SHUTDOWN is in the mode entries, there is nothing else to do for the night.
-            if (FileBasedResourceService._ENGINEERING in modes_entry
-                    or FileBasedResourceService._SHUTDOWN in modes_entry):
+            if (
+                FileBasedResourceService._ENGINEERING in modes_entry
+                or FileBasedResourceService._SHUTDOWN in modes_entry
+            ):
                 self._blocked[site].add(row_date)
                 continue
 
@@ -319,7 +332,9 @@ class FileBasedResourceService(ResourceService):
             # The next five entries contain instrument ports.
             # Filter out any ports that are not empty.
             # We then have to check to see what the status of the instrument is for the night.
-            instrument_names = {remove_symbols(row[i].value) for i in range(5, 10) if row[i].value is not None and row[i].value}
+            instrument_names = {
+                remove_symbols(row[i].value) for i in range(5, 10) if row[i].value is not None and row[i].value
+            }
 
             for filename in instrument_names:
                 # TODO: Temporary: GCAL does not have its own column. Unsure of how to handle this.
@@ -345,13 +360,15 @@ class FileBasedResourceService(ResourceService):
                         if graces_status == FileBasedResourceService._SCIENCE:
                             resources.add(self.lookup_resource('GRACES', resource_type=ResourceType.INSTRUMENT))
                 elif not instrument_status:
-                    logger.warning(f'{msg} contains no instrument status for {filename}. '
-                                   'Using default of Not Available.')
-                elif instrument_status not in [FileBasedResourceService._NOT_AVAILABLE,
-                                               FileBasedResourceService._ENGINEERING,
-                                               FileBasedResourceService._CALIBRATION]:
-                    raise ValueError(f'{msg} for instrument {filename} '
-                                     f'contains illegal status: {instrument_status}.')
+                    logger.warning(
+                        f'{msg} contains no instrument status for {filename}. Using default of Not Available.'
+                    )
+                elif instrument_status not in [
+                    FileBasedResourceService._NOT_AVAILABLE,
+                    FileBasedResourceService._ENGINEERING,
+                    FileBasedResourceService._CALIBRATION,
+                ]:
+                    raise ValueError(f'{msg} for instrument {filename} contains illegal status: {instrument_status}.')
 
             # The remaining columns are WFS. Check the status and if available, add to resources.
             for idx, filename in wfs_columns.items():
@@ -364,8 +381,7 @@ class FileBasedResourceService(ResourceService):
                     resources.add(self.lookup_resource(filename, resource_type=ResourceType.WFS))
                 elif not wfs_status or wfs_status:
                     logger.warning(f'{msg} for WFS {filename} contains no status. Using default of Not Available.')
-                elif (wfs_status not in
-                        [FileBasedResourceService._NOT_AVAILABLE, FileBasedResourceService._ENGINEERING]):
+                elif wfs_status not in [FileBasedResourceService._NOT_AVAILABLE, FileBasedResourceService._ENGINEERING]:
                     raise ValueError(f'{msg} for WFS {filename} contains illegal status: {wfs_status}.')
 
             # Add the resource data to the dates. Union returns a new set.
@@ -452,11 +468,9 @@ class FileBasedResourceService(ResourceService):
     def _filter_parser(r: List[str], _: Site) -> Set[str]:
         return {i.strip() for i in r}
 
-    def _load_time_loss(self,
-                        site: Site,
-                        name: str,
-                        site_dict: Dict[Site, Dict[date, Set[T]]],
-                        constructor: Type[T]) -> None:
+    def _load_time_loss(
+        self, site: Site, name: str, site_dict: Dict[Site, Dict[date, Set[T]]], constructor: Type[T]
+    ) -> None:
         """
         Load the data from the specified file.
         A common syntax is used for:
@@ -499,7 +513,7 @@ class FileBasedResourceService(ResourceService):
                     if start_time is None or end_time is None:
                         # We need the twilights in this case.
                         # Local time when we change the UT designation for a night, just to get the closest midnight
-                        new_ut_time = time(14,0)
+                        new_ut_time = time(14, 0)
                         astropy_time = Time(datetime.combine(local_night_date, new_ut_time).astimezone(site.timezone))
 
                         # Get the twilights and localize them.
@@ -536,10 +550,9 @@ class FileBasedResourceService(ResourceService):
                             logger.debug(f'Fault too short: {line}')
                             continue
 
-                    entry = constructor(site=site,
-                                        start_time=start_datetime,
-                                        end_time=end_datetime,
-                                        description=description)
+                    entry = constructor(
+                        site=site, start_time=start_datetime, end_time=end_datetime, description=description
+                    )
                     night_entries_set.add(entry)
 
         except FileNotFoundError:
@@ -590,10 +603,12 @@ class FileBasedResourceService(ResourceService):
                     # TODO: for the specified period.
                     # TODO: Fix duration as per email discussion.
                     faults.setdefault(night_date, set())
-                    fault = Fault(site=site,
-                                  start_time=local_datetime,
-                                  end_time=local_datetime + duration,
-                                  description=f'FR-{fr_id}: {description}')
+                    fault = Fault(
+                        site=site,
+                        start_time=local_datetime,
+                        end_time=local_datetime + duration,
+                        description=f'FR-{fr_id}: {description}',
+                    )
                     faults[night_date].add(fault)
         except FileNotFoundError:
             logger.error(f'Faults file not available: {path}')
@@ -604,7 +619,7 @@ class FileBasedResourceService(ResourceService):
         The local 12 degree evening and morning twilights of the night that starts on night_date.
         """
 
-        #The query is anchored at 14:00 local.
+        # The query is anchored at 14:00 local.
         # The anchor has to be timezone-aware, otherwise the night returned depends on
         # the timezone of the machine running the service.
         anchor = Time(datetime.combine(night_date, time(hour=14), tzinfo=site.timezone))
@@ -627,7 +642,7 @@ class FileBasedResourceService(ResourceService):
                     too_id, too_date, too_time = line.split()
 
                     # UTC dates
-                    too_date_str = too_date+' '+too_time.rstrip('\n')+' +0000'
+                    too_date_str = too_date + ' ' + too_time.rstrip('\n') + ' +0000'
                     too_datetime = datetime.strptime(too_date_str, '%Y-%m-%d %H:%M:%S.%f %z')
                     local_datetime = too_datetime.astimezone(site.timezone)
 
@@ -646,27 +661,26 @@ class FileBasedResourceService(ResourceService):
                         # Triggered before the night started, so activate once it does.
                         local_datetime = eve_twi + timedelta(seconds=25)  # small offset
 
-                    too_activation = ToOActivation(site=site,
-                                                   too_id=ObservationID(too_id),
-                                                   start_time=local_datetime)
+                    too_activation = ToOActivation(site=site, too_id=ObservationID(too_id), start_time=local_datetime)
 
                     too_activations.setdefault(local_night_date, set()).add(too_activation)
 
         except FileNotFoundError:
             logger.error(f'Too Activation file not available: {path}')
 
-
-    def load_files(self,
-                   site: Site,
-                   fpu_to_barcodes_file: str,
-                   fpus_data: Union[str, BytesIO],
-                   gratings_data: Union[str, BytesIO],
-                   faults_data: Union[str, BytesIO],
-                   eng_tasks_data: Union[str, BytesIO],
-                   weather_closure_data: Union[str, BytesIO],
-                   filters_data: Union[str, BytesIO],
-                   too_data: Union[str, BytesIO],
-                   spreadsheet_file: str) -> None:
+    def load_files(
+        self,
+        site: Site,
+        fpu_to_barcodes_file: str,
+        fpus_data: Union[str, BytesIO],
+        gratings_data: Union[str, BytesIO],
+        faults_data: Union[str, BytesIO],
+        eng_tasks_data: Union[str, BytesIO],
+        weather_closure_data: Union[str, BytesIO],
+        filters_data: Union[str, BytesIO],
+        too_data: Union[str, BytesIO],
+        spreadsheet_file: str,
+    ) -> None:
         """
         Load all files necessaries to the correct functioning of the ResourceManager.
         """
@@ -680,27 +694,18 @@ class FileBasedResourceService(ResourceService):
         # Note that for the IFU, we need to convert to a barcode, which is a Resource.
         # This is a bit problematic since we expect a list of strings of Resource IDs, so we have to take its ID.
         logger.debug(f'Reading IFU-FPU barcode data for {site}.')
-        self._load_csv(site,
-                       self._itcd_fpu_to_barcode_parser,
-                       fpus_data,
-                       resource_type=ResourceType.FPU)
+        self._load_csv(site, self._itcd_fpu_to_barcode_parser, fpus_data, resource_type=ResourceType.FPU)
         logger.debug(f'Done reading IFU-FPU barcode data for {site}.')
 
         # Load Filters
-        self._load_csv(site,
-                       self._filter_parser,
-                       filters_data,
-                       resource_type=ResourceType.FILTER)
+        self._load_csv(site, self._filter_parser, filters_data, resource_type=ResourceType.FILTER)
         logger.debug(f'Done reading filter data for {site}.')
 
         # Load the gratings.
         # This will put the mirror and the grating names available on a given date as Resources.
         # TODO: Check Mirror vs. MIRROR. Seems like GMOS uses Mirror.
         logger.debug(f'Reading gratings data for {site}.')
-        self._load_csv(site,
-                       self._mirror_parser,
-                       gratings_data,
-                       resource_type=ResourceType.DISPERSER)
+        self._load_csv(site, self._mirror_parser, gratings_data, resource_type=ResourceType.DISPERSER)
         logger.debug(f'Done reading gratings data for {site}.')
 
         # Process the spreadsheet information for instrument, mode, and LGS settings.

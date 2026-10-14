@@ -1,13 +1,7 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-import io
 
 import pytest
-
-from lucupy.observatory.abstract import ObservatoryProperties
-from lucupy.observatory.gemini import GeminiProperties
-
-
 
 
 @pytest.mark.asyncio
@@ -83,8 +77,7 @@ async def test_schedule_query_with_empty_file(set_observatory_properties, schedu
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('ranker', ['DEFAULT', 'ADDITIVE'])
-async def test_schedule_query_accepts_a_ranker(set_observatory_properties, scheduler_schema,
-                                               ranker):
+async def test_schedule_query_accepts_a_ranker(set_observatory_properties, scheduler_schema, ranker):
     """The Validation UI picks the Ranker per run, so the enum has to reach the input."""
     query = """
         query Schedule($ranker: RankerName) {
@@ -103,8 +96,7 @@ async def test_schedule_query_accepts_a_ranker(set_observatory_properties, sched
 
 
 @pytest.mark.asyncio
-async def test_schedule_query_rejects_an_unknown_ranker(set_observatory_properties,
-                                                        scheduler_schema):
+async def test_schedule_query_rejects_an_unknown_ranker(set_observatory_properties, scheduler_schema):
     query = """
         query Schedule {
             schedule(scheduleId: "6",

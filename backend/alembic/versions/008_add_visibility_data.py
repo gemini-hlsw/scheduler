@@ -1,4 +1,3 @@
-
 """Add visibility_data table
 
 Revision ID: 008
@@ -6,6 +5,7 @@ Revises: 007
 Create Date: 2025-03-11
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -31,7 +31,9 @@ def upgrade() -> None:
         sa.Column("visible_ranges", JSONB(), nullable=False),
         sa.Column("constraints", JSONB(), nullable=False),
         sa.Column("computed_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.UniqueConstraint("observation_id", "target_id", "site_id", "night_date", name="uq_visibility_observation_night"),
+        sa.UniqueConstraint(
+            "observation_id", "target_id", "site_id", "night_date", name="uq_visibility_observation_night"
+        ),
     )
     op.create_index("ix_visibility_target_date", "visibility_data", ["target_id", "night_date"])
     op.create_index("ix_visibility_observation", "visibility_data", ["observation_id"])
@@ -41,4 +43,3 @@ def downgrade() -> None:
     op.drop_index("ix_visibility_observation")
     op.drop_index("ix_visibility_target_date")
     op.drop_table("visibility_data")
-    

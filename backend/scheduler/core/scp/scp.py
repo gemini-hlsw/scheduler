@@ -6,7 +6,6 @@ from typing import final, Dict
 
 import numpy.typing as npt
 import numpy as np
-from dotenv import set_key
 from lucupy.minimodel import Site, NightIndex, TimeslotIndex
 
 from scheduler.core.components.collector import Collector
@@ -20,6 +19,7 @@ from scheduler.services.telemetry import timed
 _logger = logger_factory.create_logger(__name__)
 
 __all__ = ["SCP"]
+
 
 @final
 @dataclass
@@ -35,22 +35,21 @@ class SCP:
         optimizer (Optimizer): Optimizer creates the plan for the night.
         ranker (Ranker): Ranker does the scoring for all observations.
     """
+
     collector: Collector
     selector: Selector
     optimizer: Optimizer
     ranker: Ranker
 
-    def run(self,
-            site: Site,
-            night_indices: npt.NDArray[NightIndex],
-            current_timeslot: TimeslotIndex) -> Plans:
+    def run(self, site: Site, night_indices: npt.NDArray[NightIndex], current_timeslot: TimeslotIndex) -> Plans:
 
         with timed('scp.select'):
-            selection = self.selector.select(night_indices=night_indices,
-                                             sites=frozenset([site]),
-                                             starting_time_slots={site: {night_idx: current_timeslot
-                                                                         for night_idx in night_indices}},
-                                             ranker=self.ranker)
+            selection = self.selector.select(
+                night_indices=night_indices,
+                sites=frozenset([site]),
+                starting_time_slots={site: {night_idx: current_timeslot for night_idx in night_indices}},
+                ranker=self.ranker,
+            )
         # Right now the optimizer generates List[Plans], a list of plans indexed by
         # every night in the selection. We only want the first one, which corresponds
         # to the current night index we are looping over.
@@ -60,13 +59,12 @@ class SCP:
             plans = self.optimizer.schedule(selection)[0]
         return plans
 
-    def run_rt(self,
-               sites_timeslots=Dict[Site, Dict[NightIndex, TimeslotIndex]]) -> Plans:
+    def run_rt(self, sites_timeslots=Dict[Site, Dict[NightIndex, TimeslotIndex]]) -> Plans:
 
         with timed('scp.select'):
-            selection = self.selector.select(night_indices=np.array([NightIndex(0)]),
-                                             starting_time_slots=sites_timeslots,
-                                             ranker=self.ranker)
+            selection = self.selector.select(
+                night_indices=np.array([NightIndex(0)]), starting_time_slots=sites_timeslots, ranker=self.ranker
+            )
         # Right now the optimizer generates List[Plans], a list of plans indexed by
         # every night in the selection. We only want the first one, which corresponds
         # to the current night index we are looping over.

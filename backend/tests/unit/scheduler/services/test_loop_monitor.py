@@ -22,8 +22,7 @@ async def test_a_healthy_loop_reports_no_stall():
     await asyncio.sleep(0.1)
     await monitor.stop()
 
-    assert monitor.worst_stall < 0.5, \
-        f"an idle loop should not look stalled (saw {monitor.worst_stall:.3f}s)"
+    assert monitor.worst_stall < 0.5, f"an idle loop should not look stalled (saw {monitor.worst_stall:.3f}s)"
 
 
 @pytest.mark.asyncio
@@ -37,8 +36,7 @@ async def test_a_blocking_call_is_measured():
     await asyncio.sleep(0.02)
     await monitor.stop()
 
-    assert monitor.worst_stall >= 0.2, \
-        f"a 0.3s block must be visible (saw {monitor.worst_stall:.3f}s)"
+    assert monitor.worst_stall >= 0.2, f"a 0.3s block must be visible (saw {monitor.worst_stall:.3f}s)"
 
 
 @pytest.mark.asyncio

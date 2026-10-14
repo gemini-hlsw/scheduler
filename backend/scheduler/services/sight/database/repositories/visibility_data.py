@@ -26,14 +26,18 @@ class VisibilityDataRepository:
         end_date: date,
     ) -> Sequence[VisibilityData]:
         """Get visibility data for an observation across a date range."""
-        stmt = select(VisibilityData).where(
-            and_(
-                VisibilityData.observation_id == observation_id,
-                VisibilityData.night_date >= start_date,
-                VisibilityData.night_date <= end_date,
+        stmt = (
+            select(VisibilityData)
+            .where(
+                and_(
+                    VisibilityData.observation_id == observation_id,
+                    VisibilityData.night_date >= start_date,
+                    VisibilityData.night_date <= end_date,
+                )
             )
-        ).order_by(VisibilityData.night_date)
-        
+            .order_by(VisibilityData.night_date)
+        )
+
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
@@ -44,14 +48,18 @@ class VisibilityDataRepository:
         end_date: date,
     ) -> Sequence[VisibilityData]:
         """Get visibility data for a target across a date range."""
-        stmt = select(VisibilityData).where(
-            and_(
-                VisibilityData.target_id == target_id,
-                VisibilityData.night_date >= start_date,
-                VisibilityData.night_date <= end_date,
+        stmt = (
+            select(VisibilityData)
+            .where(
+                and_(
+                    VisibilityData.target_id == target_id,
+                    VisibilityData.night_date >= start_date,
+                    VisibilityData.night_date <= end_date,
+                )
             )
-        ).order_by(VisibilityData.night_date)
-        
+            .order_by(VisibilityData.night_date)
+        )
+
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
@@ -63,15 +71,19 @@ class VisibilityDataRepository:
         end_date: date,
     ) -> Sequence[VisibilityData]:
         """Get visibility data for a specific observation and target."""
-        stmt = select(VisibilityData).where(
-            and_(
-                VisibilityData.observation_id == observation_id,
-                VisibilityData.target_id == target_id,
-                VisibilityData.night_date >= start_date,
-                VisibilityData.night_date <= end_date,
+        stmt = (
+            select(VisibilityData)
+            .where(
+                and_(
+                    VisibilityData.observation_id == observation_id,
+                    VisibilityData.target_id == target_id,
+                    VisibilityData.night_date >= start_date,
+                    VisibilityData.night_date <= end_date,
+                )
             )
-        ).order_by(VisibilityData.night_date)
-        
+            .order_by(VisibilityData.night_date)
+        )
+
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
@@ -109,16 +121,20 @@ class VisibilityDataRepository:
         """
         if not observation_ids:
             return set()
-        stmt = select(
-            VisibilityData.observation_id,
-            VisibilityData.night_date,
-        ).where(
-            and_(
-                VisibilityData.observation_id.in_(observation_ids),
-                VisibilityData.night_date >= start_date,
-                VisibilityData.night_date <= end_date,
+        stmt = (
+            select(
+                VisibilityData.observation_id,
+                VisibilityData.night_date,
             )
-        ).distinct()
+            .where(
+                and_(
+                    VisibilityData.observation_id.in_(observation_ids),
+                    VisibilityData.night_date >= start_date,
+                    VisibilityData.night_date <= end_date,
+                )
+            )
+            .distinct()
+        )
         result = await self.session.execute(stmt)
         return {(observation_id, night_date) for observation_id, night_date in result.all()}
 
@@ -199,11 +215,15 @@ class VisibilityDataRepository:
         No join and no LIMIT: the page total is just a number, and either would
         make it slower or wrong.
         """
-        stmt = select(func.count()).select_from(VisibilityData).where(
-            and_(
-                VisibilityData.night_date == night_date,
-                VisibilityData.site_id == site_id,
-                VisibilityData.remaining_minutes >= min_remaining_minutes,
+        stmt = (
+            select(func.count())
+            .select_from(VisibilityData)
+            .where(
+                and_(
+                    VisibilityData.night_date == night_date,
+                    VisibilityData.site_id == site_id,
+                    VisibilityData.remaining_minutes >= min_remaining_minutes,
+                )
             )
         )
         result = await self.session.execute(stmt)
@@ -222,9 +242,7 @@ class VisibilityDataRepository:
         conditions = [VisibilityData.night_date == night_date]
         if site_id is not None:
             conditions.append(VisibilityData.site_id == site_id)
-        stmt = select(VisibilityData.observation_id).where(
-            and_(*conditions)
-        ).distinct()
+        stmt = select(VisibilityData.observation_id).where(and_(*conditions)).distinct()
         result = await self.session.execute(stmt)
         return {row[0] for row in result.all()}
 
@@ -248,13 +266,13 @@ class VisibilityDataRepository:
         )
         result = await self.session.execute(stmt)
         existing = result.scalar_one_or_none()
-        
+
         if existing:
             existing.remaining_minutes = remaining_minutes
             existing.visible_ranges = visible_ranges
             await self.session.flush()
             return existing
-        
+
         data = VisibilityData(
             observation_id=observation_id,
             target_id=target_id,
@@ -292,7 +310,7 @@ class VisibilityDataRepository:
             },
         )
         for start in range(0, len(rows), BULK_UPSERT_CHUNK):
-            await self.session.execute(stmt, rows[start:start + BULK_UPSERT_CHUNK])
+            await self.session.execute(stmt, rows[start : start + BULK_UPSERT_CHUNK])
         return len(rows)
 
     async def delete_by_observation(
@@ -300,8 +318,6 @@ class VisibilityDataRepository:
         observation_id: str,
     ) -> int:
         """Delete all visibility data for an observation."""
-        stmt = delete(VisibilityData).where(
-            VisibilityData.observation_id == observation_id
-        )
+        stmt = delete(VisibilityData).where(VisibilityData.observation_id == observation_id)
         result = await self.session.execute(stmt)
         return result.rowcount

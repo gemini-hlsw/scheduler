@@ -50,13 +50,12 @@ if __name__ == '__main__':
     use_redis = False
 
     collector_blueprint = CollectorBlueprint(
-        ['SCIENCE', 'PROGCAL', 'PARTNERCAL'],
-        ['Q', 'LP', 'FT', 'DD', 'C', 'SV'],
-        1.0
+        ['SCIENCE', 'PROGCAL', 'PARTNERCAL'], ['Q', 'LP', 'FT', 'DD', 'C', 'SV'], 1.0
     )
 
-    semesters = frozenset([Semester.find_semester_from_date(start.datetime),
-                       Semester.find_semester_from_date(end.datetime)])
+    semesters = frozenset(
+        [Semester.find_semester_from_date(start.datetime), Semester.find_semester_from_date(end.datetime)]
+    )
 
     if semester_visibility:
         end_date = max(s.end_date() for s in semesters)
@@ -83,7 +82,7 @@ if __name__ == '__main__':
         semesters=semesters,
         with_redis=use_redis,
         blueprint=collector_blueprint,
-        program_list='default'
+        program_list='default',
     )
 
     print_collector_info(gpp_collector)
@@ -110,4 +109,3 @@ if __name__ == '__main__':
         print(ti[0].visibility_time.to(u.h))
         print(ti[0].rem_visibility_time.to(u.h))
         print(ti[0].rem_visibility_frac)
-

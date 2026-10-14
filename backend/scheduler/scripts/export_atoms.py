@@ -29,10 +29,9 @@ if __name__ == '__main__':
         sites=ALL_SITES,
         semesters=frozenset({Semester(2018, SemesterHalf.B)}),
         program_types=frozenset({ProgramTypes.Q, ProgramTypes.LP, ProgramTypes.FT, ProgramTypes.DD}),
-        obs_classes=frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL})
+        obs_classes=frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL, ObservationClass.PARTNERCAL}),
     )
-    collector.load_programs(program_provider_class=OcsProgramProvider,
-                            data=programs)
+    collector.load_programs(program_provider_class=OcsProgramProvider, data=programs)
 
     # Output the state of and information calculated by the Collector.
     # print_collector_info(collector, samples=60)

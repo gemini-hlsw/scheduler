@@ -2,7 +2,6 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-import os, sys
 
 # Requires https://github.com/andrewwstephens/pyexplore
 # sys.path.append(os.path.join(os.environ['PYEXPLORE']))
@@ -49,7 +48,7 @@ if __name__ == '__main__':
         # obs = explore.observation(o.id)
         obs = {}
 
-        obs_mini = provider.parse_observation(data=obs.__dict__, num=(0,0), program_id=obs.program.id)
+        obs_mini = provider.parse_observation(data=obs.__dict__, num=(0, 0), program_id=obs.program.id)
         print(obs_mini.targets)
         print(obs_mini.guiding)
         print('Output Atoms')

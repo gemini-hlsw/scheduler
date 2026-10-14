@@ -25,33 +25,44 @@ def _row(target_id: int, night_date: date, site_id: int = 1, par_ang=...):
         site_id=site_id,
         night_date=night_date,
         night_duration_minutes=_NIGHT_MINUTES,
-        ra=blob, dec=blob, alt=blob, az=blob, airmass=blob, hourangle=blob,
+        ra=blob,
+        dec=blob,
+        alt=blob,
+        az=blob,
+        airmass=blob,
+        hourangle=blob,
         par_ang=blob if par_ang is ... else par_ang,
     )
 
 
-@pytest.mark.parametrize("query,unpacker", [
-    (Calculator.get_stage1_greedymax_bulk, "_unpack_greedymax_rows"),
-    (Calculator.get_stage1_bulk, "_unpack_stage1_rows"),
-])
+@pytest.mark.parametrize(
+    "query,unpacker",
+    [
+        (Calculator.get_stage1_greedymax_bulk, "_unpack_greedymax_rows"),
+        (Calculator.get_stage1_bulk, "_unpack_stage1_rows"),
+    ],
+)
 def test_the_unpacking_is_offloaded(query, unpacker):
     """A guard, not a behavior test: inline, this is what stalls the loop."""
     src = inspect.getsource(query)
-    assert f"to_thread(self.{unpacker}" in src, \
-        "the unpacking is CPU-bound and belongs off the loop"
+    assert f"to_thread(self.{unpacker}" in src, "the unpacking is CPU-bound and belongs off the loop"
     assert "unpack_array" not in src, "no unpacking may remain on the loop"
 
 
-@pytest.mark.parametrize("query", [
-    Calculator.get_stage1_greedymax_bulk,
-    Calculator.get_stage1_bulk,
-])
+@pytest.mark.parametrize(
+    "query",
+    [
+        Calculator.get_stage1_greedymax_bulk,
+        Calculator.get_stage1_bulk,
+    ],
+)
 def test_the_query_selects_columns_not_orm_rows(query):
     """ORM instances carry session-bound instrumentation; only plain rows are safe to hand
     to a thread. Both queries select columns so result.all() yields those."""
     src = inspect.getsource(query)
-    assert "result.all()" in src and "scalars()" not in src, \
+    assert "result.all()" in src and "scalars()" not in src, (
         "select columns, not entities, or the rows cannot cross into the thread"
+    )
 
 
 def test_unpacking_shapes_the_rows_as_greedymax_expects():
@@ -145,8 +156,7 @@ def test_stage1_arrays_stay_numpy():
 
 def test_stage1_missing_par_ang_stays_none():
     """par_ang is nullable, unlike the other arrays."""
-    out = Calculator._unpack_stage1_rows([_row(7, date(2026, 8, 26), par_ang=None)],
-                                         {7: 'NGC-1'})
+    out = Calculator._unpack_stage1_rows([_row(7, date(2026, 8, 26), par_ang=None)], {7: 'NGC-1'})
 
     assert out['NGC-1']['nights']['GN_2026-08-26']['par_ang'] is None
 

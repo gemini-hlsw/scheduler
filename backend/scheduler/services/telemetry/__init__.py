@@ -10,5 +10,4 @@ from scheduler.services.telemetry.memory import MemoryReading, read_memory
 from scheduler.services.telemetry.otel import setup_telemetry, shutdown_telemetry
 from scheduler.services.telemetry.perf import Timing, perf_event, timed
 
-__all__ = ['MemoryReading', 'Timing', 'perf_event', 'read_memory', 'setup_telemetry',
-           'shutdown_telemetry', 'timed']
+__all__ = ['MemoryReading', 'Timing', 'perf_event', 'read_memory', 'setup_telemetry', 'shutdown_telemetry', 'timed']

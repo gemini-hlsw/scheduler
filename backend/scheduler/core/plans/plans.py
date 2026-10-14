@@ -23,6 +23,7 @@ class Plans:
     """
     A collection of Plan for all sites for a specific night.
     """
+
     night_events: InitVar[Mapping[Site, NightEvents]]
     night_conditions: Dict[Site, VariantSnapshot]
     night_idx: NightIndex
@@ -35,12 +36,14 @@ class Plans:
                 plan_start = ne.local_times[self.night_idx][0]
                 plan_end = ne.local_times[self.night_idx][-1]
                 num_slots = len(ne.times[self.night_idx])
-                self.plans[site] = Plan(plan_start,
-                                        plan_end,
-                                        ne.time_slot_length.to_datetime(),
-                                        site,
-                                        num_slots,
-                                        self.night_conditions[site])
+                self.plans[site] = Plan(
+                    plan_start,
+                    plan_end,
+                    ne.time_slot_length.to_datetime(),
+                    site,
+                    num_slots,
+                    self.night_conditions[site],
+                )
 
     def __getitem__(self, site: Site) -> Plan:
         return self.plans[site]

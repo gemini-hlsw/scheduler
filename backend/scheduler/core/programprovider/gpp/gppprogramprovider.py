@@ -8,14 +8,54 @@ from astropy.time import Time
 from pathlib import Path
 from typing import FrozenSet, Iterable, List, Mapping, Optional, Tuple
 
-from lucupy.minimodel import (AndOption, Atom, Band, CloudCover, Conditions, Constraints, ElevationType,
-                              Group, GroupID, ImageQuality, Magnitude, MagnitudeBands, NonsiderealTarget, Observation,
-                              ObservationClass, ObservationID, ObservationMode, ObservationStatus, Priority,
-                              Program, ProgramID, ProgramMode, ProgramTypes, QAState, ResourceType,
-                              ROOT_GROUP_ID, Semester, SemesterHalf, SetupTimeType, SiderealTarget, Site, SkyBackground,
-                              Target, TargetTag, TargetName, TargetType, TimeAccountingCode, TimeAllocation, TimeUsed,
-                              TimingWindow, TooType, WaterVapor, Wavelength, Resource, GROUP_NONE_ID,
-                              CalibrationRole)
+from lucupy.minimodel import (
+    AndOption,
+    Atom,
+    Band,
+    CloudCover,
+    Conditions,
+    Constraints,
+    ElevationType,
+    Group,
+    GroupID,
+    ImageQuality,
+    Magnitude,
+    MagnitudeBands,
+    NonsiderealTarget,
+    Observation,
+    ObservationClass,
+    ObservationID,
+    ObservationMode,
+    ObservationStatus,
+    Priority,
+    Program,
+    ProgramID,
+    ProgramMode,
+    ProgramTypes,
+    QAState,
+    ResourceType,
+    ROOT_GROUP_ID,
+    Semester,
+    SemesterHalf,
+    SetupTimeType,
+    SiderealTarget,
+    Site,
+    SkyBackground,
+    Target,
+    TargetTag,
+    TargetName,
+    TargetType,
+    TimeAccountingCode,
+    TimeAllocation,
+    TimeUsed,
+    TimingWindow,
+    TooType,
+    WaterVapor,
+    Wavelength,
+    Resource,
+    GROUP_NONE_ID,
+    CalibrationRole,
+)
 from lucupy.observatory.gemini.geminiobservation import GeminiObservation
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.resource_manager import ResourceManager
@@ -28,10 +68,7 @@ from scheduler.core.programprovider.abstract import ProgramProvider
 from scheduler.core.sources.sources import Sources
 from scheduler.services import logger_factory
 
-__all__ = [
-    'GppProgramProvider',
-    'gpp_program_data'
-]
+__all__ = ['GppProgramProvider', 'gpp_program_data']
 
 logger = logger_factory.create_logger(__name__, with_id=False)
 
@@ -57,7 +94,7 @@ def get_progid(group) -> ProgramID:
 
     prog_id = get_obsid(group)
     if prog_id is not None:
-        prog_id = ProgramID(prog_id[0:prog_id.rfind('-')])
+        prog_id = ProgramID(prog_id[0 : prog_id.rfind('-')])
     return prog_id
 
 
@@ -82,6 +119,7 @@ async def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
     except Exception as e:
         logger.error(f'Problem querying program list {program_ids} data: \n{e}.', exc_info=True)
         raise
+
 
 async def gpp_program_data(program_list: Optional[bytes] = None) -> Iterable[dict]:
     """Query GPP for the programs in program_list. If not given then query GPP for all appropriate observations"""
@@ -118,9 +156,11 @@ def parse_preimaging(sequence: List[dict]) -> bool:
 
     return preimaging
 
+
 # Return the basic name of a component, stripping off prefixes like GmosSouthFilter.
 def basic_name(full_name):
     return full_name.split('.')[-1] if full_name else None
+
 
 class GppProgramProvider(ProgramProvider):
     """
@@ -128,33 +168,102 @@ class GppProgramProvider(ProgramProvider):
     """
 
     _GPI_FILTER_WAVELENGTHS = {'Y': 1.05, 'J': 1.25, 'H': 1.65, 'K1': 2.05, 'K2': 2.25}
-    _F2_FILTER_WAVELENGTHS = {'Y': 1.02, 'J': 1.25, 'H': 1.63, 'JH': 1.34, 'HK': 1.9,
-                              'J_LOW': 1.12, 'K_LONG': 2.2, 'K_SHORT': 2.16,
-                              'K_BLUE': 2.06, 'K_RED': 2.31}
+    _F2_FILTER_WAVELENGTHS = {
+        'Y': 1.02,
+        'J': 1.25,
+        'H': 1.63,
+        'JH': 1.34,
+        'HK': 1.9,
+        'J_LOW': 1.12,
+        'K_LONG': 2.2,
+        'K_SHORT': 2.16,
+        'K_BLUE': 2.06,
+        'K_RED': 2.31,
+    }
     _IGRINS2_WAVELENGTH = 1.6
     _GHOST_WAVELENGTH = 0.655
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
-    _site_for_inst = {'GMOS_NORTH': Site.GN, 'GMOS_SOUTH': Site.GS, 'FLAMINGOS2': Site.GS, 'IGRINS2': Site.GN,
-                      'GHOST': Site.GS, 'GNIRS': Site.GN, 'MAROON_X': Site.GN, 'ALOPEKE': Site.GN, 'ZORRO': Site.GS,
-                      'VISITOR_NORTH': Site.GN, 'VISITOR_SOUTH': Site.GS,}
+    _site_for_inst = {
+        'GMOS_NORTH': Site.GN,
+        'GMOS_SOUTH': Site.GS,
+        'FLAMINGOS2': Site.GS,
+        'IGRINS2': Site.GN,
+        'GHOST': Site.GS,
+        'GNIRS': Site.GN,
+        'MAROON_X': Site.GN,
+        'ALOPEKE': Site.GN,
+        'ZORRO': Site.GS,
+        'VISITOR_NORTH': Site.GN,
+        'VISITOR_SOUTH': Site.GS,
+    }
 
-    _gmos_filters = {'GMOS-S': ['U_PRIME', 'G_PRIME', 'R_PRIME', 'I_PRIME', 'Z_PRIME', 'Z', 'Y', 'GG455', 'OG515',
-                                    'RG610', 'CA_T', 'F396N', 'OIII', 'OIIIC', 'HE_II', 'HE_IIC', 'OVI', 'OVIC',
-                                    'HA', 'HA_C'],
-                     'GMOS-N': ['G_PRIME', 'R_PRIME', 'I_PRIME', 'Z_PRIME', 'Z', 'Y', 'GG455', 'OG515',
-                                    'RG610', 'CA_T', 'RI', 'OIII', 'OIIIC', 'HE_II', 'HE_IIC', 'OVI', 'OVIC',
-                                    'HA', 'HA_C', 'SII', 'DS920']
-                     }
+    _gmos_filters = {
+        'GMOS-S': [
+            'U_PRIME',
+            'G_PRIME',
+            'R_PRIME',
+            'I_PRIME',
+            'Z_PRIME',
+            'Z',
+            'Y',
+            'GG455',
+            'OG515',
+            'RG610',
+            'CA_T',
+            'F396N',
+            'OIII',
+            'OIIIC',
+            'HE_II',
+            'HE_IIC',
+            'OVI',
+            'OVIC',
+            'HA',
+            'HA_C',
+        ],
+        'GMOS-N': [
+            'G_PRIME',
+            'R_PRIME',
+            'I_PRIME',
+            'Z_PRIME',
+            'Z',
+            'Y',
+            'GG455',
+            'OG515',
+            'RG610',
+            'CA_T',
+            'RI',
+            'OIII',
+            'OIIIC',
+            'HE_II',
+            'HE_IIC',
+            'OVI',
+            'OVIC',
+            'HA',
+            'HA_C',
+            'SII',
+            'DS920',
+        ],
+    }
 
     # Allowed instrument statuses
     _OBSERVATION_STATUSES = frozenset({ObservationStatus.READY, ObservationStatus.ONGOING})
 
     # Translate instrument names to use the OCS Resource files
-    _gpp_inst_to_ocs = {'GMOS_NORTH': 'GMOS-N', 'GMOS_SOUTH': 'GMOS-S', 'FLAMINGOS2': 'Flamingos2',
-                        'IGRINS2': 'IGRINS-2', 'GHOST': 'GHOST', 'GNIRS': 'GNIRS', 'MAROON_X': 'MAROON-X',
-                        'ALOPEKE': 'Alopeke', 'ZORRO': 'Zorro', 'VISITOR_NORTH': 'VISITOR', 'VISITOR_SOUTH': 'VISITOR'}
+    _gpp_inst_to_ocs = {
+        'GMOS_NORTH': 'GMOS-N',
+        'GMOS_SOUTH': 'GMOS-S',
+        'FLAMINGOS2': 'Flamingos2',
+        'IGRINS2': 'IGRINS-2',
+        'GHOST': 'GHOST',
+        'GNIRS': 'GNIRS',
+        'MAROON_X': 'MAROON-X',
+        'ALOPEKE': 'Alopeke',
+        'ZORRO': 'Zorro',
+        'VISITOR_NORTH': 'VISITOR',
+        'VISITOR_SOUTH': 'VISITOR',
+    }
 
     # GPP GMOS built-in GPU name to barcode
     # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
@@ -210,7 +319,7 @@ class GppProgramProvider(ProgramProvider):
         'POOR_WEATHER': 'PW',
         'QUEUE': 'Q',
         'DEMO_SCIENCE': 'DS',
-        'SYSTEM_VERIFICATION': 'SV'
+        'SYSTEM_VERIFICATION': 'SV',
     }
 
     # We contain private classes with static members for the keys in the associative
@@ -235,7 +344,6 @@ class GppProgramProvider(ProgramProvider):
         NOT_CHARGED_TIME = 'non_charged'
         BAND = 'science_band'
         USED_BAND = 'band'
-
 
     class _GroupKeys:
         ELEMENTS = 'elements'
@@ -415,7 +523,7 @@ class GppProgramProvider(ProgramProvider):
         dec=0,
         pm_ra=0,
         pm_dec=0,
-        epoch=2000.0
+        epoch=2000.0,
     )
 
     _EMPTY_OBSERVATION = GeminiObservation(
@@ -436,7 +544,7 @@ class GppProgramProvider(ProgramProvider):
         constraints=None,
         belongs_to=None,
         too_type=None,
-        preimaging=False
+        preimaging=False,
     )
 
     _EMPTY_ROOT_GROUP = Group(
@@ -452,20 +560,16 @@ class GppProgramProvider(ProgramProvider):
         delay_max=None,
         active=True,
         children=[_EMPTY_OBSERVATION],
-        group_option=AndOption.CONSEC_ORDERED)
+        group_option=AndOption.CONSEC_ORDERED,
+    )
 
-    def __init__(self,
-                 obs_classes: FrozenSet[ObservationClass],
-                 sources: Sources):
+    def __init__(self, obs_classes: FrozenSet[ObservationClass], sources: Sources):
         super().__init__(obs_classes, sources)
 
     def parse_magnitude(self, data: dict) -> Magnitude:
         band = MagnitudeBands[data[GppProgramProvider._MagnitudeKeys.NAME]]
         value = data[GppProgramProvider._MagnitudeKeys.VALUE]
-        return Magnitude(
-            band=band,
-            value=value,
-            error=None)
+        return Magnitude(band=band, value=value, error=None)
 
     def parse_timing_window(self, data: dict) -> TimingWindow:
         """Parse GPP timing windows"""
@@ -493,12 +597,15 @@ class GppProgramProvider(ProgramProvider):
                 except KeyError:
                     try:
                         duration = timedelta(
-                            seconds=duration_info[GppProgramProvider._TimingWindowKeys.AFTER]['seconds'])
+                            seconds=duration_info[GppProgramProvider._TimingWindowKeys.AFTER]['seconds']
+                        )
                         if duration_info[GppProgramProvider._TimingWindowKeys.REPEAT]:
-                            period_info = duration_info[GppProgramProvider._TimingWindowKeys.REPEAT] \
-                                [GppProgramProvider._TimingWindowKeys.PERIOD]['seconds']
-                            repeat_info = duration_info[GppProgramProvider._TimingWindowKeys.REPEAT] \
-                                [GppProgramProvider._TimingWindowKeys.TIMES]
+                            period_info = duration_info[GppProgramProvider._TimingWindowKeys.REPEAT][
+                                GppProgramProvider._TimingWindowKeys.PERIOD
+                            ]['seconds']
+                            repeat_info = duration_info[GppProgramProvider._TimingWindowKeys.REPEAT][
+                                GppProgramProvider._TimingWindowKeys.TIMES
+                            ]
                         else:
                             period_info = TimingWindow.NO_PERIOD
                             repeat_info = TimingWindow.NON_REPEATING
@@ -528,23 +635,28 @@ class GppProgramProvider(ProgramProvider):
             start=Time(start),  # make the same as in ocsprogramprovider and the calculator
             duration=duration,
             repeat=repeat,
-            period=period)
+            period=period,
+        )
 
     def parse_elevation(self, data: dict) -> Tuple[Optional[float], Optional[float], Optional[ElevationType]]:
         """Parse GPP elevation constraints"""
 
         try:
             elevation_min = data[GppProgramProvider._ConstraintKeys.AIRMASS_TYPE][
-                GppProgramProvider._ConstraintKeys.AIRMASS_MIN]
+                GppProgramProvider._ConstraintKeys.AIRMASS_MIN
+            ]
             elevation_max = data[GppProgramProvider._ConstraintKeys.AIRMASS_TYPE][
-                GppProgramProvider._ConstraintKeys.AIRMASS_MAX]
+                GppProgramProvider._ConstraintKeys.AIRMASS_MAX
+            ]
             elevation_type = ElevationType['AIRMASS']
         except KeyError:
             try:
                 elevation_min = data[GppProgramProvider._ConstraintKeys.HA_TYPE][
-                    GppProgramProvider._ConstraintKeys.HA_MIN]
+                    GppProgramProvider._ConstraintKeys.HA_MIN
+                ]
                 elevation_max = data[GppProgramProvider._ConstraintKeys.HA_TYPE][
-                    GppProgramProvider._ConstraintKeys.HA_MAX]
+                    GppProgramProvider._ConstraintKeys.HA_MAX
+                ]
                 elevation_type = ElevationType['HOUR_ANGLE']
             except KeyError:
                 elevation_min = 1.0
@@ -592,7 +704,7 @@ class GppProgramProvider(ProgramProvider):
 
                 # If no wavelength is provided, use the default
                 bin_value = iq_bin_values[-1]
-                iqzen = value * x_max ** -0.6
+                iqzen = value * x_max**-0.6
                 for i_bin, bin_lim in enumerate(iq_bins):
                     if iqzen <= bin_lim:
                         bin_value = iq_bin_values[i_bin]
@@ -602,22 +714,30 @@ class GppProgramProvider(ProgramProvider):
                 return value
 
         return Conditions(
-            *[lookup(to_percent_bin(key, data[key], x_max)) for lookup, key in
-              [(CloudCover, GppProgramProvider._ConstraintKeys.CC),
-               (ImageQuality, GppProgramProvider._ConstraintKeys.IQ),
-               (SkyBackground, GppProgramProvider._ConstraintKeys.SB),
-               (WaterVapor, GppProgramProvider._ConstraintKeys.WV)]])
+            *[
+                lookup(to_percent_bin(key, data[key], x_max))
+                for lookup, key in [
+                    (CloudCover, GppProgramProvider._ConstraintKeys.CC),
+                    (ImageQuality, GppProgramProvider._ConstraintKeys.IQ),
+                    (SkyBackground, GppProgramProvider._ConstraintKeys.SB),
+                    (WaterVapor, GppProgramProvider._ConstraintKeys.WV),
+                ]
+            ]
+        )
 
-    def parse_constraints(self, data: dict, site: Site, base: Optional[Target],
-                          wavelength: Optional[Wavelength] = None) -> Constraints:
+    def parse_constraints(
+        self, data: dict, site: Site, base: Optional[Target], wavelength: Optional[Wavelength] = None
+    ) -> Constraints:
 
         # Parse the timing windows.
-        timing_windows = [self.parse_timing_window(tw_data)
-                          for tw_data in data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]]
+        timing_windows = [
+            self.parse_timing_window(tw_data) for tw_data in data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]
+        ]
 
         # Get the elevation data
         elevation_min, elevation_max, elevation_type = self.parse_elevation(
-            data[GppProgramProvider._ConstraintKeys.KEY][GppProgramProvider._ConstraintKeys.ELEVATION])
+            data[GppProgramProvider._ConstraintKeys.KEY][GppProgramProvider._ConstraintKeys.ELEVATION]
+        )
         elevation = self.elevation_limits(elevation_type, elevation_min, elevation_max, site, base)
 
         # Get the conditions
@@ -626,11 +746,7 @@ class GppProgramProvider(ProgramProvider):
         airmass_max = elevation.airmass_max if elevation.airmass_max is not None else 2.0
         conditions = self.parse_conditions(data[GppProgramProvider._ConstraintKeys.KEY], airmass_max, wavelength)
 
-        return Constraints(
-            conditions=conditions,
-            elevation=elevation,
-            timing_windows=timing_windows,
-            strehl=None)
+        return Constraints(conditions=conditions, elevation=elevation, timing_windows=timing_windows, strehl=None)
 
     def _parse_target_header(self, data: dict) -> Tuple[TargetName, set[Magnitude]]:
         """
@@ -676,12 +792,16 @@ class GppProgramProvider(ProgramProvider):
 
         # Proper motion
         try:
-            pm_ra = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.RA]['milliarcseconds_per_year']
-            pm_dec = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.DEC]['milliarcseconds_per_year']
+            pm_ra = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.RA][
+                'milliarcseconds_per_year'
+            ]
+            pm_dec = sidereal_object[GppProgramProvider._TargetKeys.PM][GppProgramProvider._TargetKeys.DEC][
+                'milliarcseconds_per_year'
+            ]
             epoch_str = sidereal_object[GppProgramProvider._TargetKeys.EPOCH]
             # Strip off any leading letter, make float
             epoch = float(epoch_str[1:]) if epoch_str[0] in ['B', 'J'] else float(epoch_str)
-        except:
+        except Exception:
             # print(f'Target {name} is missing proper motion, setting to 0')
             pm_ra = 0.0
             pm_dec = 0.0
@@ -697,7 +817,8 @@ class GppProgramProvider(ProgramProvider):
             dec=dec,
             pm_ra=pm_ra,
             pm_dec=pm_dec,
-            epoch=epoch)
+            epoch=epoch,
+        )
 
     def parse_nonsidereal_target(self, data: dict, targ_type: str) -> NonsiderealTarget:
         """
@@ -718,12 +839,7 @@ class GppProgramProvider(ProgramProvider):
         # print(f"name: {name}, des: {des} tag_str: {tag_str}")
 
         # RA and dec will be looked up when determining target info in Collector.
-        return NonsiderealTarget(
-            name=name,
-            magnitudes=frozenset(magnitudes),
-            type=target_type,
-            des=des,
-            tag=tag)
+        return NonsiderealTarget(name=name, magnitudes=frozenset(magnitudes), type=target_type, des=des, tag=tag)
 
     @staticmethod
     def _parse_instrument(data: dict) -> str:
@@ -733,8 +849,10 @@ class GppProgramProvider(ProgramProvider):
 
         for step in data:
             # Ignore acquisitions
-            if step[GppProgramProvider._AtomKeys.OBS_CLASS].upper() not in [ObservationClass.ACQ.name,
-                                                                            ObservationClass.ACQCAL.name]:
+            if step[GppProgramProvider._AtomKeys.OBS_CLASS].upper() not in [
+                ObservationClass.ACQ.name,
+                ObservationClass.ACQCAL.name,
+            ]:
                 inst_key = GppProgramProvider._AtomKeys.INSTRUMENT
                 # Visitor instrument names are in GppProgramProvider._AtomKeys.INST_NAME
                 if GppProgramProvider._AtomKeys.INST_NAME in step:
@@ -757,8 +875,9 @@ class GppProgramProvider(ProgramProvider):
         return instrument
 
     @staticmethod
-    def _parse_instrument_configuration(data: dict, instrument: str) \
-            -> Tuple[Optional[str], Optional[str], Optional[str], Optional[Wavelength]]:
+    def _parse_instrument_configuration(
+        data: dict, instrument: str
+    ) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[Wavelength]]:
         """
         A dict is return until the Instrument configuration model is created
         """
@@ -777,7 +896,7 @@ class GppProgramProvider(ProgramProvider):
 
         # Disperser
         disperser = None
-        if instrument in ['IGRINS', 'MAROON-X', 'GRACES']: # TODO Should add IGRINS2?
+        if instrument in ['IGRINS', 'MAROON-X', 'GRACES']:  # TODO Should add IGRINS2?
             disperser = instrument
         elif instrument in GppProgramProvider.DISPERSER_FOR_INSTRUMENT:
             disperser = data[GppProgramProvider.DISPERSER_FOR_INSTRUMENT[instrument]]
@@ -818,14 +937,14 @@ class GppProgramProvider(ProgramProvider):
         return fpu, disperser, filt, wavelength
 
     def parse_atoms(
-            self,
-            site: Site,
-            sequence: List[dict],
-            mode: ObservationMode,
-            wavelength: Wavelength,
-            resources: FrozenSet[Resource],
-            split: bool = True,
-            split_by_iterator: bool = False
+        self,
+        site: Site,
+        sequence: List[dict],
+        mode: ObservationMode,
+        wavelength: Wavelength,
+        resources: FrozenSet[Resource],
+        split: bool = True,
+        split_by_iterator: bool = False,
     ) -> Tuple[List[Atom], ObservationClass]:
         """
         Parse the sequence by GPP atoms
@@ -839,26 +958,28 @@ class GppProgramProvider(ProgramProvider):
             if step[GppProgramProvider._AtomKeys.OBS_CLASS] != 'ACQUISITION':
                 atom_id = int(step[GppProgramProvider._AtomKeys.ATOM])
                 observe_class = step[GppProgramProvider._AtomKeys.OBS_CLASS]
-                step_time = int(step[GppProgramProvider._AtomKeys.TOTAL_TIME]) // 1000000 # transform to seconds
-                lamp_types = step['lamp_types']
-                step_types = step['step_types']
+                step_time = int(step[GppProgramProvider._AtomKeys.TOTAL_TIME]) // 1000000  # transform to seconds
                 step_start = int(step['step_index'])
                 step_count = int(step['step_count'])
-                atoms.append(Atom(id=atom_id,
-                                  exec_time=ZeroTime,
-                                  prog_time=ZeroTime,
-                                  part_time=ZeroTime,
-                                  program_used=ZeroTime,
-                                  partner_used=ZeroTime,
-                                  not_charged=ZeroTime,
-                                  observed=False,
-                                  qa_state=QAState.NONE,
-                                  guide_state=True,
-                                  resources=resources,
-                                  wavelengths=frozenset([wavelength]),
-                                  obs_mode=mode,
-                                  step_start=step_start,
-                                  step_count=step_count,))
+                atoms.append(
+                    Atom(
+                        id=atom_id,
+                        exec_time=ZeroTime,
+                        prog_time=ZeroTime,
+                        part_time=ZeroTime,
+                        program_used=ZeroTime,
+                        partner_used=ZeroTime,
+                        not_charged=ZeroTime,
+                        observed=False,
+                        qa_state=QAState.NONE,
+                        guide_state=True,
+                        resources=resources,
+                        wavelengths=frozenset([wavelength]),
+                        obs_mode=mode,
+                        step_start=step_start,
+                        step_count=step_count,
+                    )
+                )
 
                 # Update atom
                 all_classes.append(observe_class)
@@ -902,24 +1023,31 @@ class GppProgramProvider(ProgramProvider):
 
         atoms = []
         # Workaround in case the time is None
-        step_seconds = mode_data['total_request_time']['seconds'] if mode_data['total_request_time'] else \
-            expmode_data['time_and_count']['count'] * expmode_data['time_and_count']['time']['seconds']
+        step_seconds = (
+            mode_data['total_request_time']['seconds']
+            if mode_data['total_request_time']
+            else expmode_data['time_and_count']['count'] * expmode_data['time_and_count']['time']['seconds']
+        )
         step_time = timedelta(seconds=step_seconds)
-        atoms.append(Atom(id=0,
-                          exec_time=step_time,
-                          prog_time=step_time,
-                          part_time=ZeroTime,
-                          program_used=ZeroTime,
-                          partner_used=ZeroTime,
-                          not_charged=ZeroTime,
-                          observed=False,
-                          qa_state=QAState.NONE,
-                          guide_state=True,
-                          resources=resources,
-                          wavelengths=frozenset([wavelength]),
-                          obs_mode=mode,
-                          step_start=0,
-                          step_count=1,))
+        atoms.append(
+            Atom(
+                id=0,
+                exec_time=step_time,
+                prog_time=step_time,
+                part_time=ZeroTime,
+                program_used=ZeroTime,
+                partner_used=ZeroTime,
+                not_charged=ZeroTime,
+                observed=False,
+                qa_state=QAState.NONE,
+                guide_state=True,
+                resources=resources,
+                wavelengths=frozenset([wavelength]),
+                obs_mode=mode,
+                step_start=0,
+                step_count=1,
+            )
+        )
 
         obs_class = ObservationClass.SCIENCE
 
@@ -935,7 +1063,7 @@ class GppProgramProvider(ProgramProvider):
         elif data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]:
             return self.parse_nonsidereal_target(data, targ_type)
         else:
-            msg = f'Illegal object type.'
+            msg = 'Illegal object type.'
             raise ValueError(msg)
 
     @staticmethod
@@ -1022,7 +1150,7 @@ class GppProgramProvider(ProgramProvider):
         filters = []
         if GppProgramProvider._AtomKeys.FILTER in instrument_config.keys():
             filters = [basic_name(instrument_config[GppProgramProvider._AtomKeys.FILTER])]
-        elif 'filters' in instrument_config.keys(): # if multiple filters can be selected
+        elif 'filters' in instrument_config.keys():  # if multiple filters can be selected
             for filt in instrument_config['filters']:
                 # Handle multiple-filter combos for GMOS
                 if 'GMOS' in instrument:
@@ -1042,11 +1170,12 @@ class GppProgramProvider(ProgramProvider):
             wavelength = Wavelength(GppProgramProvider._GHOST_WAVELENGTH)
         elif 'central_wavelength' in instrument_config.keys():
             # convert to microns
-            wavelength = Wavelength(float(instrument_config['central_wavelength']['nanometers'] / 1000.))
+            wavelength = Wavelength(float(instrument_config['central_wavelength']['nanometers'] / 1000.0))
         elif 'central_wavelengths' in instrument_config.keys():
             # convert to microns, for GNIRS
-            wavelength = Wavelength(float(instrument_config['central_wavelengths'][0]\
-                                          ['central_wavelength']['nanometers'] / 1000.))
+            wavelength = Wavelength(
+                float(instrument_config['central_wavelengths'][0]['central_wavelength']['nanometers'] / 1000.0)
+            )
         else:
             wavelength = None
 
@@ -1054,48 +1183,75 @@ class GppProgramProvider(ProgramProvider):
 
         # Note, for now we just compare filter resources for GMOS, F2 filters used to get the wavelength
         if 'GMOS' in instrument:
-        # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
-        # sets, but we filter below to remove them.
-        # ToDo: decide whether to use FPU names or barcodes for resource matching
+            # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
+            # sets, but we filter below to remove them.
+            # ToDo: decide whether to use FPU names or barcodes for resource matching
             if fpu and fpu != 'Custom':
-                fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(
-                    GppProgramProvider._fpu_to_barcode[instrument][fpu], description=fpu, resource_type=ResourceType.FPU
-                )])
+                fpu_resources = frozenset(
+                    [
+                        self._sources.origin.resource.lookup_resource(
+                            GppProgramProvider._fpu_to_barcode[instrument][fpu],
+                            description=fpu,
+                            resource_type=ResourceType.FPU,
+                        )
+                    ]
+                )
             else:
                 fpu_resources = frozenset()
-            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser.split('_')[0],
-                                    resource_type=ResourceType.DISPERSER)])
-            filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt,
-                                    resource_type=ResourceType.FILTER) for filt in filters
-                                    if filt is not None and filt != 'Unknown'])
+            disperser_resources = frozenset(
+                [
+                    self._sources.origin.resource.lookup_resource(
+                        disperser.split('_')[0], resource_type=ResourceType.DISPERSER
+                    )
+                ]
+            )
+            filter_resources = frozenset(
+                [
+                    self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER)
+                    for filt in filters
+                    if filt is not None and filt != 'Unknown'
+                ]
+            )
         else:
-            fpu_resources = frozenset([self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU)])
-            disperser_resources = frozenset([self._sources.origin.resource.lookup_resource(disperser, resource_type=ResourceType.DISPERSER)])
+            fpu_resources = frozenset(
+                [self._sources.origin.resource.lookup_resource(fpu, resource_type=ResourceType.FPU)]
+            )
+            disperser_resources = frozenset(
+                [self._sources.origin.resource.lookup_resource(disperser, resource_type=ResourceType.DISPERSER)]
+            )
             if instrument == 'GNIRS':
-                filter_resources = frozenset([self._sources.origin.resource.lookup_resource(filt,
-                                        resource_type=ResourceType.FILTER) for filt in filters
-                                        if filt is not None and filt != 'Unknown'])
+                filter_resources = frozenset(
+                    [
+                        self._sources.origin.resource.lookup_resource(filt, resource_type=ResourceType.FILTER)
+                        for filt in filters
+                        if filt is not None and filt != 'Unknown'
+                    ]
+                )
             else:
                 filter_resources = frozenset([])
 
-        instrument_resource = frozenset([self._sources.origin.resource.lookup_resource(
-                                instrument, resource_type=ResourceType.INSTRUMENT)])
+        instrument_resource = frozenset(
+            [self._sources.origin.resource.lookup_resource(instrument, resource_type=ResourceType.INSTRUMENT)]
+        )
 
-        resources = frozenset([r for r in instrument_resource | fpu_resources | disperser_resources | filter_resources if r is not None])
+        resources = frozenset(
+            [r for r in instrument_resource | fpu_resources | disperser_resources | filter_resources if r is not None]
+        )
         # Remove any None values.
         # resources = frozenset([res for res in resources if res is not None])
         # print(f'resources: {resources}')
 
         return resources, wavelength, mode
 
-    def parse_observation(self,
-                          data: dict,
-                          num: Tuple[Optional[int], int],
-                          program_id: ProgramID,
-                          time_allocation: TimeAllocation,
-                          split: bool = True,
-                          split_by_iterator: bool = False
-                          ) -> Optional[Observation]:
+    def parse_observation(
+        self,
+        data: dict,
+        num: Tuple[Optional[int], int],
+        program_id: ProgramID,
+        time_allocation: TimeAllocation,
+        split: bool = True,
+        split_by_iterator: bool = False,
+    ) -> Optional[Observation]:
         """
         Parse GPP observation query dictionary into the minimodel observation
         """
@@ -1107,13 +1263,14 @@ class GppProgramProvider(ProgramProvider):
         # ToDo: Eventually the obs_id should be the reference label, the id is the internal_id
         internal_id = data[GppProgramProvider._ObsKeys.INTERNAL_ID]
         # obs_id = f"{program_id.id}-{internal_id.replace('-', '')}"
-        obs_id = data[GppProgramProvider._ObsKeys.ID]['label'] if data.get(GppProgramProvider._ObsKeys.ID) \
+        obs_id = (
+            data[GppProgramProvider._ObsKeys.ID]['label']
+            if data.get(GppProgramProvider._ObsKeys.ID)
             else f"{program_id.id}-{internal_id.replace('-', '')}"
+        )
         # print(f'\n\t\t parse_observation {obs_id}')
 
-        order = None
         obs_class = ObservationClass.NONE
-        belongs_to = program_id
 
         try:
             # doesnt exits anymore
@@ -1144,7 +1301,7 @@ class GppProgramProvider(ProgramProvider):
             status = ObservationStatus[data['workflow'][GppProgramProvider._ObsKeys.STATUS].upper()]
             if status not in GppProgramProvider._OBSERVATION_STATUSES:
                 logger.warning(f"Observation {obs_id} has invalid status {status.name}.")
-            #     print(f"Observation {obs_id} has invalid status {status.name}.")
+                #     print(f"Observation {obs_id} has invalid status {status.name}.")
                 return None
 
             # ToDo: where to get the setuptime_type? Maybe currently not set?
@@ -1173,11 +1330,13 @@ class GppProgramProvider(ProgramProvider):
             # print(f'\t\t wavelength: {wavelength}')
             # print(f'\t\t mode: {mode}')
             # print(f'\t\t calibration_role: {calibration_role}')
-            logger.debug(f'\t\t resources: {resources}'
-                         f'\t\t wavelength: {wavelength}'
-                         f'\t\t mode: {mode}'
-                         f'\t\t calibration_role: {calibration_role}'
-                         f'\t\t acq_overhead: {acq_overhead}')
+            logger.debug(
+                f'\t\t resources: {resources}'
+                f'\t\t wavelength: {wavelength}'
+                f'\t\t mode: {mode}'
+                f'\t\t calibration_role: {calibration_role}'
+                f'\t\t acq_overhead: {acq_overhead}'
+            )
 
             # QA states, needed?
             # qa_states = [QAState[log_entry[GppProgramProvider._ObsKeys.QASTATE].upper()] for log_entry in
@@ -1191,9 +1350,13 @@ class GppProgramProvider(ProgramProvider):
             if sequence:
                 atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
             elif any(inst in resources for inst in ObservatoryProperties.visitor_instruments()) or 'VISITOR' in mode:
-                atoms, obs_class = self.visitor_atom(data['observing_mode']['visitor'],
-                                                     data['science_requirements']['exposure_time_mode'],
-                                                     mode, wavelength, resources)
+                atoms, obs_class = self.visitor_atom(
+                    data['observing_mode']['visitor'],
+                    data['science_requirements']['exposure_time_mode'],
+                    mode,
+                    wavelength,
+                    resources,
+                )
             else:
                 raise ValueError(f'Observation {obs_id} has no sequence. Cannot process.')
 
@@ -1289,9 +1452,15 @@ class GppProgramProvider(ProgramProvider):
             base_target = targets[0] if targets[0] is not GppProgramProvider._EMPTY_BASE_TARGET else None
             find_constraints = {
                 GppProgramProvider._ConstraintKeys.KEY: data[GppProgramProvider._ConstraintKeys.KEY],
-                GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]}
-            constraints = (self.parse_constraints(find_constraints, site, base_target, wavelength)
-                           if find_constraints and wavelength else None)
+                GppProgramProvider._ConstraintKeys.TIMING_WINDOWS: data[
+                    GppProgramProvider._ConstraintKeys.TIMING_WINDOWS
+                ],
+            }
+            constraints = (
+                self.parse_constraints(find_constraints, site, base_target, wavelength)
+                if find_constraints and wavelength
+                else None
+            )
             # print(f'\t\t constraints = {constraints}')
 
             return GeminiObservation(
@@ -1314,7 +1483,7 @@ class GppProgramProvider(ProgramProvider):
                 too_type=too_type,
                 preimaging=preimaging,
                 band=band,
-                calibration_role=calibration_role
+                calibration_role=calibration_role,
             )
 
         except KeyError as ex:
@@ -1346,8 +1515,7 @@ class GppProgramProvider(ProgramProvider):
         if label:
             program_id = ObservationID(label).program_id()
         else:
-            program_id = ProgramID(
-                data[GppProgramProvider._ObsKeys.PROGRAM][GppProgramProvider._ObsKeys.INTERNAL_ID])
+            program_id = ProgramID(data[GppProgramProvider._ObsKeys.PROGRAM][GppProgramProvider._ObsKeys.INTERNAL_ID])
 
         # Parse the time accounting allocation data - but this info isn't available in the observation only.
         # ToDo: Bands must be assigned to all calibrations in the ODB before this method can be used
@@ -1356,9 +1524,16 @@ class GppProgramProvider(ProgramProvider):
 
         return self.parse_observation(data, num=(0, 0), program_id=program_id, time_allocation=None)
 
-    def parse_group(self, data: dict, program_id: ProgramID, group_id: GroupID,
-                    time_allocation: TimeAllocation,
-                    split: bool, split_by_iterator: bool, active: bool = True) -> Optional[Group]:
+    def parse_group(
+        self,
+        data: dict,
+        program_id: ProgramID,
+        group_id: GroupID,
+        time_allocation: TimeAllocation,
+        split: bool,
+        split_by_iterator: bool,
+        active: bool = True,
+    ) -> Optional[Group]:
         """
         This method parses group information from GPP
         """
@@ -1376,8 +1551,8 @@ class GppProgramProvider(ProgramProvider):
             parent_id = GROUP_NONE_ID
             # parent_id = UniqueGroupID(ROOT_GROUP_ID.id)
             parent_index = 0
-            child_active=active
-            system_group=False
+            child_active = active
+            system_group = False
         else:
             # print(f"parsing group {group_id.id}")
             group_name = data[GppProgramProvider._GroupKeys.GROUP_NAME]
@@ -1433,10 +1608,10 @@ class GppProgramProvider(ProgramProvider):
                 # ordered = True
                 # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
             else:
-                if number_to_observe is not None: # and
-                        # number_to_observe < len(data[GppProgramProvider._GroupKeys.ELEMENTS])): # OR group
+                if number_to_observe is not None:  # and
+                    # number_to_observe < len(data[GppProgramProvider._GroupKeys.ELEMENTS])): # OR group
                     group_option = AndOption.NONE
-                else: # AND group
+                else:  # AND group
                     group_option = AndOption.CONSEC_ORDERED if ordered else AndOption.CONSEC_ANYORDER
                     # number_to_observe = len(data[GppProgramProvider._GroupKeys.ELEMENTS])
 
@@ -1451,12 +1626,15 @@ class GppProgramProvider(ProgramProvider):
             number_observed = 0
 
             # Active setting for children
-            child_active = False if (group_option == AndOption.CUSTOM or active == False) else True
+            child_active = False if (group_option == AndOption.CUSTOM or not active) else True
 
             # parent_id = unique_group_id(program_id,
             #                                 GroupID(data.get(GppProgramProvider._GroupKeys.PARENT_ID)))
-            parent_id = ROOT_GROUP_ID if data.get(GppProgramProvider._GroupKeys.PARENT_ID) is None else \
-                GroupID(data.get(GppProgramProvider._GroupKeys.PARENT_ID))
+            parent_id = (
+                ROOT_GROUP_ID
+                if data.get(GppProgramProvider._GroupKeys.PARENT_ID) is None
+                else GroupID(data.get(GppProgramProvider._GroupKeys.PARENT_ID))
+            )
             # print(f'parent_id: {parent_id}')
 
             parent_index = data.get(GppProgramProvider._GroupKeys.PARENT_INDEX)
@@ -1478,9 +1656,14 @@ class GppProgramProvider(ProgramProvider):
                 # elem_parent_index = element.get(GppProgramProvider._GroupKeys.PARENT_INDEX)
                 # Note, this seems to result in reverse order, so maybe not useful...
                 elem_parent_index += 1
-                obs = self.parse_observation(element['observation'], program_id=program_id, num=(0, 0),
-                                             time_allocation=time_allocation,
-                                             split=split, split_by_iterator=split_by_iterator)
+                obs = self.parse_observation(
+                    element['observation'],
+                    program_id=program_id,
+                    num=(0, 0),
+                    time_allocation=time_allocation,
+                    split=split,
+                    split_by_iterator=split_by_iterator,
+                )
                 if obs is not None:
                     # Ignore Twilight and Day Cal observations for now
                     # ToDo: extend timeline to include twilights
@@ -1490,14 +1673,20 @@ class GppProgramProvider(ProgramProvider):
                         obs_parent_indices.append(elem_parent_index)
             elif element['group']:
                 subgroup_id = GroupID(element['group']['id'])
-                subgroup = self.parse_group(element['group'], program_id, subgroup_id, split=split,
-                                            time_allocation=time_allocation,
-                                            split_by_iterator=split_by_iterator, active=child_active)
+                subgroup = self.parse_group(
+                    element['group'],
+                    program_id,
+                    subgroup_id,
+                    split=split,
+                    time_allocation=time_allocation,
+                    split_by_iterator=split_by_iterator,
+                    active=child_active,
+                )
                 if subgroup is not None:
                     children.append(subgroup)
 
         # Put all the observations in trivial AND groups and extend the children to include them.
-        obs_parent_indices.reverse() # to get order correct
+        obs_parent_indices.reverse()  # to get order correct
         trivial_groups = [
             Group(
                 id=GroupID(obs.id.id),
@@ -1516,8 +1705,10 @@ class GppProgramProvider(ProgramProvider):
                 children=obs,
                 group_option=AndOption.CONSEC_ORDERED,
                 calibration_role=obs.calibration_role,
-                system_group=system_group)
-            for idx_obs, obs in enumerate(observations)]
+                system_group=system_group,
+            )
+            for idx_obs, obs in enumerate(observations)
+        ]
         children.extend(trivial_groups)
         # [children.insert(0, child) for child in trivial_groups]
 
@@ -1541,7 +1732,7 @@ class GppProgramProvider(ProgramProvider):
                 if group_id != ROOT_GROUP_ID:
                     child.previous_id = GroupID(children[idx + 1].id.id) if idx < len(children) - 1 else GROUP_NONE_ID
                     child.next_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
-                    if group_option == AndOption.CUSTOM and child.previous_id == GROUP_NONE_ID and active != False:
+                    if group_option == AndOption.CUSTOM and child.previous_id == GROUP_NONE_ID and active:
                         child.active = True
 
         # Put all the observations in the one big group and return it.
@@ -1558,10 +1749,13 @@ class GppProgramProvider(ProgramProvider):
             delay_min=delay_min,
             delay_max=delay_max,
             active=active,
-            children=list(children) if group_id == ROOT_GROUP_ID else list(reversed(children)),  # to get the order correct
+            children=list(children)
+            if group_id == ROOT_GROUP_ID
+            else list(reversed(children)),  # to get the order correct
             group_option=group_option,
             calibration_role=None,
-            system_group=system_group)
+            system_group=system_group,
+        )
 
     def parse_time_allocation(self, data: dict, band: Band = None) -> TimeAllocation:
         """Time allocations by category and band"""
@@ -1575,10 +1769,7 @@ class GppProgramProvider(ProgramProvider):
             sciband = band
 
         return TimeAllocation(
-            category=category,
-            program_awarded=program_awarded,
-            partner_awarded=partner_awarded,
-            band=sciband
+            category=category, program_awarded=program_awarded, partner_awarded=partner_awarded, band=sciband
         )
 
     def parse_time_used(self, data: dict) -> TimeUsed:
@@ -1594,12 +1785,7 @@ class GppProgramProvider(ProgramProvider):
         else:
             sciband = Band(int(data[GppProgramProvider._TAKeys.USED_BAND].value[-1]))
 
-        return TimeUsed(
-            program_used=program_used,
-            partner_used=partner_used,
-            not_charged=not_charged,
-            band=sciband
-        )
+        return TimeUsed(program_used=program_used, partner_used=partner_used, not_charged=not_charged, band=sciband)
 
     def parse_program(self, data: dict) -> Optional[Program]:
         """
@@ -1615,10 +1801,13 @@ class GppProgramProvider(ProgramProvider):
 
         # Uncomment below once we have the observation labels
 
-        #TODO: gpp_client has issues with interfaces so Program.reference.label is not yet implemented.
-        program_id = ProgramID(data[GppProgramProvider._ProgramKeys.ID]['label']) \
-            if GppProgramProvider._ProgramKeys.ID in data.keys() else get_progid(data['root'])
-            # if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
+        # TODO: gpp_client has issues with interfaces so Program.reference.label is not yet implemented.
+        program_id = (
+            ProgramID(data[GppProgramProvider._ProgramKeys.ID]['label'])
+            if GppProgramProvider._ProgramKeys.ID in data.keys()
+            else get_progid(data['root'])
+        )
+        # if GppProgramProvider._ProgramKeys.ID in data.keys() else ProgramID(internal_id)
         # print(f'parse_program: {program_id.id}')
 
         # Parse the time accounting allocation data.
@@ -1636,8 +1825,14 @@ class GppProgramProvider(ProgramProvider):
 
         # Now we parse the groups.
         # root_group = GppProgramProvider._EMPTY_ROOT_GROUP
-        root_group = self.parse_group(data['root'], program_id, ROOT_GROUP_ID, time_allocation=time_act_alloc,
-                                      split=split, split_by_iterator=split_by_iterator, )
+        root_group = self.parse_group(
+            data['root'],
+            program_id,
+            ROOT_GROUP_ID,
+            time_allocation=time_act_alloc,
+            split=split,
+            split_by_iterator=split_by_iterator,
+        )
         if root_group is None:
             logger.warning(f'Program {program_id} has empty root group. Skipping.')
             return None
@@ -1645,7 +1840,7 @@ class GppProgramProvider(ProgramProvider):
         # Extract the semester and program type
         try:
             sem = data['proposal']['call']['semester']  # Program.Proposal.call.semester
-        except:
+        except Exception:
             # For CAL/ENG programs, parse the program_id (G-YYYYS-ENG/CAL...)
             sem = program_id.id[2:7]
         semester = Semester(year=int(sem[0:4]), half=SemesterHalf(sem[-1]))
@@ -1679,10 +1874,8 @@ class GppProgramProvider(ProgramProvider):
 
         # Determine the start and end date of the program.
         # NOTE that this includes the fuzzy boundaries.
-        start_date = (datetime.fromisoformat(data['active']['start'] + 'T00:00:00')
-                      - Program.FUZZY_BOUNDARY)
-        end_date = (datetime.fromisoformat(data['active']['end'] + 'T00:00:00')
-                    + Program.FUZZY_BOUNDARY)
+        start_date = datetime.fromisoformat(data['active']['start'] + 'T00:00:00') - Program.FUZZY_BOUNDARY
+        end_date = datetime.fromisoformat(data['active']['end'] + 'T00:00:00') + Program.FUZZY_BOUNDARY
 
         # ToOs
         too_type = TooType.NONE
@@ -1705,7 +1898,8 @@ class GppProgramProvider(ProgramProvider):
             allocated_time=time_act_alloc,
             used_time=time_used,
             root_group=root_group,
-            too_type=too_type)
+            too_type=too_type,
+        )
 
     @staticmethod
     def _check_too_type(program_id: ProgramID, too_type: TooType, group: Group) -> None:

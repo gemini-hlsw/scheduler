@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import final, FrozenSet
 
-from lucupy.minimodel import Resource, Site, TimeslotIndex, VariantSnapshot, ObservationID, Target
+from lucupy.minimodel import Resource, Site, TimeslotIndex, VariantSnapshot, ObservationID
 from lucupy.timeutils import time2slots
 
 
@@ -31,11 +31,12 @@ __all__ = [
     'WeatherClosureEvent',
     'WeatherClosureResolutionEvent',
     'ToOActivationEvent',
-    'ObservationActivationEvent'
+    'ObservationActivationEvent',
 ]
 
 
 # TODO: These can PROBABLY all be made frozen.
+
 
 @dataclass(frozen=True)
 class UUIDIdentified(ABC):
@@ -44,6 +45,7 @@ class UUIDIdentified(ABC):
     !!! todo "TO DO"
         TODO: This should be moved to lucupy.
     """
+
     id: uuid.UUID = field(default_factory=uuid.uuid4, init=False)
 
     def __eq__(self, other):
@@ -60,6 +62,7 @@ class UUIDReferenced(ABC):
     """
     A class for an object that maintains a reference to a UUIDIdentified object.
     """
+
     uuid_identified: UUIDIdentified
 
     @property
@@ -76,6 +79,7 @@ class Event(UUIDIdentified, ABC):
         time (datetime): The time at which the event occurred.
         description (str): A human-readable description of the event.
     """
+
     site: Site
     time: datetime
     description: str
@@ -103,6 +107,7 @@ class RoutineEvent(Event, ABC):
     """A routine event that is predictable and processed by the Scheduler.
     Examples include evening and morning twilight.
     """
+
     ...
 
 
@@ -111,13 +116,16 @@ class NightEvent(RoutineEvent):
     """An event indicating that a significant astronomical event has occurred during the night.
     This includes the evening and morning twilight, as well as the end of night.
     """
+
     ...
+
 
 @dataclass(frozen=True)
 class TwilightEvent(RoutineEvent, ABC):
     """An event indicating that the 12 degree starting twilight
-        for a night has been reached.
+    for a night has been reached.
     """
+
     ...
 
 
@@ -125,8 +133,9 @@ class TwilightEvent(RoutineEvent, ABC):
 @dataclass(frozen=True)
 class EveningTwilightEvent(TwilightEvent):
     """An event indicating that the 12 degree starting
-        twilight for a night has been reached.
+    twilight for a night has been reached.
     """
+
     ...
 
 
@@ -137,6 +146,7 @@ class MorningTwilightEvent(TwilightEvent):
         for a night has been reached.
     This is used to finalize the time accounting for the night.
     """
+
     ...
 
 
@@ -149,6 +159,7 @@ class InterruptionEvent(Event, ABC):
     2. Events that have a specified end time (e.g. engineering tasks, faults) and thus are paired together
        with an InterruptionResolutionEvent.
     """
+
     ...
 
 
@@ -156,6 +167,7 @@ class InterruptionEvent(Event, ABC):
 @dataclass(frozen=True)
 class OnDemandScheduleEvent(InterruptionEvent):
     """Event that is created when a new on-demand schedule is requested."""
+
     ...
 
 
@@ -167,6 +179,7 @@ class WeatherChangeEvent(InterruptionEvent):
     Attributes:
         variant_change (VariantSnapshot): The variant snapshot that changed.
     """
+
     variant_change: VariantSnapshot
 
 
@@ -178,6 +191,7 @@ class ToOActivationEvent(InterruptionEvent):
     Attributes:
         too_id (ObservationID): The observation ID for the ToO that was activated.
     """
+
     too_id: ObservationID
 
 
@@ -189,6 +203,7 @@ class ObservationActivationEvent(InterruptionEvent):
     Attributes:
         too_id (ObservationID): The observation ID for the ToO that was activated.
     """
+
     # Ignore the following until gpp-client provides the new constraint set in the event
     # site: Site
     # constraint_set: Constraints
@@ -204,6 +219,7 @@ class FaultEvent(InterruptionEvent):
     Attributes:
         affects (FrozenSet[Resource]): Resource affected for the fault.
     """
+
     affects: FrozenSet[Resource]
 
 
@@ -213,6 +229,7 @@ class WeatherClosureEvent(InterruptionEvent):
     """A weather closure for a given site.
     This will be treated like a FaultEvent, but the "affects" Resource will be the entire site.
     """
+
     ...
 
     @property
@@ -227,6 +244,7 @@ class InterruptionResolutionEvent(Event, UUIDReferenced, ABC):
 
     These events, signifying the end of a period of time, can be used to generate a time loss.
     """
+
     @property
     def time_loss(self) -> timedelta:
         """Calculate the time loss from this InterruptionEvent to this InterruptionEventResolution as a timedelta.
@@ -237,8 +255,9 @@ class InterruptionResolutionEvent(Event, UUIDReferenced, ABC):
 
         """
         if not isinstance(self.uuid_identified, InterruptionEvent):
-            raise ValueError(f'{self.__class__.__name__} ({self.description}) does not have a corresponding '
-                             'interruption event.')
+            raise ValueError(
+                f'{self.__class__.__name__} ({self.description}) does not have a corresponding interruption event.'
+            )
         return self.time - self.uuid_identified.time
 
     def time_slot_loss(self, time_slot_length: timedelta) -> int:
@@ -260,6 +279,7 @@ class FaultResolutionEvent(InterruptionResolutionEvent, UUIDReferenced):
     """
     Interruption that occurs when a Fault is resolved.
     """
+
     def __post_init__(self):
         if not isinstance(self.uuid_identified, FaultEvent):
             raise ValueError('FaultResolutionEvent is not paired with a FaultEvent.')
@@ -271,22 +291,27 @@ class WeatherClosureResolutionEvent(InterruptionResolutionEvent, UUIDReferenced)
     """
     Interruption that occurs when a WeatherClosure is resolved.
     """
+
     def __post_init__(self):
         if not isinstance(self.uuid_identified, WeatherClosureEvent):
             raise ValueError('WeatherClosureResolutionEvent is not paired with a WeatherClosureEvent.')
+
 
 @final
 @dataclass(frozen=True)
 class CustomStartOfNightEvent(RoutineEvent):
     """An event indicating that the night has started
-        for a site.
+    for a site.
     """
+
     ...
+
 
 @final
 @dataclass(frozen=True)
 class EndOfNightEvent(RoutineEvent):
     """An event indicating that the night has ended
-        for all sites.
+    for all sites.
     """
+
     ...

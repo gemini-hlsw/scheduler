@@ -88,8 +88,7 @@ def test_an_explicit_provider_overrides_the_switch(switched_off, emitted):
 
 
 def test_shutdown_returns_to_the_config_switch(switched_off, emitted):
-    otel.setup_telemetry(meter_provider=MeterProvider(metric_readers=[InMemoryMetricReader()]),
-                         set_global=False)
+    otel.setup_telemetry(meter_provider=MeterProvider(metric_readers=[InMemoryMetricReader()]), set_global=False)
     otel.shutdown_telemetry()
 
     perf_event('vis_agg.stage2_night')

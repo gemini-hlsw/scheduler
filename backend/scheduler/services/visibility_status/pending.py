@@ -65,22 +65,16 @@ async def _watermark(session) -> Optional[datetime]:
         return None
 
 
-async def get_pending_changes(
-    session, now: Optional[datetime] = None
-) -> PendingChanges:
+async def get_pending_changes(session, now: Optional[datetime] = None) -> PendingChanges:
     """Observations the ODB reports as changed since the last successful run."""
     now = now or datetime.now(timezone.utc)
-    lookback = timedelta(
-        hours=float(config.visibility_aggregator.changes_fallback_lookback_hours)
-    )
+    lookback = timedelta(hours=float(config.visibility_aggregator.changes_fallback_lookback_hours))
     since = await _watermark(session) or (now - lookback)
 
     try:
         changes = await gpp.client.scheduler.get_visibility_changes(since)
     except Exception as exc:
-        _logger.warning(
-            f"Could not read visibility changes since {since.isoformat()}: {exc}"
-        )
+        _logger.warning(f"Could not read visibility changes since {since.isoformat()}: {exc}")
         return PendingChanges.unknown(since)
 
     internal_ids = sorted(changes.observation_ids)
@@ -105,6 +99,4 @@ async def get_pending_changes(
 
     # Ids that do not come back are deleted, non-schedulable, or unlabelled —
     # nothing stored to invalidate, so they are simply dropped.
-    return PendingChanges(
-        labels=frozenset(resolution.labels.values()), since=since, known=True
-    )
+    return PendingChanges(labels=frozenset(resolution.labels.values()), since=since, known=True)

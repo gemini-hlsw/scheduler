@@ -9,19 +9,24 @@ from zoneinfo import ZoneInfo
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site, ObservationID
 
-from scheduler.core.events.queue import Event, InterruptionResolutionEvent, FaultResolutionEvent, \
-    WeatherClosureResolutionEvent, MorningTwilightEvent, FaultEvent, WeatherClosureEvent
+from scheduler.core.events.queue import (
+    Event,
+    InterruptionResolutionEvent,
+    FaultResolutionEvent,
+    WeatherClosureResolutionEvent,
+    MorningTwilightEvent,
+    FaultEvent,
+    WeatherClosureEvent,
+)
 from scheduler.core.plans import Plan
 
 
-__all__ = [
-    'TimelineEntry',
-    'NightlyTimeline',
-    'TimeStats'
-]
+__all__ = ['TimelineEntry', 'NightlyTimeline', 'TimeStats']
+
 
 def time_range_to_timeslots(start: datetime, end: datetime) -> int:
     return int((end - start).total_seconds() / 60)
+
 
 @dataclass
 class TimeLossWindow:
@@ -34,6 +39,7 @@ class TimeLossWindow:
             return time_range_to_timeslots(self.start, night_end)
         return time_range_to_timeslots(self.start, self.end)
 
+
 @dataclass
 class TimeStats:
     night_length: int
@@ -44,6 +50,7 @@ class TimeStats:
     closed: int
     unscheduled: int
 
+
 @dataclass
 class TimelineEntry:
     start_time_slot: TimeslotIndex
@@ -53,6 +60,7 @@ class TimelineEntry:
     timeloss_windows: List[TimeLossWindow]
     timestats: TimeStats
 
+
 @dataclass
 class NightLength:
     start: datetime
@@ -61,11 +69,13 @@ class NightLength:
     def get_timeslots(self) -> int:
         return time_range_to_timeslots(self.start, self.end)
 
+
 @dataclass
 class NightlyTimeline:
     """
     A collection of timeline entries per night and site.
     """
+
     timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
     stitched_timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
     time_losses: Dict[NightIndex, Dict[Site, Dict[str, int]]] = field(init=False, default_factory=dict)
@@ -91,13 +101,15 @@ class NightlyTimeline:
             self.night_length[night_idx][site] = {}
         self.night_length[night_idx][site] = NightLength(start=start, end=end)
 
-    def add(self,
-            night_idx: NightIndex,
-            site: Site,
-            time_slot: TimeslotIndex,
-            event: Event,
-            plan_generated: Optional[Plan],
-            accounted_observations: List[ObservationID] = []) -> None:
+    def add(
+        self,
+        night_idx: NightIndex,
+        site: Site,
+        time_slot: TimeslotIndex,
+        event: Event,
+        plan_generated: Optional[Plan],
+        accounted_observations: List[ObservationID] = [],
+    ) -> None:
         """
         Add an event to the timeline, along with the plan generated and the observations accounted for.
         Check if the event is a closure and if so, set the closure end time.
@@ -123,25 +135,29 @@ class NightlyTimeline:
         if plan_generated is not None:
             for visit in plan_generated.visits:
                 scheduled_timeslots += visit.time_slots
-        timestats = TimeStats(night_length=total_timeslots,
-                            observed=0,
-                            scheduled=scheduled_timeslots,
-                            weather=0,
-                            fault=0,
-                            closed=0,
-                            unscheduled=total_timeslots - scheduled_timeslots)
+        timestats = TimeStats(
+            night_length=total_timeslots,
+            observed=0,
+            scheduled=scheduled_timeslots,
+            weather=0,
+            fault=0,
+            closed=0,
+            unscheduled=total_timeslots - scheduled_timeslots,
+        )
 
         entry = TimelineEntry(time_slot, event, plan_generated, accounted_observations, timeloss_windows, timestats)
         self.timeline.setdefault(night_idx, {}).setdefault(site, []).append(entry)
         self.set_stitched_timeline(night_idx, site, time_slot, plan_generated, event, closure_end)
 
-    def set_stitched_timeline(self,
-                              night_idx: NightIndex,
-                              site: Site,
-                              time_slot: TimeslotIndex,
-                              plan_generated: Plan,
-                              event: Event,
-                              closure_end: Optional[tuple[str, TimeslotIndex]]) -> None:
+    def set_stitched_timeline(
+        self,
+        night_idx: NightIndex,
+        site: Site,
+        time_slot: TimeslotIndex,
+        plan_generated: Plan,
+        event: Event,
+        closure_end: Optional[tuple[str, TimeslotIndex]],
+    ) -> None:
         """
         Create a stitched plan for every partial plan added
 
@@ -247,20 +263,32 @@ class NightlyTimeline:
                 fault_timeslots += window.get_timeslots(self.night_length[night_idx][site].end)
         # Account the last window, use night end to close last window if it is not closed
         if len(merged_windows) > 0:
-            closed_timeslots += time_range_to_timeslots(merged_windows[-1][0],
-                                                        merged_windows[-1][1] if merged_windows[-1][1] is not None else self.night_length[night_idx][site].end)
+            closed_timeslots += time_range_to_timeslots(
+                merged_windows[-1][0],
+                merged_windows[-1][1] if merged_windows[-1][1] is not None else self.night_length[night_idx][site].end,
+            )
 
-        plan = Plan(start=last_plan_generated.start,
-                    end=plan_generated.end if plan_generated else last_plan_generated.end,
-                    time_slot_length=last_plan_generated.time_slot_length,
-                    site=site,
-                    _time_slots_left=0,
-                    conditions=plan_generated.conditions if plan_generated else last_plan_generated.conditions,)
+        plan = Plan(
+            start=last_plan_generated.start,
+            end=plan_generated.end if plan_generated else last_plan_generated.end,
+            time_slot_length=last_plan_generated.time_slot_length,
+            site=site,
+            _time_slots_left=0,
+            conditions=plan_generated.conditions if plan_generated else last_plan_generated.conditions,
+        )
         plan.visits = new_plan_visits
 
         # Compute unscheduled timeslots
         unscheduled_timeslots = total_timeslots - observed_timeslots - scheduled_timeslots - closed_timeslots
-        timestats = TimeStats(total_timeslots, observed_timeslots, scheduled_timeslots, weather_timeslots, fault_timeslots, closed_timeslots, unscheduled_timeslots)
+        timestats = TimeStats(
+            total_timeslots,
+            observed_timeslots,
+            scheduled_timeslots,
+            weather_timeslots,
+            fault_timeslots,
+            closed_timeslots,
+            unscheduled_timeslots,
+        )
 
         entry = TimelineEntry(time_slot, event, plan, [], new_timeloss_windows, timestats)
 
@@ -323,18 +351,24 @@ class NightlyTimeline:
                     print(f'\n\n+++++ NIGHT {night_idx + 1}, SITE: {site.name} +++++', file=f)
                     for entry in entries:
                         time = rnd_min(entry.event.time).strftime(self._datetime_formatter)
-                        print(f'\t+++++ Triggered by event: {entry.event.description} at {time} '
-                              f'(time slot {entry.start_time_slot}) at site {site.name}', file=f)
+                        print(
+                            f'\t+++++ Triggered by event: {entry.event.description} at {time} '
+                            f'(time slot {entry.start_time_slot}) at site {site.name}',
+                            file=f,
+                        )
                         if entry.plan_generated is not None:
                             for visit in entry.plan_generated.visits:
                                 visit_time = rnd_min(visit.start_time).strftime(self._datetime_formatter)
                                 # Display 1-indexed start and end steps to match Explore/Observe
                                 step_start = visit.step_start_idx + 1 if visit.step_start_idx is not None else -1
                                 step_end = step_start + visit.step_count - 1 if visit.step_count is not None else -1
-                                print(f'\t{visit_time}   {visit.observation.id.id:20} {visit.score:8.2f} '
-                                      f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} '
-                                      f'{step_start:4d} {step_end:4d} {visit.start_time_slot:4d}'
-                                      f' {visit.start_time_slot+visit.time_slots:4d}', file=f)
+                                print(
+                                    f'\t{visit_time}   {visit.observation.id.id:20} {visit.score:8.2f} '
+                                    f'{visit.atom_start_idx:4d} {visit.atom_end_idx:4d} '
+                                    f'{step_start:4d} {step_end:4d} {visit.start_time_slot:4d}'
+                                    f' {visit.start_time_slot + visit.time_slots:4d}',
+                                    file=f,
+                                )
                         print('\t+++++ END EVENT +++++', file=f)
                 print('', file=f)
         if f != sys.stdout:
@@ -361,7 +395,9 @@ class NightlyTimeline:
                             'visits': [
                                 {
                                     "starTime": v.start_time.astimezone(utc).strftime(self._datetime_formatter),
-                                    "endTime": (v.start_time + v.time_slots*te.plan_generated.time_slot_length).strftime(self._datetime_formatter),
+                                    "endTime": (
+                                        v.start_time + v.time_slots * te.plan_generated.time_slot_length
+                                    ).strftime(self._datetime_formatter),
                                     "obsId": v.observation.id.id,
                                     "atomStartIdx": v.atom_start_idx,
                                     "atomEndIdx": v.atom_end_idx,
@@ -370,16 +406,23 @@ class NightlyTimeline:
                                     "obs_class": v.observation.obs_class.name,
                                     "score": v.score,
                                     "peakScore": v.peak_score,
-                                    "completion": v.completion
-                                } for v, alt in zip(te.plan_generated.visits, te.plan_generated.alt_degs)],
+                                    "completion": v.completion,
+                                }
+                                for v, alt in zip(te.plan_generated.visits, te.plan_generated.alt_degs)
+                            ],
                             'nightStats': {
                                 'timeLoss': te.plan_generated.night_stats.time_loss,
                                 'planScore': te.plan_generated.night_stats.plan_score,
                                 'completionFraction': te.plan_generated.night_stats.completion_fraction,
-                                'programCompletion': te.plan_generated.night_stats.program_completion
-                            }
-                        } if te.plan_generated else {}
-                    } for te in time_entries
-                ] for site, time_entries in by_site.items()
-            } for n_idx, by_site in self.timeline.items()
+                                'programCompletion': te.plan_generated.night_stats.program_completion,
+                            },
+                        }
+                        if te.plan_generated
+                        else {},
+                    }
+                    for te in time_entries
+                ]
+                for site, time_entries in by_site.items()
+            }
+            for n_idx, by_site in self.timeline.items()
         }

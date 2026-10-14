@@ -9,7 +9,7 @@ from lucupy.minimodel import CloudCover, Conditions, ImageQuality
 from lucupy.minimodel import SkyBackground as OcsSkyBackground, WaterVapor as OcsWaterVapor
 from lucupy.timeutils import sex2dec
 
-from gpp_client.generated.enums import Instrument, SkyBackground, TimingWindowInclusion
+from gpp_client.generated.enums import SkyBackground, TimingWindowInclusion
 from gpp_client.generated.scheduler_observations_updates import (
     SchedulerObservationsUpdatesObscalcUpdateValue as ObscalcValue,
 )
@@ -47,9 +47,9 @@ _logger = logger_factory.create_logger(__name__)
 
 
 def sight_visibility_enabled() -> bool:
-    """Whether visibility goes through the Sight service.
-    """
+    """Whether visibility goes through the Sight service."""
     return str(config.collector.visibility_strategy).strip().lower() != "local"
+
 
 # GPP SkyBackground -> Sight ``target_sb`` fraction. Same values the program
 # provider uses (``GppProgramProvider._constraint_to_value``).
@@ -81,8 +81,7 @@ def _to_date(value) -> date:
 
 
 def _parse_epoch(value) -> float:
-    """Parse a GPP epoch scalar to a float year.
-    """
+    """Parse a GPP epoch scalar to a float year."""
     if value is None:
         return 2000.0
     try:
@@ -154,12 +153,27 @@ def build_constraints(value: ObscalcValue, range_end: datetime) -> ObservationCo
 # ``GppProgramProvider._constraint_to_value``, kept local so the event path does
 # not pull in the program provider.
 _PRESET_TO_VALUE = {
-    'ZERO': 0.0, 'POINT_ONE': 0.1, 'POINT_TWO': 0.2, 'POINT_THREE': 0.3,
-    'POINT_FOUR': 0.4, 'POINT_FIVE': 0.5, 'POINT_SIX': 0.6, 'POINT_EIGHT': 0.8,
-    'ONE_POINT_ZERO': 1.0, 'ONE_POINT_TWO': 1.2, 'ONE_POINT_FIVE': 1.5,
-    'TWO_POINT_ZERO': 2.0, 'THREE_POINT_ZERO': 3.0,
-    'DARKEST': 0.2, 'DARK': 0.5, 'GRAY': 0.8, 'BRIGHT': 1.0,
-    'VERY_DRY': 0.2, 'DRY': 0.5, 'MEDIAN': 0.8, 'WET': 1.0,
+    'ZERO': 0.0,
+    'POINT_ONE': 0.1,
+    'POINT_TWO': 0.2,
+    'POINT_THREE': 0.3,
+    'POINT_FOUR': 0.4,
+    'POINT_FIVE': 0.5,
+    'POINT_SIX': 0.6,
+    'POINT_EIGHT': 0.8,
+    'ONE_POINT_ZERO': 1.0,
+    'ONE_POINT_TWO': 1.2,
+    'ONE_POINT_FIVE': 1.5,
+    'TWO_POINT_ZERO': 2.0,
+    'THREE_POINT_ZERO': 3.0,
+    'DARKEST': 0.2,
+    'DARK': 0.5,
+    'GRAY': 0.8,
+    'BRIGHT': 1.0,
+    'VERY_DRY': 0.2,
+    'DRY': 0.5,
+    'MEDIAN': 0.8,
+    'WET': 1.0,
 }
 
 # Legacy OCS percentile bins, as in ``GppProgramProvider.parse_conditions``.
@@ -188,8 +202,7 @@ def _to_bin(value: float, bins, bin_values) -> float:
 
 
 def build_conditions(value: ObscalcValue) -> Conditions:
-    """The observation's constraints as OCS percentile bins.
-    """
+    """The observation's constraints as OCS percentile bins."""
     cs = value.constraint_set
     elevation = cs.elevation_range
     # Hour-angle observations have no airmass limit; 2.0 is the provider's stand-in.
@@ -200,17 +213,16 @@ def build_conditions(value: ObscalcValue) -> Conditions:
 
     return Conditions(
         cc=CloudCover(_to_bin(cc_value, _CC_BINS, _CC_BIN_VALUES)),
-        iq=ImageQuality(_to_bin(iq_value * x_max ** -0.6, _IQ_BINS, _IQ_BIN_VALUES)),
+        iq=ImageQuality(_to_bin(iq_value * x_max**-0.6, _IQ_BINS, _IQ_BIN_VALUES)),
         sb=OcsSkyBackground(_preset_value(cs.sky_background)),
         wv=OcsWaterVapor(_preset_value(cs.water_vapor)),
     )
 
 
 def expand_event_timing_windows(windows, range_end: datetime) -> List[SightTimingWindow]:
-    """Expand event timing windows into flat Sight ``TimingWindow`` pairs.
-    """
+    """Expand event timing windows into flat Sight ``TimingWindow`` pairs."""
     out: List[SightTimingWindow] = []
-    for tw in (windows or []):
+    for tw in windows or []:
         if tw.inclusion != TimingWindowInclusion.INCLUDE:
             continue
         start = _to_utc_datetime(tw.start_utc)
@@ -265,10 +277,7 @@ async def calculate_and_store_visibility(
     """
     payload = build_target_create(value)
     if payload is None:
-        _logger.info(
-            f"Observation {observation_id}: no sidereal base target; "
-            f"skipping visibility calculation."
-        )
+        _logger.info(f"Observation {observation_id}: no sidereal base target; skipping visibility calculation.")
         return {"stored": 0, "skipped": "no_sidereal_target"}
 
     start_date = _to_date(value.program.active.start)
@@ -319,12 +328,8 @@ _CHANGES_WINDOW = timedelta(minutes=2)
 
 
 async def get_visibility_changes() -> VisibilityChanges:
-    """ODB entities whose visibility inputs changed around the event being handled.
-
-    """
-    return await gpp.client.scheduler.get_visibility_changes(
-        datetime.now(timezone.utc) - _CHANGES_WINDOW
-    )
+    """ODB entities whose visibility inputs changed around the event being handled."""
+    return await gpp.client.scheduler.get_visibility_changes(datetime.now(timezone.utc) - _CHANGES_WINDOW)
 
 
 async def refresh_visibility_if_changed(

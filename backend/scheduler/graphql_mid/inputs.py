@@ -17,6 +17,7 @@ class CreateNewScheduleInput:
     """
     Input for creating a new schedule.
     """
+
     start_time: str
     end_time: str
     sites: Sites

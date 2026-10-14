@@ -41,8 +41,10 @@ def process_fault_file(input_file_path: Path, output_file_path: Path) -> None:
                     formatted_line = f'FR-{fr_number}\t{formatted_dt}\t{value}\t[{description}]\n'
                     output_file.write(formatted_line)
             _logger.debug(f'Output file: {output_file_path.relative_to(ROOT_DIR)}')
-            _logger.debug(f'Total lines: {total_lines}, processed lines: {entry_lines}, '
-                         f'Discarded lines: {total_lines - entry_lines}')
+            _logger.debug(
+                f'Total lines: {total_lines}, processed lines: {entry_lines}, '
+                f'Discarded lines: {total_lines - entry_lines}'
+            )
             _logger.debug('+++ Processing successful. +++')
     except Exception as ex:
         _logger.error(f'Failure: {ex}')
@@ -81,8 +83,10 @@ def process_eng_task_file(input_file_path: Path, output_file_path: Path) -> None
                     formatted_line = f'{date}\t{start_time}\t{end_time}\t{description}\n'
                     output_file.write(formatted_line)
             _logger.debug(f'Output file: {output_file_path.relative_to(ROOT_DIR)}')
-            _logger.debug(f'Total lines: {total_lines}, processed lines: {entry_lines}, '
-                         f'Discarded lines: {total_lines - entry_lines}')
+            _logger.debug(
+                f'Total lines: {total_lines}, processed lines: {entry_lines}, '
+                f'Discarded lines: {total_lines - entry_lines}'
+            )
             _logger.debug('+++ Processing successful. +++')
     except Exception as ex:
         _logger.error(f'Failure: {ex}')

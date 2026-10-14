@@ -21,25 +21,35 @@ from .event_sources import (
 )
 
 from scheduler.services import logger_factory
+
 _logger = logger_factory.create_logger(__name__)
 
 
 __all__ = ['EventListener', 'SubscriptionEndedException', 'SourceMisconfiguredException']
 
 
-class SubscriptionEndedException(Exception): pass
+class SubscriptionEndedException(Exception):
+    pass
+
+
 # SubscriptionEndedException is raised below when a subscription ends without an
 # error, which is what a server-side `complete` frame looks like.
 
 
-class SourceMisconfiguredException(Exception): pass
+class SourceMisconfiguredException(Exception):
+    pass
+
+
 # A source was wired up without the client it needs.
 
 
 RETRYABLE_EXCEPTIONS = (
-    OSError, asyncio.TimeoutError,
-    ClientError, ConnectionClosedError,
-    ConnectionClosedOK, InvalidStatus,
+    OSError,
+    asyncio.TimeoutError,
+    ClientError,
+    ConnectionClosedError,
+    ConnectionClosedOK,
+    InvalidStatus,
     WebSocketException,
     GraphQLClientError,
     ValidationError,
@@ -51,18 +61,10 @@ class EventListener:
     """
     Handles all subscriptions that generates events and store them so they can be retrieved from the EventConsumer.
     """
-    def __init__(
-        self,
-        client,
-        queue: asyncio.Queue,
-        shutdown_event: asyncio.Event
-    ):
+
+    def __init__(self, client, queue: asyncio.Queue, shutdown_event: asyncio.Event):
         self.queue = queue
-        self._sources = [
-            ResourceEventSource(client),
-            WeatherEventSource(client),
-            ODBEventSource(client)
-        ]
+        self._sources = [ResourceEventSource(client), WeatherEventSource(client), ODBEventSource(client)]
         self._shutdown_event = shutdown_event
 
     @stamina.retry(
@@ -72,13 +74,7 @@ class EventListener:
         wait_initial=1.0,
         wait_max=10.0,
     )
-    async def _producer(
-            self,
-            source: EventSourceType,
-            sub_name: str,
-            subscription_factory: callable,
-            client: Any
-    ):
+    async def _producer(self, source: EventSourceType, sub_name: str, subscription_factory: callable, client: Any):
         """
         Calls the factory from each source and put the data on the queue.
 
@@ -99,10 +95,7 @@ class EventListener:
             nonlocal live
             if not live:
                 live = True
-                _logger.info(
-                    f"Subscription '{sub_name}' is live "
-                    f"(first event after {perf_counter() - started:.1f}s)."
-                )
+                _logger.info(f"Subscription '{sub_name}' is live (first event after {perf_counter() - started:.1f}s).")
 
         try:
             # Create the actual session
@@ -154,8 +147,9 @@ class EventListener:
             # would reconnect silently forever.
             elapsed = perf_counter() - started
             # Distinguishing these two is the whole point of the timing above.
-            phase = ('while connected' if live
-                     else f'before delivering anything (open_timeout is {ODB_OPEN_TIMEOUT:.0f}s)')
+            phase = (
+                'while connected' if live else f'before delivering anything (open_timeout is {ODB_OPEN_TIMEOUT:.0f}s)'
+            )
             _logger.warning(
                 f"Subscription '{sub_name}' dropped after {elapsed:.1f}s {phase} "
                 f"({type(e).__name__}: {e}); reconnecting."
@@ -175,26 +169,23 @@ class EventListener:
         exc = task.exception()
         if exc is not None:
             _logger.error(
-                f"Event subscription '{sub_name}' died; no further events "
-                f"will arrive from it.",
+                f"Event subscription '{sub_name}' died; no further events will arrive from it.",
                 exc_info=exc,
             )
 
     async def listen(self):
-       """
-       Starts and gathers all producer tasks, logging any producer that dies.
-       """
-       producer_tasks = []
-       for source in self._sources:
-           for sub_name, sub, client in source.subscriptions():
-               task = asyncio.create_task(
-                   self._producer(source.source_type, sub_name, sub, client)
-               )
-               task.add_done_callback(partial(self._log_producer_done, sub_name))
-               producer_tasks.append(task)
-       try:
-           await asyncio.gather(*producer_tasks, return_exceptions=True)
-       except asyncio.CancelledError:
-           for task in producer_tasks:
-               if not task.done():
-                   task.cancel()
+        """
+        Starts and gathers all producer tasks, logging any producer that dies.
+        """
+        producer_tasks = []
+        for source in self._sources:
+            for sub_name, sub, client in source.subscriptions():
+                task = asyncio.create_task(self._producer(source.source_type, sub_name, sub, client))
+                task.add_done_callback(partial(self._log_producer_done, sub_name))
+                producer_tasks.append(task)
+        try:
+            await asyncio.gather(*producer_tasks, return_exceptions=True)
+        except asyncio.CancelledError:
+            for task in producer_tasks:
+                if not task.done():
+                    task.cancel()

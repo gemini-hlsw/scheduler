@@ -24,9 +24,9 @@ def _resolve_db_url() -> Optional[str]:
     if not url:
         return None
     if url.startswith("postgres://"):
-        return "postgresql+asyncpg://" + url[len("postgres://"):]
+        return "postgresql+asyncpg://" + url[len("postgres://") :]
     if url.startswith("postgresql://") and not url.startswith("postgresql+"):
-        return "postgresql+asyncpg://" + url[len("postgresql://"):]
+        return "postgresql+asyncpg://" + url[len("postgresql://") :]
     return url
 
 

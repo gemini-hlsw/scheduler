@@ -19,7 +19,7 @@ __all__ = [
     'ResourcePriorityFilter',
     'ResourcesAvailableFilter',
     'TimeAccountingCodeFilter',
-    'TooFilter'
+    'TooFilter',
 ]
 
 # A filter applied to the programs for the night.
@@ -34,6 +34,7 @@ class AbstractFilter(ABC):
     """
     Abstract superclass for all filters.
     """
+
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
         """
@@ -80,6 +81,7 @@ class ResourcesAvailableFilter(AbstractFilter):
     * Positive (primary): Used to filter in scheduling groups whose resource needs are met.
     * Negative: Can be used if there is, e.g., a fault and a Resource is no longer available.
     """
+
     resources: FrozenSet[Resource]
 
     @property
@@ -88,13 +90,22 @@ class ResourcesAvailableFilter(AbstractFilter):
             instruments = g.instruments()
             inst = None
             if instruments is not None and len(instruments) == 1:
-                inst, = instruments
+                (inst,) = instruments
 
             if inst is not None and "GMOS" in inst.id:
                 return self.resources.issuperset(g.required_resources())
             else:
-                checked_resources = frozenset([r for r in g.required_resources() if r.type != ResourceType.FILTER and r.type != ResourceType.DISPERSER and r.type != ResourceType.FPU])
+                checked_resources = frozenset(
+                    [
+                        r
+                        for r in g.required_resources()
+                        if r.type != ResourceType.FILTER
+                        and r.type != ResourceType.DISPERSER
+                        and r.type != ResourceType.FPU
+                    ]
+                )
                 return self.resources.issuperset(checked_resources)
+
         return res_filter
 
 
@@ -110,6 +121,7 @@ class TimeAccountingCodeFilter(AbstractFilter):
     * Negative: Programs that contain one of the time accounting codes cannot be scheduled outside the
                           parnter plots
     """
+
     codes: FrozenSet[TimeAccountingCode]
 
     @property
@@ -127,6 +139,7 @@ class ProgramPermissionFilter(AbstractFilter):
     * Positive: The program ID must be in the list to be filtered in.
     * Negative (primary): The program ID must not be in the list to be filtered in.
     """
+
     program_ids: FrozenSet[ProgramID]
 
     @property
@@ -144,6 +157,7 @@ class ProgramPriorityFilter(AbstractFilter):
     * Positive (primary): Priority is assigned to the programs with the given IDs.
     * Negative: No current use cases.
     """
+
     program_ids: FrozenSet[ProgramID]
 
     @property
@@ -161,6 +175,7 @@ class ResourcePriorityFilter(AbstractFilter):
     * Positive (primary): Priority is assigned to the groups that contain one of the listed resources.
     * Negative: No current use cases.
     """
+
     resources: FrozenSet[Resource]
 
     @property
@@ -178,6 +193,7 @@ class NothingFilter(AbstractFilter):
     * Positive (primary): Everything is rejected.
     * Negative: Serves no purpose.
     """
+
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
         return lambda _: False
@@ -209,6 +225,7 @@ class TooFilter(AbstractFilter):
     * Positive: Filter in programs that do not have a ToO type of None.
     * Negative (primary): Only allow programs that are not ToO programs. Used in nights where ToOs are not allowed.
     """
+
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
         return lambda p: p.too_type != TooType.NONE
@@ -225,6 +242,7 @@ class LgsFilter(AbstractFilter):
     * Negative (primary): Filter out programs that require LGS.
     TODO: Unsure of how to implement this.
     """
+
     pass
 
 
@@ -238,36 +256,47 @@ class CompositeFilter(AbstractFilter):
     * Special: Contains both positive and negative filters, and returns the result of executing
         all filters on program or groups, both with respect to inclusion and priority.
     """
+
     positive_filters: FrozenSet[AbstractFilter] = frozenset()
     negative_filters: FrozenSet[AbstractFilter] = frozenset()
 
     @property
     def program_filter(self) -> Optional[ProgramFilter]:
-        return (lambda p: all(pf.program_filter(p) for pf in self.positive_filters if pf.program_filter is not None) and
-                not any(nf.program_filter(p) for nf in self.negative_filters if nf.program_filter is not None))
+        return lambda p: (
+            all(pf.program_filter(p) for pf in self.positive_filters if pf.program_filter is not None)
+            and not any(nf.program_filter(p) for nf in self.negative_filters if nf.program_filter is not None)
+        )
 
     @property
     def program_priority_filter(self) -> Optional[ProgramFilter]:
-        return (lambda p: all(pf.program_priority_filter(p) for pf in self.positive_filters
-                              if pf.program_priority_filter is not None) and
-                not any(nf.program_priority_filter(p) for nf in self.negative_filters
-                        if nf.program_priority_filter is not None))
+        return lambda p: (
+            all(pf.program_priority_filter(p) for pf in self.positive_filters if pf.program_priority_filter is not None)
+            and not any(
+                nf.program_priority_filter(p) for nf in self.negative_filters if nf.program_priority_filter is not None
+            )
+        )
 
     @property
     def program_priority_filter_any(self) -> Optional[ProgramFilter]:
-        return (lambda p: any(pf.program_priority_filter(p) for pf in self.positive_filters
-                              if pf.program_priority_filter is not None) and
-                not any(nf.program_priority_filter(p) for nf in self.negative_filters
-                        if nf.program_priority_filter is not None))
+        return lambda p: (
+            any(pf.program_priority_filter(p) for pf in self.positive_filters if pf.program_priority_filter is not None)
+            and not any(
+                nf.program_priority_filter(p) for nf in self.negative_filters if nf.program_priority_filter is not None
+            )
+        )
 
     @property
     def group_filter(self) -> Optional[GroupFilter]:
-        return (lambda g: all(pf.group_filter(g) for pf in self.positive_filters if pf.group_filter is not None) and
-                not any(nf.group_filter(g) for nf in self.negative_filters if nf.group_filter is not None))
+        return lambda g: (
+            all(pf.group_filter(g) for pf in self.positive_filters if pf.group_filter is not None)
+            and not any(nf.group_filter(g) for nf in self.negative_filters if nf.group_filter is not None)
+        )
 
     @property
     def group_priority_filter(self) -> Optional[GroupFilter]:
-        return (lambda g: all(pf.group_priority_filter(g) for pf in self.positive_filters
-                              if pf.program_priority_filter is not None) and
-                not any(nf.group_priority_filter(g) for nf in self.negative_filters
-                        if nf.program_priority_filter is not None))
+        return lambda g: (
+            all(pf.group_priority_filter(g) for pf in self.positive_filters if pf.program_priority_filter is not None)
+            and not any(
+                nf.group_priority_filter(g) for nf in self.negative_filters if nf.program_priority_filter is not None
+            )
+        )

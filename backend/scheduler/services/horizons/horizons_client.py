@@ -7,7 +7,6 @@ import dateutil.parser
 import requests
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-import time as time_module
 from pathlib import Path
 from typing import final, ContextManager, Dict, Final
 
@@ -40,7 +39,7 @@ _MAJORBODY_DICT: Final[Dict[str, str]] = {
     'uranus': '799',
     'neptune': '899',
     'pluto': '999',
-    'io': '501'
+    'io': '501',
 }
 
 
@@ -63,17 +62,19 @@ class HorizonsClient:
         des = designation.lower()
         return _MAJORBODY_DICT.get(des, des)
 
-    def _query(self,
-               target: str,
-               start: str,
-               stop: str,
-               step: str = '1m',
-               make_ephem: str = 'YES',
-               cal_format: str = 'CAL',
-               quantities: str = '1',
-               object_data: str = 'NO',
-               daytime: bool = False,
-               csv_format: str = 'NO') -> requests.Response:
+    def _query(
+        self,
+        target: str,
+        start: str,
+        stop: str,
+        step: str = '1m',
+        make_ephem: str = 'YES',
+        cal_format: str = 'CAL',
+        quantities: str = '1',
+        object_data: str = 'NO',
+        daytime: bool = False,
+        csv_format: str = 'NO',
+    ) -> requests.Response:
 
         skip_day = 'NO' if daytime else 'YES'
         center = self.site.coordinate_center
@@ -100,7 +101,7 @@ class HorizonsClient:
             'AIRMASS': 100,
             'EXTRA_PREC': 'YES',
             'CSV_FORMAT': csv_format,
-            'R_T_S_ONLY': 'NO'
+            'R_T_S_ONLY': 'NO',
         }
 
         # Skipping the section of close-approach parameters.
@@ -128,7 +129,7 @@ class HorizonsClient:
         firstline = lines.index('$$SOE') + 1
         lastline = lines.index('$$EOE') - 1
 
-        for line in lines[firstline:lastline + 1]:
+        for line in lines[firstline : lastline + 1]:
             if line and line[7:15] != 'Daylight' and line[7:14] != 'Airmass':
                 values = line.split(' ')
                 rah = int(values[-6])
@@ -144,7 +145,12 @@ class HorizonsClient:
 
         return time, coords
 
-    def interpolate_coords(self, time_list: list[datetime], coord_list: list[Coordinates], timeslot_length: timedelta = timedelta(minutes=1.0)):
+    def interpolate_coords(
+        self,
+        time_list: list[datetime],
+        coord_list: list[Coordinates],
+        timeslot_length: timedelta = timedelta(minutes=1.0),
+    ):
         """
         Interpolate coord_list at every timeslot between the first and last entry of time_list.
 
@@ -177,25 +183,27 @@ class HorizonsClient:
 
         x, y, z = interpolated_vectors[:, 0], interpolated_vectors[:, 1], interpolated_vectors[:, 2]
         new_ra = arctan2(y, x)
-        new_dec = arctan2(z, sqrt(x ** 2 + y ** 2))
+        new_dec = arctan2(z, sqrt(x**2 + y**2))
 
         interpolated_coords = [Coordinates(float(r), float(d)) for r, d in zip(new_ra, new_dec)]
         interpolated_times = interpolated_times64.astype('datetime64[us]').astype(datetime).tolist()
 
         return interpolated_times, interpolated_coords
 
-    def get_ephemerides(self,
-                        target: NonsiderealTarget,
-                        overwrite: bool = False) -> EphemerisCoordinates:
+    def get_ephemerides(self, target: NonsiderealTarget, overwrite: bool = False) -> EphemerisCoordinates:
         # TODO: ODB extractor must be mofidief.
         match target.tag:
-            case TargetTag.COMET: horizons_name = f'NAME={target.des};CAP'
-            case TargetTag.ASTEROID: horizons_name = f'ASTNAM={target.des};'
-            case TargetTag.MAJORBODY: horizons_name = self.generate_horizons_id(target.des)
+            case TargetTag.COMET:
+                horizons_name = f'NAME={target.des};CAP'
+            case TargetTag.ASTEROID:
+                horizons_name = f'ASTNAM={target.des};'
+            case TargetTag.MAJORBODY:
+                horizons_name = self.generate_horizons_id(target.des)
             # case _: raise ValueError(f'Unknown tag {target.tag}')
-            case _: horizons_name = f'DES={target.des};'
+            case _:
+                horizons_name = f'DES={target.des};'
 
-        targ_name = target.des.replace(' ', '_').replace('/','')
+        targ_name = target.des.replace(' ', '_').replace('/', '')
         # end is the UT date, the same for both Gemini sites
         semester = Semester.find_semester_from_date(self.start)
         ephemeris_path = self.path / f'{self.site.name}_{targ_name}_{str(semester)}.eph'
@@ -222,11 +230,7 @@ class HorizonsClient:
                 semester_start = (semester.start_date() - timedelta(days=1)).strftime("'%Y-%b-%d %H:%M'")
                 semester_end = (semester.end_date() + timedelta(days=2)).strftime("'%Y-%b-%d %H:%M'")
                 logger.debug(f'Querying JPL/Horizons for {horizons_name}')
-                res = self._query(horizons_name,
-                                  semester_start,
-                                  semester_end,
-                                  daytime=True,
-                                  step='4h')
+                res = self._query(horizons_name, semester_start, semester_end, daytime=True, step='4h')
                 lines = res.text.splitlines()
                 with ephemeris_path.open('w') as f:
                     f.write(res.text)
@@ -239,7 +243,7 @@ class HorizonsClient:
             # last knot it is given, so end_index itself must be included as a
             # knot or the interpolated range falls short of self.end by up to
             # one raw sample step.
-            time, coords = time[start_index:end_index + 1], coords[start_index:end_index + 1]
+            time, coords = time[start_index : end_index + 1], coords[start_index : end_index + 1]
             time, coords = self.interpolate_coords(time, coords, timedelta(minutes=self.time_slot_length))
 
         except ValueError as e:
@@ -250,7 +254,9 @@ class HorizonsClient:
 
 
 @contextlib.contextmanager
-def horizons_session(site: Site, start: datetime, end: datetime, time_slot_length: float) -> ContextManager[HorizonsClient]:
+def horizons_session(
+    site: Site, start: datetime, end: datetime, time_slot_length: float
+) -> ContextManager[HorizonsClient]:
     client = HorizonsClient(site=site, start=start, end=end, time_slot_length=time_slot_length)
     try:
         yield client

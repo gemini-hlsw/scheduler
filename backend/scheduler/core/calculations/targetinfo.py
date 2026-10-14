@@ -6,9 +6,7 @@ from typing import final, Dict, TypeAlias, Tuple
 
 import numpy.typing as npt
 from astropy.coordinates import Angle, SkyCoord
-from astropy.time import TimeDelta
-from lucupy.decorators import immutable
-from lucupy.minimodel import NightIndex, ObservationID, SkyBackground, TargetName
+from lucupy.minimodel import NightIndex, ObservationID, TargetName
 
 
 __all__ = [
@@ -16,6 +14,7 @@ __all__ = [
     'TargetInfoMap',
     'TargetInfoNightIndexMap',
 ]
+
 
 @final
 # @immutable
@@ -46,6 +45,7 @@ class TargetInfo:
     rem_visibility_time is the remaining visibility time for the target for the observation across
     the rest of the time period.
     """
+
     coord: SkyCoord
     alt: Angle
     az: Angle

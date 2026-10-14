@@ -5,6 +5,7 @@ targets.name has no unique constraint. get_by_names keys its result by name, so
 a duplicated name collapses to one row; unique=True must fail instead, the way
 the per-name get_by_name does.
 """
+
 import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock

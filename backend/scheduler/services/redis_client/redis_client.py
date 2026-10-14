@@ -4,7 +4,6 @@
 import json
 from typing import Optional
 
-import redis
 import os
 from redis import asyncio as aioredis
 
@@ -22,16 +21,12 @@ class RedisClient(metaclass=Singleton):
         # post-sight-merge runtime path imports this; keeping it harmless on
         # import means a stray future import won't crash app boot either.
         self._redis_client = (
-            aioredis.from_url(REDIS_URL, socket_timeout=600, socket_connect_timeout=30)
-            if REDIS_URL
-            else None
+            aioredis.from_url(REDIS_URL, socket_timeout=600, socket_connect_timeout=30) if REDIS_URL else None
         )
 
     def _client(self):
         if self._redis_client is None:
-            raise ValueError(
-                "REDISCLOUD_URL is not set; Redis features are unavailable."
-            )
+            raise ValueError("REDISCLOUD_URL is not set; Redis features are unavailable.")
         return self._redis_client
 
     @staticmethod
@@ -106,57 +101,41 @@ class RedisClient(metaclass=Singleton):
                         # Implement retry logic here if needed
 
 
-
 redis_client = RedisClient()
 
-__all__ = [
-    redis_client
-]
+__all__ = [redis_client]
 
 if __name__ == "__main__":
-    ndict = {"obs1": {'2': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                     '3': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                     '4': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                     '5': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                     '6': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"})
-                  },
-             "obs2": {'2': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                      '3': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                      '4': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                      '5': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                      '6': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"})
-                      },
-             "obs3": {'2': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                      '3': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                      '4': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                      '5': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"}),
-                      '6': json.dumps({"visibility_slot_idx": "12-506",
-                                       "visibility_time": "200"})
-                      }
-             }
-    #flatten = redis_client.flatten_dict(ndict)
-    #print(flatten)
-    #print(redis_client.unflatten_dict(flatten))
+    ndict = {
+        "obs1": {
+            '2': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '3': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '4': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '5': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '6': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+        },
+        "obs2": {
+            '2': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '3': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '4': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '5': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '6': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+        },
+        "obs3": {
+            '2': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '3': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '4': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '5': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+            '6': json.dumps({"visibility_slot_idx": "12-506", "visibility_time": "200"}),
+        },
+    }
+    # flatten = redis_client.flatten_dict(ndict)
+    # print(flatten)
+    # print(redis_client.unflatten_dict(flatten))
     # redis_client.set_whole_dict(ndict)
     d = redis_client.get_whole_dict()
     print(d)
-    #print(redis_client.get_nested_value('obs3:3'))
-    #redis_client.set_nested_value('obs3:3',{"visibility_slot_idx": "0-340",
+    # print(redis_client.get_nested_value('obs3:3'))
+    # redis_client.set_nested_value('obs3:3',{"visibility_slot_idx": "0-340",
     #                                   "visibility_time": "100"})
-    #print(redis_client.get_nested_value('obs3:3'))
-
-
+    # print(redis_client.get_nested_value('obs3:3'))

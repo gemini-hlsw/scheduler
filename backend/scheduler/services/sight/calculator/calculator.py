@@ -9,10 +9,13 @@ from scheduler.services.sight.database.repositories import (
     NightEventRepository,
     TargetRepository,
     TargetNightDataRepository,
-    VisibilityDataRepository
+    VisibilityDataRepository,
 )
 from scheduler.services.sight.calculations.night_events import calculate_night_events_for_night
-from scheduler.services.sight.calculations.stage2 import calculate_visibility, ObservationConstraints as Stage2Constraints
+from scheduler.services.sight.calculations.stage2 import (
+    calculate_visibility,
+    ObservationConstraints as Stage2Constraints,
+)
 from scheduler.services.sight.calculations.arrays import unpack_array
 from scheduler.services.sight.calculations.stage1 import calculate_stage1
 
@@ -26,7 +29,6 @@ from .models import (
     BulkTargetCreateResponse,
     BulkVisibilityResponse,
     PrecalculatedVisibilityResult,
-    
 )
 from .constants import SITE_KEY_TO_ID, SITE_ID_TO_KEY
 
@@ -35,7 +37,7 @@ class Calculator:
     """
     Main service for visibility calculations.
     """
-    
+
     def __init__(self, session: AsyncSession):
         self.session = session
         self.site_repo = SiteRepository(session)
@@ -43,15 +45,15 @@ class Calculator:
         self.target_repo = TargetRepository(session)
         self.target_data_repo = TargetNightDataRepository(session)
         self.visibility_repo = VisibilityDataRepository(session)
-        
+
         self._sites_cache: dict[int, Site] | None = None
-    
+
     async def get_sites(self) -> dict[int, Site]:
         """Get all sites, cached in memory."""
         if self._sites_cache is None:
             self._sites_cache = await self.site_repo.get_all_as_dict()
         return self._sites_cache
-    
+
     async def calculate_visibility(
         self,
         requests: list[ObservationRequest],
@@ -76,22 +78,17 @@ class Calculator:
             targets_by_name = await self.target_repo.get_by_names(list(target_names))
 
         target_ids = set(t.id for t in targets_by_name.values())
-        
+
         await self._ensure_night_events(site_ids, night_date)
         await self._ensure_stage1_data(target_ids, site_ids, night_date)
-        
+
         night_events = {
-            ne.site_id: ne 
-            for ne in await self.night_repo.get_for_multiple_sites(
-                list(site_ids), night_date
-            )
+            ne.site_id: ne for ne in await self.night_repo.get_for_multiple_sites(list(site_ids), night_date)
         }
-        
+
         target_data = {}
         for site_id in site_ids:
-            data_list = await self.target_data_repo.get_for_targets_on_night(
-                list(target_ids), site_id, night_date
-            )
+            data_list = await self.target_data_repo.get_for_targets_on_night(list(target_ids), site_id, night_date)
             for data in data_list:
                 target_data[(data.target_id, data.site_id)] = data
 
@@ -100,21 +97,19 @@ class Calculator:
             target = targets_by_name.get(request.target_name)
             if target is None:
                 continue
-            
+
             site_id = SITE_KEY_TO_ID[request.site_id]
             night_event = night_events.get(site_id)
             stage1_data = target_data.get((target.id, site_id))
-            
+
             if night_event is None or stage1_data is None:
                 continue
-            
-            result = self._calculate_stage2(
-                request, night_event, stage1_data, target.name
-            )
+
+            result = self._calculate_stage2(request, night_event, stage1_data, target.name)
             results.append(result)
-        
+
         return CalculationResponse(results=results, night_date=night_date)
-    
+
     async def _ensure_night_events(
         self,
         site_ids: set[int],
@@ -122,13 +117,13 @@ class Calculator:
     ) -> None:
         """Ensure night events exist for all required sites."""
         sites = await self.get_sites()
-        
+
         for site_id in site_ids:
             exists = await self.night_repo.exists(site_id, night_date)
             if not exists:
                 site = sites[site_id]
                 await self._calculate_and_store_night_events(site, night_date)
-    
+
     async def _calculate_and_store_night_events(
         self,
         site: Site,
@@ -136,7 +131,7 @@ class Calculator:
     ) -> NightEvent:
         """Calculate night events for a site and store them."""
         arrays = calculate_night_events_for_night(site, night_date)
-        
+
         night_event = await self.night_repo.create(
             site_id=site.id,
             night_date=night_date,
@@ -162,9 +157,9 @@ class Calculator:
             sun_moon_ang=arrays.sun_moon_ang,
             local_sidereal_times=arrays.local_sidereal_times,
         )
-        
+
         return night_event
-    
+
     async def _ensure_night_events_range(
         self,
         site_ids: set[int],
@@ -182,9 +177,7 @@ class Calculator:
         all_dates = [start_date + timedelta(days=n) for n in range(num_nights)]
 
         for site_id in site_ids:
-            existing_dates = await self.night_repo.get_existing_dates(
-                site_id, start_date, end_date
-            )
+            existing_dates = await self.night_repo.get_existing_dates(site_id, start_date, end_date)
             site = sites[site_id]
             for night_date in all_dates:
                 if night_date not in existing_dates:
@@ -201,9 +194,7 @@ class Calculator:
         keyed by night date. Rows carry large packed arrays, so callers
         should only fetch this when there is Stage 1 work to compute.
         """
-        events = await self.night_repo.get_by_site_and_date_range(
-            site_id, start_date, end_date
-        )
+        events = await self.night_repo.get_by_site_and_date_range(site_id, start_date, end_date)
         return {event.night_date: event for event in events}
 
     async def _ensure_stage1_data(
@@ -225,9 +216,7 @@ class Calculator:
         for site_id in site_ids:
             existing = {
                 data.target_id: data
-                for data in await self.target_data_repo.get_for_targets_on_night(
-                    list(target_ids), site_id, night_date
-                )
+                for data in await self.target_data_repo.get_for_targets_on_night(list(target_ids), site_id, night_date)
             }
             for target_id in target_ids:
                 target = targets.get(target_id)
@@ -236,10 +225,8 @@ class Calculator:
 
                 data = existing.get(target_id)
                 if data is None or data.is_stale(target):
-                    await self._calculate_and_store_stage1(
-                        target, site_id, night_date
-                    )
-    
+                    await self._calculate_and_store_stage1(target, site_id, night_date)
+
     def _stage1_row(
         self,
         target: Target,
@@ -285,7 +272,7 @@ class Calculator:
         site = sites[site_id]
 
         return await self.target_data_repo.upsert(**self._stage1_row(target, site, night_event))
-    
+
     def _calculate_stage2(
         self,
         request: ObservationRequest,
@@ -294,10 +281,8 @@ class Calculator:
         target_name: str,
     ) -> VisibilityResult:
         """Calculate Stage 2 visibility for a single observation."""
-        stage2_constraints = Stage2Constraints.model_validate(
-            request.constraints.model_dump()
-        )
-        
+        stage2_constraints = Stage2Constraints.model_validate(request.constraints.model_dump())
+
         result = calculate_visibility(
             alt_bytes=stage1_data.alt,
             az_bytes=stage1_data.az,
@@ -315,7 +300,7 @@ class Calculator:
             night_duration_minutes=stage1_data.night_duration_minutes,
             constraints=stage2_constraints,
         )
-        
+
         return VisibilityResult(
             observation_id=request.observation_id,
             target_name=target_name,
@@ -337,9 +322,7 @@ class Calculator:
         Unlike get_visible_observations this never calculates: a pair with no
         stored row is simply absent, and the caller decides what to do with it.
         """
-        rows = await self.visibility_repo.get_remaining_minutes_in_range(
-            observation_ids, start_date, end_date
-        )
+        rows = await self.visibility_repo.get_remaining_minutes_in_range(observation_ids, start_date, end_date)
         return {(observation_id, night_date): minutes for observation_id, night_date, minutes in rows}
 
     async def get_visible_observations(
@@ -358,17 +341,13 @@ class Calculator:
 
         # Check for pre-calculated visibility
         obs_ids = [r.observation_id for r in requests]
-        precalculated = await self.visibility_repo.get_by_observation_ids_on_night(
-            obs_ids, night_date
-        )
+        precalculated = await self.visibility_repo.get_by_observation_ids_on_night(obs_ids, night_date)
         precalc_by_obs_id = {d.observation_id: d for d in precalculated}
         # Load target names for precalculated results
         precalc_target_ids = set(d.target_id for d in precalculated)
         targets_by_id = {}
         if precalc_target_ids:
-            targets_by_id = {
-                t.id: t for t in await self.target_repo.get_many(list(precalc_target_ids))
-            }
+            targets_by_id = {t.id: t for t in await self.target_repo.get_many(list(precalc_target_ids))}
 
         visible: list[VisibilityResult] = []
         missing_requests: list[ObservationRequest] = []
@@ -380,14 +359,16 @@ class Calculator:
                 if data.remaining_minutes > 0:
                     target = targets_by_id.get(data.target_id)
                     target_name = target.name if target else request.target_name
-                    visible.append(VisibilityResult(
-                        observation_id=data.observation_id,
-                        target_name=target_name,
-                        site=SITE_ID_TO_KEY[data.site_id],
-                        night_date=data.night_date,
-                        remaining_minutes=data.remaining_minutes,
-                        visible_ranges=data.visible_ranges,
-                    ))
+                    visible.append(
+                        VisibilityResult(
+                            observation_id=data.observation_id,
+                            target_name=target_name,
+                            site=SITE_ID_TO_KEY[data.site_id],
+                            night_date=data.night_date,
+                            remaining_minutes=data.remaining_minutes,
+                            visible_ranges=data.visible_ranges,
+                        )
+                    )
             else:
                 missing_requests.append(request)
 
@@ -439,9 +420,7 @@ class Calculator:
         # One IN-clause query for the whole batch instead of one get_by_name
         # per target; created targets are added below so a duplicate name
         # later in the same batch is still caught.
-        existing_by_name = await self.target_repo.get_by_names(
-            [t.name for t in targets]
-        )
+        existing_by_name = await self.target_repo.get_by_names([t.name for t in targets])
 
         for target_data in targets:
             try:
@@ -480,9 +459,7 @@ class Calculator:
                 while current_date <= end_date:
                     for site_id in site_id_ints:
                         site = sites[site_id]
-                        rows.append(self._stage1_row(
-                            target, site, night_events[(site_id, current_date)]
-                        ))
+                        rows.append(self._stage1_row(target, site, night_events[(site_id, current_date)]))
                     current_date += timedelta(days=1)
                 await self.target_data_repo.create_many(rows)
 
@@ -490,14 +467,14 @@ class Calculator:
 
             except Exception as e:
                 errors.append(f"Failed to create '{target_data.name}': {str(e)}")
-        
+
         return BulkTargetCreateResponse(
             created=len(created_targets),
             failed=len(errors),
             targets=created_targets,
             errors=errors,
         )
-    
+
     async def calculate_visibility_bulk(
         self,
         requests: list[ObservationRequest],
@@ -510,9 +487,9 @@ class Calculator:
         results_by_date: dict[str, list[VisibilityResult]] = {}
 
         # Loaded once for the range rather than per night.
-        targets_by_name = await self.target_repo.get_by_names(
-            list(set(r.target_name for r in requests))
-        ) if requests else {}
+        targets_by_name = (
+            await self.target_repo.get_by_names(list(set(r.target_name for r in requests))) if requests else {}
+        )
 
         current_date = start_date
         while current_date <= end_date:
@@ -526,9 +503,9 @@ class Calculator:
 
             results_by_date[date_str] = response.results
             current_date += timedelta(days=1)
-        
+
         total_nights = (end_date - start_date).days + 1
-        
+
         return BulkVisibilityResponse(
             results=results_by_date,
             start_date=start_date,
@@ -560,7 +537,7 @@ class Calculator:
             targets = [by_name[n] for n in target_names if n in by_name]
         else:
             targets = await self.target_repo.get_all()
-        
+
         if not targets:
             return {
                 "targets": 0,
@@ -568,7 +545,7 @@ class Calculator:
                 "nights": 0,
                 "total_computations": 0,
             }
-        
+
         # Get sites
         if site_ids:
             site_id_ints = set(SITE_KEY_TO_ID[s] for s in site_ids)
@@ -603,13 +580,13 @@ class Calculator:
                     continue
 
                 if site_id not in night_events_by_site:
-                    night_events_by_site[site_id] = await self._get_night_events_range(
-                        site_id, start_date, end_date
-                    )
+                    night_events_by_site[site_id] = await self._get_night_events_range(site_id, start_date, end_date)
 
                 for night_date in missing_dates:
                     await self._calculate_and_store_stage1(
-                        target, site_id, night_date,
+                        target,
+                        site_id,
+                        night_date,
                         night_event=night_events_by_site[site_id][night_date],
                     )
                     total += 1
@@ -654,14 +631,16 @@ class Calculator:
                 if not target:
                     continue
 
-                rows.append(dict(
-                    observation_id=result.observation_id,
-                    target_id=target.id,
-                    site_id=SITE_KEY_TO_ID[result.site],
-                    night_date=result.night_date,
-                    remaining_minutes=result.remaining_minutes,
-                    visible_ranges=result.visible_ranges,
-                ))
+                rows.append(
+                    dict(
+                        observation_id=result.observation_id,
+                        target_id=target.id,
+                        site_id=SITE_KEY_TO_ID[result.site],
+                        night_date=result.night_date,
+                        remaining_minutes=result.remaining_minutes,
+                        visible_ranges=result.visible_ranges,
+                    )
+                )
 
             stored += await self.visibility_repo.bulk_upsert(rows)
 
@@ -696,18 +675,13 @@ class Calculator:
 
         obs_ids = [r.observation_id for r in requests]
         # Coverage for the whole range in one query instead of one per night.
-        stored_pairs = await self.visibility_repo.get_stored_observation_nights(
-            obs_ids, start_date, end_date
-        )
+        stored_pairs = await self.visibility_repo.get_stored_observation_nights(obs_ids, start_date, end_date)
 
         stored = 0
         already_present = 0
         current_date = start_date
         while current_date <= end_date:
-            missing = [
-                r for r in requests
-                if (r.observation_id, current_date) not in stored_pairs
-            ]
+            missing = [r for r in requests if (r.observation_id, current_date) not in stored_pairs]
             already_present += len(requests) - len(missing)
 
             if missing:
@@ -736,7 +710,7 @@ class Calculator:
             target = await self.target_repo.get_by_name(target_name)
             if not target:
                 return []
-            
+
             data_list = await self.visibility_repo.get_by_observation_and_target(
                 observation_id=observation_id,
                 target_id=target.id,
@@ -755,7 +729,7 @@ class Calculator:
             target = await self.target_repo.get_by_name(target_name)
             if not target:
                 return []
-            
+
             data_list = await self.visibility_repo.get_by_target(
                 target_id=target.id,
                 start_date=start_date,
@@ -772,18 +746,20 @@ class Calculator:
             target = targets.get(data.target_id)
             if not target:
                 continue
-            
-            results.append(PrecalculatedVisibilityResult(
-                observation_id=data.observation_id,
-                target_name=target.name,
-                site=SITE_ID_TO_KEY[data.site_id],
-                night_date=data.night_date,
-                remaining_minutes=data.remaining_minutes,
-                visible_ranges=data.visible_ranges
-            ))
+
+            results.append(
+                PrecalculatedVisibilityResult(
+                    observation_id=data.observation_id,
+                    target_name=target.name,
+                    site=SITE_ID_TO_KEY[data.site_id],
+                    night_date=data.night_date,
+                    remaining_minutes=data.remaining_minutes,
+                    visible_ranges=data.visible_ranges,
+                )
+            )
 
         return results
-    
+
     async def get_precalculated_visibility_bulk(
         self,
         observation_ids: list[str],
@@ -794,51 +770,55 @@ class Calculator:
         Retrieve pre-calculated visibility grouped by observation and target.
         """
         from sqlalchemy import select, and_
-        
+
         if not observation_ids:
             return {}
-        
+
         # Query all visibility data for these observations
-        stmt = select(VisibilityData).where(
-            and_(
-                VisibilityData.observation_id.in_(observation_ids),
-                VisibilityData.night_date >= start_date,
-                VisibilityData.night_date <= end_date,
+        stmt = (
+            select(VisibilityData)
+            .where(
+                and_(
+                    VisibilityData.observation_id.in_(observation_ids),
+                    VisibilityData.night_date >= start_date,
+                    VisibilityData.night_date <= end_date,
+                )
             )
-        ).order_by(
-            VisibilityData.observation_id,
-            VisibilityData.night_date,
+            .order_by(
+                VisibilityData.observation_id,
+                VisibilityData.night_date,
+            )
         )
-        
+
         result = await self.session.execute(stmt)
         data_list = result.scalars().all()
-        
+
         if not data_list:
             return {}
-        
+
         # Load all target names
         all_target_ids = set(d.target_id for d in data_list)
         targets = {t.id: t for t in await self.target_repo.get_many(list(all_target_ids))}
-        
+
         # Build nested structure
         observations = {}
-        
+
         for data in data_list:
             obs_id = data.observation_id
             target = targets.get(data.target_id)
             if not target:
                 continue
-            
+
             target_name = target.name
             date_str = data.night_date.isoformat()
-            
+
             # Initialize nested dicts
             if obs_id not in observations:
                 observations[obs_id] = {"targets": {}}
-            
+
             if target_name not in observations[obs_id]["targets"]:
                 observations[obs_id]["targets"][target_name] = {"nights": {}}
-            
+
             # Add visibility data
             observations[obs_id]["targets"][target_name]["nights"][date_str] = {
                 "night_date": data.night_date,
@@ -846,7 +826,7 @@ class Calculator:
                 "remaining_minutes": data.remaining_minutes,
                 "visible_ranges": data.visible_ranges,
             }
-        
+
         return observations
 
     async def get_cumulative_remaining_visibility(
@@ -864,14 +844,18 @@ class Calculator:
         if not observation_ids:
             return {}
 
-        stmt = select(VisibilityData).where(
-            and_(
-                VisibilityData.observation_id.in_(observation_ids),
-                VisibilityData.night_date >= start_date,
-                VisibilityData.night_date <= end_date,
+        stmt = (
+            select(VisibilityData)
+            .where(
+                and_(
+                    VisibilityData.observation_id.in_(observation_ids),
+                    VisibilityData.night_date >= start_date,
+                    VisibilityData.night_date <= end_date,
+                )
             )
-        ).order_by(
-            VisibilityData.observation_id,
+            .order_by(
+                VisibilityData.observation_id,
+            )
         )
 
         result = await self.session.execute(stmt)
@@ -911,21 +895,18 @@ class Calculator:
                 entry["nights_with_visibility"] += 1
 
         # Wrap into expected shape
-        return {
-            obs_id: {"targets": tgts}
-            for obs_id, tgts in observations.items()
-        }
+        return {obs_id: {"targets": tgts} for obs_id, tgts in observations.items()}
 
     async def get_stage1_bulk(
-    self,
-    target_names: list[str],
-    site_ids: list[str],
-    start_date: date,
-    end_date: date,
-) -> dict[str, dict]:
+        self,
+        target_names: list[str],
+        site_ids: list[str],
+        start_date: date,
+        end_date: date,
+    ) -> dict[str, dict]:
         """
         Retrieve Stage 1 data in bulk.
-        
+
         Returns:
             {
                 target_name: {
@@ -949,49 +930,53 @@ class Calculator:
             }
         """
         from sqlalchemy import select, and_
-        
+
         if not target_names or not site_ids:
             return {}
-        
+
         # Get targets by name
         targets_by_name = {}
         for name in target_names:
             target = await self.target_repo.get_by_name(name)
             if target:
                 targets_by_name[name] = target
-        
+
         if not targets_by_name:
             return {}
-        
+
         target_ids = [t.id for t in targets_by_name.values()]
         site_id_ints = [SITE_KEY_TO_ID[s] for s in site_ids]
-        
+
         # Only the needed columns, so result.all() yields plain rows rather than ORM
         # instances: values already fetched, with no session-bound instrumentation to
         # follow the unpacking into a thread.
-        stmt = select(
-            TargetNightData.target_id,
-            TargetNightData.site_id,
-            TargetNightData.night_date,
-            TargetNightData.night_duration_minutes,
-            TargetNightData.ra,
-            TargetNightData.dec,
-            TargetNightData.alt,
-            TargetNightData.az,
-            TargetNightData.hourangle,
-            TargetNightData.airmass,
-            TargetNightData.par_ang,
-        ).where(
-            and_(
-                TargetNightData.target_id.in_(target_ids),
-                TargetNightData.site_id.in_(site_id_ints),
-                TargetNightData.night_date >= start_date,
-                TargetNightData.night_date <= end_date,
+        stmt = (
+            select(
+                TargetNightData.target_id,
+                TargetNightData.site_id,
+                TargetNightData.night_date,
+                TargetNightData.night_duration_minutes,
+                TargetNightData.ra,
+                TargetNightData.dec,
+                TargetNightData.alt,
+                TargetNightData.az,
+                TargetNightData.hourangle,
+                TargetNightData.airmass,
+                TargetNightData.par_ang,
             )
-        ).order_by(
-            TargetNightData.target_id,
-            TargetNightData.site_id,
-            TargetNightData.night_date,
+            .where(
+                and_(
+                    TargetNightData.target_id.in_(target_ids),
+                    TargetNightData.site_id.in_(site_id_ints),
+                    TargetNightData.night_date >= start_date,
+                    TargetNightData.night_date <= end_date,
+                )
+            )
+            .order_by(
+                TargetNightData.target_id,
+                TargetNightData.site_id,
+                TargetNightData.night_date,
+            )
         )
 
         result = await self.session.execute(stmt)
@@ -1046,15 +1031,15 @@ class Calculator:
         return targets
 
     async def get_stage1_greedymax_bulk(
-    self,
-    target_names: list[str],
-    site_ids: list[str],
-    start_date: date,
-    end_date: date,
-) -> dict[str, dict]:
+        self,
+        target_names: list[str],
+        site_ids: list[str],
+        start_date: date,
+        end_date: date,
+    ) -> dict[str, dict]:
         """
         Retrieve minimal Stage 1 data (alt + airmass only) in bulk.
-        
+
         Returns:
             {
                 target_name: {
@@ -1073,7 +1058,7 @@ class Calculator:
             }
         """
         from sqlalchemy import select, and_
-        
+
         if not target_names or not site_ids:
             return {}
 
@@ -1086,30 +1071,34 @@ class Calculator:
         site_id_ints = [SITE_KEY_TO_ID[s] for s in site_ids]
 
         # Query only needed columns
-        stmt = select(
-            TargetNightData.target_id,
-            TargetNightData.site_id,
-            TargetNightData.night_date,
-            TargetNightData.night_duration_minutes,
-            TargetNightData.ra,
-            TargetNightData.dec,
-            TargetNightData.alt,
-            TargetNightData.az,
-            TargetNightData.airmass,
-            TargetNightData.hourangle,
-        ).where(
-            and_(
-                TargetNightData.target_id.in_(target_ids),
-                TargetNightData.site_id.in_(site_id_ints),
-                TargetNightData.night_date >= start_date,
-                TargetNightData.night_date <= end_date,
+        stmt = (
+            select(
+                TargetNightData.target_id,
+                TargetNightData.site_id,
+                TargetNightData.night_date,
+                TargetNightData.night_duration_minutes,
+                TargetNightData.ra,
+                TargetNightData.dec,
+                TargetNightData.alt,
+                TargetNightData.az,
+                TargetNightData.airmass,
+                TargetNightData.hourangle,
             )
-        ).order_by(
-            TargetNightData.target_id,
-            TargetNightData.site_id,
-            TargetNightData.night_date,
+            .where(
+                and_(
+                    TargetNightData.target_id.in_(target_ids),
+                    TargetNightData.site_id.in_(site_id_ints),
+                    TargetNightData.night_date >= start_date,
+                    TargetNightData.night_date <= end_date,
+                )
+            )
+            .order_by(
+                TargetNightData.target_id,
+                TargetNightData.site_id,
+                TargetNightData.night_date,
+            )
         )
-        
+
         result = await self.session.execute(stmt)
         rows = result.all()
 
@@ -1153,6 +1142,7 @@ class Calculator:
             }
 
         return targets
+
 
 async def get_calculator(session: AsyncSession) -> Calculator:
     """Factory function for FastAPI dependency injection."""

@@ -26,6 +26,7 @@ class SchedulerBuilder(ABC):
     """
     Allows building different components individually and the general scheduler itself.
     """
+
     def __init__(self, sources: Sources, events: EventQueue):
         self.sources = sources
         self.events = events
@@ -33,48 +34,49 @@ class SchedulerBuilder(ABC):
         # TODO: DB storage?
         self.storage = None
 
-    def build_collector(self,
-                        start: datetime,
-                        end: datetime,
-                        num_of_nights: int,
-                        sites: FrozenSet[Site],
-                        semesters: FrozenSet[Semester],
-                        blueprint: CollectorBlueprint,
-                        night_times: Dict[Site, Tuple[Time, Time]],
-                        program_list: Optional[bytes] = None,
-                        defer_night_events: bool = False,
-                        use_local_visibility: Optional[bool] = None) -> Collector:
+    def build_collector(
+        self,
+        start: datetime,
+        end: datetime,
+        num_of_nights: int,
+        sites: FrozenSet[Site],
+        semesters: FrozenSet[Semester],
+        blueprint: CollectorBlueprint,
+        night_times: Dict[Site, Tuple[Time, Time]],
+        program_list: Optional[bytes] = None,
+        defer_night_events: bool = False,
+        use_local_visibility: Optional[bool] = None,
+    ) -> Collector:
         # TODO: Removing sources from Collector I think it was an idea
         # TODO: we might want to implement so all these are static methods.
-        collector = Collector(start,
-                              end,
-                              num_of_nights,
-                              sites,
-                              semesters,
-                              night_times,
-                              self.sources,
-                              *blueprint,
-                              defer_night_events=defer_night_events,
-                              use_local_visibility=use_local_visibility)
+        collector = Collector(
+            start,
+            end,
+            num_of_nights,
+            sites,
+            semesters,
+            night_times,
+            self.sources,
+            *blueprint,
+            defer_night_events=defer_night_events,
+            use_local_visibility=use_local_visibility,
+        )
         return collector
 
     @staticmethod
-    def build_selector(collector: Collector,
-                       num_nights_to_schedule: int,
-                       blueprint: SelectorBlueprint) -> Selector:
-        return Selector(collector=collector,
-                        num_nights_to_schedule=num_nights_to_schedule,
-                        time_buffer=create_time_buffer(*blueprint))
+    def build_selector(collector: Collector, num_nights_to_schedule: int, blueprint: SelectorBlueprint) -> Selector:
+        return Selector(
+            collector=collector,
+            num_nights_to_schedule=num_nights_to_schedule,
+            time_buffer=create_time_buffer(*blueprint),
+        )
 
     @staticmethod
     def build_optimizer(blueprint: OptimizerBlueprint) -> Optimizer:
         return Optimizer(algorithm=blueprint.algorithm)
 
     @abstractmethod
-    def _setup_event_queue(self,
-                           start: datetime,
-                           num_nights_to_schedule: int,
-                           sites: FrozenSet[Site]) -> None:
+    def _setup_event_queue(self, start: datetime, num_nights_to_schedule: int, sites: FrozenSet[Site]) -> None:
         """
         Set up the event queue for this particular mode of the Scheduler.
         Note that we pass AstroPy times to this method because we will localize them for each site
