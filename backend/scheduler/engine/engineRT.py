@@ -237,6 +237,29 @@ class EngineRT:
 
         return start_timeslot
 
+    def _drop_pseudo_time_accounting(self, plans) -> None:
+        """
+        Point every visit back at the Collector's observation, as the ODB has it.
+
+        GreedyMax charges what it schedules as if it had already run (`_charge_time`: status
+        ONGOING or OBSERVED, atoms used, observed and passed) on the Selector's working copies,
+        and the plan keeps those copies. Stored as they are, no planned observation is ever READY,
+        so the Night Monitor's checks against the plan never match. Nothing between here and the
+        published plan (stitching, stats, the UI payload) reads the charged values.
+
+        Args:
+            plans (Plans): the plans just computed; their visits are updated in place.
+        """
+        collector = self.scp.collector
+        for plan in plans.plans.values():
+            for visit in plan.visits:
+                original = collector.get_observation(visit.observation.id)
+                if original is None:
+                    _logger.warning(f"Observation {visit.observation.id.id} is planned but not in the "
+                                    f"Collector; the plan keeps its charged copy.")
+                    continue
+                visit.observation = original
+
     async def _compute_event_plan(self, event: Event):
         """
         Compute a new plan based on the given event.
@@ -263,6 +286,7 @@ class EngineRT:
         start_timeslot = await self._compute_event_start_timeslot(event)
 
         plans = await asyncio.to_thread(self.scp.run_rt, start_timeslot)
+        self._drop_pseudo_time_accounting(plans)
 
         # The start timeslot section above already released the lock, so the Night Monitor
         # readers are only blocked while the timeline is actually being updated.

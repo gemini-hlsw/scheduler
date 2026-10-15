@@ -243,7 +243,8 @@ async def test_created_not_ready_is_noop(handler_factory):
 
 @pytest.mark.asyncio
 async def test_deleted_in_plan_requests_plan_for_that_site(handler_factory):
-    handler = handler_factory(planned_ids=frozenset({_LABEL}))
+    # The store hands back ObservationIDs, never bare labels: the handler has to wrap the label.
+    handler = handler_factory(planned_ids=frozenset({ObservationID(_LABEL)}))
 
     await handler._on_deleted_edit(_event(ObservationWorkflowState.READY, edit_type="HARD_DELETE"))
 
@@ -255,7 +256,7 @@ async def test_deleted_in_plan_requests_plan_for_that_site(handler_factory):
 async def test_deleted_in_both_sites_requests_one_plan_only(handler_factory):
     # The loop breaks after the first hit: an observation listed at both sites must not
     # produce two schedule requests for one deletion.
-    handler = handler_factory(planned_ids=frozenset({_LABEL}))
+    handler = handler_factory(planned_ids=frozenset({ObservationID(_LABEL)}))
 
     await handler._on_deleted_edit(_event(ObservationWorkflowState.READY, edit_type="HARD_DELETE"))
 
@@ -264,7 +265,7 @@ async def test_deleted_in_both_sites_requests_one_plan_only(handler_factory):
 
 @pytest.mark.asyncio
 async def test_deleted_not_in_plan_is_noop(handler_factory):
-    handler = handler_factory(planned_ids=frozenset({"G-2026A-0500-Q-0001"}))
+    handler = handler_factory(planned_ids=frozenset({ObservationID("G-2026A-0500-Q-0001")}))
 
     await handler._on_deleted_edit(_event(ObservationWorkflowState.READY, edit_type="HARD_DELETE"))
 
@@ -290,15 +291,22 @@ def _visit_already_over(observation, slot_minutes=1, time_slots=10):
 
 @pytest.mark.asyncio
 async def test_ongoing_matches_plan_arms_execution_timer(handler_factory):
-    # The plan is being followed: wait the observation out rather than replanning now.
-    planned = _observation(status=ObservationStatus.READY)
-    handler = handler_factory(_plan(visits=[_visit_spanning_now(planned)], found=planned))
+    # The plan is being followed: wait the observation out rather than replanning now, for the
+    # visit the plan gave it (10 slots of 1 min), which can be a partial observation of the
+    # 30 min sequence.
+    planned = _observation(status=ObservationStatus.READY, exec_minutes=30)
+    handler = handler_factory(_plan(visits=[_visit_spanning_now(planned, time_slots=10)], found=planned,
+                                    slot_minutes=1))
+    timer = handler.observation_execution_timer[_SITE]
+    timer.set = MagicMock(wraps=timer.set)
 
     await handler._on_updated_edit(_event(ObservationWorkflowState.ONGOING))
 
     handler.scheduler_queue.add_schedule_event.assert_not_called()
-    assert handler.observation_execution_timer[_SITE].pending
+    assert timer.pending
     assert not handler.idle_timer[_SITE].pending
+    delay, _callback = timer.set.call_args.args
+    assert delay == timedelta(minutes=10).total_seconds()
 
 
 @pytest.mark.asyncio
@@ -348,15 +356,24 @@ async def test_ongoing_not_in_plan_and_nothing_expected_requests_plan(handler_fa
 
 
 @pytest.mark.asyncio
-async def test_ongoing_already_ongoing_in_plan_does_not_rearm(handler_factory):
-    # ONGOING -> ONGOING: the plan already knows it is running, so no timer and no replan.
-    planned = _observation(status=ObservationStatus.ONGOING)
-    handler = handler_factory(_plan(visits=[_visit_spanning_now(planned)], found=planned))
+async def test_ongoing_already_ongoing_in_plan_waits_out_the_visit(handler_factory):
+    # ONGOING -> ONGOING: partly executed on an earlier night and now running as planned. It can
+    # only move on to COMPLETED, so wait it out like a first start, for the planned visit (10 slots
+    # of 1 min) rather than the whole 30 min sequence, and keep the idle watch from replanning.
+    planned = _observation(status=ObservationStatus.ONGOING, exec_minutes=30)
+    handler = handler_factory(_plan(visits=[_visit_spanning_now(planned, time_slots=10)], found=planned,
+                                    slot_minutes=1))
+    timer = handler.observation_execution_timer[_SITE]
+    timer.set = MagicMock(wraps=timer.set)
 
     await handler._on_updated_edit(_event(ObservationWorkflowState.ONGOING))
 
     handler.scheduler_queue.add_schedule_event.assert_not_called()
-    assert not handler.observation_execution_timer[_SITE].pending
+    assert timer.pending
+    assert not handler.idle_timer[_SITE].pending
+    delay, _callback = timer.set.call_args.args
+    assert delay == timedelta(minutes=10).total_seconds()
+    assert timer.set.call_args.kwargs["with_offset"] is True
 
 
 # --- UPDATED / READY ------------------------------------------------------------------------
