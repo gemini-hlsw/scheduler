@@ -137,16 +137,21 @@ class ODBEventHandler(EventHandler, TimelineListener):
             partial(self._on_idle_timeout, site),
         )
 
-    def _arm_execution_timer(self, site: Site, observation: Observation) -> None:
+    def _arm_execution_timer(self, site: Site, observation: Observation, duration: Optional[timedelta] = None) -> None:
         """
         The plan is being followed, so wait the observation out instead of replanning now.
 
         The timer runs for the estimated execution time plus WAITING_OFFSET. If the ODB has not
         reported the observation finished by then, we are behind schedule and replan.
+
+        Args:
+            duration (Optional[timedelta]): how long to wait instead of the whole sequence's
+                execution time, for when the plan only gave the observation part of it.
         """
         self.idle_timer[site].cancel()
+        estimate = duration if duration is not None else observation.exec_time()
         self.observation_execution_timer[site].set(
-            observation.exec_time().total_seconds(),
+            estimate.total_seconds(),
             partial(self._on_execution_timeout, site, observation.id),
             with_offset=True,
         )
@@ -219,13 +224,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
         """
         # If the observation is a ToO we trigger a new plan request
         if event.value.workflow.value.state == 'READY':
-            too = event.value.target_environment.first_science_target(include_deleted=False).opportunity()
-            if too is not None:
-                # TODO: For now we do nothing until we implement the logic for different types of ToOs.
-                pass  # Check the type of opportunity
-
-            # TODO create an appropriate event to trigger a new plan, for now we just send
-            # an observation activation
+            _logger.warning(f'New observation {event.value.id} was created with already READY state.')
             await self._request_new_plan(
                 ObservationActivationEvent(
                     site=ALL_SITES,
@@ -252,7 +251,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
         for site in ALL_SITES:
             # Retrieve last plan observations IDs
             obs_ids = await self.nightly_timeline_store.planned_observation_ids(site)
-            if deleted_obs in obs_ids:
+            if ObservationID(deleted_obs) in obs_ids:
                 await self._request_new_plan(
                     ObservationActivationEvent(
                         site=site,
@@ -297,10 +296,12 @@ class ODBEventHandler(EventHandler, TimelineListener):
         # The observation the plan wants to be running right now, which is not necessarily the one
         # the ODB just told us about.
         expected_obs = None
+        expected_visit = None
         for visit in last_plan.visits:
             visit_end = visit.start_time + visit.time_slots * last_plan.time_slot_length
             if visit.start_time <= when < visit_end:
                 expected_obs = visit.observation
+                expected_visit = visit
                 break
 
         if updated_obs.workflow.value.state == 'ONGOING':
@@ -322,10 +323,19 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         # READY -> ONGOING
                         # The plan is being followed, so do not trigger a new plan. Wait out the observation
                         # instead: if it has not completed by the time it should have, the timer
-                        # fires and we plan then.
-                        self._arm_execution_timer(site, last_obs)
+                        # fires and we plan then. The visit, not the whole sequence: the plan may only
+                        # have given it part of it (a partial observation).
+                        self._arm_execution_timer(
+                            site, last_obs, expected_visit.time_slots * last_plan.time_slot_length
+                        )
 
-                    # ONGOING -> ONGOING?
+                    # ONGOING -> ONGOING
+                    # Resuming a partial observation. This might be not true as the ODB Subscription
+                    # only shows transitions
+                    elif last_obs.status is ObservationStatus.ONGOING:
+                        self._arm_execution_timer(
+                            site, last_obs, expected_visit.time_slots * last_plan.time_slot_length
+                        )
 
             else:
                 if expected_obs:
