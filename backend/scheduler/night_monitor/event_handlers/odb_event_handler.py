@@ -137,8 +137,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
             partial(self._on_idle_timeout, site),
         )
 
-    def _arm_execution_timer(self, site: Site, observation: Observation,
-                             duration: Optional[timedelta] = None) -> None:
+    def _arm_execution_timer(self, site: Site, observation: Observation, duration: Optional[timedelta] = None) -> None:
         """
         The plan is being followed, so wait the observation out instead of replanning now.
 
@@ -326,15 +325,17 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         # instead: if it has not completed by the time it should have, the timer
                         # fires and we plan then. The visit, not the whole sequence: the plan may only
                         # have given it part of it (a partial observation).
-                        self._arm_execution_timer(site, last_obs,
-                                                  expected_visit.time_slots * last_plan.time_slot_length)
+                        self._arm_execution_timer(
+                            site, last_obs, expected_visit.time_slots * last_plan.time_slot_length
+                        )
 
                     # ONGOING -> ONGOING
                     # Resuming a partial observation. This might be not true as the ODB Subscription
                     # only shows transitions
                     elif last_obs.status is ObservationStatus.ONGOING:
-                        self._arm_execution_timer(site, last_obs,
-                                                  expected_visit.time_slots * last_plan.time_slot_length)
+                        self._arm_execution_timer(
+                            site, last_obs, expected_visit.time_slots * last_plan.time_slot_length
+                        )
 
             else:
                 if expected_obs:

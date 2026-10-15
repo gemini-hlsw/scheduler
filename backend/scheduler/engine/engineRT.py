@@ -255,8 +255,10 @@ class EngineRT:
             for visit in plan.visits:
                 original = collector.get_observation(visit.observation.id)
                 if original is None:
-                    _logger.warning(f"Observation {visit.observation.id.id} is planned but not in the "
-                                    f"Collector; the plan keeps its charged copy.")
+                    _logger.warning(
+                        f"Observation {visit.observation.id.id} is planned but not in the "
+                        f"Collector; the plan keeps its charged copy."
+                    )
                     continue
                 visit.observation = original
 

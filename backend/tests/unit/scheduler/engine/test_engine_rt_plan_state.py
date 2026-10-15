@@ -22,14 +22,30 @@ def _observation(label: str, status: ObservationStatus) -> SimpleNamespace:
 
 
 def _visit(observation) -> Visit:
-    return Visit(start_time=datetime(2026, 10, 15, 6, 0, tzinfo=UTC), observation=observation,
-                 atom_start_idx=0, atom_end_idx=0, start_time_slot=0, time_slots=10, score=1.0,
-                 peak_score=1.0, step_start_idx=None, step_count=None, completion="1/1", atom_times=[10])
+    return Visit(
+        start_time=datetime(2026, 10, 15, 6, 0, tzinfo=UTC),
+        observation=observation,
+        atom_start_idx=0,
+        atom_end_idx=0,
+        start_time_slot=0,
+        time_slots=10,
+        score=1.0,
+        peak_score=1.0,
+        step_start_idx=None,
+        step_count=None,
+        completion="1/1",
+        atom_times=[10],
+    )
 
 
 def _engine(collector_observations) -> EngineRT:
-    engine = EngineRT(MagicMock(), scheduler_queue=MagicMock(), process_id="test",
-                      weather_source=MagicMock(), nightly_timeline_store=MagicMock())
+    engine = EngineRT(
+        MagicMock(),
+        scheduler_queue=MagicMock(),
+        process_id="test",
+        weather_source=MagicMock(),
+        nightly_timeline_store=MagicMock(),
+    )
     engine.scp = MagicMock()
     engine.scp.collector.get_observation = lambda obs_id: collector_observations.get(obs_id)
     return engine

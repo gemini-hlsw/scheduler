@@ -295,8 +295,9 @@ async def test_ongoing_matches_plan_arms_execution_timer(handler_factory):
     # visit the plan gave it (10 slots of 1 min), which can be a partial observation of the
     # 30 min sequence.
     planned = _observation(status=ObservationStatus.READY, exec_minutes=30)
-    handler = handler_factory(_plan(visits=[_visit_spanning_now(planned, time_slots=10)], found=planned,
-                                    slot_minutes=1))
+    handler = handler_factory(
+        _plan(visits=[_visit_spanning_now(planned, time_slots=10)], found=planned, slot_minutes=1)
+    )
     timer = handler.observation_execution_timer[_SITE]
     timer.set = MagicMock(wraps=timer.set)
 
@@ -361,8 +362,9 @@ async def test_ongoing_already_ongoing_in_plan_waits_out_the_visit(handler_facto
     # only move on to COMPLETED, so wait it out like a first start, for the planned visit (10 slots
     # of 1 min) rather than the whole 30 min sequence, and keep the idle watch from replanning.
     planned = _observation(status=ObservationStatus.ONGOING, exec_minutes=30)
-    handler = handler_factory(_plan(visits=[_visit_spanning_now(planned, time_slots=10)], found=planned,
-                                    slot_minutes=1))
+    handler = handler_factory(
+        _plan(visits=[_visit_spanning_now(planned, time_slots=10)], found=planned, slot_minutes=1)
+    )
     timer = handler.observation_execution_timer[_SITE]
     timer.set = MagicMock(wraps=timer.set)
 
