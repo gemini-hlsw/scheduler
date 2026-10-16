@@ -52,9 +52,9 @@ function Stat({
   );
 }
 
-export default function CoverageSummary() {
-  // Reads the ODB live, so it takes seconds: fetch on mount and on explicit
-  // refresh only. Deliberately no pollInterval.
+export default function CoverageSummary({ onRefresh }: { onRefresh?: () => void }) {
+  // The backend serves a read up to a few minutes old; Refresh reads the ODB
+  // live, which takes seconds. Deliberately no pollInterval.
   const { data, loading, error, refetch } = useQuery(visibilityCoverageQuery, {
     context: REALTIME_CONTEXT,
     fetchPolicy: "no-cache",
@@ -106,7 +106,10 @@ export default function CoverageSummary() {
           <Button
             variant="outline"
             size="xs"
-            onClick={() => refetch()}
+            onClick={() => {
+              refetch({ refresh: true });
+              onRefresh?.();
+            }}
             disabled={loading}
           >
             <FaSync className={cn(loading && "animate-spin")} />

@@ -211,12 +211,13 @@ class Query:
         return VisibilityAggregatorStatus.from_service(status)
 
     @strawberry.field
-    async def visibility_coverage(self, night_date: Optional[date] = None) -> VisibilityCoverage:
+    async def visibility_coverage(self, night_date: Optional[date] = None, refresh: bool = False) -> VisibilityCoverage:
         """Does the Sight DB hold visibility for everything the ODB expects?
-        Reads the ODB live. ``nightDate`` defaults to the current night.
+        Reads the ODB at most every few minutes; ``refresh`` reads it now.
+        ``nightDate`` defaults to the current night.
 
         """
-        summary = await get_coverage_summary(night_date)
+        summary = await get_coverage_summary(night_date, refresh=refresh)
         return VisibilityCoverage.from_service(summary)
 
     @strawberry.field
@@ -229,8 +230,10 @@ class Query:
         search: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
+        refresh: bool = False,
     ) -> ObservationCoveragePage:
-        """Which observations are missing or being updated, one page at a time."""
+        """Which observations are missing or being updated, one page at a time.
+        ``refresh`` reads the ODB now instead of serving the last read."""
         page = await list_observation_coverage(
             night_date=night_date,
             status=status.value if status is not None else None,
@@ -239,6 +242,7 @@ class Query:
             search=search,
             limit=limit,
             offset=offset,
+            refresh=refresh,
         )
         return ObservationCoveragePage.from_service(page)
 

@@ -7,6 +7,7 @@ from typing import Optional
 from gpp_client.generated.input_types import (
     WhereCalculatedObservationWorkflow,
     WhereObservation,
+    WhereOptionEqObservingModeType,
     WhereOrderObservationWorkflowState,
     WhereOrderProgramId,
     WhereProgram,
@@ -137,7 +138,11 @@ async def get_expected_observations() -> list[ExpectedObservation]:
     pagination stops making progress — never returns a partial set.
     """
     programs = await gpp.client.scheduler.get_all_reference_labels()
-    labels_by_program_id = {str(program_id): str(label) for label, program_id in programs}
+    # temporal hack while DB is fixed
+    excluded_programs = ["p-18ca", "p-18b7"]
+    labels_by_program_id = {
+        str(program_id): str(label) for label, program_id in programs if str(program_id) not in excluded_programs
+    }
     if not labels_by_program_id:
         _logger.info("No available programs; expected set is empty.")
         return []
@@ -147,6 +152,7 @@ async def get_expected_observations() -> list[ExpectedObservation]:
         workflow=WhereCalculatedObservationWorkflow(
             workflow_state=WhereOrderObservationWorkflowState(in_=SCHEDULABLE_STATES)
         ),
+        observing_mode_type=WhereOptionEqObservingModeType(is_null=False),
     )
 
     expected: list[ExpectedObservation] = []

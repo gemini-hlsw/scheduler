@@ -1253,6 +1253,8 @@ class Collector(SchedulerComponent):
         # Cache night_events per (site, night_idx); same key is touched once
         # per target otherwise.
         night_event_cache: dict[tuple, object] = {}
+        # The offset depends only on (site, night), so warn once per pair rather than per observation.
+        realigned: set[tuple] = set()
 
         def _night_event(site, night_idx: NightIndex):
             key = (site, night_idx)
@@ -1362,10 +1364,11 @@ class Collector(SchedulerComponent):
 
                 sched_start = self.night_events[site].times[night_idx][0].to_datetime(timezone.utc)
                 start_offset_slots = round((sched_start - ne.night_start).total_seconds() / 60.0)
-                if start_offset_slots != 0:
+                if start_offset_slots != 0 and (site, night_idx) not in realigned:
+                    realigned.add((site, night_idx))
                     _logger.warning(
                         f'Sight/scheduler night-start offset of {start_offset_slots} slot(s) '
-                        f'for {obs.id.id} night {int(night_idx)}; realigning arrays.'
+                        f'at {site.name} night {int(night_idx)}; realigning arrays.'
                     )
                 ti = build_target_info(stage1_entry, rem_frac, expected_length, start_offset_slots=start_offset_slots)
 

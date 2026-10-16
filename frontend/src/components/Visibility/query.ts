@@ -31,12 +31,13 @@ export const aggregatorStatusQuery = graphql(`
 `);
 
 /**
- * Reads the ODB live (a paginated sweep), so it takes seconds. Fetch on mount
- * and on explicit refresh only — never poll it.
+ * The backend serves a read up to a few minutes old; `refresh: true` reads the
+ * ODB live (a paginated sweep), which takes seconds. Fetch on mount and on
+ * explicit refresh only — never poll it.
  */
 export const visibilityCoverageQuery = graphql(`
-  query visibilityCoverage($nightDate: Date) {
-    visibilityCoverage(nightDate: $nightDate) {
+  query visibilityCoverage($nightDate: Date, $refresh: Boolean! = false) {
+    visibilityCoverage(nightDate: $nightDate, refresh: $refresh) {
       nightDate
       odbReadAt
       expected
@@ -75,6 +76,7 @@ export const observationCoverageQuery = graphql(`
     $search: String
     $limit: Int!
     $offset: Int!
+    $refresh: Boolean! = false
   ) {
     observationCoverage(
       nightDate: $nightDate
@@ -84,6 +86,7 @@ export const observationCoverageQuery = graphql(`
       search: $search
       limit: $limit
       offset: $offset
+      refresh: $refresh
     ) {
       total
       nightDate

@@ -23,6 +23,7 @@ from lucupy.observatory.gemini.geminiproperties import GeminiProperties
 from sqlalchemy import select
 
 from scheduler.clients.gpp import gpp
+from scheduler.config import config
 from scheduler.services import logger_factory
 from scheduler.services.horizons import horizons_session
 from scheduler.services.sight.calculations.stage1 import (
@@ -39,11 +40,14 @@ from scheduler.services.sight.database.connection import (
     session_scope,
 )
 from scheduler.services.visibility_aggregator.aggregator import (
+    _apply_odb_changes,
     _collect_requests,
     _format_duration,
+    _load_changes,
     progress_eta_seconds,
     target_windows,
 )
+from scheduler.services.visibility_aggregator.coordination import set_change_watermark
 from scheduler.services.visibility_aggregator.memory_guard import MemoryGuard
 
 _logger = logger_factory.create_logger(__name__, with_id=False)
@@ -521,20 +525,37 @@ def _report_ephemerides(future: Future) -> None:
         _logger.warning(f"  ... and {len(result.failed) - 10} more.")
 
 
-async def _prepare(args: argparse.Namespace) -> Optional[Plan]:
+async def _prepare(args: argparse.Namespace) -> Optional[tuple[Plan, datetime]]:
+    """The plan, and the time the ODB changes were fetched (the next change bookmark)."""
     ObservatoryProperties.set_properties(GeminiProperties)
-    labels = await gpp.client.scheduler.get_all_reference_labels()
-    program_ids = [label[1] for label in labels]
-    t0 = time.perf_counter()
-    payloads, requests, windows, _, counts = await _collect_requests(program_ids, MemoryGuard(None))
-    _logger.info(
-        f"Parsed {len(program_ids)} programs in {time.perf_counter() - t0:.1f}s: "
-        f"{len(payloads)} targets, {len(requests)} observations "
-        f"({counts['skipped_no_target']} without a usable base target)."
-    )
     await init_db_engine()
     try:
-        return await build_plan(
+        # As the hourly runner does: changes are fetched before the program dump, so a
+        # change made after fetch_time is after the new bookmark and the next run sees it.
+        changes, fetch_time = None, None
+        if not args.dry_run:
+            async with session_scope() as session:
+                changes, fetch_time = await _load_changes(session, datetime.now(timezone.utc))
+
+        labels = await gpp.client.scheduler.get_all_reference_labels()
+        program_ids = [label[1] for label in labels]
+        t0 = time.perf_counter()
+        payloads, requests, windows, labels_by_internal_id, counts = await _collect_requests(
+            program_ids, MemoryGuard(None)
+        )
+        _logger.info(
+            f"Parsed {len(program_ids)} programs in {time.perf_counter() - t0:.1f}s: "
+            f"{len(payloads)} targets, {len(requests)} observations "
+            f"({counts['skipped_no_target']} without a usable base target)."
+        )
+
+        if changes is not None:
+            # Invalidate what changed since the bookmark, so the fill recomputes it.
+            # Moving the bookmark without this would leave those rows stale for good.
+            async with session_scope() as session:
+                await _apply_odb_changes(Calculator(session), changes, payloads, requests, labels_by_internal_id)
+
+        plan = await build_plan(
             payloads,
             requests,
             windows,
@@ -543,8 +564,21 @@ async def _prepare(args: argparse.Namespace) -> Optional[Plan]:
             chunk_size=args.chunk_size,
             dry_run=args.dry_run,
         )
+        return None if plan is None else (plan, fetch_time)
     finally:
         await dispose_engine()
+
+
+async def _advance_change_watermark(fetch_time: datetime) -> None:
+    """Move the change bookmark to fetch_time minus the overlap, as the hourly runner does."""
+    since = fetch_time - timedelta(seconds=float(config.visibility_aggregator.changes_overlap_seconds))
+    await init_db_engine()
+    try:
+        async with session_scope() as session:
+            await set_change_watermark(session, since)
+    finally:
+        await dispose_engine()
+    _logger.info(f"Change bookmark moved to {since.isoformat()}.")
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -581,9 +615,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     t0 = time.perf_counter()
-    plan = asyncio.run(_prepare(args))
-    if plan is None:
+    prepared = asyncio.run(_prepare(args))
+    if prepared is None:
         return 0
+    plan, fetch_time = prepared
     try:
         failed = execute(plan, args.workers)
     except KeyboardInterrupt:
@@ -592,7 +627,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         f"Done in {_format_duration(time.perf_counter() - t0)} with {args.workers} workers"
         f"{f'; {failed} chunks failed, re-run to retry them' if failed else ''}."
     )
-    return 1 if failed else 0
+    if failed:
+        # The bookmark stays put, so the next run (this one or the hourly job) retries the window.
+        return 1
+    asyncio.run(_advance_change_watermark(fetch_time))
+    return 0
 
 
 if __name__ == "__main__":
