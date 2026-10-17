@@ -3,6 +3,7 @@
 
 
 import asyncio
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
@@ -317,25 +318,28 @@ async def _coverage_rows(
 
 
 # Reads currently in flight, by night. Empty between reads: this coalesces
-# concurrent callers, it does not cache results.
+# concurrent callers.
 _reads_in_flight: dict[Optional[date], "asyncio.Task"] = {}
+
+# How long a finished read is served before the next request reads the ODB again.
+_SNAPSHOT_TTL_SECONDS = 300.0
+
+# Finished reads, by night: (time.monotonic() when stored, the read's result).
+_snapshots: dict[Optional[date], tuple[float, tuple]] = {}
 
 
 async def _shared_coverage_rows(
     night_date: Optional[date],
+    refresh: bool = False,
 ) -> tuple[list[ObservationCoverage], date, datetime, bool]:
-    """``_coverage_rows``, with concurrent callers folded into one read.
-
-    The Visibility tab mounts its summary and its list together, so both
-    coverage fields arrive as separate requests milliseconds apart, and the ODB
-    sweep takes seconds. A caller that arrives while a read for the same night
-    is in flight awaits that read instead of starting its own and gets the same
-    rows, so the two halves of the screen cannot disagree about the pending set.
-
-    Nothing is cached once a read finishes, so an operator hitting refresh still
-    reads the ODB live. The read is shielded because it is shared: a browser
-    disconnecting must not cancel work another request is waiting on.
+    """``_coverage_rows``, with concurrent callers folded into one read and the
+    finished read kept for ``_SNAPSHOT_TTL_SECONDS``.
     """
+    if not refresh:
+        snapshot = _snapshots.get(night_date)
+        if snapshot is not None and time.monotonic() - snapshot[0] < _SNAPSHOT_TTL_SECONDS:
+            return snapshot[1]
+
     loop = asyncio.get_running_loop()
     task = _reads_in_flight.get(night_date)
     if task is None or task.get_loop() is not loop:
@@ -347,6 +351,12 @@ async def _shared_coverage_rows(
             # if the request that started the read was cancelled.
             if _reads_in_flight.get(key) is finished:
                 del _reads_in_flight[key]
+            if not finished.cancelled() and finished.exception() is None:
+                now = time.monotonic()
+                # Drop expired nights so the dict does not grow with every night viewed.
+                for stale in [k for k, (stored, _) in _snapshots.items() if now - stored >= _SNAPSHOT_TTL_SECONDS]:
+                    del _snapshots[stale]
+                _snapshots[key] = (now, finished.result())
 
         task.add_done_callback(_forget)
     return await asyncio.shield(task)
@@ -354,9 +364,11 @@ async def _shared_coverage_rows(
 
 async def get_coverage_summary(
     night_date: Optional[date] = None,
+    refresh: bool = False,
 ) -> CoverageSummary:
-    """Totals and breakdowns for a night. Reads the ODB live on every call."""
-    rows, night_date, odb_read_at, pending_known = await _shared_coverage_rows(night_date)
+    """Totals and breakdowns for a night, from a read at most ``_SNAPSHOT_TTL_SECONDS``
+    old; ``refresh`` reads the ODB live."""
+    rows, night_date, odb_read_at, pending_known = await _shared_coverage_rows(night_date, refresh)
     return summarize(rows, night_date, odb_read_at, pending_known)
 
 
@@ -376,13 +388,15 @@ async def list_observation_coverage(
     search: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
+    refresh: bool = False,
 ) -> ObservationCoveragePage:
     """One filtered, paginated page of per-observation coverage.
 
     Filtering and pagination are per-request; the underlying read is shared with
-    a concurrent summary request for the same night.
+    the summary and with other pages for the same night, and kept for
+    ``_SNAPSHOT_TTL_SECONDS``. ``refresh`` reads the ODB live.
     """
-    rows, night_date, odb_read_at, _ = await _shared_coverage_rows(night_date)
+    rows, night_date, odb_read_at, _ = await _shared_coverage_rows(night_date, refresh)
     page, total = paginate(
         rows,
         status=status,

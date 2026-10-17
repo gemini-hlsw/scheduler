@@ -688,6 +688,9 @@ async def run_aggregation(
         )
     parsed_mb = guard.check(f"parsing {len(program_ids)} programs")
     parse_elapsed = parse.elapsed
+
+    # Nothing reads nights before today, so start every window at today instead of the program's start
+    windows = {obs_id: (max(start, today), end) for obs_id, (start, end) in windows.items() if end >= today}
     start_date = min((w[0] for w in windows.values()), default=today)
     end_date = max((w[1] for w in windows.values()), default=today)
     _logger.info(

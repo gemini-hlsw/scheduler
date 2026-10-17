@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@apollo/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -78,15 +78,16 @@ function FilterButton({
   );
 }
 
-export default function CoverageList() {
+export default function CoverageList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [status, setStatus] = useState<ObservationStatus | "ALL">("MISSING");
   const [site, setSite] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
 
   // Filters drive the server-side query; nothing is filtered client-side, so a
-  // page costs the same whether there are 500 rows or 50,000.
-  const { data, loading, error } = useQuery(observationCoverageQuery, {
+  // page costs the same whether there are 500 rows or 50,000. The backend
+  // serves them from its last read, so changing a filter does not re-read the ODB.
+  const { data, loading, error, refetch } = useQuery(observationCoverageQuery, {
     context: REALTIME_CONTEXT,
     fetchPolicy: "no-cache",
     variables: {
@@ -99,6 +100,15 @@ export default function CoverageList() {
       offset: page * PAGE_SIZE,
     },
   });
+
+  // A Refresh in the summary bumps refreshKey: re-read live once per bump, not on
+  // every render (the ref keeps a new refetch identity from firing it again).
+  const handledRefresh = useRef(refreshKey);
+  useEffect(() => {
+    if (refreshKey === handledRefresh.current) return;
+    handledRefresh.current = refreshKey;
+    refetch({ refresh: true });
+  }, [refreshKey, refetch]);
 
   const result = data?.observationCoverage;
   const total = result?.total ?? 0;
