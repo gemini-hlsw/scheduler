@@ -46,10 +46,7 @@ from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
 from scheduler.services.sight.calculator.calculator import Calculator
-from scheduler.services.sight.calculator.models import (
-    ObservationConstraints,
-    ObservationRequest,
-)
+from scheduler.services.sight.calculator.models import ObservationRequest
 from scheduler.services.sight.database.connection import session_scope
 from scheduler.services.telemetry import timed
 from scheduler.services.telemetry.perf import record_sight_fallback, timed_function
@@ -78,14 +75,26 @@ from scheduler.time_accountant.time_accountant import TimeAccountant
 _logger = logger_factory.create_logger(__name__)
 
 
-def _obs_to_request(obs: Observation) -> ObservationRequest:
-    """Build a Sight ObservationRequest from a lucupy Observation."""
+def _obs_to_request(obs: Observation, program: Optional[Program], range_end: datetime) -> ObservationRequest:
+    """Build a Sight ObservationRequest from a lucupy Observation.
+
+    Sight applies the constraints only to an observation it has no stored row for and
+    calculates on the spot, so they must match the ones the aggregator stores rows with.
+    """
     base = obs.base_target()
     return ObservationRequest(
         observation_id=obs.id.id,
         target_name=base.name if base is not None else '',
         site_id=obs.site.name,
-        constraints=ObservationConstraints(),
+        constraints=stage2_constraints(
+            obs,
+            # The night configuration filter already dropped observations missing resources.
+            has_resources=True,
+            can_schedule=True,
+            range_end=range_end,
+            program_start=program.start if program is not None else None,
+            program_end=program.end if program is not None else None,
+        ),
     )
 
 
@@ -1106,11 +1115,17 @@ class Collector(SchedulerComponent):
             resource-gated remaining minutes.
         """
         visibility: dict[NightIndex, tuple[set[str], dict[str, list], dict[str, int]]] = {}
+        # One request per observation across nights: expanding repeating timing windows is not free.
+        requests_by_id: dict[str, ObservationRequest] = {}
         for night_index, observations in filtered_observations.items():
             if not observations:
                 visibility[night_index] = set(), {}, {}
                 continue
-            requests = [_obs_to_request(o) for o in observations]
+            requests = []
+            for o in observations:
+                if o.id.id not in requests_by_id:
+                    requests_by_id[o.id.id] = _obs_to_request(o, self.get_program(o.belongs_to), self.end_vis_time)
+                requests.append(requests_by_id[o.id.id])
             night_date = self.time_grid[int(night_index)].to_datetime().date()
 
             # Calculate visible observations for the night.

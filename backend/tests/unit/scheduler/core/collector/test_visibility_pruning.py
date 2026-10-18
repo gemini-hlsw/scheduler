@@ -121,7 +121,7 @@ def sight():
     with (
         patch.object(collector_mod, 'session_scope', _session),
         patch.object(collector_mod, 'Calculator', _FakeCalculator),
-        patch.object(collector_mod, '_obs_to_request', lambda o: o.id.id),
+        patch.object(collector_mod, '_obs_to_request', lambda o, *_: o.id.id),
     ):
         yield
 

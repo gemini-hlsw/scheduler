@@ -23,6 +23,7 @@ class _Obs:
     def __init__(self, obs_id: str, target: str, site: Site = Site.GN):
         self.id = ObservationID(obs_id)
         self.site = site
+        self.belongs_to = None
         self._base = SimpleNamespace(name=target)
 
     def base_target(self):
@@ -45,6 +46,8 @@ def _collector(num_of_nights, num_nights_calculated: int) -> Collector:
     ]
     obj._target_info = {}
     obj._observations = {}
+    obj._programs = {}
+    obj.end_vis_time = None
     return obj
 
 
@@ -76,7 +79,7 @@ async def _fetch(obj, filtered, visible_per_night):
     with (
         patch.object(collector_mod, "session_scope", _session),
         patch.object(collector_mod, "Calculator", return_value=calc),
-        patch.object(collector_mod, "_obs_to_request", side_effect=lambda o: o),
+        patch.object(collector_mod, "_obs_to_request", side_effect=lambda o, *_: o),
     ):
         per_night = await obj._fetch_sight_data(filtered, START, START + timedelta(days=2), ["GN"])
     return calc, per_night
