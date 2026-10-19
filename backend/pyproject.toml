@@ -1,6 +1,6 @@
 [project]
 name = "scheduler"
-version = "2026.09.1"
+version = "2026.10.2"
 description = "Gemini Observatory automated scheduler"
 readme = 'README.md'
 authors = [{ name = "NOIRLab" }]
@@ -13,7 +13,7 @@ dependencies = [
     "gelidum>=0.5.9",
     "gql>=4.0.0",
     "hypothesis>=6.137.1",
-    "lucupy>=0.2.16",
+    "lucupy>=0.2.17",
     "matplotlib>=3.10.5",
     "numpy>=2.3.2",
     "omegaconf>=2.3.0",

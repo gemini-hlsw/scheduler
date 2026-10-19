@@ -17,6 +17,8 @@ import lucupy.sky as sky
 from lucupy.helpers import is_contiguous
 from lucupy.minimodel import (
     Conditions,
+    Constraints,
+    ConstraintUnit,
     Group,
     Observation,
     ObservationClass,
@@ -32,6 +34,7 @@ from lucupy.minimodel import (
     UniqueGroupID,
     Variant,
     VariantSnapshot,
+    Wavelength,
     AndOption,
 )
 from lucupy.minimodel import CloudCover, ImageQuality
@@ -88,8 +91,8 @@ class Selector(SchedulerComponent):
 
     # Default values for resetting variants.
     _default_iq: ClassVar[ImageQuality] = ImageQuality(0.7)
-    _default_cc: ClassVar[CloudCover] = CloudCover.CC70
-    _default_wind_dir: ClassVar[Angle] = Angle(0.0, unit=u.deg)
+    _default_cc: ClassVar[CloudCover] = CloudCover(0.7)
+    _default_wind_dir: ClassVar[Angle] = Angle(0., unit=u.deg)
     _default_wind_spd: ClassVar[Quantity] = 0.0 * (u.m / u.s)
 
     _default_variant_snapshot: ClassVar[VariantSnapshot] = VariantSnapshot(
@@ -572,7 +575,7 @@ class Selector(SchedulerComponent):
             # has already been covered and should be ineligible for scheduling.
             # Zero out the part of the night that was already done.
             variant = self._variant_snapshot_per_site[obs.site].make_variant(total_timeslots_in_night)
-            conditions_score[night_idx] = Selector.match_conditions(mrc, variant, rising[night_idx], too_type)
+            conditions_score[night_idx] = Selector.match_conditions(self, obs, variant, rising[night_idx], night_idx)
             conditions_score[night_idx][:starting_timeslot_in_night] = 0
             wind_score[night_idx] = Selector._wind_conditions(variant, target_info[night_idx].az)
 
@@ -851,8 +854,26 @@ class Selector(SchedulerComponent):
         return wind
 
     @staticmethod
+    def iq_model(az, x, iq0=1.0, buffer=0.0):
+        """Return IQ over sky based on a FWHM at Zenith"""
+
+        # Standard airmass model with zenith iq0
+        iqx = iq0 * x ** 0.6
+
+        iqsky = iqx * (1.0 + buffer)
+
+        return iqsky
+
+
     def match_conditions(
-        required_conditions: Conditions, actual_conditions: Variant, rising: bool, too_status: Optional[TooType]
+        self,
+        obs: Observation,
+        # required_conditions: Conditions,
+        actual_conditions: Variant,
+        rising: bool,
+        night_idx: NightIndex,
+        # too_status: Optional[TooType],
+        # wavelength: Optional[Wavelength] = None,
     ) -> npt.NDArray[float]:
         """
         Determine if the required conditions are satisfied by the actual conditions variant.
@@ -874,8 +895,43 @@ class Selector(SchedulerComponent):
         """
         # TODO: Can we move part of this to the mini-model? Do we want to?
 
+        required_conditions = obs.constraints.conditions
+        # print(f'match_conditions')
+        # print(f'req IQ = {required_conditions.iq}, len act IQ = {len(actual_conditions.iq)} {actual_conditions.iq[0]}')
+        if required_conditions.iq.unit == ConstraintUnit.ARCSEC:
+            mean_wavelen = np.mean(list(obs.wavelengths()))
+
+            target_info = self.collector.get_target_info(obs.id)
+            airmass = target_info[night_idx].airmass
+            az = target_info[night_idx].az
+
+            # Zenith IQ for actual IQ percentile and wavelength
+            # In general, if given a forecast, would loop over each value in the actual conditions
+            # For now we use the first since they will all be the same
+            # ToDo: vectorize percentile_to_iq and iq_to_percentile
+            fwhm_zenith = Conditions.percentile_to_iq(actual_conditions.iq[0].value * 100., wavelength=mean_wavelen,
+                                                       airmass=1.0, model='qap')
+            # Apply IQ model to get FWHM over the sky
+            actual_iq = np.asarray(self.iq_model(az, airmass, fwhm_zenith))
+            # print(f'{actual_conditions.iq[0].value} {mean_wavelen} {fwhm_zenith} {min(actual_iq)} {max(actual_iq)}')
+
+            # A representative percentile associated with the constraint to calculate the 'better conditions' penalty
+            actual_iq_pctile = np.asarray(actual_conditions.iq)
+            airmass_max = (
+                obs.constraints.elevation.airmass_max
+                if obs.constraints.elevation.airmass_max is not None
+                else Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
+            )
+            # print(airmass_max)
+            required_iq_pctile = Conditions.iq_to_percentile(required_conditions.iq.value, mean_wavelen,
+                                                             airmass_max, model='qap') / 100.
+
+        else:
         # Convert the actual conditions to arrays.
-        actual_iq = np.asarray(actual_conditions.iq)
+            actual_iq = np.asarray(actual_conditions.iq)
+            actual_iq_pctile = actual_iq
+            required_iq_pctile = required_conditions.iq
+
         actual_cc = np.asarray(actual_conditions.cc)
 
         # The mini-model manages the IQ, CC, WV, and SB being the same types and sizes
@@ -898,11 +954,7 @@ class Selector(SchedulerComponent):
             )
 
         # Determine the positions where the actual conditions are worse than the requirements.
-        # TODO remove the if clause when weather service get updated
-        if required_conditions.iq >= 0.2:
-            bad_iq = actual_iq > required_conditions.iq
-        else:
-            bad_iq = actual_iq > 0.2
+        bad_iq = actual_iq > required_conditions.iq
         bad_cc = actual_cc > required_conditions.cc
         bad_cond_idx = np.where(np.logical_or(bad_iq, bad_cc))[0]
         cond_match = np.ones(length)
@@ -914,11 +966,11 @@ class Selector(SchedulerComponent):
         # This should work as we are adjusting structures that are passed by reference.
         def adjuster(array, value):
             better_idx = np.where(array < value)[0] if rising else np.array([])
-            if len(better_idx) > 0 and (too_status < TooType.RAPID):
+            if len(better_idx) > 0 and (obs.too_type < TooType.RAPID):
                 # cond_match[better_idx] = cond_match[better_idx] * array[better_idx] / value
                 cond_match[better_idx] = cond_match[better_idx] * (1.0 - (value - array[better_idx]))
 
-        adjuster(actual_iq, required_conditions.iq)
+        adjuster(actual_iq_pctile, required_iq_pctile)
         adjuster(actual_cc, required_conditions.cc)
 
         if scalar_input:
