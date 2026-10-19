@@ -139,7 +139,7 @@ async def get_expected_observations() -> list[ExpectedObservation]:
     """
     programs = await gpp.client.scheduler.get_all_reference_labels()
     # temporal hack while DB is fixed
-    excluded_programs = ["p-18ca", "p-18b7"]
+    excluded_programs = ["p-18ca", "p-18b7", "p-d69", "p-d8e"]
     labels_by_program_id = {
         str(program_id): str(label) for label, program_id in programs if str(program_id) not in excluded_programs
     }
