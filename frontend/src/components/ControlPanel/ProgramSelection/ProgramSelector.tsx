@@ -131,6 +131,8 @@ export function ProgramSelector({
         />
       ) : (
         <OperationProgramSelector
+          // A new filter starts again from the first page
+          key={filter}
           programs={programs.filter((p) =>
             p.label.toLowerCase().includes(filter.toLowerCase())
           )}
