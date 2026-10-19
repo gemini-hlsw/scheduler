@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from typing import cast, final, Dict, Optional, Set
 
 import numpy as np
-from execnet.gateway import rinfo_source
-
 from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex, ObservationStatus, TooType, Band
 
 from scheduler.core.components.base import SchedulerComponent
