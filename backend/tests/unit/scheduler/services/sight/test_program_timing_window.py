@@ -24,7 +24,7 @@ PROG_END = datetime(2026, 6, 30)
 def _obs(timing_windows, with_constraints=True):
     if not with_constraints:
         return SimpleNamespace(constraints=None)
-    cond = SimpleNamespace(sb=SkyBackground.SBANY)
+    cond = SimpleNamespace(sb=SkyBackground(1.0))
     constraints = SimpleNamespace(
         conditions=cond,
         elevation=ElevationLimits(

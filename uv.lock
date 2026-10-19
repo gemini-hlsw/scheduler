@@ -1456,16 +1456,16 @@ wheels = [
 
 [[package]]
 name = "lucupy"
-version = "0.2.16"
+version = "0.2.17"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "gelidum" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/03/2f/c62a9df24f70893720a0afbe604049bddca7ea5016493cff94e115d91428/lucupy-0.2.16.tar.gz", hash = "sha256:465c22f3e002406700bffedf7a078ab20e274c4a4dbeac583316a753923c9359", size = 50972, upload-time = "2026-10-01T12:11:57.659Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/ab/c133446becc634de43b7b1ce0967ac67e91a0e44f03b55804141665ea402/lucupy-0.2.17.tar.gz", hash = "sha256:7f58c983f2f2cce1292e4944070dc6b38e98a39c2594a2bb9846fff9f30e0d5e", size = 51611, upload-time = "2026-10-19T12:23:14.429Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/4b/0d4d0cbab1a17a8111dac9c65533e3d14db80f53e7d0b6601d0bb96bfab5/lucupy-0.2.16-py3-none-any.whl", hash = "sha256:fc5c12817e68ad43c2a569adcab985b47f428e5322144a361222a56d92fd1b76", size = 73365, upload-time = "2026-10-01T12:11:58.551Z" },
+    { url = "https://files.pythonhosted.org/packages/97/f0/c934a6f69a9a0186ba8121e6dbba5feb08c9a81d28af5bb0916a0484cda3/lucupy-0.2.17-py3-none-any.whl", hash = "sha256:ca9752093feb80dabbfd149493733faf2a599eaf8490dcbec53fca73587991a9", size = 74030, upload-time = "2026-10-19T12:23:15.506Z" },
 ]
 
 [[package]]
@@ -2786,7 +2786,7 @@ wheels = [
 
 [[package]]
 name = "scheduler"
-version = "2026.9.1"
+version = "2026.10.2"
 source = { virtual = "backend" }
 dependencies = [
     { name = "aioboto3" },
@@ -2855,7 +2855,7 @@ requires-dist = [
     { name = "gql", specifier = ">=4.0.0" },
     { name = "greenlet", specifier = ">=3.3.1" },
     { name = "hypothesis", specifier = ">=6.137.1" },
-    { name = "lucupy", specifier = ">=0.2.16" },
+    { name = "lucupy", specifier = ">=0.2.17" },
     { name = "matplotlib", specifier = ">=3.10.5" },
     { name = "numpy", specifier = ">=2.3.2" },
     { name = "omegaconf", specifier = ">=2.3.0" },

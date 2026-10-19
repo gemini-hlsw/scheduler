@@ -149,7 +149,7 @@ class RTEventFactory:
         site: Site = Site.GN,
         time: datetime = DEFAULT_TIME,
         iq: ImageQuality = ImageQuality(0.7),
-        cc: CloudCover = CloudCover.CC50,
+        cc: CloudCover = CloudCover(0.5),
         wind_dir: float = 330.0,
         wind_spd: float = 5.0,
     ) -> WeatherChangeEvent:

@@ -109,8 +109,6 @@ class SimEnvService(ExternalService):
             else (ImageQuality(int(df_iq) / 100) if df_iq != 'ANY' else ImageQuality(1.0))
         )
         df_cc = filtered_df[SimEnvService._cc_col_initial].iloc[0]
-        cc = (
-            CloudCover.CC70 if df_cc == 'na' else (CloudCover(int(df_cc) / 100) if df_cc != 'ANY' else CloudCover.CCANY)
-        )
+        cc = CloudCover(0.7) if df_cc == 'na' else (CloudCover(int(df_cc) / 100) if df_cc != 'ANY' else CloudCover(1.0))
 
         return VariantSnapshot(iq=iq, cc=cc, wind_dir=Angle(292, unit=u.deg), wind_spd=3 * (u.m / u.s))

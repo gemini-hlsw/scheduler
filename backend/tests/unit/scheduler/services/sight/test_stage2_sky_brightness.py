@@ -53,10 +53,10 @@ def test_sky_brightness_not_uniformly_sbany():
     assert sb.dtype == np.float64
     assert np.all(np.isfinite(sb))
     # Moon well below the horizon + deep night => darkest sky (SB20).
-    assert not np.all(sb == float(SkyBackground.SBANY)), (
+    assert not np.all(sb == float(SkyBackground(1.0))), (
         "sky brightness collapsed to SBANY everywhere (the original bug)"
     )
-    assert np.allclose(sb, float(SkyBackground.SB20))
+    assert np.allclose(sb, float(SkyBackground(0.2)))
 
 
 def test_sky_brightness_handles_twilight_without_raising():
@@ -67,7 +67,7 @@ def test_sky_brightness_handles_twilight_without_raising():
     # Sun between the -12 and -18.5 twilight band exercises ztwilight.
     sb = _calculate_sky_brightness_array(**_moon_down_inputs(15, sun_alt_deg=-15.0))
     assert np.all(np.isfinite(sb))
-    assert np.all(sb <= float(SkyBackground.SBANY))
+    assert np.all(sb <= float(SkyBackground(1.0)))
 
 
 def test_bright_moon_overhead_is_brighter_than_dark():
@@ -116,7 +116,7 @@ def test_calculate_visibility_keeps_dark_constrained_observation():
     )
     assert dark.remaining_minutes > 0
     assert dark.sky_brightness is not None
-    assert not all(v == float(SkyBackground.SBANY) for v in dark.sky_brightness)
+    assert not all(v == float(SkyBackground(1.0)) for v in dark.sky_brightness)
 
 
 def test_moon_up_far_separation_not_all_sbany():
@@ -140,4 +140,4 @@ def test_moon_up_far_separation_not_all_sbany():
     )
     sb = _calculate_sky_brightness_array(**inputs)
     assert np.all(np.isfinite(sb))
-    assert not np.all(sb == float(SkyBackground.SBANY)), "every moon-up slot classified SBANY (the AU-unit bug)"
+    assert not np.all(sb == float(SkyBackground(1.0))), "every moon-up slot classified SBANY (the AU-unit bug)"

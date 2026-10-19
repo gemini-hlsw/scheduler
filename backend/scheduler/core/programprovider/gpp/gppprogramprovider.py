@@ -733,10 +733,10 @@ class GppProgramProvider(ProgramProvider):
             sb=conds_percentile[1],
             wv=conds_percentile[2],
             # iq=conds_percentile[3]
-            iq=ImageQuality(to_value(data[GppProgramProvider._ConstraintKeys.IQ]),
-                            constraint_unit=ConstraintUnit.ARCSEC)
+            iq=ImageQuality(
+                to_value(data[GppProgramProvider._ConstraintKeys.IQ]), constraint_unit=ConstraintUnit.ARCSEC
+            ),
         )
-
 
     def parse_constraints(
         self, data: dict, site: Site, base: Optional[Target], wavelength: Optional[Wavelength] = None
@@ -756,8 +756,9 @@ class GppProgramProvider(ProgramProvider):
         # Get the conditions
         # ToDo: support GPP on-target conditions constraints rather than converting to percentile bins
         # The airmass is unknown for hour angle constraints of nonsidereal targets.
-        airmass_max = elevation.airmass_max if elevation.airmass_max is not None \
-            else Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
+        airmass_max = (
+            elevation.airmass_max if elevation.airmass_max is not None else Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
+        )
         conditions = self.parse_conditions(data[GppProgramProvider._ConstraintKeys.KEY], airmass_max, wavelength)
         # print(f'\t\t IQ {conditions.iq} {conditions.iq.unit.name}')
 
