@@ -1,1 +1,0 @@
-When Sight has no stored visibility for an observation and calculates it on the spot, use the observation's own constraints (timing windows, program dates, elevation and sky background) instead of empty defaults, so it no longer shows as visible outside its limits.

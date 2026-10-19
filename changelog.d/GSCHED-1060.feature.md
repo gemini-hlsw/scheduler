@@ -1,1 +1,0 @@
-Allow disabling telemetry
