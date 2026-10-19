@@ -7,6 +7,10 @@ import { Table, TableBody, TableCell, TableRow } from "../ui/table";
 import { isWeatherConnectedVar } from "@/apollo-client";
 import { ConnectionBadge } from "../ui/connectionBadge";
 
+// At most 3 decimals, without trailing zeros (0.70663 -> 0.707, 1 -> 1).
+const formatValue = (value?: number | null) =>
+  value == null ? "" : Number(value.toFixed(3)).toString();
+
 export function DisplayWeather() {
   const isOnline = useReactiveVar(isWeatherConnectedVar);
 
@@ -75,7 +79,7 @@ export function DisplayWeather() {
             {weatherState?.map(
               (data: { site: string; imageQuality: number }) => (
                 <TableCell key={`imageQuality${data.site}`}>
-                  {data.imageQuality}
+                  {formatValue(data.imageQuality)}
                 </TableCell>
               ),
             )}
@@ -89,7 +93,33 @@ export function DisplayWeather() {
             <TableCell>Cloud Cover</TableCell>
             {weatherState?.map((data: { site: string; cloudCover: number }) => (
               <TableCell key={`cloudCover${data.site}`}>
-                {data.cloudCover}
+                {formatValue(data.cloudCover)}
+              </TableCell>
+            ))}
+          </TableRow>
+          <TableRow
+            className={cn(
+              "odd:bg-muted/50 *:px-2",
+              "dark:hover:bg-white/30 hover:bg-black/30",
+            )}
+          >
+            <TableCell>Water Vapor</TableCell>
+            {weatherState?.map((data: { site: string; waterVapor: number }) => (
+              <TableCell key={`waterVapor${data.site}`}>
+                {formatValue(data.waterVapor)}
+              </TableCell>
+            ))}
+          </TableRow>
+          <TableRow
+            className={cn(
+              "odd:bg-muted/50 *:px-2",
+              "dark:hover:bg-white/30 hover:bg-black/30",
+            )}
+          >
+            <TableCell>Sky Background</TableCell>
+            {weatherState?.map((data: { site: string; skyBackground: number }) => (
+              <TableCell key={`skyBackground${data.site}`}>
+                {formatValue(data.skyBackground)}
               </TableCell>
             ))}
           </TableRow>
@@ -103,7 +133,7 @@ export function DisplayWeather() {
             {weatherState?.map(
               (data: { site: string; windDirection: number }) => (
                 <TableCell key={`windDirection${data.site}`}>
-                  {data.windDirection}
+                  {formatValue(data.windDirection)}
                 </TableCell>
               ),
             )}
@@ -117,7 +147,7 @@ export function DisplayWeather() {
             <TableCell>Wind Speed</TableCell>
             {weatherState?.map((data: { site: string; windSpeed: number }) => (
               <TableCell key={`windSpeed${data.site}`}>
-                {data.windSpeed}
+                {formatValue(data.windSpeed)}
               </TableCell>
             ))}
           </TableRow>

@@ -5,6 +5,8 @@ export const updateWeatherMutation = graphql(`
       site
       imageQuality
       cloudCover
+      waterVapor
+      skyBackground
       windDirection
       windSpeed
     }

@@ -35,10 +35,18 @@ interface GlobalStateContextType {
   setSemesterVisibility: React.Dispatch<React.SetStateAction<boolean>>;
   loadingPlan: boolean;
   setLoadingPlan: React.Dispatch<React.SetStateAction<boolean>>;
-  imageQuality: number;
-  setImageQuality: React.Dispatch<React.SetStateAction<number>>;
+  fwhm: number;
+  setFwhm: React.Dispatch<React.SetStateAction<number>>;
+  airmass: number;
+  setAirmass: React.Dispatch<React.SetStateAction<number>>;
+  wavelength: number;
+  setWavelength: React.Dispatch<React.SetStateAction<number>>;
   cloudCover: number;
   setCloudCover: React.Dispatch<React.SetStateAction<number>>;
+  waterVapor: number;
+  setWaterVapor: React.Dispatch<React.SetStateAction<number>>;
+  skyBackground: number;
+  setSkyBackground: React.Dispatch<React.SetStateAction<number>>;
   windDirection: number;
   setWindDirection: React.Dispatch<React.SetStateAction<number>>;
   windSpeed: number;
@@ -72,8 +80,13 @@ export default function GlobalStateProvider({
   const [whaPower, setWhaPower] = useState(1.0);
   const [airPower, setAirPower] = useState(0.0);
   const [ranker, setRanker] = useState<RankerName>("DEFAULT");
-  const [imageQuality, setImageQuality] = useState(0.7);
+  // Inputs to the image quality percentile: FWHM in arcsec, wavelength in micrometers
+  const [fwhm, setFwhm] = useState(0.9);
+  const [airmass, setAirmass] = useState(1.0);
+  const [wavelength, setWavelength] = useState(0.55);
   const [cloudCover, setCloudCover] = useState(0.7);
+  const [waterVapor, setWaterVapor] = useState(1.0);
+  const [skyBackground, setSkyBackground] = useState(1.0);
   const [windDirection, setWindDirection] = useState(20);
   const [windSpeed, setWindSpeed] = useState(10);
   const [semesterVisibility, setSemesterVisibility] = useState(false);
@@ -116,10 +129,18 @@ export default function GlobalStateProvider({
         loadingPlan,
         setLoadingPlan,
         uuid,
-        imageQuality,
-        setImageQuality,
+        fwhm,
+        setFwhm,
+        airmass,
+        setAirmass,
+        wavelength,
+        setWavelength,
         cloudCover,
         setCloudCover,
+        waterVapor,
+        setWaterVapor,
+        skyBackground,
+        setSkyBackground,
         windDirection,
         setWindDirection,
         windSpeed,
