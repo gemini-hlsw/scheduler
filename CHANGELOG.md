@@ -5,6 +5,49 @@ This changelog is managed by [Towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 2026.10.1 (2026-10-19)
+
+### Features
+
+- Update change_monitor with changes to match_conditions
+- The Ranker can now be chosen per run from the Validation UI, so the Default (multiplicative) and Additive (weighted sum) scoring algorithms can be compared side by side without a redeploy. The Ranker Tweaker shows which reading applies, because met/vis/wha are exponents under Default and linear weights under Additive. Selecting a Ranker per run is rejected outside VALIDATION; other modes continue to use config.ranker.name.
+- Add a telemetry module that records operation durations and process memory as OpenTelemetry metrics, exported over OTLP to Grafana Cloud
+- Start using ImageQuality as a continuous range instead of bins and keep it retro-compatible
+- Parse elevation limit from program providers if possible, otherwise do it when the target information is retrieved for nonsidereal targets. Store the elevation limit inside the Constraints class
+- Add target names in scheduler UI table
+- Add memory limit cap on aggregator to stop errors in Heroku and add a script that allow parallel computation for Sight
+- Modify the way the information is retrieved from the ODB and Sight, the observations are filtered down using the available resources first only for the requested to schedule nights, then filtered down again depending on their visibility from Sight and finally retrieved the information about their remaining visibility in a single batch.
+- Allow disabling telemetry
+
+### Bug Fixes
+
+- Stamp weather change events with the simulated clock instead of the wall clock, so a plan requested during a simulated night starts inside that night
+- Retrieve the observation data from the visits when calculating the timeline stats, collector may have None type observations
+- Fix semester first and last date for non-sidereal target ephemeris files
+- Change the condition if night times are set outside the twilight events, sent an error to alert the user and fail the run
+
+  Re-derive the night to schedule on every build instead of once at start-up, and pick it from each site's real twilights rather than a fixed 19:00 UT threshold
+- Add IGRINS-2 to the scheduler plot instruments list
+- Carousel render only current item and neighbours to avoid unnecessary memory usage if multiple plans are requested.
+- Update the default SchedulerParameters to use the whole semester as default for the remaining visibility calculation.
+- Highchart run out of colors in the palette, added 7 extra colors. So far 13 out of 18 colors in the palette are being used.
+- Fix linter issues
+- Fix issues with ODB event handler in Night monitor:
+  - The path for created was throwing a TypeError. That path is unlikely as most addition are handle by Defined -> Ready path
+  - On deleted observations the reference label was incorrectly being matched with ObservationID.
+  - ObservationStatus stored in the last plan was being modified by GM instead of compared with the real ODB retrieved data.
+  - IDLE Timer had the wrong length for partial observations.
+- Fix Visibility tab clashing with some unparsable programs and speed the responde by building a cache so each interaction does not trigger a live ODB query
+- When Sight has no stored visibility for an observation and calculates it on the spot, use the observation's own constraints (timing windows, program dates, elevation and sky background) instead of empty defaults, so it no longer shows as visible outside its limits.
+
+### Improvements
+
+- For updated observations now the Scheduler check if conditions are matched with the current weather conditions and if any changes related to visibility happened requiring a new schedule.
+  Also start the idle watch when a plan takes effect, not only after an ODB event, so a night that stays quiet still gets replanned; stand every timer down at end of night. Stop the Sight Stage-1 bulk read from stalling the event loop during a replan: the unpacking now runs off the loop and returns arrays instead of round-tripping them through Python lists. Read the ODB visibility change log against the wall clock rather than the simulated night, so a past simulation no longer treats historical edits as fresh changes and recomputes visibility for nothing.
+- Deduplicate AdditiveRanker, which was a verbatim copy of DefaultRanker changing one expression. Both Rankers now share a single implementation in the Ranker base and differ only in how they combine the score terms, and there is one RankerParameters class instead of two identical ones (AdditiveRanker previously worked only by duck typing on the other class's parameters). Also fixes a latent crash where passing band_params explicitly left the attribute unset. Scoring output is unchanged, pinned by new bit-exact characterization tests.
+- Add ephemerides for all validation semesters to ephemerides.tar, remove non-sidereal from skipped in the UI
+- Speed up Sight reads for plans: fetch Stage 1 arrays and build target info only for the nights being planned (one in realtime, the full range in validation), look up Stage 1 targets in one query, and drop the unused `visibility_data.constraints` column (migration 012), which held most of the table's data.
+
 ## 2026.09.1 (2026-09-10)
 
 ### Features
