@@ -34,7 +34,6 @@ from lucupy.minimodel import (
     UniqueGroupID,
     Variant,
     VariantSnapshot,
-    Wavelength,
     AndOption,
 )
 from lucupy.minimodel import CloudCover, ImageQuality
@@ -92,7 +91,7 @@ class Selector(SchedulerComponent):
     # Default values for resetting variants.
     _default_iq: ClassVar[ImageQuality] = ImageQuality(0.7)
     _default_cc: ClassVar[CloudCover] = CloudCover(0.7)
-    _default_wind_dir: ClassVar[Angle] = Angle(0., unit=u.deg)
+    _default_wind_dir: ClassVar[Angle] = Angle(0.0, unit=u.deg)
     _default_wind_spd: ClassVar[Quantity] = 0.0 * (u.m / u.s)
 
     _default_variant_snapshot: ClassVar[VariantSnapshot] = VariantSnapshot(
@@ -858,12 +857,11 @@ class Selector(SchedulerComponent):
         """Return IQ over sky based on a FWHM at Zenith"""
 
         # Standard airmass model with zenith iq0
-        iqx = iq0 * x ** 0.6
+        iqx = iq0 * x**0.6
 
         iqsky = iqx * (1.0 + buffer)
 
         return iqsky
-
 
     def match_conditions(
         self,
@@ -909,8 +907,9 @@ class Selector(SchedulerComponent):
             # In general, if given a forecast, would loop over each value in the actual conditions
             # For now we use the first since they will all be the same
             # ToDo: vectorize percentile_to_iq and iq_to_percentile
-            fwhm_zenith = Conditions.percentile_to_iq(actual_conditions.iq[0].value * 100., wavelength=mean_wavelen,
-                                                       airmass=1.0, model='qap')
+            fwhm_zenith = Conditions.percentile_to_iq(
+                actual_conditions.iq[0].value * 100.0, wavelength=mean_wavelen, airmass=1.0, model='qap'
+            )
             # Apply IQ model to get FWHM over the sky
             actual_iq = np.asarray(self.iq_model(az, airmass, fwhm_zenith))
             # print(f'{actual_conditions.iq[0].value} {mean_wavelen} {fwhm_zenith} {min(actual_iq)} {max(actual_iq)}')
@@ -923,11 +922,13 @@ class Selector(SchedulerComponent):
                 else Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
             )
             # print(airmass_max)
-            required_iq_pctile = Conditions.iq_to_percentile(required_conditions.iq.value, mean_wavelen,
-                                                             airmass_max, model='qap') / 100.
+            required_iq_pctile = (
+                Conditions.iq_to_percentile(required_conditions.iq.value, mean_wavelen, airmass_max, model='qap')
+                / 100.0
+            )
 
         else:
-        # Convert the actual conditions to arrays.
+            # Convert the actual conditions to arrays.
             actual_iq = np.asarray(actual_conditions.iq)
             actual_iq_pctile = actual_iq
             required_iq_pctile = required_conditions.iq

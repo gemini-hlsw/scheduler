@@ -24,7 +24,7 @@ _RAW = {
     "weatherUpdates": {
         "site": "GN",
         "imageQuality": 0.7,
-        "cloudCover": CloudCover.CC50.value,
+        "cloudCover": 0.5,
         "windDirection": 90.0,
         "windSpeed": 5.0,
     }
@@ -62,7 +62,7 @@ async def test_weather_change_carries_the_simulated_clock():
     # window rather than an exact instant.
     assert simulated_now <= queued.time < simulated_now + timedelta(minutes=1)
     assert queued.site is Site.GN
-    assert queued.variant_change.cc is CloudCover.CC50
+    assert queued.variant_change.cc == CloudCover(0.5)
 
 
 @pytest.mark.asyncio
