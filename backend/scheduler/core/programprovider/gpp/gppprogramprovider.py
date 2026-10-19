@@ -112,7 +112,9 @@ async def get_gpp_data(program_ids: FrozenSet[str]) -> Iterable[dict]:
 
     try:
         # temporal hack while DB is fixed
-        programs = await gpp.client.scheduler.get_all(programs_list=program_list, exclude_programs=["p-18ca", "p-18b7", "p-d69", "p-d8e"])
+        programs = await gpp.client.scheduler.get_all(
+            programs_list=program_list, exclude_programs=["p-18ca", "p-18b7", "p-d69", "p-d8e"]
+        )
 
         print(f"Adding {len(programs)} programs")
         # Pass the class information as a dictionary to mimic the OCS json format
