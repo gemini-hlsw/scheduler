@@ -3,6 +3,8 @@
 
 import traceback
 from datetime import datetime, timedelta
+# from turtle import config_dict
+
 from dateutil.parser import parse as parsedt
 from astropy.time import Time
 from pathlib import Path
@@ -15,6 +17,7 @@ from lucupy.minimodel import (
     CloudCover,
     Conditions,
     Constraints,
+    ConstraintUnit,
     ElevationType,
     Group,
     GroupID,
@@ -330,7 +333,7 @@ class GppProgramProvider(ProgramProvider):
         BAND = 'queue_band'
         THESIS = 'is_thesis'
         MODE = 'program_mode'
-        TOO_TYPE = 'too_type'
+        TOO_TYPE = 'too_activation'
         TIME_ACCOUNT_ALLOCATION = 'allocations'
         TIME_CHARGE = 'time_charge'
 
@@ -679,10 +682,11 @@ class GppProgramProvider(ProgramProvider):
                 raise ValueError(e, msg)
 
         def to_percent_bin(cond, const, x_max) -> float:
-            """Convert to legacy OCS percentile bins"""
+            """Convert to percentile bins"""
 
-            cc_bins = [0.1, 0.3, 1.0, 3.0]
-            cc_bin_values = [0.5, 0.7, 0.8, 1.0]
+            # GPP CC bins
+            cc_bins = [0.0, 0.1, 0.3, 0.5, 1.0, 2.0, 3.0]
+            cc_bin_values = [0.5, 0.55, 0.7, 0.75, 0.85, 0.95, 1.0]
 
             iq_bins = [0.45, 0.75, 1.05, 1.5]  # for r, should be wavelength dependent
             iq_bin_values = [0.2, 0.7, 0.85, 1.0]
@@ -694,12 +698,13 @@ class GppProgramProvider(ProgramProvider):
                 bin_value = cc_bin_values[-1]
                 for i_bin, bin_lim in enumerate(cc_bins):
                     if value <= bin_lim:
+                        # print(f'CC constraint = {value}, percentile = {cc_bin_values[i_bin]}')
                         return cc_bin_values[i_bin]
                 else:
                     return bin_value
             elif cond == GppProgramProvider._ConstraintKeys.IQ:
                 if wavelength is not None:
-                    percentile_iq = Conditions.percentile_iq(value, wavelength, x_max)
+                    percentile_iq = Conditions.iq_to_percentile(value, wavelength, x_max)
                     return percentile_iq / 100.0
 
                 # If no wavelength is provided, use the default
@@ -713,17 +718,25 @@ class GppProgramProvider(ProgramProvider):
             else:
                 return value
 
-        return Conditions(
-            *[
-                lookup(to_percent_bin(key, data[key], x_max))
-                for lookup, key in [
-                    (CloudCover, GppProgramProvider._ConstraintKeys.CC),
-                    (ImageQuality, GppProgramProvider._ConstraintKeys.IQ),
-                    (SkyBackground, GppProgramProvider._ConstraintKeys.SB),
-                    (WaterVapor, GppProgramProvider._ConstraintKeys.WV),
-                ]
+        conds_percentile = [
+            lookup(to_percent_bin(key, data[key], x_max), unit)
+            for lookup, key, unit in [
+                (CloudCover, GppProgramProvider._ConstraintKeys.CC, ConstraintUnit.PERCENTILE),
+                (SkyBackground, GppProgramProvider._ConstraintKeys.SB, ConstraintUnit.PERCENTILE),
+                (WaterVapor, GppProgramProvider._ConstraintKeys.WV, ConstraintUnit.PERCENTILE),
+                # (ImageQuality, GppProgramProvider._ConstraintKeys.IQ, ConstraintUnit.PERCENTILE),
             ]
+        ]
+
+        return Conditions(
+            cc=conds_percentile[0],
+            sb=conds_percentile[1],
+            wv=conds_percentile[2],
+            # iq=conds_percentile[3]
+            iq=ImageQuality(to_value(data[GppProgramProvider._ConstraintKeys.IQ]),
+                            constraint_unit=ConstraintUnit.ARCSEC)
         )
+
 
     def parse_constraints(
         self, data: dict, site: Site, base: Optional[Target], wavelength: Optional[Wavelength] = None
@@ -743,8 +756,10 @@ class GppProgramProvider(ProgramProvider):
         # Get the conditions
         # ToDo: support GPP on-target conditions constraints rather than converting to percentile bins
         # The airmass is unknown for hour angle constraints of nonsidereal targets.
-        airmass_max = elevation.airmass_max if elevation.airmass_max is not None else 2.0
+        airmass_max = elevation.airmass_max if elevation.airmass_max is not None \
+            else Constraints.DEFAULT_AIRMASS_ELEVATION_MAX
         conditions = self.parse_conditions(data[GppProgramProvider._ConstraintKeys.KEY], airmass_max, wavelength)
+        # print(f'\t\t IQ {conditions.iq} {conditions.iq.unit.name}')
 
         return Constraints(conditions=conditions, elevation=elevation, timing_windows=timing_windows, strehl=None)
 
