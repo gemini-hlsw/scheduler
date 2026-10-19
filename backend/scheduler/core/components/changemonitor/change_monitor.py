@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from typing import cast, final, Dict, Optional, Set
 
 import numpy as np
+from execnet.gateway import rinfo_source
+
 from lucupy.minimodel import NightIndex, ObservationClass, Site, TimeslotIndex, ObservationStatus, TooType, Band
 
 from scheduler.core.components.base import SchedulerComponent
@@ -219,23 +221,24 @@ class ChangeMonitor(SchedulerComponent):
                 obs = self.collector.get_observation(visit.observation.id)
 
                 # Most restrictive conditions.
-                mrc = obs.constraints.conditions
+                # mrc = obs.constraints.conditions
 
                 # TODO: This code is somewhat duplicated from Selector. See if we can simplify it, although in this
                 # TODO: case, it is for a single night instead of all nights.
                 target_info = self.collector.get_target_info(obs.id)
                 if obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]:
-                    neg_ha = target_info[night_idx].hourangle[0].value < 0
+                    # neg_ha = target_info[night_idx].hourangle[0].value < 0
+                    rising = Selector.is_rising(self, obs, target_info[night_idx])
                 else:
-                    neg_ha = False
-                too_type = obs.too_type
+                    rising = True
+                # too_type = obs.too_type
 
                 # Create a variant representing the weather values and match conditions on it to see if we can
                 # complete the executing visit.
                 # The values here will all be 0 or 1 since the Variant has consistent values, but check regardless if
                 # there is a timeslot where we cannot execute the visit. If so, recalculate the plan now.
                 variant = variant_change.make_variant(remaining_time_slots)
-                slot_values = Selector.match_conditions(mrc, variant, neg_ha, too_type)
+                slot_values = Selector.match_conditions(self, obs, variant, rising, night_idx)
                 if not np.all(slot_values > 0):
                     return TimeCoordinateRecord(event=event, timeslot_idx=event_timeslot)
 
