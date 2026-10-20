@@ -7,7 +7,6 @@ export const weatherUpdatesSubscription = graphql(`
       imageQuality
       cloudCover
       waterVapor
-      skyBackground
       windDirection
       windSpeed
     }

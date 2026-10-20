@@ -6,7 +6,6 @@ export const getWeather = graphql(`
       imageQuality
       cloudCover
       waterVapor
-      skyBackground
       windDirection
       windSpeed
     }

@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { GlobalStateContext } from "../GlobalState/GlobalState";
 import { Button } from "@/components/ui/button";
 import { updateWeatherMutation } from "./mutation";
@@ -45,13 +45,6 @@ const WV_OPTIONS: OptionType[] = [
   { label: "Wet", value: 1.0 },
 ];
 
-const SB_OPTIONS: OptionType[] = [
-  { label: "Darkest", value: 0.2 },
-  { label: "Dark", value: 0.5 },
-  { label: "Gray", value: 0.8 },
-  { label: "Bright", value: 1.0 },
-];
-
 const SITE_OPTIONS: OptionType<string>[] = [
   { label: "GN", value: "GN" },
   { label: "GS", value: "GS" },
@@ -63,21 +56,25 @@ function OptionSelect<T>({
   onChange,
   placeholder,
   className,
+  disabled = false,
 }: {
   options: OptionType<T>[];
   value: T | undefined;
   onChange: (value: T) => void;
   placeholder: string;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <Combobox
+      disabled={disabled}
       items={options}
       itemToStringValue={(item: OptionType<T>) => item.label}
       onValueChange={(e) => e && onChange(e.value)}
     >
       <ComboboxInput
         className={className}
+        disabled={disabled}
         placeholder={placeholder}
         value={options.find((i) => i.value === value)?.label ?? ""}
       />
@@ -107,6 +104,7 @@ function PercentSelect({
   onChange: (value: number) => void;
   placeholder: string;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className={cn(className, "flex items-center gap-2")}>
@@ -115,11 +113,50 @@ function PercentSelect({
         className={cn(
           "text-sm tabular-nums shrink-0",
           vertical ? "w-12 text-right" : "w-10",
+          props.disabled && "opacity-50",
         )}
       >
         {`${Math.round(props.value * 100)} %`}
       </span>
     </div>
+  );
+}
+
+/**
+ * A number input that keeps the text as typed, so clearing a field leaves it empty instead
+ * of putting a 0 back (which then turned "5" into "05"). An empty or unparsable field
+ * reports NaN, which the panel treats as invalid.
+ */
+function NumberInput({
+  value,
+  onValueChange,
+  ...props
+}: Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "type"> & {
+  value: number;
+  onValueChange: (value: number) => void;
+}) {
+  const [text, setText] = useState(Number.isNaN(value) ? "" : String(value));
+
+  // Follow changes made elsewhere (the other tab's panel shares this state), but leave the
+  // text alone while it already reads as the current value.
+  useEffect(() => {
+    if (!Object.is(parseFloat(text), value)) {
+      setText(Number.isNaN(value) ? "" : String(value));
+    }
+  }, [value]);
+
+  return (
+    <Input
+      {...props}
+      type="number"
+      value={text}
+      onChange={(e) => {
+        // Typing after an existing 0 gives "05": drop the leading zeros ("0.5" is kept).
+        const typed = e.target.value.replace(/^(-?)0+(?=\d)/, "$1");
+        setText(typed);
+        onValueChange(parseFloat(typed));
+      }}
+    />
   );
 }
 
@@ -141,8 +178,6 @@ export default function WeatherConditions({
     setCloudCover,
     waterVapor,
     setWaterVapor,
-    skyBackground,
-    setSkyBackground,
     windDirection,
     setWindDirection,
     windSpeed,
@@ -151,7 +186,13 @@ export default function WeatherConditions({
 
   const [siteState, setSite] = useState<string | undefined>(undefined);
 
-  const iqInputsValid = fwhm > 0 && airmass >= 1 && wavelength > 0;
+  // A FWHM of 0 is excluded: it is raised to a negative power, which gives a meaningless 0 %.
+  const fwhmValid = fwhm > 0 && fwhm <= 5;
+  const airmassValid = airmass >= 1 && airmass <= 3;
+  const wavelengthValid = wavelength > 0;
+  const iqInputsValid = fwhmValid && airmassValid && wavelengthValid;
+  const windDirectionValid = windDirection >= 0 && windDirection <= 360;
+  const windSpeedValid = windSpeed >= 0 && windSpeed <= 100;
   const iqPercentile = iqInputsValid
     ? iqToPercentile(fwhm, wavelength, airmass)
     : undefined;
@@ -161,14 +202,15 @@ export default function WeatherConditions({
   });
 
   function sendWeatherUpdate() {
-    if (iqPercentile === undefined) return;
+    if (iqPercentile === undefined || !windDirectionValid || !windSpeedValid) {
+      return;
+    }
     updateWeather({
       variables: {
         weatherInput: {
           imageQuality: iqPercentile / 100,
           cloudCover,
           waterVapor,
-          skyBackground,
           windDirection,
           windSpeed,
           site: siteState,
@@ -220,44 +262,43 @@ export default function WeatherConditions({
               <FieldLabel className={iqLabelClass} htmlFor="iq-fwhm">
                 FWHM (arcsec)
               </FieldLabel>
-              <Input
+              <NumberInput
                 className={iqInputClass}
                 id="iq-fwhm"
-                onChange={(e) => setFwhm(parseFloat(e.target.value) || 0)}
+                onValueChange={setFwhm}
                 value={fwhm}
-                type="number"
                 step={0.01}
-                aria-invalid={fwhm <= 0}
+                min={0}
+                max={5}
+                aria-invalid={!fwhmValid}
               />
             </Field>
             <Field orientation={orientation} className={iqFieldClass}>
               <FieldLabel className={iqLabelClass} htmlFor="iq-airmass">
                 Airmass
               </FieldLabel>
-              <Input
+              <NumberInput
                 className={iqInputClass}
                 id="iq-airmass"
-                onChange={(e) => setAirmass(parseFloat(e.target.value) || 0)}
+                onValueChange={setAirmass}
                 value={airmass}
-                type="number"
                 step={0.01}
-                aria-invalid={airmass < 1}
+                min={1}
+                max={3}
+                aria-invalid={!airmassValid}
               />
             </Field>
             <Field orientation={orientation} className={iqFieldClass}>
               <FieldLabel className={iqLabelClass} htmlFor="iq-wavelength">
                 Wavelength (µm)
               </FieldLabel>
-              <Input
+              <NumberInput
                 className={iqInputClass}
                 id="iq-wavelength"
-                onChange={(e) =>
-                  setWavelength(parseFloat(e.target.value) || 0)
-                }
+                onValueChange={setWavelength}
                 value={wavelength}
-                type="number"
                 step={0.01}
-                aria-invalid={wavelength <= 0}
+                aria-invalid={!wavelengthValid}
               />
             </Field>
             <Field orientation={orientation} className={iqFieldClass}>
@@ -303,47 +344,34 @@ export default function WeatherConditions({
               placeholder="Select WV"
               className={controlClass}
               vertical={vertical}
-            />
-          </Field>
-          <Field orientation={orientation}>
-            <FieldLabel className={labelClass} htmlFor="sky-background">
-              Sky background
-            </FieldLabel>
-            <PercentSelect
-              options={SB_OPTIONS}
-              value={skyBackground}
-              onChange={setSkyBackground}
-              placeholder="Select SB"
-              className={controlClass}
-              vertical={vertical}
+              // Not used by the scheduler yet: keep the default until it is.
+              disabled
             />
           </Field>
           <Field orientation={orientation}>
             <FieldLabel className={labelClass} htmlFor="wind-dir">
               Wind direction (deg)
             </FieldLabel>
-            <Input
+            <NumberInput
               className={controlClass}
               id="wind-dir"
-              onChange={(e) => setWindDirection(parseFloat(e.target.value) || 0)}
+              onValueChange={setWindDirection}
               value={windDirection}
-              type="number"
               step={0.1}
-              aria-invalid={windDirection < 0 || windDirection > 360}
+              aria-invalid={!windDirectionValid}
             />
           </Field>
           <Field orientation={orientation}>
             <FieldLabel className={labelClass} htmlFor="wind-speed">
               Wind speed (m/s)
             </FieldLabel>
-            <Input
+            <NumberInput
               className={controlClass}
               id="wind-speed"
-              onChange={(e) => setWindSpeed(parseFloat(e.target.value) || 0)}
+              onValueChange={setWindSpeed}
               value={windSpeed}
-              type="number"
               step={0.1}
-              aria-invalid={windSpeed < 0 || windSpeed > 100}
+              aria-invalid={!windSpeedValid}
             />
           </Field>
         </div>
@@ -378,7 +406,12 @@ export default function WeatherConditions({
                 "dark:text-white text-black dark:bg-green-800 bg-green-400",
                 "dark:hover:bg-green-700 hover:bg-green-500",
               )}
-              disabled={!siteState || iqPercentile === undefined}
+              disabled={
+                !siteState ||
+                iqPercentile === undefined ||
+                !windDirectionValid ||
+                !windSpeedValid
+              }
               onClick={sendWeatherUpdate}
             >
               <FaCloudSun />
