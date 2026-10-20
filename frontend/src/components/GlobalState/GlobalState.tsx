@@ -45,8 +45,6 @@ interface GlobalStateContextType {
   setCloudCover: React.Dispatch<React.SetStateAction<number>>;
   waterVapor: number;
   setWaterVapor: React.Dispatch<React.SetStateAction<number>>;
-  skyBackground: number;
-  setSkyBackground: React.Dispatch<React.SetStateAction<number>>;
   windDirection: number;
   setWindDirection: React.Dispatch<React.SetStateAction<number>>;
   windSpeed: number;
@@ -86,7 +84,6 @@ export default function GlobalStateProvider({
   const [wavelength, setWavelength] = useState(0.55);
   const [cloudCover, setCloudCover] = useState(0.7);
   const [waterVapor, setWaterVapor] = useState(1.0);
-  const [skyBackground, setSkyBackground] = useState(1.0);
   const [windDirection, setWindDirection] = useState(20);
   const [windSpeed, setWindSpeed] = useState(5);
   const [semesterVisibility, setSemesterVisibility] = useState(false);
@@ -139,8 +136,6 @@ export default function GlobalStateProvider({
         setCloudCover,
         waterVapor,
         setWaterVapor,
-        skyBackground,
-        setSkyBackground,
         windDirection,
         setWindDirection,
         windSpeed,

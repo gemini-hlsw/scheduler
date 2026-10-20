@@ -116,19 +116,6 @@ export function DisplayWeather() {
               "dark:hover:bg-white/30 hover:bg-black/30",
             )}
           >
-            <TableCell>Sky Background</TableCell>
-            {weatherState?.map((data: { site: string; skyBackground: number }) => (
-              <TableCell key={`skyBackground${data.site}`}>
-                {formatValue(data.skyBackground)}
-              </TableCell>
-            ))}
-          </TableRow>
-          <TableRow
-            className={cn(
-              "odd:bg-muted/50 *:px-2",
-              "dark:hover:bg-white/30 hover:bg-black/30",
-            )}
-          >
             <TableCell>Wind Direction</TableCell>
             {weatherState?.map(
               (data: { site: string; windDirection: number }) => (
