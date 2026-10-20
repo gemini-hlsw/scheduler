@@ -709,6 +709,16 @@ def _params(**kwargs):
     return patch(f"{_BASE_MODULE}.build_params_store", store)
 
 
+# _reference_time returns the real clock for now (see the TODO in event_handler.py), so the
+# anchoring below is switched off. These describe it for when it comes back: strict, so a test
+# that passes again fails until its marker is removed.
+_ANCHORING_DISABLED = pytest.mark.xfail(
+    reason="_reference_time always returns datetime.now(UTC) until the anchoring is fixed",
+    raises=AssertionError,
+    strict=True,
+)
+
+
 @pytest.mark.asyncio
 async def test_reference_time_defaults_to_the_real_clock(handler_factory):
     # Untouched build parameters mean a plain real-time run tonight.
@@ -717,6 +727,48 @@ async def test_reference_time_defaults_to_the_real_clock(handler_factory):
         assert abs((await handler._reference_time(_SITE)) - datetime.now(UTC)) < timedelta(seconds=5)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"visibility_start": datetime(2026, 5, 13, tzinfo=UTC)},
+        {"simulated_now": datetime(2026, 5, 13, 2, 30, tzinfo=UTC)},
+        {
+            "visibility_start": datetime(2026, 5, 13, tzinfo=UTC),
+            "simulated_now": datetime(2026, 5, 13, 2, 30, tzinfo=UTC),
+        },
+    ],
+    ids=["visibility_start", "simulated_now", "both"],
+)
+async def test_reference_time_is_the_real_clock_even_when_simulating(handler_factory, params):
+    # While the anchoring is off, customized build parameters must not move the clock.
+    handler = handler_factory()
+    handler.nightly_timeline_store.night_start = AsyncMock(return_value=datetime(2026, 5, 12, 22, 53, tzinfo=UTC))
+
+    with _params(**params):
+        when = await handler._reference_time(_SITE)
+
+    assert abs(when - datetime.now(UTC)) < timedelta(seconds=5)
+
+
+@pytest.mark.asyncio
+async def test_reference_time_is_the_same_for_every_site(handler_factory):
+    """
+    GN and GS must share one clock: anchoring each site on its own night start stamped a GN
+    event with GN's twilight, and the GS plan built from it started in the middle of its night.
+    """
+    nights = {Site.GN: datetime(2026, 5, 13, 5, 32, tzinfo=UTC), Site.GS: datetime(2026, 5, 12, 22, 53, tzinfo=UTC)}
+    handler = handler_factory()
+    handler.nightly_timeline_store.night_start = AsyncMock(side_effect=lambda site: nights.get(site))
+
+    with _params(visibility_start=datetime(2026, 5, 13, tzinfo=UTC)):
+        times = [await handler._reference_time(site) for site in (Site.GN, Site.GS, None)]
+
+    assert max(times) - min(times) < timedelta(seconds=5)
+    assert abs(times[0] - datetime.now(UTC)) < timedelta(seconds=5)
+
+
+@_ANCHORING_DISABLED
 @pytest.mark.asyncio
 async def test_reference_time_anchors_on_the_plans_night(handler_factory):
     # Build parameters point at another night, and no simulated instant was given, so the
@@ -744,6 +796,7 @@ async def test_reference_time_falls_back_to_now_before_any_plan(handler_factory)
     assert abs(when - datetime.now(UTC)) < timedelta(seconds=5)
 
 
+@_ANCHORING_DISABLED
 @pytest.mark.asyncio
 async def test_reference_time_prefers_simulated_now_over_the_night_start(handler_factory):
     # simulated_now is the "jump to this point in the night" override.
@@ -758,6 +811,7 @@ async def test_reference_time_prefers_simulated_now_over_the_night_start(handler
     assert abs(when - anchor) < timedelta(seconds=5)
 
 
+@_ANCHORING_DISABLED
 @pytest.mark.asyncio
 async def test_reference_time_advances_with_the_real_clock(handler_factory):
     # The anchor is not frozen: a READY -> ONGOING -> COMPLETED run spread over real minutes
@@ -775,6 +829,7 @@ async def test_reference_time_advances_with_the_real_clock(handler_factory):
     assert abs(when - (anchor + timedelta(minutes=17))) < timedelta(seconds=5)
 
 
+@_ANCHORING_DISABLED
 @pytest.mark.asyncio
 async def test_simulated_now_makes_a_past_night_comparable(handler_factory):
     """
@@ -793,6 +848,7 @@ async def test_simulated_now_makes_a_past_night_comparable(handler_factory):
     assert handler.observation_execution_timer[_SITE].pending
 
 
+@_ANCHORING_DISABLED
 @pytest.mark.asyncio
 async def test_raised_events_carry_the_simulated_clock(handler_factory):
     """
@@ -813,6 +869,7 @@ async def test_raised_events_carry_the_simulated_clock(handler_factory):
     assert abs(_queued_event(handler).time - anchor) < timedelta(seconds=5)
 
 
+@_ANCHORING_DISABLED
 @pytest.mark.asyncio
 async def test_created_event_carries_the_simulated_clock(handler_factory):
     # Every path that raises an event must agree on the clock, not just the ONGOING one.

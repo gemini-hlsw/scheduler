@@ -48,6 +48,17 @@ def _queued_event(handler):
     return handler.scheduler_queue.add_schedule_event.await_args.args[0]
 
 
+# _reference_time returns the real clock for now (see the TODO in event_handler.py), so the
+# anchoring below is switched off. These describe it for when it comes back: strict, so a test
+# that passes again fails until its marker is removed.
+_ANCHORING_DISABLED = pytest.mark.xfail(
+    reason="_reference_time always returns datetime.now(UTC) until the anchoring is fixed",
+    raises=AssertionError,
+    strict=True,
+)
+
+
+@_ANCHORING_DISABLED
 @pytest.mark.asyncio
 async def test_weather_change_carries_the_simulated_clock():
     handler = _handler()
@@ -65,6 +76,7 @@ async def test_weather_change_carries_the_simulated_clock():
     assert queued.variant_change.cc == CloudCover(0.5)
 
 
+@_ANCHORING_DISABLED
 @pytest.mark.asyncio
 async def test_weather_change_anchors_on_the_nights_twilight_without_a_simulated_now():
     night_start = datetime(2026, 8, 26, 5, 32, tzinfo=UTC)
@@ -84,6 +96,19 @@ async def test_weather_change_uses_the_real_clock_when_not_simulating():
     before = datetime.now(UTC)
 
     with _build_params_store(BuildParameters()):
+        await handler.handle("weather_change", _RAW)
+
+    assert before <= _queued_event(handler).time <= datetime.now(UTC)
+
+
+@pytest.mark.asyncio
+async def test_weather_change_uses_the_real_clock_even_with_a_simulated_now():
+    # While the anchoring is off, a simulated_now in the build parameters is ignored.
+    handler = _handler(night_start=datetime(2026, 8, 26, 5, 32, tzinfo=UTC))
+    params = BuildParameters(simulated_now=datetime(2026, 8, 26, 6, 0, tzinfo=UTC))
+    before = datetime.now(UTC)
+
+    with _build_params_store(params):
         await handler.handle("weather_change", _RAW)
 
     assert before <= _queued_event(handler).time <= datetime.now(UTC)
