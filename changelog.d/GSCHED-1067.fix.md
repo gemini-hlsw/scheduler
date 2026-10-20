@@ -1,0 +1,1 @@
+Currently the ODB subscription changes triggers in a time anchored depending on the site, that may lead to compute wrong plans for the other sites. All time will be used as UTC now instead and the UI will hide the simulated now option for now.

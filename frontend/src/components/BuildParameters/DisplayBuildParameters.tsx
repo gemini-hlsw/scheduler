@@ -8,6 +8,10 @@ import {
 import { stringDateToLocalString } from "@/helpers/utcTime";
 import { cn } from "@/lib/utils";
 
+// Simulated Now is no longer set from the UI. Its state and the value sent to the backend
+// are kept, so set this back to true to bring the input (and its badge) back.
+export const SHOW_SIMULATED_NOW = false;
+
 function getLatestData(
   queryData: BuildParametersQuery,
   subscriptionData: BuildParametersUpdatesSubscription
@@ -156,9 +160,11 @@ export default function DisplayBuildParameters() {
       <div className="h-9 text-nowrap flex flex-row items-center">
         <TimeBadge time={data.gsEnd} />
       </div>
-      <div className="h-9 text-nowrap flex flex-row items-center">
-        <TimeBadge time={data.simulatedNow} />
-      </div>
+      {SHOW_SIMULATED_NOW && (
+        <div className="h-9 text-nowrap flex flex-row items-center">
+          <TimeBadge time={data.simulatedNow} />
+        </div>
+      )}
     </div>
   );
 }
