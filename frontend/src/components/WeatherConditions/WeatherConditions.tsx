@@ -186,8 +186,8 @@ export default function WeatherConditions({
 
   const [siteState, setSite] = useState<string | undefined>(undefined);
 
-  // A FWHM of 0 is excluded: it is raised to a negative power, which gives a meaningless 0 %.
-  const fwhmValid = fwhm > 0 && fwhm <= 5;
+  // A FWHM of 0 gives 0 %, the same as any FWHM below ~0.37" at 0.55 µm.
+  const fwhmValid = fwhm >= 0 && fwhm <= 5;
   const airmassValid = airmass >= 1 && airmass <= 3;
   const wavelengthValid = wavelength > 0;
   const iqInputsValid = fwhmValid && airmassValid && wavelengthValid;
