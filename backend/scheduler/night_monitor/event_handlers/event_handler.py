@@ -54,6 +54,11 @@ class EventHandler(ABC):
         the Engine turns ``event.time`` into a timeslot offset from the night's twilight, so a real
         timestamp against a simulated night lands thousands of timeslots past the night's end.
         """
+
+        ## Temporary hack for octover tests
+        # TODO: Separate the simulated time from the real time depending on how the system is configured.
+        return datetime.now(UTC)
+
         build_params = await build_params_store.get()
         if not build_params.is_customized():
             return datetime.now(UTC)

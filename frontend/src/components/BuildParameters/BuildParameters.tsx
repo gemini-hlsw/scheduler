@@ -17,7 +17,9 @@ import { useMutation, useQuery } from "@apollo/client";
 import { updateBuildParameters } from "./mutation";
 import { SiteNightTimesEntry } from "@/gql/graphql";
 import { getProgramList } from "./query";
-import DisplayBuildParameters from "./DisplayBuildParameters";
+import DisplayBuildParameters, {
+  SHOW_SIMULATED_NOW,
+} from "./DisplayBuildParameters";
 
 export default function BuildParameters({
   vertical = false,
@@ -239,20 +241,24 @@ export default function BuildParameters({
               />
             }
           />
-          <DateTimeSelector
-            title="Simulated Now (UT)"
-            dateTime={simulatedNow!}
-            setDateTime={setSimulatedNow}
-            setToNow={() => {}}
-            setToNowButton={false}
-            vertical={vertical}
-            clearButton={
-              <FaTrash
-                className={cn(simulatedNow ? "text-red-500 cursor-pointer" : "")}
-                onClick={() => setSimulatedNow(undefined)}
-              />
-            }
-          />
+          {SHOW_SIMULATED_NOW && (
+            <DateTimeSelector
+              title="Simulated Now (UT)"
+              dateTime={simulatedNow!}
+              setDateTime={setSimulatedNow}
+              setToNow={() => {}}
+              setToNowButton={false}
+              vertical={vertical}
+              clearButton={
+                <FaTrash
+                  className={cn(
+                    simulatedNow ? "text-red-500 cursor-pointer" : ""
+                  )}
+                  onClick={() => setSimulatedNow(undefined)}
+                />
+              }
+            />
+          )}
           <ProgramSelectorDialog
             programs={programs}
             setProgram={setProgram}
