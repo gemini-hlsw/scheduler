@@ -67,7 +67,7 @@ export default function GlobalStateProvider({
   });
   const [nightPlans, setNightPlans] = useState<NightPlanType[]>([]);
   const [rtPlan, setRtPlan] = useState<NightPlansWithEvent>(
-    {} as NightPlansWithEvent
+    {} as NightPlansWithEvent,
   );
   const [plansSummary, setPlansSummary] = useState<RunSummary>({
     summary: {},
@@ -88,7 +88,7 @@ export default function GlobalStateProvider({
   const [waterVapor, setWaterVapor] = useState(1.0);
   const [skyBackground, setSkyBackground] = useState(1.0);
   const [windDirection, setWindDirection] = useState(20);
-  const [windSpeed, setWindSpeed] = useState(10);
+  const [windSpeed, setWindSpeed] = useState(5);
   const [semesterVisibility, setSemesterVisibility] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [uuid] = useState(
@@ -96,7 +96,7 @@ export default function GlobalStateProvider({
       .toISOString()
       .substring(0, 16)
       .replaceAll("-", "")
-      .replace(":", "")
+      .replace(":", ""),
   );
 
   return (

@@ -43,9 +43,8 @@ export default function OnDemandControl() {
   return (
     <div
       className={cn(
-        "border rounded-md flex gap-2 p-3 flex-wrap",
+        "border rounded-md grid grid-cols-2 gap-2 p-3 w-full",
         "dark:bg-white/20 bg-black/10",
-        "flex-col",
       )}
     >
       <RunButton
@@ -53,6 +52,7 @@ export default function OnDemandControl() {
         run={runPlan}
         isRunDisabled={loadingPlan}
         title="RUN FROM START OF NIGHT"
+        full={true}
       />
 
       <RunButton
@@ -60,6 +60,7 @@ export default function OnDemandControl() {
         run={onDemandPlan}
         isRunDisabled={loadingPlan}
         title="RUN FROM NOW"
+        full={true}
       />
     </div>
   );
