@@ -12,9 +12,9 @@ export default function Operation() {
 
   return (
     <div className="flex flex-col gap-2">
+      <OnDemandControl />
       <div className="flex flex-row md:flex-row w-full gap-2">
         <div className={cn("grow flex gap-2 flex-row")}>
-          <OnDemandControl />
           <BuildParameters vertical={true} />
           <WeatherConditions vertical={true} updateButton={true} />
           <DisplayWeather />
