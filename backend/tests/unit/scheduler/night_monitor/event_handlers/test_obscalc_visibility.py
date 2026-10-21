@@ -83,7 +83,7 @@ def _value(
             sky_background=sb,
             elevation_range=SimpleNamespace(air_mass=air_mass, hour_angle=hour_angle),
         ),
-        timing_windows=timing_windows or [],
+        scheduling_constraints=SimpleNamespace(timing_windows=timing_windows or []),
         program=SimpleNamespace(active=SimpleNamespace(start=start, end=end)),
     )
 

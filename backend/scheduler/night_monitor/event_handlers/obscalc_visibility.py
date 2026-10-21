@@ -143,7 +143,7 @@ def build_constraints(value: ObscalcValue, range_end: datetime) -> ObservationCo
         elevation_type=elevation_type,
         elevation_min=elevation_min,
         elevation_max=elevation_max,
-        timing_windows=expand_event_timing_windows(value.timing_windows, range_end),
+        timing_windows=expand_event_timing_windows(value.scheduling_constraints.timing_windows, range_end),
         has_resources=True,
         can_schedule=True,
     )

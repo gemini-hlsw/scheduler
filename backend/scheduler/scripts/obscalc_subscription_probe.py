@@ -83,15 +83,17 @@ _SELECTION = """
         hourAngle { minHours maxHours }
       }
     }
-    timingWindows {
-      inclusion
-      startUtc
-      end {
-        __typename
-        ... on TimingWindowEndAt { atUtc }
-        ... on TimingWindowEndAfter {
-          after { seconds }
-          repeat { period { seconds } times }
+    schedulingConstraints {
+      timingWindows {
+        inclusion
+        startUtc
+        end {
+          __typename
+          ... on TimingWindowEndAt { atUtc }
+          ... on TimingWindowEndAfter {
+            after { seconds }
+            repeat { period { seconds } times }
+          }
         }
       }
     }
