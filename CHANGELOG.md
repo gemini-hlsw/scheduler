@@ -5,6 +5,21 @@ This changelog is managed by [Towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 2026.10.3 (2026-10-21)
+
+### Features
+
+- Updates to the weather panels to add new inputs and match the latest weather service schema.
+- Add pagination to the Available Programs view in the UI, so the current 179 programs can be easily displayed independently of the screen size.
+
+### Bug Fixes
+
+- Currently the ODB subscription changes triggers in a time anchored depending on the site, that may lead to compute wrong plans for the other sites. All time will be used as UTC now instead and the UI will hide the simulated now option for now.
+- Remove Sky Background from weather inputs, fix trailing 0 at beginning of the number inputs, temporarily disable water vapor input.
+- Fix the Updates subscription to use new timing window fields
+- Rearrange the operation panels, set the default wind speed to 5 m/s in the ui
+- Fix Nighttracker dates and idle time on day times
+
 ## 2026.10.2 (2026-10-19)
 
 No significant changes.
