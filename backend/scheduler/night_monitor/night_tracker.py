@@ -59,13 +59,13 @@ class NightTracker:
         for site in self.sites:
             all_events.extend(self.calculate_night_events(self.date, site))
 
-        sorted_events = sorted(all_events, key=lambda x: x.time)
+        # The night ends at the last morning twilight
+        end_of_night = max(e.time for e in all_events if isinstance(e, MorningTwilightEvent)) + timedelta(minutes=5)
+        sorted_events = sorted((e for e in all_events if e.time < end_of_night), key=lambda x: x.time)
 
         # Add end of night event
         sorted_events.append(
-            EndOfNightEvent(
-                description="End of Night", time=(sorted_events[-1].time + timedelta(minutes=5)), site="Both"
-            ),
+            EndOfNightEvent(description="End of Night", time=end_of_night, site="Both"),
         )
         return sorted_events
 
