@@ -173,13 +173,18 @@ class ChangeMonitor(SchedulerComponent):
                 )
 
             case WeatherChangeEvent(variant_change=variant_change):
-                # Regardless, we want to change the weather values for CC and IQ.
+                # Regardless, we want to change the weather values for CC, IQ and WV.
                 current_variant = self.selector.get_current_variant(site)
-                if current_variant.iq == variant_change.iq and current_variant.cc == variant_change.cc:
+                if (
+                    current_variant.iq == variant_change.iq
+                    and current_variant.cc == variant_change.cc
+                    and current_variant.wv == variant_change.wv
+                ):
                     logger.info(
                         'We skip this as is the same conditions as current variant.'
                         + f'\n\t current IQ: {current_variant.iq} vs new IQ: {variant_change.iq}.'
                         f'\n\t current CC: {current_variant.cc} vs new CC: {variant_change.cc}.'
+                        f'\n\t current WV: {current_variant.wv} vs new WV: {variant_change.wv}.'
                     )
                     self.selector.update_site_variant(site, variant_change)
                     return None

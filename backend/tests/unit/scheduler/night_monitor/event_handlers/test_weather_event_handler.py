@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from lucupy.minimodel import CloudCover, Site
+from lucupy.minimodel import CloudCover, Site, WaterVapor
 
 from scheduler.engine.params import BuildParameters
 from scheduler.night_monitor.event_handlers.weather_event_handler import WeatherEventHandler
@@ -25,6 +25,7 @@ _RAW = {
         "site": "GN",
         "imageQuality": 0.7,
         "cloudCover": 0.5,
+        "waterVapor": 0.8,
         "windDirection": 90.0,
         "windSpeed": 5.0,
     }
@@ -112,3 +113,14 @@ async def test_weather_change_uses_the_real_clock_even_with_a_simulated_now():
         await handler.handle("weather_change", _RAW)
 
     assert before <= _queued_event(handler).time <= datetime.now(UTC)
+
+
+def test_weather_change_carries_the_water_vapor():
+    event = _handler().parse_weather_change(_RAW)
+    assert event.variant_change.wv == WaterVapor(0.8)
+
+
+def test_weather_change_without_water_vapor_assumes_any():
+    raw = {"weatherUpdates": {**_RAW["weatherUpdates"], "waterVapor": None}}
+    event = _handler().parse_weather_change(raw)
+    assert event.variant_change.wv == WaterVapor(1.0)

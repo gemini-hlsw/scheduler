@@ -8,7 +8,7 @@ from typing import Dict, Final, FrozenSet, Optional
 import astropy.units as u
 import pandas as pd
 from astropy.coordinates import Angle
-from lucupy.minimodel import ALL_SITES, CloudCover, ImageQuality, Site, VariantSnapshot
+from lucupy.minimodel import ALL_SITES, CloudCover, ImageQuality, Site, VariantSnapshot, WaterVapor
 
 from definitions import ROOT_DIR
 from scheduler.services import logger_factory
@@ -27,6 +27,7 @@ class SimEnvService(ExternalService):
     _local_time_stamp_col: Final[str] = 'Local_Time'
     _cc_col: Final[str] = 'raw_cc'
     _iq_col: Final[str] = 'raw_iq'
+    _wv_col: Final[str] = 'raw_wv'
     _wind_speed_col: Final[str] = 'WindSpeed'
     _wind_dir_col: Final[str] = 'WindDir'
 
@@ -73,10 +74,13 @@ class SimEnvService(ExternalService):
         timestamp = row[SimEnvService._local_time_stamp_col].to_pydatetime()
         iq = ImageQuality(row[SimEnvService._iq_col])
         cc = CloudCover(row[SimEnvService._cc_col])
+        # Not every weather data file has water vapor: assume the worst (WV ANY) when it is missing.
+        raw_wv = row.get(SimEnvService._wv_col)
+        wv = WaterVapor(1.0 if pd.isna(raw_wv) else raw_wv)
         wind_dir = Angle(row[SimEnvService._wind_dir_col], unit=u.deg)
         wind_spd = row[SimEnvService._wind_speed_col] * (u.m / u.s)
 
-        variant_change = VariantSnapshot(iq=iq, cc=cc, wind_dir=wind_dir, wind_spd=wind_spd)
+        variant_change = VariantSnapshot(iq=iq, cc=cc, wv=wv, wind_dir=wind_dir, wind_spd=wind_spd)
         return timestamp, variant_change
 
     def get_variant_changes_for_night(self, site: Site, night_date: date) -> Dict[datetime, VariantSnapshot]:
@@ -110,5 +114,8 @@ class SimEnvService(ExternalService):
         )
         df_cc = filtered_df[SimEnvService._cc_col_initial].iloc[0]
         cc = CloudCover(0.7) if df_cc == 'na' else (CloudCover(int(df_cc) / 100) if df_cc != 'ANY' else CloudCover(1.0))
+        # WV is often left blank or marked 'na' in the initial conditions: treat anything but a bin as WV ANY.
+        df_wv = str(filtered_df[SimEnvService._wv_col_initial].iloc[0])
+        wv = WaterVapor(int(df_wv) / 100) if df_wv.isdigit() else WaterVapor(1.0)
 
-        return VariantSnapshot(iq=iq, cc=cc, wind_dir=Angle(292, unit=u.deg), wind_spd=3 * (u.m / u.s))
+        return VariantSnapshot(iq=iq, cc=cc, wv=wv, wind_dir=Angle(292, unit=u.deg), wind_spd=3 * (u.m / u.s))

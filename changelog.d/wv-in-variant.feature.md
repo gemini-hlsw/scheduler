@@ -1,0 +1,1 @@
+The selector now checks the observations' water vapor requirement against the current water vapor, taken from the weather service (or the weather data files). Missing water vapor is treated as WV ANY.

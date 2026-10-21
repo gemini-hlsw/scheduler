@@ -26,6 +26,7 @@ from lucupy.minimodel import (
     SemesterHalf,
     Site,
     VariantSnapshot,
+    WaterVapor,
 )
 from lucupy.observatory.abstract import ObservatoryProperties
 from lucupy.observatory.gemini import GeminiProperties
@@ -150,10 +151,11 @@ class RTEventFactory:
         time: datetime = DEFAULT_TIME,
         iq: ImageQuality = ImageQuality(0.7),
         cc: CloudCover = CloudCover(0.5),
+        wv: WaterVapor = WaterVapor(1.0),
         wind_dir: float = 330.0,
         wind_spd: float = 5.0,
     ) -> WeatherChangeEvent:
-        variant = VariantSnapshot(iq=iq, cc=cc, wind_dir=Angle(wind_dir, unit=u.deg), wind_spd=wind_spd * (u.m / u.s))
+        variant = VariantSnapshot(iq=iq, cc=cc, wv=wv, wind_dir=Angle(wind_dir, unit=u.deg), wind_spd=wind_spd * (u.m / u.s))
         return WeatherChangeEvent(
             variant_change=variant, site=site, time=time, description=f'Weather changed for site {site.name}'
         )

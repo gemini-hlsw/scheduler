@@ -36,7 +36,7 @@ from lucupy.minimodel import (
     VariantSnapshot,
     AndOption,
 )
-from lucupy.minimodel import CloudCover, ImageQuality
+from lucupy.minimodel import CloudCover, ImageQuality, WaterVapor
 from lucupy.timeutils import time2slots
 
 from scheduler.core.calculations import GroupData, GroupDataMap, GroupInfo, ProgramCalculations, ProgramInfo, Selection
@@ -91,11 +91,12 @@ class Selector(SchedulerComponent):
     # Default values for resetting variants.
     _default_iq: ClassVar[ImageQuality] = ImageQuality(0.7)
     _default_cc: ClassVar[CloudCover] = CloudCover(0.7)
+    _default_wv: ClassVar[WaterVapor] = WaterVapor(1.0)
     _default_wind_dir: ClassVar[Angle] = Angle(0.0, unit=u.deg)
     _default_wind_spd: ClassVar[Quantity] = 0.0 * (u.m / u.s)
 
     _default_variant_snapshot: ClassVar[VariantSnapshot] = VariantSnapshot(
-        iq=_default_iq, cc=_default_cc, wind_dir=_default_wind_dir, wind_spd=_default_wind_spd
+        iq=_default_iq, cc=_default_cc, wv=_default_wv, wind_dir=_default_wind_dir, wind_spd=_default_wind_spd
     )
 
     def __post_init__(self):
@@ -583,8 +584,8 @@ class Selector(SchedulerComponent):
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
                     f'\nSelector: Night {night_idx} for obs {obs.id.id} ({obs.internal_id}) @ {obs.site.name}\n'
-                    + f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wind_dir)} {max(variant.wind_spd)}\n'
-                    + f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}\n'
+                    + f'Current conditions: {max(variant.iq)} {max(variant.cc)} {max(variant.wv)} {max(variant.wind_dir)} {max(variant.wind_spd)}\n'
+                    + f'Conditions req: IQ {mrc.iq}, CC {mrc.cc}, WV {mrc.wv}\n'
                     + f'rising: {rising[night_idx]}, Too: {too_type.name}\n'
                     + f'conditions score: {max(conditions_score[night_idx])}, wind_score: {max(wind_score[night_idx])}\n'
                 )
@@ -934,14 +935,17 @@ class Selector(SchedulerComponent):
             required_iq_pctile = required_conditions.iq
 
         actual_cc = np.asarray(actual_conditions.cc)
+        actual_wv = np.asarray(actual_conditions.wv)
 
         # The mini-model manages the IQ, CC, WV, and SB being the same types and sizes
         # so this check is a bit extraneous: if one has a ndim of 0, they all will.
-        scalar_input = actual_iq.ndim == 0 or actual_cc.ndim == 0
+        scalar_input = actual_iq.ndim == 0 or actual_cc.ndim == 0 or actual_wv.ndim == 0
         if actual_iq.ndim == 0:
             actual_iq = actual_iq[None]
         if actual_cc.ndim == 0:
             actual_cc = actual_cc[None]
+        if actual_wv.ndim == 0:
+            actual_wv = actual_wv[None]
 
         # Again, all lengths are guaranteed to be the same by the mini-model.
         length = len(actual_iq)
@@ -957,11 +961,12 @@ class Selector(SchedulerComponent):
         # Determine the positions where the actual conditions are worse than the requirements.
         bad_iq = actual_iq > required_conditions.iq
         bad_cc = actual_cc > required_conditions.cc
-        bad_cond_idx = np.where(np.logical_or(bad_iq, bad_cc))[0]
+        bad_wv = actual_wv > required_conditions.wv
+        bad_cond_idx = np.where(np.logical_or.reduce((bad_iq, bad_cc, bad_wv)))[0]
         cond_match = np.ones(length)
         cond_match[bad_cond_idx] = 0
 
-        # Penalize for using IQ / CC that is better than needed:
+        # Penalize for using IQ / CC that is better than needed (WV is only a hard cutoff):
         # Multiply the weights by actual value / value where value is better than required and target
         # does not set soon and is not a rapid ToO.
         # This should work as we are adjusting structures that are passed by reference.

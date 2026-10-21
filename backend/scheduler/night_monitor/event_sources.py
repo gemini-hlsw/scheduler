@@ -75,6 +75,7 @@ class WeatherEventSource(EventSource):
                     site
                     imageQuality
                     cloudCover
+                    waterVapor
                     windDirection
                     windSpeed
                 }
@@ -89,6 +90,7 @@ class WeatherEventSource(EventSource):
                     site
                     imageQuality
                     cloudCover
+                    waterVapor
                     windDirection
                     windSpeed
                 }
