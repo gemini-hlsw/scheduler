@@ -20,7 +20,7 @@ from scheduler.graphql_mid.types import NewNightPlans, SNightTimelines, SRunSumm
 from scheduler.graphql_mid.types import NightPlansError
 from scheduler.night_monitor.event_sources import WeatherEventSource
 from scheduler.services.visibility_aggregator import coordination
-from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site
+from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site, WaterVapor
 from astropy.coordinates import Angle
 from astropy import units as u
 
@@ -166,9 +166,12 @@ class EngineRT:
         _logger.info("Updating initial variants...")
         current_state = await self.weather_source.get_current_state()
         for site_state in current_state:
+            # The weather service may not report water vapor: assume the worst (WV ANY).
+            water_vapor = site_state.get("waterVapor")
             initial_variant = VariantSnapshot(
                 iq=ImageQuality(site_state["imageQuality"]),
                 cc=CloudCover(site_state["cloudCover"]),
+                wv=WaterVapor(1.0 if water_vapor is None else water_vapor),
                 wind_dir=Angle(site_state["windDirection"], unit=u.deg),
                 wind_spd=site_state["windSpeed"] * (u.m / u.s),
             )

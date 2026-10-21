@@ -3,7 +3,7 @@
 
 from dataclasses import replace
 from typing import Dict, Tuple, Callable
-from lucupy.minimodel import ImageQuality, CloudCover, Site, VariantSnapshot
+from lucupy.minimodel import ImageQuality, CloudCover, Site, VariantSnapshot, WaterVapor
 from astropy.coordinates import Angle
 import astropy.units as u
 from scheduler.core.events.queue import WeatherChangeEvent
@@ -25,16 +25,20 @@ class WeatherEventHandler(EventHandler):
 
     def parse_weather_change(self, raw_event: dict) -> WeatherChangeEvent:
         # Get weather changes
-        # Dict of type {'weatherUpdates': {'site': string, 'imageQuality': number, 'cloudCover': number, 'windDirection': number, 'windSpeed': number}}
+        # Dict of type {'weatherUpdates': {'site': string, 'imageQuality': number, 'cloudCover': number, 'waterVapor': number, 'windDirection': number, 'windSpeed': number}}
         site = Site[raw_event['weatherUpdates']['site']]
         image_quality = ImageQuality(raw_event['weatherUpdates']['imageQuality'])
         cloud_cover = CloudCover(raw_event['weatherUpdates']['cloudCover'])
+        # The weather service may not report water vapor: assume the worst (WV ANY).
+        raw_water_vapor = raw_event['weatherUpdates'].get('waterVapor')
+        water_vapor = WaterVapor(1.0 if raw_water_vapor is None else raw_water_vapor)
         wind_speed = raw_event['weatherUpdates']['windSpeed']
         wind_direction = raw_event['weatherUpdates']['windDirection']
 
         variant = VariantSnapshot(
             iq=image_quality,
             cc=cloud_cover,
+            wv=water_vapor,
             wind_dir=Angle(wind_direction, unit=u.deg),
             wind_spd=wind_speed * (u.m / u.s),
         )
