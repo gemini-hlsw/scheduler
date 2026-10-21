@@ -134,8 +134,8 @@ type Query {
   onDemandSchedule: String!
   availablePrograms(nightDate: Date = null): [AvailableProgram!]!
   visibilityAggregatorStatus: VisibilityAggregatorStatus!
-  visibilityCoverage(nightDate: Date = null): VisibilityCoverage!
-  observationCoverage(nightDate: Date = null, status: ObservationStatus = null, site: String = null, programLabel: String = null, search: String = null, limit: Int! = 50, offset: Int! = 0): ObservationCoveragePage!
+  visibilityCoverage(nightDate: Date = null, refresh: Boolean! = false): VisibilityCoverage!
+  observationCoverage(nightDate: Date = null, status: ObservationStatus = null, site: String = null, programLabel: String = null, search: String = null, limit: Int! = 50, offset: Int! = 0, refresh: Boolean! = false): ObservationCoveragePage!
   visibleObservations(site: String!, nightDate: Date = null, limit: Int! = 50, offset: Int! = 0, minRemainingMinutes: Int! = 1): VisibleObservationsPage!
   buildParameters: BuildParametersResponse!
 }
@@ -183,6 +183,13 @@ type SPlans {
   plansPerSite: [SPlan!]!
 }
 
+type SRequiredConditions {
+  iq: String!
+  cc: String!
+  sb: String!
+  wv: String!
+}
+
 type SRunSummary {
   summary: JSON!
   metricsPerBand: JSON!
@@ -224,7 +231,7 @@ type SVisit {
   fpu: String!
   disperser: String!
   filters: [String!]!
-  requiredConditions: SConditions!
+  requiredConditions: SRequiredConditions!
   obsClass: String!
   score: Float!
   peakScore: Float!
