@@ -7,7 +7,7 @@ import traceback
 import numpy as np
 from .params import SchedulerParameters, build_params_store, default_operation_parameters
 from scheduler.core.scp.scp import SCP
-from scheduler.core.builder.modes import dispatch_with
+from scheduler.core.builder.modes import dispatch_with, is_operation
 from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
@@ -323,10 +323,15 @@ class EngineRT:
 
                     # Check if we have reached the end of the night
                     if isinstance(event, EndOfNightEvent):
-                        _logger.info("Night end event received, ending night scheduling loop.")
                         # The night is over, so its timeline must not be served as the plan in
                         # effect to whatever runs next.
                         await self.nightly_timeline_store.reset()
+                        if is_operation:
+                            # The NightTracker has already moved on to the next night, so keep
+                            # consuming its events instead of leaving it unplanned.
+                            _logger.info("Night end event received, waiting for the next night.")
+                            continue
+                        _logger.info("Night end event received, ending night scheduling loop.")
                         break
                     # Plan is already computed by the callback in consume_events
                     for q in plan_response_subscribers.get(self.process_id, set()):

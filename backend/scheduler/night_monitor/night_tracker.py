@@ -14,8 +14,10 @@ from scheduler.core.events.queue.events import (
     MorningTwilightEvent,
     EveningTwilightEvent,
     EndOfNightEvent,
+    OnDemandScheduleEvent,
 )
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
+from scheduler.engine.params import default_operation_start
 from scheduler.services.logger_factory import create_logger
 
 _logger = create_logger(__name__)
@@ -50,20 +52,20 @@ class NightTracker:
     def _compute_sorted_night_events(self) -> List[NightEvent]:
         """
         Compute and sort every site's night events.
+        It creates a continuous night:  GS evening twilight to GN morning twilight.
         """
+        self.date = default_operation_start(datetime.now(UTC))
         all_events = []
         for site in self.sites:
-            night_events = self.calculate_night_events(self.date, site)
-            correct_night_events = self._get_correct_events(self.date, site, night_events)
-            all_events.extend(correct_night_events)
+            all_events.extend(self.calculate_night_events(self.date, site))
 
-        sorted_events = sorted(all_events, key=lambda x: x.time)
+        # The night ends at the last morning twilight
+        end_of_night = max(e.time for e in all_events if isinstance(e, MorningTwilightEvent)) + timedelta(minutes=5)
+        sorted_events = sorted((e for e in all_events if e.time < end_of_night), key=lambda x: x.time)
 
         # Add end of night event
         sorted_events.append(
-            EndOfNightEvent(
-                description="End of Night", time=(sorted_events[-1].time + timedelta(minutes=5)), site="Both"
-            ),
+            EndOfNightEvent(description="End of Night", time=end_of_night, site="Both"),
         )
         return sorted_events
 
@@ -110,44 +112,6 @@ class NightTracker:
         ]
 
         return night_events
-
-    def _get_correct_events(self, now: datetime, site: Site, events: List[NightEvent]) -> List[NightEvent]:
-        """
-        The system needs to verify that the night events for the initial startup time are correct.
-        To keep both sites (GN and GS) running smoothly as one continuous night, the event order depends on
-        the UTC startup time:
-          - Early Morning (UTC): Process Gemini North (GN) twilights first, then Gemini South.
-          - Other Times: Process Gemini South (GS) twilights first, then Gemini North (next day).
-
-        Args:
-          now (datetime): Current time to calculate when the system started.
-          site (Site): The site to track events for.
-          events (List[NightEvent]): List of NightEvents.
-
-        Returns:
-          List[NightEvent]: Original NightEvent list or the night events for the next day.
-
-        """
-        evening_twilight = events[3].time
-        morning_twilight = events[4].time
-
-        # If both twilights are in the past, we need the next night
-        if morning_twilight < now:
-            _logger.info(f"{site.name}: All events in past, getting next night")
-            next_date = now + timedelta(days=1)
-            new_events = self.calculate_night_events(next_date, site)
-            return new_events
-        # If evening twilight is in past but morning is future, we're in the middle of night
-        elif evening_twilight < now < morning_twilight:
-            _logger.info(f"{site.name}: Currently in astronomical night")
-            return events
-
-        # If evening twilight is in the future, this is the correct night
-        if evening_twilight > now:
-            _logger.info(f"{site.name}: Events are for upcoming night")
-            return events
-
-        return events
 
     @staticmethod
     def _should_trigger_plan(event: NightEvent) -> bool:
@@ -209,26 +173,45 @@ class NightTracker:
                     await schedule_queue.add_schedule_event(night_event)
             return
 
-        filtered_night_events = [ne for ne in self.sorted_night_events if self._should_trigger_plan(ne)]
-
         # Real-time mode
         _logger.info("Starting real-time tracking of night events")
-        tasks = []
-        for event in filtered_night_events:
-            task = asyncio.create_task(self._wait_and_add(now, event))
-            tasks.append(task)
+        # One continuous night after another for as long as the process lives. Restarts land at any
+        # time, so stopping at End of Night left the next night, GN included, unplanned until the next restart.
+        while True:
+            twilights = [
+                ne for ne in self.sorted_night_events if isinstance(ne, (EveningTwilightEvent, MorningTwilightEvent))
+            ]
+            if twilights and twilights[0].time <= now < twilights[-1].time:
+                # Started inside the night: its past twilights are skipped below, so without this
+                # nothing plans until the next twilight, which can be GN's morning one.
+                await schedule_queue.add_schedule_event(
+                    OnDemandScheduleEvent(site=None, description="Started during the night", time=now)
+                )
 
-        try:
-            await asyncio.gather(*tasks, return_exceptions=True)
-            _logger.info("Finished real-time tracking of night events")
-        except asyncio.CancelledError:
-            # Shutdown, not a fault: NightMonitor.shutdown cancels this task deliberately. It
-            # used to be logged as "Problem tracking night events: " -- a warning with an empty
-            # message, because CancelledError carries none -- and, worse, swallowed, so the task
-            # completed normally instead of reporting as cancelled and shutdown had to force-
-            # cancel it. Re-raise so cancellation stays cancellation.
-            _logger.info('Night event tracking cancelled.')
-            raise
+            filtered_night_events = [ne for ne in self.sorted_night_events if self._should_trigger_plan(ne)]
+            tasks = []
+            for event in filtered_night_events:
+                task = asyncio.create_task(self._wait_and_add(now, event))
+                tasks.append(task)
+
+            try:
+                await asyncio.gather(*tasks, return_exceptions=True)
+                _logger.info("Finished real-time tracking of night events")
+            except asyncio.CancelledError:
+                # Shutdown
+                _logger.info('Night event tracking cancelled.')
+                raise
+
+            # Only move on once End of Night has really passed: recomputing earlier brings the same
+            # night back, and the loop would spin re-queueing it.
+            remaining = (self.sorted_night_events[-1].time - datetime.now(UTC)).total_seconds()
+            if remaining > 0:
+                await asyncio.sleep(remaining)
+
+            # EndofNight is past GN's morning twilight, so the anchor has moved to the next night.
+            self.sorted_night_events = []
+            await self.prepare()
+            now = datetime.now(UTC)
 
         # while filtered_night_events:
         #  current_time = Time(datetime.now(tz=timezone.utc), scale='utc')
