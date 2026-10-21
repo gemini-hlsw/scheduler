@@ -13,7 +13,7 @@ dependencies = [
     "gelidum>=0.5.9",
     "gql>=4.0.0",
     "hypothesis>=6.137.1",
-    "lucupy>=0.2.17",
+    "lucupy>=0.2.18",
     "matplotlib>=3.10.5",
     "numpy>=2.3.2",
     "omegaconf>=2.3.0",
@@ -38,9 +38,9 @@ dependencies = [
 ]
 
 [dependency-groups]
-gpp-prod = ["gpp-client>=26.10.4,<26.10.5"]
+gpp-prod = ["gpp-client>=26.10.4"]
 # Dev tracks the latest .dev release; When new cycle starts, bump the CalVer
-gpp-dev = ["gpp-client>=26.10.4.dev1,==26.10.4.*,!=26.10.4"]
+gpp-dev = ["gpp-client>=26.10.4.dev3,==26.10.4.*,!=26.10.4"]
 dev = [
     "hypothesis>=6.137.1",
     "pytest>=8.4.1",

@@ -3,7 +3,6 @@
 
 import traceback
 from datetime import datetime, timedelta
-# from turtle import config_dict
 
 from dateutil.parser import parse as parsedt
 from astropy.time import Time
@@ -38,6 +37,7 @@ from lucupy.minimodel import (
     QAState,
     ResourceType,
     ROOT_GROUP_ID,
+    SchedulingMode,
     Semester,
     SemesterHalf,
     SetupTimeType,
@@ -369,7 +369,7 @@ class GppProgramProvider(ProgramProvider):
         # QASTATE = 'qaState'
         # LOG = 'obsLog'
         STATUS = 'state'
-        # PRIORITY = 'priority'
+        PRIORITY = 'priority'
         TITLE = 'title'
         INSTRUMENT = 'instrument'
         SEQUENCE = 'sequence'
@@ -380,6 +380,8 @@ class GppProgramProvider(ProgramProvider):
         ACTIVE = 'active_status'
         BAND = 'science_band'
         CALROLE = 'calibration_role'
+        TOO_ACTIVATION = 'too_activation'
+        SCHEDULING_MODE = 'scheduling_mode'
         # TOO_OVERRIDE_RAPID = 'tooOverrideRapid'
 
     class _TargetKeys:
@@ -962,7 +964,6 @@ class GppProgramProvider(ProgramProvider):
         wavelength: Wavelength,
         resources: FrozenSet[Resource],
         split: bool = True,
-        split_by_iterator: bool = False,
     ) -> Tuple[List[Atom], ObservationClass]:
         """
         Parse the sequence by GPP atoms
@@ -1039,12 +1040,17 @@ class GppProgramProvider(ProgramProvider):
     ) -> Tuple[List[Atom], ObservationClass]:
         """Create a sequence with a single atom for a visitor instrument"""
 
+        # Hack to match calculations shown in Explore
+        # ToDo: sort out how to remove this, maybe use the ObservationDuration for visitor instruments?
+        overhead = {'ALOPEKE_SPECKLE': 0.0, 'ALOPEKE_WIDE_FIELD': 0.0,
+                    'ZORRO_SPECKLE': 0.0, 'ZORRO_WIDE_FIELD': 0.0, 'MAROON_X': 100.0}
+
         atoms = []
-        # Workaround in case the time is None
         step_seconds = (
             mode_data['total_request_time']['seconds']
-            if mode_data['total_request_time']
-            else expmode_data['time_and_count']['count'] * expmode_data['time_and_count']['time']['seconds']
+            if 'VISITOR' in mode
+            else expmode_data['time_and_count']['count'] * (expmode_data['time_and_count']['time']['seconds'] +
+                                                            overhead[mode])
         )
         step_time = timedelta(seconds=step_seconds)
         atoms.append(
@@ -1306,14 +1312,13 @@ class GppProgramProvider(ProgramProvider):
             #     logger.warning(f'Observation {obs_id} not in a specified class (skipping): {obs_class.name}.')
             #     return None
 
-            # By default, assume ToOType of None unless otherwise indicated.
-            too_type: Optional[TooType] = TooType.NONE
-
             title = data[GppProgramProvider._ObsKeys.TITLE]
             # site = Site[data[GppProgramProvider._ObsKeys.ID].split('-')[0]]
             site = self._site_for_inst[data[GppProgramProvider._ObsKeys.INSTRUMENT]]
-            # priority = Priority[data[GppProgramProvider._ObsKeys.PRIORITY].upper()]
-            priority = Priority.MEDIUM
+            if GppProgramProvider._ObsKeys.PRIORITY in data.keys():
+                priority = Priority[basic_name(data[GppProgramProvider._ObsKeys.PRIORITY].upper())]
+            else:
+                priority = Priority.MEDIUM
 
             # If the status is not legal, terminate parsing.
             status = ObservationStatus[data['workflow'][GppProgramProvider._ObsKeys.STATUS].upper()]
@@ -1342,6 +1347,25 @@ class GppProgramProvider(ProgramProvider):
             # print(f'\t\t cal_role_value = {cal_role_value}')
             calibration_role = CalibrationRole[cal_role_value] if cal_role_value is not None else None
 
+            # ToO type and related scheduling mode
+            if "scheduling_constraints" in data.keys():
+                too_type = TooType[basic_name(data["scheduling_constraints"]
+                                              [GppProgramProvider._ObsKeys.TOO_ACTIVATION].upper())]
+                if "too_activation_ceiling" in data["scheduling_constraints"].keys():
+                    too_ceiling = TooType[basic_name(data["program"]["too_activation_ceiling"].upper())]
+                else:
+                    too_ceiling = TooType.NONE
+                if (too_type == TooType.NONE and too_ceiling > TooType.NONE and
+                        (calibration_role is None or calibration_role == CalibrationRole.TELLURIC)):
+                    too_type = TooType.STANDARD
+                scheduling_mode = SchedulingMode[basic_name(data["scheduling_constraints"]
+                                                            [GppProgramProvider._ObsKeys.SCHEDULING_MODE].upper())]
+                split = True if scheduling_mode == SchedulingMode.UNCONSTRAINED else False
+            else:
+                too_type = TooType.NONE
+                split = True
+                scheduling_mode = SchedulingMode.UNCONSTRAINED
+
             # observing mode (instrument config)
             resources, wavelength, mode = self.parse_observing_mode(data['observing_mode'])
             # print(f'\t\t resources: {resources}')
@@ -1366,7 +1390,7 @@ class GppProgramProvider(ProgramProvider):
             atoms = []
             obs_class = ObservationClass.NONE
             if sequence:
-                atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources)
+                atoms, obs_class = self.parse_atoms(site, sequence, mode, wavelength, resources, split=split)
             elif any(inst in resources for inst in ObservatoryProperties.visitor_instruments()) or 'VISITOR' in mode:
                 atoms, obs_class = self.visitor_atom(
                     data['observing_mode']['visitor'],
@@ -1499,6 +1523,7 @@ class GppProgramProvider(ProgramProvider):
                 constraints=constraints,
                 belongs_to=program_id,
                 too_type=too_type,
+                scheduling_mode=scheduling_mode,
                 preimaging=preimaging,
                 band=band,
                 calibration_role=calibration_role,
