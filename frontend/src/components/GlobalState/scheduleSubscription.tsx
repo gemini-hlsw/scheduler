@@ -47,6 +47,8 @@ export const subscriptionQueueSchedule = graphql(`
                     requiredConditions {
                       iq
                       cc
+                      sb
+                      wv
                     }
                   }
                   nightStats {
@@ -107,6 +109,8 @@ export const subscriptionQueueSchedule = graphql(`
               requiredConditions {
                 cc
                 iq
+                sb
+                wv
               }
             }
             nightConditions {
@@ -148,6 +152,8 @@ export const subscriptionQueueSchedule = graphql(`
               requiredConditions {
                 cc
                 iq
+                sb
+                wv
               }
             }
             nightConditions {

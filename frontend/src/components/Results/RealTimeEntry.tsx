@@ -117,6 +117,8 @@ function VisitRow({
       <TableCell>{visit.filters}</TableCell>
       <TableCell>{visit.requiredConditions.cc}</TableCell>
       <TableCell>{visit.requiredConditions.iq}</TableCell>
+      <TableCell>{visit.requiredConditions.wv}</TableCell>
+      <TableCell>{visit.requiredConditions.sb}</TableCell>
       <TableCell>{obsCompletionBodyTemplate(visit)}</TableCell>
       <TableCell>{peakScoreBodyTemplate(visit)}</TableCell>
       <TableCell>{scoreBodyTemplate(visit)}</TableCell>
@@ -265,6 +267,8 @@ export default function RealTimeEntry({
             <TableHead></TableHead>
             <TableHead></TableHead>
             <TableHead></TableHead>
+            <TableHead></TableHead>
+            <TableHead></TableHead>
           </TableRow>
           <TableRow
             className={cn("dark:bg-white/20 bg-black/20", "*:h-6 *:font-bold")}
@@ -284,6 +288,8 @@ export default function RealTimeEntry({
             <TableHead>Filters</TableHead>
             <TableHead>Cloud Cover</TableHead>
             <TableHead>Image Quality</TableHead>
+            <TableHead>Water Vapor</TableHead>
+            <TableHead>Sky Background</TableHead>
             <TableHead>Obs Completion</TableHead>
             <TableHead>Peak Score</TableHead>
             <TableHead>Score</TableHead>

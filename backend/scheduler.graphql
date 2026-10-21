@@ -176,6 +176,13 @@ type SPlans {
   plansPerSite: [SPlan!]!
 }
 
+type SRequiredConditions {
+  iq: String!
+  cc: String!
+  sb: String!
+  wv: String!
+}
+
 type SRunSummary {
   summary: JSON!
   metricsPerBand: JSON!
@@ -217,7 +224,7 @@ type SVisit {
   fpu: String!
   disperser: String!
   filters: [String!]!
-  requiredConditions: SConditions!
+  requiredConditions: SRequiredConditions!
   obsClass: String!
   score: Float!
   peakScore: Float!

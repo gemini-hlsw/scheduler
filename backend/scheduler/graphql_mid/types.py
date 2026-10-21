@@ -59,6 +59,24 @@ class SConditions:
 
 
 @strawberry.type
+class SRequiredConditions:
+    """
+    Conditions required by an observation. Unlike SConditions, these include sky background and water vapor.
+    """
+    iq: str
+    cc: str
+    sb: str
+    wv: str
+
+    @staticmethod
+    def from_computed_conditions(conditions: Conditions) -> 'SRequiredConditions':
+        return SRequiredConditions(iq=conditions.iq.name,
+                                   cc=conditions.cc.name,
+                                   sb=conditions.sb.name,
+                                   wv=conditions.wv.name)
+
+
+@strawberry.type
 class SVisit:
     """
     Represents a visit as part of a nightly Plan at a Site.
@@ -75,7 +93,7 @@ class SVisit:
     fpu: str
     disperser: str
     filters: List[str]
-    required_conditions: SConditions
+    required_conditions: SRequiredConditions
     obs_class: str
     score: float
     peak_score: float
@@ -109,7 +127,7 @@ class SVisit:
             fpu=fpu.id if fpu is not None else 'None',
             disperser=disperser.id if disperser is not None else 'None',
             filters=[f.id for f in filters] if filters is not None else [],
-            required_conditions=SConditions.from_computed_conditions(visit.observation.constraints.conditions),
+            required_conditions=SRequiredConditions.from_computed_conditions(visit.observation.constraints.conditions),
             score=visit.score,
             peak_score=visit.peak_score,
             obs_class=visit.observation.obs_class.name,

@@ -68,6 +68,11 @@ export interface NightConditions {
   iq: string;
 }
 
+export interface RequiredConditions extends NightConditions {
+  sb: string;
+  wv: string;
+}
+
 export interface Visit {
   obsId: string;
   targets: string[];
@@ -87,7 +92,7 @@ export interface Visit {
   atomTimes: number[];
   obsClass: string;
   peakScore: number;
-  requiredConditions: NightConditions;
+  requiredConditions: RequiredConditions;
 }
 
 export interface NightStats {
