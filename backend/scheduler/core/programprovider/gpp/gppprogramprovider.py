@@ -1042,15 +1042,20 @@ class GppProgramProvider(ProgramProvider):
 
         # Hack to match calculations shown in Explore
         # ToDo: sort out how to remove this, maybe use the ObservationDuration for visitor instruments?
-        overhead = {'ALOPEKE_SPECKLE': 0.0, 'ALOPEKE_WIDE_FIELD': 0.0,
-                    'ZORRO_SPECKLE': 0.0, 'ZORRO_WIDE_FIELD': 0.0, 'MAROON_X': 100.0}
+        overhead = {
+            'ALOPEKE_SPECKLE': 0.0,
+            'ALOPEKE_WIDE_FIELD': 0.0,
+            'ZORRO_SPECKLE': 0.0,
+            'ZORRO_WIDE_FIELD': 0.0,
+            'MAROON_X': 100.0,
+        }
 
         atoms = []
         step_seconds = (
             mode_data['total_request_time']['seconds']
             if 'VISITOR' in mode
-            else expmode_data['time_and_count']['count'] * (expmode_data['time_and_count']['time']['seconds'] +
-                                                            overhead[mode])
+            else expmode_data['time_and_count']['count']
+            * (expmode_data['time_and_count']['time']['seconds'] + overhead[mode])
         )
         step_time = timedelta(seconds=step_seconds)
         atoms.append(
@@ -1349,17 +1354,22 @@ class GppProgramProvider(ProgramProvider):
 
             # ToO type and related scheduling mode
             if "scheduling_constraints" in data.keys():
-                too_type = TooType[basic_name(data["scheduling_constraints"]
-                                              [GppProgramProvider._ObsKeys.TOO_ACTIVATION].upper())]
+                too_type = TooType[
+                    basic_name(data["scheduling_constraints"][GppProgramProvider._ObsKeys.TOO_ACTIVATION].upper())
+                ]
                 if "too_activation_ceiling" in data["scheduling_constraints"].keys():
                     too_ceiling = TooType[basic_name(data["program"]["too_activation_ceiling"].upper())]
                 else:
                     too_ceiling = TooType.NONE
-                if (too_type == TooType.NONE and too_ceiling > TooType.NONE and
-                        (calibration_role is None or calibration_role == CalibrationRole.TELLURIC)):
+                if (
+                    too_type == TooType.NONE
+                    and too_ceiling > TooType.NONE
+                    and (calibration_role is None or calibration_role == CalibrationRole.TELLURIC)
+                ):
                     too_type = TooType.STANDARD
-                scheduling_mode = SchedulingMode[basic_name(data["scheduling_constraints"]
-                                                            [GppProgramProvider._ObsKeys.SCHEDULING_MODE].upper())]
+                scheduling_mode = SchedulingMode[
+                    basic_name(data["scheduling_constraints"][GppProgramProvider._ObsKeys.SCHEDULING_MODE].upper())
+                ]
                 split = True if scheduling_mode == SchedulingMode.UNCONSTRAINED else False
             else:
                 too_type = TooType.NONE

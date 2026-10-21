@@ -80,12 +80,12 @@ STRESS_DIR = REPO / "stress"
 REPORT_PATH = STRESS_DIR / "results" / "report.md"
 
 PLAN_TARGET_S = 60.0
-NIGHTS_IN_WINDOW = 15            # what default_operation_parameters gives a realtime build
-CLONE_NUMBER_BASE = 9000         # clone program numbers start here, clear of real programs
+NIGHTS_IN_WINDOW = 15  # what default_operation_parameters gives a realtime build
+CLONE_NUMBER_BASE = 9000  # clone program numbers start here, clear of real programs
 DEFAULT_SIZES = "250,500,1000,1500"
 DEFAULT_CAP = 1500
 DEFAULT_SEED = 1041
-LIVE = 0                         # size key for --source odb: whatever the ODB holds
+LIVE = 0  # size key for --source odb: whatever the ODB holds
 
 # GPP internal ids: one letter, a dash, hex (p-1a2b, o-7f, g-3c, t-9e).
 _INTERNAL_ID = re.compile(r"^[a-z]-[0-9a-f]+$")
@@ -97,6 +97,7 @@ _LABEL_ARG = re.compile(r"^[A-Za-z0-9_.-]+$")
 # --------------------------------------------------------------------------------------
 # Environment and imports
 # --------------------------------------------------------------------------------------
+
 
 def _prepare_env(visibility: str) -> None:
     """Pin the mode before anything under scheduler.* is imported.
@@ -120,13 +121,16 @@ def _quiet_scheduler_logs(level: str) -> None:
 
 def _require_database_url(command: str) -> None:
     if not os.environ.get("DATABASE_URL"):
-        sys.exit(f"{command} needs DATABASE_URL pointing at the local docker-compose Postgres, e.g.\n"
-                 "  DATABASE_URL=postgresql+asyncpg://scheduler:scheduler_dev@localhost:5433/scheduler")
+        sys.exit(
+            f"{command} needs DATABASE_URL pointing at the local docker-compose Postgres, e.g.\n"
+            "  DATABASE_URL=postgresql+asyncpg://scheduler:scheduler_dev@localhost:5433/scheduler"
+        )
 
 
 def _night_anchor(night: Optional[str]) -> datetime:
     """08:00 UT of the date whose morning ends the night, as realtime builds use it."""
     from scheduler.engine.params import default_operation_start
+
     if night is None:
         return default_operation_start()
     try:
@@ -147,12 +151,17 @@ def _vis_end(night_start: datetime, value: Optional[str]) -> datetime:
         return night_start + timedelta(days=NIGHTS_IN_WINDOW - 1)
     if value == "semester":
         from lucupy.minimodel.semester import Semester
-        end = Semester.find_semester_from_date(night_start - timedelta(days=1)).end_date() + timedelta(days=1)
+
+        end = Semester.find_semester_from_date(
+            night_start - timedelta(days=1)
+        ).end_date() + timedelta(days=1)
         return datetime(end.year, end.month, end.day, night_start.hour, tzinfo=UTC)
     try:
         day = date.fromisoformat(value)
     except ValueError:
-        sys.exit(f"--vis-end must be 'semester', 'realtime-default' or YYYY-MM-DD, got {value!r}")
+        sys.exit(
+            f"--vis-end must be 'semester', 'realtime-default' or YYYY-MM-DD, got {value!r}"
+        )
     end = datetime(day.year, day.month, day.day, night_start.hour, tzinfo=UTC)
     if end < night_start:
         sys.exit(f"--vis-end {day} is before the night ({night_start.date()}).")
@@ -161,11 +170,15 @@ def _vis_end(night_start: datetime, value: Optional[str]) -> datetime:
 
 def _window_nights(night_start: datetime, vis_end: datetime) -> List[date]:
     """The UT dates the Collector's time grid holds, one per night."""
-    return [night_start.date() + timedelta(days=n)
-            for n in range((vis_end.date() - night_start.date()).days + 1)]
+    return [
+        night_start.date() + timedelta(days=n)
+        for n in range((vis_end.date() - night_start.date()).days + 1)
+    ]
 
 
-def _check_ops_calendar(night_start: datetime, vis_end: Optional[datetime] = None) -> None:
+def _check_ops_calendar(
+    night_start: datetime, vis_end: Optional[datetime] = None
+) -> None:
     """OpsResourceService raises for dates outside its calendar; fail before any work."""
     from lucupy.minimodel import ALL_SITES
     from scheduler.core.sources import Origins
@@ -181,15 +194,18 @@ def _check_ops_calendar(night_start: datetime, vis_end: Optional[datetime] = Non
     for site in ALL_SITES:
         earliest, latest = resource.date_range_for_site(site)
         if first < earliest or last > latest:
-            sys.exit(f"Night {night_start.date()} needs resource data for {site.name} from {first} to "
-                     f"{last}, but the ops calendar covers {earliest}..{latest} "
-                     f"(services/resource/data/operation/telescope_schedules.xlsx, and "
-                     f"pickles/opsresource.pickle may be stale). Pick another --night or --vis-end.")
+            sys.exit(
+                f"Night {night_start.date()} needs resource data for {site.name} from {first} to "
+                f"{last}, but the ops calendar covers {earliest}..{latest} "
+                f"(services/resource/data/operation/telescope_schedules.xlsx, and "
+                f"pickles/opsresource.pickle may be stale). Pick another --night or --vis-end."
+            )
 
 
 # --------------------------------------------------------------------------------------
 # Live source programs
 # --------------------------------------------------------------------------------------
+
 
 def _program_body(raw: dict) -> dict:
     """The program dict, however get_all wrapped it."""
@@ -207,23 +223,27 @@ def _iter_raw_observations(group: Optional[dict]) -> Iterable[dict]:
 def _raw_site_counts(programs: List[dict]) -> Counter:
     """Observations per site straight from the payload, before any parsing."""
     from scheduler.core.programprovider.gpp import GppProgramProvider
+
     counts: Counter = Counter()
     for raw in programs:
         for obs in _iter_raw_observations(_program_body(raw).get("root")):
             instrument = obs.get("instrument")
-            site = GppProgramProvider._site_for_inst.get(getattr(instrument, "value", instrument))
+            site = GppProgramProvider._site_for_inst.get(
+                getattr(instrument, "value", instrument)
+            )
             counts[site.name if site else "unknown"] += 1
     return counts
 
 
 def _short(exc: BaseException, limit: int = 160) -> str:
     text = " ".join(str(exc).split())
-    return text if len(text) <= limit else text[:limit - 3] + "..."
+    return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
 async def _resolve_program_ids(text: str) -> List[str]:
     """Reference labels (G-2026B-0001) or ODB ids, as gpp_program_data takes them: ODB ids."""
     from scheduler.clients.gpp import gpp
+
     labels = await gpp.client.scheduler.get_all_reference_labels()
     ids_by_label = {str(label): str(program_id) for label, program_id in labels}
     wanted = [p.strip() for p in text.split(",") if p.strip()]
@@ -256,8 +276,10 @@ async def _fetch_sources(programs: Optional[str]) -> dict:
         "fetch_seconds": seconds,
         "program_filter": programs,
     }
-    print(f"Fetched {len(fetched)} programs, {meta['observations']} observations "
-          f"({', '.join(f'{k} {v}' for k, v in sorted(counts.items()))}) in {seconds:.1f}s.")
+    print(
+        f"Fetched {len(fetched)} programs, {meta['observations']} observations "
+        f"({', '.join(f'{k} {v}' for k, v in sorted(counts.items()))}) in {seconds:.1f}s."
+    )
     if not fetched:
         sys.exit("The ODB returned no programs.")
     return {"meta": meta, "programs": fetched}
@@ -266,6 +288,7 @@ async def _fetch_sources(programs: Optional[str]) -> dict:
 # --------------------------------------------------------------------------------------
 # Clone generator
 # --------------------------------------------------------------------------------------
+
 
 def _parse_sex(text: str) -> float:
     """'HH:MM:SS.s' or '[+-]DD:MM:SS.s' to decimal, keeping the sign of '-00:..'."""
@@ -327,18 +350,24 @@ def _set_dec(dec: dict, degrees: float) -> None:
             wrapped = isinstance(value, (int, float, Decimal)) and float(value) > 90
             dec[key] = _like(value, degrees % 360 if wrapped else degrees)
         elif key == "microarcseconds":
-            wrapped = isinstance(value, (int, float, Decimal)) and float(value) > 90 * 3600e6
+            wrapped = (
+                isinstance(value, (int, float, Decimal)) and float(value) > 90 * 3600e6
+            )
             dec[key] = _like(value, (degrees % 360 if wrapped else degrees) * 3600e6)
 
 
-def _jitter_target(target: dict, rng: random.Random, ra_spread: float, dec_spread: float) -> None:
+def _jitter_target(
+    target: dict, rng: random.Random, ra_spread: float, dec_spread: float
+) -> None:
     sidereal = target["sidereal"]
     ra = sidereal.get("ra") or {}
     dec = sidereal.get("dec") or {}
     if "hms" not in ra or "dms" not in dec:
         return
     new_ra = (_parse_sex(ra["hms"]) * 15.0 + rng.uniform(-ra_spread, ra_spread)) % 360.0
-    new_dec = max(-89.5, min(89.5, _parse_sex(dec["dms"]) + rng.uniform(-dec_spread, dec_spread)))
+    new_dec = max(
+        -89.5, min(89.5, _parse_sex(dec["dms"]) + rng.uniform(-dec_spread, dec_spread))
+    )
     # lucupy's sex2dec reads '-00:..' as positive, so never write a Dec in (-1, 0).
     if -1.0 < new_dec < 0.0:
         new_dec = -1.0
@@ -376,7 +405,7 @@ class _CloneContext:
         if value == self.old_label:
             return self.new_label
         if value.startswith(self.old_label + "-"):
-            return self.new_label + value[len(self.old_label):]
+            return self.new_label + value[len(self.old_label) :]
         return value
 
     def target(self, node: dict) -> None:
@@ -387,7 +416,10 @@ class _CloneContext:
         if key not in self.jittered:
             rng = random.Random(f"{self.seed}:{self.name_suffix}:{key}")
             _jitter_target(node, rng, self.ra_spread, self.dec_spread)
-            self.jittered[key] = (copy.deepcopy(sidereal.get("ra")), copy.deepcopy(sidereal.get("dec")))
+            self.jittered[key] = (
+                copy.deepcopy(sidereal.get("ra")),
+                copy.deepcopy(sidereal.get("dec")),
+            )
         else:
             # Copied, not recomputed from the rounded strings, so every copy is identical.
             ra, dec = self.jittered[key]
@@ -418,8 +450,9 @@ def _clone_label(old_label: str, number: int) -> str:
     return f"{match.group(1)}-{number}{match.group(3) or ''}"
 
 
-def make_clone(raw: dict, j: int, seed: int,
-               ra_spread: float = 45.0, dec_spread: float = 5.0) -> Tuple[dict, str]:
+def make_clone(
+    raw: dict, j: int, seed: int, ra_spread: float = 45.0, dec_spread: float = 5.0
+) -> Tuple[dict, str]:
     """A deep copy of one fetched program with new ids, labels, target names and positions.
 
     Every id is rewritten through one mapping, so cross references (parent ids, group
@@ -433,10 +466,15 @@ def make_clone(raw: dict, j: int, seed: int,
     ids: set = set()
     _collect_internal_ids(body, ids)
     suffix = f"f{j:05x}"
-    ctx = _CloneContext(id_map={i: i + suffix for i in ids},
-                        old_label=old_label, new_label=new_label,
-                        name_suffix=f"~s{j}", seed=str(seed),
-                        ra_spread=ra_spread, dec_spread=dec_spread)
+    ctx = _CloneContext(
+        id_map={i: i + suffix for i in ids},
+        old_label=old_label,
+        new_label=new_label,
+        name_suffix=f"~s{j}",
+        seed=str(seed),
+        ra_spread=ra_spread,
+        dec_spread=dec_spread,
+    )
     _rewrite(body, ctx)
     return out, new_label
 
@@ -455,13 +493,13 @@ class _Source:
 class CloneSet:
     sources: List[_Source]
     excluded: Counter
-    queue: List[Tuple[int, int]]                  # (clone number j, source index)
-    selections: Dict[int, List[int]]              # size -> clone numbers
-    totals: Dict[int, Dict[str, int]]             # size -> observations per site
-    payloads: Dict[int, dict]                     # clone number -> payload
-    obs_ids: Dict[int, List[str]]                 # clone number -> observation labels
-    obs_with_target: Dict[int, List[str]]         # the ones Sight stores visibility for
-    target_names: Dict[int, List[str]]            # clone number -> base target names
+    queue: List[Tuple[int, int]]  # (clone number j, source index)
+    selections: Dict[int, List[int]]  # size -> clone numbers
+    totals: Dict[int, Dict[str, int]]  # size -> observations per site
+    payloads: Dict[int, dict]  # clone number -> payload
+    obs_ids: Dict[int, List[str]]  # clone number -> observation labels
+    obs_with_target: Dict[int, List[str]]  # the ones Sight stores visibility for
+    target_names: Dict[int, List[str]]  # clone number -> base target names
 
 
 def _provider():
@@ -472,12 +510,21 @@ def _provider():
 
     sources = Sources()
     sources.set_origin(Origins.OPS())
-    return GppProgramProvider(frozenset({ObservationClass.SCIENCE, ObservationClass.PROGCAL,
-                                         ObservationClass.PARTNERCAL}), sources)
+    return GppProgramProvider(
+        frozenset(
+            {
+                ObservationClass.SCIENCE,
+                ObservationClass.PROGCAL,
+                ObservationClass.PARTNERCAL,
+            }
+        ),
+        sources,
+    )
 
 
-def _load_sources(fetched: dict, night_start: datetime, allow_nonsidereal: bool,
-                  provider) -> Tuple[List[_Source], Counter]:
+def _load_sources(
+    fetched: dict, night_start: datetime, allow_nonsidereal: bool, provider
+) -> Tuple[List[_Source], Counter]:
     """Captured programs that parse, are active on the night, and have observations."""
     from lucupy.minimodel import NonsiderealTarget
     from lucupy.types import ZeroTime
@@ -510,16 +557,24 @@ def _load_sources(fetched: dict, night_start: datetime, allow_nonsidereal: bool,
             excluded["no observations"] += 1
             continue
         # Non-sidereal targets make local visibility call JPL Horizons over the network.
-        if not allow_nonsidereal and any(isinstance(o.base_target(), NonsiderealTarget)
-                                         for o in observations):
+        if not allow_nonsidereal and any(
+            isinstance(o.base_target(), NonsiderealTarget) for o in observations
+        ):
             excluded["non-sidereal target"] += 1
             continue
         counts = Counter(o.site.name for o in observations if o.site is not None)
         if not counts:
             excluded["no site"] += 1
             continue
-        sources.append(_Source(len(sources), str(label), raw, dict(counts),
-                               (program.start.date(), program.end.date())))
+        sources.append(
+            _Source(
+                len(sources),
+                str(label),
+                raw,
+                dict(counts),
+                (program.start.date(), program.end.date()),
+            )
+        )
     return sources, excluded
 
 
@@ -547,8 +602,9 @@ def _build_queue(sources: List[_Source], cap: int) -> List[Tuple[int, int]]:
     return queue
 
 
-def _select(queue: List[Tuple[int, int]], sources: List[_Source], sites: List[str],
-            size: int) -> Tuple[List[int], Dict[str, int]]:
+def _select(
+    queue: List[Tuple[int, int]], sources: List[_Source], sites: List[str], size: int
+) -> Tuple[List[int], Dict[str, int]]:
     """Clones that bring every site to `size` observations, exactly when possible."""
     source_of = dict(queue)
     totals = {site: 0 for site in sites}
@@ -571,9 +627,13 @@ def _select(queue: List[Tuple[int, int]], sources: List[_Source], sites: List[st
         best: Optional[Tuple[int, int]] = None
         for j, index in queue:
             counts = sources[index].counts
-            if j in taken_set or not any(counts.get(site, 0) and totals[site] < size for site in sites):
+            if j in taken_set or not any(
+                counts.get(site, 0) and totals[site] < size for site in sites
+            ):
                 continue
-            overshoot = sum(max(0, totals[site] + counts.get(site, 0) - size) for site in sites)
+            overshoot = sum(
+                max(0, totals[site] + counts.get(site, 0) - size) for site in sites
+            )
             if best is None or overshoot < best[0]:
                 best = (overshoot, j)
         if best is None:
@@ -586,16 +646,26 @@ def _select(queue: List[Tuple[int, int]], sources: List[_Source], sites: List[st
     return taken, totals
 
 
-def build_clone_set(fetched: dict, night_start: datetime, sizes: List[int], cap: int,
-                    seed: int, allow_nonsidereal: bool) -> CloneSet:
+def build_clone_set(
+    fetched: dict,
+    night_start: datetime,
+    sizes: List[int],
+    cap: int,
+    seed: int,
+    allow_nonsidereal: bool,
+) -> CloneSet:
     provider = _provider()
     sources, excluded = _load_sources(fetched, night_start, allow_nonsidereal, provider)
     if not sources:
-        sys.exit(f"No usable source programs in the ODB for {night_start.date()}: {dict(excluded)}")
+        sys.exit(
+            f"No usable source programs in the ODB for {night_start.date()}: {dict(excluded)}"
+        )
     sites = sorted({site for s in sources for site in s.counts})
     for site in ("GN", "GS"):
         if site not in sites:
-            sys.exit(f"The ODB has no usable programs at {site}; realtime plans both sites.")
+            sys.exit(
+                f"The ODB has no usable programs at {site}; realtime plans both sites."
+            )
 
     queue = _build_queue(sources, cap)
     selections: Dict[int, List[int]] = {}
@@ -619,33 +689,58 @@ def build_clone_set(fetched: dict, night_start: datetime, sizes: List[int], cap:
         observations = list(program.observations())
         counts = dict(Counter(o.site.name for o in observations if o.site is not None))
         if counts != source.counts:
-            sys.exit(f"Clone {new_label} has {counts} observations per site, its source "
-                     f"{source.label} has {source.counts}.")
+            sys.exit(
+                f"Clone {new_label} has {counts} observations per site, its source "
+                f"{source.label} has {source.counts}."
+            )
         for o in observations:
             if o.id.id in seen:
-                sys.exit(f"Observation id {o.id.id} appears in clones {seen[o.id.id]} and {j}.")
+                sys.exit(
+                    f"Observation id {o.id.id} appears in clones {seen[o.id.id]} and {j}."
+                )
             seen[o.id.id] = j
         payloads[j] = payload
         obs_ids[j] = [o.id.id for o in observations]
-        obs_with_target[j] = [o.id.id for o in observations if o.base_target() is not None]
-        target_names[j] = sorted({str(o.base_target().name) for o in observations
-                                  if o.base_target() is not None})
+        obs_with_target[j] = [
+            o.id.id for o in observations if o.base_target() is not None
+        ]
+        target_names[j] = sorted(
+            {
+                str(o.base_target().name)
+                for o in observations
+                if o.base_target() is not None
+            }
+        )
 
-    return CloneSet(sources, excluded, queue, selections, totals, payloads, obs_ids, obs_with_target,
-                    target_names)
+    return CloneSet(
+        sources,
+        excluded,
+        queue,
+        selections,
+        totals,
+        payloads,
+        obs_ids,
+        obs_with_target,
+        target_names,
+    )
 
 
 def _print_clone_summary(clones: CloneSet) -> None:
-    print(f"Sources: {len(clones.sources)} programs usable"
-          + (f", excluded {dict(clones.excluded)}" if clones.excluded else ""))
+    print(
+        f"Sources: {len(clones.sources)} programs usable"
+        + (f", excluded {dict(clones.excluded)}" if clones.excluded else "")
+    )
     for size, totals in clones.totals.items():
-        print(f"  size {size}: {len(clones.selections[size])} clones, "
-              + ", ".join(f"{site} {n}" for site, n in sorted(totals.items())))
+        print(
+            f"  size {size}: {len(clones.selections[size])} clones, "
+            + ", ".join(f"{site} {n}" for site, n in sorted(totals.items()))
+        )
 
 
 # --------------------------------------------------------------------------------------
 # Instrumentation (harness only)
 # --------------------------------------------------------------------------------------
+
 
 class _Recorder:
     """Per-plan timings, hot-path totals and funnel counts, keyed by run id."""
@@ -659,6 +754,7 @@ class _Recorder:
     @staticmethod
     def run_id() -> str:
         from scheduler.context import schedule_id_var
+
         return schedule_id_var.get()
 
     def add_hot(self, name: str, seconds: float) -> None:
@@ -685,7 +781,8 @@ class _PerfCapture(logging.Handler):
             return
         if "duration_s" in payload:
             self._recorder.events[payload.get("run_id", "?")].append(
-                (payload["event"], float(payload["duration_s"])))
+                (payload["event"], float(payload["duration_s"]))
+            )
 
 
 class _Patches:
@@ -699,7 +796,9 @@ class _Patches:
                 return klass.__dict__[name]
         raise AttributeError(f"{owner.__name__}.{name}")
 
-    def wrap(self, owner: type, name: str, make: Callable[[Callable], Callable]) -> None:
+    def wrap(
+        self, owner: type, name: str, make: Callable[[Callable], Callable]
+    ) -> None:
         """Replace owner.name with make(original function), keeping static/classmethod."""
         raw = self._raw(owner, name)
         kind = type(raw) if isinstance(raw, (staticmethod, classmethod)) else None
@@ -726,12 +825,14 @@ def _timed_wrapper(operation: str, after: Optional[Callable[[Any], None]] = None
 
     def make(function: Callable) -> Callable:
         if inspect.iscoroutinefunction(function):
+
             @functools.wraps(function)
             async def async_wrapper(*args, **kwargs):
                 with timed(operation):
                     result = await function(*args, **kwargs)
                 _safe(after, result)
                 return result
+
             return async_wrapper
 
         @functools.wraps(function)
@@ -740,7 +841,9 @@ def _timed_wrapper(operation: str, after: Optional[Callable[[Any], None]] = None
                 result = function(*args, **kwargs)
             _safe(after, result)
             return result
+
         return wrapper
+
     return make
 
 
@@ -756,6 +859,7 @@ def _safe(after: Optional[Callable[[Any], None]], result: Any) -> None:
 
 def _hot_wrapper(name: str, recorder: _Recorder):
     """count + total only: one JSON line per call on a hot path would skew the result."""
+
     def make(function: Callable) -> Callable:
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
@@ -764,7 +868,9 @@ def _hot_wrapper(name: str, recorder: _Recorder):
                 return function(*args, **kwargs)
             finally:
                 recorder.add_hot(name, time.perf_counter() - started)
+
         return wrapper
+
     return make
 
 
@@ -778,11 +884,15 @@ def _after_wrapper(after: Callable[[Any], None]):
             except Exception:
                 pass
             return result
+
         return wrapper
+
     return make
 
 
-def _install_instrumentation(patches: _Patches, recorder: _Recorder, live: bool) -> None:
+def _install_instrumentation(
+    patches: _Patches, recorder: _Recorder, live: bool
+) -> None:
     from lucupy.minimodel import NightIndex
     from scheduler.core.components.collector import Collector
     from scheduler.core.components.optimizer.greedymax import GreedyMaxOptimizer
@@ -799,8 +909,11 @@ def _install_instrumentation(patches: _Patches, recorder: _Recorder, live: bool)
     def parsed(result):
         parsed_observations, _bad = result
         recorder.set_funnel("parsed", by_site(obs for _p, obs in parsed_observations))
-        recorder.parsed_ids[recorder.run_id()] = [obs.id.id for _p, obs in parsed_observations
-                                                  if obs.base_target() is not None]
+        recorder.parsed_ids[recorder.run_id()] = [
+            obs.id.id
+            for _p, obs in parsed_observations
+            if obs.base_target() is not None
+        ]
 
     def night_filtered(result):
         recorder.set_funnel("night-0 resources", by_site(result.get(NightIndex(0), [])))
@@ -813,42 +926,82 @@ def _install_instrumentation(patches: _Patches, recorder: _Recorder, live: bool)
         recorder.set_funnel("in selection", by_site(unique.values()))
 
     def planned(plans):
-        recorder.set_funnel("scheduled visits",
-                            {site.name: len(plan.visits) for site, plan in plans.plans.items()})
+        recorder.set_funnel(
+            "scheduled visits",
+            {site.name: len(plan.visits) for site, plan in plans.plans.items()},
+        )
 
     if live:
         # The bulk get_all behind gpp_program_data: the network part of the collector build.
         from gpp_client.domains.scheduler import SchedulerDomain
 
         def fetched(programs):
-            recorder.set_funnel("payload", {k: v for k, v in _raw_site_counts(programs).items()
-                                            if k != "unknown"})
+            recorder.set_funnel(
+                "payload",
+                {k: v for k, v in _raw_site_counts(programs).items() if k != "unknown"},
+            )
 
-        patches.wrap(SchedulerDomain, "get_all", _timed_wrapper("stress.odb_fetch", fetched))
-    patches.wrap(Collector, "async_init_night_events", _timed_wrapper("stress.night_events"))
-    patches.wrap(Collector, "_parse_programs", _timed_wrapper("stress.parse_programs", parsed))
-    patches.wrap(Collector, "_filter_by_night_configuration",
-                 _timed_wrapper("stress.night_filter", night_filtered))
-    patches.wrap(Collector, "night_configurations",
-                 _hot_wrapper("collector.night_configurations", recorder))
+        patches.wrap(
+            SchedulerDomain, "get_all", _timed_wrapper("stress.odb_fetch", fetched)
+        )
+    patches.wrap(
+        Collector, "async_init_night_events", _timed_wrapper("stress.night_events")
+    )
+    patches.wrap(
+        Collector, "_parse_programs", _timed_wrapper("stress.parse_programs", parsed)
+    )
+    patches.wrap(
+        Collector,
+        "_filter_by_night_configuration",
+        _timed_wrapper("stress.night_filter", night_filtered),
+    )
+    patches.wrap(
+        Collector,
+        "night_configurations",
+        _hot_wrapper("collector.night_configurations", recorder),
+    )
     patches.wrap(Selector, "__post_init__", _timed_wrapper("stress.selector_init"))
     patches.wrap(Selector, "select", _after_wrapper(selected))
     patches.wrap(DefaultRanker, "__init__", _timed_wrapper("stress.ranker_init"))
     patches.wrap(EngineRT, "init_variant", _timed_wrapper("stress.init_variant"))
     patches.wrap(SCP, "run_rt", _after_wrapper(planned))
-    patches.wrap(GreedyMaxOptimizer, "_find_max_group", _hot_wrapper("greedymax.find_max_group", recorder))
-    patches.wrap(GreedyMaxOptimizer, "_update_score", _hot_wrapper("greedymax.update_score", recorder))
-    patches.wrap(GreedyMaxOptimizer, "_add_visit", _hot_wrapper("greedymax.add_visit", recorder))
-    patches.wrap(StatCalculator, "calculate_stitched_timeline_stats", _timed_wrapper("stress.stats"))
-    patches.wrap(SNightTimelines, "from_computed_stitched_timelines",
-                 _timed_wrapper("stress.serialize_timelines"))
-    patches.wrap(SRunSummary, "from_computed_run_summary", _timed_wrapper("stress.serialize_summary"))
+    patches.wrap(
+        GreedyMaxOptimizer,
+        "_find_max_group",
+        _hot_wrapper("greedymax.find_max_group", recorder),
+    )
+    patches.wrap(
+        GreedyMaxOptimizer,
+        "_update_score",
+        _hot_wrapper("greedymax.update_score", recorder),
+    )
+    patches.wrap(
+        GreedyMaxOptimizer, "_add_visit", _hot_wrapper("greedymax.add_visit", recorder)
+    )
+    patches.wrap(
+        StatCalculator,
+        "calculate_stitched_timeline_stats",
+        _timed_wrapper("stress.stats"),
+    )
+    patches.wrap(
+        SNightTimelines,
+        "from_computed_stitched_timelines",
+        _timed_wrapper("stress.serialize_timelines"),
+    )
+    patches.wrap(
+        SRunSummary,
+        "from_computed_run_summary",
+        _timed_wrapper("stress.serialize_summary"),
+    )
 
 
 def _setup_metrics():
     """In-memory reader always; OTLP as well when an endpoint is configured."""
     from opentelemetry.sdk.metrics import MeterProvider
-    from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
+    from opentelemetry.sdk.metrics.export import (
+        InMemoryMetricReader,
+        PeriodicExportingMetricReader,
+    )
     from opentelemetry.sdk.resources import Resource
     from scheduler.services.telemetry import otel
 
@@ -857,40 +1010,58 @@ def _setup_metrics():
     resource = otel.build_resource()
     exporting = bool(os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"))
     if exporting:
-        from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+        from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+            OTLPMetricExporter,
+        )
+
         readers.append(PeriodicExportingMetricReader(OTLPMetricExporter()))
         # Merged last so it wins over OTEL_RESOURCE_ATTRIBUTES: stress numbers must never
         # land in a real environment's panels.
         resource = resource.merge(Resource.create({"deployment.environment": "stress"}))
-    provider = MeterProvider(resource=resource, metric_readers=readers,
-                             views=otel.duration_views())
+    provider = MeterProvider(
+        resource=resource, metric_readers=readers, views=otel.duration_views()
+    )
     otel.setup_telemetry(meter_provider=provider, set_global=False)
     return reader, exporting
 
 
 def _sight_fallbacks(reader) -> int:
     from scheduler.services.telemetry.instruments import SIGHT_FALLBACK
+
     data = reader.get_metrics_data()
     if data is None:
         return 0
-    return int(sum(point.value
-                   for resource_metric in data.resource_metrics
-                   for scope_metric in resource_metric.scope_metrics
-                   for metric in scope_metric.metrics
-                   if metric.name == SIGHT_FALLBACK
-                   for point in metric.data.data_points))
+    return int(
+        sum(
+            point.value
+            for resource_metric in data.resource_metrics
+            for scope_metric in resource_metric.scope_metrics
+            for metric in scope_metric.metrics
+            if metric.name == SIGHT_FALLBACK
+            for point in metric.data.data_points
+        )
+    )
 
 
 # --------------------------------------------------------------------------------------
 # run
 # --------------------------------------------------------------------------------------
 
+
 class _FakeWeather:
     """Stands in for WeatherEventSource.get_current_state."""
 
     def __init__(self, iq: float, cc: float) -> None:
-        self._state = [{"site": site, "imageQuality": iq, "cloudCover": cc,
-                        "windDirection": 0.0, "windSpeed": 0.0} for site in ("GN", "GS")]
+        self._state = [
+            {
+                "site": site,
+                "imageQuality": iq,
+                "cloudCover": cc,
+                "windDirection": 0.0,
+                "windSpeed": 0.0,
+            }
+            for site in ("GN", "GS")
+        ]
 
     async def get_current_state(self):
         return copy.deepcopy(self._state)
@@ -914,8 +1085,9 @@ class _SizeResult:
     fallbacks: int
 
 
-async def _check_sight_coverage(clones: CloneSet, night_start: datetime,
-                                vis_end: datetime) -> Dict[str, Any]:
+async def _check_sight_coverage(
+    clones: CloneSet, night_start: datetime, vis_end: datetime
+) -> Dict[str, Any]:
     """Refuse to measure Sight against nights or clones it was never given.
 
     An observation is due on a night when the night is inside its program's window
@@ -942,8 +1114,10 @@ async def _check_sight_coverage(clones: CloneSet, night_start: datetime,
     nights = _window_nights(night_start, vis_end)
     selected = {j for chosen in clones.selections.values() for j in chosen}
     names = sorted({name for j in selected for name in clones.target_names[j]})
-    print(f"Checking Sight coverage: {len(names)} targets, {len(nights)} nights "
-          f"({nights[0]}..{nights[-1]})...")
+    print(
+        f"Checking Sight coverage: {len(names)} targets, {len(nights)} nights "
+        f"({nights[0]}..{nights[-1]})..."
+    )
     async with session_scope() as session:
         calc = Calculator(session)
         # Clones are rebuilt from the live ODB on every command. A target name carries its
@@ -951,32 +1125,57 @@ async def _check_sight_coverage(clones: CloneSet, night_start: datetime,
         found = await calc.target_repo.get_ids_by_names(names)
         missing_names = sorted(set(names) - set(found))
         if missing_names:
-            sys.exit(f"Sight has no target for {len(missing_names)} of the {len(names)} clone targets "
-                     f"(e.g. {missing_names[:3]}). The ODB has changed since seed-sight ran, so the "
-                     f"clones changed too: run seed-sight again with the same --night/--cap/--programs.")
+            sys.exit(
+                f"Sight has no target for {len(missing_names)} of the {len(names)} clone targets "
+                f"(e.g. {missing_names[:3]}). The ODB has changed since seed-sight ran, so the "
+                f"clones changed too: run seed-sight again with the same --night/--cap/--programs."
+            )
         for night in nights:
-            due = {oid for oid, (start, end) in due_window.items() if start <= night <= end}
+            due = {
+                oid for oid, (start, end) in due_window.items() if start <= night <= end
+            }
             if not due:
                 continue
-            stored = await calc.visibility_repo.get_stored_observation_ids_on_night(night)
+            stored = await calc.visibility_repo.get_stored_observation_ids_on_night(
+                night
+            )
             missing = due - stored
             if missing:
-                hint = ("--window full first (a narrow seed only serves --vis-end realtime-default)"
-                        if night > narrow_end
-                        else "the same --night/--cap/--sizes/--programs first (the ODB may have changed)")
-                sys.exit(f"Sight has no visibility on {night} for {len(missing)} of the {len(due)} "
-                         f"clone observations due that night (e.g. {sorted(missing)[:3]}). Run "
-                         f"seed-sight with {hint}.")
-        first, last, count = (await session.execute(
-            select(func.min(VisibilityData.night_date), func.max(VisibilityData.night_date),
-                   func.count(distinct(VisibilityData.night_date)))
-            .where(VisibilityData.observation_id.in_(sorted(due_window))))).one()
+                hint = (
+                    "--window full first (a narrow seed only serves --vis-end realtime-default)"
+                    if night > narrow_end
+                    else "the same --night/--cap/--sizes/--programs first (the ODB may have changed)"
+                )
+                sys.exit(
+                    f"Sight has no visibility on {night} for {len(missing)} of the {len(due)} "
+                    f"clone observations due that night (e.g. {sorted(missing)[:3]}). Run "
+                    f"seed-sight with {hint}."
+                )
+        first, last, count = (
+            await session.execute(
+                select(
+                    func.min(VisibilityData.night_date),
+                    func.max(VisibilityData.night_date),
+                    func.count(distinct(VisibilityData.night_date)),
+                ).where(VisibilityData.observation_id.in_(sorted(due_window)))
+            )
+        ).one()
     return {"db_first": first, "db_last": last, "db_nights": count}
 
 
-async def _measure_size(size: int, payload: Optional[List[dict]], expected: Dict[str, int], plans: int,
-                        offset_hours: float, night_start: datetime, weather: _FakeWeather,
-                        current: dict, recorder: _Recorder, reader, run_prefix: str) -> _SizeResult:
+async def _measure_size(
+    size: int,
+    payload: Optional[List[dict]],
+    expected: Dict[str, int],
+    plans: int,
+    offset_hours: float,
+    night_start: datetime,
+    weather: _FakeWeather,
+    current: dict,
+    recorder: _Recorder,
+    reader,
+    run_prefix: str,
+) -> _SizeResult:
     from lucupy.minimodel import ALL_SITES, NightIndex
     from scheduler.context import schedule_id_var
     from scheduler.core.builder.modes import SchedulerModes
@@ -989,12 +1188,14 @@ async def _measure_size(size: int, payload: Optional[List[dict]], expected: Dict
 
     # The realtime defaults (default_operation_parameters). A longer window comes from
     # BuildParameters.visibility_end, set in _run, exactly as an operator would set it.
-    params = SchedulerParameters(start=night_start,
-                                 end=night_start + timedelta(days=NIGHTS_IN_WINDOW - 1),
-                                 sites=ALL_SITES,
-                                 mode=SchedulerModes.OPERATION,
-                                 semester_visibility=False,
-                                 num_nights_to_schedule=1)
+    params = SchedulerParameters(
+        start=night_start,
+        end=night_start + timedelta(days=NIGHTS_IN_WINDOW - 1),
+        sites=ALL_SITES,
+        mode=SchedulerModes.OPERATION,
+        semester_visibility=False,
+        num_nights_to_schedule=1,
+    )
     # A fresh store per size: the plan history of one size must not stitch into the next.
     engine = EngineRT(params, None, "stress", weather, NightlyTimelineStore())
     fallbacks_before = _sight_fallbacks(reader)
@@ -1010,7 +1211,9 @@ async def _measure_size(size: int, payload: Optional[List[dict]], expected: Dict
         # plan touched, and a copy inside the build would be billed to the collector.
         if payload is not None:
             current["items"] = copy.deepcopy(payload)
-        event = OnDemandScheduleEvent(site=None, description=f"stress {run_id}", time=event_time)
+        event = OnDemandScheduleEvent(
+            site=None, description=f"stress {run_id}", time=event_time
+        )
 
         token = schedule_id_var.set(run_id)
         monitor = LoopMonitor()
@@ -1034,19 +1237,31 @@ async def _measure_size(size: int, payload: Optional[List[dict]], expected: Dict
                         sites[obs.site.name] += 1
                 recorder.set_funnel("visible night 0", dict(sites))
                 if earliest_start is None:
-                    starts = [collector.get_night_length(site, NightIndex(0))[0] for site in ALL_SITES]
+                    starts = [
+                        collector.get_night_length(site, NightIndex(0))[0]
+                        for site in ALL_SITES
+                    ]
                     earliest_start = min(starts)
             schedule_id_var.reset(token)
 
         reading = read_memory()
-        results.append(_PlanResult(run_id, event_time, ok, error, reading.peak_bytes,
-                                   monitor.worst_stall))
-        plan_time = next((d for e, d in recorder.events.get(run_id, []) if e == "engine.plan"), None)
-        print(f"  {run_id}: {'ok' if ok else 'FAILED'}"
-              + (f" in {plan_time:.1f}s" if plan_time is not None else "")
-              + (f" ({error})" if error else ""))
+        results.append(
+            _PlanResult(
+                run_id, event_time, ok, error, reading.peak_bytes, monitor.worst_stall
+            )
+        )
+        plan_time = next(
+            (d for e, d in recorder.events.get(run_id, []) if e == "engine.plan"), None
+        )
+        print(
+            f"  {run_id}: {'ok' if ok else 'FAILED'}"
+            + (f" in {plan_time:.1f}s" if plan_time is not None else "")
+            + (f" ({error})" if error else "")
+        )
 
-    return _SizeResult(size, expected, results, _sight_fallbacks(reader) - fallbacks_before)
+    return _SizeResult(
+        size, expected, results, _sight_fallbacks(reader) - fallbacks_before
+    )
 
 
 async def _live_sight_coverage(ids: List[str], night: date) -> Dict[str, Any]:
@@ -1059,7 +1274,9 @@ async def _live_sight_coverage(ids: List[str], night: date) -> Dict[str, Any]:
     from scheduler.services.sight.database.connection import session_scope
 
     async with session_scope() as session:
-        stored = await Calculator(session).visibility_repo.get_stored_observation_ids_on_night(night)
+        stored = await Calculator(
+            session
+        ).visibility_repo.get_stored_observation_ids_on_night(night)
     return {"night": night, "parsed": len(ids), "stored": len(set(ids) & stored)}
 
 
@@ -1087,13 +1304,19 @@ async def _run(args) -> int:
         sources = await _fetch_sources(args.programs)
         meta = sources["meta"]
         print(f"Building clones for {night_start.date()} (cap {args.cap} per site)...")
-        clones = build_clone_set(sources, night_start, sizes, args.cap, args.seed, args.allow_nonsidereal)
+        clones = build_clone_set(
+            sources, night_start, sizes, args.cap, args.seed, args.allow_nonsidereal
+        )
         _print_clone_summary(clones)
 
     sight = args.visibility == "sight"
     coverage: Optional[Dict[str, Any]] = None
     if sight:
-        from scheduler.services.sight.database.connection import dispose_engine, init_db_engine
+        from scheduler.services.sight.database.connection import (
+            dispose_engine,
+            init_db_engine,
+        )
+
         await init_db_engine()
         if clones is not None:
             coverage = await _check_sight_coverage(clones, night_start, vis_end)
@@ -1108,9 +1331,11 @@ async def _run(args) -> int:
         async def generate():
             for item in current["items"]:
                 yield item
+
         return generate()
 
     import scheduler.core.builder.simulationbuilder as simulationbuilder
+
     recorder = _Recorder()
     patches = _Patches()
     perf_logger = logging.getLogger(PERF_LOGGER_NAME)
@@ -1135,12 +1360,20 @@ async def _run(args) -> int:
         perf_logger.addHandler(capture_handler)
 
         # How an operator widens a realtime run: EngineRT.build reads these over the defaults.
-        await build_params_store.set(BuildParameters(visibility_start=night_start,
-                                                     visibility_end=vis_end,
-                                                     program_list=program_ids))
+        await build_params_store.set(
+            BuildParameters(
+                visibility_start=night_start,
+                visibility_end=vis_end,
+                program_list=program_ids,
+            )
+        )
 
         def payload_for(size: int) -> Optional[List[dict]]:
-            return None if clones is None else [clones.payloads[j] for j in clones.selections[size]]
+            return (
+                None
+                if clones is None
+                else [clones.payloads[j] for j in clones.selections[size]]
+            )
 
         def expected_for(size: int) -> Dict[str, int]:
             return {} if clones is None else clones.totals[size]
@@ -1148,16 +1381,40 @@ async def _run(args) -> int:
         smallest = min(sizes)
         if not args.no_warmup:
             print("Warm-up plan (not measured)...")
-            await _measure_size(smallest, payload_for(smallest), expected_for(smallest), 1,
-                                args.offset_hours, night_start, weather, current, recorder,
-                                reader, "warmup")
+            await _measure_size(
+                smallest,
+                payload_for(smallest),
+                expected_for(smallest),
+                1,
+                args.offset_hours,
+                night_start,
+                weather,
+                current,
+                recorder,
+                reader,
+                "warmup",
+            )
 
         for size in sizes:
-            print(f"{'Live ODB data' if live else f'Size {size} per site ({clones.totals[size]})'}, "
-                  f"{args.plans} plan(s)...")
-            results.append(await _measure_size(size, payload_for(size), expected_for(size),
-                                               args.plans, args.offset_hours, night_start, weather,
-                                               current, recorder, reader, "live" if live else "stress"))
+            print(
+                f"{'Live ODB data' if live else f'Size {size} per site ({clones.totals[size]})'}, "
+                f"{args.plans} plan(s)..."
+            )
+            results.append(
+                await _measure_size(
+                    size,
+                    payload_for(size),
+                    expected_for(size),
+                    args.plans,
+                    args.offset_hours,
+                    night_start,
+                    weather,
+                    current,
+                    recorder,
+                    reader,
+                    "live" if live else "stress",
+                )
+            )
 
         if live and sight and results and results[0].plans:
             # After every measured plan, so it can't touch the numbers.
@@ -1171,13 +1428,25 @@ async def _run(args) -> int:
         # Flushes the OTLP exporter when there is one.
         otel.shutdown_telemetry()
         from scheduler.clients.gpp import gpp
+
         # The client holds sockets bound to this loop; close them before it ends.
         await gpp.close()
         if sight:
             await dispose_engine()
 
-    section = _render_section(args, night_start, vis_end, coverage, meta, clones, program_ids,
-                              results, recorder, started_at, exporting)
+    section = _render_section(
+        args,
+        night_start,
+        vis_end,
+        coverage,
+        meta,
+        clones,
+        program_ids,
+        results,
+        recorder,
+        started_at,
+        exporting,
+    )
     _write_report(args.label, section)
     print(f"\nReport: {REPORT_PATH.relative_to(REPO)} (section '{args.label}')")
     return 0 if all(p.ok for r in results for p in r.plans) else 1
@@ -1191,7 +1460,9 @@ def _parse_sizes(text: str, cap: int) -> List[int]:
     if not sizes or sizes[0] <= 0:
         sys.exit("--sizes must be positive.")
     if sizes[-1] > cap:
-        sys.exit(f"--sizes go up to {sizes[-1]} but --cap is {cap}; raise --cap (and re-seed Sight).")
+        sys.exit(
+            f"--sizes go up to {sizes[-1]} but --cap is {cap}; raise --cap (and re-seed Sight)."
+        )
     return sizes
 
 
@@ -1199,14 +1470,18 @@ def _parse_sizes(text: str, cap: int) -> List[int]:
 # seed-sight
 # --------------------------------------------------------------------------------------
 
+
 async def _seed_sight(args) -> int:
     from lucupy.observatory.abstract import ObservatoryProperties
     from lucupy.observatory.gemini.geminiproperties import GeminiProperties
     import scheduler.services.visibility_aggregator.aggregator as aggregator
     from scheduler.config import config
     from scheduler.services.sight.calculator.calculator import Calculator
-    from scheduler.services.sight.database.connection import (dispose_engine, init_db_engine,
-                                                               session_scope)
+    from scheduler.services.sight.database.connection import (
+        dispose_engine,
+        init_db_engine,
+        session_scope,
+    )
     from scheduler.services.telemetry.perf import PERF_LOGGER_NAME
 
     ObservatoryProperties.set_properties(GeminiProperties)
@@ -1220,10 +1495,13 @@ async def _seed_sight(args) -> int:
         sources = await _fetch_sources(args.programs)
     finally:
         from scheduler.clients.gpp import gpp
+
         # The client holds sockets bound to this loop; close them before it ends.
         await gpp.close()
     print(f"Building clones for {night_start.date()} (cap {args.cap} per site)...")
-    clones = build_clone_set(sources, night_start, sizes, args.cap, args.seed, args.allow_nonsidereal)
+    clones = build_clone_set(
+        sources, night_start, sizes, args.cap, args.seed, args.allow_nonsidereal
+    )
     _print_clone_summary(clones)
     payload = [clones.payloads[j] for j in sorted(clones.payloads)]
 
@@ -1231,6 +1509,7 @@ async def _seed_sight(args) -> int:
         async def generate():
             for item in payload:
                 yield item
+
         return generate()
 
     patches = _Patches()
@@ -1242,18 +1521,32 @@ async def _seed_sight(args) -> int:
         perf_logger.removeHandler(handler)
     perf_logger.addHandler(logging.NullHandler())
 
-    narrow = (night_start.date(), night_start.date() + timedelta(days=NIGHTS_IN_WINDOW - 1))
+    narrow = (
+        night_start.date(),
+        night_start.date() + timedelta(days=NIGHTS_IN_WINDOW - 1),
+    )
     await init_db_engine()
     try:
-        targets_by_name, requests, windows, _labels, counts = await aggregator._collect_requests([])
+        (
+            targets_by_name,
+            requests,
+            windows,
+            _labels,
+            counts,
+        ) = await aggregator._collect_requests([])
         if args.window == "narrow":
             windows = {oid: narrow for oid in windows}
         else:
             # The program's own window, widened to always hold the nights the engine reads.
-            windows = {oid: (min(w[0], narrow[0]), max(w[1], narrow[1])) for oid, w in windows.items()}
-        print(f"{len(targets_by_name)} targets, {len(requests)} observations, window={args.window} "
-              f"({min(w[0] for w in windows.values())}..{max(w[1] for w in windows.values())}); "
-              f"{counts['skipped_no_target']} without a usable target.")
+            windows = {
+                oid: (min(w[0], narrow[0]), max(w[1], narrow[1]))
+                for oid, w in windows.items()
+            }
+        print(
+            f"{len(targets_by_name)} targets, {len(requests)} observations, window={args.window} "
+            f"({min(w[0] for w in windows.values())}..{max(w[1] for w in windows.values())}); "
+            f"{counts['skipped_no_target']} without a usable target."
+        )
 
         started_at = datetime.now(UTC).isoformat()
         batch_size = max(1, int(config.visibility_aggregator.target_batch_size))
@@ -1269,15 +1562,20 @@ async def _seed_sight(args) -> int:
             done = 0
             for (window_start, window_end), group in sorted(groups.items()):
                 for offset in range(0, len(group), batch_size):
-                    chunk = group[offset:offset + batch_size]
+                    chunk = group[offset : offset + batch_size]
                     await calc.create_targets_bulk(chunk, window_start, window_end)
-                    await calc.precompute_stage1(window_start, window_end,
-                                                 target_names=[t.name for t in chunk])
+                    await calc.precompute_stage1(
+                        window_start, window_end, target_names=[t.name for t in chunk]
+                    )
                     await session.commit()
                     done += len(chunk)
                     print(f"  Stage 1: {done}/{total} targets")
-            stored = await aggregator._store_missing_visibility(calc, requests, windows, None, started_at)
-        print(f"Seeded: {stored} new visibility rows. Clone labels start at G-....-{CLONE_NUMBER_BASE}.")
+            stored = await aggregator._store_missing_visibility(
+                calc, requests, windows, None, started_at
+            )
+        print(
+            f"Seeded: {stored} new visibility rows. Clone labels start at G-....-{CLONE_NUMBER_BASE}."
+        )
     finally:
         patches.undo()
         perf_logger.handlers.clear()
@@ -1300,8 +1598,16 @@ _ROWS = [
     ("stress.parse_programs", 2, "Parse programs"),
     ("stress.night_filter", 2, "Night configuration filter"),
     ("collector.visibility_local", 2, "Visibility, local compute"),
-    ("collector.visible_observations", 2, "Sight: visible observations query (per night)"),
-    ("collector.remaining_minutes", 2, "Sight: remaining minutes, later nights (one query)"),
+    (
+        "collector.visible_observations",
+        2,
+        "Sight: visible observations query (per night)",
+    ),
+    (
+        "collector.remaining_minutes",
+        2,
+        "Sight: remaining minutes, later nights (one query)",
+    ),
     ("collector.stage1_bulk", 2, "Sight: stage 1 bulk fetch"),
     ("collector.sight_apply", 2, "Sight: build target info"),
     ("stress.selector_init", 1, "Selector setup"),
@@ -1317,23 +1623,52 @@ _ROWS = [
     ("stress.stats", 1, "Timeline stats"),
     ("stress.serialize_timelines", 1, "Serialize timelines"),
     ("stress.serialize_summary", 1, "Serialize summary"),
-    ("collector.night_configurations", 1, "Night configurations, all callers (overlaps rows above)"),
+    (
+        "collector.night_configurations",
+        1,
+        "Night configurations, all callers (overlaps rows above)",
+    ),
     ("derived.untracked", 1, "Untracked: plan minus the timed steps"),
 ]
 # Direct children of engine.plan; whatever they don't cover is "untracked".
-_PLAN_CHILDREN = ("scp.build_collector", "stress.selector_init", "stress.ranker_init",
-                  "stress.init_variant", "scp.select", "scp.optimize", "stress.stats",
-                  "stress.serialize_timelines", "stress.serialize_summary")
-_VISIBILITY_OPS = ("collector.visibility_local", "collector.visible_observations", "collector.remaining_minutes",
-                   "collector.stage1_bulk", "collector.sight_apply")
-_SCALING = (("engine.plan", "Whole plan"), ("scp.build_collector", "Collector build"),
-            ("derived.visibility", "Visibility"), ("scp.select", "Selection"),
-            ("scp.optimize", "GreedyMax"))
-_FUNNEL = ("payload", "parsed", "night-0 resources", "visible night 0", "in selection",
-           "scheduled visits")
+_PLAN_CHILDREN = (
+    "scp.build_collector",
+    "stress.selector_init",
+    "stress.ranker_init",
+    "stress.init_variant",
+    "scp.select",
+    "scp.optimize",
+    "stress.stats",
+    "stress.serialize_timelines",
+    "stress.serialize_summary",
+)
+_VISIBILITY_OPS = (
+    "collector.visibility_local",
+    "collector.visible_observations",
+    "collector.remaining_minutes",
+    "collector.stage1_bulk",
+    "collector.sight_apply",
+)
+_SCALING = (
+    ("engine.plan", "Whole plan"),
+    ("scp.build_collector", "Collector build"),
+    ("derived.visibility", "Visibility"),
+    ("scp.select", "Selection"),
+    ("scp.optimize", "GreedyMax"),
+)
+_FUNNEL = (
+    "payload",
+    "parsed",
+    "night-0 resources",
+    "visible night 0",
+    "in selection",
+    "scheduled visits",
+)
 
 
-def _per_plan_ops(recorder: _Recorder, run_id: str) -> Dict[str, Tuple[int, float, float]]:
+def _per_plan_ops(
+    recorder: _Recorder, run_id: str
+) -> Dict[str, Tuple[int, float, float]]:
     """operation -> (calls, total seconds, worst call) for one plan, derived rows included."""
     ops: Dict[str, List[float]] = defaultdict(list)
     for event, seconds in recorder.events.get(run_id, []):
@@ -1349,7 +1684,9 @@ def _per_plan_ops(recorder: _Recorder, run_id: str) -> Dict[str, Tuple[int, floa
         overhead = max(0.0, total("scp.select") - total("scp.score_program"))
         out["derived.select_overhead"] = (1, overhead, overhead)
     if "engine.plan" in out:
-        untracked = max(0.0, total("engine.plan") - sum(total(op) for op in _PLAN_CHILDREN))
+        untracked = max(
+            0.0, total("engine.plan") - sum(total(op) for op in _PLAN_CHILDREN)
+        )
         out["derived.untracked"] = (1, untracked, untracked)
     vis = sum(total(op) for op in _VISIBILITY_OPS)
     if vis:
@@ -1376,20 +1713,31 @@ def _fmt_s(seconds: Optional[float]) -> str:
 
 
 def _fmt_bytes(n: Optional[int]) -> str:
-    return "-" if n is None else f"{n / 1024 ** 3:.2f} GB"
+    return "-" if n is None else f"{n / 1024**3:.2f} GB"
 
 
 def _table(header: List[str], rows: List[List[str]]) -> str:
-    lines = ["| " + " | ".join(header) + " |",
-             "|" + "|".join("---" if i == 0 else "---:" for i in range(len(header))) + "|"]
+    lines = [
+        "| " + " | ".join(header) + " |",
+        "|" + "|".join("---" if i == 0 else "---:" for i in range(len(header))) + "|",
+    ]
     lines += ["| " + " | ".join(row) + " |" for row in rows]
     return "\n".join(lines)
 
 
-def _render_section(args, night_start: datetime, vis_end: datetime,
-                    coverage: Optional[Dict[str, Any]], meta: dict, clones: Optional[CloneSet],
-                    program_ids: Optional[List[str]], results: List[_SizeResult],
-                    recorder: _Recorder, started_at: datetime, exporting: bool) -> str:
+def _render_section(
+    args,
+    night_start: datetime,
+    vis_end: datetime,
+    coverage: Optional[Dict[str, Any]],
+    meta: dict,
+    clones: Optional[CloneSet],
+    program_ids: Optional[List[str]],
+    results: List[_SizeResult],
+    recorder: _Recorder,
+    started_at: datetime,
+    exporting: bool,
+) -> str:
     sight = args.visibility == "sight"
     nights = len(_window_nights(night_start, vis_end))
     per_size: Dict[int, Dict[str, Any]] = {}
@@ -1403,17 +1751,29 @@ def _render_section(args, night_start: datetime, vis_end: datetime,
         for ops in plan_ops:
             for op, value in ops.items():
                 merged[op].append(value)
-        per_size[result.size] = {"result": result, "plan_ops": plan_ops, "plan_times": plan_times,
-                                 "merged": merged}
+        per_size[result.size] = {
+            "result": result,
+            "plan_ops": plan_ops,
+            "plan_times": plan_times,
+            "merged": merged,
+        }
         if sight:
             seen = {op for ops in plan_ops for op in ops}
-            if result.fallbacks or "collector.sight_apply" not in seen or "collector.visibility_local" in seen:
-                status_notes.append(f"size {_size_label(result.size)}: Sight fell back to local "
-                                    f"({result.fallbacks} fallbacks recorded)")
+            if (
+                result.fallbacks
+                or "collector.sight_apply" not in seen
+                or "collector.visibility_local" in seen
+            ):
+                status_notes.append(
+                    f"size {_size_label(result.size)}: Sight fell back to local "
+                    f"({result.fallbacks} fallbacks recorded)"
+                )
         failed = [p for p in result.plans if not p.ok]
         if failed:
-            status_notes.append(f"size {_size_label(result.size)}: {len(failed)} plan(s) failed "
-                                f"({failed[0].error})")
+            status_notes.append(
+                f"size {_size_label(result.size)}: {len(failed)} plan(s) failed "
+                f"({failed[0].error})"
+            )
     status = "FAILED" if status_notes else "OK"
 
     def mean(values: List[float]) -> Optional[float]:
@@ -1422,43 +1782,82 @@ def _render_section(args, night_start: datetime, vis_end: datetime,
 
     out: List[str] = []
     out.append(f"## {args.label}\n")
-    out.append(f"**Status: {status}**" + (": " + "; ".join(status_notes) if status_notes else ""))
+    out.append(
+        f"**Status: {status}**"
+        + (": " + "; ".join(status_notes) if status_notes else "")
+    )
     out.append("")
-    out.append(f"- Visibility: **{args.visibility}**"
-               + (" (retrieval only; filling the Sight DB is not measured)" if sight else ""))
+    out.append(
+        f"- Visibility: **{args.visibility}**"
+        + (" (retrieval only; filling the Sight DB is not measured)" if sight else "")
+    )
     out.append(f"- Night: {night_start.date()} (08:00 UT anchor), both sites")
-    out.append(f"- Engine reads **{nights} nights** ({night_start.date()}..{vis_end.date()})"
-               + (", the default_operation_parameters window: remaining visibility, and so "
-                  "scoring, sees only these nights" if args.vis_end == "realtime-default"
-                  else f" through BuildParameters.visibility_end (--vis-end {args.vis_end})"))
+    out.append(
+        f"- Engine reads **{nights} nights** ({night_start.date()}..{vis_end.date()})"
+        + (
+            ", the default_operation_parameters window: remaining visibility, and so "
+            "scoring, sees only these nights"
+            if args.vis_end == "realtime-default"
+            else f" through BuildParameters.visibility_end (--vis-end {args.vis_end})"
+        )
+    )
     if coverage is not None and "db_first" in coverage:
-        out.append(f"- Sight DB holds clone visibility for {coverage['db_first']}..{coverage['db_last']} "
-                   f"({coverage['db_nights']} nights); every observation due on the {nights} nights "
-                   f"read was present")
+        out.append(
+            f"- Sight DB holds clone visibility for {coverage['db_first']}..{coverage['db_last']} "
+            f"({coverage['db_nights']} nights); every observation due on the {nights} nights "
+            f"read was present"
+        )
     elif coverage is not None:
-        out.append(f"- Sight rows on {coverage['night']}: {coverage['stored']} of {coverage['parsed']} "
-                   f"parsed observations with a target (the rest read as not visible)")
-    out.append(f"- Run: {started_at.strftime('%Y-%m-%d %H:%M UTC')}, {args.plans} measured plan(s) per size"
-               + ("" if args.no_warmup else " after one warm-up plan")
-               + f"; replans at earliest evening twilight + {args.offset_hours:g}h × i")
-    out.append(f"- Weather: IQ {args.iq}, CC {args.cc}, no wind (best case, so the fewest observations drop out)")
+        out.append(
+            f"- Sight rows on {coverage['night']}: {coverage['stored']} of {coverage['parsed']} "
+            f"parsed observations with a target (the rest read as not visible)"
+        )
+    out.append(
+        f"- Run: {started_at.strftime('%Y-%m-%d %H:%M UTC')}, {args.plans} measured plan(s) per size"
+        + ("" if args.no_warmup else " after one warm-up plan")
+        + f"; replans at earliest evening twilight + {args.offset_hours:g}h × i"
+    )
+    out.append(
+        f"- Weather: IQ {args.iq}, CC {args.cc}, no wind (best case, so the fewest observations drop out)"
+    )
     if clones is None:
-        out.append("- Data: **live ODB**, fetched inside every plan as realtime does; "
-                   + (f"{len(program_ids)} programs from --programs" if program_ids
-                      else "every program active today, minus the provider's exclude list"))
+        out.append(
+            "- Data: **live ODB**, fetched inside every plan as realtime does; "
+            + (
+                f"{len(program_ids)} programs from --programs"
+                if program_ids
+                else "every program active today, minus the provider's exclude list"
+            )
+        )
         out.append("- ODB fetch: included in these numbers, row `stress.odb_fetch`")
     else:
-        per_site = ", ".join(f"{k} {v}" for k, v in sorted(meta.get("observations_per_site", {}).items()))
-        out.append(f"- Data: clones of the live ODB, fetched at {meta.get('fetched_at')}: "
-                   f"{meta.get('programs')} programs / {meta.get('observations')} observations ({per_site})"
-                   + (f" from --programs {meta['program_filter']}" if meta.get("program_filter") else "")
-                   + f"; {len(clones.sources)} usable as clone sources"
-                   + (f", excluded {dict(clones.excluded)}" if clones.excluded else "")
-                   + f"; clone seed {args.seed}, cap {args.cap}")
-        out.append(f"- ODB fetch (not in these numbers): {_fmt_s(meta.get('fetch_seconds'))} for that "
-                   f"fetch, once at the start of the run; the plans read the clones")
-    out.append(f"- Scheduler logs at {args.log_level} (production runs at INFO)"
-               + ("; metrics also pushed over OTLP as deployment.environment=stress" if exporting else ""))
+        per_site = ", ".join(
+            f"{k} {v}" for k, v in sorted(meta.get("observations_per_site", {}).items())
+        )
+        out.append(
+            f"- Data: clones of the live ODB, fetched at {meta.get('fetched_at')}: "
+            f"{meta.get('programs')} programs / {meta.get('observations')} observations ({per_site})"
+            + (
+                f" from --programs {meta['program_filter']}"
+                if meta.get("program_filter")
+                else ""
+            )
+            + f"; {len(clones.sources)} usable as clone sources"
+            + (f", excluded {dict(clones.excluded)}" if clones.excluded else "")
+            + f"; clone seed {args.seed}, cap {args.cap}"
+        )
+        out.append(
+            f"- ODB fetch (not in these numbers): {_fmt_s(meta.get('fetch_seconds'))} for that "
+            f"fetch, once at the start of the run; the plans read the clones"
+        )
+    out.append(
+        f"- Scheduler logs at {args.log_level} (production runs at INFO)"
+        + (
+            "; metrics also pushed over OTLP as deployment.environment=stress"
+            if exporting
+            else ""
+        )
+    )
     out.append("")
 
     # Plan time against the target.
@@ -1473,14 +1872,24 @@ def _render_section(args, night_start: datetime, vis_end: datetime,
         worst = max((t for t in data["plan_times"] if t is not None), default=None)
         verdict = "-" if worst is None else ("ok" if worst <= PLAN_TARGET_S else "OVER")
         rows.append([_size_label(size)] + cells + [_fmt_s(worst), verdict])
-    out.append(_table(["obs/site"] + [f"plan {i + 1}" for i in range(args.plans)] + ["max", "target"], rows))
+    out.append(
+        _table(
+            ["obs/site"]
+            + [f"plan {i + 1}" for i in range(args.plans)]
+            + ["max", "target"],
+            rows,
+        )
+    )
     out.append("")
 
     # Scaling of the big steps.
     out.append("### Scaling (mean seconds per plan)\n")
     rows = []
     for op, title in _SCALING:
-        cells = [_fmt_s(mean([v[1] for v in per_size[s]["merged"].get(op, [])])) for s in per_size]
+        cells = [
+            _fmt_s(mean([v[1] for v in per_size[s]["merged"].get(op, [])]))
+            for s in per_size
+        ]
         rows.append([title] + cells)
     out.append(_table(["step"] + [_size_col(s) for s in per_size], rows))
     out.append("")
@@ -1489,8 +1898,10 @@ def _render_section(args, night_start: datetime, vis_end: datetime,
     top = max(per_size)
     merged = per_size[top]["merged"]
     plan_mean = mean([v[1] for v in merged.get("engine.plan", [])])
-    out.append(f"### Breakdown {'on live ODB data' if top == LIVE else f'at {top} observations per site'} "
-               f"(mean over measured plans)\n")
+    out.append(
+        f"### Breakdown {'on live ODB data' if top == LIVE else f'at {top} observations per site'} "
+        f"(mean over measured plans)\n"
+    )
     rows = []
     for op, depth, description in _ROWS:
         values = merged.get(op)
@@ -1502,13 +1913,35 @@ def _render_section(args, night_start: datetime, vis_end: datetime,
         worst = max(v[2] for v in values)
         share = f"{100 * total / plan_mean:.0f}%" if plan_mean else "-"
         indent = "· " * depth
-        rows.append([f"{indent}`{op}` {description}", f"{calls:.0f}", _fmt_s(total), _fmt_s(per_call),
-                     _fmt_s(worst), share])
-    out.append(_table(["operation", "calls/plan", "total/plan", "mean/call", "worst call", "% of plan"], rows))
+        rows.append(
+            [
+                f"{indent}`{op}` {description}",
+                f"{calls:.0f}",
+                _fmt_s(total),
+                _fmt_s(per_call),
+                _fmt_s(worst),
+                share,
+            ]
+        )
+    out.append(
+        _table(
+            [
+                "operation",
+                "calls/plan",
+                "total/plan",
+                "mean/call",
+                "worst call",
+                "% of plan",
+            ],
+            rows,
+        )
+    )
     out.append("")
-    out.append("`stress.*` and `greedymax.*` are timed by this harness only; `derived.*` are "
-               "subtractions. Night configurations is called from inside other steps, so its "
-               "share overlaps theirs.")
+    out.append(
+        "`stress.*` and `greedymax.*` are timed by this harness only; `derived.*` are "
+        "subtractions. Night configurations is called from inside other steps, so its "
+        "share overlaps theirs."
+    )
     out.append("")
 
     # Funnel per site, from the first measured plan of each size.
@@ -1519,7 +1952,9 @@ def _render_section(args, night_start: datetime, vis_end: datetime,
         funnel = recorder.funnel.get(result.plans[0].run_id, {}) if result.plans else {}
         for site in ("GN", "GS"):
             # Live runs count the payload as it comes back from the ODB.
-            payload = funnel.get("payload", {}).get(site, result.expected.get(site, "-"))
+            payload = funnel.get("payload", {}).get(
+                site, result.expected.get(site, "-")
+            )
             cells = [str(payload)]
             for stage in _FUNNEL[1:]:
                 cells.append(str(funnel.get(stage, {}).get(site, "-")))
@@ -1532,10 +1967,14 @@ def _render_section(args, night_start: datetime, vis_end: datetime,
     rows = []
     for size, data in per_size.items():
         plans = data["result"].plans
-        peak = max((p.peak_bytes for p in plans if p.peak_bytes is not None), default=None)
+        peak = max(
+            (p.peak_bytes for p in plans if p.peak_bytes is not None), default=None
+        )
         stall = max((p.worst_stall for p in plans), default=0.0)
         rows.append([_size_label(size), _fmt_bytes(peak), _fmt_s(stall)])
-    out.append(_table(["obs/site", "peak RSS (process high-water)", "worst loop stall"], rows))
+    out.append(
+        _table(["obs/site", "peak RSS (process high-water)", "worst loop stall"], rows)
+    )
     out.append("")
 
     data_comment = {
@@ -1544,17 +1983,27 @@ def _render_section(args, night_start: datetime, vis_end: datetime,
         "status": status,
         "night": night_start.date().isoformat(),
         "nights": nights,
-        "sizes": {str(size): {"plan_max": max((t for t in d["plan_times"] if t is not None), default=None),
-                              "plan_mean": mean(d["plan_times"]),
-                              "visibility": mean([v[1] for v in d["merged"].get("derived.visibility", [])])}
-                  for size, d in per_size.items()},
+        "sizes": {
+            str(size): {
+                "plan_max": max(
+                    (t for t in d["plan_times"] if t is not None), default=None
+                ),
+                "plan_mean": mean(d["plan_times"]),
+                "visibility": mean(
+                    [v[1] for v in d["merged"].get("derived.visibility", [])]
+                ),
+            }
+            for size, d in per_size.items()
+        },
     }
     out.append(f"<!-- stress-data {json.dumps(data_comment)} -->")
     return "\n".join(out)
 
 
-_SECTION = re.compile(r"<!-- section:(?P<label>[A-Za-z0-9_.-]+) -->\n(?P<body>.*?)\n<!-- /section:(?P=label) -->",
-                      re.DOTALL)
+_SECTION = re.compile(
+    r"<!-- section:(?P<label>[A-Za-z0-9_.-]+) -->\n(?P<body>.*?)\n<!-- /section:(?P=label) -->",
+    re.DOTALL,
+)
 _DATA = re.compile(r"<!-- stress-data (\{.*?\}) -->")
 
 
@@ -1574,9 +2023,13 @@ def _write_report(label: str, section: str) -> None:
             except json.JSONDecodeError:
                 pass
 
-    out = ["# Realtime stress test", "",
-           f"_Updated {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}. "
-           f"Target: a plan in under {PLAN_TARGET_S:.0f}s at 1500 observations per site._", ""]
+    out = [
+        "# Realtime stress test",
+        "",
+        f"_Updated {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}. "
+        f"Target: a plan in under {PLAN_TARGET_S:.0f}s at 1500 observations per site._",
+        "",
+    ]
     if data:
         sizes = sorted({int(s) for d in data for s in d["sizes"]})
         out.append("## Comparison\n")
@@ -1589,12 +2042,25 @@ def _write_report(label: str, section: str) -> None:
                 mark = "" if value is None or value <= PLAN_TARGET_S else " OVER"
                 cells.append(_fmt_s(value) + mark)
             rows.append([_size_col(size)] + cells)
-        out.append(_table(["obs/site"] + [f"{d['label']} ({d['status']}, {d.get('nights', NIGHTS_IN_WINDOW)} nights)"
-                                          for d in data], rows))
+        out.append(
+            _table(
+                ["obs/site"]
+                + [
+                    f"{d['label']} ({d['status']}, {d.get('nights', NIGHTS_IN_WINDOW)} nights)"
+                    for d in data
+                ],
+                rows,
+            )
+        )
         out.append("")
-        out.append("Visibility step per plan (local: compute; sight: retrieval only):\n")
-        rows = [[_size_col(size)] + [_fmt_s(d["sizes"].get(str(size), {}).get("visibility")) for d in data]
-                for size in sizes]
+        out.append(
+            "Visibility step per plan (local: compute; sight: retrieval only):\n"
+        )
+        rows = [
+            [_size_col(size)]
+            + [_fmt_s(d["sizes"].get(str(size), {}).get("visibility")) for d in data]
+            for size in sizes
+        ]
         out.append(_table(["obs/site"] + [d["label"] for d in data], rows))
         out.append("")
     for name, body in sections.items():
@@ -1609,56 +2075,119 @@ def _write_report(label: str, section: str) -> None:
 # CLI
 # --------------------------------------------------------------------------------------
 
+
 def _add_clone_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--night", help="UT date of the 08:00 anchor, i.e. the morning the night "
-                                        "ends (YYYY-MM-DD). Defaults to tonight, as realtime does.")
-    parser.add_argument("--sizes",
-                        help=f"Observations per site, comma-separated (default {DEFAULT_SIZES}). "
-                             f"Clones only.")
-    parser.add_argument("--cap", type=int, default=DEFAULT_CAP,
-                        help=f"Largest size any run will use; fixes the clone numbering "
-                             f"(default {DEFAULT_CAP}). Keep it the same for seed-sight and run.")
-    parser.add_argument("--seed", type=int, default=DEFAULT_SEED, help="Random seed for target positions.")
-    parser.add_argument("--programs", help="Comma-separated reference labels or ODB ids to fetch. "
-                                           "Defaults to every program active today, as realtime.")
-    parser.add_argument("--allow-nonsidereal", action="store_true",
-                        help="Keep programs with non-sidereal targets. Local visibility then calls "
-                             "JPL Horizons over the network.")
+    parser.add_argument(
+        "--night",
+        help="UT date of the 08:00 anchor, i.e. the morning the night "
+        "ends (YYYY-MM-DD). Defaults to tonight, as realtime does.",
+    )
+    parser.add_argument(
+        "--sizes",
+        help=f"Observations per site, comma-separated (default {DEFAULT_SIZES}). "
+        f"Clones only.",
+    )
+    parser.add_argument(
+        "--cap",
+        type=int,
+        default=DEFAULT_CAP,
+        help=f"Largest size any run will use; fixes the clone numbering "
+        f"(default {DEFAULT_CAP}). Keep it the same for seed-sight and run.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=DEFAULT_SEED,
+        help="Random seed for target positions.",
+    )
+    parser.add_argument(
+        "--programs",
+        help="Comma-separated reference labels or ODB ids to fetch. "
+        "Defaults to every program active today, as realtime.",
+    )
+    parser.add_argument(
+        "--allow-nonsidereal",
+        action="store_true",
+        help="Keep programs with non-sidereal targets. Local visibility then calls "
+        "JPL Horizons over the network.",
+    )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    seed = sub.add_parser("seed-sight", help="Fill the local Sight DB with the clones (setup, not measured).")
+    seed = sub.add_parser(
+        "seed-sight",
+        help="Fill the local Sight DB with the clones (setup, not measured).",
+    )
     _add_clone_args(seed)
-    seed.add_argument("--window", choices=("narrow", "full"), default="narrow",
-                      help="narrow: the 15 nights the engine reads. full: each program's own "
-                           "window, roughly a semester (long).")
+    seed.add_argument(
+        "--window",
+        choices=("narrow", "full"),
+        default="narrow",
+        help="narrow: the 15 nights the engine reads. full: each program's own "
+        "window, roughly a semester (long).",
+    )
 
     run = sub.add_parser("run", help="Measure realtime plans and write the report.")
     _add_clone_args(run)
-    run.add_argument("--source", choices=("clones", "odb"), default="clones",
-                     help="clones (default): the live ODB, fetched once at the start and cloned "
-                          "to --sizes per site. odb: no clones; every plan fetches from the ODB "
-                          "itself, as realtime does, and --sizes does not apply.")
+    run.add_argument(
+        "--source",
+        choices=("clones", "odb"),
+        default="clones",
+        help="clones (default): the live ODB, fetched once at the start and cloned "
+        "to --sizes per site. odb: no clones; every plan fetches from the ODB "
+        "itself, as realtime does, and --sizes does not apply.",
+    )
     run.add_argument("--visibility", choices=("local", "sight"), required=True)
-    run.add_argument("--label", required=True, help="Report section name, e.g. local, sight-15n, sight-full.")
-    run.add_argument("--vis-end", metavar="semester|realtime-default|YYYY-MM-DD", default="semester",
-                     help="How far the engine reads visibility, set as BuildParameters.visibility_end "
-                          "the way an operator would. 'semester' (default): to the end of the "
-                          "night's semester, which remaining visibility needs. 'realtime-default': "
-                          "the 15 nights of default_operation_parameters. Or a UT date (08:00 "
-                          "anchor, inclusive).")
-    run.add_argument("--plans", type=int, default=3, help="Measured plans per size (default 3).")
-    run.add_argument("--offset-hours", type=float, default=3.0,
-                     help="Plan i replans at earliest evening twilight + i × this (default 3).")
-    run.add_argument("--iq", type=float, default=0.2, help="Image quality for both sites (default 0.2).")
-    run.add_argument("--cc", type=float, default=0.5, help="Cloud cover for both sites (default 0.5).")
-    run.add_argument("--no-warmup", action="store_true", help="Skip the unmeasured warm-up plan.")
-    run.add_argument("--log-level", default="WARNING", choices=("DEBUG", "INFO", "WARNING", "ERROR"),
-                     help="Scheduler log level during the run (default WARNING).")
+    run.add_argument(
+        "--label",
+        required=True,
+        help="Report section name, e.g. local, sight-15n, sight-full.",
+    )
+    run.add_argument(
+        "--vis-end",
+        metavar="semester|realtime-default|YYYY-MM-DD",
+        default="semester",
+        help="How far the engine reads visibility, set as BuildParameters.visibility_end "
+        "the way an operator would. 'semester' (default): to the end of the "
+        "night's semester, which remaining visibility needs. 'realtime-default': "
+        "the 15 nights of default_operation_parameters. Or a UT date (08:00 "
+        "anchor, inclusive).",
+    )
+    run.add_argument(
+        "--plans", type=int, default=3, help="Measured plans per size (default 3)."
+    )
+    run.add_argument(
+        "--offset-hours",
+        type=float,
+        default=3.0,
+        help="Plan i replans at earliest evening twilight + i × this (default 3).",
+    )
+    run.add_argument(
+        "--iq",
+        type=float,
+        default=0.2,
+        help="Image quality for both sites (default 0.2).",
+    )
+    run.add_argument(
+        "--cc",
+        type=float,
+        default=0.5,
+        help="Cloud cover for both sites (default 0.5).",
+    )
+    run.add_argument(
+        "--no-warmup", action="store_true", help="Skip the unmeasured warm-up plan."
+    )
+    run.add_argument(
+        "--log-level",
+        default="WARNING",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR"),
+        help="Scheduler log level during the run (default WARNING).",
+    )
 
     args = parser.parse_args()
 
@@ -1672,7 +2201,9 @@ def main() -> int:
     if args.plans < 1:
         sys.exit("--plans must be at least 1.")
     if args.source == "odb" and args.sizes:
-        sys.exit("--sizes only applies to --source clones; live runs use whatever the ODB holds.")
+        sys.exit(
+            "--sizes only applies to --source clones; live runs use whatever the ODB holds."
+        )
     if args.visibility == "sight":
         _require_database_url("run --visibility sight")
     _prepare_env(args.visibility)

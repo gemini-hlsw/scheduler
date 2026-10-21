@@ -55,18 +55,20 @@ def write_docs(sdl: str) -> None:
 
     # Generate markdown summary
     summary_path = DOCS_DIR / "schema-summary.md"
-    summary = "\n".join([
-        "# GraphQL Schema Reference",
-        "",
-        "Auto-generated from the Strawberry schema.",
-        "",
-        "## SDL Schema",
-        "",
-        "```graphql",
-        sdl.strip(),
-        "```",
-        "",
-    ])
+    summary = "\n".join(
+        [
+            "# GraphQL Schema Reference",
+            "",
+            "Auto-generated from the Strawberry schema.",
+            "",
+            "## SDL Schema",
+            "",
+            "```graphql",
+            sdl.strip(),
+            "```",
+            "",
+        ]
+    )
     summary_path.write_text(summary)
     print(f"Schema summary written to {summary_path}")
 
