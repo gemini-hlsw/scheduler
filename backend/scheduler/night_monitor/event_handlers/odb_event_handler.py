@@ -31,6 +31,7 @@ from gpp_client.generated.scheduler_observations_updates import (
 from lucupy.minimodel import ALL_SITES, Site, Observation, ObservationID, ObservationStatus
 
 from scheduler.services import logger_factory
+from scheduler.services.visibility_aggregator.aggregator import is_night_in_progress
 from ...core.events.queue.scheduler_queue_client import SchedulerQueue
 
 _logger = logger_factory.create_logger(__name__)
@@ -182,6 +183,10 @@ class ODBEventHandler(EventHandler, TimelineListener):
 
     async def _on_idle_timeout(self, site: Site) -> None:
         """No ODB activity for WAITING_THRESHOLD: recompute so the plan matches the current time."""
+        # Idle loop stops here until the next plan published re-arms it (at the latest, GS evening twilight).
+        if not await asyncio.to_thread(is_night_in_progress):
+            _logger.info(f'{site.name} idle outside dark time; leaving the daytime to the visibility aggregator.')
+            return
         _logger.info(f'{site.name} idle for {ODBEventHandler.WAITING_THRESHOLD}. Requesting a new plan.')
         await self._request_new_plan(
             OnDemandScheduleEvent(
