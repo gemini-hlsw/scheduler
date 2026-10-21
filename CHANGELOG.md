@@ -5,6 +5,12 @@ This changelog is managed by [Towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 2026.10.4 (2026-10-21)
+
+### Features
+
+- Support new scheduling options, update visitor sequence calc, update ops Resource files
+
 ## 2026.10.3 (2026-10-21)
 
 ### Features

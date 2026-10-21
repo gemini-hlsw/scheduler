@@ -120,7 +120,9 @@ def lint_schema(schema) -> list[str]:
             field_name = field.get("name", "")
             field_desc = field.get("description")
             if not field_desc or not field_desc.strip():
-                issues.append(f"Input field '{name}.{field_name}' is missing a description")
+                issues.append(
+                    f"Input field '{name}.{field_name}' is missing a description"
+                )
 
     return issues
 
