@@ -155,7 +155,9 @@ class RTEventFactory:
         wind_dir: float = 330.0,
         wind_spd: float = 5.0,
     ) -> WeatherChangeEvent:
-        variant = VariantSnapshot(iq=iq, cc=cc, wv=wv, wind_dir=Angle(wind_dir, unit=u.deg), wind_spd=wind_spd * (u.m / u.s))
+        variant = VariantSnapshot(
+            iq=iq, cc=cc, wv=wv, wind_dir=Angle(wind_dir, unit=u.deg), wind_spd=wind_spd * (u.m / u.s)
+        )
         return WeatherChangeEvent(
             variant_change=variant, site=site, time=time, description=f'Weather changed for site {site.name}'
         )
