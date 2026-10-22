@@ -5,6 +5,20 @@ This changelog is managed by [Towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 2026.10.5 (2026-10-22)
+
+### Features
+
+- Show the required water vapor and sky background of each visit in the observations table of the plan results.
+- The selector now checks the observations' water vapor requirement against the current water vapor, taken from the weather service (or the weather data files). Missing water vapor is treated as WV ANY.
+- Improve program selector panel, refetch available programs on panel open, display 102 programs per page and sort them alphabetically.
+- Add READY -> Defined/Inactive transition in ODB Event handler to retrigger plan if a observation that it is in the old plan
+
+### Bug Fixes
+
+- Fix use of tooType.INTERRUPTING
+- Fix Sight NonSideral Parsing that was showing up Empty targets
+
 ## 2026.10.4 (2026-10-21)
 
 ### Features
