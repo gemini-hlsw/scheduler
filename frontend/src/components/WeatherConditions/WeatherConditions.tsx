@@ -344,8 +344,6 @@ export default function WeatherConditions({
               placeholder="Select WV"
               className={controlClass}
               vertical={vertical}
-              // Not used by the scheduler yet: keep the default until it is.
-              disabled
             />
           </Field>
           <Field orientation={orientation}>
