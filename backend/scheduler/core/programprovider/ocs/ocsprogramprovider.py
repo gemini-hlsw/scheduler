@@ -1690,13 +1690,13 @@ class OcsProgramProvider(ProgramProvider):
         A Program with a TooType that is None should have all Observations with their
         tooRapidOverride set to False.
 
-        In the context of OCS, we do not have TooTypes of INTERRUPT.
+        In the context of OCS, we do not have TooTypes of INTERRUPTING.
 
         TODO: This logic can probably be extracted from this class and moved to a general-purpose
         TODO: method as it will apply to all implementations of the API.
         """
-        if too_type == TooType.INTERRUPT:
-            msg = f'OCS program {program_id} has a ToO type of INTERRUPT.'
+        if too_type == TooType.INTERRUPTING:
+            msg = f'OCS program {program_id} has a ToO type of INTERRUPTING.'
             raise ValueError(msg)
 
         def compatible(sub_too_type: Optional[TooType]) -> bool:
