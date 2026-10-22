@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 __all__ = [
-    "NON_SIDEREAL",
     "NO_SITE",
     "UNSUPPORTED_TARGET",
     "NO_COORDINATES",
@@ -23,17 +22,16 @@ __all__ = [
 
 # --- terminal: the observation cannot be stored -------------------------------
 
-# The aggregator parses non-sidereal targets but does not compute them.
-NON_SIDEREAL = "NON_SIDEREAL"
 # The instrument does not resolve to GN or GS, so there is no site to compute at.
 NO_SITE = "NO_SITE"
-# The asterism entry is neither sidereal nor non-sidereal, which the target
-# mapping cannot build and the aggregator's parse raises on.
+# A target the aggregator's parse cannot build: an asterism entry that is
+# neither sidereal nor non-sidereal, or a user-supplied ephemeris (no Horizons
+# designation to look up).
 UNSUPPORTED_TARGET = "UNSUPPORTED_TARGET"
 # A sidereal target whose coordinates are absent in the ODB.
 NO_COORDINATES = "NO_COORDINATES"
 
-TERMINAL_REASONS = frozenset({NON_SIDEREAL, NO_SITE, UNSUPPORTED_TARGET, NO_COORDINATES})
+TERMINAL_REASONS = frozenset({NO_SITE, UNSUPPORTED_TARGET, NO_COORDINATES})
 
 # --- stored, but no longer current -------------------------------------------
 

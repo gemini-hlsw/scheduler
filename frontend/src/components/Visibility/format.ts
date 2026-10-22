@@ -53,9 +53,8 @@ export type SiteKey = (typeof SITES)[number];
  * (see services/visibility_status/reasons.py); wording lives here.
  */
 const REASON_LABELS: Record<string, string> = {
-  NON_SIDEREAL: "Non-sidereal target, not computed yet",
   NO_SITE: "Instrument does not resolve to a site",
-  UNSUPPORTED_TARGET: "Target is neither sidereal nor non-sidereal",
+  UNSUPPORTED_TARGET: "Unsupported target, or a user-supplied ephemeris",
   NO_COORDINATES: "Target has no coordinates in the ODB",
   ODB_CHANGED: "Changed in the ODB since the last run",
   NIGHT_NOT_COMPUTED: "Night not computed for this site yet",
