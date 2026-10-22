@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -188,7 +188,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -231,7 +231,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
     { name = "sniffio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f1/b4/636b3b65173d3ce9a38ef5f0522789614e590dab6a8d505340a4efe4c567/anyio-4.10.0.tar.gz", hash = "sha256:3f3fae35c96039744587aa5b8371e7e8e603c0702999535961dd336026973ba6", size = 213252, upload-time = "2025-08-04T08:54:26.451Z" }
 wheels = [
@@ -889,32 +889,6 @@ wheels = [
 
 [[package]]
 name = "gpp-client"
-version = "26.10.4.dev3"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.14'",
-    "python_full_version == '3.13.*'",
-    "python_full_version == '3.12.*'",
-    "python_full_version < '3.12'",
-]
-dependencies = [
-    { name = "aiohttp" },
-    { name = "beautifulsoup4" },
-    { name = "click" },
-    { name = "graphql-core" },
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "typer" },
-    { name = "websockets" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/18/1b/5e42b7a7967e46b60bc857898fb4242269fca48cc60ead391c3858d358f0/gpp_client-26.10.4.dev3.tar.gz", hash = "sha256:cc571081659cc7d7f82095c43f41a77a40a29e2069e738e5b031a013eab5f604", size = 246036, upload-time = "2026-10-20T22:19:26.454Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/97/5a/9375bae1a4b4bab78b9e58375059dc567000c7c9e249ec30f780fc1eb06b/gpp_client-26.10.4.dev3-py3-none-any.whl", hash = "sha256:13d2705e3cf34363e56139b34154e45b7c6b812fcffb10961e4ccced35a6d5ee", size = 285823, upload-time = "2026-10-20T22:19:24.69Z" },
-]
-
-[[package]]
-name = "gpp-client"
 version = "26.10.4"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
@@ -937,6 +911,32 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7a/83/7c5e0b5176f54d2146357d83a22b863dae5778de4e26280cf0a0c8d3f70f/gpp_client-26.10.4.tar.gz", hash = "sha256:f1f422df4cad691b9371a5b1c418a4b71c6a1ece8a0914e78e574f2e0650e730", size = 243636, upload-time = "2026-10-21T13:29:27.204Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a3/7c/f74531d37d2cc8d22be86f23cd2322c75cc0a4155cc93f6cbe388cc3e6b1/gpp_client-26.10.4-py3-none-any.whl", hash = "sha256:9ff7d474247a3b7f862c8b583bcb2057c978c3989975ab99f33413939dda6187", size = 283388, upload-time = "2026-10-21T13:29:25.89Z" },
+]
+
+[[package]]
+name = "gpp-client"
+version = "26.10.7.dev1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.14'",
+    "python_full_version == '3.13.*'",
+    "python_full_version == '3.12.*'",
+    "python_full_version < '3.12'",
+]
+dependencies = [
+    { name = "aiohttp" },
+    { name = "beautifulsoup4" },
+    { name = "click" },
+    { name = "graphql-core" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "typer" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c5/93/a4a413a43750a474de7094102eb872e6fe63d0d48363ede90617079b5abb/gpp_client-26.10.7.dev1.tar.gz", hash = "sha256:94ff295080a54a520154c85a32b10534704180045a3c5358112b5b040f49bc09", size = 247272, upload-time = "2026-10-22T15:39:00.483Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/e2/3dea1b90239dca3e54a4c0ae8586f0b7d7457fe3f94d6bbf28d5fff215ba/gpp_client-26.10.7.dev1-py3-none-any.whl", hash = "sha256:7f0087ebbec9fea0c6d17719e79a5e73ec6ce420e46645dbc95d071a8bc82089", size = 287017, upload-time = "2026-10-22T15:38:59.144Z" },
 ]
 
 [[package]]
@@ -2837,7 +2837,7 @@ docs = [
     { name = "mkdocstrings-python" },
 ]
 gpp-dev = [
-    { name = "gpp-client", version = "26.10.4.dev3", source = { registry = "https://pypi.org/simple" } },
+    { name = "gpp-client", version = "26.10.7.dev1", source = { registry = "https://pypi.org/simple" } },
 ]
 gpp-prod = [
     { name = "gpp-client", version = "26.10.4", source = { registry = "https://pypi.org/simple" } },
@@ -2893,8 +2893,8 @@ docs = [
     { name = "mkdocs-mermaid2-plugin", specifier = ">=1.2.1" },
     { name = "mkdocstrings-python", specifier = ">=1.16.12" },
 ]
-gpp-dev = [{ name = "gpp-client", specifier = ">=26.10.4.dev3,==26.10.4.*,!=26.10.4" }]
-gpp-prod = [{ name = "gpp-client", specifier = ">=26.10.4" }]
+gpp-dev = [{ name = "gpp-client", specifier = ">=26.10.7.dev1,==26.10.7.*,!=26.10.7" }]
+gpp-prod = [{ name = "gpp-client", specifier = "==26.10.4" }]
 
 [[package]]
 name = "scipy"
