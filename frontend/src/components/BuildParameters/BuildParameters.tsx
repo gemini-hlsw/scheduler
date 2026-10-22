@@ -52,7 +52,11 @@ export default function BuildParameters({
       .filter((d): d is Date => Boolean(d))
       .sort((a, b) => a.getTime() - b.getTime())[0];
 
-  const { data: programList, loading: programListLoading } = useQuery(
+  const {
+    data: programList,
+    loading: programListLoading,
+    refetch: refetchProgramList,
+  } = useQuery(
     getProgramList,
     {
       variables: { nightDate: nightDate ? toDateOnlyString(nightDate) : null },
@@ -266,6 +270,9 @@ export default function BuildParameters({
             validationMode={false}
             full={true}
             loading={programListLoading}
+            // Programs can leave the ODB while the night stays the same, and the
+            // query only reruns when nightDate changes: read the latest on open.
+            onOpen={() => refetchProgramList()}
           />
           <RunButton
             loadingPlan={false}
