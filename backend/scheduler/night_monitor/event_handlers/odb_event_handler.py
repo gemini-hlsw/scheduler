@@ -453,6 +453,21 @@ class ODBEventHandler(EventHandler, TimelineListener):
                 _logger.info(f'Observation {label} completed as planned. Watching {site.name} for idle time.')
                 self._arm_idle_timer(site)
 
+        if updated_obs.workflow.value.state in ('INACTIVE', 'DEFINED'):
+            if is_in_the_plan:
+                # Deactivated, or pulled back out of READY (e.g. READY -> DEFINED). It can no longer
+                # be executed, so the plan is sending the telescope to an observation that will not run.
+                state = updated_obs.workflow.value.state
+                await self._request_new_plan(
+                    ObservationActivationEvent(
+                        site=site,
+                        observation_id=updated_obs.id,
+                        time=when,
+                        description=f'Observation {label} is no longer executable ({state}) '
+                        f'and was removed from the plan. Recalculate...',
+                    )
+                )
+
     async def _on_observation_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
         """
         Handles all modifications (edits) to existing observations.
