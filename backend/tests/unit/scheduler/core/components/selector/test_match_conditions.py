@@ -18,8 +18,13 @@ def _obs(wv: float):
 
 
 def _variant(wv: float, num_timeslots: int = 3):
-    snapshot = VariantSnapshot(iq=ImageQuality(1.0), cc=CloudCover(1.0), wv=WaterVapor(wv),
-                               wind_dir=Angle(0, unit=u.deg), wind_spd=0 * (u.m / u.s))
+    snapshot = VariantSnapshot(
+        iq=ImageQuality(1.0),
+        cc=CloudCover(1.0),
+        wv=WaterVapor(wv),
+        wind_dir=Angle(0, unit=u.deg),
+        wind_spd=0 * (u.m / u.s),
+    )
     return snapshot.make_variant(num_timeslots)
 
 
