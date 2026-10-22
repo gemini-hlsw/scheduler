@@ -18,6 +18,7 @@ export function ProgramSelectorDialog({
   validationMode = false,
   full = false,
   loading = false,
+  onOpen,
 }: {
   programs: ProgramListType[];
   setProgram: (program: string, state: boolean) => void;
@@ -25,9 +26,10 @@ export function ProgramSelectorDialog({
   validationMode?: boolean;
   full?: boolean;
   loading?: boolean;
+  onOpen?: () => void;
 }) {
   return (
-    <Dialog>
+    <Dialog onOpenChange={(open) => open && onOpen?.()}>
       <DialogTrigger asChild>
         <Button
           disabled={loading}

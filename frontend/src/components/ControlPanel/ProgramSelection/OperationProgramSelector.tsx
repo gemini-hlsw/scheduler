@@ -5,7 +5,7 @@ import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { type ProgramListType } from "./ProgramList";
 
-const PAGE_SIZE = 40;
+const PAGE_SIZE = 102;
 
 export function OperationProgramSelector({
   programs,
@@ -16,19 +16,29 @@ export function OperationProgramSelector({
 }) {
   const [page, setPage] = useState(0);
 
+  // Sort before paging so the order runs across pages, not just within one.
+  const sortedPrograms = [...programs].sort((a, b) =>
+    a.label.localeCompare(b.label, undefined, { numeric: true }),
+  );
   const pageCount = Math.max(1, Math.ceil(programs.length / PAGE_SIZE));
   // The list can shrink under us (programs reloaded), so never point past the last page.
   const currentPage = Math.min(page, pageCount - 1);
-  const pagePrograms = programs.slice(
+  const pagePrograms = sortedPrograms.slice(
     currentPage * PAGE_SIZE,
-    (currentPage + 1) * PAGE_SIZE
+    (currentPage + 1) * PAGE_SIZE,
   );
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-1">
+      {/* Multi-column layout, not a grid, so the sorted list runs down each column first. */}
+      <div className="columns-2 md:columns-3 lg:columns-5 xl:columns-6 gap-1">
         {pagePrograms.map((program) => (
-          <Field orientation="horizontal" key={program.id}>
+          <Field
+            orientation="horizontal"
+            key={program.id}
+            // Padding, not margin: a margin would push down the top of every column after the first.
+            className="break-inside-avoid pb-1"
+          >
             <Checkbox
               id={program.id}
               name={program.id}
