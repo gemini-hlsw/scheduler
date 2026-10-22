@@ -63,6 +63,7 @@ class SRequiredConditions:
     """
     Conditions required by an observation. Unlike SConditions, these include sky background and water vapor.
     """
+
     iq: str
     cc: str
     sb: str
@@ -70,10 +71,9 @@ class SRequiredConditions:
 
     @staticmethod
     def from_computed_conditions(conditions: Conditions) -> 'SRequiredConditions':
-        return SRequiredConditions(iq=conditions.iq.name,
-                                   cc=conditions.cc.name,
-                                   sb=conditions.sb.name,
-                                   wv=conditions.wv.name)
+        return SRequiredConditions(
+            iq=conditions.iq.name, cc=conditions.cc.name, sb=conditions.sb.name, wv=conditions.wv.name
+        )
 
 
 @strawberry.type
