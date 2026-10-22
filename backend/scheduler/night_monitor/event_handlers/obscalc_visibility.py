@@ -96,26 +96,49 @@ def _parse_epoch(value) -> float:
         return 2000.0
 
 
+# GPP EphemerisKeyType -> Sight target tag.
+_KEY_TYPE_TO_TAG = {
+    'COMET': 'comet',
+    'ASTEROID_NEW': 'asteroid',
+    'ASTEROID_OLD': 'asteroid',
+    'MAJOR_BODY': 'majorbody',
+}
+
+
 def build_target_create(value: ObscalcValue) -> Optional[TargetCreate]:
     """Build a Sight ``TargetCreate`` from the event's first asterism target.
 
-    Returns ``None`` (caller skips) when there is no sidereal base target —
-    non-sidereal targets are skipped for now, mirroring the aggregator.
+    Returns ``None`` (caller skips) when there is no usable base target: no
+    asterism, no coordinates, or a user-supplied ephemeris.
     """
     asterism = value.target_environment.asterism if value.target_environment else []
     if not asterism:
         return None
     base = asterism[0]
-    if base.sidereal is None:
-        # Non-sidereal (or no coords): skip for now, same as the aggregator.
-        return None
-    return TargetCreate(
-        name=str(base.name),
-        is_sidereal=True,
-        base_ra=sex2dec(base.sidereal.ra.hms, to_degree=True),
-        base_dec=sex2dec(base.sidereal.dec.dms, to_degree=False),
-        epoch=_parse_epoch(base.sidereal.epoch),
-    )
+    if base.sidereal is not None:
+        return TargetCreate(
+            name=str(base.name),
+            is_sidereal=True,
+            base_ra=sex2dec(base.sidereal.ra.hms, to_degree=True),
+            base_dec=sex2dec(base.sidereal.dec.dms, to_degree=False),
+            epoch=_parse_epoch(base.sidereal.epoch),
+        )
+    if base.nonsidereal is not None:
+        key_type = base.nonsidereal.key_type
+        tag = _KEY_TYPE_TO_TAG.get(str(getattr(key_type, "value", key_type)))
+        if tag is None:
+            return None
+        # Sight requires base_ra/base_dec; non-sidereal targets resolve via
+        # horizons_id, so we send neutral placeholders (as the aggregator does).
+        return TargetCreate(
+            name=str(base.name),
+            is_sidereal=False,
+            base_ra=0.0,
+            base_dec=0.0,
+            horizons_id=str(base.nonsidereal.des),
+            tag=tag,
+        )
+    return None
 
 
 def build_constraints(value: ObscalcValue, range_end: datetime) -> ObservationConstraints:
@@ -277,8 +300,8 @@ async def calculate_and_store_visibility(
     """
     payload = build_target_create(value)
     if payload is None:
-        _logger.info(f"Observation {observation_id}: no sidereal base target; skipping visibility calculation.")
-        return {"stored": 0, "skipped": "no_sidereal_target"}
+        _logger.info(f"Observation {observation_id}: no usable base target; skipping visibility calculation.")
+        return {"stored": 0, "skipped": "no_target"}
 
     start_date = _to_date(value.program.active.start)
     end_date = _to_date(value.program.active.end)
@@ -350,7 +373,7 @@ async def refresh_visibility_if_changed(
     """
     payload = build_target_create(value)
     if payload is None:
-        # Non-sidereal or no base target: nothing stored to refresh.
+        # No usable base target: nothing stored to refresh.
         return None
 
     obs_changed = str(value.id) in changes.observation_ids
@@ -368,7 +391,7 @@ async def refresh_visibility_if_changed(
         calc = Calculator(session)
         if target_changed:
             db_target = await calc.target_repo.get_by_name(payload.name)
-            if db_target is not None:
+            if db_target is not None and payload.is_sidereal:
                 await calc.target_repo.update_fields(
                     db_target,
                     base_ra=payload.base_ra,
@@ -376,6 +399,12 @@ async def refresh_visibility_if_changed(
                     pm_ra=payload.pm_ra,
                     pm_dec=payload.pm_dec,
                     epoch=payload.epoch,
+                )
+            elif db_target is not None:
+                await calc.target_repo.update_non_sidereal_fields(
+                    db_target,
+                    tag=payload.tag,
+                    horizons_id=payload.horizons_id,
                 )
         deleted = await calc.visibility_repo.delete_by_observation(observation_id)
 

@@ -854,6 +854,9 @@ class GppProgramProvider(ProgramProvider):
         # Map ASTEROID_NEW keyType to ASTEROID
         if 'ASTEROID' in tag_str:
             tag_str = 'ASTEROID'
+        # Map MAJOR_BODY keyType to MAJORBODY
+        elif tag_str == 'MAJOR_BODY':
+            tag_str = 'MAJORBODY'
         tag = TargetTag[tag_str]
 
         # print(f"name: {name}, des: {des} tag_str: {tag_str}")

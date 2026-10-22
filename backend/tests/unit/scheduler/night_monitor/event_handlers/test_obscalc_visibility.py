@@ -147,8 +147,15 @@ def test_parse_epoch(raw, expected):
     assert ov._parse_epoch(raw) == pytest.approx(expected)
 
 
-def test_build_target_create_nonsidereal_skipped():
-    value = _value(asterism=[_asterism("Ceres", sidereal=None, nonsidereal=SimpleNamespace(des="1"))])
+def test_build_target_create_nonsidereal():
+    value = _value(asterism=[_asterism("Uranus", nonsidereal=SimpleNamespace(des="799", key_type="MAJOR_BODY"))])
+    payload = ov.build_target_create(value)
+    assert payload.is_sidereal is False
+    assert payload.horizons_id == "799"
+    assert payload.tag == "majorbody"
+
+    # A user-supplied ephemeris has no Horizons designation to look up.
+    value = _value(asterism=[_asterism("X", nonsidereal=SimpleNamespace(des="X", key_type="USER_SUPPLIED"))])
     assert ov.build_target_create(value) is None
 
 
@@ -306,7 +313,7 @@ async def test_calculate_and_store_visibility_skips_create_for_existing_target()
 
 
 @pytest.mark.asyncio
-async def test_calculate_and_store_visibility_skips_non_sidereal():
+async def test_calculate_and_store_visibility_skips_without_coordinates():
     value = _value(asterism=[_asterism("Ceres", sidereal=None)])
     with patch.object(ov, "Calculator") as mock_calc_cls:
         result = await ov.calculate_and_store_visibility(value, "GS-1", "GS")

@@ -18,7 +18,6 @@ from scheduler.services import logger_factory
 from scheduler.services.sight.calculator.constants import site_key_from_instrument
 from scheduler.services.visibility_aggregator.aggregator import SCHEDULABLE_STATES
 from scheduler.services.visibility_status.reasons import (
-    NON_SIDEREAL,
     NO_COORDINATES,
     NO_SITE,
     UNSUPPORTED_TARGET,
@@ -68,6 +67,16 @@ def _missing_coordinates(sidereal) -> bool:
     return ra is None or dec is None or getattr(ra, "degrees", None) is None or getattr(dec, "degrees", None) is None
 
 
+def _user_supplied(nonsidereal) -> bool:
+    """Whether a non-sidereal target carries a user-supplied ephemeris.
+
+    The aggregator looks non-sidereal targets up in Horizons by designation; a
+    user-supplied ephemeris has none, so the program parse cannot build it.
+    """
+    key_type = getattr(nonsidereal, "key_type", None)
+    return str(getattr(key_type, "value", key_type)) == "USER_SUPPLIED"
+
+
 def _classify(match, program_label: str) -> Optional[ExpectedObservation]:
     """Build an ExpectedObservation, or None when it is not a visibility subject.
 
@@ -80,11 +89,6 @@ def _classify(match, program_label: str) -> Optional[ExpectedObservation]:
       not belong in the totals at all. The ODB still returns these (the query
       filters on workflow state, not on the target environment), so they are
       dropped here rather than by narrowing the query.
-
-    Observations that *have* a target but that the aggregator does not compute
-    (non-sidereal), cannot build (an unsupported target, or one without
-    coordinates) or cannot place (no resolvable site) are kept and marked with a
-    ``skip_reason``, so they show as "not applicable" instead of vanishing.
     """
     reference = getattr(match, "reference", None)
     label = getattr(reference, "label", None) if reference is not None else None
@@ -109,9 +113,9 @@ def _classify(match, program_label: str) -> Optional[ExpectedObservation]:
         # Neither shape: the aggregator's target mapping has nothing to build
         # from, so its parse of this observation raises.
         skip_reason = UNSUPPORTED_TARGET
-    elif not is_sidereal:
-        skip_reason = NON_SIDEREAL
-    elif _missing_coordinates(sidereal):
+    elif not is_sidereal and _user_supplied(nonsidereal):
+        skip_reason = UNSUPPORTED_TARGET
+    elif is_sidereal and _missing_coordinates(sidereal):
         skip_reason = NO_COORDINATES
     elif site is None:
         skip_reason = NO_SITE
