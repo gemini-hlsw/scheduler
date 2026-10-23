@@ -126,7 +126,7 @@ def test_target_info_built_only_for_planned_nights():
         NightIndex(1): ({"o1", "o2"}, stage1, {"o1": 30, "o2": 30}, {"o1": [[0, 3]], "o2": [[0, 3]]}),
     }
 
-    with patch.object(collector_mod, "build_target_info", side_effect=lambda *a: SimpleNamespace()) as build:
+    with patch.object(collector_mod, "build_target_info", side_effect=lambda *a, **kw: SimpleNamespace()) as build:
         obj._apply_sight_visibility(filtered, per_night)
 
     assert build.call_count == 1

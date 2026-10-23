@@ -123,6 +123,23 @@ class NightEventRepository(BaseRepository[NightEvent]):
         result = await self.session.execute(stmt)
         return set(result.scalars().all())
 
+    async def get_night_starts(
+        self,
+        site_ids: list[int],
+        start_date: date,
+        end_date: date,
+    ) -> dict[tuple[int, date], datetime]:
+        """Night start per (site_id, night_date) in the range, without the per-minute arrays."""
+        stmt = select(NightEvent.site_id, NightEvent.night_date, NightEvent.night_start).where(
+            and_(
+                NightEvent.site_id.in_(site_ids),
+                NightEvent.night_date >= start_date,
+                NightEvent.night_date <= end_date,
+            )
+        )
+        result = await self.session.execute(stmt)
+        return {(site_id, night_date): night_start for site_id, night_date, night_start in result.all()}
+
     async def exists(self, site_id: int, night_date: date) -> bool:
         """Check if night event exists for site and night."""
         stmt = (
