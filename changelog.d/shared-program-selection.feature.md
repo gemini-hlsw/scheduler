@@ -1,0 +1,1 @@
+The Operation program selector is now shared between browsers: checking or unchecking a program, Select All, Clear All or Reset to default shows up at once in every open Program Selection dialog, and Send Parameters sends that shared selection.

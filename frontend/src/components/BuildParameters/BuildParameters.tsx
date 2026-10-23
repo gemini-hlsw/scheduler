@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { RunButton } from "../ControlPanel/RunButton";
 import { ProgramSelectorDialog } from "../ControlPanel/ProgramSelectorDialog";
@@ -13,8 +13,13 @@ import {
   tzDateToString,
   utcToLocal,
 } from "@/helpers/utcTime";
-import { useMutation, useQuery } from "@apollo/client";
-import { updateBuildParameters } from "./mutation";
+import { useMutation, useQuery, useSubscription } from "@apollo/client";
+import {
+  resetProgramSelection,
+  setProgramSelection,
+  updateBuildParameters,
+} from "./mutation";
+import { programSelectionSubscription } from "./subscription";
 import { SiteNightTimesEntry } from "@/gql/graphql";
 import { getProgramList } from "./query";
 import DisplayBuildParameters, {
@@ -35,7 +40,6 @@ export default function BuildParameters({
     from: undefined,
     to: undefined,
   });
-  const [programs, updatePrograms] = useState([]);
   const [startTimeGN, setStartTimeGN] = useState<Date | undefined>(undefined);
   const [startTimeGS, setStartTimeGS] = useState<Date | undefined>(undefined);
   const [endTimeGN, setEndTimeGN] = useState<Date | undefined>(undefined);
@@ -65,37 +69,46 @@ export default function BuildParameters({
     }
   );
 
-  useEffect(() => {
-    if (programList) {
-      updatePrograms((current) => {
-        // A refetch (new night, reconnect) must not silently re-check what the
-        // operator unchecked: keep their picks, default unseen programs to on.
-        const picked = new Map(current.map((p) => [p.id, p.checked]));
-        return programList.availablePrograms.map((p) => ({
-          label: p.refLabel,
-          id: p.id,
-          checked: picked.get(p.id) ?? true,
-          disabled: false,
-        }));
-      });
-    }
-  }, [programList]);
+  // The selection lives on the server and is shared by every browser: each
+  // change goes up as a mutation and comes back to all of them through this
+  // subscription, which also sends the current selection when it connects.
+  const { data: selectionData, loading: selectionLoading } = useSubscription(
+    programSelectionSubscription,
+    { context: { clientName: "realtimeClient" } }
+  );
+  const [setSelection] = useMutation(setProgramSelection, {
+    fetchPolicy: "no-cache",
+    context: { clientName: "realtimeClient" },
+  });
+  const [resetSelection] = useMutation(resetProgramSelection, {
+    fetchPolicy: "no-cache",
+    context: { clientName: "realtimeClient" },
+  });
+
+  const programs = useMemo(() => {
+    // The server keeps the unchecked programs, so ones it has not seen yet
+    // (new night, new in the ODB) start checked.
+    const deselected = new Set(
+      selectionData?.programSelectionUpdates.deselected ?? []
+    );
+    return (programList?.availablePrograms ?? []).map((p) => ({
+      label: p.refLabel,
+      id: p.id,
+      checked: !deselected.has(p.id),
+      disabled: false,
+    }));
+  }, [programList, selectionData]);
 
   function resetPrograms() {
-    updatePrograms(
-      programList.availablePrograms.map((p) => ({
-        label: p.refLabel,
-        id: p.id,
-        checked: true,
-        disabled: false,
-      }))
-    );
+    resetSelection();
+  }
+
+  function setPrograms(programIds: string[], state: boolean) {
+    setSelection({ variables: { programIds, selected: state } });
   }
 
   function setProgram(program: string, state: boolean) {
-    const auxProgramList = [...programs];
-    auxProgramList.find((p) => p.id === program).checked = state;
-    updatePrograms(auxProgramList);
+    setPrograms([program], state);
   }
 
   function sendBuildParams() {
@@ -266,10 +279,11 @@ export default function BuildParameters({
           <ProgramSelectorDialog
             programs={programs}
             setProgram={setProgram}
+            setPrograms={setPrograms}
             resetPrograms={resetPrograms}
             validationMode={false}
             full={true}
-            loading={programListLoading}
+            loading={programListLoading || selectionLoading}
             // Programs can leave the ODB while the night stays the same, and the
             // query only reruns when nightDate changes: read the latest on open.
             onOpen={() => refetchProgramList()}
@@ -279,8 +293,10 @@ export default function BuildParameters({
             run={sendBuildParams}
             // An empty programList reads as "no filter" and the build loads every
             // program of the current day, so never send one.
+            // Until the shared selection arrives every program reads as checked.
             isRunDisabled={
               programListLoading ||
+              selectionLoading ||
               programs.filter((p) => p.checked).length === 0
             }
             title="Send Parameters"
