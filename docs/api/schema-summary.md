@@ -71,6 +71,8 @@ scalar JSON @specifiedBy(url: "https://ecma-international.org/wp-content/uploads
 
 type Mutation {
   updateBuildParams(buildParamsInput: BuildParametersInput!): String!
+  setProgramSelection(programIds: [String!]!, selected: Boolean!): ProgramSelection!
+  resetProgramSelection: ProgramSelection!
 }
 
 type NewNightPlans {
@@ -125,6 +127,10 @@ enum ObservationStatus {
   PENDING
   MISSING
   SKIPPED
+}
+
+type ProgramSelection {
+  deselected: [String!]!
 }
 
 type Query {
@@ -263,6 +269,7 @@ scalar Sites
 type Subscription {
   queueSchedule(scheduleId: String!): NightPlansResponseRT!
   buildParametersUpdates: BuildParametersResponse!
+  programSelectionUpdates: ProgramSelection!
 }
 
 type TimelineEntriesBySite {

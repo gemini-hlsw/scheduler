@@ -464,6 +464,17 @@ class AvailableProgram:
 
 
 @strawberry.type
+class ProgramSelection:
+    """The shared operation program selection. Any program not listed is selected."""
+
+    deselected: List[str]
+
+    @staticmethod
+    def from_ids(deselected: FrozenSet[str]) -> 'ProgramSelection':
+        return ProgramSelection(deselected=sorted(deselected))
+
+
+@strawberry.type
 class VisibilityAggregatorStatus:
     """Current state of the background visibility-aggregator cron."""
 

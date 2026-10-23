@@ -15,3 +15,11 @@ export const buildParametersSubscription = graphql(`
     }
   }
 `);
+
+export const programSelectionSubscription = graphql(`
+  subscription programSelectionUpdates {
+    programSelectionUpdates {
+      deselected
+    }
+  }
+`);

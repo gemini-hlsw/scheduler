@@ -14,6 +14,7 @@ import { ImSpinner9 } from "react-icons/im";
 export function ProgramSelectorDialog({
   programs,
   setProgram,
+  setPrograms,
   resetPrograms,
   validationMode = false,
   full = false,
@@ -22,6 +23,8 @@ export function ProgramSelectorDialog({
 }: {
   programs: ProgramListType[];
   setProgram: (program: string, state: boolean) => void;
+  // Changes many programs at once. Defaults to one setProgram call per program.
+  setPrograms?: (programs: string[], state: boolean) => void;
   resetPrograms: () => void;
   validationMode?: boolean;
   full?: boolean;
@@ -50,6 +53,7 @@ export function ProgramSelectorDialog({
         <ProgramSelector
           programs={programs}
           setProgram={setProgram}
+          setPrograms={setPrograms}
           resetPrograms={resetPrograms}
           validationMode={validationMode}
         />

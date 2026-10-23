@@ -16,7 +16,11 @@ from scheduler.core.components.ranker import RankerParameters
 from scheduler.engine import Engine, SchedulerParameters
 from scheduler.orchestration import process_manager
 from scheduler.services.logger_factory import create_logger
-from scheduler.shared_queue import plan_response_subscribers, build_parameters_subscribers
+from scheduler.shared_queue import (
+    plan_response_subscribers,
+    build_parameters_subscribers,
+    program_selection_subscribers,
+)
 from scheduler.clients.gpp import gpp
 from scheduler.services.sight.database.connection import session_scope
 from scheduler.services.visibility_status.coverage import (
@@ -42,6 +46,7 @@ from .types import (
     BuildParametersInput,
     BuildParametersResponse,
     AvailableProgram,
+    ProgramSelection,
     VisibilityAggregatorStatus,
     VisibilityCoverage,
     ObservationCoveragePage,
@@ -51,7 +56,7 @@ from .types import (
 from .inputs import CreateNewScheduleInput
 
 from ..core.plans import NightStats
-from ..engine.params import build_params_store
+from ..engine.params import build_params_store, program_selection_store
 from scheduler.core.events.queue import OnDemandScheduleEvent
 
 _logger = create_logger(__name__)
@@ -357,6 +362,20 @@ class Subscription:
         finally:
             build_parameters_subscribers.discard(client_queue)
 
+    @strawberry.subscription
+    async def program_selection_updates(self) -> AsyncGenerator[ProgramSelection, None]:
+        """The shared program selection: the current one first, then every change."""
+        client_queue = asyncio.Queue()
+        # Subscribe before reading, so a change landing in between is not lost. At
+        # worst it arrives twice, which is harmless for a full snapshot.
+        program_selection_subscribers.add(client_queue)
+        try:
+            yield ProgramSelection.from_ids(await program_selection_store.get())
+            while True:
+                yield ProgramSelection.from_ids(await client_queue.get())
+        finally:
+            program_selection_subscribers.discard(client_queue)
+
 
 @strawberry.type
 class Mutation:
@@ -372,3 +391,24 @@ class Mutation:
         except ValidationError as e:
             msg += f'Error: {e.errors()}'
         return msg
+
+    @strawberry.mutation
+    async def set_program_selection(self, program_ids: list[str], selected: bool) -> ProgramSelection:
+        """Check or uncheck these programs for every browser."""
+        deselected = await program_selection_store.set_selected(program_ids, selected)
+        _broadcast_program_selection(deselected)
+        return ProgramSelection.from_ids(deselected)
+
+    @strawberry.mutation
+    async def reset_program_selection(self) -> ProgramSelection:
+        """Check every program again, for every browser."""
+        deselected = await program_selection_store.reset()
+        _broadcast_program_selection(deselected)
+        return ProgramSelection.from_ids(deselected)
+
+
+def _broadcast_program_selection(deselected: frozenset[str]) -> None:
+    # No await between the store update and this call, so concurrent changes reach
+    # every subscriber in the order the store applied them.
+    for queue in program_selection_subscribers:
+        queue.put_nowait(deselected)
