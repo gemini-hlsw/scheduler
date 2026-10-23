@@ -11,15 +11,26 @@ import { OperationProgramSelector } from "./OperationProgramSelector";
 export function ProgramSelector({
   programs,
   setProgram,
+  setPrograms,
   resetPrograms,
   validationMode = false,
 }: {
   programs: ProgramListType[];
   setProgram: (program: string, state: boolean) => void;
+  // Changes many programs at once. Defaults to one setProgram call per program.
+  setPrograms?: (programs: string[], state: boolean) => void;
   resetPrograms: () => void;
   validationMode?: boolean;
 }) {
   const [filter, setFilter] = useState("");
+
+  function setMany(programIds: string[], state: boolean) {
+    if (setPrograms) {
+      setPrograms(programIds, state);
+    } else {
+      programIds.forEach((id) => setProgram(id, state));
+    }
+  }
 
   async function fileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files[0];
@@ -55,13 +66,12 @@ export function ProgramSelector({
             "dark:text-white text-black",
             "dark:hover:bg-blue-700 hover:bg-blue-500"
           )}
-          onClick={() => {
-            programs
-              .filter((p) => !p.disabled)
-              .forEach((program) => {
-                setProgram(program.id, true);
-              });
-          }}
+          onClick={() =>
+            setMany(
+              programs.filter((p) => !p.disabled).map((p) => p.id),
+              true
+            )
+          }
         >
           Select All
         </Button>
@@ -73,13 +83,12 @@ export function ProgramSelector({
             "dark:text-white text-black",
             "dark:hover:bg-blue-700 hover:bg-blue-500"
           )}
-          onClick={() => {
-            programs
-              .filter((p) => !p.disabled)
-              .forEach((program) => {
-                setProgram(program.id, false);
-              });
-          }}
+          onClick={() =>
+            setMany(
+              programs.filter((p) => !p.disabled).map((p) => p.id),
+              false
+            )
+          }
         >
           Clear All
         </Button>
