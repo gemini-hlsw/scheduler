@@ -20,7 +20,6 @@ from scheduler.core.components.ranker import RankerName, RankerParameters
 __all__ = [
     'SchedulerParameters',
     'build_params_store',
-    'program_selection_store',
     'BuildParameters',
     'default_operation_start',
     'default_operation_parameters',
@@ -330,10 +329,21 @@ class BuildParameters(BaseModel):
 class BuildParamsStore:
     """
     Control access concurrency for BuildParameters.
+
+    Also holds the operation program selection, shared by every browser editing it.
+    It is kept apart from the BuildParameters: toggling a program changes what every
+    browser shows, but the build only takes the list once someone sends it.
+
+    The selection holds the programs the operators unchecked rather than the ones
+    they checked: the available list changes with the night and the ODB, and a
+    program nobody has seen yet must start checked, as it does in the UI. Changes
+    are applied per program, so two operators toggling different programs both keep
+    their change instead of the last one overwriting the other.
     """
 
     def __init__(self) -> None:
         self._params = BuildParameters()
+        self._deselected_programs: FrozenSet[str] = frozenset()
 
         self._lock = asyncio.Lock()
 
@@ -345,43 +355,24 @@ class BuildParamsStore:
         async with self._lock:
             self._params = params
 
-
-build_params_store = BuildParamsStore()  # Singleton
-
-
-class ProgramSelectionStore:
-    """
-    The operation program selection, shared by every browser editing it.
-
-    Holds the programs the operators unchecked rather than the ones they checked:
-    the available list changes with the night and the ODB, and a program nobody
-    has seen yet must start checked, as it does in the UI.
-
-    Changes are applied per program, so two operators toggling different programs
-    both keep their change instead of the last one overwriting the other.
-    """
-
-    def __init__(self) -> None:
-        self._deselected: FrozenSet[str] = frozenset()
-        self._lock = asyncio.Lock()
-
-    async def get(self) -> FrozenSet[str]:
+    async def get_program_selection(self) -> FrozenSet[str]:
+        """The programs unchecked in the selector."""
         async with self._lock:
-            return self._deselected
+            return self._deselected_programs
 
-    async def set_selected(self, program_ids: List[str], selected: bool) -> FrozenSet[str]:
+    async def set_programs_selected(self, program_ids: List[str], selected: bool) -> FrozenSet[str]:
         async with self._lock:
             if selected:
-                self._deselected = self._deselected.difference(program_ids)
+                self._deselected_programs = self._deselected_programs.difference(program_ids)
             else:
-                self._deselected = self._deselected.union(program_ids)
-            return self._deselected
+                self._deselected_programs = self._deselected_programs.union(program_ids)
+            return self._deselected_programs
 
-    async def reset(self) -> FrozenSet[str]:
+    async def reset_program_selection(self) -> FrozenSet[str]:
         """Everything checked again."""
         async with self._lock:
-            self._deselected = frozenset()
-            return self._deselected
+            self._deselected_programs = frozenset()
+            return self._deselected_programs
 
 
-program_selection_store = ProgramSelectionStore()  # Singleton
+build_params_store = BuildParamsStore()  # Singleton
