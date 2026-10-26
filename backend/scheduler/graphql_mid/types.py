@@ -124,9 +124,7 @@ class SVisit:
         # The observation only knows its program by reference label; Explore wants the ODB id.
         program = program_lookup(visit.observation.belongs_to) if program_lookup is not None else None
         explore_url = (
-            explore_observation_url(program.internal_id, visit.observation.internal_id)
-            if program is not None
-            else None
+            explore_observation_url(program.internal_id, visit.observation.internal_id) if program is not None else None
         )
 
         step_start = visit.step_start_idx + 1 if visit.step_start_idx is not None else -1
