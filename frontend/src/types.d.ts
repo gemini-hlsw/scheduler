@@ -93,6 +93,8 @@ export interface Visit {
   obsClass: string;
   peakScore: number;
   requiredConditions: RequiredConditions;
+  // The observation's page in Explore; null when it is not an ODB observation.
+  exploreUrl?: string | null;
 }
 
 export interface NightStats {

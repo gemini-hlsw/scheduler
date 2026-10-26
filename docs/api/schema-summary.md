@@ -245,6 +245,7 @@ type SVisit {
   atomTimes: [Int!]!
   stepStart: Int
   stepEnd: Int
+  exploreUrl: String
 }
 
 enum SchedulerModes {

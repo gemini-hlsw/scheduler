@@ -1,13 +1,16 @@
 import asyncio
-from typing import final
+from functools import lru_cache
+from typing import Optional, final
 from weakref import ReferenceType, ref
 
 from gpp_client import GPPClient
+from gpp_client.environment import GPPEnvironment
+from gpp_client.settings import GPPSettings
 
 from scheduler.core.meta import Singleton
 from scheduler.services import logger_factory
 
-__all__ = ["gpp", "GPPClientInstance"]
+__all__ = ["gpp", "GPPClientInstance", "explore_observation_url"]
 
 _logger = logger_factory.create_logger(__name__, with_id=False)
 
@@ -73,3 +76,27 @@ class GPPClientInstance(metaclass=Singleton):
 
 
 gpp = GPPClientInstance()
+
+
+# Explore edits the same ODB the client reads, so its site follows the client's environment.
+_EXPLORE_URLS = {
+    GPPEnvironment.DEVELOPMENT: "https://explore-dev.gemini.edu",
+    GPPEnvironment.PRODUCTION: "https://explore.gemini.edu",
+}
+
+
+@lru_cache(maxsize=1)
+def _explore_base_url() -> str:
+    # The environment is fixed by the installed gpp-client package, so read it once.
+    return _EXPLORE_URLS[GPPSettings().environment]
+
+
+def explore_observation_url(program_id: Optional[str], observation_id: Optional[str]) -> Optional[str]:
+    """The observation's page in Explore, from its ODB ids (``p-…`` and ``o-…``).
+
+    None when either id is not an ODB one, e.g. programs read from the OCS, which
+    Explore does not know about.
+    """
+    if not (program_id and program_id.startswith("p-") and observation_id and observation_id.startswith("o-")):
+        return None
+    return f"{_explore_base_url()}/{program_id}/observation/{observation_id}"

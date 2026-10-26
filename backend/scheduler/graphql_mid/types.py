@@ -3,20 +3,24 @@
 
 from datetime import datetime, timedelta, date
 from enum import Enum
-from typing import List, FrozenSet, Optional
+from typing import Callable, List, FrozenSet, Optional
 from zoneinfo import ZoneInfo
 
 import strawberry  # noqa
 from typing import Annotated, Union
 from strawberry.scalars import JSON  # noqa
 
-from lucupy.minimodel import Site, VariantSnapshot, Conditions
+from lucupy.minimodel import Site, VariantSnapshot, Conditions, Program, ProgramID
 
+from scheduler.clients.gpp import explore_observation_url
 from scheduler.core.events.queue import NightlyTimeline
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.core.statscalculator import RunSummary
 from scheduler.graphql_mid.scalars import SObservationID
 from scheduler.config import config
+
+# Finds a plan's programs, e.g. Collector.get_program, to link visits to Explore.
+ProgramLookup = Callable[[ProgramID], Optional[Program]]
 
 
 @strawberry.type
@@ -101,9 +105,14 @@ class SVisit:
     atom_times: List[int]
     step_start: Optional[int]
     step_end: Optional[int]
+    # The observation's page in Explore. Null outside the ODB, or when the plan was
+    # serialized without a way to find the program's ODB id.
+    explore_url: Optional[str] = None
 
     @staticmethod
-    def from_computed_visit(visit: Visit, alt_degs: List[float]) -> 'SVisit':
+    def from_computed_visit(
+        visit: Visit, alt_degs: List[float], program_lookup: Optional[ProgramLookup] = None
+    ) -> 'SVisit':
         utc = ZoneInfo('UTC')
         end_time = visit.start_time + timedelta(minutes=visit.time_slots * config.collector.time_slot_length)
         # Each accessor rescans the sequence's resources, so resolve them once.
@@ -112,6 +121,13 @@ class SVisit:
         disperser = visit.observation.disperser()
         filters = visit.observation.filters()
         targets = [target.name for target in visit.observation.targets]
+        # The observation only knows its program by reference label; Explore wants the ODB id.
+        program = program_lookup(visit.observation.belongs_to) if program_lookup is not None else None
+        explore_url = (
+            explore_observation_url(program.internal_id, visit.observation.internal_id)
+            if program is not None
+            else None
+        )
 
         step_start = visit.step_start_idx + 1 if visit.step_start_idx is not None else -1
         step_end = step_start + visit.step_count - 1 if visit.step_count is not None else -1
@@ -135,6 +151,7 @@ class SVisit:
             atom_times=visit.atom_times,
             step_start=step_start,
             step_end=step_end,
+            explore_url=explore_url,
         )
 
 
@@ -152,13 +169,15 @@ class SPlan:
     night_conditions: SConditions
 
     @staticmethod
-    def from_computed_plan(plan: Plan) -> 'SPlan':
+    def from_computed_plan(plan: Plan, program_lookup: Optional[ProgramLookup] = None) -> 'SPlan':
         utc = ZoneInfo('UTC')
         return SPlan(
             site=plan.site,
             start_time=plan.start.astimezone(utc),
             end_time=plan.end.astimezone(utc),
-            visits=[SVisit.from_computed_visit(visit, alt) for visit, alt in zip(plan.visits, plan.alt_degs)],
+            visits=[
+                SVisit.from_computed_visit(visit, alt, program_lookup) for visit, alt in zip(plan.visits, plan.alt_degs)
+            ],
             night_stats=SNightStats.from_computed_night_stats(plan.night_stats),
             night_conditions=SConditions.from_computed_conditions(plan.conditions),
         )
@@ -175,9 +194,12 @@ class SPlans:
     plans_per_site: List[SPlan]
 
     @staticmethod
-    def from_computed_plans(plans: Plans, sites: FrozenSet[Site]) -> 'SPlans':
+    def from_computed_plans(
+        plans: Plans, sites: FrozenSet[Site], program_lookup: Optional[ProgramLookup] = None
+    ) -> 'SPlans':
         return SPlans(
-            night_idx=plans.night_idx, plans_per_site=[SPlan.from_computed_plan(plans[site]) for site in sites]
+            night_idx=plans.night_idx,
+            plans_per_site=[SPlan.from_computed_plan(plans[site], program_lookup) for site in sites],
         )
 
     def for_site(self, site: Site) -> 'SPlans':
@@ -240,7 +262,9 @@ class SNightTimelines:
     night_timeline: List[SNightInTimeline]
 
     @staticmethod
-    def from_computed_stitched_timelines(timeline: NightlyTimeline) -> 'SNightTimelines':
+    def from_computed_stitched_timelines(
+        timeline: NightlyTimeline, program_lookup: Optional[ProgramLookup] = None
+    ) -> 'SNightTimelines':
         timelines = []
         for n_idx in timeline.stitched_timeline:
             s_timeline_entries = []
@@ -261,7 +285,7 @@ class SNightTimelines:
                             else timeline.night_length[n_idx][site].start,
                             description=entry.event.description,
                         ),
-                        plan=SPlan.from_computed_plan(entry.plan_generated),
+                        plan=SPlan.from_computed_plan(entry.plan_generated, program_lookup),
                         timeloss_windows=entry.timeloss_windows,
                         timestats=entry.timestats,
                     )

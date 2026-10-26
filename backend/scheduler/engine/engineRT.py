@@ -302,7 +302,9 @@ class EngineRT:
             run_summary = StatCalculator.calculate_stitched_timeline_stats(
                 nightly_timeline, self.params.night_indices, self.params.sites, self.scp.collector, self.scp.ranker
             )
-            s_timelines = SNightTimelines.from_computed_stitched_timelines(nightly_timeline)
+            s_timelines = SNightTimelines.from_computed_stitched_timelines(
+                nightly_timeline, self.scp.collector.get_program
+            )
         s_plan_summary = SRunSummary.from_computed_run_summary(run_summary)
 
         # Outside the mutate block on purpose: a listener reads the plan back, and the store's

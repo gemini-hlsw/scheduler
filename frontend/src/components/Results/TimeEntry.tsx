@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ObsClassBadge } from "./ObsClassBadge";
+import { ObsIdLink } from "./ObsIdLink";
 import { FaCheck } from "react-icons/fa";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { IoHourglassOutline } from "react-icons/io5";
@@ -98,7 +99,9 @@ function VisitRow({
       )}
     >
       <TableCell>{icon}</TableCell>
-      <TableCell>{visit.obsId}</TableCell>
+      <TableCell>
+        <ObsIdLink obsId={visit.obsId} exploreUrl={visit.exploreUrl} />
+      </TableCell>
       <TableCell>{visit.targets.join(", ")}</TableCell>
       <TableCell>
         <ObsClassBadge obsClass={visit.obsClass} />
