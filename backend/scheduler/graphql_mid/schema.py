@@ -56,7 +56,7 @@ from .types import (
 from .inputs import CreateNewScheduleInput
 
 from ..core.plans import NightStats
-from ..engine.params import build_params_store, program_selection_store
+from ..engine.params import build_params_store
 from scheduler.core.events.queue import OnDemandScheduleEvent
 
 _logger = create_logger(__name__)
@@ -370,7 +370,7 @@ class Subscription:
         # worst it arrives twice, which is harmless for a full snapshot.
         program_selection_subscribers.add(client_queue)
         try:
-            yield ProgramSelection.from_ids(await program_selection_store.get())
+            yield ProgramSelection.from_ids(await build_params_store.get_program_selection())
             while True:
                 yield ProgramSelection.from_ids(await client_queue.get())
         finally:
@@ -395,14 +395,14 @@ class Mutation:
     @strawberry.mutation
     async def set_program_selection(self, program_ids: list[str], selected: bool) -> ProgramSelection:
         """Check or uncheck these programs for every browser."""
-        deselected = await program_selection_store.set_selected(program_ids, selected)
+        deselected = await build_params_store.set_programs_selected(program_ids, selected)
         _broadcast_program_selection(deselected)
         return ProgramSelection.from_ids(deselected)
 
     @strawberry.mutation
     async def reset_program_selection(self) -> ProgramSelection:
         """Check every program again, for every browser."""
-        deselected = await program_selection_store.reset()
+        deselected = await build_params_store.reset_program_selection()
         _broadcast_program_selection(deselected)
         return ProgramSelection.from_ids(deselected)
 

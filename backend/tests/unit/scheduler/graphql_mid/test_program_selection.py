@@ -11,7 +11,7 @@ to send overwriting the other.
 import pytest
 import pytest_asyncio
 
-from scheduler.engine.params import program_selection_store
+from scheduler.engine.params import build_params_store
 
 _SET = """
 mutation($ids: [String!]!, $selected: Boolean!) {
@@ -26,7 +26,7 @@ _SUB = "subscription { programSelectionUpdates { deselected } }"
 async def clean_selection():
     """The store is a singleton, so leave it as it was found."""
     yield
-    await program_selection_store.reset()
+    await build_params_store.reset_program_selection()
 
 
 async def _set(schema, ids, selected):
