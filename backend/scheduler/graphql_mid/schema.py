@@ -93,7 +93,7 @@ def sync_rt_schedule(
         values = ti[plans.night_idx].alt[visit.start_time_slot : end_time_slot]
         alt_degs = [val.dms[0] + (val.dms[1] / 60) + (val.dms[2] / 3600) for val in values]
         plans.plans[site].alt_degs.append(alt_degs)
-    splans = SPlans.from_computed_plans(plans, params.sites)
+    splans = SPlans.from_computed_plans(plans, params.sites, scp.collector.get_program)
 
     return NewPlansRT(night_plans=splans)
 

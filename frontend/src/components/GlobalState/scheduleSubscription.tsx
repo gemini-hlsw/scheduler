@@ -27,6 +27,7 @@ export const subscriptionQueueSchedule = graphql(`
                   }
                   visits {
                     obsId
+                    exploreUrl
                     targets
                     endTime
                     altitude
@@ -103,6 +104,7 @@ export const subscriptionQueueSchedule = graphql(`
               instrument
               obsClass
               obsId
+              exploreUrl
               peakScore
               score
               startTime
@@ -146,6 +148,7 @@ export const subscriptionQueueSchedule = graphql(`
               instrument
               obsClass
               obsId
+              exploreUrl
               peakScore
               score
               startTime
