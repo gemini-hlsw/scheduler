@@ -23,14 +23,15 @@ __all__ = [
     'BuildParameters',
     'default_operation_start',
     'default_operation_parameters',
+    'default_night',
     'night_end',
 ]
 
 
 @lru_cache(maxsize=16)
-def _morning_twilight(ut_date: date, site: Site) -> datetime:
+def _twilights(ut_date: date, site: Site) -> Tuple[datetime, datetime]:
     """
-    The 12-degree morning twilight, in UT, of the night that ends on ``ut_date``.
+    The 12-degree evening and morning twilights, in UT, of the night that ends on ``ut_date``.
 
     Cached because this is the same astropy sky computation the Collector runs and the
     answer only changes once a day.
@@ -38,8 +39,15 @@ def _morning_twilight(ut_date: date, site: Site) -> datetime:
     TODO: This data is scattered across the Scheduler, it needs centralization.
     """
     anchor = Time(datetime(ut_date.year, ut_date.month, ut_date.day, 8, tzinfo=UTC))
-    morn_12twi = sky.night_events(anchor, site.location, site.timezone)[4]
-    return morn_12twi.utc.to_datetime(timezone=UTC)
+    eve_12twi, morn_12twi = sky.night_events(anchor, site.location, site.timezone)[3:5]
+    return eve_12twi.utc.to_datetime(timezone=UTC), morn_12twi.utc.to_datetime(timezone=UTC)
+
+
+def _morning_twilight(ut_date: date, site: Site) -> datetime:
+    """
+    The 12-degree morning twilight, in UT, of the night that ends on ``ut_date``.
+    """
+    return _twilights(ut_date, site)[1]
 
 
 def night_end(ut_date: date) -> datetime:
@@ -68,6 +76,19 @@ def default_operation_start(now: Optional[datetime] = None) -> datetime:
     if now >= night_end(anchor_date):
         anchor_date += timedelta(days=1)
     return datetime(anchor_date.year, anchor_date.month, anchor_date.day, 8, tzinfo=UTC)
+
+
+def default_night(site: Site, now: Optional[datetime] = None) -> Tuple[datetime, datetime]:
+    """
+    The 12-degree evening and morning twilights, in UT, of the night an operation build
+    targets by default, ignoring any custom night times in the build parameters.
+
+    Args:
+        site (Site): the site whose night to compute.
+        now (datetime, optional): the instant to derive the night from. Defaults to the
+            real clock.
+    """
+    return _twilights(default_operation_start(now).date(), site)
 
 
 def default_operation_parameters(now: Optional[datetime] = None) -> 'SchedulerParameters':
@@ -240,6 +261,8 @@ class BuildParameters(BaseModel):
     visibility_start (datetime): Date the visibility calculation start. Inclusive.
     visibility_end (datetime): Date the visibility calculation end. Inclusive.
         Max date should be the semester end.
+    visibility_nights (int): Instead of a visibility_end, how many days past the
+        visibility start the calculation runs. Capped at the semester end.
     simulated_now (datetime): Pretend the clock reads this instant. Leave unset outside
         testing; see `reference_time`.
     """
@@ -247,6 +270,7 @@ class BuildParameters(BaseModel):
     night_times: Dict[Site, NightTimes] | None = None
     visibility_start: datetime | None = None
     visibility_end: datetime | None = None
+    visibility_nights: int | None = Field(default=None, ge=1)
     program_list: List[str] | None = None
     simulated_now: datetime | None = None
     # Stamped when these parameters are built, which is what `simulated_now` advances from.
@@ -261,7 +285,8 @@ class BuildParameters(BaseModel):
         the plan covers a night that is not the one the clock is in, and consumers must take
         their sense of "now" from these parameters instead (see
         ODBEventHandler._reference_time). ``set_at`` is excluded: it is stamped on every
-        construction and says nothing about intent.
+        construction and says nothing about intent. So is ``visibility_nights``: it only
+        shortens the visibility period, and the night is still tonight.
         """
         return any(
             (
@@ -302,6 +327,25 @@ class BuildParameters(BaseModel):
             nt.night_start for nt in (self.night_times or {}).values() if nt is not None and nt.night_start is not None
         ]
         return min(night_starts).date() if night_starts else None
+
+    def resolve_visibility_end(self, start: datetime, default_end: datetime) -> datetime:
+        """
+        Where the visibility calculation ends for a build starting at ``start``.
+
+        Args:
+            start (datetime): the visibility start used for the build.
+            default_end (datetime): the end used when nothing here sets one, the
+                semester end for an operation build.
+
+        Returns
+            datetime: ``visibility_end`` if given, else ``visibility_nights`` days
+            after ``start`` but no later than ``default_end``, else ``default_end``.
+        """
+        if self.visibility_end is not None:
+            return self.visibility_end
+        if self.visibility_nights is not None:
+            return min(start + timedelta(days=self.visibility_nights), default_end)
+        return default_end
 
     def get_night_times(self) -> Dict[Site, Tuple[Time | None, Time | None]]:
         """

@@ -7,7 +7,13 @@ import { isRealtimeConnectedVar } from "@/apollo-client";
 import { useLazyQuery } from "@apollo/client";
 import { scheduleV2Query, onDemandQuery } from "@/components/Operation/query";
 
-export default function OnDemandControl() {
+export default function OnDemandControl({
+  // Operations only ever plan from the current time; replaying the night from
+  // its start is a simulation tool.
+  showStartOfNight = true,
+}: {
+  showStartOfNight?: boolean;
+}) {
   const { loadingPlan, setLoadingPlan } = useContext(GlobalStateContext);
 
   const [scheduleV2] = useLazyQuery(scheduleV2Query, {
@@ -43,23 +49,26 @@ export default function OnDemandControl() {
   return (
     <div
       className={cn(
-        "border rounded-md grid grid-cols-2 gap-2 p-3 w-full",
+        "border rounded-md grid gap-2 p-3 w-full",
+        showStartOfNight ? "grid-cols-2" : "grid-cols-1",
         "dark:bg-white/20 bg-black/10",
       )}
     >
-      <RunButton
-        loadingPlan={loadingPlan}
-        run={runPlan}
-        isRunDisabled={loadingPlan}
-        title="RUN FROM START OF NIGHT"
-        full={true}
-      />
+      {showStartOfNight && (
+        <RunButton
+          loadingPlan={loadingPlan}
+          run={runPlan}
+          isRunDisabled={loadingPlan}
+          title="RUN FROM START OF NIGHT"
+          full={true}
+        />
+      )}
 
       <RunButton
         loadingPlan={loadingPlan}
         run={onDemandPlan}
         isRunDisabled={loadingPlan}
-        title="RUN FROM NOW"
+        title="GENERATE PLAN"
         full={true}
       />
     </div>

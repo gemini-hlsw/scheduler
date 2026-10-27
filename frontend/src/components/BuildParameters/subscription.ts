@@ -10,6 +10,7 @@ export const buildParametersSubscription = graphql(`
       }
       visibilityStart
       visibilityEnd
+      visibilityNights
       programList
       simulatedNow
     }

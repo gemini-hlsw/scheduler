@@ -77,3 +77,35 @@ export function stringDateToLocalString(date: string, site: string) {
     .replace("T", " ")
     .substring(0, 16);
 }
+
+export const SITE_TIME_ZONES: Record<string, string> = {
+  GN: "Pacific/Honolulu",
+  GS: "America/Santiago",
+};
+
+// A Date whose local (browser) fields read the wall-clock time of `timeZone`
+// at `date`: the form the build parameters inputs keep their times in.
+export function toSiteWallClock(date: Date, timeZone: string) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+      .formatToParts(date)
+      .map(({ type, value }) => [type, Number(value)]),
+  );
+  return new Date(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  );
+}

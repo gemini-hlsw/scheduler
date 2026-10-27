@@ -5,6 +5,16 @@ export const scheduleV2Query = graphql(`
   }
 `);
 
+export const operationNightQuery = graphql(`
+  query operationNight {
+    operationNight {
+      site
+      start
+      end
+    }
+  }
+`);
+
 export const onDemandQuery = graphql(`
   query onDemandQuery {
     onDemandSchedule

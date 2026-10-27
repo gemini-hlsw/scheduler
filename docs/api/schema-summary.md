@@ -14,6 +14,7 @@ input BuildParametersInput {
   nightTimes: [SiteNightTimesEntry!] = null
   visibilityStart: DateTime = null
   visibilityEnd: DateTime = null
+  visibilityNights: Int = null
   programList: [String!] = null
   simulatedNow: DateTime = null
 }
@@ -23,6 +24,7 @@ type BuildParametersResponse {
   visibilityStart: DateTime
   visibilityEnd: DateTime
   programList: [String!]
+  visibilityNights: Int
   simulatedNow: DateTime
 }
 
@@ -138,6 +140,7 @@ type Query {
   schedule(scheduleId: String!, newScheduleInput: CreateNewScheduleInput!): String!
   scheduleV2: String!
   onDemandSchedule: String!
+  operationNight: [SiteNight!]!
   availablePrograms(nightDate: Date = null): [AvailableProgram!]!
   visibilityAggregatorStatus: VisibilityAggregatorStatus!
   visibilityCoverage(nightDate: Date = null, refresh: Boolean! = false): VisibilityCoverage!
@@ -257,6 +260,12 @@ enum SchedulerModes {
 enum Site {
   GN
   GS
+}
+
+type SiteNight {
+  site: Site!
+  start: DateTime!
+  end: DateTime!
 }
 
 input SiteNightTimesEntry {

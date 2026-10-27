@@ -43,6 +43,7 @@ from .types import (
     NewPlansRT,
     NightPlansResponseRT,
     NightTimesResponse,
+    SiteNight,
     BuildParametersInput,
     BuildParametersResponse,
     AvailableProgram,
@@ -56,7 +57,7 @@ from .types import (
 from .inputs import CreateNewScheduleInput
 
 from ..core.plans import NightStats
-from ..engine.params import build_params_store
+from ..engine.params import build_params_store, default_night
 from scheduler.core.events.queue import OnDemandScheduleEvent
 
 _logger = create_logger(__name__)
@@ -189,6 +190,24 @@ class Query:
         return 'Plan is on the queue in the Operation Process!'
 
     @strawberry.field
+    async def operation_night(self) -> list[SiteNight]:
+        """The default night the operation process plans for, per site: tonight's
+        12-degree twilights, or the next night's once tonight is over.
+
+        Custom night times in the build parameters do not change it, and it is known
+        before any plan is computed. Empty on servers not running in OPERATION mode.
+        """
+        op_process = process_manager.get_operation_process()
+        if op_process is None:
+            return []
+        now = datetime.now(UTC)
+        nights = []
+        for site in sorted(op_process.params.sites, key=lambda s: s.name):
+            start, end = await asyncio.to_thread(default_night, site, now)
+            nights.append(SiteNight(site=site, start=start, end=end))
+        return nights
+
+    @strawberry.field
     async def available_programs(self, night_date: Optional[date] = None) -> list[AvailableProgram]:
         """Programs active on a given night.
 
@@ -293,6 +312,7 @@ class Query:
             else None,
             visibility_start=build_params.visibility_start,
             visibility_end=build_params.visibility_end,
+            visibility_nights=build_params.visibility_nights,
             program_list=build_params.program_list,
             simulated_now=build_params.simulated_now,
         )
@@ -350,6 +370,7 @@ class Subscription:
                         else None,
                         visibility_start=result.visibility_start,
                         visibility_end=result.visibility_end,
+                        visibility_nights=result.visibility_nights,
                         program_list=result.program_list,
                         simulated_now=result.simulated_now,
                     )  # Yield item to the subscription
