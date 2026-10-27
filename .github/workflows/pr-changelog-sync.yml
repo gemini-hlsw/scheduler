@@ -64,10 +64,14 @@ jobs:
       - name: Update PR description
         if: steps.fragments.outputs.found == 'true'
         uses: actions/github-script@v7
+        env:
+          # Passed through the environment, not pasted into the script: fragment
+          # text with backticks or ${...} would otherwise break (or run as) JavaScript.
+          FRAGMENT_BLOCK: ${{ steps.fragments.outputs.block }}
         with:
           script: |
             const body = context.payload.pull_request.body || '';
-            const fragmentBlock = `${{ steps.fragments.outputs.block }}`.trim();
+            const fragmentBlock = (process.env.FRAGMENT_BLOCK || '').trim();
 
             // Markers to find/replace the changelog section
             const START = '<!-- CHANGELOG:START -->';
