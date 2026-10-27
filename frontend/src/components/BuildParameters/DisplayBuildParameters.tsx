@@ -35,6 +35,8 @@ function getLatestData(
         subscriptionData.buildParametersUpdates?.visibilityStart ?? "Default",
       visibilityEnd:
         subscriptionData.buildParametersUpdates?.visibilityEnd ?? "Default",
+      visibilityNights:
+        subscriptionData.buildParametersUpdates?.visibilityNights ?? null,
       gnStart: gnStart
         ? stringDateToLocalString(gnStart + "Z", "GN")
         : "Default",
@@ -67,6 +69,7 @@ function getLatestData(
         visibilityStart:
           queryData.buildParameters?.visibilityStart ?? "Default",
         visibilityEnd: queryData.buildParameters?.visibilityEnd ?? "Default",
+        visibilityNights: queryData.buildParameters?.visibilityNights ?? null,
         gnStart: gnStart
           ? stringDateToLocalString(gnStart + "Z", "GN")
           : "Default",
@@ -81,6 +84,7 @@ function getLatestData(
       return {
         visibilityStart: "Default",
         visibilityEnd: "Default",
+        visibilityNights: null,
         gnStart: "Default",
         gnEnd: "Default",
         gsStart: "Default",
@@ -125,7 +129,29 @@ function TimeBadge({
   );
 }
 
-export default function DisplayBuildParameters() {
+// The operation visibility period: the default runs to the semester end.
+function NightsBadge({ nights }: { nights: number | null }) {
+  if (nights === null) {
+    return <TimeBadge time="Default" />;
+  }
+  return (
+    <span
+      className={cn(
+        "text-blue-700 dark:text-blue-100",
+        "py-1 px-2 rounded-full text-sm font-mono"
+      )}
+    >
+      {nights} {nights === 1 ? "night" : "nights"}
+    </span>
+  );
+}
+
+export default function DisplayBuildParameters({
+  // Follows the visibility input (range or nights), so each badge stays beside its input.
+  showVisibility = true,
+}: {
+  showVisibility?: boolean;
+}) {
   const { data: queryData } = useQuery(buildParametersQuery, {
     fetchPolicy: "no-cache",
     context: { clientName: "realtimeClient" },
@@ -143,11 +169,17 @@ export default function DisplayBuildParameters() {
   return (
     <div className="flex flex-col gap-1">
       <h1 className="font-bold text-nowrap px-2">Last Updated</h1>
-      <div className="h-9 text-nowrap flex flex-row gap-1 items-center">
-        <TimeBadge time={data.visibilityStart} dateOnly={true} />
-        -
-        <TimeBadge time={data.visibilityEnd} dateOnly={true} />
-      </div>
+      {showVisibility ? (
+        <div className="h-9 text-nowrap flex flex-row gap-1 items-center">
+          <TimeBadge time={data.visibilityStart} dateOnly={true} />
+          -
+          <TimeBadge time={data.visibilityEnd} dateOnly={true} />
+        </div>
+      ) : (
+        <div className="h-9 text-nowrap flex flex-row items-center">
+          <NightsBadge nights={data.visibilityNights} />
+        </div>
+      )}
       <div className="h-9 text-nowrap flex flex-row items-center">
         <TimeBadge time={data.gnStart} />
       </div>

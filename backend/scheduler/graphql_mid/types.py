@@ -436,6 +436,7 @@ class BuildParametersInput:
     night_times: Optional[List[SiteNightTimesEntry]] = None
     visibility_start: strawberry.auto
     visibility_end: strawberry.auto
+    visibility_nights: strawberry.auto
     program_list: strawberry.auto
     simulated_now: strawberry.auto
 
@@ -456,6 +457,7 @@ class BuildParametersInput:
             night_times=night_times_dict,
             visibility_start=self.visibility_start,
             visibility_end=self.visibility_end,
+            visibility_nights=self.visibility_nights,
             program_list=self.program_list,
             simulated_now=self.simulated_now,
         )
@@ -469,11 +471,21 @@ class NightTimesResponse:
 
 
 @strawberry.type
+class SiteNight:
+    """The night a site's plans are computed for, in UTC."""
+
+    site: strawberry.enum(Site)
+    start: datetime
+    end: datetime
+
+
+@strawberry.type
 class BuildParametersResponse:
     night_times: Optional[List[NightTimesResponse]]
     visibility_start: Optional[datetime]
     visibility_end: Optional[datetime]
     program_list: Optional[List[str]]
+    visibility_nights: Optional[int] = None
     # The anchor as submitted. `reference_time` advances past it, so reading this back
     # tells you what was set, not what the handler currently considers "now".
     simulated_now: Optional[datetime] = None

@@ -1,6 +1,8 @@
 import { Outlet } from "react-router-dom";
 import Layout from "./components/Layout/Layout";
-import { useSubscription } from "@apollo/client";
+import { useQuery, useReactiveVar, useSubscription } from "@apollo/client";
+import { isRealtimeConnectedVar } from "./apollo-client";
+import { operationNightQuery } from "./components/Operation/query";
 import { subscriptionQueueSchedule } from "./components/GlobalState/scheduleSubscription";
 import { useContext, useEffect } from "react";
 import { GlobalStateContext } from "./components/GlobalState/GlobalState";
@@ -9,8 +11,13 @@ import { toast } from "sonner";
 import { type RunSummary } from "./types";
 
 function App() {
-  const { setNightPlans, setPlansSummary, setLoadingPlan, uuid } =
-    useContext(GlobalStateContext);
+  const {
+    setNightPlans,
+    setPlansSummary,
+    setLoadingPlan,
+    setOperationNight,
+    uuid,
+  } = useContext(GlobalStateContext);
 
   const {
     data: scheduleData,
@@ -28,6 +35,26 @@ function App() {
     variables: { scheduleId: "operation" },
     context: { clientName: "realtimeClient" },
   });
+
+  // The default (twilight) night the operation server plans for. Asked on load
+  // and after every reconnect, and polled so it rolls over to the next night.
+  const isRealtimeConnected = useReactiveVar(isRealtimeConnectedVar);
+  const { data: operationNightData, refetch: refetchOperationNight } =
+    useQuery(operationNightQuery, {
+      fetchPolicy: "no-cache",
+      context: { clientName: "realtimeClient" },
+      pollInterval: 10 * 60 * 1000,
+    });
+
+  useEffect(() => {
+    if (isRealtimeConnected) refetchOperationNight();
+  }, [isRealtimeConnected]);
+
+  useEffect(() => {
+    if (operationNightData) {
+      setOperationNight(operationNightData.operationNight);
+    }
+  }, [operationNightData]);
 
   useEffect(() => {
     try {

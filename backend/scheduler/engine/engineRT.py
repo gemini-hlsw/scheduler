@@ -111,11 +111,12 @@ class EngineRT:
         self._refresh_default_night(build_params)
         night_times = build_params.get_night_times()
         _logger.info(
-            f"Build params: vis_start={build_params.visibility_start}, vis_end={build_params.visibility_end}, night_times={night_times}"
+            f"Build params: vis_start={build_params.visibility_start}, vis_end={build_params.visibility_end}, "
+            f"vis_nights={build_params.visibility_nights}, night_times={night_times}"
         )
 
         vis_start = build_params.visibility_start or self.params.start
-        vis_end = build_params.visibility_end or self.params.end_vis
+        vis_end = build_params.resolve_visibility_end(vis_start, self.params.end_vis)
         programs_list = build_params.program_list or self.params.programs_list
 
         _logger.info(

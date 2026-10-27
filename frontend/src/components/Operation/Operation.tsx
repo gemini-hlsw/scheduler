@@ -12,12 +12,24 @@ export default function Operation() {
 
   return (
     <div className="flex flex-col gap-2">
-      <OnDemandControl />
       <div className="flex flex-row md:flex-row w-full gap-2">
         <div className={cn("grow flex gap-2 flex-row")}>
-          <BuildParameters vertical={true} />
-          <WeatherConditions vertical={true} updateButton={true} />
-          <DisplayWeather />
+          <BuildParameters
+            vertical={true}
+            showVisibility={false}
+            buttonsRow={true}
+            operationNightTimes={true}
+          />
+          {/* The run button sits over the two weather panels, whose column
+              is shorter than the build parameters, so no panel has to
+              stretch far to match the others. */}
+          <div className="flex flex-col gap-2">
+            <OnDemandControl showStartOfNight={false} />
+            <div className="flex flex-row gap-2 grow">
+              <WeatherConditions vertical={true} updateButton={true} />
+              <DisplayWeather />
+            </div>
+          </div>
         </div>
       </div>
       <Result plans={nightPlans} />

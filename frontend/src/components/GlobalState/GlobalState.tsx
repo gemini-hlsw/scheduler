@@ -2,7 +2,7 @@ import React, { createContext, useState, ReactNode } from "react";
 
 // ------------------------------------------------------------
 // Populate initial data, just for testing, should be removed
-import { NightPlanType, RunSummary } from "../../types";
+import { NightPlanType, RunSummary, SiteNight } from "../../types";
 import { NightPlansWithEvent, RankerName } from "@/gql/graphql";
 // ------------------------------------------------------------
 
@@ -13,6 +13,8 @@ interface GlobalStateContextType {
   >;
   nightPlans: NightPlanType[];
   setNightPlans: React.Dispatch<React.SetStateAction<NightPlanType[]>>;
+  operationNight: SiteNight[];
+  setOperationNight: React.Dispatch<React.SetStateAction<SiteNight[]>>;
   rtPlan: NightPlansWithEvent;
   setRtPlan: React.Dispatch<React.SetStateAction<NightPlansWithEvent>>;
   plansSummary: RunSummary;
@@ -64,6 +66,7 @@ export default function GlobalStateProvider({
     isConnected: null,
   });
   const [nightPlans, setNightPlans] = useState<NightPlanType[]>([]);
+  const [operationNight, setOperationNight] = useState<SiteNight[]>([]);
   const [rtPlan, setRtPlan] = useState<NightPlansWithEvent>(
     {} as NightPlansWithEvent,
   );
@@ -103,6 +106,8 @@ export default function GlobalStateProvider({
         setConnectionState,
         nightPlans,
         setNightPlans,
+        operationNight,
+        setOperationNight,
         rtPlan,
         setRtPlan,
         plansSummary,

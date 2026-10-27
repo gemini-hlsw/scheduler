@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FaMoon, FaSun } from "react-icons/fa";
 import { ConnectionBadge } from "@/components/ui/connectionBadge";
+import { OperationNight } from "./OperationNight";
+import { SiteClocks } from "./SiteClocks";
 
 export default function Header({ title }: { title: string }) {
   const { theme, toggleTheme } = useContext(ThemeContext);
@@ -34,9 +36,11 @@ export default function Header({ title }: { title: string }) {
               className="font-bold"
             />
           )}
+          <OperationNight />
         </div>
       </div>
       <div className={cn("flex flex-row items-center gap-2 shrink")}>
+        <SiteClocks />
         <About />
         <Button variant="outline" size="xs" onClick={toggleTheme}>
           {theme === "dark" ? <FaMoon /> : <FaSun />}

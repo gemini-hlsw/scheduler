@@ -29,6 +29,13 @@ export interface TimeStats {
   unscheduled: number;
 }
 
+// The night the operation server computes its plans for, at one site (UTC).
+export interface SiteNight {
+  site: string;
+  start: string;
+  end: string;
+}
+
 export interface TimeEntriesBySite {
   site: string;
   eveTwilight: string;
