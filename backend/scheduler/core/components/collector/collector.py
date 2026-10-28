@@ -46,6 +46,7 @@ from scheduler.services import logger_factory
 from scheduler.services.resource import NightConfiguration
 from scheduler.services.resource import ResourceService
 from scheduler.services.sight.calculator.calculator import Calculator
+from scheduler.services.sight.calculator.constants import SITE_KEY_TO_ID
 from scheduler.services.sight.calculator.models import ObservationRequest
 from scheduler.services.sight.database.connection import session_scope
 from scheduler.services.telemetry import timed
@@ -1000,6 +1001,8 @@ class Collector(SchedulerComponent):
         }
 
         planned_nights = self._planned_nights()
+        # Scheduler-grid start minus Sight night start, in slots, per (site, night).
+        start_offsets: dict[tuple, int] = {}
         for night_index, observations in filtered_observations.items():
             visible_obs_ids, stage1, cumulative, ranges_by_obs = per_night[night_index]
             visible_observations = [o for o in observations if o.id.id in visible_obs_ids]
@@ -1033,11 +1036,29 @@ class Collector(SchedulerComponent):
                     continue
 
                 expected_length = len(self.night_events[obs.site].times[night_index])
-                ti = build_target_info(stage1_entry, rem_visibility_frac, expected_length)
+                key = (obs.site, night_index)
+                if key not in start_offsets:
+                    sight_start = stage1_entry.get('night_start')
+                    offset = 0
+                    if sight_start is not None:
+                        sched_start = self.night_events[obs.site].times[night_index][0].to_datetime(timezone.utc)
+                        offset = round((sched_start - sight_start).total_seconds() / 60.0)
+                    if offset != 0:
+                        _logger.warning(
+                            f'Sight/scheduler night-start offset of {offset} slot(s) '
+                            f'at {obs.site.name} night {int(night_index)}; realigning arrays.'
+                        )
+                    start_offsets[key] = offset
+                start_offset_slots = start_offsets[key]
+                ti = build_target_info(
+                    stage1_entry, rem_visibility_frac, expected_length, start_offset_slots=start_offset_slots
+                )
 
                 obs_ranges = ranges_by_obs.get(obs.id.id, [])
                 if obs_ranges:
+                    # Sight slot k is scheduler slot k - offset, as align_to_start shifts the arrays.
                     slot_idx = np.concatenate([np.arange(start, end + 1) for start, end in obs_ranges])
+                    slot_idx = slot_idx - start_offset_slots
                     slot_idx = slot_idx[(slot_idx >= 0) & (slot_idx < expected_length)]
                     ti.visibility_slot_idx = slot_idx.astype(int)
                 else:
@@ -1232,6 +1253,14 @@ class Collector(SchedulerComponent):
                 f'Sight get_stage1_greedymax_bulk ({len(all_target_names)} targets, '
                 f'{start_date}..{stage1_end}) took {stage1_fetch.elapsed:.3f}s'
             )
+            if stage1:
+                # The arrays start at Sight's night start; the scheduler grid may start
+                # elsewhere (a manual night start), so each entry carries its origin.
+                site_id_ints = [SITE_KEY_TO_ID[s] for s in site_ids]
+                night_starts = await calc.night_repo.get_night_starts(site_id_ints, start_date, stage1_end)
+                for target in stage1.values():
+                    for entry in target['nights'].values():
+                        entry['night_start'] = night_starts.get((SITE_KEY_TO_ID[entry['site']], entry['night_date']))
 
         # Per-night backward cumulative remaining minutes per observation.
         # The denominator of rem_visibility_frac at night n is the sum of (resource-gated) remaining
