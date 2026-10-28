@@ -15,6 +15,7 @@ from scheduler.core.events.queue import (
 )
 from scheduler.night_monitor.event_sources import ODBEventSource
 from .event_handler import EventHandler
+from .collected_changes import changes_from_collected
 from .obscalc_visibility import (
     build_conditions,
     calculate_and_store_visibility,
@@ -360,10 +361,11 @@ class ODBEventHandler(EventHandler, TimelineListener):
             if is_in_the_plan:
                 # READY -> READY: the observation was edited while still pending.
                 if last_obs.status is ObservationStatus.READY:
-                    # What changed, as far as the plan cares. The plan is requested either way:
-                    # the obscalc update also fires on edits we do not inspect here (sequence,
+                    # What changed since the Collector read it: the plan's visits keep the Collector's
+                    # observation, not GreedyMax's charged copy. The plan is requested either way:
+                    # the obscalc update also fires on edits the event does not carry (sequence,
                     # execution digest), so this describes the change rather than gating it.
-                    found = []
+                    found = changes_from_collected(last_obs, updated_obs)
 
                     try:
                         # Transform from GPP to OCS
@@ -373,15 +375,6 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         required = None
 
                     if required is not None:
-                        planned = last_obs.constraints.conditions if last_obs.constraints is not None else None
-                        if planned is not None and required != planned:
-                            found.append(
-                                f'constraints cc={planned.cc.name}, iq={planned.iq.name}, '
-                                f'sb={planned.sb.name}, wv={planned.wv.name} -> '
-                                f'cc={required.cc.name}, iq={required.iq.name}, '
-                                f'sb={required.sb.name}, wv={required.wv.name}'
-                            )
-
                         # The sky the plan was built against. Tighter constraints than that mean the
                         # observation no longer belongs where the plan put it.
                         sky = last_plan.conditions
@@ -417,33 +410,64 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         )
                     )
             else:
-                # New observation was added to the ODB, we do visibility and trigger a new plan
-                if sight_visibility_enabled():
-                    # Gated visibility calculation, if strategy set to ``local`` this process is skipped
-                    # entirely as the local calculation would be stored when the query is done in the Collector side.
+                # In the Collector but not the plan is an edit to an observation the Engine passed
+                # over; only one the Collector did not have is new to the ODB.
+                if ObservationID(label) in await self.nightly_timeline_store.collected_observation_ids():
+                    description = f'Observation {label} was modified (collected, not in the plan).'
+                    # TODO: Current collected observations are not stored and not handled so check for older state
+                    #found = changes_from_collected(last_obs, updated_obs)
+                    #if found:
 
-                    t0 = time.perf_counter()
-                    label = updated_obs.reference.label
-                    if site_key is None or label is None:
-                        _logger.warning(
-                            f'Skipping visibility for observation {label}: could not resolve '
-                            f'site/label (instrument={instrument}, label={label}).'
-                        )
-                    else:
-                        _logger.info(
-                            f'Resolved observation {label} -> {label} ({site_key}, {instrument}) '
-                            f'in {time.perf_counter() - t0:.2f}s.'
-                        )
-                        await calculate_and_store_visibility(updated_obs, observation_id=label, site_key=site_key)
+                    # Update sight data because the change might have affected an observation.
+                    if sight_visibility_enabled():
+                        # Before the plan request, so the Engine reads the recomputed rows.
+                        try:
+                            changes = await get_visibility_changes()
+                            await refresh_visibility_if_changed(
+                                updated_obs, observation_id=str(label), site_key=site_key, changes=changes
+                            )
+                        except Exception as exc:
+                            # An ODB or Sight blip must not stop the plan request.
+                            _logger.warning(f'Could not refresh the visibility of {label}: {exc}')
 
-                await self._request_new_plan(
-                    ObservationActivationEvent(
-                        site=site,
-                        observation_id=event.value.id,
-                        time=await self._reference_time(site),
-                        description=f'New observation in the ODB: {updated_obs.reference.label}',
+                    await self._request_new_plan(
+                        ObservationActivationEvent(
+                            site=site,
+                            observation_id=event.value.id,
+                            time=await self._reference_time(site),
+                            description=description,
+                        )
                     )
-                )
+
+                else:
+                    description = f'New observation in the ODB: {label}'
+                    # We do visibility and trigger a new plan
+                    if sight_visibility_enabled():
+                        # Gated visibility calculation, if strategy set to ``local`` this process is skipped
+                        # entirely as the local calculation would be stored when the query is done in the Collector side.
+
+                        t0 = time.perf_counter()
+                        label = updated_obs.reference.label
+                        if site_key is None or label is None:
+                            _logger.warning(
+                                f'Skipping visibility for observation {label}: could not resolve '
+                                f'site/label (instrument={instrument}, label={label}).'
+                            )
+                        else:
+                            _logger.info(
+                                f'Resolved observation {label} -> {label} ({site_key}, {instrument}) '
+                                f'in {time.perf_counter() - t0:.2f}s.'
+                            )
+                            await calculate_and_store_visibility(updated_obs, observation_id=label, site_key=site_key)
+
+                    await self._request_new_plan(
+                        ObservationActivationEvent(
+                            site=site,
+                            observation_id=event.value.id,
+                            time=await self._reference_time(site),
+                            description=description,
+                        )
+                    )
 
         if updated_obs.workflow.value.state == 'COMPLETED':
             if is_in_the_plan:

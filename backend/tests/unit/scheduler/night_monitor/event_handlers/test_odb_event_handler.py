@@ -28,6 +28,8 @@ from lucupy.minimodel import (
     ALL_SITES,
     CloudCover,
     Conditions,
+    ConstraintUnit,
+    ElevationType,
     ImageQuality,
     ObservationID,
     ObservationStatus,
@@ -80,8 +82,11 @@ def _value(
         reference=SimpleNamespace(label=label),
         workflow=SimpleNamespace(value=SimpleNamespace(state=state)),
         constraint_set=constraint_set if constraint_set is not None else _constraint_set(),
+        scheduling_constraints=SimpleNamespace(timing_windows=[]),
         target_environment=SimpleNamespace(
             first_science_target=lambda include_deleted=False: target,
+            asterism=[],
+            explicit_base=None,
         ),
     )
 
@@ -96,18 +101,30 @@ def _event(state, edit_type="UPDATED", **kwargs):
 
 
 def _observation(label=_LABEL, status=ObservationStatus.READY, exec_minutes=30, conditions=None):
-    """The observation as the *last plan* recorded it, which is what the handler compares to.
+    """The observation as the Collector read it for the last plan, which is what the handler compares to.
 
-    ``conditions`` defaults to the OCS bins ``_constraint_set()`` converts to, so an event
-    built from the same defaults reads as unchanged.
+    ``conditions`` defaults to what the Collector stores for ``_constraint_set()`` (IQ in
+    arcsec, CC in the provider's bins), so an event built from the same defaults reads as unchanged.
     """
     if conditions is None:
-        conditions = Conditions(cc=CloudCover(0.7), iq=ImageQuality(0.7), sb=SkyBackground(0.8), wv=WaterVapor(0.8))
+        conditions = Conditions(
+            cc=CloudCover(0.7),
+            iq=ImageQuality(0.8, ConstraintUnit.ARCSEC),
+            sb=SkyBackground(0.8),
+            wv=WaterVapor(0.8),
+        )
     return SimpleNamespace(
         id=ObservationID(label),
         status=status,
         exec_time=lambda: timedelta(minutes=exec_minutes),
-        constraints=SimpleNamespace(conditions=conditions),
+        targets=[],
+        constraints=SimpleNamespace(
+            conditions=conditions,
+            elevation=SimpleNamespace(
+                elevation_type=ElevationType.AIRMASS, airmass_min=1.0, airmass_max=1.2, ha_min=None, ha_max=None
+            ),
+            timing_windows=[],
+        ),
     )
 
 
@@ -134,6 +151,7 @@ def _handler(last_plan=None, planned_ids=frozenset()):
     store = MagicMock()
     store.last_plan = AsyncMock(return_value=last_plan)
     store.planned_observation_ids = AsyncMock(return_value=planned_ids)
+    store.collected_observation_ids = AsyncMock(return_value=frozenset())
     return ODBEventHandler(scheduler_queue=AsyncMock(), nightly_timeline_store=store)
 
 
@@ -395,19 +413,23 @@ async def test_ready_in_plan_and_still_ready_requests_plan(handler_factory):
 
 @pytest.mark.asyncio
 async def test_ready_in_plan_reports_changed_constraints(handler_factory):
-    # The plan was built for IQ20/CC50; the event now asks for looser conditions, so the
+    # The Collector read IQ0.2/CC50; the event now asks for looser conditions, so the
     # description says what moved instead of just "was modified".
     planned = _observation(
         status=ObservationStatus.READY,
-        conditions=Conditions(cc=CloudCover(0.5), iq=ImageQuality(0.2), sb=SkyBackground(0.2), wv=WaterVapor(0.2)),
+        conditions=Conditions(
+            cc=CloudCover(0.5),
+            iq=ImageQuality(0.2, ConstraintUnit.ARCSEC),
+            sb=SkyBackground(0.2),
+            wv=WaterVapor(0.2),
+        ),
     )
     handler = handler_factory(_plan(visits=[_visit_spanning_now(planned)], found=planned))
 
     await handler._on_updated_edit(_event(ObservationWorkflowState.READY))
 
     description = _queued_event(handler).description
-    assert "constraints" in description
-    assert "cc=CC50, iq=IQ20" in description and "cc=CC70, iq=IQ70" in description
+    assert "CC50 -> CC70" in description and "IQ0.20 -> IQ0.80" in description
 
 
 @pytest.mark.asyncio
