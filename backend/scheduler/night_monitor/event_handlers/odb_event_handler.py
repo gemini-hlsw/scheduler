@@ -415,8 +415,8 @@ class ODBEventHandler(EventHandler, TimelineListener):
                 if ObservationID(label) in await self.nightly_timeline_store.collected_observation_ids():
                     description = f'Observation {label} was modified (collected, not in the plan).'
                     # TODO: Current collected observations are not stored and not handled so check for older state
-                    #found = changes_from_collected(last_obs, updated_obs)
-                    #if found:
+                    # found = changes_from_collected(last_obs, updated_obs)
+                    # if found:
 
                     # Update sight data because the change might have affected an observation.
                     if sight_visibility_enabled():
