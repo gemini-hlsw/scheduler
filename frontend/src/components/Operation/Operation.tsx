@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { DisplayWeather } from "../WeatherConditions/DisplayWeather";
 import OnDemandControl from "../ControlPanel/OnDemandControl";
 import BuildParameters from "../BuildParameters/BuildParameters";
+import SchedulerEvents from "./SchedulerEvents";
 
 export default function Operation() {
   const { nightPlans } = useContext(GlobalStateContext);
@@ -32,6 +33,7 @@ export default function Operation() {
           </div>
         </div>
       </div>
+      <SchedulerEvents />
       <Result plans={nightPlans} />
     </div>
   );

@@ -166,9 +166,14 @@ class InterruptionEvent(Event, ABC):
 @final
 @dataclass(frozen=True)
 class OnDemandScheduleEvent(InterruptionEvent):
-    """Event that is created when a new on-demand schedule is requested."""
+    """Event that is created when a new on-demand schedule is requested.
 
-    ...
+    Attributes:
+        requested_by_user (bool): True when an operator asked for the plan (the UI), False when the
+            Scheduler raised it on its own (startup inside the night, idle watch).
+    """
+
+    requested_by_user: bool = False
 
 
 @final

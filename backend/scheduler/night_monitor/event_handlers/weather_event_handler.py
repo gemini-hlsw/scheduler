@@ -49,7 +49,16 @@ class WeatherEventHandler(EventHandler):
             variant_change=variant,
             time=datetime.now(UTC),
             site=site,
-            description=f"Weather changed for site {site.name}",
+            description=self._describe(site, variant, water_vapor_reported=raw_water_vapor is not None),
+        )
+
+    @staticmethod
+    def _describe(site: Site, variant: VariantSnapshot, water_vapor_reported: bool) -> str:
+        """E.g. 'Weather changed at GN: IQ70, CC50, WV80, wind 5.0 m/s from 90°', for the UI and the logs."""
+        wv = f"{variant.wv}" if water_vapor_reported else f"{variant.wv} (not reported)"
+        return (
+            f"Weather changed at {site.name}: {variant.iq}, {variant.cc}, {wv}, "
+            f"wind {variant.wind_spd.value:.1f} m/s from {variant.wind_dir.deg:.0f}°"
         )
 
     async def _on_weather_change(self, event: WeatherChangeEvent):
