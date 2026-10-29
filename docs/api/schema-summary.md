@@ -251,6 +251,16 @@ type SVisit {
   exploreUrl: String
 }
 
+type SchedulerEvent {
+  id: String!
+  receivedAt: DateTime!
+  eventType: String!
+  sites: [Site!]!
+  eventTime: DateTime
+  description: String!
+  triggeredPlan: Boolean!
+}
+
 enum SchedulerModes {
   OPERATION
   SIMULATION
@@ -280,6 +290,7 @@ type Subscription {
   queueSchedule(scheduleId: String!): NightPlansResponseRT!
   buildParametersUpdates: BuildParametersResponse!
   programSelectionUpdates: ProgramSelection!
+  schedulerEvents: SchedulerEvent!
 }
 
 type TimelineEntriesBySite {

@@ -25,6 +25,7 @@ const documents = {
     "\n  query scheduleV2 {\n    scheduleV2\n  }\n": types.ScheduleV2Document,
     "\n  query operationNight {\n    operationNight {\n      site\n      start\n      end\n    }\n  }\n": types.OperationNightDocument,
     "\n  query onDemandQuery {\n    onDemandSchedule\n  }\n": types.OnDemandQueryDocument,
+    "\n  subscription schedulerEvents {\n    schedulerEvents {\n      id\n      receivedAt\n      eventType\n      sites\n      eventTime\n      description\n      triggeredPlan\n    }\n  }\n": types.SchedulerEventsDocument,
     "\n  query schedule(\n    $scheduleId: String!\n    $startTime: String!\n    $endTime: String!\n    $sites: Sites!\n    $mode: SchedulerModes!\n    $numNightsToSchedule: Int!\n    $semesterVisibility: Boolean!\n    $thesisFactor: Float\n    $power: Int\n    $metPower: Float\n    $whaPower: Float\n    $airPower: Float\n    $visPower: Float\n    $ranker: RankerName\n    $programs: [String!]!\n  ) {\n    schedule(\n      scheduleId: $scheduleId\n      newScheduleInput: {\n        startTime: $startTime\n        sites: $sites\n        mode: $mode\n        endTime: $endTime\n        thesisFactor: $thesisFactor\n        power: $power\n        metPower: $metPower\n        whaPower: $whaPower\n        airPower: $airPower\n        visPower: $visPower\n        ranker: $ranker\n        semesterVisibility: $semesterVisibility\n        numNightsToSchedule: $numNightsToSchedule\n        programs: $programs\n      }\n    )\n  }\n": types.ScheduleDocument,
     "\n  query visibilityAggregatorStatus {\n    visibilityAggregatorStatus {\n      active\n      stale\n      holder\n      startedAt\n      heartbeatAt\n      finishedAt\n      phase\n      progressCurrent\n      progressTotal\n      progressUnit\n      elapsedSeconds\n      etaSeconds\n    }\n  }\n": types.VisibilityAggregatorStatusDocument,
     "\n  query visibilityCoverage($nightDate: Date, $refresh: Boolean! = false) {\n    visibilityCoverage(nightDate: $nightDate, refresh: $refresh) {\n      nightDate\n      odbReadAt\n      expected\n      stored\n      pending\n      missing\n      skipped\n      isComplete\n      pendingKnown\n      perProgram {\n        key\n        expected\n        stored\n        pending\n        missing\n        skipped\n      }\n      perSite {\n        key\n        expected\n        stored\n        pending\n        missing\n        skipped\n      }\n    }\n  }\n": types.VisibilityCoverageDocument,
@@ -83,6 +84,10 @@ export function graphql(source: "\n  query operationNight {\n    operationNight 
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query onDemandQuery {\n    onDemandSchedule\n  }\n"): (typeof documents)["\n  query onDemandQuery {\n    onDemandSchedule\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  subscription schedulerEvents {\n    schedulerEvents {\n      id\n      receivedAt\n      eventType\n      sites\n      eventTime\n      description\n      triggeredPlan\n    }\n  }\n"): (typeof documents)["\n  subscription schedulerEvents {\n    schedulerEvents {\n      id\n      receivedAt\n      eventType\n      sites\n      eventTime\n      description\n      triggeredPlan\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

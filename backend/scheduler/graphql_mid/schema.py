@@ -53,6 +53,7 @@ from .types import (
     ObservationCoveragePage,
     ObservationStatus,
     VisibleObservationsPage,
+    SchedulerEvent,
 )
 from .inputs import CreateNewScheduleInput
 
@@ -173,7 +174,9 @@ class Query:
 
         # Schedule event with None time to compute the plan from start of the night
         await op_process.scheduler_queue.add_schedule_event(
-            OnDemandScheduleEvent(site=None, description="On demand request", time=None)
+            OnDemandScheduleEvent(
+                site=None, description="Plan requested from the UI (start of night)", time=None, requested_by_user=True
+            )
         )
         return 'Plan is on the queue in the Operation Process!'
 
@@ -185,7 +188,9 @@ class Query:
 
         # Compute plan starting from the current time
         await op_process.scheduler_queue.add_schedule_event(
-            OnDemandScheduleEvent(site=None, description="On demand request", time=datetime.now(UTC))
+            OnDemandScheduleEvent(
+                site=None, description="Plan requested from the UI", time=datetime.now(UTC), requested_by_user=True
+            )
         )
         return 'Plan is on the queue in the Operation Process!'
 
@@ -396,6 +401,21 @@ class Subscription:
                 yield ProgramSelection.from_ids(await client_queue.get())
         finally:
             program_selection_subscribers.discard(client_queue)
+
+    @strawberry.subscription
+    async def scheduler_events(self) -> AsyncGenerator[SchedulerEvent, None]:
+        """Every event the operation Scheduler receives: the recent ones first, oldest first,
+        then each new one as it arrives."""
+        op_process = process_manager.get_operation_process()
+        if op_process is None:
+            raise ValueError("No operation process is running: scheduler_events is only available in OPERATION mode.")
+
+        history = op_process.event_history
+        with history.subscribe() as client_queue:
+            for event in history.snapshot():
+                yield SchedulerEvent.from_received_event(event)
+            while True:
+                yield SchedulerEvent.from_received_event(await client_queue.get())
 
 
 @strawberry.type

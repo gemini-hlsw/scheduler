@@ -5,3 +5,4 @@ from .eventqueue import *
 from .events import *
 from .nightchanges import *
 from .nightly_timeline_store import *
+from .event_history import *

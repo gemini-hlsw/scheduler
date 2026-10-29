@@ -13,7 +13,7 @@ from strawberry.scalars import JSON  # noqa
 from lucupy.minimodel import Site, VariantSnapshot, Conditions, Program, ProgramID
 
 from scheduler.clients.gpp import explore_observation_url
-from scheduler.core.events.queue import NightlyTimeline
+from scheduler.core.events.queue import NightlyTimeline, ReceivedEvent
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.core.statscalculator import RunSummary
 from scheduler.graphql_mid.scalars import SObservationID
@@ -489,6 +489,31 @@ class BuildParametersResponse:
     # The anchor as submitted. `reference_time` advances past it, so reading this back
     # tells you what was set, not what the handler currently considers "now".
     simulated_now: Optional[datetime] = None
+
+
+@strawberry.type
+class SchedulerEvent:
+    """An event the operation Scheduler received, and whether it computed a new plan for it."""
+
+    id: str
+    received_at: datetime
+    event_type: str
+    sites: List[strawberry.enum(Site)]
+    event_time: Optional[datetime]
+    description: str
+    triggered_plan: bool
+
+    @staticmethod
+    def from_received_event(event: ReceivedEvent) -> 'SchedulerEvent':
+        return SchedulerEvent(
+            id=event.id,
+            received_at=event.received_at,
+            event_type=event.event_type,
+            sites=list(event.sites),
+            event_time=event.event_time,
+            description=event.description,
+            triggered_plan=event.triggered_plan,
+        )
 
 
 @strawberry.type

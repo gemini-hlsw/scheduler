@@ -124,3 +124,14 @@ def test_weather_change_without_water_vapor_assumes_any():
     raw = {"weatherUpdates": {**_RAW["weatherUpdates"], "waterVapor": None}}
     event = _handler().parse_weather_change(raw)
     assert event.variant_change.wv == WaterVapor(1.0)
+
+
+def test_weather_change_describes_the_new_conditions():
+    event = _handler().parse_weather_change(_RAW)
+    assert event.description == "Weather changed at GN: IQ70, CC50, WV80, wind 5.0 m/s from 90°"
+
+
+def test_weather_change_description_flags_missing_water_vapor():
+    raw = {"weatherUpdates": {**_RAW["weatherUpdates"], "waterVapor": None}}
+    event = _handler().parse_weather_change(raw)
+    assert "WV100 (not reported)" in event.description

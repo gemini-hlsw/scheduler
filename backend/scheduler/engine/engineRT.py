@@ -3,6 +3,7 @@
 
 import asyncio
 from time import time
+from typing import Optional
 import traceback
 import numpy as np
 from .params import SchedulerParameters, build_params_store, default_operation_parameters
@@ -13,7 +14,8 @@ from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.telemetry import timed
 from scheduler.core.events.queue import NightlyTimelineStore
-from scheduler.core.events.queue.events import Event, EndOfNightEvent
+from scheduler.core.events.queue.events import Event, EndOfNightEvent, OnDemandScheduleEvent
+from scheduler.core.events.queue.event_history import EventHistory
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.graphql_mid.types import NewNightPlans, SNightTimelines, SRunSummary
@@ -41,6 +43,7 @@ class EngineRT:
         process_id: str,
         weather_source: WeatherEventSource,
         nightly_timeline_store: NightlyTimelineStore,
+        event_history: Optional[EventHistory] = None,
     ):
         """
         Initializes the EngineRT with the given parameters.
@@ -52,6 +55,8 @@ class EngineRT:
             weather_source (WeatherEventSource): Source for the current weather state.
             nightly_timeline_store (NightlyTimelineStore): Shared store for the nightly timeline,
                 read by the Night Monitor to know the plan currently in effect.
+            event_history (Optional[EventHistory]): Where every event received is recorded for
+                the UI. A private one is used if not given.
         """
         _logger.debug("Initializing real-time engine...")
         self.params = params
@@ -64,6 +69,7 @@ class EngineRT:
         self.start_time = time()
         self.last_run_date = None
         self.last_program_list = None
+        self.event_history = event_history if event_history is not None else EventHistory()
 
     def _refresh_default_night(self, build_params) -> None:
         """
@@ -180,6 +186,38 @@ class EngineRT:
             _logger.info(f"Initial variant for site {site_state['site']} is {initial_variant}")
             self.scp.selector.update_site_variant(Site[site_state["site"]], initial_variant)
         _logger.info("Initial weather variants successfully updated.")
+
+    @staticmethod
+    def triggers_plan(event: Event) -> bool:
+        """
+        Whether an event gets a new plan computed.
+
+        In operation, for now, only an operator asking for one does: weather, ODB, resource,
+        twilight and idle events are still received and recorded, but leave the plan alone.
+        Simulation replays the night through its twilight events, so every event plans there.
+        """
+        if not is_operation:
+            return True
+        return EngineRT.is_user_request(event)
+
+    @staticmethod
+    def is_user_request(event: Event) -> bool:
+        """Whether an operator asked for this plan from the UI."""
+        return isinstance(event, OnDemandScheduleEvent) and event.requested_by_user
+
+    async def handle_event(self, event: Event):
+        """
+        Record a received event and compute a new plan for it if it triggers one.
+
+        Returns:
+            The new plans, or None when the event does not trigger a plan.
+        """
+        triggers_plan = self.triggers_plan(event)
+        self.event_history.record(event, triggers_plan)
+        if not triggers_plan:
+            _logger.info(f"Event '{event.description}' recorded; it does not trigger a new plan.")
+            return None
+        return await self.compute_event_plan(event)
 
     async def compute_event_plan(self, event: Event):
         """
@@ -324,7 +362,7 @@ class EngineRT:
             while True:
                 try:
                     # Wait for the next event
-                    event, plan = await self.scheduler_queue.consume_events(self.compute_event_plan)
+                    event, plan = await self.scheduler_queue.consume_events(self.handle_event)
                     _logger.debug(f"Received scheduler event: {event}")
 
                     # Check if we have reached the end of the night
@@ -339,6 +377,8 @@ class EngineRT:
                             continue
                         _logger.info("Night end event received, ending night scheduling loop.")
                         break
+                    if plan is None:
+                        continue
                     # Plan is already computed by the callback in consume_events
                     for q in plan_response_subscribers.get(self.process_id, set()):
                         await q.put(plan)

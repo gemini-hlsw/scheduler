@@ -7,6 +7,7 @@ from datetime import timedelta
 
 from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
+from scheduler.core.events.queue.event_history import EventHistory
 from scheduler.graphql_mid.types import NightPlansError
 from scheduler.night_monitor.night_monitor import NightMonitor
 from scheduler.services.logger_factory import create_logger
@@ -39,6 +40,8 @@ class SchedulerProcess:
         self.process_id = process_id
         self.scheduler_queue = SchedulerQueue()
         self.nightly_timeline_store = NightlyTimelineStore()
+        # Outlives the engine, so the UI can subscribe before the process has started it.
+        self.event_history = EventHistory()
         self.params = params
         self.running_event = asyncio.Event()
         self.engine = None
@@ -114,6 +117,7 @@ class SchedulerProcess:
             self.process_id,
             weather_source=weather_source,
             nightly_timeline_store=self.nightly_timeline_store,
+            event_history=self.event_history,
         )
 
         # Initialize the engine variants
