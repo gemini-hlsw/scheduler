@@ -6,7 +6,7 @@ from abc import ABC
 from contextlib import asynccontextmanager
 from copy import deepcopy
 from datetime import datetime
-from typing import AsyncIterator, Dict, FrozenSet, List, Optional
+from typing import AsyncIterator, Dict, FrozenSet, Iterable, List, Optional
 
 from lucupy.minimodel import NightIndex, ObservationID, Site
 
@@ -52,6 +52,9 @@ class NightlyTimelineStore:
 
     def __init__(self, timeline: Optional[NightlyTimeline] = None) -> None:
         self._timeline = timeline if timeline is not None else NightlyTimeline()
+        # The observations the Collector had for the latest entry. Only the IDs: the Collector is
+        # rebuilt on every plan, and keeping its observations would hold a copy of the ODB.
+        self._collected_ids: FrozenSet[ObservationID] = frozenset()
         self._lock = asyncio.Lock()
         self._listeners: List[TimelineListener] = []
 
@@ -90,6 +93,7 @@ class NightlyTimelineStore:
         """
         async with self._lock:
             self._timeline = NightlyTimeline()
+            self._collected_ids = frozenset()
 
         for listener in self._listeners:
             try:
@@ -133,6 +137,20 @@ class NightlyTimelineStore:
             if entry is None:
                 return frozenset()
             return frozenset(visit.observation.id for visit in entry.plan_generated.visits)
+
+    def set_collected_observation_ids(self, obs_ids: Iterable[ObservationID]) -> None:
+        """
+        Record which observations the Collector had for the entry being added. Writers only, from
+        inside :meth:`mutate`, so a reader never sees one entry next to another's Collector.
+        """
+        self._collected_ids = frozenset(obs_ids)
+
+    async def collected_observation_ids(self) -> FrozenSet[ObservationID]:
+        """
+        The observations the Collector had for the latest entry, both sites. Empty before the first plan.
+        """
+        async with self._lock:
+            return self._collected_ids
 
     def _last_entry_with_plan(self, site: Site) -> Optional[TimelineEntry]:
         """

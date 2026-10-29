@@ -160,6 +160,8 @@ class EngineRT:
         if self.last_run_date != build_params.visibility_start or self.last_program_list != build_params.program_list:
             async with self.nightly_timeline_store.mutate() as nightly_timeline:
                 nightly_timeline.reset()
+                # No entries left, so no Collector to speak for, even if the plan after this fails.
+                self.nightly_timeline_store.set_collected_observation_ids(())
 
         self.last_run_date = build_params.visibility_start
         self.last_program_list = build_params.program_list
@@ -338,6 +340,8 @@ class EngineRT:
             for site in self.params.sites:
                 nightly_timeline.add(plans.night_idx, site, start_timeslot[site][0], event, plans.plans[site])
                 nightly_timeline.calculate_time_losses(plans.night_idx, site)
+            # So the Night Monitor can tell an edit to an observation the plan passed over from a new one.
+            self.nightly_timeline_store.set_collected_observation_ids(self.scp.collector.get_observation_ids())
             run_summary = StatCalculator.calculate_stitched_timeline_stats(
                 nightly_timeline, self.params.night_indices, self.params.sites, self.scp.collector, self.scp.ranker
             )

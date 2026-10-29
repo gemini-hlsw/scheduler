@@ -346,6 +346,7 @@ def _handler(last_plan=None):
     store = MagicMock()
     store.last_plan = AsyncMock(return_value=last_plan)
     store.planned_observation_ids = AsyncMock(return_value=frozenset())
+    store.collected_observation_ids = AsyncMock(return_value=frozenset())
     return ODBEventHandler(scheduler_queue=AsyncMock(), nightly_timeline_store=store)
 
 
