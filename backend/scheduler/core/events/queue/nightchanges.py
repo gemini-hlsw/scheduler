@@ -4,7 +4,7 @@ import sys
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import ClassVar, Dict, List, Optional
+from typing import ClassVar, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from lucupy.minimodel import TimeslotIndex, NightIndex, Site, ObservationID
@@ -80,6 +80,12 @@ class NightlyTimeline:
     stitched_timeline: Dict[NightIndex, Dict[Site, List[TimelineEntry]]] = field(init=False, default_factory=dict)
     time_losses: Dict[NightIndex, Dict[Site, Dict[str, int]]] = field(init=False, default_factory=dict)
     night_length: Dict[NightIndex, Dict[Site, NightLength]] = field(init=False, default_factory=dict)
+    # The 12° twilights: night_length is the plan's time grid, which a custom start or end of night shortens.
+    twilights: Dict[NightIndex, Dict[Site, NightLength]] = field(init=False, default_factory=dict)
+    # The custom start and end of night, None where the night runs to the twilight.
+    custom_night_times: Dict[NightIndex, Dict[Site, Tuple[Optional[datetime], Optional[datetime]]]] = field(
+        init=False, default_factory=dict
+    )
     _datetime_formatter: ClassVar[str] = field(init=False, default='%Y-%m-%d %H:%M')
 
     def reset(self) -> None:
@@ -90,6 +96,8 @@ class NightlyTimeline:
         self.stitched_timeline = {}
         self.time_losses = {}
         self.night_length = {}
+        self.twilights = {}
+        self.custom_night_times = {}
 
     def set_night_length(self, night_idx: NightIndex, site: Site, start: datetime, end: datetime) -> None:
         """
@@ -100,6 +108,20 @@ class NightlyTimeline:
         if site not in self.night_length[night_idx]:
             self.night_length[night_idx][site] = {}
         self.night_length[night_idx][site] = NightLength(start=start, end=end)
+
+    def set_twilights(self, night_idx: NightIndex, site: Site, eve_twilight: datetime, morn_twilight: datetime) -> None:
+        """
+        Set the evening and morning 12° twilights for the given night and site.
+        """
+        self.twilights.setdefault(night_idx, {})[site] = NightLength(start=eve_twilight, end=morn_twilight)
+
+    def set_custom_night_times(
+        self, night_idx: NightIndex, site: Site, night_start: Optional[datetime], night_end: Optional[datetime]
+    ) -> None:
+        """
+        Set the custom start and end of night for the given night and site.
+        """
+        self.custom_night_times.setdefault(night_idx, {})[site] = (night_start, night_end)
 
     def add(
         self,

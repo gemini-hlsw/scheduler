@@ -270,6 +270,8 @@ class EngineRT:
             for site in self.params.sites:
                 night_start, night_end = self.scp.collector.get_night_length(site, 0)
                 nightly_timeline.set_night_length(0, site, night_start, night_end)
+                nightly_timeline.set_twilights(0, site, *self.scp.collector.get_twilights(site, 0))
+                nightly_timeline.set_custom_night_times(0, site, *self.scp.collector.get_custom_night_times(site, 0))
 
                 event_timeslot = event.to_timeslot_idx(night_start, self.scp.collector.time_slot_length.to_datetime())
 

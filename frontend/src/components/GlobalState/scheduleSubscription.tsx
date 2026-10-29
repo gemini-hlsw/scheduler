@@ -12,6 +12,8 @@ export const subscriptionQueueSchedule = graphql(`
               site
               mornTwilight
               eveTwilight
+              nightStart
+              nightEnd
               timeEntries {
                 startTimeSlots
                 event {

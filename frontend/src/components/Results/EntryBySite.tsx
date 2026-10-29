@@ -35,6 +35,8 @@ export default function EntryBySite({
         timeEntry={selectedEntry}
         eveTwilight={entryBySite.eveTwilight}
         mornTwilight={entryBySite.mornTwilight}
+        nightStart={entryBySite.nightStart}
+        nightEnd={entryBySite.nightEnd}
         site={entryBySite.site}
       />
     </div>

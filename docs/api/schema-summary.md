@@ -298,6 +298,8 @@ type TimelineEntriesBySite {
   timeEntries: [STimelineEntry!]!
   eveTwilight: DateTime!
   mornTwilight: DateTime!
+  nightStart: DateTime
+  nightEnd: DateTime
 }
 
 type Version {
