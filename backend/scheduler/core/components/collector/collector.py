@@ -272,6 +272,33 @@ class Collector(SchedulerComponent):
         utc_night_end = night_end.utc.to_datetime(timezone=timezone.utc)
         return utc_night_start, utc_night_end
 
+    def get_twilights(self, site: Site, night_index: NightIndex) -> Tuple[datetime, datetime]:
+        """
+        The evening and morning 12° twilights, in UTC.
+
+        Unlike get_night_length, these do not move with a custom start or end of night.
+        """
+        night_events = self.night_events[site]
+        eve_twilight = night_events.twilight_evening_12[night_index].utc.to_datetime(timezone=timezone.utc)
+        morn_twilight = night_events.twilight_morning_12[night_index].utc.to_datetime(timezone=timezone.utc)
+        return eve_twilight, morn_twilight
+
+    def get_custom_night_times(
+        self, site: Site, night_index: NightIndex
+    ) -> Tuple[Optional[datetime], Optional[datetime]]:
+        """
+        The custom start and end of night, in UTC, or None where the night runs to the twilight.
+
+        Only the first night of the time grid is shortened by them.
+        """
+        night_events = self.night_events[site]
+        if night_index != 0:
+            return None, None
+        return tuple(
+            None if t is None else t.utc.to_datetime(timezone=timezone.utc)
+            for t in (night_events.night_start_time, night_events.night_end_time)
+        )
+
     def get_night_events(self, site: Site) -> NightEvents:
 
         night_start_time = None

@@ -55,6 +55,8 @@ export default function Result({ plans }: { plans: NightPlanType[] }) {
               timeEntry={en.timeEntries.at(-1)}
               eveTwilight={en.eveTwilight}
               mornTwilight={en.mornTwilight}
+              nightStart={en.nightStart}
+              nightEnd={en.nightEnd}
               site={en.site}
             />
           </TabsContent>

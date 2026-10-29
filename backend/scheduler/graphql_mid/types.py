@@ -247,6 +247,9 @@ class TimelineEntriesBySite:
     time_entries: List[STimelineEntry]
     eve_twilight: datetime
     morn_twilight: datetime
+    # The custom start and end of night, when the night does not run between the twilights.
+    night_start: Optional[datetime] = None
+    night_end: Optional[datetime] = None
 
 
 @strawberry.type
@@ -288,11 +291,17 @@ class SNightTimelines:
                         timestats=entry.timestats,
                     )
                     s_entries.append(e)
+                # The real twilights, so the UI can draw every plan of the night on the same axis
+                # whatever its start; the plan's own time grid if they were not recorded.
+                twilights = timeline.twilights.get(n_idx, {}).get(site, timeline.night_length[n_idx][site])
+                night_start, night_end = timeline.custom_night_times.get(n_idx, {}).get(site, (None, None))
                 te = TimelineEntriesBySite(
                     site=site,
                     time_entries=s_entries,
-                    eve_twilight=timeline.night_length[n_idx][site].start,
-                    morn_twilight=timeline.night_length[n_idx][site].end,
+                    eve_twilight=twilights.start,
+                    morn_twilight=twilights.end,
+                    night_start=night_start,
+                    night_end=night_end,
                 )
                 s_timeline_entries.append(te)
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)

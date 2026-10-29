@@ -134,11 +134,15 @@ export default function TimeEntry({
   timeEntry,
   mornTwilight,
   eveTwilight,
+  nightStart,
+  nightEnd,
   site,
 }: {
   timeEntry: TimeEntryType;
   mornTwilight: string;
   eveTwilight: string;
+  nightStart?: string | null;
+  nightEnd?: string | null;
   site: string;
 }) {
   function parseToVisitForPlot(visits: Visit[]) {
@@ -243,6 +247,8 @@ export default function TimeEntry({
         event={timeEntry.event}
         eveTwilight={eveTwilight}
         mornTwilight={mornTwilight}
+        nightStart={nightStart}
+        nightEnd={nightEnd}
         site={site}
         closureWindows={timeEntry.timelossWindows}
       />

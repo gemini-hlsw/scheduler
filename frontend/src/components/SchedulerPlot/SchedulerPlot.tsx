@@ -29,6 +29,15 @@ export const debounce = <F extends (...args: any[]) => void>(
   } as F;
 };
 
+// The x axis spans the whole night plus this margin on each side, so every
+// plan of the night is drawn on the same axis whatever time it starts at.
+const TWILIGHT_MARGIN = 30 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
+// Shades the margins, where the sun is above the 12° twilight.
+const TWILIGHT_BAND_COLOR = "rgba(128, 128, 128, 0.25)";
+const TWILIGHT_LINE_COLOR = "rgba(128, 128, 128, 0.9)";
+const NIGHT_LIMIT_LINE_COLOR = "var(--color-amber-500)";
+
 interface Visit {
   startDate: Date;
   endDate: Date;
@@ -43,6 +52,9 @@ interface AltAzPlotProps {
   event: Event;
   eveTwilight: string;
   mornTwilight: string;
+  // The custom start and end of night, if any.
+  nightStart?: string | null;
+  nightEnd?: string | null;
   site: string;
   closureWindows: TimeLossWindow[];
 }
@@ -52,6 +64,8 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   event,
   eveTwilight,
   mornTwilight,
+  nightStart,
+  nightEnd,
   site,
   closureWindows,
 }) => {
@@ -140,6 +154,10 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   const colorMap = createMap(instruments, colors);
   const eveTwiDate = new Date(eveTwilight);
   const mornTwiDate = new Date(mornTwilight);
+  const eveTwiX = utcToLocal(eveTwiDate, INITIAL_TIMEZONE);
+  const mornTwiX = utcToLocal(mornTwiDate, INITIAL_TIMEZONE);
+  const axisMin = eveTwiX - TWILIGHT_MARGIN;
+  const axisMax = mornTwiX + TWILIGHT_MARGIN;
 
   const seriesData: Array<SeriesArearangeOptions> = data.map((d: Visit) => {
     const instrumentColor = colorMap[d.instrument] ?? fallbackColor;
@@ -247,6 +265,67 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       zIndex: 100,
     });
 
+    // Mark the twilights and, when given, the custom start and end of night
+    const limitLines = [
+      {
+        id: "evening-twilight",
+        label: "Eve. twilight",
+        time: eveTwilight,
+        color: TWILIGHT_LINE_COLOR,
+      },
+      {
+        id: "morning-twilight",
+        label: "Morn. twilight",
+        time: mornTwilight,
+        color: TWILIGHT_LINE_COLOR,
+      },
+      {
+        id: "night-start",
+        label: "Night start",
+        time: nightStart,
+        color: NIGHT_LIMIT_LINE_COLOR,
+      },
+      {
+        id: "night-end",
+        label: "Night end",
+        time: nightEnd,
+        color: NIGHT_LIMIT_LINE_COLOR,
+      },
+    ];
+    limitLines.forEach(({ id, label, time, color }) => {
+      if (!time) return;
+      chart.xAxis[0].addPlotLine({
+        id,
+        color,
+        width: 1.5,
+        dashStyle: "Dash",
+        value: utcToLocal(new Date(time), INITIAL_TIMEZONE),
+        zIndex: 5,
+        label: {
+          text: label,
+          rotation: 90,
+          align: "left",
+          x: 3,
+          y: 4,
+          style: { color: textColor, fontSize: "10px" },
+        },
+      });
+    });
+
+    // Shade outside the twilights
+    chart.xAxis[0].addPlotBand({
+      id: "before-evening-twilight",
+      from: axisMin,
+      to: eveTwiX,
+      color: TWILIGHT_BAND_COLOR,
+    });
+    chart.xAxis[0].addPlotBand({
+      id: "after-morning-twilight",
+      from: mornTwiX,
+      to: axisMax,
+      color: TWILIGHT_BAND_COLOR,
+    });
+
     // Add possible closure zones
     closureWindows.forEach((window) => {
       chart.xAxis[0].addPlotBand({
@@ -254,7 +333,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
         from: utcToLocal(new Date(window.start), INITIAL_TIMEZONE),
         to: window.end
           ? utcToLocal(new Date(window.end), INITIAL_TIMEZONE)
-          : chart.xAxis[0].max,
+          : mornTwiX,
         color:
           window.lossType === "weather"
             ? "rgba(50, 200, 230, 0.3)"
@@ -325,16 +404,17 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
           color: textColor, // Change the color of y-axis tick labels
         },
       },
-      min: utcToLocal(eveTwiDate, INITIAL_TIMEZONE),
-      max: utcToLocal(mornTwiDate, INITIAL_TIMEZONE),
+      min: axisMin,
+      max: axisMax,
+      startOnTick: false,
+      endOnTick: false,
+      // Every hour on the hour.
       tickPositioner: function () {
         const positions = [];
-        const interval = 1 * 60 * 60 * 1000;
-
         for (
-          let i = utcToLocal(eveTwiDate, INITIAL_TIMEZONE);
-          i <= utcToLocal(mornTwiDate, INITIAL_TIMEZONE);
-          i += interval
+          let i = Math.ceil(axisMin / HOUR) * HOUR;
+          i <= axisMax;
+          i += HOUR
         ) {
           positions.push(i);
         }

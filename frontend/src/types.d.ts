@@ -40,6 +40,9 @@ export interface TimeEntriesBySite {
   site: string;
   eveTwilight: string;
   mornTwilight: string;
+  // The custom start and end of night, if the night does not run between the twilights.
+  nightStart?: string | null;
+  nightEnd?: string | null;
   timeEntries: TimeEntryType[];
 }
 

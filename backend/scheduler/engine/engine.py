@@ -225,6 +225,10 @@ class Engine:
             for site in sorted(self.params.sites, key=lambda site: site.name):
                 night_start, night_end = scp.collector.get_night_length(site, night_idx)
                 nightly_timeline.set_night_length(night_idx, site, night_start, night_end)
+                nightly_timeline.set_twilights(night_idx, site, *scp.collector.get_twilights(site, night_idx))
+                nightly_timeline.set_custom_night_times(
+                    night_idx, site, *scp.collector.get_custom_night_times(site, night_idx)
+                )
                 event_cycle.run(site, night_idx, nightly_timeline)
                 nightly_timeline.calculate_time_losses(night_idx, site)
 
