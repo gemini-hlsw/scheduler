@@ -11,6 +11,7 @@ from scheduler.clients.gpp import gpp
 from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor import EventListener, EventConsumer
+from scheduler.night_monitor.execution_tracker import ExecutionTracker
 from scheduler.night_monitor.night_tracker import NightTracker
 from scheduler.services.loop_monitor import LoopMonitor
 
@@ -32,10 +33,12 @@ class NightMonitor:
         consumer (EventConsumer): Event Consumer that receives serialized events from subscriptions.
         nightly_timeline_store (NightlyTimelineStore): Shared store holding the timeline the engine
             writes, so handlers can check the plan in effect before requesting a new schedule.
+        execution_tracker (ExecutionTracker): Records executed observations and the one executing at each site.
 
         _shutdown_event (asyncio.Event): Signals shutting down for all subcomponents.
         _listener_task (asyncio.Task): Holds the Event listener process.
         _consumer_task (asyncio.Task): Holds the Event Consumer process.
+        _execution_tracker_task (asyncio.Task): Holds the Execution Tracker subscription.
 
     """
 
@@ -62,12 +65,14 @@ class NightMonitor:
             self.event_queue, self._shutdown_event, self.scheduler_queue, self.nightly_timeline_store
         )
         self.night_tracker = NightTracker(night + timedelta(days=1), sites, scheduler_queue)
+        self.execution_tracker = ExecutionTracker()
         # Watches the loop the subscriptions depend on.
         self.loop_monitor = LoopMonitor()
 
         self._listener_task: asyncio.Task | None = None
         self._consumer_task: asyncio.Task | None = None
         self._night_tracker_task: asyncio.Task | None = None
+        self._execution_tracker_task: asyncio.Task | None = None
 
     def get_weather_source(self):
         """
@@ -83,6 +88,7 @@ class NightMonitor:
         self._listener_task = asyncio.create_task(self.listener.listen())
         self._consumer_task = asyncio.create_task(self.consumer.consume())
         self._night_tracker_task = asyncio.create_task(self.night_tracker.start_tracking())
+        self._execution_tracker_task = asyncio.create_task(self.execution_tracker.start())
 
     async def shutdown(self, drain_queue: bool = True):
         """Signals the shutdown of the subcomponents and the Night monitor itself.
@@ -95,12 +101,14 @@ class NightMonitor:
         # Reports the worst stall of the night, which is the number to watch.
         await self.loop_monitor.stop()
 
-        # Clean listener; the night tracker has no shutdown_event of its own,
-        # so it must be cancelled explicitly too.
+        # Clean listener; the night and execution trackers have no shutdown_event of their own,
+        # so they must be cancelled explicitly too.
         if self._listener_task:
             self._listener_task.cancel()
         if self._night_tracker_task:
             self._night_tracker_task.cancel()
+        if self._execution_tracker_task:
+            self._execution_tracker_task.cancel()
 
         # Wait for the task to end briefly
         tasks = []
@@ -110,6 +118,8 @@ class NightMonitor:
             tasks.append(self._consumer_task)
         if self._night_tracker_task:
             tasks.append(self._night_tracker_task)
+        if self._execution_tracker_task:
+            tasks.append(self._execution_tracker_task)
 
         if tasks:
             done, pending = await asyncio.wait(tasks, timeout=1.0)
@@ -123,6 +133,7 @@ class NightMonitor:
                 except asyncio.CancelledError:
                     _logger.error(f"Task {task.get_name()} cancelled during shutdown.")
                     pass
+        await self.execution_tracker.stop()
         # drain the event_queue
         if drain_queue and not self.event_queue.empty():
             try:
