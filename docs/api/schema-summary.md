@@ -154,6 +154,11 @@ enum RankerName {
   ADDITIVE
 }
 
+type SAltitudePoint {
+  time: DateTime!
+  altitude: Float!
+}
+
 type SConditions {
   iq: String!
   cc: String!
@@ -300,6 +305,9 @@ type TimelineEntriesBySite {
   mornTwilight: DateTime!
   nightStart: DateTime
   nightEnd: DateTime
+  moonAltitude: [SAltitudePoint!]!
+  moonIllumination: Float
+  moonWaxing: Boolean
 }
 
 type Version {

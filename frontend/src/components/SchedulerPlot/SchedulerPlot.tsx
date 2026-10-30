@@ -10,7 +10,8 @@ HighchartMore(Highcharts);
 
 import { ThemeContext } from "../../theme/ThemeProvider";
 import { getSiteOffset, utcToLocal } from "@/helpers/utcTime";
-import { Event, TimeLossWindow } from "@/types";
+import { AltitudePoint, Event, TimeLossWindow } from "@/types";
+import MoonPhaseIcon from "./MoonPhaseIcon";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const debounce = <F extends (...args: any[]) => void>(
@@ -37,6 +38,7 @@ const HOUR = 60 * 60 * 1000;
 const TWILIGHT_BAND_COLOR = "rgba(128, 128, 128, 0.25)";
 const TWILIGHT_LINE_COLOR = "rgba(128, 128, 128, 0.9)";
 const NIGHT_LIMIT_LINE_COLOR = "var(--color-amber-500)";
+const MOON_LINE_COLOR = "#a3a3a3";
 
 interface Visit {
   startDate: Date;
@@ -55,6 +57,10 @@ interface AltAzPlotProps {
   // The custom start and end of night, if any.
   nightStart?: string | null;
   nightEnd?: string | null;
+  moonAltitude?: AltitudePoint[];
+  // At the middle of the night: lit fraction, 0 (new) to 1 (full).
+  moonIllumination?: number | null;
+  moonWaxing?: boolean | null;
   site: string;
   closureWindows: TimeLossWindow[];
 }
@@ -66,6 +72,9 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   mornTwilight,
   nightStart,
   nightEnd,
+  moonAltitude = [],
+  moonIllumination,
+  moonWaxing,
   site,
   closureWindows,
 }) => {
@@ -217,11 +226,49 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
     }
   }
 
+  // Below the horizon is outside the y axis, so only the part above it shows.
+  const moonSeries: Highcharts.SeriesLineOptions = {
+    id: "moon",
+    name: "Moon",
+    type: "line",
+    data: moonAltitude.map(({ time, altitude }) => [
+      utcToLocal(new Date(time), INITIAL_TIMEZONE),
+      altitude,
+    ]),
+    color: MOON_LINE_COLOR,
+    dashStyle: "ShortDash",
+    lineWidth: 1.5,
+    zIndex: 1,
+    marker: { enabled: false },
+    enableMouseTracking: false,
+    events: {
+      legendItemClick: function () {
+        return false;
+      },
+    },
+  };
+  // Legend entry for the moon: its phase and how much of it is lit.
+  const moonLegendHtml =
+    moonIllumination == null
+      ? "Moon"
+      : `<span style="display: inline-flex; align-items: center; gap: 4px;">${renderToString(
+          <MoonPhaseIcon
+            illumination={moonIllumination}
+            waxing={moonWaxing ?? true}
+            southern={site === "GS"}
+          />,
+        )}Moon (${Math.round(moonIllumination * 100)}%)</span>`;
+
+  const allSeries: Highcharts.SeriesOptionsType[] = [
+    ...seriesData,
+    moonSeries,
+  ];
+
   function updateChart() {
     const chart = chartRef.current.chart;
 
     chart.update({
-      series: seriesData,
+      series: allSeries,
     });
 
     // Draw event line to recognize the time when it occurs
@@ -439,11 +486,17 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       align: "right",
       verticalAlign: "top",
       layout: "vertical",
+      // For the moon phase icon.
+      useHTML: true,
+      labelFormatter: function () {
+        const series = this as Highcharts.Series;
+        return series.options.id === "moon" ? moonLegendHtml : series.name;
+      },
       itemStyle: {
         color: textColor,
       },
     },
-    series: seriesData,
+    series: allSeries,
   };
 
   return (

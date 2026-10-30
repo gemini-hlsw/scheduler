@@ -13,6 +13,7 @@ from strawberry.scalars import JSON  # noqa
 from lucupy.minimodel import Site, VariantSnapshot, Conditions, Program, ProgramID
 
 from scheduler.clients.gpp import explore_observation_url
+from scheduler.core.calculations.moon import moon_altitudes, moon_phase
 from scheduler.core.events.queue import NightlyTimeline, ReceivedEvent
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.core.statscalculator import RunSummary
@@ -242,6 +243,16 @@ class STimelineEntry:
 
 
 @strawberry.type
+class SAltitudePoint:
+    time: datetime
+    altitude: float
+
+
+# How far past the twilights the moon altitude is computed: beyond the margin the UI plots around the night.
+MOON_ALTITUDE_MARGIN = timedelta(hours=1)
+
+
+@strawberry.type
 class TimelineEntriesBySite:
     site: Site
     time_entries: List[STimelineEntry]
@@ -250,6 +261,12 @@ class TimelineEntriesBySite:
     # The custom start and end of night, when the night does not run between the twilights.
     night_start: Optional[datetime] = None
     night_end: Optional[datetime] = None
+    # The moon's altitude in degrees, every 5 minutes from an hour before evening twilight to an hour after
+    # morning twilight.
+    moon_altitude: List[SAltitudePoint] = strawberry.field(default_factory=list)
+    # At the middle of the night: the illuminated fraction, from 0 (new) to 1 (full), and whether it is waxing.
+    moon_illumination: Optional[float] = None
+    moon_waxing: Optional[bool] = None
 
 
 @strawberry.type
@@ -294,6 +311,9 @@ class SNightTimelines:
                 # The real twilights, so the UI can draw every plan of the night on the same axis
                 # whatever its start; the plan's own time grid if they were not recorded.
                 twilights = timeline.twilights.get(n_idx, {}).get(site, timeline.night_length[n_idx][site])
+                moon_illumination, moon_waxing = moon_phase(
+                    site, twilights.start + (twilights.end - twilights.start) / 2
+                )
                 night_start, night_end = timeline.custom_night_times.get(n_idx, {}).get(site, (None, None))
                 te = TimelineEntriesBySite(
                     site=site,
@@ -302,6 +322,16 @@ class SNightTimelines:
                     morn_twilight=twilights.end,
                     night_start=night_start,
                     night_end=night_end,
+                    moon_altitude=[
+                        SAltitudePoint(time=t, altitude=alt)
+                        for t, alt in moon_altitudes(
+                            site,
+                            twilights.start - MOON_ALTITUDE_MARGIN,
+                            twilights.end + MOON_ALTITUDE_MARGIN,
+                        )
+                    ],
+                    moon_illumination=moon_illumination,
+                    moon_waxing=moon_waxing,
                 )
                 s_timeline_entries.append(te)
             sn = SNightInTimeline(night_index=n_idx, time_entries_by_site=s_timeline_entries)

@@ -14,6 +14,12 @@ export const subscriptionQueueSchedule = graphql(`
               eveTwilight
               nightStart
               nightEnd
+              moonAltitude {
+                time
+                altitude
+              }
+              moonIllumination
+              moonWaxing
               timeEntries {
                 startTimeSlots
                 event {

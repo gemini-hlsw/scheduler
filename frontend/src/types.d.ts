@@ -36,6 +36,11 @@ export interface SiteNight {
   end: string;
 }
 
+export interface AltitudePoint {
+  time: string;
+  altitude: number;
+}
+
 export interface TimeEntriesBySite {
   site: string;
   eveTwilight: string;
@@ -43,6 +48,12 @@ export interface TimeEntriesBySite {
   // The custom start and end of night, if the night does not run between the twilights.
   nightStart?: string | null;
   nightEnd?: string | null;
+  // Degrees, every 5 minutes from an hour before evening twilight to an hour
+  // after morning twilight.
+  moonAltitude?: AltitudePoint[];
+  // At the middle of the night: lit fraction, 0 (new) to 1 (full).
+  moonIllumination?: number | null;
+  moonWaxing?: boolean | null;
   timeEntries: TimeEntryType[];
 }
 
