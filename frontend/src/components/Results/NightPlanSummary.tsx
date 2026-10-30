@@ -50,6 +50,14 @@ export default function NightPlanSummary({
         </Badge>
         <Badge className="text-sm">Cloud Cover: {nightConditions.cc}</Badge>
         <Badge className="text-sm">Image Quality: {nightConditions.iq}</Badge>
+        <Badge className="text-sm">Water Vapor: {nightConditions.wv}</Badge>
+        {nightConditions.windSpeed != null && (
+          <Badge className="text-sm">
+            Wind: {nightConditions.windSpeed.toFixed(1)} m/s
+            {nightConditions.windDirection != null &&
+              ` from ${nightConditions.windDirection.toFixed(0)}°`}
+          </Badge>
+        )}
         <Badge className="text-sm">ToOs: {nightState.nToos}</Badge>
         <Badge className="text-sm">
           Score: {nightState.planScore.toFixed(2)}

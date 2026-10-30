@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Callable, List, FrozenSet, Optional
 from zoneinfo import ZoneInfo
 
+import astropy.units as u
 import strawberry  # noqa
 from typing import Annotated, Union
 from strawberry.scalars import JSON  # noqa
@@ -57,10 +58,22 @@ class SRunSummary:
 class SConditions:
     iq: str
     cc: str
+    wv: str
+    # Only weather has wind: None for an observation's required Conditions.
+    wind_speed: Optional[float] = None  # m/s
+    wind_direction: Optional[float] = None  # degrees
 
     @staticmethod
     def from_computed_conditions(variant: VariantSnapshot | Conditions):
-        return SConditions(iq=variant.iq.name, cc=variant.cc.name)
+        if isinstance(variant, VariantSnapshot):
+            return SConditions(
+                iq=variant.iq.name,
+                cc=variant.cc.name,
+                wv=variant.wv.name,
+                wind_speed=float(variant.wind_spd.to_value(u.m / u.s)),
+                wind_direction=float(variant.wind_dir.deg),
+            )
+        return SConditions(iq=variant.iq.name, cc=variant.cc.name, wv=variant.wv.name)
 
 
 @strawberry.type
