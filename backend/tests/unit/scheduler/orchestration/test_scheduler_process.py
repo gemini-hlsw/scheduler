@@ -45,8 +45,8 @@ async def test_stop_process_before_start_does_not_crash():
 
 @pytest.mark.asyncio
 async def test_night_monitor_shutdown_cancels_night_tracker():
-    """NightMonitor.shutdown must also stop the night tracker task, which has
-    no shutdown_event of its own."""
+    """NightMonitor.shutdown must also stop the night and execution tracker tasks,
+    which have no shutdown_event of their own."""
     from scheduler.night_monitor.night_monitor import NightMonitor
 
     with (
@@ -60,10 +60,12 @@ async def test_night_monitor_shutdown_cancels_night_tracker():
     monitor._listener_task = asyncio.create_task(_sleep_forever())
     monitor._consumer_task = asyncio.create_task(_sleep_forever())
     monitor._night_tracker_task = asyncio.create_task(_sleep_forever())
+    monitor._execution_tracker_task = asyncio.create_task(_sleep_forever())
 
     await monitor.shutdown(drain_queue=False)
 
     assert monitor._night_tracker_task.done(), "night tracker task leaked by shutdown"
+    assert monitor._execution_tracker_task.done(), "execution tracker task leaked by shutdown"
     assert monitor._listener_task.done()
     assert monitor._consumer_task.done()
 
