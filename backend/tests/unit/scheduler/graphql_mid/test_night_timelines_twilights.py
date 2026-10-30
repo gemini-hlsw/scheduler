@@ -5,7 +5,7 @@ The UI draws every plan of the night between eveTwilight and mornTwilight, so th
 twilights, not the plan's time grid, which a custom start of night shortens.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from lucupy.minimodel import NightIndex, Site
 
@@ -58,3 +58,18 @@ def test_no_custom_night_times_by_default():
     site_entries = _site_entries(_timeline())
     assert site_entries.night_start is None
     assert site_entries.night_end is None
+
+
+def test_moon_altitude_covers_the_night_and_an_hour_either_side():
+    timeline = _timeline()
+    timeline.set_twilights(NIGHT_IDX, Site.GN, EVE_TWILIGHT, MORN_TWILIGHT)
+    moon = _site_entries(timeline).moon_altitude
+    assert moon[0].time == EVE_TWILIGHT - timedelta(hours=1)
+    assert moon[-1].time == MORN_TWILIGHT + timedelta(hours=1)
+    assert all(-90 <= point.altitude <= 90 for point in moon)
+
+
+def test_moon_phase_is_sent():
+    site_entries = _site_entries(_timeline())
+    assert 0 <= site_entries.moon_illumination <= 1
+    assert isinstance(site_entries.moon_waxing, bool)

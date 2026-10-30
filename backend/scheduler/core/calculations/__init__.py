@@ -4,6 +4,7 @@
 from .targetinfo import *
 from .groupinfo import *
 from .nightevents import *
+from .moon import *
 from .programinfo import *
 from .scores import *
 from .selection import *

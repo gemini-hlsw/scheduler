@@ -37,6 +37,9 @@ export default function EntryBySite({
         mornTwilight={entryBySite.mornTwilight}
         nightStart={entryBySite.nightStart}
         nightEnd={entryBySite.nightEnd}
+        moonAltitude={entryBySite.moonAltitude}
+        moonIllumination={entryBySite.moonIllumination}
+        moonWaxing={entryBySite.moonWaxing}
         site={entryBySite.site}
       />
     </div>

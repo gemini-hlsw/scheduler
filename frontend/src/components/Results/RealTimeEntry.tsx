@@ -1,4 +1,4 @@
-import { TimeEntryType, Visit } from "../../types";
+import { AltitudePoint, TimeEntryType, Visit } from "../../types";
 import AltAzPlot from "../SchedulerPlot/SchedulerPlot";
 import {
   Table,
@@ -135,6 +135,9 @@ export default function RealTimeEntry({
   eveTwilight,
   nightStart,
   nightEnd,
+  moonAltitude,
+  moonIllumination,
+  moonWaxing,
   site,
 }: {
   timeEntry: TimeEntryType;
@@ -142,6 +145,9 @@ export default function RealTimeEntry({
   eveTwilight: string;
   nightStart?: string | null;
   nightEnd?: string | null;
+  moonAltitude?: AltitudePoint[];
+  moonIllumination?: number | null;
+  moonWaxing?: boolean | null;
   site: string;
 }) {
   function parseToVisitForPlot(visits: Visit[]) {
@@ -248,6 +254,9 @@ export default function RealTimeEntry({
         mornTwilight={mornTwilight}
         nightStart={nightStart}
         nightEnd={nightEnd}
+        moonAltitude={moonAltitude}
+        moonIllumination={moonIllumination}
+        moonWaxing={moonWaxing}
         site={site}
         closureWindows={timeEntry.timelossWindows}
       />

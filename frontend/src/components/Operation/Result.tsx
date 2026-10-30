@@ -57,6 +57,9 @@ export default function Result({ plans }: { plans: NightPlanType[] }) {
               mornTwilight={en.mornTwilight}
               nightStart={en.nightStart}
               nightEnd={en.nightEnd}
+              moonAltitude={en.moonAltitude}
+              moonIllumination={en.moonIllumination}
+              moonWaxing={en.moonWaxing}
               site={en.site}
             />
           </TabsContent>
