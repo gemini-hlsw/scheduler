@@ -32,6 +32,9 @@ export const subscriptionQueueSchedule = graphql(`
                   nightConditions {
                     iq
                     cc
+                    wv
+                    windSpeed
+                    windDirection
                   }
                   visits {
                     obsId
@@ -126,6 +129,9 @@ export const subscriptionQueueSchedule = graphql(`
             nightConditions {
               cc
               iq
+              wv
+              windSpeed
+              windDirection
             }
             nightStats {
               completionFraction
@@ -170,6 +176,9 @@ export const subscriptionQueueSchedule = graphql(`
             nightConditions {
               cc
               iq
+              wv
+              windSpeed
+              windDirection
             }
             nightStats {
               completionFraction

@@ -162,6 +162,9 @@ type SAltitudePoint {
 type SConditions {
   iq: String!
   cc: String!
+  wv: String!
+  windSpeed: Float
+  windDirection: Float
 }
 
 type SNightInTimeline {

@@ -87,11 +87,14 @@ export interface Plan {
 export interface NightConditions {
   cc: string;
   iq: string;
+  wv: string;
+  // Only for the weather a plan was made for.
+  windSpeed?: number | null; // m/s
+  windDirection?: number | null; // degrees
 }
 
 export interface RequiredConditions extends NightConditions {
   sb: string;
-  wv: string;
 }
 
 export interface Visit {
