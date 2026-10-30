@@ -27,17 +27,39 @@ def _observation(label: str) -> dict:
 
 
 def _slew(label: str, stage: str, time: str, site: str = 'GN') -> SchedulerExecutedEvents:
-    return SchedulerExecutedEvents.model_validate({'executionEventAdded': {'value': {
-        '__typename': 'SlewEvent', 'eventType': 'SLEW', 'id': 'e-1', 'recordedTime': time,
-        'slewStage': stage, 'observation': _observation(label), 'visit': {'site': site},
-    }}})
+    return SchedulerExecutedEvents.model_validate(
+        {
+            'executionEventAdded': {
+                'value': {
+                    '__typename': 'SlewEvent',
+                    'eventType': 'SLEW',
+                    'id': 'e-1',
+                    'recordedTime': time,
+                    'slewStage': stage,
+                    'observation': _observation(label),
+                    'visit': {'site': site},
+                }
+            }
+        }
+    )
 
 
 def _sequence(label: str, command: str, time: str, site: str = 'GN') -> SchedulerExecutedEvents:
-    return SchedulerExecutedEvents.model_validate({'executionEventAdded': {'value': {
-        '__typename': 'SequenceEvent', 'eventType': 'SEQUENCE', 'id': 'e-1', 'effectiveTime': time,
-        'command': command, 'observation': _observation(label), 'visit': {'site': site},
-    }}})
+    return SchedulerExecutedEvents.model_validate(
+        {
+            'executionEventAdded': {
+                'value': {
+                    '__typename': 'SequenceEvent',
+                    'eventType': 'SEQUENCE',
+                    'id': 'e-1',
+                    'effectiveTime': time,
+                    'command': command,
+                    'observation': _observation(label),
+                    'visit': {'site': site},
+                }
+            }
+        }
+    )
 
 
 def _at(hour: int, minute: int = 0) -> datetime:
