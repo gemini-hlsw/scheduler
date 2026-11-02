@@ -1354,6 +1354,9 @@ class GppProgramProvider(ProgramProvider):
             cal_role_value = data.get(GppProgramProvider._ObsKeys.CALROLE)
             # print(f'\t\t cal_role_value = {cal_role_value}')
             calibration_role = CalibrationRole[cal_role_value] if cal_role_value is not None else None
+            # If a daytime calibration, ignore for now
+            if calibration_role in [CalibrationRole.DAYTIME_CALIBRATION, CalibrationRole.DAYTIME_PINHOLE]:
+                return None
 
             # ToO type and related scheduling mode
             if "scheduling_constraints" in data.keys():
