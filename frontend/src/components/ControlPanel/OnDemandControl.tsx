@@ -2,8 +2,8 @@ import { useContext, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { RunButton } from "./RunButton";
 import { GlobalStateContext } from "../GlobalState/GlobalState";
+import { RealtimeBackendContext } from "../GlobalState/RealtimeBackend";
 import { useReactiveVar } from "@apollo/client";
-import { isRealtimeConnectedVar } from "@/apollo-client";
 import { useLazyQuery } from "@apollo/client";
 import { scheduleV2Query, onDemandQuery } from "@/components/Operation/query";
 import PlanStatus, {
@@ -19,6 +19,9 @@ export default function OnDemandControl({
   showStartOfNight?: boolean;
 }) {
   const { loadingPlan, setLoadingPlan } = useContext(GlobalStateContext);
+  const { clientName, name, isConnectedVar } = useContext(
+    RealtimeBackendContext
+  );
   // The server may be planning for another browser or for an event, which the
   // local flag knows nothing about.
   const planStatus = usePlanStatus();
@@ -26,12 +29,12 @@ export default function OnDemandControl({
 
   const [scheduleV2] = useLazyQuery(scheduleV2Query, {
     fetchPolicy: "no-cache",
-    context: { clientName: "realtimeClient" },
+    context: { clientName },
   });
 
   const [onDemand] = useLazyQuery(onDemandQuery, {
     fetchPolicy: "no-cache",
-    context: { clientName: "realtimeClient" },
+    context: { clientName },
   });
 
   function runPlan() {
@@ -45,14 +48,14 @@ export default function OnDemandControl({
   }
 
   const { setConnectionState } = useContext(GlobalStateContext);
-  const isRealtimeConnected = useReactiveVar(isRealtimeConnectedVar);
+  const isConnected = useReactiveVar(isConnectedVar);
 
   useEffect(() => {
     setConnectionState({
-      name: `Operation`,
-      isConnected: isRealtimeConnected,
+      name,
+      isConnected,
     });
-  }, [isRealtimeConnected]);
+  }, [name, isConnected]);
 
   return (
     <div
