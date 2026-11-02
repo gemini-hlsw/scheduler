@@ -5,6 +5,36 @@ This changelog is managed by [Towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 2026.11.1 (2026-11-02)
+
+### Features
+
+- The observation id in the plan tables links to the observation's page in Explore: explore-dev.gemini.edu when the scheduler reads the development ODB, explore.gemini.edu when it reads production.
+- The Operation program selector is now shared between browsers: checking or unchecking a program, Select All, Clear All or Reset to default shows up at once in every open Program Selection dialog, and Send Parameters sends that shared selection.
+- Change for daytime calrole, resource updates for RT
+- Add better filtering to the ODB event handlers
+- Add moon elevation to SchedulerPlot and moon illumination.
+- Always display the full night for the site independently of the window used during the night to cumpute a plan.
+  Add fields to pass to the UI the evening and morning twilights and the custom start and end night times.
+  Plot the twilights and custom night length events if they were provided.
+- Add ExecutionTracker to NightMonitor to store currently executed and past executed observations
+- The events received in the scheduler server side now are sent to the UI so it can be displayed for the observer and they are not computing new plans, only the manual plan trigger is computing new plans.
+
+  A new Scheduler Event table was added to the operation tab to display the events, the events are persistent unless the website is refreshed. Only the last 3 events are vissible at the same time, the table is scrollable to watch previous events.
+- The Simulation tab now has the build parameters panel and both run buttons, so plans can be computed there as in the Operation tab. The Operation tab only runs plans from now and no longer offers the UT visibility range, since operations always plan tonight.
+
+  On the Operation tab, the top bar shows, next to the connection status, the default night of the operation server for each site: its 12-degree evening and morning twilights in site local time. It is known before the first plan, custom night times in the build parameters don't change it, and it rolls over to the next night once tonight is over. It comes from the new `operationNight` query.
+
+  On the Operation tab, the build parameters take the night start and end as a time of day (HH:mm) only. The date follows from the default night shown in the top bar, so 22:00 falls on the evening and 03:00 on the next morning. Times outside the twilights are refused. The Simulation tab keeps its free date and time inputs.
+
+  On the Operation tab, the Visibility setting chooses how far the visibility calculation runs past tonight: to the end of the semester (the default), or a number of nights. It is sent as the new `visibilityNights` build parameter. The server counts it from the night it is planning, so it keeps rolling over each night, and it never runs past the semester end.
+- Add missing water vapor, wind speed and wind direction to the plan generated badges before the night plot.
+
+### Bug Fixes
+
+- Fix drifting nights that was moving the start of the night
+- Use qap model for imageQuality percentile calculation instead of web model.
+
 ## 2026.10.5 (2026-10-22)
 
 ### Features
