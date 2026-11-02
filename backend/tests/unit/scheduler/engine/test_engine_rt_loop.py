@@ -16,7 +16,7 @@ from datetime import datetime, UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from lucupy.minimodel import Site
+from lucupy.minimodel import ObservationID, Site
 
 from scheduler.core.events.queue.events import OnDemandScheduleEvent
 from scheduler.engine.engineRT import EngineRT
@@ -88,7 +88,7 @@ def _stub_plan_pipeline(engine: EngineRT, run_rt):
 async def test_run_rt_does_not_run_on_the_loop_thread():
     ran_on = {}
 
-    def run_rt(_start_timeslot):
+    def run_rt(_start_timeslot, _ongoing):
         ran_on["thread"] = threading.get_ident()
         return MagicMock()
 
@@ -118,7 +118,7 @@ async def test_the_loop_keeps_running_while_a_plan_computes():
             await asyncio.sleep(0.01)
             ticks += 1
 
-    stats, timelines, summary, plans = _stub_plan_pipeline(engine, lambda _s: (time.sleep(0.3), MagicMock())[1])
+    stats, timelines, summary, plans = _stub_plan_pipeline(engine, lambda _s, _o: (time.sleep(0.3), MagicMock())[1])
     task = asyncio.create_task(ticker())
     try:
         with stats, timelines, summary, plans:
@@ -127,6 +127,27 @@ async def test_the_loop_keeps_running_while_a_plan_computes():
         task.cancel()
 
     assert ticks > 5, f"the loop was starved during the plan computation (ticks={ticks})"
+
+
+@pytest.mark.asyncio
+async def test_executing_observations_reach_the_optimizer():
+    # The Night Monitor stamps what each site is executing; the plan must start with it.
+    received = {}
+
+    def run_rt(_start_timeslot, ongoing):
+        received["ongoing"] = ongoing
+        return MagicMock()
+
+    ongoing = {Site.GN: ObservationID("G-2026B-0001-Q-0001")}
+    event = OnDemandScheduleEvent(
+        site=Site.GN, time=datetime(2026, 8, 26, 6, 0, tzinfo=UTC), description="test", ongoing_observations=ongoing
+    )
+    engine = _engine()
+    stats, timelines, summary, plans = _stub_plan_pipeline(engine, run_rt)
+    with stats, timelines, summary, plans:
+        await engine._compute_event_plan(event)
+
+    assert received["ongoing"] == ongoing
 
 
 @pytest.mark.asyncio

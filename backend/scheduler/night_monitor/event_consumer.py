@@ -2,11 +2,12 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
-from typing import ClassVar
+from typing import ClassVar, Optional
 
 from scheduler.core.events.queue.nightly_timeline_store import NightlyTimelineStore
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.night_monitor.event_sources import EventSourceType
+from scheduler.night_monitor.execution_tracker import ExecutionTracker
 from scheduler.night_monitor.event_handlers import (
     EventHandler,
     WeatherEventHandler,
@@ -31,6 +32,8 @@ class EventConsumer:
         scheduler_queue (SchedulerQueue): Use to send new schedule request to the Engine.
         nightly_timeline_store (NightlyTimelineStore): Shared store the handlers read to know the
             plan currently in effect.
+        execution_tracker (Optional[ExecutionTracker]): What each site is executing, so the ODB
+            handler's plans start with it.
     """
 
     BACKLOG_WARN_THRESHOLD: ClassVar[int] = 25
@@ -41,13 +44,14 @@ class EventConsumer:
         shutdown_event: asyncio.Event,
         scheduler_queue: SchedulerQueue,
         nightly_timeline_store: NightlyTimelineStore,
+        execution_tracker: Optional[ExecutionTracker] = None,
     ):
         self.queue = event_queue
         self.scheduler_queue = scheduler_queue
         self.nightly_timeline_store = nightly_timeline_store
         self.resource_handler = ResourceEventHandler(self.scheduler_queue, nightly_timeline_store)
         self.weather_handler = WeatherEventHandler(self.scheduler_queue, nightly_timeline_store)
-        self.odb_handler = ODBEventHandler(self.scheduler_queue, nightly_timeline_store)
+        self.odb_handler = ODBEventHandler(self.scheduler_queue, nightly_timeline_store, execution_tracker)
         # The ODB handler owns the idle watch, which has to start when a plan takes effect and
         # not only when the ODB reports something. The store tells it when that happens.
         nightly_timeline_store.add_listener(self.odb_handler)

@@ -5,7 +5,7 @@ import uuid
 from abc import ABC
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import final, FrozenSet
+from typing import final, FrozenSet, Mapping
 
 from lucupy.minimodel import Resource, Site, TimeslotIndex, VariantSnapshot, ObservationID
 from lucupy.timeutils import time2slots
@@ -78,11 +78,15 @@ class Event(UUIDIdentified, ABC):
         site (Site): The site at which the event occurred.
         time (datetime): The time at which the event occurred.
         description (str): A human-readable description of the event.
+        ongoing_observations (Mapping[Site, ObservationID]): Observation each site is executing when the
+            event happens. The new plan starts with it instead of cutting it off.
     """
 
     site: Site
     time: datetime
     description: str
+    # Keyword only so subclasses can keep adding required fields; out of compare so events stay hashable.
+    ongoing_observations: Mapping[Site, ObservationID] = field(default_factory=dict, compare=False, kw_only=True)
 
     def to_timeslot_idx(self, twi_eve_time: datetime, time_slot_length: timedelta) -> TimeslotIndex:
         """Given an event, calculate the timeslot offset it falls into relative to another datetime.

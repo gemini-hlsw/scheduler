@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import final, Dict, FrozenSet, List, Optional, Tuple
+from typing import final, Dict, FrozenSet, List, Mapping, Optional, Tuple
 from astropy.time import Time
 
 import matplotlib.pyplot as plt
@@ -108,6 +108,61 @@ class GreedyMaxOptimizer(BaseOptimizer):
         for site in self.sites:
             self.obs_in_plan[site] = {}
         return self
+
+    def place_ongoing(self, ongoing: Mapping[Site, ObservationID]) -> None:
+        """
+        Put each executing observation at its site's starting time slot with the rest of its sequence,
+        so the greedy loop fills around it instead of cutting it off.
+
+        It goes through _add_visit and _update_group_list like any added group, so its time is charged
+        and it is not scheduled a second time.
+        """
+        night_idx = self.selection.night_indices[0]
+        for site, obs_id in ongoing.items():
+            if site not in self.sites:
+                continue
+
+            found = next(
+                ((gd, obs) for gd in self.group_data_list for obs in gd.group.observations() if obs.id == obs_id),
+                None,
+            )
+            if found is None:
+                logger.warning(f'{obs_id.id} is executing at {site.name} but is not schedulable; planning without it.')
+                continue
+            group_data, obs = found
+
+            cumul_seq = obs.cumulative_exec_times()
+            if cumul_seq[-1] <= ZeroTime:
+                logger.warning(f'{obs_id.id} is executing at {site.name} with no sequence left; planning without it.')
+                continue
+
+            timeline = self.timelines[night_idx][site]
+            start_slot = self.selection.starting_time_slots[site][night_idx]
+            n_slots = self._length_visit(obs.acq_overhead, cumul_seq[-1])
+            # Clipped at the end of the night; _add_visit then keeps only the atoms that fit.
+            interval = np.arange(start_slot, min(start_slot + n_slots, timeline.total_time_slots))
+            if len(interval) == 0:
+                continue
+
+            max_group_info = MaxGroup(
+                group_data=group_data,
+                max_score=float(np.max(group_data.group_info.scores[night_idx][interval])),
+                interval=interval,
+                n_min=len(interval),
+                n_slots_remaining=n_slots,
+                n_std=0,
+                exec_sci_nir=ZeroTime,
+                start_time=None,
+                end_time=None,
+            )
+            n_slots_filled, start = self._add_visit(night_idx, obs, max_group_info, interval, 0)
+            group_data.group.number_observed += 1
+            max_group_info.start_time = start
+            max_group_info.end_time = start + n_slots_filled * self.time_slot_length
+            self._update_group_list(max_group_info, night_idx)
+            logger.info(
+                f'{obs_id.id} placed first at {site.name}: slots {start_slot} to {start_slot + n_slots_filled}.'
+            )
 
     @staticmethod
     def non_zero_intervals(scores: NightTimeslotScores) -> npt.NDArray[int]:

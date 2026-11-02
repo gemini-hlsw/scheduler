@@ -61,11 +61,15 @@ class NightMonitor:
         # even if there is only one client instance
         client = gpp.client
         self.listener = EventListener(client, self.event_queue, self._shutdown_event)
+        self.execution_tracker = ExecutionTracker()
         self.consumer = EventConsumer(
-            self.event_queue, self._shutdown_event, self.scheduler_queue, self.nightly_timeline_store
+            self.event_queue,
+            self._shutdown_event,
+            self.scheduler_queue,
+            self.nightly_timeline_store,
+            self.execution_tracker,
         )
         self.night_tracker = NightTracker(night + timedelta(days=1), sites, scheduler_queue)
-        self.execution_tracker = ExecutionTracker()
         # Watches the loop the subscriptions depend on.
         self.loop_monitor = LoopMonitor()
 

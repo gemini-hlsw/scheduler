@@ -355,7 +355,7 @@ class EngineRT:
 
         start_timeslot = await self._compute_event_start_timeslot(event)
 
-        plans = await asyncio.to_thread(self.scp.run_rt, start_timeslot)
+        plans = await asyncio.to_thread(self.scp.run_rt, start_timeslot, event.ongoing_observations)
         self._drop_pseudo_time_accounting(plans)
 
         # The start timeslot section above already released the lock, so the Night Monitor
