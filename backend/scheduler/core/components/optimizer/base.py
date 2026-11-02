@@ -4,8 +4,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import timedelta, datetime
-from typing import final, List
+from typing import final, List, Mapping
 
+from lucupy.minimodel import ObservationID, Site
 from lucupy.types import Interval
 
 from scheduler.core.calculations.groupinfo import GroupData
@@ -58,6 +59,10 @@ class BaseOptimizer(ABC):
 
     @abstractmethod
     def setup(self, selection: Selection): ...
+
+    def place_ongoing(self, ongoing: Mapping[Site, ObservationID]) -> None:
+        """Place the observations each site is executing first in its plan. Called after setup."""
+        raise NotImplementedError(f'{type(self).__name__} cannot place executing observations.')
 
     @abstractmethod
     def add(self, night: int, max_group_info: GroupData | MaxGroup): ...

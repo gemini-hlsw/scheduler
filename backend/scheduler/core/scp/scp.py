@@ -2,11 +2,11 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
-from typing import final, Dict
+from typing import final, Dict, Mapping, Optional
 
 import numpy.typing as npt
 import numpy as np
-from lucupy.minimodel import Site, NightIndex, TimeslotIndex
+from lucupy.minimodel import Site, NightIndex, ObservationID, TimeslotIndex
 
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.optimizer import Optimizer
@@ -59,7 +59,16 @@ class SCP:
             plans = self.optimizer.schedule(selection)[0]
         return plans
 
-    def run_rt(self, sites_timeslots=Dict[Site, Dict[NightIndex, TimeslotIndex]]) -> Plans:
+    def run_rt(
+        self,
+        sites_timeslots=Dict[Site, Dict[NightIndex, TimeslotIndex]],
+        ongoing: Optional[Mapping[Site, ObservationID]] = None,
+    ) -> Plans:
+        """
+        Args:
+            ongoing (Optional[Mapping[Site, ObservationID]]): observation each site is executing,
+                placed first in that site's plan.
+        """
 
         with timed('scp.select'):
             selection = self.selector.select(
@@ -71,5 +80,5 @@ class SCP:
         # _logger.debug(f'Running optimizer for {site.site_name} for night {night_idx} '
         #               f'starting at time slot {current_timeslot}.')
         with timed('scp.optimize'):
-            plans = self.optimizer.schedule(selection)[0]
+            plans = self.optimizer.schedule(selection, ongoing)[0]
         return plans

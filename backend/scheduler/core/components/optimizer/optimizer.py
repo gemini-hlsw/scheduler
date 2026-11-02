@@ -1,13 +1,13 @@
 # Copyright (c) 2016-2024 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
-from typing import List
+from typing import List, Mapping, Optional
 
 from scheduler.core.calculations.selection import Selection
 from scheduler.core.components.optimizer.base import BaseOptimizer
 from scheduler.core.plans import Plans
 
-from lucupy.minimodel import Program
+from lucupy.minimodel import ObservationID, Program, Site
 
 
 __all__ = [
@@ -32,13 +32,19 @@ class Optimizer:
         self.period = None
         self.night_events = None
 
-    def schedule(self, selection: Selection) -> List[Plans]:
+    def schedule(self, selection: Selection, ongoing: Optional[Mapping[Site, ObservationID]] = None) -> List[Plans]:
         """
         The night_indices are guaranteed to be a contiguous, sorted set by Selector.select.
         If they are not, this method will cause problems.
+
+        Args:
+            ongoing (Optional[Mapping[Site, ObservationID]]): observation each site is executing,
+                placed first in that site's plan.
         """
         self.selection = selection
         self.algorithm.setup(selection)
+        if ongoing:
+            self.algorithm.place_ongoing(ongoing)
         self.night_events = selection.night_events
 
         # Create set of plans for the amount of nights

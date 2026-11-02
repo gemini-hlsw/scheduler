@@ -44,6 +44,7 @@ from scheduler.night_monitor.event_handlers.odb_event_handler import (
     ODBEventHandler,
     SchedulerIdleTimer,
 )
+from scheduler.night_monitor.execution_tracker import ExecutionRecord
 
 _HANDLER_MODULE = "scheduler.night_monitor.event_handlers.odb_event_handler"
 # The simulated clock lives on the shared base, so every handler stamps its events the same way.
@@ -147,12 +148,24 @@ def _plan(visits=(), found=None, slot_minutes=1, conditions=None):
     )
 
 
-def _handler(last_plan=None, planned_ids=frozenset()):
+def _tracker(executing):
+    """An execution tracker reporting ``executing`` ({site: label}) as running now."""
+    tracker = MagicMock()
+    tracker.get_current_execution = lambda site: (
+        ExecutionRecord(obs_id=ObservationID(executing[site]), site=site, start=datetime.now(UTC))
+        if site in executing
+        else None
+    )
+    return tracker
+
+
+def _handler(last_plan=None, planned_ids=frozenset(), executing=None):
     store = MagicMock()
     store.last_plan = AsyncMock(return_value=last_plan)
     store.planned_observation_ids = AsyncMock(return_value=planned_ids)
     store.collected_observation_ids = AsyncMock(return_value=frozenset())
-    return ODBEventHandler(scheduler_queue=AsyncMock(), nightly_timeline_store=store)
+    tracker = _tracker(executing) if executing is not None else None
+    return ODBEventHandler(scheduler_queue=AsyncMock(), nightly_timeline_store=store, execution_tracker=tracker)
 
 
 @pytest.fixture
@@ -160,8 +173,8 @@ def handler_factory():
     """Builds handlers and disarms their timers, so no pending wake-up outlives the test."""
     built = []
 
-    def make(last_plan=None, planned_ids=frozenset()):
-        handler = _handler(last_plan, planned_ids)
+    def make(last_plan=None, planned_ids=frozenset(), executing=None):
+        handler = _handler(last_plan, planned_ids, executing)
         built.append(handler)
         return handler
 
@@ -593,6 +606,78 @@ async def test_request_new_plan_for_all_sites_rearms_every_site(handler_factory)
     )
 
     assert all(handler.idle_timer[site].pending for site in ALL_SITES)
+
+
+# --- executing observation ------------------------------------------------------------------
+
+_OTHER_LABEL = "G-2026A-0500-Q-0001"
+
+
+@pytest.mark.asyncio
+async def test_replan_starts_with_the_executing_observation(handler_factory):
+    # The plan expected another observation; the one actually running must lead the new plan.
+    expected = _observation(label=_OTHER_LABEL)
+    reported = _observation(label=_LABEL)
+    handler = handler_factory(_plan(visits=[_visit_spanning_now(expected)], found=reported), executing={_SITE: _LABEL})
+
+    await handler._on_updated_edit(_event(ObservationWorkflowState.ONGOING))
+
+    assert _queued_event(handler).ongoing_observations == {_SITE: ObservationID(_LABEL)}
+
+
+@pytest.mark.asyncio
+async def test_replan_on_an_idle_site_has_nothing_to_keep(handler_factory):
+    handler = handler_factory(executing={})
+
+    await handler._request_new_plan(
+        ObservationActivationEvent(site=_SITE, observation_id="o-1", time=datetime.now(UTC), description="test")
+    )
+
+    assert _queued_event(handler).ongoing_observations == {}
+
+
+@pytest.mark.asyncio
+async def test_replan_for_all_sites_keeps_only_the_executing_one(handler_factory):
+    handler = handler_factory(executing={Site.GN: _OTHER_LABEL})
+
+    await handler._on_created_edit(_event(ObservationWorkflowState.READY, edit_type="CREATED"))
+
+    assert _queued_event(handler).ongoing_observations == {Site.GN: ObservationID(_OTHER_LABEL)}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("state", [ObservationWorkflowState.INACTIVE, ObservationWorkflowState.DEFINED])
+async def test_executing_observation_taken_out_of_execution_is_not_kept(handler_factory, state):
+    planned = _observation()
+    handler = handler_factory(_plan(visits=[_visit_spanning_now(planned)], found=planned), executing={_SITE: _LABEL})
+
+    await handler._on_updated_edit(_event(state))
+
+    assert _queued_event(handler).ongoing_observations == {}
+
+
+@pytest.mark.asyncio
+async def test_another_observation_taken_out_keeps_the_executing_one(handler_factory):
+    planned = _observation()
+    handler = handler_factory(
+        _plan(visits=[_visit_spanning_now(planned)], found=planned), executing={_SITE: _OTHER_LABEL}
+    )
+
+    await handler._on_updated_edit(_event(ObservationWorkflowState.INACTIVE))
+
+    assert _queued_event(handler).ongoing_observations == {_SITE: ObservationID(_OTHER_LABEL)}
+
+
+@pytest.mark.asyncio
+async def test_deleted_executing_observation_is_not_kept(handler_factory):
+    # Executing at both sites, so it does not matter which site the handler replans first.
+    handler = handler_factory(
+        planned_ids=frozenset({ObservationID(_LABEL)}), executing={Site.GN: _LABEL, Site.GS: _LABEL}
+    )
+
+    await handler._on_deleted_edit(_event(ObservationWorkflowState.READY, edit_type="HARD_DELETE"))
+
+    assert _queued_event(handler).ongoing_observations == {}
 
 
 # --- the plan in effect changing --------------------------------------------------------

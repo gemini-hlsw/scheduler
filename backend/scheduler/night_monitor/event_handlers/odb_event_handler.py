@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 import asyncio
 import time
+from dataclasses import replace
 from datetime import timedelta
 from functools import partial
 from typing import ClassVar, Dict, Tuple, Callable, Awaitable, Optional
@@ -14,6 +15,7 @@ from scheduler.core.events.queue import (
     TimelineListener,
 )
 from scheduler.night_monitor.event_sources import ODBEventSource
+from scheduler.night_monitor.execution_tracker import ExecutionTracker
 from .event_handler import EventHandler
 from .collected_changes import changes_from_collected
 from .obscalc_visibility import (
@@ -85,6 +87,9 @@ class ODBEventHandler(EventHandler, TimelineListener):
 
     Also watches the plan in effect as a :class:`TimelineListener`, so a site that never reports
     anything to the ODB is still noticed as idle. Register it with the store to enable that.
+
+    With an :class:`ExecutionTracker`, every plan it requests carries the observation each site is
+    executing, so the new plan starts with it instead of cutting it off.
     """
 
     # How much the Scheduler can wait idle without anything set
@@ -92,8 +97,14 @@ class ODBEventHandler(EventHandler, TimelineListener):
 
     _DISPATCH_MAP: Dict[str, Tuple[callable, callable]]
 
-    def __init__(self, scheduler_queue: SchedulerQueue, nightly_timeline_store: Optional[NightlyTimelineStore] = None):
+    def __init__(
+        self,
+        scheduler_queue: SchedulerQueue,
+        nightly_timeline_store: Optional[NightlyTimelineStore] = None,
+        execution_tracker: Optional[ExecutionTracker] = None,
+    ):
         super().__init__(scheduler_queue, nightly_timeline_store)
+        self.execution_tracker = execution_tracker
         # Per site: the sites execute independently, so a GN observation running must not keep
         # GS from noticing that it has gone quiet.
         self.observation_execution_timer: Dict[Site, SchedulerIdleTimer] = {
@@ -106,7 +117,7 @@ class ODBEventHandler(EventHandler, TimelineListener):
         """The sites an event applies to. Some are raised for every site at once (ALL_SITES)."""
         return tuple(event.site) if isinstance(event.site, (frozenset, set)) else (event.site,)
 
-    async def _request_new_plan(self, event: Event) -> None:
+    async def _request_new_plan(self, event: Event, unexecutable: Optional[ObservationID] = None) -> None:
         """
         Ask the Engine for a new plan.
 
@@ -115,16 +126,38 @@ class ODBEventHandler(EventHandler, TimelineListener):
         one the plan expects, and any idle countdown is measuring against a plan about to be
         replaced. The idle watch is then rearmed, so a site that goes quiet after this event
         still gets picked up.
+
+        Args:
+            unexecutable (Optional[ObservationID]): observation the event took out of execution
+                (deleted, INACTIVE, DEFINED). If a site is executing it, the plan is not started with it.
         """
         sites = self._sites_of(event)
         for site in sites:
             self.observation_execution_timer[site].cancel()
             self.idle_timer[site].cancel()
 
+        ongoing = self._ongoing_observations(sites, unexecutable)
+        if ongoing:
+            event = replace(event, ongoing_observations=ongoing)
+
         await self.scheduler_queue.add_schedule_event(event)
 
         for site in sites:
             self._arm_idle_timer(site)
+
+    def _ongoing_observations(
+        self, sites: Tuple[Site, ...], unexecutable: Optional[ObservationID]
+    ) -> Dict[Site, ObservationID]:
+        """The observation each site is executing right now, per the execution tracker."""
+        if self.execution_tracker is None:
+            return {}
+        ongoing = {}
+        for site in sites:
+            execution = self.execution_tracker.get_current_execution(site)
+            if execution is not None and execution.obs_id != unexecutable:
+                _logger.info(f'{site.name} is executing {execution.obs_id.id}; the new plan starts with it.')
+                ongoing[site] = execution.obs_id
+        return ongoing
 
     def _arm_idle_timer(self, site: Site) -> None:
         """
@@ -264,7 +297,8 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         observation_id=event.value.id,
                         time=await self._reference_time(site),
                         description=f'Observation {deleted_obs} deleted from plan',
-                    )
+                    ),
+                    unexecutable=ObservationID(deleted_obs),
                 )
                 break  # to not trigger two events
 
@@ -489,7 +523,8 @@ class ODBEventHandler(EventHandler, TimelineListener):
                         time=when,
                         description=f'Observation {label} is no longer executable ({state}) '
                         f'and was removed from the plan. Recalculate...',
-                    )
+                    ),
+                    unexecutable=ObservationID(label),
                 )
 
     async def _on_observation_edit(self, event: SchedulerObservationsUpdatesObscalcUpdate):
