@@ -95,6 +95,7 @@ jobs:
       - name: Verify Heroku apps are set up
         env:
           APP_REALTIME: ${{ secrets.HEROKU_APP_NAME_REALTIME_PRODUCTION }}
+          APP_SIMULATION: ${{ secrets.HEROKU_APP_NAME_SIMULATION_PRODUCTION }}
           APP_MULTINIGHT: ${{ secrets.HEROKU_APP_NAME_MULTINIGHT_PRODUCTION }}
           APP_FRONTEND: ${{ secrets.HEROKU_APP_NAME_FRONTEND_PRODUCTION }}
         run: |
@@ -125,6 +126,7 @@ jobs:
           }
 
           check_app "realtime backend" "$APP_REALTIME" true
+          check_app "simulation backend" "$APP_SIMULATION" true
           check_app "multinight backend" "$APP_MULTINIGHT" true
           check_app "frontend" "$APP_FRONTEND" false
 
@@ -148,6 +150,10 @@ jobs:
           - mode: realtime
             app_mode: operation
             app_secret: HEROKU_APP_NAME_REALTIME_PRODUCTION
+          - mode: simulation
+            app_mode: operation
+            app_secret: HEROKU_APP_NAME_SIMULATION_PRODUCTION
+            skip_migrations: true
           - mode: multinight
             app_mode: validation
             app_secret: HEROKU_APP_NAME_MULTINIGHT_PRODUCTION
@@ -174,6 +180,7 @@ jobs:
           heroku container:release -a ${{ secrets[matrix.app_secret] }} web
 
       - name: Run DB migrations
+        if: ${{ !matrix.skip_migrations }}
         run: |
           APP="${{ secrets[matrix.app_secret] }}"
           if [ -n "$(heroku config:get DATABASE_URL -a "$APP")" ]; then
@@ -224,7 +231,7 @@ jobs:
             **Deployed by:** @${{ github.actor }}
 
             ### Deployed to
-            - ✅ Backend (realtime + multinight)
+            - ✅ Backend (realtime + simulation + multinight)
             - ✅ Frontend
 
             ${{ needs.preflight.outputs.changelog }}

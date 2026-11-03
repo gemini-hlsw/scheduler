@@ -1,4 +1,6 @@
+import { useContext } from "react";
 import { useQuery, useSubscription } from "@apollo/client";
+import { RealtimeBackendContext } from "../GlobalState/RealtimeBackend";
 import { buildParametersQuery } from "./query";
 import { buildParametersSubscription } from "./subscription";
 import {
@@ -152,15 +154,17 @@ export default function DisplayBuildParameters({
 }: {
   showVisibility?: boolean;
 }) {
+  const { clientName } = useContext(RealtimeBackendContext);
+
   const { data: queryData } = useQuery(buildParametersQuery, {
     fetchPolicy: "no-cache",
-    context: { clientName: "realtimeClient" },
+    context: { clientName },
   });
 
   const { data: subscriptionData } = useSubscription(
     buildParametersSubscription,
     {
-      context: { clientName: "realtimeClient" },
+      context: { clientName },
     }
   );
 

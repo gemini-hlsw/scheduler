@@ -13,6 +13,7 @@ import { type RunSummary } from "./types";
 function App() {
   const {
     setNightPlans,
+    setSimNightPlans,
     setPlansSummary,
     setLoadingPlan,
     setOperationNight,
@@ -34,6 +35,15 @@ function App() {
   } = useSubscription(subscriptionQueueSchedule, {
     variables: { scheduleId: "operation" },
     context: { clientName: "realtimeClient" },
+  });
+
+  const {
+    data: simData,
+    loading: simLoading,
+    error: simError,
+  } = useSubscription(subscriptionQueueSchedule, {
+    variables: { scheduleId: "operation" },
+    context: { clientName: "simulationClient" },
   });
 
   // The default (twilight) night the operation server plans for. Asked on load
@@ -128,7 +138,7 @@ function App() {
         } else {
           toast.error(
             rtError?.message ??
-              "Unknown type, probbably due a mismatch between server and UI versions",
+              "Unknown type, probably due a mismatch between server and UI versions",
             {
               closeButton: true,
               duration: Infinity,
@@ -143,6 +153,45 @@ function App() {
       console.log(e);
     }
   }, [rtData, rtLoading]);
+
+  useEffect(() => {
+    try {
+      if (!simLoading) {
+        if (simData && simData.queueSchedule.__typename === "NewNightPlans") {
+          setSimNightPlans(simData.queueSchedule.nightPlans.nightTimeline);
+        } else if (
+          simData &&
+          simData.queueSchedule.__typename === "NightPlansError"
+        ) {
+          toast.error(simData.queueSchedule.error, {
+            closeButton: true,
+            duration: Infinity,
+          });
+          setSimNightPlans([]);
+        } else if (
+          simData &&
+          (simData.queueSchedule.__typename === "NewPlansRT" ||
+            simData.queueSchedule.__typename === "NightPlansWithEvent")
+        ) {
+          // Deprecated
+          console.log("Deprecated method");
+        } else {
+          toast.error(
+            simError?.message ??
+              "Unknown type, probably due a mismatch between server and UI versions",
+            {
+              closeButton: true,
+              duration: Infinity,
+            },
+          );
+          setSimNightPlans([]);
+        }
+        setLoadingPlan(false);
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  }, [simData, simLoading]);
 
   return (
     <Layout>
