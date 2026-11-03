@@ -5,7 +5,7 @@ from collections import Counter
 from typing import Dict, FrozenSet
 
 import numpy as np
-from lucupy.minimodel import Band, ProgramID, NightIndex, Program
+from lucupy.minimodel import Band, ProgramID, NightIndex, Program, TooType
 
 from scheduler.core.components.collector import Collector
 from scheduler.core.components.ranker import Ranker
@@ -91,7 +91,7 @@ class StatCalculator:
                     for visit in plan.visits:
                         obs = visit.observation
                         # check if obs is a too
-                        if obs.too_type is not None:
+                        if obs.too_type is not None and obs.too_type != TooType.NONE:
                             n_toos += 1
 
                         # add to plan_score
