@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { GlobalStateContext } from "../GlobalState/GlobalState";
+import { RealtimeBackendContext } from "../GlobalState/RealtimeBackend";
 import { Button } from "@/components/ui/button";
 import { updateWeatherMutation } from "./mutation";
 import { useMutation } from "@apollo/client";
@@ -197,8 +198,9 @@ export default function WeatherConditions({
     ? iqToPercentile(fwhm, wavelength, airmass)
     : undefined;
 
+  const { weatherClientName } = useContext(RealtimeBackendContext);
   const [updateWeather] = useMutation(updateWeatherMutation, {
-    context: { clientName: "weatherClient" },
+    context: { clientName: weatherClientName },
   });
 
   function sendWeatherUpdate() {

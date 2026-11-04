@@ -2,9 +2,9 @@ import { useQuery, useReactiveVar, useSubscription } from "@apollo/client";
 import { weatherUpdatesSubscription } from "./subscription";
 import { cn } from "@/lib/utils";
 import { getWeather } from "./query";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Table, TableBody, TableCell, TableRow } from "../ui/table";
-import { isWeatherConnectedVar } from "@/apollo-client";
+import { RealtimeBackendContext } from "../GlobalState/RealtimeBackend";
 import { ConnectionBadge } from "../ui/connectionBadge";
 
 // At most 3 decimals, without trailing zeros (0.70663 -> 0.707, 1 -> 1).
@@ -12,15 +12,18 @@ const formatValue = (value?: number | null) =>
   value == null ? "" : Number(value.toFixed(3)).toString();
 
 export function DisplayWeather() {
+  const { weatherClientName, isWeatherConnectedVar } = useContext(
+    RealtimeBackendContext
+  );
   const isOnline = useReactiveVar(isWeatherConnectedVar);
 
   const { data: weatherData } = useQuery(getWeather, {
     fetchPolicy: "no-cache",
-    context: { clientName: "weatherClient" },
+    context: { clientName: weatherClientName },
   });
 
   const { data, error } = useSubscription(weatherUpdatesSubscription, {
-    context: { clientName: "weatherClient" },
+    context: { clientName: weatherClientName },
   });
 
   const [weatherState, setWeatherState] = useState([]);
