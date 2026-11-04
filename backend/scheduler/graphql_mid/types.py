@@ -15,7 +15,7 @@ from lucupy.minimodel import Site, VariantSnapshot, Conditions, Program, Program
 
 from scheduler.clients.gpp import explore_observation_url
 from scheduler.core.calculations.moon import moon_altitudes, moon_phase
-from scheduler.core.events.queue import NightlyTimeline, ReceivedEvent
+from scheduler.core.events.queue import NightlyTimeline, ReceivedEvent, PlanState, PlanStatus
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.core.statscalculator import RunSummary
 from scheduler.graphql_mid.scalars import SObservationID
@@ -565,6 +565,34 @@ class SchedulerEvent:
             event_time=event.event_time,
             description=event.description,
             triggered_plan=event.triggered_plan,
+        )
+
+
+SPlanState = strawberry.enum(PlanState, name='PlanState')
+
+
+@strawberry.type
+class PlanStatusResponse:
+    """Whether the operation Scheduler is computing a plan, whoever triggered it."""
+
+    state: SPlanState
+    since: datetime
+    event_description: Optional[str]
+    requested_by_user: bool
+    last_finished_at: Optional[datetime]
+    last_duration_seconds: Optional[float]
+    last_error: Optional[str]
+
+    @staticmethod
+    def from_plan_status(status: PlanStatus) -> 'PlanStatusResponse':
+        return PlanStatusResponse(
+            state=status.state,
+            since=status.since,
+            event_description=status.event_description,
+            requested_by_user=status.requested_by_user,
+            last_finished_at=status.last_finished_at,
+            last_duration_seconds=status.last_duration_seconds,
+            last_error=status.last_error,
         )
 
 

@@ -54,6 +54,7 @@ from .types import (
     ObservationStatus,
     VisibleObservationsPage,
     SchedulerEvent,
+    PlanStatusResponse,
 )
 from .inputs import CreateNewScheduleInput
 
@@ -193,6 +194,14 @@ class Query:
             )
         )
         return 'Plan is on the queue in the Operation Process!'
+
+    @strawberry.field
+    async def plan_status(self) -> PlanStatusResponse:
+        """Whether the operation Scheduler is computing a plan right now, whoever triggered it."""
+        op_process = process_manager.get_operation_process()
+        if op_process is None:
+            raise ValueError("No operation process is running: plan_status is only available in OPERATION mode.")
+        return PlanStatusResponse.from_plan_status(op_process.plan_status.current)
 
     @strawberry.field
     async def operation_night(self) -> list[SiteNight]:
@@ -416,6 +425,22 @@ class Subscription:
                 yield SchedulerEvent.from_received_event(event)
             while True:
                 yield SchedulerEvent.from_received_event(await client_queue.get())
+
+    @strawberry.subscription
+    async def plan_status_updates(self) -> AsyncGenerator[PlanStatusResponse, None]:
+        """Whether the operation Scheduler is computing a plan: the current status first,
+        then every change, whether the plan was asked for by this or another UI, or by an event."""
+        op_process = process_manager.get_operation_process()
+        if op_process is None:
+            raise ValueError(
+                "No operation process is running: plan_status_updates is only available in OPERATION mode."
+            )
+
+        tracker = op_process.plan_status
+        with tracker.subscribe() as client_queue:
+            yield PlanStatusResponse.from_plan_status(tracker.current)
+            while True:
+                yield PlanStatusResponse.from_plan_status(await client_queue.get())
 
 
 @strawberry.type
