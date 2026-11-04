@@ -6,6 +6,10 @@ import { useReactiveVar } from "@apollo/client";
 import { isRealtimeConnectedVar } from "@/apollo-client";
 import { useLazyQuery } from "@apollo/client";
 import { scheduleV2Query, onDemandQuery } from "@/components/Operation/query";
+import PlanStatus, {
+  isPlanBusy,
+  usePlanStatus,
+} from "@/components/Operation/PlanStatus";
 
 export default function OnDemandControl({
   // Operations only ever plan from the current time; replaying the night from
@@ -15,6 +19,10 @@ export default function OnDemandControl({
   showStartOfNight?: boolean;
 }) {
   const { loadingPlan, setLoadingPlan } = useContext(GlobalStateContext);
+  // The server may be planning for another browser or for an event, which the
+  // local flag knows nothing about.
+  const planStatus = usePlanStatus();
+  const planning = loadingPlan || isPlanBusy(planStatus);
 
   const [scheduleV2] = useLazyQuery(scheduleV2Query, {
     fetchPolicy: "no-cache",
@@ -56,21 +64,24 @@ export default function OnDemandControl({
     >
       {showStartOfNight && (
         <RunButton
-          loadingPlan={loadingPlan}
+          loadingPlan={planning}
           run={runPlan}
-          isRunDisabled={loadingPlan}
+          isRunDisabled={planning}
           title="RUN FROM START OF NIGHT"
           full={true}
         />
       )}
 
       <RunButton
-        loadingPlan={loadingPlan}
+        loadingPlan={planning}
         run={onDemandPlan}
-        isRunDisabled={loadingPlan}
+        isRunDisabled={planning}
         title="GENERATE PLAN"
         full={true}
       />
+      <div className={showStartOfNight ? "col-span-2" : ""}>
+        <PlanStatus status={planStatus} />
+      </div>
     </div>
   );
 }

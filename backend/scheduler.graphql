@@ -124,6 +124,22 @@ enum ObservationStatus {
   SKIPPED
 }
 
+enum PlanState {
+  IDLE
+  WAITING
+  COMPUTING
+}
+
+type PlanStatusResponse {
+  state: PlanState!
+  since: DateTime!
+  eventDescription: String
+  requestedByUser: Boolean!
+  lastFinishedAt: DateTime
+  lastDurationSeconds: Float
+  lastError: String
+}
+
 type ProgramSelection {
   deselected: [String!]!
 }
@@ -133,6 +149,7 @@ type Query {
   schedule(scheduleId: String!, newScheduleInput: CreateNewScheduleInput!): String!
   scheduleV2: String!
   onDemandSchedule: String!
+  planStatus: PlanStatusResponse!
   operationNight: [SiteNight!]!
   availablePrograms(nightDate: Date = null): [AvailableProgram!]!
   visibilityAggregatorStatus: VisibilityAggregatorStatus!
@@ -292,6 +309,7 @@ type Subscription {
   buildParametersUpdates: BuildParametersResponse!
   programSelectionUpdates: ProgramSelection!
   schedulerEvents: SchedulerEvent!
+  planStatusUpdates: PlanStatusResponse!
 }
 
 type TimelineEntriesBySite {

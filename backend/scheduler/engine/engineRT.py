@@ -16,6 +16,7 @@ from scheduler.services.telemetry import timed
 from scheduler.core.events.queue import NightlyTimelineStore
 from scheduler.core.events.queue.events import Event, EndOfNightEvent, OnDemandScheduleEvent
 from scheduler.core.events.queue.event_history import EventHistory
+from scheduler.core.events.queue.plan_status import PlanStatusTracker
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.graphql_mid.types import NewNightPlans, SNightTimelines, SRunSummary
@@ -44,6 +45,7 @@ class EngineRT:
         weather_source: WeatherEventSource,
         nightly_timeline_store: NightlyTimelineStore,
         event_history: Optional[EventHistory] = None,
+        plan_status: Optional[PlanStatusTracker] = None,
     ):
         """
         Initializes the EngineRT with the given parameters.
@@ -57,6 +59,8 @@ class EngineRT:
                 read by the Night Monitor to know the plan currently in effect.
             event_history (Optional[EventHistory]): Where every event received is recorded for
                 the UI. A private one is used if not given.
+            plan_status (Optional[PlanStatusTracker]): Where the Engine says whether it is computing
+                a plan, for every UI. A private one is used if not given.
         """
         _logger.debug("Initializing real-time engine...")
         self.params = params
@@ -70,6 +74,7 @@ class EngineRT:
         self.last_run_date = None
         self.last_program_list = None
         self.event_history = event_history if event_history is not None else EventHistory()
+        self.plan_status = plan_status if plan_status is not None else PlanStatusTracker()
 
     def _refresh_default_night(self, build_params) -> None:
         """
@@ -230,26 +235,38 @@ class EngineRT:
         executed). We then publish that a plan computation is in progress so a
         cron tick won't begin aggregating concurrently, and clear it when done.
         """
-        await coordination.wait_until_aggregator_idle()
-        await coordination.signal_plan_in_progress(
-            holder=self.process_id,
-            detail={"event": str(event.description)},
-        )
-        # Timed because nothing else measures it: without this there is no way to notice
-        # plans getting slower until something downstream times out.
+        # Told to every UI, not only the one that asked: a plan can be triggered by another
+        # browser or by an event.
+        self.plan_status.waiting(event)
+        error: Optional[str] = None
         try:
-            with timed('engine.plan') as plan:
-                plans = await self._compute_event_plan(event)
-        except Exception:
-            # `plan.elapsed` is already set: `timed` fills it in its own finally, which
-            # runs before the exception reaches us here.
-            _logger.warning(f"Plan for '{event.description}' failed after {plan.elapsed:.1f}s.")
+            await coordination.wait_until_aggregator_idle()
+            await coordination.signal_plan_in_progress(
+                holder=self.process_id,
+                detail={"event": str(event.description)},
+            )
+            self.plan_status.computing(event)
+            # Timed because nothing else measures it: without this there is no way to notice
+            # plans getting slower until something downstream times out.
+            try:
+                with timed('engine.plan') as plan:
+                    plans = await self._compute_event_plan(event)
+            except Exception:
+                # `plan.elapsed` is already set: `timed` fills it in its own finally, which
+                # runs before the exception reaches us here.
+                _logger.warning(f"Plan for '{event.description}' failed after {plan.elapsed:.1f}s.")
+                raise
+            else:
+                _logger.info(f"Plan for '{event.description}' computed in {plan.elapsed:.1f}s.")
+                return plans
+            finally:
+                await coordination.signal_plan_done()
+        except BaseException as e:
+            # BaseException so a cancelled plan does not leave every UI showing it as running.
+            error = str(e) or type(e).__name__
             raise
-        else:
-            _logger.info(f"Plan for '{event.description}' computed in {plan.elapsed:.1f}s.")
-            return plans
         finally:
-            await coordination.signal_plan_done()
+            self.plan_status.finished(error)
 
     async def _compute_event_start_timeslot(self, event: Event):
         """

@@ -13,3 +13,17 @@ export const schedulerEventsSubscription = graphql(`
     }
   }
 `);
+
+export const planStatusSubscription = graphql(`
+  subscription planStatusUpdates {
+    planStatusUpdates {
+      state
+      since
+      eventDescription
+      requestedByUser
+      lastFinishedAt
+      lastDurationSeconds
+      lastError
+    }
+  }
+`);
