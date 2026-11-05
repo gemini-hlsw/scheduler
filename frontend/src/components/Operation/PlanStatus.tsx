@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useReactiveVar, useSubscription } from "@apollo/client";
 import { ImSpinner9 } from "react-icons/im";
-import { isRealtimeConnectedVar } from "@/apollo-client";
+import { RealtimeBackendContext } from "@/components/GlobalState/RealtimeBackend";
 import { cn } from "@/lib/utils";
 import { planStatusSubscription } from "./subscription";
 import type { PlanStatusUpdatesSubscription } from "@/gql/graphql";
@@ -14,10 +14,11 @@ export type PlanStatusType =
  * browser, another one, or an event. Null while it is not known, e.g. offline.
  */
 export function usePlanStatus(): PlanStatusType | null {
-  const isOnline = useReactiveVar(isRealtimeConnectedVar);
+  const { clientName, isConnectedVar } = useContext(RealtimeBackendContext);
+  const isOnline = useReactiveVar(isConnectedVar);
   // The server sends the current status first on every (re)subscribe.
   const { data } = useSubscription(planStatusSubscription, {
-    context: { clientName: "realtimeClient" },
+    context: { clientName, queryDeduplication: false },
   });
   if (!isOnline) return null;
   return data?.planStatusUpdates ?? null;

@@ -139,7 +139,7 @@ export default function BuildParameters({
   // subscription, which also sends the current selection when it connects.
   const { data: selectionData, loading: selectionLoading } = useSubscription(
     programSelectionSubscription,
-    { context: { clientName } }
+    { context: { clientName, queryDeduplication: false } }
   );
   const [setSelection] = useMutation(setProgramSelection, {
     fetchPolicy: "no-cache",

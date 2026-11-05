@@ -43,7 +43,9 @@ function App() {
     error: simError,
   } = useSubscription(subscriptionQueueSchedule, {
     variables: { scheduleId: "operation" },
-    context: { clientName: "simulationClient" },
+    // Same query and variables as the realtime one above: without this Apollo
+    // merges the two and the sim plans come from the operation dyno.
+    context: { clientName: "simulationClient", queryDeduplication: false },
   });
 
   // The default (twilight) night the operation server plans for. Asked on load
