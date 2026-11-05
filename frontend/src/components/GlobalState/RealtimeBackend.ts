@@ -10,6 +10,12 @@ import {
 // The RT-mode server, and the weather service it listens to, that the shared
 // panels talk to. Operation is the default; the Simulation tab provides its
 // own pair so its runs stay apart.
+//
+// Gotcha: Apollo merges subscriptions with the same query and variables
+// without looking at clientName, so on a tab switch the new panel would join
+// the old tab's stream and never open its own socket (badge stuck offline,
+// other backend's data). Subscriptions sent to both backends pass
+// queryDeduplication: false in their context.
 export interface RealtimeBackend {
   clientName: string;
   name: string;

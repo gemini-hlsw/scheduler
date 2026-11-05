@@ -164,7 +164,7 @@ export default function DisplayBuildParameters({
   const { data: subscriptionData } = useSubscription(
     buildParametersSubscription,
     {
-      context: { clientName },
+      context: { clientName, queryDeduplication: false },
     }
   );
 

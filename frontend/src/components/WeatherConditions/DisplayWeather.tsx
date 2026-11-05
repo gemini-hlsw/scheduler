@@ -23,7 +23,7 @@ export function DisplayWeather() {
   });
 
   const { data, error } = useSubscription(weatherUpdatesSubscription, {
-    context: { clientName: weatherClientName },
+    context: { clientName: weatherClientName, queryDeduplication: false },
   });
 
   const [weatherState, setWeatherState] = useState([]);
