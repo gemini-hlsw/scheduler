@@ -214,7 +214,7 @@ class GppProgramProvider(ProgramProvider):
         'SII': 0.672,
         'DS920': 0.920,
     }
-
+    
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
     _site_for_inst = {
@@ -1174,7 +1174,7 @@ class GppProgramProvider(ProgramProvider):
         return grating
 
     @staticmethod
-    def _get_etm_wavelength(etm: dict) -> Wavelength:
+    def _get_etm_wavelength(etm:dict) -> Wavelength:
         """Parse the exposure time mode to get the 'at' wavelength"""
 
         # print(f'{etm}')
@@ -1196,10 +1196,8 @@ class GppProgramProvider(ProgramProvider):
                 name = file['mask']['name']
                 break
         return name
-
-    def parse_observing_mode(
-        self, data: dict, attachments: list
-    ) -> Tuple[FrozenSet[Resource], Wavelength, ObservationMode]:
+        
+    def parse_observing_mode(self, data: dict, attachments: list) -> Tuple[FrozenSet[Resource], Wavelength, ObservationMode]:
 
         # def find_filter(filter_input: str, filter_dict: Mapping[str, float]) -> Optional[str]:
         #     return next(filter(lambda f: f in filter_input, filter_dict), None)
@@ -1302,23 +1300,17 @@ class GppProgramProvider(ProgramProvider):
             # sets, but we filter below to remove them.
             # ToDo: should come from Resource
             if fpu:
-                fpu_ocs = (
-                    GppProgramProvider._gpp_fpu_to_ocs[fpu] if fpu in GppProgramProvider._gpp_fpu_to_ocs.keys() else fpu
-                )
+                fpu_ocs = GppProgramProvider._gpp_fpu_to_ocs[fpu] if fpu in GppProgramProvider._gpp_fpu_to_ocs.keys()\
+                    else fpu
                 # Get barcode for standard FPUs and legacy MOS mask names
-                barcode = self._sources.origin.resource.fpu_to_barcode(
-                    GppProgramProvider._site_for_inst[data['instrument']], fpu_ocs, instrument
-                )
+                barcode = self._sources.origin.resource.fpu_to_barcode(GppProgramProvider._site_for_inst[data['instrument']],
+                                                                 fpu_ocs, instrument)
                 # Custom - will cause 'Custom' to be rejected
-                barcode = (
-                    self._sources.origin.resource.lookup_resource(
-                        fpu,
-                        description=fpu,
-                        resource_type=ResourceType.FPU,
-                    )
-                    if barcode is None
-                    else barcode
-                )
+                barcode = self._sources.origin.resource.lookup_resource(
+                    fpu,
+                    description=fpu,
+                    resource_type=ResourceType.FPU,
+                ) if barcode is None else barcode
                 # print(f'\t\t parse_observing_mode: {fpu} {fpu_ocs} {barcode}')
                 fpu_resources = frozenset([barcode])
             else:
@@ -1446,7 +1438,9 @@ class GppProgramProvider(ProgramProvider):
             # print(f'\t\t cal_role_value = {cal_role_value}')
             calibration_role = CalibrationRole[cal_role_value] if cal_role_value is not None else None
             # If a daytime calibration, ignore for now
-            if calibration_role in [CalibrationRole.DAYTIME_CALIBRATION, CalibrationRole.DAYTIME_PINHOLE]:
+            if calibration_role in [CalibrationRole.DAYTIME_CALIBRATION,
+                                    CalibrationRole.DAYTIME_PINHOLE,
+                                    CalibrationRole.DAYTIME_FLAT]:
                 return None
 
             # ToO type and related scheduling mode
