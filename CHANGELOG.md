@@ -5,6 +5,20 @@ This changelog is managed by [Towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 2026.11.2 (2026-11-05)
+
+### Features
+
+- Add a PlanStatusTracker class to be able to report the current plan calculation status to the UI.
+  Add a subscription and query to retrieve the current plan status from the server side.
+  Change UI to display the plan status under the generate plan button.
+- Add new dyno for simulation
+- Group accounting, wavelength, MOS mask updates/fixesfix
+
+### Bug Fixes
+
+- ToO type check was not properly done. Checking obs.too_type is not None is not enough, also obs.too_type should be diferent from TooType.None.
+
 ## 2026.11.1 (2026-11-02)
 
 ### Features
