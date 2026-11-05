@@ -188,6 +188,33 @@ class GppProgramProvider(ProgramProvider):
     _IGRINS2_WAVELENGTH = 1.6
     _GHOST_WAVELENGTH = 0.655
     _NIFS_FILTER_WAVELENGTHS = {'ZJ': 1.05, 'JH': 1.25, 'HK': 2.20}
+    _GMOS_FILTER_WAVELENGTHS = {
+        'U_PRIME': 0.350,
+        'G_PRIME': 0.475,
+        'R_PRIME': 0.630,
+        'I_PRIME': 0.780,
+        'Z_PRIME': 0.925,
+        'Z': 0.876,
+        'Y': 1.010,
+        'GG455': 0.555,
+        'OG515': 0.615,
+        'RG610': 0.710,
+        'RG780': 0.880,
+        'CA_T': 0.860,
+        'F396N': 0.395,
+        'OIII': 0.499,
+        'OIIIC': 0.514,
+        'HE_II': 0.468,
+        'HE_IIC': 0.478,
+        'OVI': 0.684,
+        'OVIC': 0.679,
+        'HA': 0.656,
+        'HA_C': 0.662,
+        'RI': 0.705,
+        'SII': 0.672,
+        'DS920': 0.920,
+    }
+    
     _CAL_OBSERVE_TYPES = frozenset(['FLAT', 'ARC', 'DARK', 'BIAS'])
 
     _site_for_inst = {
@@ -216,6 +243,7 @@ class GppProgramProvider(ProgramProvider):
             'GG455',
             'OG515',
             'RG610',
+            'RG780',
             'CA_T',
             'F396N',
             'OIII',
@@ -226,6 +254,7 @@ class GppProgramProvider(ProgramProvider):
             'OVIC',
             'HA',
             'HA_C',
+            'SII',
         ],
         'GMOS-N': [
             'G_PRIME',
@@ -270,49 +299,28 @@ class GppProgramProvider(ProgramProvider):
         'VISITOR_SOUTH': 'VISITOR',
     }
 
-    # GPP GMOS built-in GPU name to barcode
-    # ToDo: Eventually this needs to come from another source, e.g. Resource, ICTD, decide whether to use name or barcode
-    _fpu_to_barcode = {
-        "GMOS-N": {
-            "ONE_SLIT_RED": "10000009",
-            "TWO_SLITS": "10000007",
-            "ONE_SLIT_BLUE": "10000008",
-            "focus_array_new": "10005360",
-            "LONG_SLIT_0_25": "10005351",
-            "LONG_SLIT_0_50": "10005352",
-            "LONG_SLIT_0_75": "10005353",
-            "LONG_SLIT_1_00": "10005354",
-            "LONG_SLIT_1_50": "10005355",
-            "LONG_SLIT_2_00": "10005356",
-            "LONG_SLIT_5_00": "10005357",
-            "NS0.5arcsec": "10005367",
-            "NS0.75arcsec": "10005368",
-            "NS1.0arcsec": "10005369",
-            "NS1.5arcsec": "10005358",
-            "NS2.0arcsec": "10005359",
-        },
-        "GMOS-S": {
-            "ONE_SLIT_RED": "10000009",
-            "TWO_SLITS": "10000007",
-            "ONE_SLIT_BLUE": "10000008",
-            "IFU-NS-2": "10000010",
-            "IFU-NS-B": "10000011",
-            "IFU-NS-R": "10000012",
-            "focus_array_new": "10000005",
-            "LONG_SLIT_0_25": "10005371",
-            "LONG_SLIT_0_50": "10005372",
-            "LONG_SLIT_0_75": "10005373",
-            "LONG_SLIT_1_00": "10005374",
-            "LONG_SLIT_1_50": "10005375",
-            "LONG_SLIT_2_00": "10005376",
-            "LONG_SLIT_5_00": "10005377",
-            "NS0.5arcsec": "10005388",
-            "NS0.75arcsec": "10005389",
-            "NS1.0arcsec": "10005390",
-            "NS1.5arcsec": "10005391",
-            "NS2.0arcsec": "10005392",
-            "PinholeC": "10005381",
-        },
+    # Translation of GPP to OCS built-in FPU names for barcode lookup
+    _gpp_fpu_to_ocs = {
+        "ONE_SLIT_RED": "IFU Right Slit (red)",
+        "TWO_SLITS": "IFU 2 Slits",
+        "ONE_SLIT_BLUE": "IFU Left Slit (blue)",
+        "IFU_NS2_SLITS": "IFU N and S 2 Slits",
+        "IFU_NS_BLUE": "IFU N and S Left Slit (blue)",
+        "IFU_NS_RED": "IFU N and S Right Slit (red)",
+        "FOCUS_ARRAY_NEW": "focus_array_new",
+        "LONG_SLIT_0_25": "Longslit 0.25 arcsec",
+        "LONG_SLIT_0_50": "Longslit 0.50 arcsec",
+        "LONG_SLIT_0_75": "Longslit 0.75 arcsec",
+        "LONG_SLIT_1_00": "Longslit 1.00 arcsec",
+        "LONG_SLIT_1_50": "Longslit 1.50 arcsec",
+        "LONG_SLIT_2_00": "Longslit 2.00 arcsec",
+        "LONG_SLIT_5_00": "Longslit 5.00 arcsec",
+        "NS0.5arcsec": "N and S 0.50 arcsec",
+        "NS0.75arcsec": "N and S 0.75 arcsec",
+        "NS1.0arcsec": "N and S 1.00 arcsec",
+        "NS1.5arcsec": "N and S 1.50 arcsec",
+        "NS2.0arcsec": "N and S 2.00 arcsec",
+        "PINHOLEC": "PinholeC",
     }
 
     # GPP to OCS program type translation
@@ -732,6 +740,7 @@ class GppProgramProvider(ProgramProvider):
             ]
         ]
 
+        # print(f'parse_conditions: IQ {data[GppProgramProvider._ConstraintKeys.IQ]}')
         return Conditions(
             cc=conds_percentile[0],
             sb=conds_percentile[1],
@@ -750,12 +759,14 @@ class GppProgramProvider(ProgramProvider):
         timing_windows = [
             self.parse_timing_window(tw_data) for tw_data in data[GppProgramProvider._ConstraintKeys.TIMING_WINDOWS]
         ]
+        logger.debug(f'f\t\t Timing Windows: {timing_windows}')
 
         # Get the elevation data
         elevation_min, elevation_max, elevation_type = self.parse_elevation(
             data[GppProgramProvider._ConstraintKeys.KEY][GppProgramProvider._ConstraintKeys.ELEVATION]
         )
         elevation = self.elevation_limits(elevation_type, elevation_min, elevation_max, site, base)
+        logger.debug(f'f\t\t Elevation: {elevation}')
 
         # Get the conditions
         # ToDo: support GPP on-target conditions constraints rather than converting to percentile bins
@@ -828,6 +839,39 @@ class GppProgramProvider(ProgramProvider):
             epoch = 2000.0
 
         # print(f"parse_sidereal_target: {name} {ra} {dec} {pm_ra} {pm_dec} {epoch}")
+
+        return SiderealTarget(
+            name=name,
+            magnitudes=frozenset(magnitudes),
+            type=TargetType[targ_type],
+            ra=ra,
+            dec=dec,
+            pm_ra=pm_ra,
+            pm_dec=pm_dec,
+            epoch=epoch,
+        )
+
+    def parse_explicit_base(self, data: dict, targ_type: str) -> SiderealTarget:
+        """Parse GPP explicit base into a sidereal target"""
+
+        # print(f'parse_explicit_base: {data}')
+
+        name = 'Base'
+        magnitudes = {}
+
+        ra_hhmmss = data[GppProgramProvider._TargetKeys.RA]['hms']
+        dec_ddmmss = data[GppProgramProvider._TargetKeys.DEC]['dms']
+
+        # Convert RA/Dec to decimal degrees
+        ra = sex2dec(ra_hhmmss, to_degree=True)
+        dec = sex2dec(dec_ddmmss, to_degree=False)
+
+        # Proper motion
+        pm_ra = 0.0
+        pm_dec = 0.0
+        epoch = 2000.0
+
+        # print(f"parse_explicit_base: {name} {ra} {dec} {pm_ra} {pm_dec} {epoch}")
 
         return SiderealTarget(
             name=name,
@@ -1090,7 +1134,9 @@ class GppProgramProvider(ProgramProvider):
         Parse a general target - either sidereal or nonsidereal - from the supplied data.
         If we are a ToO, we don't have a target, and thus we don't have a tag. Thus, this raises a KeyError.
         """
-        if data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE]:
+        if GppProgramProvider._TargetKeys.RA in data.keys():
+            return self.parse_explicit_base(data, targ_type)
+        elif data[GppProgramProvider._TargetKeys.SIDEREAL_OBJECT_TYPE]:
             return self.parse_sidereal_target(data, targ_type)
         elif data[GppProgramProvider._TargetKeys.NONSIDEREAL_OBJECT_TYPE]:
             return self.parse_nonsidereal_target(data, targ_type)
@@ -1127,10 +1173,34 @@ class GppProgramProvider(ProgramProvider):
             return f'{grating}_{prism}'
         return grating
 
-    def parse_observing_mode(self, data: dict) -> Tuple[FrozenSet[Resource], Wavelength, ObservationMode]:
+    @staticmethod
+    def _get_etm_wavelength(etm:dict) -> Wavelength:
+        """Parse the exposure time mode to get the 'at' wavelength"""
 
-        def find_filter(filter_input: str, filter_dict: Mapping[str, float]) -> Optional[str]:
-            return next(filter(lambda f: f in filter_input, filter_dict), None)
+        # print(f'{etm}')
+        if etm['signal_to_noise']:
+            wavelength = Wavelength(etm['signal_to_noise']['at']['nanometers'] / 1000.0)
+        elif etm['time_and_count']:
+            wavelength = Wavelength(etm['time_and_count']['at']['nanometers'] / 1000.0)
+        else:
+            wavelength = Wavelength(0.6)
+
+        return wavelength
+
+    @staticmethod
+    def _get_mask_name(id, attachments: list):
+        """Match the attachment id to get the mask name"""
+        name = None
+        for file in attachments:
+            if file['id'] == id:
+                name = file['mask']['name']
+                break
+        return name
+        
+    def parse_observing_mode(self, data: dict, attachments: list) -> Tuple[FrozenSet[Resource], Wavelength, ObservationMode]:
+
+        # def find_filter(filter_input: str, filter_dict: Mapping[str, float]) -> Optional[str]:
+        #     return next(filter(lambda f: f in filter_input, filter_dict), None)
 
         instrument = GppProgramProvider._gpp_inst_to_ocs[data['instrument']]
         mode = basic_name(data['mode'])
@@ -1156,10 +1226,12 @@ class GppProgramProvider(ProgramProvider):
         elif instrument in GppProgramProvider.FPU_FOR_INSTRUMENT:
             if GppProgramProvider._FPUKeys.CUSTOM in instrument_config.keys():
                 # This will assign the MDF name to the FPU
-                # ToDo: gpp-client needs to return the fileName of the attachment, not just the id,
-                # ToDo: the file name can then be converted to an MDF name and barcode for comparison with Resource
-                # fpu = instrument_config[GppProgramProvider._FPUKeys.CUSTOM]['attachment_id']
-                fpu = 'Custom'
+                fpu_id = instrument_config[GppProgramProvider._FPUKeys.CUSTOM]['attachment_id']
+                # If not defined yet, shouldn't be Ready, so set to 'Custom' to ignore
+                if fpu_id:
+                    fpu = GppProgramProvider._get_mask_name(fpu_id, attachments)
+                if fpu is None or fpu_id is None:
+                    fpu = 'Custom'
             elif GppProgramProvider.FPU_FOR_INSTRUMENT[instrument] in instrument_config.keys():
                 fpu = instrument_config[GppProgramProvider.FPU_FOR_INSTRUMENT[instrument]]
         fpu = basic_name(fpu)
@@ -1180,6 +1252,7 @@ class GppProgramProvider(ProgramProvider):
 
         # Filters
         filters = []
+        filter_wavelengths = []
         if GppProgramProvider._AtomKeys.FILTER in instrument_config.keys():
             filters = [basic_name(instrument_config[GppProgramProvider._AtomKeys.FILTER])]
         elif 'filters' in instrument_config.keys():  # if multiple filters can be selected
@@ -1188,7 +1261,9 @@ class GppProgramProvider(ProgramProvider):
                 if 'GMOS' in instrument:
                     for f in self._gmos_filters[instrument]:
                         if f in filt[GppProgramProvider._AtomKeys.FILTER]:
-                            filters.append(basic_name(filt[GppProgramProvider._AtomKeys.FILTER]))
+                            filter_name = basic_name(filt[GppProgramProvider._AtomKeys.FILTER])
+                            filters.append(filter_name)
+                            filter_wavelengths.append(GppProgramProvider._GMOS_FILTER_WAVELENGTHS[filter_name])
                 else:
                     filters.append(basic_name(filt[GppProgramProvider._AtomKeys.FILTER]))
         else:
@@ -1208,26 +1283,36 @@ class GppProgramProvider(ProgramProvider):
             wavelength = Wavelength(
                 float(instrument_config['central_wavelengths'][0]['central_wavelength']['nanometers'] / 1000.0)
             )
+        elif 'GMOS' in instrument:
+            if 'IMAGING' in mode:
+                wavelength = Wavelength(min(filter_wavelengths))
+            else:
+                # For MOS and IFU
+                wavelength = GppProgramProvider._get_etm_wavelength(instrument_config['exposure_time_mode'])
         else:
-            wavelength = None
+            wavelength = Wavelength(0.6)
 
-        # print(f'\t\t parse_observing_mode: fpu={fpu} disp={disperser}, filters={filters}')
+        # print(f'\t\t parse_observing_mode: fpu={fpu} disp={disperser}, filters={filters}, wavelength={wavelength}')
 
         # Note, for now we just compare filter resources for GMOS, F2 filters used to get the wavelength
         if 'GMOS' in instrument:
             # Convert FPUs and dispersers to barcodes. Note that None might be contained in some of these
             # sets, but we filter below to remove them.
-            # ToDo: decide whether to use FPU names or barcodes for resource matching
-            if fpu and fpu != 'Custom':
-                fpu_resources = frozenset(
-                    [
-                        self._sources.origin.resource.lookup_resource(
-                            GppProgramProvider._fpu_to_barcode[instrument][fpu],
-                            description=fpu,
-                            resource_type=ResourceType.FPU,
-                        )
-                    ]
-                )
+            # ToDo: should come from Resource
+            if fpu:
+                fpu_ocs = GppProgramProvider._gpp_fpu_to_ocs[fpu] if fpu in GppProgramProvider._gpp_fpu_to_ocs.keys()\
+                    else fpu
+                # Get barcode for standard FPUs and legacy MOS mask names
+                barcode = self._sources.origin.resource.fpu_to_barcode(GppProgramProvider._site_for_inst[data['instrument']],
+                                                                 fpu_ocs, instrument)
+                # Custom - will cause 'Custom' to be rejected
+                barcode = self._sources.origin.resource.lookup_resource(
+                    fpu,
+                    description=fpu,
+                    resource_type=ResourceType.FPU,
+                ) if barcode is None else barcode
+                # print(f'\t\t parse_observing_mode: {fpu} {fpu_ocs} {barcode}')
+                fpu_resources = frozenset([barcode])
             else:
                 fpu_resources = frozenset()
             disperser_resources = frozenset(
@@ -1292,9 +1377,7 @@ class GppProgramProvider(ProgramProvider):
 
         # Check the obs_class. If it is illegal, return None.
         # At the same time, ignore inactive observations.
-        # ToDo: Eventually the obs_id should be the reference label, the id is the internal_id
         internal_id = data[GppProgramProvider._ObsKeys.INTERNAL_ID]
-        # obs_id = f"{program_id.id}-{internal_id.replace('-', '')}"
         obs_id = (
             data[GppProgramProvider._ObsKeys.ID]['label']
             if data.get(GppProgramProvider._ObsKeys.ID)
@@ -1383,17 +1466,17 @@ class GppProgramProvider(ProgramProvider):
                 scheduling_mode = SchedulingMode.UNCONSTRAINED
 
             # observing mode (instrument config)
-            resources, wavelength, mode = self.parse_observing_mode(data['observing_mode'])
+            resources, wavelength, mode = self.parse_observing_mode(data['observing_mode'], data['attachments'])
             # print(f'\t\t resources: {resources}')
             # print(f'\t\t wavelength: {wavelength}')
             # print(f'\t\t mode: {mode}')
             # print(f'\t\t calibration_role: {calibration_role}')
             logger.debug(
                 f'\t\t resources: {resources}'
-                f'\t\t wavelength: {wavelength}'
-                f'\t\t mode: {mode}'
-                f'\t\t calibration_role: {calibration_role}'
-                f'\t\t acq_overhead: {acq_overhead}'
+                f' wavelength: {wavelength}'
+                f' mode: {mode}'
+                f' calibration_role: {calibration_role}'
+                f' acq_overhead: {acq_overhead}'
             )
 
             # QA states, needed?
@@ -1463,7 +1546,7 @@ class GppProgramProvider(ProgramProvider):
                 except KeyError:
                     logger.warning(f"No base target found for observation {obs_id}. Using empty base target.")
                     targets.append(GppProgramProvider._EMPTY_BASE_TARGET)
-                # print(f'\t\t base = {base}')
+                logger.debug(f'\t\t base target = {base}')
 
                 # Parse the guide stars if guide star data is supplied.
                 try:
@@ -1520,6 +1603,7 @@ class GppProgramProvider(ProgramProvider):
                 else None
             )
             # print(f'\t\t constraints = {constraints}')
+            logger.debug(f'\t\t constraints = {constraints}')
 
             return GeminiObservation(
                 id=ObservationID(obs_id),
@@ -1704,8 +1788,6 @@ class GppProgramProvider(ProgramProvider):
         observations = []
         obs_parent_indices = []
 
-        # print(f"\tparse_group {group_id}: num_to_observe {number_to_observe}, group_option: {group_option}")
-
         # Recursively process the group elements, reversing required to get the order
         # as in Explore
         elem_parent_index = -1
@@ -1793,6 +1875,8 @@ class GppProgramProvider(ProgramProvider):
                     child.next_id = GroupID(children[idx - 1].id.id) if idx > 0 else GROUP_NONE_ID
                     if group_option == AndOption.CUSTOM and child.previous_id == GROUP_NONE_ID and active:
                         child.active = True
+
+        # print(f"\tparse_group {group_id}: num_to_observe {number_to_observe}, group_option: {group_option}")
 
         # Put all the observations in the one big group and return it.
         return Group(
