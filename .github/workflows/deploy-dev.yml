@@ -41,6 +41,10 @@ jobs:
           - mode: realtime
             app_mode: operation
             app_secret: HEROKU_APP_NAME_REALTIME_STAGING
+          - mode: simulation
+            app_mode: operation
+            app_secret: HEROKU_APP_NAME_SIMULATION_STAGING
+            skip_migrations: true
           - mode: multinight
             app_mode: validation
             app_secret: HEROKU_APP_NAME_MULTINIGHT_STAGING
@@ -86,6 +90,7 @@ jobs:
           heroku container:release -a ${{ secrets[matrix.app_secret] }} web
 
       - name: Run DB migrations
+        if: ${{ !matrix.skip_migrations }}
         run: |
           APP="${{ secrets[matrix.app_secret] }}"
           if [ -n "$(heroku config:get DATABASE_URL -a "$APP")" ]; then

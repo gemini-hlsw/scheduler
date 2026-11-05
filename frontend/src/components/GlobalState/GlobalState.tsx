@@ -13,6 +13,8 @@ interface GlobalStateContextType {
   >;
   nightPlans: NightPlanType[];
   setNightPlans: React.Dispatch<React.SetStateAction<NightPlanType[]>>;
+  simNightPlans: NightPlanType[];
+  setSimNightPlans: React.Dispatch<React.SetStateAction<NightPlanType[]>>;
   operationNight: SiteNight[];
   setOperationNight: React.Dispatch<React.SetStateAction<SiteNight[]>>;
   rtPlan: NightPlansWithEvent;
@@ -66,6 +68,7 @@ export default function GlobalStateProvider({
     isConnected: null,
   });
   const [nightPlans, setNightPlans] = useState<NightPlanType[]>([]);
+  const [simNightPlans, setSimNightPlans] = useState<NightPlanType[]>([]);
   const [operationNight, setOperationNight] = useState<SiteNight[]>([]);
   const [rtPlan, setRtPlan] = useState<NightPlansWithEvent>(
     {} as NightPlansWithEvent,
@@ -106,6 +109,8 @@ export default function GlobalStateProvider({
         setConnectionState,
         nightPlans,
         setNightPlans,
+        simNightPlans,
+        setSimNightPlans,
         operationNight,
         setOperationNight,
         rtPlan,

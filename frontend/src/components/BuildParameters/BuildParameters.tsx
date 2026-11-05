@@ -7,6 +7,7 @@ import { VisibilityNights } from "../ControlPanel/VisibilityNights";
 import { DateTimeSelector } from "../ControlPanel/DateTimeSelector";
 import { NightTimeInput, NightWindow } from "../ControlPanel/NightTimeInput";
 import { GlobalStateContext } from "../GlobalState/GlobalState";
+import { RealtimeBackendContext } from "../GlobalState/RealtimeBackend";
 import { toast } from "sonner";
 import { DateRange } from "react-day-picker";
 import { FaCog, FaTrash } from "react-icons/fa";
@@ -49,9 +50,11 @@ export default function BuildParameters({
   buttonsRow?: boolean;
   operationNightTimes?: boolean;
 }) {
+  const { clientName } = useContext(RealtimeBackendContext);
+
   const [buildParams] = useMutation(updateBuildParameters, {
     fetchPolicy: "no-cache",
-    context: { clientName: "realtimeClient" },
+    context: { clientName },
   });
 
   const [date, setDate] = useState<DateRange | undefined>({
@@ -128,7 +131,7 @@ export default function BuildParameters({
   } = useQuery(getProgramList, {
     variables: { nightDate: nightDate ? toDateOnlyString(nightDate) : null },
     fetchPolicy: "no-cache",
-    context: { clientName: "realtimeClient" },
+    context: { clientName },
   });
 
   // The selection lives on the server and is shared by every browser: each
@@ -136,15 +139,15 @@ export default function BuildParameters({
   // subscription, which also sends the current selection when it connects.
   const { data: selectionData, loading: selectionLoading } = useSubscription(
     programSelectionSubscription,
-    { context: { clientName: "realtimeClient" } }
+    { context: { clientName } }
   );
   const [setSelection] = useMutation(setProgramSelection, {
     fetchPolicy: "no-cache",
-    context: { clientName: "realtimeClient" },
+    context: { clientName },
   });
   const [resetSelection] = useMutation(resetProgramSelection, {
     fetchPolicy: "no-cache",
-    context: { clientName: "realtimeClient" },
+    context: { clientName },
   });
 
   const programs = useMemo(() => {
