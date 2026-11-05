@@ -962,7 +962,7 @@ class GreedyMaxOptimizer(BaseOptimizer):
                 # print(f"{sep(depth)} group complete, trim the tree")
                 trim_tree(group, depth=depth + 1)
 
-            # If not at the root group, get parent info and move up the tree
+            # If not at the root group, get parent info and move up the tree if the current group is complete
             if group.parent_id != GROUP_NONE_ID:
                 # Parent group
                 parent_unique_id = unique_group_id(prog_info.program.id, group.parent_id)
@@ -977,7 +977,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                     set_next = set_next_active(next_group, timing_window)
 
                 # subgroup = prog_info.group_data_map[parent]
-                traverse_group_tree(prog_info, parent, end_time, set_next=set_next)
+                if group.number_observed == group.number_to_observe:
+                    traverse_group_tree(prog_info, parent, end_time, set_next=set_next)
 
         # Get program information
         p = self.selection.program_info[max_group_info.group_data.group.program_id]
