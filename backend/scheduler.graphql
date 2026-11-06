@@ -266,6 +266,7 @@ type SVisit {
   atomTimes: [Int!]!
   stepStart: Int
   stepEnd: Int
+  band: Int
   exploreUrl: String
 }
 

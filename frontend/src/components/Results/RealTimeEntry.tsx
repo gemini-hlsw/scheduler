@@ -105,6 +105,7 @@ function VisitRow({
       <TableCell>
         <ObsClassBadge obsClass={visit.obsClass} />
       </TableCell>
+      <TableCell className="text-center">{visit.band ?? "—"}</TableCell>
       <TableCell>
         {new Date(visit.startTime).toLocaleString("en-UK", {
           timeZone: tz,
@@ -270,6 +271,7 @@ export default function RealTimeEntry({
             <TableHead></TableHead>
             <TableHead></TableHead>
             <TableHead></TableHead>
+            <TableHead></TableHead>
             <TableHead className="text-center" colSpan={2}>
               Atom
             </TableHead>
@@ -295,6 +297,7 @@ export default function RealTimeEntry({
             <TableHead>Observation Id</TableHead>
             <TableHead>Targets</TableHead>
             <TableHead>Observation Class</TableHead>
+            <TableHead>Band</TableHead>
             <TableHead>Start Time</TableHead>
             <TableHead>Start</TableHead>
             <TableHead>End</TableHead>

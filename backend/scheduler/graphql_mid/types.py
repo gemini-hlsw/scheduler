@@ -11,7 +11,7 @@ import strawberry  # noqa
 from typing import Annotated, Union
 from strawberry.scalars import JSON  # noqa
 
-from lucupy.minimodel import Site, VariantSnapshot, Conditions, Program, ProgramID
+from lucupy.minimodel import Band, Site, VariantSnapshot, Conditions, Program, ProgramID
 
 from scheduler.clients.gpp import explore_observation_url
 from scheduler.core.calculations.moon import moon_altitudes, moon_phase
@@ -119,6 +119,8 @@ class SVisit:
     atom_times: List[int]
     step_start: Optional[int]
     step_end: Optional[int]
+    # The program band, 1 to 4. Null when the observation has none (BAND5 is lucupy's "no band").
+    band: Optional[int]
     # The observation's page in Explore. Null outside the ODB, or when the plan was
     # serialized without a way to find the program's ODB id.
     explore_url: Optional[str] = None
@@ -163,8 +165,13 @@ class SVisit:
             atom_times=visit.atom_times,
             step_start=step_start,
             step_end=step_end,
+            band=SVisit._band_number(visit.observation.band),
             explore_url=explore_url,
         )
+
+    @staticmethod
+    def _band_number(band: Optional[Band]) -> Optional[int]:
+        return None if band is None or band == Band.BAND5 else int(band)
 
 
 @strawberry.type
