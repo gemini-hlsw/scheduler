@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from gpp_client.environment import GPPEnvironment
-from lucupy.minimodel import ObservationClass, ProgramID
+from lucupy.minimodel import Band, ObservationClass, ProgramID
 
 from scheduler.clients import gpp as gpp_module
 from scheduler.clients.gpp import explore_observation_url
@@ -57,13 +57,14 @@ def test_no_url_without_odb_ids(environment, program_id, observation_id):
     assert explore_observation_url(program_id, observation_id) is None
 
 
-def _visit() -> Visit:
+def _visit(band=Band.BAND1) -> Visit:
     observation = SimpleNamespace(
         id="G-2026B-0001-Q-0001",
         internal_id="o-1b3",
         belongs_to=_PROGRAM_LABEL,
         targets=[],
         obs_class=ObservationClass.SCIENCE,
+        band=band,
         constraints=SimpleNamespace(conditions=MagicMock()),
         instrument=lambda: None,
         fpu=lambda: None,
@@ -100,3 +101,14 @@ def test_visit_without_a_program_lookup_has_no_link(environment):
 
     assert SVisit.from_computed_visit(_visit(), []).explore_url is None
     assert SVisit.from_computed_visit(_visit(), [], {}.get).explore_url is None
+
+
+@pytest.mark.parametrize(
+    "band, expected",
+    [(Band.BAND1, 1), (Band.BAND4, 4), (Band.BAND5, None), (None, None)],
+)
+def test_visit_carries_its_band(environment, band, expected):
+    # BAND5 is lucupy's "no band", shown like a missing one.
+    environment(GPPEnvironment.DEVELOPMENT)
+
+    assert SVisit.from_computed_visit(_visit(band), []).band == expected

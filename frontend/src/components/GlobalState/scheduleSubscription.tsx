@@ -51,6 +51,7 @@ export const subscriptionQueueSchedule = graphql(`
                     filters
                     score
                     obsClass
+                    band
                     completion
                     atomTimes
                     stepStart
@@ -114,6 +115,7 @@ export const subscriptionQueueSchedule = graphql(`
               fpu
               instrument
               obsClass
+              band
               obsId
               exploreUrl
               peakScore
@@ -161,6 +163,7 @@ export const subscriptionQueueSchedule = graphql(`
               fpu
               instrument
               obsClass
+              band
               obsId
               exploreUrl
               peakScore
