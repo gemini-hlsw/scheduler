@@ -106,6 +106,7 @@ function VisitRow({
       <TableCell>
         <ObsClassBadge obsClass={visit.obsClass} />
       </TableCell>
+      <TableCell className="text-center">{visit.band ?? "—"}</TableCell>
       <TableCell className="font-mono">
         {format(new Date(visit.startTime), "yyyy-MM-dd HH:mm:ss", {
           in: tz(timeZone),
@@ -271,6 +272,7 @@ export default function TimeEntry({
             <TableHead></TableHead>
             <TableHead></TableHead>
             <TableHead></TableHead>
+            <TableHead></TableHead>
             <TableHead className="text-center" colSpan={2}>
               Atom
             </TableHead>
@@ -296,6 +298,7 @@ export default function TimeEntry({
             <TableHead>Observation Id</TableHead>
             <TableHead>Targets</TableHead>
             <TableHead>Observation Class</TableHead>
+            <TableHead>Band</TableHead>
             <TableHead>Start Time</TableHead>
             <TableHead>Start</TableHead>
             <TableHead>End</TableHead>

@@ -115,6 +115,8 @@ export interface Visit {
   completion: string;
   atomTimes: number[];
   obsClass: string;
+  // Program band, 1 to 4; null when the observation has none.
+  band?: number | null;
   peakScore: number;
   requiredConditions: RequiredConditions;
   // The observation's page in Explore; null when it is not an ODB observation.
