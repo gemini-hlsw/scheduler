@@ -18,6 +18,7 @@ from scheduler.orchestration import process_manager
 from scheduler.services.logger_factory import create_logger
 from scheduler.shared_queue import (
     plan_response_subscribers,
+    last_plan_responses,
     build_parameters_subscribers,
     program_selection_subscribers,
 )
@@ -343,6 +344,12 @@ class Subscription:
         plan_response_subscribers[schedule_id].add(client_queue)
 
         try:
+            # Subscribed first, so a plan published in between is not lost. At worst
+            # it arrives twice, which is harmless: the UI replaces the whole plan.
+            last_plan = last_plan_responses.get(schedule_id)
+            if last_plan is not None:
+                _logger.info(f"Subscription: Replaying last plan for {schedule_id}")
+                yield last_plan
             while True:
                 try:
                     _logger.info(f"Subscription: Waiting for plan response for {schedule_id}")
