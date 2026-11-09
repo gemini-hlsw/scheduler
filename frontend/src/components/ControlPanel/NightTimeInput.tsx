@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { RealtimeBackendContext } from "../GlobalState/RealtimeBackend";
 import { Label } from "@/components/ui/label";
 import { Field } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export function NightTimeInput({
   clearButton?: React.ReactNode;
 }) {
   const [timeText, setTimeText] = useState("");
+  const { tab } = useContext(RealtimeBackendContext);
 
   useEffect(() => {
     setTimeText(dateTime ? format(dateTime, "HH:mm") : "");
@@ -79,6 +81,7 @@ export function NightTimeInput({
         window
           ? `${title}: "${value}" is not a time between ${range}.`
           : `${title}: the night is not known yet.`,
+        { toasterId: tab },
       );
     }
   };

@@ -11,8 +11,12 @@ interface GlobalStateContextType {
   setConnectionState: React.Dispatch<
     React.SetStateAction<{ name: string; isConnected: boolean | null }>
   >;
+  // Each backend (validation, operation, simulation) keeps its own plans and
+  // loading flag, so a push or error from one never lands on another's tab.
   nightPlans: NightPlanType[];
   setNightPlans: React.Dispatch<React.SetStateAction<NightPlanType[]>>;
+  rtNightPlans: NightPlanType[];
+  setRtNightPlans: React.Dispatch<React.SetStateAction<NightPlanType[]>>;
   simNightPlans: NightPlanType[];
   setSimNightPlans: React.Dispatch<React.SetStateAction<NightPlanType[]>>;
   operationNight: SiteNight[];
@@ -39,6 +43,10 @@ interface GlobalStateContextType {
   setSemesterVisibility: React.Dispatch<React.SetStateAction<boolean>>;
   loadingPlan: boolean;
   setLoadingPlan: React.Dispatch<React.SetStateAction<boolean>>;
+  rtLoadingPlan: boolean;
+  setRtLoadingPlan: React.Dispatch<React.SetStateAction<boolean>>;
+  simLoadingPlan: boolean;
+  setSimLoadingPlan: React.Dispatch<React.SetStateAction<boolean>>;
   fwhm: number;
   setFwhm: React.Dispatch<React.SetStateAction<number>>;
   airmass: number;
@@ -68,6 +76,7 @@ export default function GlobalStateProvider({
     isConnected: null,
   });
   const [nightPlans, setNightPlans] = useState<NightPlanType[]>([]);
+  const [rtNightPlans, setRtNightPlans] = useState<NightPlanType[]>([]);
   const [simNightPlans, setSimNightPlans] = useState<NightPlanType[]>([]);
   const [operationNight, setOperationNight] = useState<SiteNight[]>([]);
   const [rtPlan, setRtPlan] = useState<NightPlansWithEvent>(
@@ -94,6 +103,8 @@ export default function GlobalStateProvider({
   const [windSpeed, setWindSpeed] = useState(5);
   const [semesterVisibility, setSemesterVisibility] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState(false);
+  const [rtLoadingPlan, setRtLoadingPlan] = useState(false);
+  const [simLoadingPlan, setSimLoadingPlan] = useState(false);
   const [uuid] = useState(
     new Date()
       .toISOString()
@@ -109,6 +120,8 @@ export default function GlobalStateProvider({
         setConnectionState,
         nightPlans,
         setNightPlans,
+        rtNightPlans,
+        setRtNightPlans,
         simNightPlans,
         setSimNightPlans,
         operationNight,
@@ -135,6 +148,10 @@ export default function GlobalStateProvider({
         setSemesterVisibility,
         loadingPlan,
         setLoadingPlan,
+        rtLoadingPlan,
+        setRtLoadingPlan,
+        simLoadingPlan,
+        setSimLoadingPlan,
         uuid,
         fwhm,
         setFwhm,

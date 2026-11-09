@@ -50,7 +50,7 @@ export default function BuildParameters({
   buttonsRow?: boolean;
   operationNightTimes?: boolean;
 }) {
-  const { clientName } = useContext(RealtimeBackendContext);
+  const { clientName, tab } = useContext(RealtimeBackendContext);
 
   const [buildParams] = useMutation(updateBuildParameters, {
     fetchPolicy: "no-cache",
@@ -112,7 +112,9 @@ export default function BuildParameters({
     if (window && window.from <= now && now <= window.to) {
       setTime(now);
     } else {
-      toast.error(`${site} night has not started yet, or is already over.`);
+      toast.error(`${site} night has not started yet, or is already over.`, {
+        toasterId: tab,
+      });
     }
   }
 
