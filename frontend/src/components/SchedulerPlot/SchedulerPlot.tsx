@@ -6,7 +6,9 @@ import HighchartsReact, {
   HighchartsReactRefObject,
 } from "highcharts-react-official";
 import HighchartMore from "highcharts/highcharts-more";
+import HighchartsPatternFill from "highcharts/modules/pattern-fill";
 HighchartMore(Highcharts);
+HighchartsPatternFill(Highcharts);
 
 import { ThemeContext } from "../../theme/ThemeProvider";
 import { getSiteOffset, utcToLocal } from "@/helpers/utcTime";
@@ -39,6 +41,25 @@ const TWILIGHT_BAND_COLOR = "rgba(128, 128, 128, 0.25)";
 const TWILIGHT_LINE_COLOR = "rgba(128, 128, 128, 0.9)";
 const NIGHT_LIMIT_LINE_COLOR = "var(--color-amber-500)";
 const MOON_LINE_COLOR = "#a3a3a3";
+// Calibration visits are hatched, science visits are plain.
+const CALIBRATION_LEGEND_COLOR = "#999999";
+const isCalibration = (obsClass: string) => obsClass.endsWith("CAL");
+// Diagonal lines over a faint background of the same color.
+const hatchedFill = (
+  color: string,
+  backgroundOpacity: string,
+): Highcharts.PatternObject => ({
+  pattern: {
+    path: {
+      d: "M 0 8 L 8 0 M -1 1 L 1 -1 M 7 9 L 9 7",
+      stroke: color,
+      strokeWidth: 1.5,
+    },
+    width: 8,
+    height: 8,
+    backgroundColor: `${color}${backgroundOpacity}`,
+  },
+});
 
 interface Visit {
   startDate: Date;
@@ -46,6 +67,7 @@ interface Visit {
   yPoints: number[];
   label: string;
   instrument: string;
+  obsClass: string;
   atomTimes: number[];
 }
 
@@ -170,6 +192,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
 
   const seriesData: Array<SeriesArearangeOptions> = data.map((d: Visit) => {
     const instrumentColor = colorMap[d.instrument] ?? fallbackColor;
+    const hatched = isCalibration(d.obsClass);
     const zones = [];
     for (let i = 0; i < d.atomTimes.length; i++) {
       const atomTime = d.atomTimes[i];
@@ -180,8 +203,12 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       zones.push({
         value: atomX,
         color: instrumentColor,
-        fillColor:
-          i % 2 === 0 ? `${instrumentColor}66` : `${instrumentColor}33`, // 20% opacity for even atoms, 0% for odd
+        // Atoms alternate between a stronger and a fainter shade
+        fillColor: hatched
+          ? hatchedFill(instrumentColor, i % 2 === 0 ? "40" : "1a")
+          : i % 2 === 0
+            ? `${instrumentColor}66`
+            : `${instrumentColor}33`,
       });
     }
 
@@ -200,6 +227,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       }),
       lineWidth: 1,
       color: instrumentColor,
+      ...(hatched ? { fillColor: hatchedFill(instrumentColor, "40") } : {}),
       fillOpacity: 0.3,
       zIndex: 0,
       marker: {
@@ -217,8 +245,14 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   // Create a set to keep track of names we've seen
   const seenNames = new Set();
 
-  // Modify the series to set showInLegend to false for duplicates
-  for (const serie of seriesData) {
+  // Modify the series to set showInLegend to false for duplicates.
+  // Plain series go first so an instrument's legend entry is not hatched
+  // just because its first visit is a calibration.
+  const legendOrder = [
+    ...seriesData.filter((_, i) => !isCalibration(data[i].obsClass)),
+    ...seriesData.filter((_, i) => isCalibration(data[i].obsClass)),
+  ];
+  for (const serie of legendOrder) {
     if (seenNames.has(serie.name)) {
       serie.showInLegend = false; // Don't show in legend if it's a duplicate
     } else {
@@ -259,8 +293,28 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
           />,
         )}Moon (${Math.round(moonIllumination * 100)}%)</span>`;
 
+  // Legend entry only: explains the hatching.
+  const calibrationLegendSeries: SeriesArearangeOptions = {
+    id: "calibration-legend",
+    name: "Calibration",
+    type: "arearange",
+    data: [],
+    color: CALIBRATION_LEGEND_COLOR,
+    fillColor: hatchedFill(CALIBRATION_LEGEND_COLOR, "40"),
+    marker: { enabled: false },
+    enableMouseTracking: false,
+    events: {
+      legendItemClick: function () {
+        return false;
+      },
+    },
+  };
+
   const allSeries: Highcharts.SeriesOptionsType[] = [
     ...seriesData,
+    ...(data.some((d) => isCalibration(d.obsClass))
+      ? [calibrationLegendSeries]
+      : []),
     moonSeries,
   ];
 

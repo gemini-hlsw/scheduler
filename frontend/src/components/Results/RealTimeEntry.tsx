@@ -158,6 +158,7 @@ export default function RealTimeEntry({
       yPoints: visit.altitude,
       label: visit.obsId,
       instrument: visit.instrument,
+      obsClass: visit.obsClass,
       atomTimes: visit.atomTimes,
     }));
   }
