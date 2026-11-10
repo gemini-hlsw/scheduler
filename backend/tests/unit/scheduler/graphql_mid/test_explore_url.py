@@ -57,7 +57,7 @@ def test_no_url_without_odb_ids(environment, program_id, observation_id):
     assert explore_observation_url(program_id, observation_id) is None
 
 
-def _visit(band=Band.BAND1) -> Visit:
+def _visit(band=Band.BAND1, fpu=None) -> Visit:
     observation = SimpleNamespace(
         id="G-2026B-0001-Q-0001",
         internal_id="o-1b3",
@@ -67,7 +67,7 @@ def _visit(band=Band.BAND1) -> Visit:
         band=band,
         constraints=SimpleNamespace(conditions=MagicMock()),
         instrument=lambda: None,
-        fpu=lambda: None,
+        fpu=lambda: fpu,
         disperser=lambda: None,
         filters=lambda: None,
     )
@@ -112,3 +112,17 @@ def test_visit_carries_its_band(environment, band, expected):
     environment(GPPEnvironment.DEVELOPMENT)
 
     assert SVisit.from_computed_visit(_visit(band), []).band == expected
+
+
+@pytest.mark.parametrize(
+    "fpu, expected",
+    [
+        (SimpleNamespace(id="10000009", description="0.5arcsec"), "0.5arcsec"),
+        (SimpleNamespace(id="LONG_SLIT_0_75", description=None), "LONG_SLIT_0_75"),
+        (None, "None"),
+    ],
+)
+def test_visit_shows_the_fpu_name_not_its_barcode(environment, fpu, expected):
+    environment(GPPEnvironment.DEVELOPMENT)
+
+    assert SVisit.from_computed_visit(_visit(fpu=fpu), []).fpu == expected
