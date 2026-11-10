@@ -18,10 +18,15 @@ export default function OnDemandControl({
 }: {
   showStartOfNight?: boolean;
 }) {
-  const { loadingPlan, setLoadingPlan } = useContext(GlobalStateContext);
-  const { clientName, name, isConnectedVar } = useContext(
+  const { clientName, name, tab, isConnectedVar } = useContext(
     RealtimeBackendContext
   );
+  const { rtLoadingPlan, setRtLoadingPlan, simLoadingPlan, setSimLoadingPlan } =
+    useContext(GlobalStateContext);
+  const [loadingPlan, setLoadingPlan] =
+    tab === "simulation"
+      ? [simLoadingPlan, setSimLoadingPlan]
+      : [rtLoadingPlan, setRtLoadingPlan];
   // The server may be planning for another browser or for an event, which the
   // local flag knows nothing about.
   const planStatus = usePlanStatus();

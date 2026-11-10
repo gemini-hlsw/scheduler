@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Layout from "./components/Layout/Layout";
 import { useQuery, useReactiveVar, useSubscription } from "@apollo/client";
 import { isRealtimeConnectedVar } from "./apollo-client";
@@ -6,6 +6,10 @@ import { operationNightQuery } from "./components/Operation/query";
 import { subscriptionQueueSchedule } from "./components/GlobalState/scheduleSubscription";
 import { useContext, useEffect } from "react";
 import { GlobalStateContext } from "./components/GlobalState/GlobalState";
+import {
+  OPERATION_BACKEND,
+  SIMULATION_BACKEND,
+} from "./components/GlobalState/RealtimeBackend";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { type RunSummary } from "./types";
@@ -13,12 +17,17 @@ import { type RunSummary } from "./types";
 function App() {
   const {
     setNightPlans,
+    setRtNightPlans,
     setSimNightPlans,
     setPlansSummary,
     setLoadingPlan,
+    setRtLoadingPlan,
+    setSimLoadingPlan,
     setOperationNight,
     uuid,
   } = useContext(GlobalStateContext);
+
+  const { pathname } = useLocation();
 
   const {
     data: scheduleData,
@@ -84,6 +93,7 @@ function App() {
           toast.error(scheduleData.queueSchedule.error, {
             closeButton: true,
             duration: Infinity,
+            toasterId: "validation",
           });
           setNightPlans([]);
           setPlansSummary({} as RunSummary);
@@ -100,6 +110,7 @@ function App() {
             {
               closeButton: true,
               duration: Infinity,
+              toasterId: "validation",
             },
           );
           setNightPlans([]);
@@ -116,8 +127,7 @@ function App() {
     try {
       if (!rtLoading) {
         if (rtData && rtData.queueSchedule.__typename === "NewNightPlans") {
-          setNightPlans(rtData.queueSchedule.nightPlans.nightTimeline);
-          setPlansSummary(rtData.queueSchedule.plansSummary);
+          setRtNightPlans(rtData.queueSchedule.nightPlans.nightTimeline);
         } else if (
           rtData &&
           rtData.queueSchedule.__typename === "NightPlansError"
@@ -125,9 +135,9 @@ function App() {
           toast.error(rtData.queueSchedule.error, {
             closeButton: true,
             duration: Infinity,
+            toasterId: OPERATION_BACKEND.tab,
           });
-          setNightPlans([]);
-          setPlansSummary({} as RunSummary);
+          setRtNightPlans([]);
         } else if (rtData && rtData.queueSchedule.__typename === "NewPlansRT") {
           // Deprecated
           console.log("Deprecated method");
@@ -144,12 +154,12 @@ function App() {
             {
               closeButton: true,
               duration: Infinity,
+              toasterId: OPERATION_BACKEND.tab,
             },
           );
-          setNightPlans([]);
-          setPlansSummary({} as RunSummary);
+          setRtNightPlans([]);
         }
-        setLoadingPlan(false);
+        setRtLoadingPlan(false);
       }
     } catch (e) {
       console.log(e);
@@ -168,6 +178,7 @@ function App() {
           toast.error(simData.queueSchedule.error, {
             closeButton: true,
             duration: Infinity,
+            toasterId: SIMULATION_BACKEND.tab,
           });
           setSimNightPlans([]);
         } else if (
@@ -184,21 +195,37 @@ function App() {
             {
               closeButton: true,
               duration: Infinity,
+              toasterId: SIMULATION_BACKEND.tab,
             },
           );
           setSimNightPlans([]);
         }
-        setLoadingPlan(false);
+        setSimLoadingPlan(false);
       }
     } catch (e) {
       console.log(e);
     }
   }, [simData, simLoading]);
 
+  // One toaster per tab, and every toast names its tab with toasterId.
+  // Gotcha: there is no default toaster on purpose, so a toast without a
+  // toasterId is never shown. Toasters off the current tab are hidden, not
+  // unmounted: sonner does not replay toasts to a toaster mounted later, so
+  // an error raised while on another tab would be lost.
+  const toasterTabs = [
+    { id: "validation", path: "/validation" },
+    { id: OPERATION_BACKEND.tab, path: "/operation" },
+    { id: SIMULATION_BACKEND.tab, path: "/simulation" },
+  ];
+
   return (
     <Layout>
       <Outlet />
-      <Toaster />
+      {toasterTabs.map(({ id, path }) => (
+        <div key={id} className={pathname === path ? undefined : "invisible"}>
+          <Toaster id={id} />
+        </div>
+      ))}
     </Layout>
   );
 }
