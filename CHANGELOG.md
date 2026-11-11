@@ -5,6 +5,24 @@ This changelog is managed by [Towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 2026.11.3 (2026-11-11)
+
+### Features
+
+- Add group name to table.
+  Add hatched filler to plot to distinguish science from calibration
+- Change ranker default parasm met=2.0 vis=1.5
+- Add observation band to schema to display it in the UI in the observations table.
+- Display FPU names instead of barcodes in observations table.
+- Store and display the last generated plan.
+
+### Bug Fixes
+
+- Fix toast alerts showing up to all tabs instead of only the ones that is selected by the user
+- Fix weather service status badges
+- bug fix when unscheduleable science, ops resource updates
+- Fix pagination call in Sight tab
+
 ## 2026.11.2 (2026-11-05)
 
 ### Features
