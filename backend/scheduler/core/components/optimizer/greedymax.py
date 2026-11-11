@@ -65,6 +65,9 @@ class ObsPlanData:
     visit_score: float
     peak_score: float
     atom_times: List[int]
+    # The consecutive AND group the observation was scheduled with, if any.
+    group_id: Optional[str] = None
+    group_name: Optional[str] = None
 
 
 @final
@@ -1095,6 +1098,14 @@ class GreedyMaxOptimizer(BaseOptimizer):
         # Peak score that was used to pick the group for the plan
         peak_score = max_group_info.max_score
 
+        # Observations of a consecutive AND group have to be done together, keep the group
+        # so the plan can tell which visits belong with each other.
+        group = max_group_info.group_data.group
+        in_consec_group = group.is_scheduling_group() and group.group_option in [
+            AndOption.CONSEC_ORDERED,
+            AndOption.CONSEC_ANYORDER,
+        ]
+
         self.obs_in_plan[site][start_time_slot] = ObsPlanData(
             obs=obs,
             obs_start=start,
@@ -1104,6 +1115,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
             visit_score=visit_score,
             peak_score=peak_score,
             atom_times=atom_times,
+            group_id=group.unique_id.id if in_consec_group else None,
+            group_name=group.group_name if in_consec_group else None,
         )
 
         # pseudo (internal) time charging
@@ -1295,6 +1308,8 @@ class GreedyMaxOptimizer(BaseOptimizer):
                         obs_in_plan.visit_score,
                         obs_in_plan.peak_score,
                         obs_in_plan.atom_times,
+                        obs_in_plan.group_id,
+                        obs_in_plan.group_name,
                     )
                     plans[timeline.site].update_time_slots(timeline.slots_unscheduled())
             # print('')

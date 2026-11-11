@@ -121,6 +121,10 @@ export interface Visit {
   requiredConditions: RequiredConditions;
   // The observation's page in Explore; null when it is not an ODB observation.
   exploreUrl?: string | null;
+  // The consecutive AND group the visit belongs to; null when scheduled on its own.
+  // Visits sharing a groupId have to be done together.
+  groupId?: string | null;
+  groupName?: string | null;
 }
 
 export interface NightStats {

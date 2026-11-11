@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ObsClassBadge } from "./ObsClassBadge";
+import { GroupBadge, planGroupIds } from "./GroupBadge";
 import { ObsIdLink } from "./ObsIdLink";
 import { FaCheck } from "react-icons/fa";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
@@ -22,6 +23,7 @@ function VisitRow({
   visit,
   site,
   state,
+  groupIds,
   beingExecuted = false,
   drawTopBorder = false,
   drawBotBorder = false,
@@ -29,6 +31,7 @@ function VisitRow({
   visit: Visit;
   site: string;
   state: string;
+  groupIds: string[];
   beingExecuted?: boolean;
   drawTopBorder?: boolean;
   drawBotBorder?: boolean;
@@ -106,6 +109,13 @@ function VisitRow({
       <TableCell>
         <ObsClassBadge obsClass={visit.obsClass} />
       </TableCell>
+      <TableCell>
+        <GroupBadge
+          groupId={visit.groupId}
+          groupName={visit.groupName}
+          groupIds={groupIds}
+        />
+      </TableCell>
       <TableCell className="text-center">{visit.band ?? "—"}</TableCell>
       <TableCell className="font-mono">
         {format(new Date(visit.startTime), "yyyy-MM-dd HH:mm:ss", {
@@ -171,6 +181,7 @@ export default function TimeEntry({
   const beingExecutedVisits = [];
   const scheduledVisits = [];
   const visitRows = [];
+  const groupIds = planGroupIds(timeEntry.plan.visits);
 
   for (const visit of timeEntry.plan.visits) {
     if (new Date(visit.endTime) < eventTime) {
@@ -188,6 +199,7 @@ export default function TimeEntry({
         <VisitRow
           key={executedVisits[i].startTime}
           visit={executedVisits[i]}
+          groupIds={groupIds}
           site={site}
           state="executed"
           drawBotBorder={beingExecutedVisits.length === 0}
@@ -198,6 +210,7 @@ export default function TimeEntry({
         <VisitRow
           key={executedVisits[i].startTime}
           visit={executedVisits[i]}
+          groupIds={groupIds}
           site={site}
           state="executed"
         />,
@@ -210,6 +223,7 @@ export default function TimeEntry({
       <VisitRow
         key={beingExecutedVisits[i].startTime}
         visit={beingExecutedVisits[i]}
+        groupIds={groupIds}
         site={site}
         state="executing"
         beingExecuted={true}
@@ -223,6 +237,7 @@ export default function TimeEntry({
         <VisitRow
           key={scheduledVisits[i].startTime}
           visit={scheduledVisits[i]}
+          groupIds={groupIds}
           site={site}
           state="scheduled"
           drawTopBorder={
@@ -235,6 +250,7 @@ export default function TimeEntry({
         <VisitRow
           key={scheduledVisits[i].startTime}
           visit={scheduledVisits[i]}
+          groupIds={groupIds}
           site={site}
           state="scheduled"
         />,
@@ -274,6 +290,7 @@ export default function TimeEntry({
             <TableHead></TableHead>
             <TableHead></TableHead>
             <TableHead></TableHead>
+            <TableHead></TableHead>
             <TableHead className="text-center" colSpan={2}>
               Atom
             </TableHead>
@@ -299,6 +316,7 @@ export default function TimeEntry({
             <TableHead>Observation Id</TableHead>
             <TableHead>Targets</TableHead>
             <TableHead>Observation Class</TableHead>
+            <TableHead>Group</TableHead>
             <TableHead>Band</TableHead>
             <TableHead>Start Time</TableHead>
             <TableHead>Start</TableHead>

@@ -92,6 +92,8 @@ class Plan:
         score: float,
         peak_score: float,
         atom_times: List[int],
+        group_id: Optional[str] = None,
+        group_name: Optional[str] = None,
     ) -> None:
 
         # Find step numbers
@@ -121,6 +123,8 @@ class Plan:
             # were actually observed, since an event can cut the visit short of atom_end.
             f"{atom_end + 1}/{len(obs.sequence)}",
             atom_times,
+            group_id,
+            group_name,
         )
         self.visits.append(visit)
 

@@ -429,6 +429,8 @@ class NightlyTimeline:
                                     "score": v.score,
                                     "peakScore": v.peak_score,
                                     "completion": v.completion,
+                                    "groupId": v.group_id,
+                                    "groupName": v.group_name,
                                 }
                                 for v, alt in zip(te.plan_generated.visits, te.plan_generated.alt_degs)
                             ],

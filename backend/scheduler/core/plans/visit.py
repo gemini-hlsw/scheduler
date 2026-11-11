@@ -29,3 +29,5 @@ class Visit:
     step_count: Optional[int]
     completion: str
     atom_times: List[int]  # List of times for each atom in the visit, in slots
+    group_id: Optional[str] = None
+    group_name: Optional[str] = None

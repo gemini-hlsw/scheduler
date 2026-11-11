@@ -124,6 +124,10 @@ class SVisit:
     # The observation's page in Explore. Null outside the ODB, or when the plan was
     # serialized without a way to find the program's ODB id.
     explore_url: Optional[str] = None
+    # The consecutive AND group the visit belongs to. Visits sharing a group_id have to be
+    # done together. Null when the observation was scheduled on its own.
+    group_id: Optional[str] = None
+    group_name: Optional[str] = None
 
     @staticmethod
     def from_computed_visit(
@@ -167,6 +171,8 @@ class SVisit:
             step_end=step_end,
             band=SVisit._band_number(visit.observation.band),
             explore_url=explore_url,
+            group_id=visit.group_id,
+            group_name=visit.group_name,
         )
 
     @staticmethod
