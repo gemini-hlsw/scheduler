@@ -1802,6 +1802,8 @@ class GppProgramProvider(ProgramProvider):
 
         # Recursively process the group elements, reversing required to get the order
         # as in Explore
+        n_obs_sci = 0
+        n_obs_cal = 0   # For tellurics and other cal that we want to ignore if alone
         elem_parent_index = -1
         for element in elements_list:
             if element['observation']:
@@ -1824,6 +1826,12 @@ class GppProgramProvider(ProgramProvider):
                     if obs.calibration_role not in [CalibrationRole.TWILIGHT, CalibrationRole.DAYTIME_PINHOLE]:
                         observations.append(obs)
                         obs_parent_indices.append(elem_parent_index)
+                    # Count science and special cals that we may need to ignore
+                    if (obs.calibration_role is None and
+                            obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]):
+                        n_obs_sci += 1
+                    if obs.calibration_role in [CalibrationRole.TELLURIC]:
+                        n_obs_cal += 1
             elif element['group']:
                 subgroup_id = GroupID(element['group']['id'])
                 subgroup = self.parse_group(
@@ -1837,6 +1845,12 @@ class GppProgramProvider(ProgramProvider):
                 )
                 if subgroup is not None:
                     children.append(subgroup)
+
+        # If there are only tellurics and related cals that must be ignored if alone, return nothing
+        # Be careful, don't want to remove an after-telluric that needs to be observed
+        # Don't use for now. We would need to know if the group is being executed or not (ODB, prev plan).
+        # if n_obs_sci == 0 and n_obs_cal > 0:
+        #     return None
 
         # Put all the observations in trivial AND groups and extend the children to include them.
         obs_parent_indices.reverse()  # to get order correct

@@ -337,6 +337,17 @@ class Selector(SchedulerComponent):
         # Target is rising if the first HA that meets constraints is negative
         return True if len(ha_match) == 0 or target_info.hourangle[ha_match[0]] < 0 else False
 
+    @staticmethod
+    def clean_data_map(group_data_map: GroupDataMap, group: Group) -> GroupDataMap:
+        """Recursively remove a group's children from the group_data_map"""
+        for sg in group.children:
+            if sg.unique_id in group_data_map:
+                group_data_map.pop(sg.unique_id)
+                if sg.is_observation_group():
+                    return group_data_map
+                else:
+                    group_data_map = Selector.clean_data_map(group_data_map, sg)
+
     def score_program(
         self,
         program: Program,
@@ -479,12 +490,12 @@ class Selector(SchedulerComponent):
         if not group.is_observation_group():
             raise ValueError(f'Non-observation group {group.id} cannot be treated as observation group.')
 
-        verbose = False
+        # verbose = True
 
         obs = group.children
-        if verbose:
-            print(f'\t\t\t_calculate_observation_group: {obs.unique_id.id} {obs.status}')
-        if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.INACTIVE, ObservationStatus.ON_HOLD}:
+        logger.debug(f'\t\t\t_calculate_observation_group: {obs.unique_id.id} {obs.status}')
+        if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.SUSPENDED,
+                          ObservationStatus.INACTIVE, ObservationStatus.ON_HOLD}:
             logger.debug(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
             return group_data_map
 
@@ -605,6 +616,7 @@ class Selector(SchedulerComponent):
                 schedulable_slot_indices[night_idx] = np.array([])
 
         obs_scores = ranker.score_observation(program, obs, self.night_configurations, night_indices)
+        logger.debug(f'\n Observation max score: {max(obs_scores[night_idx])}')
 
         # Calculate the scores for the observation across all night indices across all timeslots.
         scores = {
@@ -699,6 +711,8 @@ class Selector(SchedulerComponent):
                 logger.warning(
                     f'Selector skipping group {group.unique_id}: scores missing for children: {missing_str}.'
                 )
+                # Remove any children still in the data map
+                group_data_map = Selector.clean_data_map(group_data_map, group)
             return group_data_map
 
         # Calculate the most restrictive conditions.
@@ -714,7 +728,7 @@ class Selector(SchedulerComponent):
             night_idx: all(group_data_map[sg.unique_id].group_info.night_filtering[night_idx] for sg in group.children)
             for night_idx in night_indices
         }
-        # print(f'night_filtering\n{night_filtering[night_indices[0]]}')
+        logger.debug(f'night_filtering\n{night_filtering[night_indices[0]]}')
 
         # The conditions score is the product of the conditions scores for each subgroup across each night.
         conditions_score = {}
@@ -773,9 +787,8 @@ class Selector(SchedulerComponent):
                 for night_idx in night_indices:
                     scores[night_idx] *= 0.0
 
-        if verbose:
-            print(f'\t\tmax group score: {np.max(scores[night_indices[0]])}')
-            print(f'\t\tschedulable_slot_indices {len(schedulable_slot_indices)}')
+        logger.debug(f'\t\tmax group score: {np.max(scores[night_indices[0]])}')
+        logger.debug(f'\t\tschedulable_slot_indices {len(schedulable_slot_indices)}')
             # print(scores[night_indices[0]])
 
         group_info = GroupInfo(
