@@ -494,8 +494,12 @@ class Selector(SchedulerComponent):
 
         obs = group.children
         logger.debug(f'\t\t\t_calculate_observation_group: {obs.unique_id.id} {obs.status}')
-        if obs.status in {ObservationStatus.OBSERVED, ObservationStatus.SUSPENDED,
-                          ObservationStatus.INACTIVE, ObservationStatus.ON_HOLD}:
+        if obs.status in {
+            ObservationStatus.OBSERVED,
+            ObservationStatus.SUSPENDED,
+            ObservationStatus.INACTIVE,
+            ObservationStatus.ON_HOLD,
+        }:
             logger.debug(f'Observation {obs.id.id} has a status of {obs.status.name}. Skipping.')
             return group_data_map
 
@@ -789,7 +793,7 @@ class Selector(SchedulerComponent):
 
         logger.debug(f'\t\tmax group score: {np.max(scores[night_indices[0]])}')
         logger.debug(f'\t\tschedulable_slot_indices {len(schedulable_slot_indices)}')
-            # print(scores[night_indices[0]])
+        # print(scores[night_indices[0]])
 
         group_info = GroupInfo(
             minimum_conditions=mrc,

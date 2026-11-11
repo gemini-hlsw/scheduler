@@ -188,7 +188,10 @@ async def get_expected_observations() -> list[ExpectedObservation]:
                 f"({len(seen)} observations, offset={offset!r}); aborting rather "
                 f"than looping."
             )
-        offset = str(matches[-1].id)
+        # The ODB picks the page by comparing ids as text but returns it sorted
+        # numerically, so once ids mix lengths (o-ffff vs o-10000) the last row
+        # is not where the page ended. Resume from the text-largest id instead.
+        offset = max(str(m.id) for m in matches)
 
     _logger.info(
         f"Expected set: {len(expected)} observations across {len(labels_by_program_id)} programs in {pages} ODB pages."
