@@ -1803,7 +1803,7 @@ class GppProgramProvider(ProgramProvider):
         # Recursively process the group elements, reversing required to get the order
         # as in Explore
         n_obs_sci = 0
-        n_obs_cal = 0   # For tellurics and other cal that we want to ignore if alone
+        n_obs_cal = 0  # For tellurics and other cal that we want to ignore if alone
         elem_parent_index = -1
         for element in elements_list:
             if element['observation']:
@@ -1827,8 +1827,10 @@ class GppProgramProvider(ProgramProvider):
                         observations.append(obs)
                         obs_parent_indices.append(elem_parent_index)
                     # Count science and special cals that we may need to ignore
-                    if (obs.calibration_role is None and
-                            obs.obs_class in [ObservationClass.SCIENCE, ObservationClass.PROGCAL]):
+                    if obs.calibration_role is None and obs.obs_class in [
+                        ObservationClass.SCIENCE,
+                        ObservationClass.PROGCAL,
+                    ]:
                         n_obs_sci += 1
                     if obs.calibration_role in [CalibrationRole.TELLURIC]:
                         n_obs_cal += 1
