@@ -12,7 +12,7 @@ from scheduler.core.events.queue.plan_status import PlanStatusTracker
 from scheduler.graphql_mid.types import NightPlansError
 from scheduler.night_monitor.night_monitor import NightMonitor
 from scheduler.services.logger_factory import create_logger
-from scheduler.shared_queue import plan_response_subscribers
+from scheduler.shared_queue import plan_response_subscribers, last_plan_responses
 from scheduler.engine import SchedulerParameters
 from scheduler.engine import EngineRT
 
@@ -77,6 +77,7 @@ class SchedulerProcess:
 
         self._engine_task = None
         self.task = None
+        last_plan_responses.pop(self.process_id, None)
 
     async def start_task(self):
         """

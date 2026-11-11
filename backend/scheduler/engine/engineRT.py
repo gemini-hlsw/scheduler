@@ -31,7 +31,7 @@ from astropy import units as u
 __all__ = ['EngineRT']
 
 from ..core.components.ranker import DefaultRanker
-from ..shared_queue import plan_response_subscribers
+from ..shared_queue import plan_response_subscribers, last_plan_responses
 
 _logger = logger_factory.create_logger(__name__)
 
@@ -393,6 +393,7 @@ class EngineRT:
                         # The night is over, so its timeline must not be served as the plan in
                         # effect to whatever runs next.
                         await self.nightly_timeline_store.reset()
+                        last_plan_responses.pop(self.process_id, None)
                         if is_operation:
                             # The NightTracker has already moved on to the next night, so keep
                             # consuming its events instead of leaving it unplanned.
@@ -402,7 +403,10 @@ class EngineRT:
                         break
                     if plan is None:
                         continue
-                    # Plan is already computed by the callback in consume_events
+                    # Plan is already computed by the callback in consume_events.
+                    # Kept before publishing, so a UI subscribing meanwhile gets it either way.
+                    # A failed plan is not kept: the last good one is still the plan in effect.
+                    last_plan_responses[self.process_id] = plan
                     for q in plan_response_subscribers.get(self.process_id, set()):
                         await q.put(plan)
 

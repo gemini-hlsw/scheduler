@@ -158,7 +158,8 @@ class SVisit:
             atom_end_idx=visit.atom_end_idx,
             altitude=alt_degs,
             instrument=instrument.id if instrument is not None else 'None',
-            fpu=fpu.id if fpu is not None else 'None',
+            # GMOS FPUs are barcodes, which only resource selection needs: show their common name.
+            fpu=(fpu.description or fpu.id) if fpu is not None else 'None',
             disperser=disperser.id if disperser is not None else 'None',
             filters=[f.id for f in filters] if filters is not None else [],
             required_conditions=SRequiredConditions.from_computed_conditions(visit.observation.constraints.conditions),

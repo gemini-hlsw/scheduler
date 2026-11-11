@@ -9,7 +9,7 @@ import BuildParameters from "../BuildParameters/BuildParameters";
 import SchedulerEvents from "./SchedulerEvents";
 
 export default function Operation() {
-  const { nightPlans } = useContext(GlobalStateContext);
+  const { rtNightPlans } = useContext(GlobalStateContext);
 
   return (
     <div className="flex flex-col gap-2">
@@ -34,7 +34,7 @@ export default function Operation() {
         </div>
       </div>
       <SchedulerEvents />
-      <Result plans={nightPlans} />
+      <Result plans={rtNightPlans} />
     </div>
   );
 }
