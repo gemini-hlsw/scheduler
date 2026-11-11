@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -188,7 +188,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -231,7 +231,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
     { name = "sniffio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f1/b4/636b3b65173d3ce9a38ef5f0522789614e590dab6a8d505340a4efe4c567/anyio-4.10.0.tar.gz", hash = "sha256:3f3fae35c96039744587aa5b8371e7e8e603c0702999535961dd336026973ba6", size = 213252, upload-time = "2025-08-04T08:54:26.451Z" }
 wheels = [
@@ -1455,16 +1455,16 @@ wheels = [
 
 [[package]]
 name = "lucupy"
-version = "0.2.23"
+version = "0.2.24"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "gelidum" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d9/c3/43199df2a31fde6a68a13783101827b04f7cc4a63b3339987c5e19573427/lucupy-0.2.23.tar.gz", hash = "sha256:e65fbaed190dc67e7c01e76e5b0d5e30a3d2478e98c10d27cff00aef79cb4a0b", size = 51852, upload-time = "2026-11-05T17:37:04.845Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/cf/b3cc53087d5d07152d232b787f727464e23170d30f19e41de624a078dfd3/lucupy-0.2.24.tar.gz", hash = "sha256:0b00ee500c78ad0cf8279a6a244c399972309eb42167406d7903cf843e67a412", size = 52159, upload-time = "2026-11-10T20:06:54.337Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/90/1a4ea2b40ae7ce977837fa2a30e552634617c7ce0302c7482aedcc32862c/lucupy-0.2.23-py3-none-any.whl", hash = "sha256:e72f2ede467647b9d5247af21076fecc84582d1d0e3b770db2e07adfbf661265", size = 74284, upload-time = "2026-11-05T17:37:05.789Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/99/f09e79bef26d720a9a14a714184849fc8d05e4864d00cf803d16ffebfeff/lucupy-0.2.24-py3-none-any.whl", hash = "sha256:2dce913a24baa83e3b8680579e82ba710f5e9aa13d817b6e61c0dbd14428d645", size = 74543, upload-time = "2026-11-10T20:06:55.384Z" },
 ]
 
 [[package]]
@@ -2854,7 +2854,7 @@ requires-dist = [
     { name = "gql", specifier = ">=4.0.0" },
     { name = "greenlet", specifier = ">=3.3.1" },
     { name = "hypothesis", specifier = ">=6.137.1" },
-    { name = "lucupy", specifier = ">=0.2.23" },
+    { name = "lucupy", specifier = ">=0.2.24" },
     { name = "matplotlib", specifier = ">=3.10.5" },
     { name = "numpy", specifier = ">=2.3.2" },
     { name = "omegaconf", specifier = ">=2.3.0" },
