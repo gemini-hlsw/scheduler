@@ -153,6 +153,11 @@ class EngineRT:
         )
 
         optimizer = builder.build_optimizer(Blueprints.optimizer)
+
+        # Kristin's new default params
+        self.params.ranker_parameters.met_power=2.0
+        self.params.ranker_parameters.vis_power=1.5
+
         ranker = DefaultRanker(
             collector, self.params.night_indices, self.params.sites, params=self.params.ranker_parameters
         )
