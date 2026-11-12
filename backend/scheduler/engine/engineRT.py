@@ -23,6 +23,7 @@ from scheduler.graphql_mid.types import NewNightPlans, SNightTimelines, SRunSumm
 from scheduler.graphql_mid.types import NightPlansError
 from scheduler.night_monitor.event_sources import WeatherEventSource
 from scheduler.services.visibility_aggregator import coordination
+from scheduler.services.visibility_status.ignored import ignored_observations_store
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site, WaterVapor
 from astropy.coordinates import Angle
 from astropy import units as u
@@ -144,6 +145,7 @@ class EngineRT:
                 blueprint=Blueprints.collector,
                 night_times=night_times,
                 program_list=programs_list,
+                ignored_observation_ids=ignored_observations_store.snapshot(),
             )
 
         selector = builder.build_selector(
