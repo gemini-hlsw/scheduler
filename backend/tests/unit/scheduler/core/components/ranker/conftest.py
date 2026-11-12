@@ -135,7 +135,8 @@ class FakeGroup:
     group_name: str = 'G'
 
     def __post_init__(self):
-        self.children = [SimpleNamespace(unique_id=cid) for cid in self.children_ids]
+        # calibration_role: _score_and_group skips TELLURIC children (GSCHED-1088).
+        self.children = [SimpleNamespace(unique_id=cid, calibration_role=None) for cid in self.children_ids]
 
     def sites(self) -> FrozenSet[Site]:
         return self.group_sites
