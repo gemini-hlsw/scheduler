@@ -758,6 +758,12 @@ class Selector(SchedulerComponent):
         # across each night.
         # Type checker is balking here at the list of npt.NDArray[TimeslotIndex].
         # noinspection PyTypeChecker
+        # For testing
+        # for sg in group.children:
+        #     print(f'{sg.unique_id} {len(group_data_map[sg.unique_id].group_info.schedulable_slot_indices[0])} '
+        #           f'{group_data_map[sg.unique_id].group_info.schedulable_slot_indices[0][0]} '
+        #           f'{group_data_map[sg.unique_id].group_info.schedulable_slot_indices[0][-1]}')
+
         schedulable_slot_indices = {
             night_idx:
             # For each night, take the concatenation of the schedulable time slots for all children of the group
@@ -792,8 +798,18 @@ class Selector(SchedulerComponent):
                     scores[night_idx] *= 0.0
 
         logger.debug(f'\t\tmax group score: {np.max(scores[night_indices[0]])}')
-        logger.debug(f'\t\tschedulable_slot_indices {len(schedulable_slot_indices)}')
+        logger.debug(f'\t\tschedulable_slot_indices {len(schedulable_slot_indices[0])} '
+                     f'{schedulable_slot_indices[0][0]} {schedulable_slot_indices[0][-1]}')
         # print(scores[night_indices[0]])
+        # import matplotlib.pyplot as plt
+        # # for sg in group.children:
+        # #     ind = group_data_map[sg.unique_id].group_info.schedulable_slot_indices[0]
+        # #     plt.plot(scores[0][ind], label=sg.unique_id.id)
+        # ind = schedulable_slot_indices[0]
+        # plt.plot(ind, scores[0][ind])
+        # plt.xlabel('Timeslot')
+        # plt.ylabel('Combined Score')
+        # plt.show()
 
         group_info = GroupInfo(
             minimum_conditions=mrc,

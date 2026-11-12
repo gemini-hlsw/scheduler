@@ -17,7 +17,7 @@ from lucupy.minimodel import (
     Observation,
     ObservationStatus,
     Program,
-    Site,
+    Site, CalibrationRole,
 )
 from lucupy.types import ListOrNDArray, MinMax
 
@@ -336,11 +336,15 @@ class Ranker(ABC):
         for night_idx in nights_to_schedule:
             # What we want for the night is a numpy array of size (#obs, #timeslots in night)
             # where the rows are the observation scores. Then we will combine them.
-            for unique_group_id in (g.unique_id for g in group.children):
+            # for unique_group_id in (g.unique_id for g in group.children):
+            for g in group.children:
+                unique_group_id = g.unique_id
                 # To get this, we turn the scores of the children into a (1, #timeslots in night) array to append
                 # to the numpy array for the night.
-                subgroup_scores = np.array([group_data_map[unique_group_id].group_info.scores[night_idx]])
-                scores[night_idx] = np.append(scores[night_idx], subgroup_scores, axis=0)
+                # Ignore tellurics in the combined score for now
+                if g.calibration_role != CalibrationRole.TELLURIC:
+                    subgroup_scores = np.array([group_data_map[unique_group_id].group_info.scores[night_idx]])
+                    scores[night_idx] = np.append(scores[night_idx], subgroup_scores, axis=0)
 
         # Combine the scores as per the score_combiner and return.
         # apply_along_axis results in a (1, #timeslots in night) array, so we have to take index 0.

@@ -26,14 +26,16 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
     # Note we need to use 0. or applying this function results in an array of int instead of float.
     return np.array([np.max(x)]) if 0 not in x else np.array([0.0])
 
-
-# Default telescope altitude limits
+# Default site-specific telescope altitude limits
 # _def_alt_limits_site: Dict[Site, Dict[MinMax, Angle]] = {
 #     Site.GS: {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)},
 #     Site.GN: {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)}
 # }
 
-_def_alt_limits: Dict[MinMax, Angle] = {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)}
+# ToDo get these limits from the UI or Resource
+# _def_alt_limits: Dict[MinMax, Angle] = {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(90.0 * u.deg)}
+_def_alt_limits_gs: Dict[MinMax, Angle] = {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(90.0 * u.deg)}
+_def_alt_limits_gn: Dict[MinMax, Angle] = {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(90.0 * u.deg)}
 
 # These are not used in the current implementation
 # _default_user_priority_factors: Dict[Priority, float] = {Priority.LOW: 1.0, Priority.MEDIUM: 1.25, Priority.HIGH: 1.5}
@@ -48,8 +50,8 @@ class RankerParameters:
 
     thesis_factor: float = 1.1
     power: int = 2
-    met_power: float = 1.0  # DefaultRanker: exponent. AdditiveRanker: linear weight.
-    vis_power: float = 1.0  # DefaultRanker: exponent. AdditiveRanker: linear weight.
+    met_power: float = 2.0  # DefaultRanker: exponent. AdditiveRanker: linear weight.
+    vis_power: float = 1.5  # DefaultRanker: exponent. AdditiveRanker: linear weight.
     wha_power: float = 1.0  # DefaultRanker: exponent. AdditiveRanker: linear weight.
     air_power: float = 0.0  # Always an exponent: score /= min(airmass)**air_power.
     program_priority: float = 10.0
@@ -57,8 +59,10 @@ class RankerParameters:
     preimaging_factor: float = 1.25
     ongoing_factor: float = 1.5
     # altitude_limits: Dict[Site, Dict[MinMax, Angle]] = field(default_factory=lambda: _def_alt_limits_site)
-    gs_altitude_limits: Dict[MinMax, Angle] = field(default_factory=lambda: _def_alt_limits)
-    gn_altitude_limits: Dict[MinMax, Angle] = field(default_factory=lambda: _def_alt_limits)
+    gs_altitude_limits: Dict[MinMax, Angle] = field(default_factory=lambda: _def_alt_limits_gs)
+    gn_altitude_limits: Dict[MinMax, Angle] = field(default_factory=lambda: _def_alt_limits_gn)
+    # gs_altitude_limits: Dict[MinMax, Angle] = field(default_factory=lambda: _def_alt_limits)
+    # gn_altitude_limits: Dict[MinMax, Angle] = field(default_factory=lambda: _def_alt_limits)
     altitude_limits: Dict[Site, Dict[MinMax, Angle]] = field(init={})
 
     # user_priority_factors: Dict[Priority, float] = field(default_factory=lambda: _default_user_priority_factors)
