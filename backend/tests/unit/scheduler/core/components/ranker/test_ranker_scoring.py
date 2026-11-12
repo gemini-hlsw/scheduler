@@ -51,13 +51,15 @@ from .conftest import (
 # Pre-refactor scores for the baseline scenario in `conftest.collector` with default
 # RankerParameters. Hex of `scores[night].tobytes()`, so the comparison is bit-exact with no
 # float formatting in between. Both nights are identical by construction.
+# Regenerated for GSCHED-1088, which intentionally moved the defaults to met_power=2.0 and
+# vis_power=1.5.
 _GOLDEN_DEFAULT = (
-    '0000000000000000e2c4dd9ee362f73feea5af65f50d1f4025e055d249d42540'
-    '25e055d249d42540f2a5af65f50d1f40f1c4dd9ee362f73f0000000000000000'
+    '0000000000000000be9a4df4d00021401c622dee14944640d25fba4605be4f40'
+    'd25fba4605be4f401e622dee14944640c99a4df4d00021400000000000000000'
 )
 _GOLDEN_ADDITIVE = (
-    '0ad7a3703dca2240bc15d846c5902340b09bdf42c0e82640ab5ee3c0bd942840'
-    'ab5ee3c0bd942840b19bdf42c0e82640bc15d846c59023400ad7a3703dca2240'
+    '14ae47e17a9432406dcd61ccbef732406790654abca33440e4716709bb793540'
+    'e4716709bb7935406790654abca334406dcd61ccbef7324014ae47e17a943240'
 )
 
 
@@ -171,9 +173,9 @@ def test_wha_is_clamped_at_zero(cls, collector):
 
 @BOTH
 def test_slots_outside_the_altitude_limits_score_zero(cls, collector, make_target_info):
-    # Default limits are [18, 88] deg; put the first slot below and the last above.
+    # Default limits are [18, 90] deg; put the first slot below and the last above.
     alt = np.full(N_SLOTS, 55.0)
-    alt[0], alt[-1] = 10.0, 89.0
+    alt[0], alt[-1] = 10.0, 91.0
     collector.target_info = {n: make_target_info(alt_deg=alt) for n in NIGHTS}
 
     scores = _score(cls, collector)[NIGHTS[0]]

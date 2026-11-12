@@ -17,7 +17,8 @@ from lucupy.minimodel import (
     Observation,
     ObservationStatus,
     Program,
-    Site, CalibrationRole,
+    Site,
+    CalibrationRole,
 )
 from lucupy.types import ListOrNDArray, MinMax
 

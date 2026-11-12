@@ -109,11 +109,7 @@ function VisitRow({
         <ObsClassBadge obsClass={visit.obsClass} />
       </TableCell>
       <TableCell>
-        <GroupBadge
-          groupId={visit.groupId}
-          groupName={visit.groupName}
-          groupIds={groupIds}
-        />
+        <GroupBadge groupId={visit.groupId} groupIds={groupIds} />
       </TableCell>
       <TableCell className="text-center">{visit.band ?? "—"}</TableCell>
       <TableCell>
