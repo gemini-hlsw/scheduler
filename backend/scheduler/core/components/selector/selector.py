@@ -801,8 +801,7 @@ class Selector(SchedulerComponent):
         first_night_slots = schedulable_slot_indices[night_indices[0]]
         if len(first_night_slots) > 0:
             logger.debug(
-                f'\t\tschedulable_slot_indices {len(first_night_slots)} '
-                f'{first_night_slots[0]} {first_night_slots[-1]}'
+                f'\t\tschedulable_slot_indices {len(first_night_slots)} {first_night_slots[0]} {first_night_slots[-1]}'
             )
         else:
             logger.debug('\t\tschedulable_slot_indices 0')
