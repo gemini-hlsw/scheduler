@@ -20,19 +20,17 @@ export function planGroupIds(visits: { groupId?: string | null }[]): string[] {
 }
 
 // Marks a visit that belongs to a consecutive AND group. Visits showing the
-// same name and color have to be done together.
+// same id and color have to be done together.
 export function GroupBadge({
   groupId,
-  groupName,
   groupIds,
 }: {
   groupId?: string | null;
-  groupName?: string | null;
   groupIds: string[];
 }) {
   if (!groupId) return null;
-  // Unnamed groups fall back to the id, without the program id the row already shows.
-  const label = groupName || groupId.split(":").pop();
+  // The unique id may carry the program id, which the row already shows.
+  const label = groupId.split(":").pop();
   const color = GROUP_COLORS[groupIds.indexOf(groupId) % GROUP_COLORS.length];
   return (
     <Badge className={color} title={groupId}>
