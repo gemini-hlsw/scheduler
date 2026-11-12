@@ -798,8 +798,10 @@ class Selector(SchedulerComponent):
                     scores[night_idx] *= 0.0
 
         logger.debug(f'\t\tmax group score: {np.max(scores[night_indices[0]])}')
-        logger.debug(f'\t\tschedulable_slot_indices {len(schedulable_slot_indices[0])} '
-                     f'{schedulable_slot_indices[0][0]} {schedulable_slot_indices[0][-1]}')
+        logger.debug(
+            f'\t\tschedulable_slot_indices {len(schedulable_slot_indices[0])} '
+            f'{schedulable_slot_indices[0][0]} {schedulable_slot_indices[0][-1]}'
+        )
         # print(scores[night_indices[0]])
         # import matplotlib.pyplot as plt
         # # for sg in group.children:

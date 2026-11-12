@@ -26,6 +26,7 @@ def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
     # Note we need to use 0. or applying this function results in an array of int instead of float.
     return np.array([np.max(x)]) if 0 not in x else np.array([0.0])
 
+
 # Default site-specific telescope altitude limits
 # _def_alt_limits_site: Dict[Site, Dict[MinMax, Angle]] = {
 #     Site.GS: {MinMax.MIN: Angle(18.0 * u.deg), MinMax.MAX: Angle(88.0 * u.deg)},
