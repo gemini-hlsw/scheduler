@@ -5,6 +5,12 @@ This changelog is managed by [Towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 2026.11.5 (2026-11-12)
+
+### Bug Fixes
+
+- Fix empty group crashing
+
 ## 2026.11.4 (2026-11-12)
 
 ### Bug Fixes

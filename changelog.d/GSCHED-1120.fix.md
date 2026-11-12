@@ -1,1 +1,0 @@
-Fix empty group crashing
