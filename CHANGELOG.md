@@ -5,6 +5,12 @@ This changelog is managed by [Towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 2026.11.4 (2026-11-12)
+
+### Bug Fixes
+
+- Ignore tellurics when combining AND group score
+
 ## 2026.11.3 (2026-11-11)
 
 ### Features
