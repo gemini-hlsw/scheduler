@@ -22,9 +22,9 @@ __all__ = [
 def _default_score_combiner(x: npt.NDArray[float]) -> npt.NDArray[float]:
     """
     The default function used to combine scores for Groups.
+    If group has no science (orphan telluric) it defaults to 0.
     """
-    # Note we need to use 0. or applying this function results in an array of int instead of float.
-    return np.array([np.max(x)]) if 0 not in x else np.array([0.0])
+    return np.array([np.max(x)]) if x.size > 0 and 0 not in x else np.array([0.0])
 
 
 # Default site-specific telescope altitude limits
