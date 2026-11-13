@@ -8,3 +8,4 @@ plan_response_subscribers: dict[str, set[Queue]] = {}
 last_plan_responses: dict[str, object] = {}
 build_parameters_subscribers: set[Queue] = set()
 program_selection_subscribers: set[Queue] = set()
+ignored_observations_subscribers: set[Queue] = set()

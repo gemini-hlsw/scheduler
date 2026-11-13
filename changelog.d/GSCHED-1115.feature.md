@@ -1,0 +1,1 @@
+Ignore observations from the Visibility tab: a new Ignored tab lists the observations left out of the plans, with a finder to add more and an undo. Ignored observations get no visibility when a plan is built, so they apply from the next plan; the list is saved in the new `ignored_observations` table.

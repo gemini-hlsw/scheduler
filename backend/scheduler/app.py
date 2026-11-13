@@ -9,6 +9,7 @@ from scheduler.orchestration.process_manager import process_manager
 from scheduler.services.sight.database.connection import init_db_engine, dispose_engine
 from scheduler.services.logger_factory import create_logger
 from scheduler.services.telemetry import setup_telemetry, shutdown_telemetry
+from scheduler.services.visibility_status.ignored import ignored_observations_store
 from scheduler.version import get_app_version
 
 _logger = create_logger(__name__, with_id=False)
@@ -21,6 +22,12 @@ async def lifespan(app: FastAPI):
         setup_telemetry()
         await init_db_engine()
         _logger.info("Sight DB engine initialized")
+
+        # Before the process manager, so the first plan already leaves them out.
+        try:
+            await ignored_observations_store.load()
+        except Exception as exc:
+            _logger.error(f"Could not load the ignore list; plans will include every observation: {exc}")
 
         # Start process manager as background task
         await process_manager.start()

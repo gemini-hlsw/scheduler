@@ -21,6 +21,7 @@ from scheduler.shared_queue import (
     last_plan_responses,
     build_parameters_subscribers,
     program_selection_subscribers,
+    ignored_observations_subscribers,
 )
 from scheduler.clients.gpp import gpp
 from scheduler.services.sight.database.connection import session_scope
@@ -28,6 +29,7 @@ from scheduler.services.visibility_status.coverage import (
     get_coverage_summary,
     list_observation_coverage,
 )
+from scheduler.services.visibility_status.ignored import ignored_observations_store
 from scheduler.services.visibility_status.status import (
     get_aggregator_status as get_typed_aggregator_status,
 )
@@ -53,6 +55,7 @@ from .types import (
     VisibilityCoverage,
     ObservationCoveragePage,
     ObservationStatus,
+    IgnoredObservation,
     VisibleObservationsPage,
     SchedulerEvent,
     PlanStatusResponse,
@@ -311,6 +314,12 @@ class Query:
         return VisibleObservationsPage.from_service(page)
 
     @strawberry.field
+    async def ignored_observations(self) -> list[IgnoredObservation]:
+        """The observations left out of the plans, oldest first."""
+        rows = await ignored_observations_store.get_all()
+        return [IgnoredObservation.from_service(row) for row in rows]
+
+    @strawberry.field
     async def build_parameters(self) -> BuildParametersResponse:
         build_params = await build_params_store.get()
 
@@ -419,6 +428,22 @@ class Subscription:
             program_selection_subscribers.discard(client_queue)
 
     @strawberry.subscription
+    async def ignored_observations_updates(self) -> AsyncGenerator[list[IgnoredObservation], None]:
+        """The shared ignore list: the current one first, then every change."""
+        client_queue = asyncio.Queue()
+        # Subscribe before reading, so a change landing in between is not lost. At
+        # worst it arrives twice, which is harmless for a full snapshot.
+        ignored_observations_subscribers.add(client_queue)
+        try:
+            rows = await ignored_observations_store.get_all()
+            yield [IgnoredObservation.from_service(row) for row in rows]
+            while True:
+                rows = await client_queue.get()
+                yield [IgnoredObservation.from_service(row) for row in rows]
+        finally:
+            ignored_observations_subscribers.discard(client_queue)
+
+    @strawberry.subscription
     async def scheduler_events(self) -> AsyncGenerator[SchedulerEvent, None]:
         """Every event the operation Scheduler receives: the recent ones first, oldest first,
         then each new one as it arrives."""
@@ -478,6 +503,20 @@ class Mutation:
         deselected = await build_params_store.reset_program_selection()
         _broadcast_program_selection(deselected)
         return ProgramSelection.from_ids(deselected)
+
+    @strawberry.mutation
+    async def set_observations_ignored(self, observation_ids: list[str], ignored: bool) -> list[IgnoredObservation]:
+        """Leave these observations out of the plans, or let them back in, for every browser.
+        Applies from the next plan."""
+        if ignored:
+            rows = await ignored_observations_store.ignore(observation_ids)
+        else:
+            rows = await ignored_observations_store.restore(observation_ids)
+        # No await between the store update and this, so concurrent changes reach
+        # every subscriber in the order the store applied them.
+        for queue in ignored_observations_subscribers:
+            queue.put_nowait(rows)
+        return [IgnoredObservation.from_service(row) for row in rows]
 
 
 def _broadcast_program_selection(deselected: frozenset[str]) -> None:
