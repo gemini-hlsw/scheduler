@@ -194,8 +194,10 @@ class Query:
         # Schedule event with None time to compute the plan from start of the night
         await op_process.scheduler_queue.add_schedule_event(
             OnDemandScheduleEvent(
-                site=None, description=f"Plan requested from the UI{_requested_by(info)} (start of night)",
-                time=None, requested_by_user=True
+                site=None,
+                description=f"Plan requested from the UI{_requested_by(info)} (start of night)",
+                time=None,
+                requested_by_user=True,
             )
         )
         return 'Plan is on the queue in the Operation Process!'
@@ -209,8 +211,10 @@ class Query:
         # Compute plan starting from the current time
         await op_process.scheduler_queue.add_schedule_event(
             OnDemandScheduleEvent(
-                site=None, description=f"Plan requested from the UI{_requested_by(info)}",
-                time=datetime.now(UTC), requested_by_user=True
+                site=None,
+                description=f"Plan requested from the UI{_requested_by(info)}",
+                time=datetime.now(UTC),
+                requested_by_user=True,
             )
         )
         return 'Plan is on the queue in the Operation Process!'

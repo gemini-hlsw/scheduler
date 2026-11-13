@@ -129,10 +129,10 @@ def _dearmor(text: str) -> bytes:
         end = next(i for i, line in enumerate(lines) if line.startswith("-----END PGP"))
     except StopIteration:
         raise ValueError("Malformed PGP armor.") from None
-    body = lines[start + 1:end]
+    body = lines[start + 1 : end]
     # Armor headers (e.g. "Version: …") end at the first blank line, if any.
     if "" in body and any(":" in line for line in body[: body.index("")]):
-        body = body[body.index("") + 1:]
+        body = body[body.index("") + 1 :]
     data = "".join(line for line in body if line and not line.startswith("="))  # "=" starts the CRC
     return base64.b64decode(data)
 
@@ -152,7 +152,7 @@ def _rsa_from_pgp(data: bytes) -> RSAPublicKey:
             elif first < 224:
                 length, i = ((first - 192) << 8) + data[i + 2] + 192, i + 3
             elif first == 255:
-                length, i = struct.unpack(">I", data[i + 2:i + 6])[0], i + 6
+                length, i = struct.unpack(">I", data[i + 2 : i + 6])[0], i + 6
             else:
                 raise ValueError("Partial-length PGP packets are not supported in keys.")
         else:  # old format
@@ -160,9 +160,9 @@ def _rsa_from_pgp(data: bytes) -> RSAPublicKey:
             size = {0: 1, 1: 2, 2: 4}.get(header & 0x03)
             if size is None:
                 raise ValueError("Indeterminate-length PGP packets are not supported.")
-            length = int.from_bytes(data[i + 1:i + 1 + size], "big")
+            length = int.from_bytes(data[i + 1 : i + 1 + size], "big")
             i += 1 + size
-        body = data[i:i + length]
+        body = data[i : i + length]
         i += length
         if tag == 6:  # public key
             if body[0] != 4:
@@ -176,10 +176,10 @@ def _rsa_from_pgp(data: bytes) -> RSAPublicKey:
 
 
 def _mpi(data: bytes, offset: int) -> tuple[int, int]:
-    bits = struct.unpack(">H", data[offset:offset + 2])[0]
+    bits = struct.unpack(">H", data[offset : offset + 2])[0]
     size = (bits + 7) // 8
     start = offset + 2
-    return int.from_bytes(data[start:start + size], "big"), start + size
+    return int.from_bytes(data[start : start + size], "big"), start + size
 
 
 # --- Verification -----------------------------------------------------------
