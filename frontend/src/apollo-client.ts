@@ -8,6 +8,8 @@ import { split, HttpLink } from "@apollo/client";
 import { getMainDefinition } from "@apollo/client/utilities";
 import { createClient } from "graphql-ws";
 import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
+import { setContext } from "@apollo/client/link/context";
+import { getAuthState } from "./auth/store";
 
 const SCHEDULER_BACKEND_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:8000/graphql";
@@ -34,10 +36,26 @@ const SIMULATION_API_URL = new URL(SIMULATION_BACKEND_URL);
 const WEATHER_API_URL = new URL(WEATHER_BACKEND_URL);
 const SIMULATION_WEATHER_API_URL = new URL(SIMULATION_WEATHER_BACKEND_URL);
 
+// The SSO token goes only to the scheduler backends; the weather service is
+// external and is not sent the user's credentials.
+const WEATHER_CLIENTS = new Set(["weatherClient", "simulationWeatherClient"]);
+
+function bearer(): Record<string, string> {
+  const { token } = getAuthState();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+const authLink = setContext((_operation, prevContext) =>
+  WEATHER_CLIENTS.has(prevContext.clientName)
+    ? {}
+    : { headers: { ...prevContext.headers, ...bearer() } }
+);
+
 function createWsLink(
   url: URL,
   clientName: string,
-  connectedVar?: ReactiveVar<boolean>
+  connectedVar?: ReactiveVar<boolean>,
+  authenticated = true
 ) {
   return new GraphQLWsLink(
     createClient({
@@ -45,6 +63,8 @@ function createWsLink(
         url.pathname
       }`,
       keepAlive: 10000,
+      // Read on every (re)connect, so a refreshed token is used from then on.
+      connectionParams: () => (authenticated ? bearer() : {}),
       retryAttempts: Infinity,
       shouldRetry: () => true,
       on: {
@@ -85,12 +105,14 @@ export const isSimulationConnectedVar = makeVar(false);
 const wsWeatherLink = createWsLink(
   WEATHER_API_URL,
   "Weather",
-  isWeatherConnectedVar
+  isWeatherConnectedVar,
+  false
 );
 const wsSimulationWeatherLink = createWsLink(
   SIMULATION_WEATHER_API_URL,
   "Simulation Weather",
-  isSimulationWeatherConnectedVar
+  isSimulationWeatherConnectedVar,
+  false
 );
 const wsSchedulerLink = createWsLink(
   SCHEDULER_API_URL,
@@ -173,6 +195,6 @@ const splitLink = split(
 );
 
 export const client = new ApolloClient({
-  link: splitLink,
+  link: authLink.concat(splitLink),
   cache: new InMemoryCache(),
 });
