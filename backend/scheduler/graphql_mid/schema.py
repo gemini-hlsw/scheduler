@@ -66,6 +66,21 @@ from scheduler.core.events.queue import OnDemandScheduleEvent
 _logger = create_logger(__name__)
 
 
+def _requester(info: strawberry.Info) -> str:
+    """Who sent the request: the SSO user the GraphQL server verified, or
+    "anonymous" when auth is off (local runs) or the schema runs in-process."""
+    context = info.context
+    user = context.get("user") if isinstance(context, dict) else None
+    return str(user) if user is not None else "anonymous"
+
+
+def _requested_by(info: strawberry.Info) -> str:
+    """The " by <name>" suffix for event descriptions; empty when anonymous."""
+    context = info.context
+    user = context.get("user") if isinstance(context, dict) else None
+    return f" by {user.name}" if user is not None else ""
+
+
 # TODO: All times need to be in UTC. This is done here but converted from the Optimizer plans, where it should be done.
 
 
@@ -130,7 +145,9 @@ class Query:
         return Version(version=get_app_version(), changelog=[])
 
     @strawberry.field
-    async def schedule(self, schedule_id: str, new_schedule_input: CreateNewScheduleInput) -> str:
+    async def schedule(
+        self, info: strawberry.Info, schedule_id: str, new_schedule_input: CreateNewScheduleInput
+    ) -> str:
         schedule_id_var.set(schedule_id)
 
         start = datetime.fromisoformat(new_schedule_input.start_time).replace(tzinfo=ZoneInfo("UTC"))
@@ -165,11 +182,11 @@ class Query:
         _schedule_tasks.add(task)
         task.add_done_callback(_schedule_tasks.discard)
 
-        _logger.info(f"Scheduling run started for: {schedule_id}\n{params}")
+        _logger.info(f"Scheduling run started for: {schedule_id} (requested by {_requester(info)})\n{params}")
         return f'Plan is on the queue! for {schedule_id}'
 
     @strawberry.field
-    async def schedule_v2(self) -> str:
+    async def schedule_v2(self, info: strawberry.Info) -> str:
         op_process = process_manager.get_operation_process()
         if op_process is None:
             raise ValueError("No operation process is running: schedule_v2 is only available in OPERATION mode.")
@@ -177,13 +194,16 @@ class Query:
         # Schedule event with None time to compute the plan from start of the night
         await op_process.scheduler_queue.add_schedule_event(
             OnDemandScheduleEvent(
-                site=None, description="Plan requested from the UI (start of night)", time=None, requested_by_user=True
+                site=None,
+                description=f"Plan requested from the UI{_requested_by(info)} (start of night)",
+                time=None,
+                requested_by_user=True,
             )
         )
         return 'Plan is on the queue in the Operation Process!'
 
     @strawberry.field
-    async def on_demand_schedule(self) -> str:
+    async def on_demand_schedule(self, info: strawberry.Info) -> str:
         op_process = process_manager.get_operation_process()
         if op_process is None:
             raise ValueError("No operation process is running: on_demand_schedule is only available in OPERATION mode.")
@@ -191,7 +211,10 @@ class Query:
         # Compute plan starting from the current time
         await op_process.scheduler_queue.add_schedule_event(
             OnDemandScheduleEvent(
-                site=None, description="Plan requested from the UI", time=datetime.now(UTC), requested_by_user=True
+                site=None,
+                description=f"Plan requested from the UI{_requested_by(info)}",
+                time=datetime.now(UTC),
+                requested_by_user=True,
             )
         )
         return 'Plan is on the queue in the Operation Process!'
@@ -453,7 +476,7 @@ class Subscription:
 @strawberry.type
 class Mutation:
     @strawberry.mutation
-    async def update_build_params(self, build_params_input: BuildParametersInput) -> str:
+    async def update_build_params(self, info: strawberry.Info, build_params_input: BuildParametersInput) -> str:
         msg = ''
         try:
             build_params = build_params_input.to_pydantic()
@@ -461,20 +484,25 @@ class Mutation:
             for queue in build_parameters_subscribers:
                 await queue.put(build_params)
             msg += 'Build Parameters updated successful'
+            _logger.info(f"Build parameters updated by {_requester(info)}: {build_params}")
         except ValidationError as e:
             msg += f'Error: {e.errors()}'
         return msg
 
     @strawberry.mutation
-    async def set_program_selection(self, program_ids: list[str], selected: bool) -> ProgramSelection:
+    async def set_program_selection(
+        self, info: strawberry.Info, program_ids: list[str], selected: bool
+    ) -> ProgramSelection:
         """Check or uncheck these programs for every browser."""
+        _logger.info(f"Programs {'selected' if selected else 'deselected'} by {_requester(info)}: {program_ids}")
         deselected = await build_params_store.set_programs_selected(program_ids, selected)
         _broadcast_program_selection(deselected)
         return ProgramSelection.from_ids(deselected)
 
     @strawberry.mutation
-    async def reset_program_selection(self) -> ProgramSelection:
+    async def reset_program_selection(self, info: strawberry.Info) -> ProgramSelection:
         """Check every program again, for every browser."""
+        _logger.info(f"Program selection reset by {_requester(info)}")
         deselected = await build_params_store.reset_program_selection()
         _broadcast_program_selection(deselected)
         return ProgramSelection.from_ids(deselected)

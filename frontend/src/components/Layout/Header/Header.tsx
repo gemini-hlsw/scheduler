@@ -10,6 +10,7 @@ import { FaMoon, FaSun } from "react-icons/fa";
 import { ConnectionBadge } from "@/components/ui/connectionBadge";
 import { OperationNight } from "./OperationNight";
 import { SiteClocks } from "./SiteClocks";
+import { UserMenu } from "@/auth/UserMenu";
 
 export default function Header({ title }: { title: string }) {
   const { theme, toggleTheme } = useContext(ThemeContext);
@@ -42,6 +43,7 @@ export default function Header({ title }: { title: string }) {
       <div className={cn("flex flex-row items-center gap-2 shrink")}>
         <SiteClocks />
         <About />
+        <UserMenu />
         <Button variant="outline" size="xs" onClick={toggleTheme}>
           {theme === "dark" ? <FaMoon /> : <FaSun />}
           <span className="label">{theme}</span>
