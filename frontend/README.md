@@ -81,6 +81,31 @@ If everything goes well you should be able to see something similar to the follo
 
 This mean now you should be able to connect to http://localhost:5173 web and see the UI running.
 
+### Signing in (SSO)
+
+The UI signs in through GPP SSO with ORCID, the same way as the other GPP apps
+(lucuma-ts `resource-ui`/`admin-ui`), and only users with a **staff** or
+**admin** role get past the sign-in screen. The token is sent as
+`Authorization: Bearer …` to the scheduler backends (HTTP and websocket
+`connectionParams`), never to the weather service.
+
+`schedule.gemini.edu` signs in through the production SSO; every other host uses
+the development SSO. Set `VITE_SSO_URL` to override it.
+
+The dev SSO refuses `localhost`, and its session cookie is `SameSite=Strict`,
+which the browser only sends from an https page on `gemini.edu`. To sign in from
+a local dev server, give it such a name and serve it over https:
+
+```bash
+sudo sh -c 'echo "127.0.0.1 schedule-local.gemini.edu" >> /etc/hosts'   # once
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj "/CN=schedule-local.gemini.edu" \
+  -addext "subjectAltName=DNS:schedule-local.gemini.edu" -keyout local.key -out local.crt   # once
+SCHEDULER_HTTPS_CERT=local.crt SCHEDULER_HTTPS_KEY=local.key pnpm dev
+```
+
+Open https://schedule-local.gemini.edu:5173 (accept the certificate once) and log in with
+ORCID. A session started on any other gemini.edu app is picked up automatically.
+
 ### Python scheduler server
 
 If the UI is configured to connect to a local running python instance, please make sure you have a started instance of the scheduler.

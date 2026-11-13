@@ -10,6 +10,8 @@ services:
     environment:
       APP_VERSION: ${APP_VERSION:-development}
       SCHEDULER_MODE: REALTIME
+      SSO_AUTH_REQUIRED: ${SSO_AUTH_REQUIRED:-false}
+      SSO_PUBLIC_KEY: ${SSO_PUBLIC_KEY:-}
       PORT: 8000
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://scheduler:scheduler_dev@postgres:5432/scheduler}
       CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}
@@ -37,6 +39,8 @@ services:
     environment:
       APP_VERSION: ${APP_VERSION:-development}
       SCHEDULER_MODE: VALIDATION
+      SSO_AUTH_REQUIRED: ${SSO_AUTH_REQUIRED:-false}
+      SSO_PUBLIC_KEY: ${SSO_PUBLIC_KEY:-}
       PORT: 8001
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://scheduler:scheduler_dev@postgres:5432/scheduler}
       CLOUDCUBE_URL: ${CLOUDCUBE_URL:-}

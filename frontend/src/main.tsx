@@ -12,33 +12,36 @@ import GlobalStateProvider from "./components/GlobalState/GlobalState";
 import Operation from "./components/Operation/Operation";
 import { Simulation } from "./components/Simulation/Simulation";
 import Visibility from "./components/Visibility/Visibility";
+import { AuthGate } from "./auth/AuthGate";
 import "./global.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <ThemeProvider>
-      <TooltipProvider>
-        <GlobalStateProvider>
-          <ApolloProvider client={client}>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<App />}>
-                  <Route index element={<Home />} />
-                  <Route path="operation" element={<Operation />} />
-                  <Route path="visibility" element={<Visibility />} />
-                  <Route path="validation" element={<Validation />} />
-                  <Route path="simulation" element={<Simulation />} />
-                  <Route path="link1" element={<h1>link1</h1>} />
-                  <Route path="link2" element={<h1>link2</h1>} />
-                  <Route path="link3" element={<h1>link3</h1>} />
-                  <Route path="link4" element={<h1>link4</h1>} />
-                  <Route path="link5" element={<h1>link5</h1>} />
-                </Route>
-              </Routes>
-            </BrowserRouter>
-          </ApolloProvider>
-        </GlobalStateProvider>
-      </TooltipProvider>
+      <AuthGate>
+        <TooltipProvider>
+          <GlobalStateProvider>
+            <ApolloProvider client={client}>
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<App />}>
+                    <Route index element={<Home />} />
+                    <Route path="operation" element={<Operation />} />
+                    <Route path="visibility" element={<Visibility />} />
+                    <Route path="validation" element={<Validation />} />
+                    <Route path="simulation" element={<Simulation />} />
+                    <Route path="link1" element={<h1>link1</h1>} />
+                    <Route path="link2" element={<h1>link2</h1>} />
+                    <Route path="link3" element={<h1>link3</h1>} />
+                    <Route path="link4" element={<h1>link4</h1>} />
+                    <Route path="link5" element={<h1>link5</h1>} />
+                  </Route>
+                </Routes>
+              </BrowserRouter>
+            </ApolloProvider>
+          </GlobalStateProvider>
+        </TooltipProvider>
+      </AuthGate>
     </ThemeProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

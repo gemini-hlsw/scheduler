@@ -1,0 +1,1 @@
+The scheduler UI signs in with GPP SSO (ORCID), and the GraphQL API verifies the SSO token: only staff, admin and service users can use it. Deployments must set `SSO_PUBLIC_KEY`; set `SSO_AUTH_REQUIRED=false` for local runs.

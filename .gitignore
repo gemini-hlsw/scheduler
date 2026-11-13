@@ -162,3 +162,7 @@ node_modules
 */**/.vite/
 *.local
 *.schema.json
+
+# Local dev certificate for https://schedule-local.gemini.edu (see frontend/README.md)
+local.crt
+local.key
