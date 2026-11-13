@@ -47,8 +47,15 @@ def _standard(role: str) -> dict:
 
 def _token(key, user: dict, **overrides) -> str:
     now = int(time.time())
-    claims = {"iss": "lucuma-sso", "aud": ["lucuma"], "sub": user["id"], "iat": now - 10,
-              "nbf": now - 10, "exp": now + 600, "lucuma-user": user}
+    claims = {
+        "iss": "lucuma-sso",
+        "aud": ["lucuma"],
+        "sub": user["id"],
+        "iat": now - 10,
+        "nbf": now - 10,
+        "exp": now + 600,
+        "lucuma-user": user,
+    }
     claims.update(overrides)
     return jwt.encode(claims, key, algorithm="RS512")
 
@@ -66,10 +73,16 @@ def _pgp_armor(public_key) -> str:
     uid = b"lucuma-sso"
     packet += bytes([0xC0 | 13, len(uid)]) + uid
     b64 = base64.b64encode(packet).decode()
-    lines = [b64[i:i + 64] for i in range(0, len(b64), 64)]
+    lines = [b64[i : i + 64] for i in range(0, len(b64), 64)]
     return "\n".join(
-        ["-----BEGIN PGP PUBLIC KEY BLOCK-----", "Version: test", "", *lines, "=abcd",
-         "-----END PGP PUBLIC KEY BLOCK-----"]
+        [
+            "-----BEGIN PGP PUBLIC KEY BLOCK-----",
+            "Version: test",
+            "",
+            *lines,
+            "=abcd",
+            "-----END PGP PUBLIC KEY BLOCK-----",
+        ]
     )
 
 
@@ -84,15 +97,25 @@ def test_loads_pgp_key_with_escaped_newlines(private_key):
 
 
 def test_loads_pem_key(private_key):
-    pem = private_key.public_key().public_bytes(
-        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
-    ).decode()
+    pem = (
+        private_key.public_key()
+        .public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+        .decode()
+    )
     assert load_public_key(pem).public_numbers() == private_key.public_key().public_numbers()
 
 
-@pytest.mark.parametrize("value, expected", [
-    ("Bearer abc", "abc"), ("bearer  abc ", "abc"), ("Basic abc", None), ("Bearer", None), (None, None), ("", None),
-])
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("Bearer abc", "abc"),
+        ("bearer  abc ", "abc"),
+        ("Basic abc", None),
+        ("Bearer", None),
+        (None, None),
+        ("", None),
+    ],
+)
 def test_bearer_token(value, expected):
     assert bearer_token(value) == expected
 
@@ -106,8 +129,9 @@ def test_staff_and_admin_pass(private_key, role, access):
 
 
 def test_service_user_passes(private_key):
-    user = verify_token(_token(private_key, {"type": "service", "id": "u-9", "name": "navigate"}),
-                        private_key.public_key())
+    user = verify_token(
+        _token(private_key, {"type": "service", "id": "u-9", "name": "navigate"}), private_key.public_key()
+    )
     assert user.access == Access.SERVICE
 
 
@@ -118,12 +142,15 @@ def test_low_roles_are_forbidden(private_key, user):
     assert e.value.status_code == 403
 
 
-@pytest.mark.parametrize("overrides", [
-    {"exp": int(time.time()) - 3600},
-    {"aud": ["someone-else"]},
-    {"iss": "not-sso"},
-    {"lucuma-user": None},
-])
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"exp": int(time.time()) - 3600},
+        {"aud": ["someone-else"]},
+        {"iss": "not-sso"},
+        {"lucuma-user": None},
+    ],
+)
 def test_bad_claims_are_unauthorized(private_key, overrides):
     with pytest.raises(AuthError) as e:
         verify_token(_token(private_key, _standard("staff"), **overrides), private_key.public_key())
@@ -137,8 +164,11 @@ def test_wrong_signature_is_unauthorized(private_key, other_private_key):
 
 
 def test_other_algorithms_are_refused(private_key):
-    token = jwt.encode({"iss": "lucuma-sso", "aud": "lucuma", "exp": int(time.time()) + 60,
-                        "lucuma-user": _standard("staff")}, "secret", algorithm="HS512")
+    token = jwt.encode(
+        {"iss": "lucuma-sso", "aud": "lucuma", "exp": int(time.time()) + 60, "lucuma-user": _standard("staff")},
+        "secret",
+        algorithm="HS512",
+    )
     with pytest.raises(AuthError):
         verify_token(token, private_key.public_key())
 
@@ -196,7 +226,8 @@ def test_http_without_token_is_401(private_key):
 
 def test_http_with_pi_token_is_403(private_key):
     response = _client(AuthSettings(True, private_key.public_key())).post(
-        "/graphql", json={"query": "{ whoami }"},
+        "/graphql",
+        json={"query": "{ whoami }"},
         headers={"Authorization": f"Bearer {_token(private_key, _standard('pi'))}"},
     )
     assert response.status_code == 403
@@ -204,7 +235,8 @@ def test_http_with_pi_token_is_403(private_key):
 
 def test_http_with_staff_token_reaches_the_resolver_with_the_user(private_key):
     response = _client(AuthSettings(True, private_key.public_key())).post(
-        "/graphql", json={"query": "{ whoami }"},
+        "/graphql",
+        json={"query": "{ whoami }"},
         headers={"Authorization": f"Bearer {_token(private_key, _standard('staff'))}"},
     )
     assert response.status_code == 200
