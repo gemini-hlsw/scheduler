@@ -1,0 +1,1 @@
+Ignore CalibrationRole.DAYTIME_ARC
