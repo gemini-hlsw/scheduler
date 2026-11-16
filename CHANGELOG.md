@@ -5,6 +5,12 @@ This changelog is managed by [Towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 2026.11.6 (2026-11-16)
+
+### Bug Fixes
+
+- Ignore CalibrationRole.DAYTIME_ARC
+
 ## 2026.11.5 (2026-11-12)
 
 ### Bug Fixes

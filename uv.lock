@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -694,7 +694,7 @@ wheels = [
 
 [package.optional-dependencies]
 toml = [
-    { name = "tomli", marker = "python_full_version <= '3.11' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "tomli", marker = "python_full_version <= '3.11'" },
 ]
 
 [[package]]
@@ -1334,7 +1334,7 @@ resolution-markers = [
     "python_full_version >= '3.14'",
 ]
 dependencies = [
-    { name = "pyyaml-ft", marker = "python_full_version >= '3.14' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "pyyaml-ft" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5c/55/ca4552d7fe79a91b2a7b4fa39991e8a45a17c8bfbcaf264597d95903c777/libcst-1.8.5.tar.gz", hash = "sha256:e72e1816eed63f530668e93a4c22ff1cf8b91ddce0ec53e597d3f6c53e103ec7", size = 884582, upload-time = "2025-09-26T05:29:44.101Z" }
 wheels = [
@@ -1398,8 +1398,8 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "pyyaml", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
-    { name = "pyyaml-ft", marker = "python_full_version == '3.13.*' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "pyyaml", marker = "python_full_version != '3.13.*'" },
+    { name = "pyyaml-ft", marker = "python_full_version == '3.13.*'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/de/cd/337df968b38d94c5aabd3e1b10630f047a2b345f6e1d4456bd9fe7417537/libcst-1.8.6.tar.gz", hash = "sha256:f729c37c9317126da9475bdd06a7208eb52fcbd180a6341648b45a56b4ba708b", size = 891354, upload-time = "2025-11-03T22:33:30.621Z" }
 wheels = [
@@ -1455,16 +1455,16 @@ wheels = [
 
 [[package]]
 name = "lucupy"
-version = "0.2.25"
+version = "0.2.26"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "gelidum" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/68/45/f59ace5be7f08bb19b32b04a6f0d2aba25a66faac01b23c6b482bbf08d83/lucupy-0.2.25.tar.gz", hash = "sha256:4091d3ff04ede8c2577487ed74fc2da2abe418e9b99e03bae453f8de2d51b445", size = 52176, upload-time = "2026-11-11T17:50:31.002Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/e6/e946981c9aab23165789ce85d2ea07f24a75810030d0a452638c162c7f9d/lucupy-0.2.26.tar.gz", hash = "sha256:ab127b1bd8b2a3e636bf5d1c911a5f66fa97ba64da86af59b285a44b4a93c411", size = 52191, upload-time = "2026-11-16T15:39:47.388Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/da/e2/b6c296c52da8695527b06133c138c8e8bf74de191b9a207e54eaa2647e5b/lucupy-0.2.25-py3-none-any.whl", hash = "sha256:d2785bd47a41a04dc2e29da4769f2a48057b98ac0443afbbfb39c30025762f6d", size = 74554, upload-time = "2026-11-11T17:50:31.95Z" },
+    { url = "https://files.pythonhosted.org/packages/70/6e/66687e21241223b1951575a6ca5ec7b09e22a937ac1c9f4eb738625dcee9/lucupy-0.2.26-py3-none-any.whl", hash = "sha256:1c3d46115f196fe61e36b786938739d8bd09f8b2f2f90156fb6adbb6e7c49890", size = 74579, upload-time = "2026-11-16T15:39:48.647Z" },
 ]
 
 [[package]]
@@ -1636,7 +1636,7 @@ version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "ghp-import" },
     { name = "jinja2" },
     { name = "markdown" },
@@ -2545,7 +2545,7 @@ name = "pytest"
 version = "8.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
@@ -2562,7 +2562,7 @@ version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pytest" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/86/9e3c5f48f7b7b638b216e4b9e645f54d199d7abbbab7a64a13b4e12ba10f/pytest_asyncio-1.2.0.tar.gz", hash = "sha256:c609a64a2a8768462d0c99811ddb8bd2583c33fd33cf7f21af1c142e824ffb57", size = 50119, upload-time = "2025-09-12T07:33:53.816Z" }
 wheels = [
@@ -2711,7 +2711,7 @@ name = "redis"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "async-timeout", marker = "python_full_version < '3.11.3' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "async-timeout", marker = "python_full_version < '3.11.3'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9f/32/6fac13a11e73e1bc67a2ae821a72bfe4c2d8c4c48f0267e4a952be0f1bae/redis-7.2.0.tar.gz", hash = "sha256:4dd5bf4bd4ae80510267f14185a15cba2a38666b941aff68cccf0256b51c1f26", size = 4901247, upload-time = "2026-02-16T17:16:22.797Z" }
 wheels = [
@@ -2854,7 +2854,7 @@ requires-dist = [
     { name = "gql", specifier = ">=4.0.0" },
     { name = "greenlet", specifier = ">=3.3.1" },
     { name = "hypothesis", specifier = ">=6.137.1" },
-    { name = "lucupy", specifier = ">=0.2.25" },
+    { name = "lucupy", specifier = ">=0.2.26" },
     { name = "matplotlib", specifier = ">=3.10.5" },
     { name = "numpy", specifier = ">=2.3.2" },
     { name = "omegaconf", specifier = ">=2.3.0" },
@@ -3020,7 +3020,7 @@ name = "sqlalchemy"
 version = "2.0.49"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/09/45/461788f35e0364a8da7bda51a1fe1b09762d0c32f12f63727998d85a873b/sqlalchemy-2.0.49.tar.gz", hash = "sha256:d15950a57a210e36dd4cec1aac22787e2a4d57ba9318233e2ef8b2daf9ff2d5f", size = 9898221, upload-time = "2026-04-03T16:38:11.704Z" }
@@ -3086,7 +3086,7 @@ version = "0.47.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/04/57/d062573f391d062710d4088fa1369428c38d51460ab6fedff920efef932e/starlette-0.47.2.tar.gz", hash = "sha256:6ae9aa5db235e4846decc1e7b79c4f346adf41e9777aebeb49dfd09bbd7023d8", size = 2583948, upload-time = "2025-07-20T17:31:58.522Z" }
 wheels = [
@@ -3111,8 +3111,8 @@ wheels = [
 
 [package.optional-dependencies]
 cli = [
-    { name = "libcst", version = "1.8.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
-    { name = "libcst", version = "1.8.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "libcst", version = "1.8.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14'" },
+    { name = "libcst", version = "1.8.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
     { name = "pygments" },
     { name = "rich" },
     { name = "typer" },
@@ -3276,11 +3276,11 @@ wheels = [
 
 [package.optional-dependencies]
 standard = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "httptools" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod') or (sys_platform == 'cygwin' and extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod') or (sys_platform == 'win32' and extra == 'group-9-scheduler-gpp-dev' and extra == 'group-9-scheduler-gpp-prod')" },
+    { name = "uvloop", marker = "platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'" },
     { name = "watchfiles" },
     { name = "websockets" },
 ]
