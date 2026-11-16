@@ -1449,6 +1449,7 @@ class GppProgramProvider(ProgramProvider):
             if calibration_role in [
                 CalibrationRole.DAYTIME_CALIBRATION,
                 CalibrationRole.DAYTIME_PINHOLE,
+                CalibrationRole.DAYTIME_ARC,
                 CalibrationRole.DAYTIME_FLAT,
             ]:
                 return None
