@@ -1,10 +1,10 @@
 # Copyright (c) 2016-2026 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-"""GreedyMax places an observation that is already executing first in its site's plan.
+"""GreedyMax treats an observation being executed as done.
 
-A replan while a site is executing used to start GreedyMax at the event's slot with nothing
-there, so the stitched timeline cut the running visit off. place_ongoing fills that slot with
-the rest of the observation's sequence before the greedy loop runs.
+The plan starts once the running observation is expected to finish. Mid-run the ODB still lists
+its remaining atoms and the Ranker boosts ONGOING, so without charge_ongoing the greedy loop
+would schedule it again right at the start.
 """
 
 from datetime import datetime, timedelta, UTC
@@ -20,99 +20,84 @@ from scheduler.core.components.optimizer.timeline import Timeline
 
 _SITE = Site.GN
 _LABEL = 'G-2026B-0001-Q-0001'
-_START_SLOT = 5
+_END = datetime(2026, 11, 17, 4, 0, tzinfo=UTC)
 
 
-def _observation(label=_LABEL, cumulative=(ZeroTime, timedelta(minutes=10), timedelta(minutes=20))):
-    """An ONGOING observation whose first atom is done: 10 then 20 minutes left, plus 5 of acquisition."""
+def _observation(cumulative=(ZeroTime, timedelta(minutes=10), timedelta(minutes=20))):
+    """An ONGOING observation whose first atom is done: 10 then 20 minutes left."""
     return SimpleNamespace(
-        id=ObservationID(label),
+        id=ObservationID(_LABEL),
         site=_SITE,
         status=ObservationStatus.ONGOING,
         obs_class=ObservationClass.SCIENCE,
         acq_overhead=timedelta(minutes=5),
-        to_unique_group_id=f'group-{label}',
         cumulative_exec_times=lambda: list(cumulative),
         sequence=[
-            SimpleNamespace(prog_time=timedelta(minutes=10), part_time=ZeroTime, program_used=ZeroTime)
+            SimpleNamespace(prog_time=timedelta(minutes=10), part_time=ZeroTime, program_used=ZeroTime, observed=False)
             for _ in cumulative
         ],
     )
 
 
-def _optimizer(observation, total_slots=100):
-    group_data = SimpleNamespace(
-        group=SimpleNamespace(observations=lambda: [observation], number_observed=0),
-        group_info=SimpleNamespace(scores={0: np.ones(total_slots)}),
-    )
+def _optimizer(observation):
+    group_data = SimpleNamespace(group=SimpleNamespace(observations=lambda: [observation], number_observed=0))
     optimizer = GreedyMaxOptimizer()
-    optimizer.selection = SimpleNamespace(night_indices=np.array([0]), starting_time_slots={_SITE: {0: _START_SLOT}})
-    optimizer.sites = frozenset({_SITE})
-    optimizer.time_slot_length = timedelta(minutes=1)
+    optimizer.selection = SimpleNamespace(night_indices=np.array([0]))
+    optimizer.group_data_list = [group_data]
     optimizer.timelines = {
         0: {
             _SITE: Timeline(
-                start=datetime(2026, 10, 30, tzinfo=UTC),
-                end=datetime(2026, 10, 30, 10, tzinfo=UTC),
+                start=datetime(2026, 11, 17, tzinfo=UTC),
+                end=datetime(2026, 11, 17, 10, tzinfo=UTC),
                 time_slot_length=timedelta(minutes=1),
                 site=_SITE,
-                total_time_slots=total_slots,
+                total_time_slots=100,
             )
         }
     }
-    optimizer.obs_in_plan = {_SITE: {}}
-    optimizer.group_data_list = [group_data]
-    optimizer.obs_group_ids = [observation.to_unique_group_id]
     return optimizer, group_data
 
 
-def test_executing_observation_fills_the_start_with_the_rest_of_its_sequence():
+def test_executing_observation_is_charged_as_done():
     observation = _observation()
     optimizer, group_data = _optimizer(observation)
 
     with patch.object(GreedyMaxOptimizer, '_update_group_list') as update_group_list:
-        optimizer.place_ongoing({_SITE: ObservationID(_LABEL)})
+        optimizer.charge_ongoing({ObservationID(_LABEL): _END})
 
-    slots = optimizer.timelines[0][_SITE].time_slots
-    # 5 minutes of acquisition and 20 of the atoms left, starting at the plan's start.
-    assert (slots[_START_SLOT : _START_SLOT + 25] == 0).all()
-    assert (slots[:_START_SLOT] == Timeline.EMPTY).all()
-    assert (slots[_START_SLOT + 25 :] == Timeline.EMPTY).all()
-
-    placed = optimizer.obs_in_plan[_SITE][_START_SLOT]
-    assert (placed.atom_start, placed.atom_end, placed.obs_len) == (1, 2, 25)
-
-    # Charged and handed to the group bookkeeping, so the greedy loop does not schedule it again.
+    # Every atom left is charged, so the group reads as observed.
     assert observation.status is ObservationStatus.OBSERVED
+    assert not observation.sequence[0].observed
+    assert all(atom.observed for atom in observation.sequence[1:])
     assert group_data.group.number_observed == 1
-    update_group_list.assert_called_once()
+
+    # Handed to the same bookkeeping as an added group, timed from its expected end.
+    [(max_group_info, night_idx)] = [call.args for call in update_group_list.call_args_list]
+    assert max_group_info.group_data is group_data
+    assert max_group_info.end_time == _END
+    assert night_idx == 0
+
+    # It is not placed: the plan starts after it.
+    assert (optimizer.timelines[0][_SITE].time_slots == Timeline.EMPTY).all()
 
 
-def test_night_ending_first_keeps_only_the_atoms_that_fit():
-    observation = _observation()
-    optimizer, _ = _optimizer(observation, total_slots=_START_SLOT + 15)
-
-    with patch.object(GreedyMaxOptimizer, '_update_group_list'):
-        optimizer.place_ongoing({_SITE: ObservationID(_LABEL)})
-
-    placed = optimizer.obs_in_plan[_SITE][_START_SLOT]
-    assert (placed.atom_start, placed.atom_end, placed.obs_len) == (1, 1, 15)
-
-
-def test_unschedulable_executing_observation_leaves_the_plan_alone():
-    optimizer, _ = _optimizer(_observation())
+def test_unschedulable_executing_observation_is_left_alone():
+    optimizer, group_data = _optimizer(_observation())
 
     with patch.object(GreedyMaxOptimizer, '_update_group_list') as update_group_list:
-        optimizer.place_ongoing({_SITE: ObservationID('G-2026B-0009-Q-0001')})
+        optimizer.charge_ongoing({ObservationID('G-2026B-0009-Q-0001'): _END})
 
-    assert (optimizer.timelines[0][_SITE].time_slots == Timeline.EMPTY).all()
+    assert group_data.group.number_observed == 0
     update_group_list.assert_not_called()
 
 
-def test_executing_observation_with_nothing_left_is_not_placed():
-    optimizer, _ = _optimizer(_observation(cumulative=(ZeroTime, ZeroTime)))
+def test_executing_observation_with_nothing_left_is_not_charged_again():
+    observation = _observation(cumulative=(ZeroTime, ZeroTime))
+    optimizer, group_data = _optimizer(observation)
 
-    with patch.object(GreedyMaxOptimizer, '_update_group_list'):
-        optimizer.place_ongoing({_SITE: ObservationID(_LABEL)})
+    with patch.object(GreedyMaxOptimizer, '_update_group_list') as update_group_list:
+        optimizer.charge_ongoing({ObservationID(_LABEL): _END})
 
-    assert optimizer.obs_in_plan[_SITE] == {}
+    assert observation.status is ObservationStatus.ONGOING
+    assert group_data.group.number_observed == 1
+    update_group_list.assert_called_once()

@@ -1,32 +1,39 @@
 # Copyright (c) 2016-2026 Association of Universities for Research in Astronomy, Inc. (AURA)
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
-"""ExecutionTracker turns the ODB SLEW/SEQUENCE events into executions per site.
+"""ExecutionTracker knows what each site is executing from the ODB SLEW/SEQUENCE events.
 
-An execution begins with a START_SLEW or, when no slew is needed, a sequence START, and
-ends with a sequence STOP. ABORT drops it unrecorded. Events are built with gpp-client's
-own models so the timestamp and site parsing is exercised too.
+An observation starts executing with a START_SLEW or, when no slew is needed, a sequence START,
+and stops with a STOP or ABORT. It is expected to end at its start plus the ODB's estimate.
+Events are built with gpp-client's own models so the timestamp, estimate and site parsing is
+exercised too.
 """
 
 import asyncio
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
+from typing import Optional
 from unittest.mock import patch
 
 import pytest
 from gpp_client.generated.scheduler_executed_events import SchedulerExecutedEvents
-from lucupy.minimodel import ObservationID, Site
+from lucupy.minimodel import ALL_SITES, ObservationID, Site
 
 from scheduler.night_monitor.execution_tracker import ExecutionTracker
 
 OBS_A = 'G-2026B-0001-Q-0001'
 OBS_B = 'G-2026B-0002-Q-0001'
-OBS_C = 'G-2026B-0003-Q-0001'
+_ESTIMATE = timedelta(minutes=40)
 
 
-def _observation(label: str) -> dict:
-    return {'id': f'o-{label[-4:]}', 'reference': {'label': label}, 'execution': {'digest': None}}
+def _observation(label: str, estimate: Optional[timedelta]) -> dict:
+    digest = None
+    if estimate is not None:
+        digest = {'value': {'estimate': {'total': {'total': {'seconds': estimate.total_seconds()}}}}}
+    return {'id': f'o-{label[-4:]}', 'reference': {'label': label}, 'execution': {'digest': digest}}
 
 
-def _slew(label: str, stage: str, time: str, site: str = 'GN') -> SchedulerExecutedEvents:
+def _slew(
+    label: str, stage: str, time: str, site: str = 'GN', estimate: Optional[timedelta] = _ESTIMATE
+) -> SchedulerExecutedEvents:
     return SchedulerExecutedEvents.model_validate(
         {
             'executionEventAdded': {
@@ -36,7 +43,7 @@ def _slew(label: str, stage: str, time: str, site: str = 'GN') -> SchedulerExecu
                     'id': 'e-1',
                     'recordedTime': time,
                     'slewStage': stage,
-                    'observation': _observation(label),
+                    'observation': _observation(label, estimate),
                     'visit': {'site': site},
                 }
             }
@@ -44,7 +51,9 @@ def _slew(label: str, stage: str, time: str, site: str = 'GN') -> SchedulerExecu
     )
 
 
-def _sequence(label: str, command: str, time: str, site: str = 'GN') -> SchedulerExecutedEvents:
+def _sequence(
+    label: str, command: str, time: str, site: str = 'GN', estimate: Optional[timedelta] = _ESTIMATE
+) -> SchedulerExecutedEvents:
     return SchedulerExecutedEvents.model_validate(
         {
             'executionEventAdded': {
@@ -54,7 +63,7 @@ def _sequence(label: str, command: str, time: str, site: str = 'GN') -> Schedule
                     'id': 'e-1',
                     'effectiveTime': time,
                     'command': command,
-                    'observation': _observation(label),
+                    'observation': _observation(label, estimate),
                     'visit': {'site': site},
                 }
             }
@@ -76,38 +85,38 @@ def _feed(tracker: ExecutionTracker, *events: SchedulerExecutedEvents) -> None:
         tracker._handle_event(event.execution_event_added.value)
 
 
-def _labels(records) -> list:
-    return [r.obs_id.id for r in records]
+def _executing(tracker: ExecutionTracker) -> dict:
+    return {site: o.obs_id.id for site, o in tracker.ongoing(ALL_SITES).items()}
 
 
-def test_slew_then_sequence_is_one_execution():
+def test_slew_starts_execution_expected_to_end_after_its_estimate():
+    tracker = ExecutionTracker()
+    _feed(tracker, _slew(OBS_A, 'START_SLEW', _odb_time(1)))
+
+    [ongoing] = tracker.ongoing([Site.GN]).values()
+    assert ongoing.obs_id == ObservationID(OBS_A)
+    assert ongoing.start == _at(1)
+    assert ongoing.expected_end == _at(1, 40)
+
+
+def test_sequence_start_after_its_slew_is_the_same_execution():
     tracker = ExecutionTracker()
     _feed(
         tracker,
         _slew(OBS_A, 'START_SLEW', _odb_time(1)),
         _slew(OBS_A, 'END_SLEW', _odb_time(1, 5)),
-        _sequence(OBS_A, 'START', _odb_time(1, 6)),
-        _sequence(OBS_A, 'STOP', _odb_time(2)),
+        _sequence(OBS_A, 'START', _odb_time(1, 6), estimate=timedelta(minutes=30)),
     )
 
-    [record] = tracker.get_executed_observations()
-    assert record.obs_id == ObservationID(OBS_A)
-    assert record.site == Site.GN
-    # The slew starts it; the sequence START after it is the same execution.
-    assert record.start == _at(1)
-    assert record.end == _at(2)
-    assert not record.missing_stop
-    assert not tracker.is_currently_executed(ObservationID(OBS_A))
+    # Still timed from the slew: the setup is part of letting it finish.
+    assert tracker.ongoing([Site.GN])[Site.GN].expected_end == _at(1, 40)
 
 
 def test_sequence_start_without_slew_starts_execution():
     tracker = ExecutionTracker()
     _feed(tracker, _sequence(OBS_A, 'START', _odb_time(1)))
 
-    assert tracker.is_currently_executed(ObservationID(OBS_A))
-    current = tracker.get_current_execution(Site.GN)
-    assert current.start == _at(1)
-    assert current.end is None
+    assert _executing(tracker) == {Site.GN: OBS_A}
 
 
 def test_pause_and_continue_keep_it_executing():
@@ -119,23 +128,22 @@ def test_pause_and_continue_keep_it_executing():
         _sequence(OBS_A, 'CONTINUE', _odb_time(1, 20)),
     )
 
-    assert tracker.is_currently_executed(ObservationID(OBS_A))
-    assert tracker.get_current_execution(Site.GN).start == _at(1)
+    assert _executing(tracker) == {Site.GN: OBS_A}
 
 
-def test_abort_drops_execution_unrecorded():
+@pytest.mark.parametrize('command', ['STOP', 'ABORT'])
+def test_stop_and_abort_end_the_execution(command):
     tracker = ExecutionTracker()
     _feed(
         tracker,
         _slew(OBS_A, 'START_SLEW', _odb_time(1)),
-        _sequence(OBS_A, 'ABORT', _odb_time(1, 30)),
+        _sequence(OBS_A, command, _odb_time(1, 30)),
     )
 
-    assert not tracker.is_currently_executed(ObservationID(OBS_A))
-    assert tracker.get_executed_observations() == []
+    assert _executing(tracker) == {}
 
 
-def test_new_start_closes_execution_missing_its_stop():
+def test_new_start_replaces_an_execution_that_never_got_its_stop():
     tracker = ExecutionTracker()
     _feed(
         tracker,
@@ -143,12 +151,8 @@ def test_new_start_closes_execution_missing_its_stop():
         _slew(OBS_B, 'START_SLEW', _odb_time(2)),
     )
 
-    closed, running = tracker.get_executed_observations()
-    assert closed.obs_id == ObservationID(OBS_A)
-    assert closed.end == _at(2)
-    assert closed.missing_stop
-    assert running.obs_id == ObservationID(OBS_B)
-    assert running.end is None
+    assert _executing(tracker) == {Site.GN: OBS_B}
+    assert tracker.ongoing([Site.GN])[Site.GN].expected_end == _at(2, 40)
 
 
 def test_sites_execute_independently():
@@ -159,13 +163,10 @@ def test_sites_execute_independently():
         _sequence(OBS_B, 'START', _odb_time(1, 30), site='GS'),
     )
 
-    # GS starting must not close the GN execution.
-    assert tracker.get_current_execution(Site.GN).obs_id == ObservationID(OBS_A)
-    assert tracker.get_current_execution(Site.GS).obs_id == ObservationID(OBS_B)
-    assert not any(r.missing_stop for r in tracker.get_executed_observations())
+    assert _executing(tracker) == {Site.GN: OBS_A, Site.GS: OBS_B}
 
 
-def test_stop_without_matching_start_is_ignored():
+def test_end_without_matching_start_is_ignored():
     tracker = ExecutionTracker()
     _feed(
         tracker,
@@ -173,69 +174,63 @@ def test_stop_without_matching_start_is_ignored():
         _sequence(OBS_B, 'STOP', _odb_time(2)),
     )
 
-    assert tracker.is_currently_executed(ObservationID(OBS_A))
-    assert _labels(tracker.get_executed_observations()) == [OBS_A]
+    assert _executing(tracker) == {Site.GN: OBS_A}
 
 
-@pytest.mark.parametrize(
-    ('from_', 'to', 'expected'),
-    [
-        (None, None, [OBS_A, OBS_B, OBS_C]),
-        # Only A had started by 01:15.
-        (None, _at(1, 15), [OBS_A]),
-        # A ended at 02:00; B and C overlap the window.
-        (_at(2, 5), _at(3, 30), [OBS_B, OBS_C]),
-        # C is still executing, so it overlaps any later window.
-        (_at(5), None, [OBS_C]),
-    ],
-)
-def test_range_returns_overlapping_executions(from_, to, expected):
+def test_excluded_observation_is_not_reported():
+    # An observation taken out of execution will not finish, however long it is waited for.
     tracker = ExecutionTracker()
     _feed(
         tracker,
-        _slew(OBS_A, 'START_SLEW', _odb_time(1)),
-        _sequence(OBS_A, 'STOP', _odb_time(2)),
-        _sequence(OBS_B, 'START', _odb_time(1, 30), site='GS'),
-        _sequence(OBS_B, 'STOP', _odb_time(3), site='GS'),
-        _slew(OBS_C, 'START_SLEW', _odb_time(3, 10)),
+        _slew(OBS_A, 'START_SLEW', _odb_time(1), site='GN'),
+        _slew(OBS_B, 'START_SLEW', _odb_time(1), site='GS'),
     )
 
-    assert _labels(tracker.get_executed_observations(from_, to)) == expected
+    assert set(tracker.ongoing(ALL_SITES, exclude=ObservationID(OBS_A))) == {Site.GS}
+
+
+def test_missing_estimate_does_not_push_anything_back():
+    tracker = ExecutionTracker()
+    _feed(tracker, _slew(OBS_A, 'START_SLEW', _odb_time(1), estimate=None))
+
+    assert tracker.ongoing([Site.GN])[Site.GN].expected_end == _at(1)
 
 
 def test_zulu_timestamp_parses_as_utc():
     tracker = ExecutionTracker()
     _feed(tracker, _sequence(OBS_A, 'START', '2026-10-29T01:00:00Z'))
 
-    assert tracker.get_current_execution(Site.GN).start == _at(1)
+    assert tracker.ongoing([Site.GN])[Site.GN].start == _at(1)
 
 
 @pytest.mark.asyncio
-async def test_bad_event_does_not_stop_tracking():
+async def test_bad_event_does_not_stop_tracking_and_the_end_of_it_forgets():
+    seen = {}
+
     async def events():
         yield _sequence(OBS_A, 'START', 'not a timestamp')
         yield _sequence(OBS_B, 'START', _odb_time(1))
+        seen['while_subscribed'] = _executing(tracker)
 
     tracker = ExecutionTracker()
     with patch('scheduler.night_monitor.execution_tracker.gpp') as gpp:
         gpp.client.scheduler.subscribe_to_executed_events = events
         await asyncio.wait_for(tracker.start(), timeout=1)
 
-    assert not tracker.is_currently_executed(ObservationID(OBS_A))
-    assert tracker.is_currently_executed(ObservationID(OBS_B))
+    assert seen['while_subscribed'] == {Site.GN: OBS_B}
+    # Nothing would clear it once the subscription is gone.
+    assert _executing(tracker) == {}
 
 
 @pytest.mark.asyncio
-async def test_stop_clears_everything():
+async def test_stop_forgets_every_site():
     tracker = ExecutionTracker()
     _feed(
         tracker,
-        _slew(OBS_A, 'START_SLEW', _odb_time(1)),
-        _sequence(OBS_A, 'STOP', _odb_time(2)),
-        _sequence(OBS_B, 'START', _odb_time(2, 30)),
+        _slew(OBS_A, 'START_SLEW', _odb_time(1), site='GN'),
+        _sequence(OBS_B, 'START', _odb_time(2), site='GS'),
     )
 
     await tracker.stop()
 
-    assert tracker.get_executed_observations() == []
-    assert tracker.get_current_execution(Site.GN) is None
+    assert _executing(tracker) == {}

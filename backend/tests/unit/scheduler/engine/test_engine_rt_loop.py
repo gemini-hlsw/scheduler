@@ -12,13 +12,13 @@ import asyncio
 import threading
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from lucupy.minimodel import ObservationID, Site
 
-from scheduler.core.events.queue.events import OnDemandScheduleEvent
+from scheduler.core.events.queue.events import OnDemandScheduleEvent, OngoingObservation
 from scheduler.engine.engineRT import EngineRT
 
 _MODULE = "scheduler.engine.engineRT"
@@ -130,24 +130,78 @@ async def test_the_loop_keeps_running_while_a_plan_computes():
 
 
 @pytest.mark.asyncio
-async def test_executing_observations_reach_the_optimizer():
-    # The Night Monitor stamps what each site is executing; the plan must start with it.
+async def test_executing_observations_reach_the_optimizer_as_done():
+    # The queue stamps what each site is executing; the plan must not schedule it again.
     received = {}
 
     def run_rt(_start_timeslot, ongoing):
         received["ongoing"] = ongoing
         return MagicMock()
 
-    ongoing = {Site.GN: ObservationID("G-2026B-0001-Q-0001")}
+    obs_id = ObservationID("G-2026B-0001-Q-0001")
+    end = datetime(2026, 8, 26, 6, 40, tzinfo=UTC)
     event = OnDemandScheduleEvent(
-        site=Site.GN, time=datetime(2026, 8, 26, 6, 0, tzinfo=UTC), description="test", ongoing_observations=ongoing
+        site=Site.GN,
+        time=datetime(2026, 8, 26, 6, 0, tzinfo=UTC),
+        description="test",
+        ongoing_observations={Site.GN: OngoingObservation(obs_id=obs_id, start=_NIGHT_START, expected_end=end)},
     )
     engine = _engine()
     stats, timelines, summary, plans = _stub_plan_pipeline(engine, run_rt)
     with stats, timelines, summary, plans:
         await engine._compute_event_plan(event)
 
-    assert received["ongoing"] == ongoing
+    assert received["ongoing"] == {obs_id: end}
+
+
+_NIGHT_START = datetime(2026, 8, 26, 5, 0, tzinfo=UTC)
+
+
+def _engine_with_night() -> EngineRT:
+    """An engine whose GN night starts at 05:00 with 1-minute time slots."""
+    engine = _engine()
+    engine.scp = MagicMock()
+    engine.scp.collector.get_night_length.return_value = (_NIGHT_START, _NIGHT_START + timedelta(hours=10))
+    engine.scp.collector.get_twilights.return_value = (_NIGHT_START, _NIGHT_START + timedelta(hours=10))
+    engine.scp.collector.get_custom_night_times.return_value = (None, None)
+    engine.scp.collector.time_slot_length.to_datetime.return_value = timedelta(minutes=1)
+    return engine
+
+
+def _event_at(minutes_into_night: int, expected_end_minutes=None) -> OnDemandScheduleEvent:
+    ongoing = {}
+    if expected_end_minutes is not None:
+        ongoing = {
+            Site.GN: OngoingObservation(
+                obs_id=ObservationID("G-2026B-0001-Q-0001"),
+                start=_NIGHT_START,
+                expected_end=_NIGHT_START + timedelta(minutes=expected_end_minutes),
+            )
+        }
+    return OnDemandScheduleEvent(
+        site=Site.GN,
+        time=_NIGHT_START + timedelta(minutes=minutes_into_night),
+        description="test",
+        ongoing_observations=ongoing,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "event,expected_slot",
+    [
+        # Nothing running: the plan starts when the event happened.
+        (_event_at(60), 60),
+        # Running until 01:40 into the night: the plan starts once it is expected to finish.
+        (_event_at(60, expected_end_minutes=100), 100),
+        # Already overran its estimate: nothing to wait for.
+        (_event_at(60, expected_end_minutes=50), 60),
+    ],
+)
+async def test_plan_starts_once_the_executing_observation_should_finish(event, expected_slot):
+    start_timeslot = await _engine_with_night()._compute_event_start_timeslot(event)
+
+    assert start_timeslot[Site.GN][0] == expected_slot
 
 
 @pytest.mark.asyncio
