@@ -16,7 +16,7 @@ behaviour without touching code.
 collector:
   observation_classes: [SCIENCE, PROGCAL, PARTNERCAL]
   program_types: [Q, LP, FT, DD]
-  time_slot_length: 1.0        # minutes
+  time_slot_length: 1.0 # minutes
   with_redis: false
   parallel_viscalc: false
   # "sight" reads pre-computed visibility from the Sight service and falls back
@@ -29,7 +29,7 @@ optimizer:
 
 selector:
   buffer_type: FLAT_MINUTES
-  buffer_amount: 30.0          # minutes
+  buffer_amount: 30.0 # minutes
 
 server:
   port: 8000
@@ -40,26 +40,51 @@ app:
 
 sight:
   api_url: http://localhost:9800/api/v1
-  timeout: 300                 # seconds per request
+  timeout: 300 # seconds per request
 ```
+
+### Signing in (SSO)
+
+The UI signs in through GPP SSO with ORCID, the same way as the other GPP apps
+(lucuma-ts `resource-ui`/`admin-ui`), and only users with a **staff** or
+**admin** role get past the sign-in screen. The token is sent as
+`Authorization: Bearer …` to the scheduler backends (HTTP and websocket
+`connectionParams`), never to the weather service.
+
+`schedule.gemini.edu` signs in through the production SSO; every other host uses
+the development SSO. Set `VITE_SSO_URL` to override it.
+
+The dev SSO refuses `localhost`, and its session cookie is `SameSite=Strict`,
+which the browser only sends from an https page on `gemini.edu`. To sign in from
+a local dev server, give it such a name and serve it over https:
+
+```bash
+sudo sh -c 'echo "127.0.0.1 schedule-local.gemini.edu" >> /etc/hosts'   # once
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj "/CN=schedule-local.gemini.edu" \
+  -addext "subjectAltName=DNS:schedule-local.gemini.edu" -keyout local.key -out local.crt   # once
+SCHEDULER_HTTPS_CERT=local.crt SCHEDULER_HTTPS_KEY=local.key pnpm dev
+```
+
+Open https://schedule-local.gemini.edu:5173 (accept the certificate once) and log in with
+ORCID. A session started on any other gemini.edu app is picked up automatically.
 
 ### Key settings
 
-| Key | Default | Description |
-|---|---|---|
-| `collector.observation_classes` | `[SCIENCE, PROGCAL, PARTNERCAL]` | Observation classes included in scheduling. |
-| `collector.program_types` | `[Q, LP, FT, DD]` | Program types considered by the collector. |
-| `collector.time_slot_length` | `1.0` | Time slot granularity in minutes. |
-| `collector.with_redis` | `false` | Enable Redis-backed caching for collector data. |
-| `collector.parallel_viscalc` | `false` | Run visibility calculations in parallel. |
-| `collector.visibility_strategy` | `sight` | `sight` (remote service) or `local` (in-process). |
-| `optimizer.name` | `GREEDYMAX` | Scheduling algorithm to use. |
-| `selector.buffer_type` | `FLAT_MINUTES` | Type of time buffer added around observations. |
-| `selector.buffer_amount` | `30.0` | Size of the buffer in minutes. |
-| `server.host` / `server.port` | `0.0.0.0:8000` | Uvicorn bind address. Overridden by `PORT` env var on Heroku. |
-| `app.external_ephemerides` | `false` | Use external (CloudCube S3) ephemeris data instead of bundled data. |
-| `sight.api_url` | `http://localhost:9800/api/v1` | Base URL of the Sight visibility service. |
-| `sight.timeout` | `300` | HTTP timeout (seconds) for Sight requests. |
+| Key                             | Default                          | Description                                                         |
+| ------------------------------- | -------------------------------- | ------------------------------------------------------------------- |
+| `collector.observation_classes` | `[SCIENCE, PROGCAL, PARTNERCAL]` | Observation classes included in scheduling.                         |
+| `collector.program_types`       | `[Q, LP, FT, DD]`                | Program types considered by the collector.                          |
+| `collector.time_slot_length`    | `1.0`                            | Time slot granularity in minutes.                                   |
+| `collector.with_redis`          | `false`                          | Enable Redis-backed caching for collector data.                     |
+| `collector.parallel_viscalc`    | `false`                          | Run visibility calculations in parallel.                            |
+| `collector.visibility_strategy` | `sight`                          | `sight` (remote service) or `local` (in-process).                   |
+| `optimizer.name`                | `GREEDYMAX`                      | Scheduling algorithm to use.                                        |
+| `selector.buffer_type`          | `FLAT_MINUTES`                   | Type of time buffer added around observations.                      |
+| `selector.buffer_amount`        | `30.0`                           | Size of the buffer in minutes.                                      |
+| `server.host` / `server.port`   | `0.0.0.0:8000`                   | Uvicorn bind address. Overridden by `PORT` env var on Heroku.       |
+| `app.external_ephemerides`      | `false`                          | Use external (CloudCube S3) ephemeris data instead of bundled data. |
+| `sight.api_url`                 | `http://localhost:9800/api/v1`   | Base URL of the Sight visibility service.                           |
+| `sight.timeout`                 | `300`                            | HTTP timeout (seconds) for Sight requests.                          |
 
 ---
 
@@ -77,38 +102,39 @@ DATABASE_URL=postgresql://user:password@localhost:5432/scheduler
 
 ### Reference
 
-| Variable | Required | Description                                                                                                                                                                      |
-|---|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `SCHEDULER_MODE` | **Yes**  | Controls the runtime mode. See [Scheduler modes](#scheduler-modes) below.                                                                                                        |
-| `PORT` | No       | HTTP port for the server. Heroku sets this automatically; falls back to `server.port` in `config.yaml`.                                                                          |
-| `REDISCLOUD_URL` | No       | Redis connection URL (e.g. `redis://localhost:6379`). Required when `collector.with_redis: true`.                                                                                |
-| `DATABASE_URL` | No       | PostgreSQL connection URL for the Sight service database. Heroku Postgres sets this automatically; the `postgres://` scheme is normalised to `postgresql+asyncpg://` at startup. |
-| `DB_POOL_SIZE` | No       | SQLAlchemy connection pool size (default `5`, max `20`).                                                                                                                         |
-| `DB_POOL_OVERFLOW` | No       | SQLAlchemy max overflow connections (default `10`, max `20`).                                                                                                                    |
-| `DB_ECHO_SQL` | No       | Set to `true` to log all SQL statements (default `false`).                                                                                                                       |
-| `CLOUDCUBE_URL` | No       | S3-compatible bucket URL for ephemeris cube storage. Required when `app.external_ephemerides: true`.                                                                             |
-| `CLOUDCUBE_ACCESS_KEY_ID` | No       | AWS/CloudCube access key. Required together with `CLOUDCUBE_URL`.                                                                                                                |
-| `CLOUDCUBE_SECRET_ACCESS_KEY` | No       | AWS/CloudCube secret key. Required together with `CLOUDCUBE_URL`.                                                                                                                |
-| `GPP_TOKEN` | **Yes**  | Allows the Scheduler to connect to other GPP services like the ODB. If the development client is used add `GPP_DEVELOPMENT_TOKEN` instead                                        |
-| `WEATHER_URL` | **Yes** | Connects with the Weather service. Can be a Heroku URL or a local one set by Docker                                                                                              |
-|`VITE_WEATHER_URL` | **Yes**| Same as above but used by the frontend app                                                                                                                                       |
-|`SSO_AUTH_REQUIRED` | No | `true` (default) requires a GPP SSO token (staff, admin or service role) on every GraphQL request: the `Authorization: Bearer <jwt>` header over HTTP, or `{"Authorization": "Bearer <jwt>"}` in the websocket `connection_init` payload. Set `false` for local runs and scripts. |
-|`SSO_PUBLIC_KEY` | **Yes** when auth is required | The public key SSO signs its RS512 tokens with: the ASCII-armored PGP key from the SSO deployment's config (the value lucuma-odb gets as `ODB_SSO_PUBLIC_KEY`), or a PEM `PUBLIC KEY`. Without it every request is refused. Must match the SSO the UI signs in through (dev SSO for staging, production SSO for `schedule.gemini.edu`). |
-|`COLLECTOR_VISIBILITY_STRATEGY` | No | Toggle between Sight and Local visibility calculation                                                                                                                            |
-|`VIS_AGG_INTERLOCK` | No | Unlocks the aggregator lock to work with Sight locally on daytime |
-|`TELEMETRY_ENABLED` | No | Set to `false` to turn performance telemetry off: no OTLP metrics export and no JSON perf events on stdout (default `true`, `telemetry.enabled` in `config.yaml`). Timings in the regular log lines are unaffected. |
+| Variable                        | Required                      | Description                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SCHEDULER_MODE`                | **Yes**                       | Controls the runtime mode. See [Scheduler modes](#scheduler-modes) below.                                                                                                                                                                                                                                                               |
+| `PORT`                          | No                            | HTTP port for the server. Heroku sets this automatically; falls back to `server.port` in `config.yaml`.                                                                                                                                                                                                                                 |
+| `REDISCLOUD_URL`                | No                            | Redis connection URL (e.g. `redis://localhost:6379`). Required when `collector.with_redis: true`.                                                                                                                                                                                                                                       |
+| `DATABASE_URL`                  | No                            | PostgreSQL connection URL for the Sight service database. Heroku Postgres sets this automatically; the `postgres://` scheme is normalised to `postgresql+asyncpg://` at startup.                                                                                                                                                        |
+| `DB_POOL_SIZE`                  | No                            | SQLAlchemy connection pool size (default `5`, max `20`).                                                                                                                                                                                                                                                                                |
+| `DB_POOL_OVERFLOW`              | No                            | SQLAlchemy max overflow connections (default `10`, max `20`).                                                                                                                                                                                                                                                                           |
+| `DB_ECHO_SQL`                   | No                            | Set to `true` to log all SQL statements (default `false`).                                                                                                                                                                                                                                                                              |
+| `CLOUDCUBE_URL`                 | No                            | S3-compatible bucket URL for ephemeris cube storage. Required when `app.external_ephemerides: true`.                                                                                                                                                                                                                                    |
+| `CLOUDCUBE_ACCESS_KEY_ID`       | No                            | AWS/CloudCube access key. Required together with `CLOUDCUBE_URL`.                                                                                                                                                                                                                                                                       |
+| `CLOUDCUBE_SECRET_ACCESS_KEY`   | No                            | AWS/CloudCube secret key. Required together with `CLOUDCUBE_URL`.                                                                                                                                                                                                                                                                       |
+| `GPP_TOKEN`                     | **Yes**                       | Allows the Scheduler to connect to other GPP services like the ODB. If the development client is used add `GPP_DEVELOPMENT_TOKEN` instead                                                                                                                                                                                               |
+| `WEATHER_URL`                   | **Yes**                       | Connects with the Weather service. Can be a Heroku URL or a local one set by Docker                                                                                                                                                                                                                                                     |
+| `VITE_WEATHER_URL`              | **Yes**                       | Same as above but used by the frontend app                                                                                                                                                                                                                                                                                              |
+| `SSO_AUTH_REQUIRED`             | No                            | `true` (default) requires a GPP SSO token (staff, admin or service role) on every GraphQL request: the `Authorization: Bearer <jwt>` header over HTTP, or `{"Authorization": "Bearer <jwt>"}` in the websocket `connection_init` payload. Set `false` for local runs and scripts.                                                       |
+| `SSO_PUBLIC_KEY`                | **Yes** when auth is required | The public key SSO signs its RS512 tokens with: the ASCII-armored PGP key from the SSO deployment's config (the value lucuma-odb gets as `ODB_SSO_PUBLIC_KEY`), or a PEM `PUBLIC KEY`. Without it every request is refused. Must match the SSO the UI signs in through (dev SSO for staging, production SSO for `schedule.gemini.edu`). |
+| `COLLECTOR_VISIBILITY_STRATEGY` | No                            | Toggle between Sight and Local visibility calculation                                                                                                                                                                                                                                                                                   |
+| `VIS_AGG_INTERLOCK`             | No                            | Unlocks the aggregator lock to work with Sight locally on daytime                                                                                                                                                                                                                                                                       |
+| `TELEMETRY_ENABLED`             | No                            | Set to `false` to turn performance telemetry off: no OTLP metrics export and no JSON perf events on stdout (default `true`, `telemetry.enabled` in `config.yaml`). Timings in the regular log lines are unaffected.                                                                                                                     |
+
 ### Scheduler modes
 
 `SCHEDULER_MODE` determines how the scheduler behaves at startup:
 
-| Value | Mode | Description |
-|---|---|---|
-| `REALTIME` | Operation | Connects to live GPP data and runs in real-time. |
-| `SIMULATION` | Simulation | Runs scheduling simulations over historical or synthetic data. |
+| Value        | Mode       | Description                                                      |
+| ------------ | ---------- | ---------------------------------------------------------------- |
+| `REALTIME`   | Operation  | Connects to live GPP data and runs in real-time.                 |
+| `SIMULATION` | Simulation | Runs scheduling simulations over historical or synthetic data.   |
 | `VALIDATION` | Validation | Default fallback. Validates plans without live data connections. |
 
 !!! note
-    If `SCHEDULER_MODE` is unset or invalid, the scheduler falls back to `VALIDATION` mode automatically.
+If `SCHEDULER_MODE` is unset or invalid, the scheduler falls back to `VALIDATION` mode automatically.
 
 ---
 
@@ -116,25 +142,25 @@ DATABASE_URL=postgresql://user:password@localhost:5432/scheduler
 
 1. Copy the example below into `backend/.env` and fill in the values for your setup:
 
-    ```sh
-    SCHEDULER_MODE=VALIDATION
-    # Optional — only needed with collector.with_redis: true
-    REDISCLOUD_URL=redis://localhost:6379
-    # Optional — only needed for the Sight service
-    DATABASE_URL=postgresql://user:password@localhost:5432/scheduler
-    ```
+   ```sh
+   SCHEDULER_MODE=VALIDATION
+   # Optional — only needed with collector.with_redis: true
+   REDISCLOUD_URL=redis://localhost:6379
+   # Optional — only needed for the Sight service
+   DATABASE_URL=postgresql://user:password@localhost:5432/scheduler
+   ```
 
 2. Start the backend:
 
-    ```sh
-    cd backend
-    uv run python -m scheduler.main
-    ```
+   ```sh
+   cd backend
+   uv run python -m scheduler.main
+   ```
 
-    The server listens on `http://localhost:8000` by default (configurable via `server.port` in `config.yaml`).
+   The server listens on `http://localhost:8000` by default (configurable via `server.port` in `config.yaml`).
 
 3. To switch modes, change `SCHEDULER_MODE` in `.env` or export it in your shell:
 
-    ```sh
-    SCHEDULER_MODE=SIMULATION uv run python -m scheduler.main
-    ```
+   ```sh
+   SCHEDULER_MODE=SIMULATION uv run python -m scheduler.main
+   ```
