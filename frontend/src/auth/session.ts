@@ -66,7 +66,7 @@ function createKeeper(): Keeper {
     return Math.max(at, lastAttemptAt + MIN_INTERVAL_MS);
   };
 
-  const arm = () => {
+  const arm = (): void => {
     clearTimers();
     const { exp } = getAuthState();
     if (exp) {
@@ -82,13 +82,13 @@ function createKeeper(): Keeper {
     const at = nextRefreshAt();
     if (at !== null && inFlight === null) {
       refreshTimer = setTimeout(
-        () => void refresh(),
+        (): void => void refresh(),
         clampDelay(at - Date.now()),
       );
     }
   };
 
-  const refresh = async () => {
+  const refresh = async (): Promise<void> => {
     if (inFlight !== null || ended) return;
     const controller = new AbortController();
     inFlight = controller;
