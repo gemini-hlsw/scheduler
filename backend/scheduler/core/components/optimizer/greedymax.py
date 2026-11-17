@@ -109,60 +109,43 @@ class GreedyMaxOptimizer(BaseOptimizer):
             self.obs_in_plan[site] = {}
         return self
 
-    def place_ongoing(self, ongoing: Mapping[Site, ObservationID]) -> None:
+    def charge_ongoing(self, ongoing: Mapping[ObservationID, datetime]) -> None:
         """
-        Put each executing observation at its site's starting time slot with the rest of its sequence,
-        so the greedy loop fills around it instead of cutting it off.
+        Treat observations being executed as done by their expected end.
 
-        It goes through _add_visit and _update_group_list like any added group, so its time is charged
-        and it is not scheduled a second time.
+        The plan starts once they are expected to finish, but mid-run the ODB still lists their remaining
+        atoms and the Ranker boosts ONGOING, so the greedy loop would put them right back at the start.
+        Charging them and updating the group list, as for any added group, keeps them out.
         """
         night_idx = self.selection.night_indices[0]
-        for site, obs_id in ongoing.items():
-            if site not in self.sites:
-                continue
-
+        for obs_id, expected_end in ongoing.items():
             found = next(
                 ((gd, obs) for gd in self.group_data_list for obs in gd.group.observations() if obs.id == obs_id),
                 None,
             )
             if found is None:
-                logger.warning(f'{obs_id.id} is executing at {site.name} but is not schedulable; planning without it.')
+                # Not schedulable, so nothing would schedule it again.
                 continue
             group_data, obs = found
 
             cumul_seq = obs.cumulative_exec_times()
-            if cumul_seq[-1] <= ZeroTime:
-                logger.warning(f'{obs_id.id} is executing at {site.name} with no sequence left; planning without it.')
-                continue
-
-            timeline = self.timelines[night_idx][site]
-            start_slot = self.selection.starting_time_slots[site][night_idx]
-            n_slots = self._length_visit(obs.acq_overhead, cumul_seq[-1])
-            # Clipped at the end of the night; _add_visit then keeps only the atoms that fit.
-            interval = np.arange(start_slot, min(start_slot + n_slots, timeline.total_time_slots))
-            if len(interval) == 0:
-                continue
-
+            if cumul_seq[-1] > ZeroTime:
+                self._charge_time(obs, atom_start=self._first_nonzero_time_idx(cumul_seq))
+            group_data.group.number_observed += 1
             max_group_info = MaxGroup(
                 group_data=group_data,
-                max_score=float(np.max(group_data.group_info.scores[night_idx][interval])),
-                interval=interval,
-                n_min=len(interval),
-                n_slots_remaining=n_slots,
+                max_score=0.0,
+                interval=np.array([], dtype=int),
+                n_min=0,
+                n_slots_remaining=0,
                 n_std=0,
                 exec_sci_nir=ZeroTime,
                 start_time=None,
-                end_time=None,
+                # Where a cadence's next group counts its delay from.
+                end_time=expected_end,
             )
-            n_slots_filled, start = self._add_visit(night_idx, obs, max_group_info, interval, 0)
-            group_data.group.number_observed += 1
-            max_group_info.start_time = start
-            max_group_info.end_time = start + n_slots_filled * self.time_slot_length
             self._update_group_list(max_group_info, night_idx)
-            logger.info(
-                f'{obs_id.id} placed first at {site.name}: slots {start_slot} to {start_slot + n_slots_filled}.'
-            )
+            logger.info(f'{obs_id.id} is executing until about {expected_end}; treated as done in this plan.')
 
     @staticmethod
     def non_zero_intervals(scores: NightTimeslotScores) -> npt.NDArray[int]:

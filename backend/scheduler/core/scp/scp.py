@@ -2,6 +2,7 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import final, Dict, Mapping, Optional
 
 import numpy.typing as npt
@@ -62,12 +63,12 @@ class SCP:
     def run_rt(
         self,
         sites_timeslots=Dict[Site, Dict[NightIndex, TimeslotIndex]],
-        ongoing: Optional[Mapping[Site, ObservationID]] = None,
+        ongoing: Optional[Mapping[ObservationID, datetime]] = None,
     ) -> Plans:
         """
         Args:
-            ongoing (Optional[Mapping[Site, ObservationID]]): observation each site is executing,
-                placed first in that site's plan.
+            ongoing (Optional[Mapping[ObservationID, datetime]]): observations being executed, with their
+                expected end. The plan treats them as done.
         """
 
         with timed('scp.select'):

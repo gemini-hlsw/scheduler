@@ -32,6 +32,7 @@ __all__ = [
     'WeatherClosureResolutionEvent',
     'ToOActivationEvent',
     'ObservationActivationEvent',
+    'OngoingObservation',
 ]
 
 
@@ -71,6 +72,21 @@ class UUIDReferenced(ABC):
 
 
 @dataclass(frozen=True)
+class OngoingObservation:
+    """An observation a site is executing.
+
+    Attributes:
+        obs_id (ObservationID): Observation reference label.
+        start (datetime): Time of the START_SLEW or sequence START that began it.
+        expected_end (datetime): ``start`` plus the ODB's time estimate for the observation.
+    """
+
+    obs_id: ObservationID
+    start: datetime
+    expected_end: datetime
+
+
+@dataclass(frozen=True)
 class Event(UUIDIdentified, ABC):
     """Superclass for all events. They contain:
 
@@ -78,15 +94,15 @@ class Event(UUIDIdentified, ABC):
         site (Site): The site at which the event occurred.
         time (datetime): The time at which the event occurred.
         description (str): A human-readable description of the event.
-        ongoing_observations (Mapping[Site, ObservationID]): Observation each site is executing when the
-            event happens. The new plan starts with it instead of cutting it off.
+        ongoing_observations (Mapping[Site, OngoingObservation]): What each site was executing when the
+            event happened. The plan starts once it is expected to finish, as if it were let finish.
     """
 
     site: Site
     time: datetime
     description: str
     # Keyword only so subclasses can keep adding required fields; out of compare so events stay hashable.
-    ongoing_observations: Mapping[Site, ObservationID] = field(default_factory=dict, compare=False, kw_only=True)
+    ongoing_observations: Mapping[Site, OngoingObservation] = field(default_factory=dict, compare=False, kw_only=True)
 
     def to_timeslot_idx(self, twi_eve_time: datetime, time_slot_length: timedelta) -> TimeslotIndex:
         """Given an event, calculate the timeslot offset it falls into relative to another datetime.

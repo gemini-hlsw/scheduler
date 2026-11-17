@@ -88,8 +88,8 @@ class ODBEventHandler(EventHandler, TimelineListener):
     Also watches the plan in effect as a :class:`TimelineListener`, so a site that never reports
     anything to the ODB is still noticed as idle. Register it with the store to enable that.
 
-    With an :class:`ExecutionTracker`, every plan it requests carries the observation each site is
-    executing, so the new plan starts with it instead of cutting it off.
+    With an :class:`ExecutionTracker`, every plan it requests carries what each site is executing, so
+    the plan waits for it to finish.
     """
 
     # How much the Scheduler can wait idle without anything set
@@ -129,35 +129,23 @@ class ODBEventHandler(EventHandler, TimelineListener):
 
         Args:
             unexecutable (Optional[ObservationID]): observation the event took out of execution
-                (deleted, INACTIVE, DEFINED). If a site is executing it, the plan is not started with it.
+                (deleted, INACTIVE, DEFINED). It will not finish, so the plan does not wait for it.
         """
         sites = self._sites_of(event)
         for site in sites:
             self.observation_execution_timer[site].cancel()
             self.idle_timer[site].cancel()
 
-        ongoing = self._ongoing_observations(sites, unexecutable)
-        if ongoing:
-            event = replace(event, ongoing_observations=ongoing)
+        if self.execution_tracker is not None:
+            ongoing = self.execution_tracker.ongoing(sites, exclude=unexecutable)
+            if ongoing:
+                # Set, if any, ongoing observations
+                event = replace(event, ongoing_observations=ongoing)
 
         await self.scheduler_queue.add_schedule_event(event)
 
         for site in sites:
             self._arm_idle_timer(site)
-
-    def _ongoing_observations(
-        self, sites: Tuple[Site, ...], unexecutable: Optional[ObservationID]
-    ) -> Dict[Site, ObservationID]:
-        """The observation each site is executing right now, per the execution tracker."""
-        if self.execution_tracker is None:
-            return {}
-        ongoing = {}
-        for site in sites:
-            execution = self.execution_tracker.get_current_execution(site)
-            if execution is not None and execution.obs_id != unexecutable:
-                _logger.info(f'{site.name} is executing {execution.obs_id.id}; the new plan starts with it.')
-                ongoing[site] = execution.obs_id
-        return ongoing
 
     def _arm_idle_timer(self, site: Site) -> None:
         """

@@ -33,7 +33,8 @@ class NightMonitor:
         consumer (EventConsumer): Event Consumer that receives serialized events from subscriptions.
         nightly_timeline_store (NightlyTimelineStore): Shared store holding the timeline the engine
             writes, so handlers can check the plan in effect before requesting a new schedule.
-        execution_tracker (ExecutionTracker): Records executed observations and the one executing at each site.
+        execution_tracker (ExecutionTracker): Knows what each site is executing, so the ODB handler's plans
+            wait for it to finish.
 
         _shutdown_event (asyncio.Event): Signals shutting down for all subcomponents.
         _listener_task (asyncio.Task): Holds the Event listener process.

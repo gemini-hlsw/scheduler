@@ -24,6 +24,7 @@ from scheduler.graphql_mid.types import NightPlansError
 from scheduler.night_monitor.event_sources import WeatherEventSource
 from scheduler.services.visibility_aggregator import coordination
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site, WaterVapor
+from lucupy.timeutils import time2slots
 from astropy.coordinates import Angle
 from astropy import units as u
 
@@ -280,6 +281,8 @@ class EngineRT:
         - The event time if happens after the twilight and after the custom start
         - The custom start if defined and happens after the twilight
         - The twilight timeslot
+        Pushed to the expected end of the observation the site was executing when the event
+        happened, if later, so the plan lets it finish.
 
         Args:
             event (Event): The event to compute the start timeslot for.
@@ -295,7 +298,18 @@ class EngineRT:
                 nightly_timeline.set_twilights(0, site, *self.scp.collector.get_twilights(site, 0))
                 nightly_timeline.set_custom_night_times(0, site, *self.scp.collector.get_custom_night_times(site, 0))
 
-                event_timeslot = event.to_timeslot_idx(night_start, self.scp.collector.time_slot_length.to_datetime())
+                time_slot_length = self.scp.collector.time_slot_length.to_datetime()
+                event_timeslot = event.to_timeslot_idx(night_start, time_slot_length)
+
+                ongoing = event.ongoing_observations.get(site)
+                if ongoing is not None:
+                    end_timeslot = time2slots(time_slot_length, ongoing.expected_end - night_start)
+                    if end_timeslot > event_timeslot:
+                        _logger.info(
+                            f"{site.name} is executing {ongoing.obs_id.id} until about {ongoing.expected_end}; "
+                            f"the plan starts once it finishes."
+                        )
+                        event_timeslot = end_timeslot
 
                 _logger.info(
                     f"Computing plan for site {site.name} starting on timeslot: {event_timeslot if event_timeslot > 0 else 0}, "
@@ -355,7 +369,9 @@ class EngineRT:
 
         start_timeslot = await self._compute_event_start_timeslot(event)
 
-        plans = await asyncio.to_thread(self.scp.run_rt, start_timeslot, event.ongoing_observations)
+        # Done as of their expected end, so the plan that starts then does not schedule them again.
+        ongoing = {o.obs_id: o.expected_end for o in event.ongoing_observations.values()}
+        plans = await asyncio.to_thread(self.scp.run_rt, start_timeslot, ongoing)
         self._drop_pseudo_time_accounting(plans)
 
         # The start timeslot section above already released the lock, so the Night Monitor
