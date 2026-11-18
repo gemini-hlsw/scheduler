@@ -66,6 +66,7 @@ scalar JSON @specifiedBy(url: "https://ecma-international.org/wp-content/uploads
 
 type Mutation {
   updateBuildParams(buildParamsInput: BuildParametersInput!): String!
+  decidePlan(proposalId: String!, accept: Boolean!): PlanDecision!
   setProgramSelection(programIds: [String!]!, selected: Boolean!): ProgramSelection!
   resetProgramSelection: ProgramSelection!
 }
@@ -83,7 +84,7 @@ type NightPlansError {
   error: String!
 }
 
-union NightPlansResponseRT = NewNightPlans | NightPlansError | NewPlansRT | NightPlansWithEvent
+union NightPlansResponseRT = NewNightPlans | NightPlansError | NewPlansRT | NightPlansWithEvent | ProposedNightPlans | PlanDecision
 
 type NightPlansWithEvent {
   nightPlans: SPlans!
@@ -124,6 +125,12 @@ enum ObservationStatus {
   SKIPPED
 }
 
+type PlanDecision {
+  proposalId: String!
+  accepted: Boolean!
+  decidedBy: String!
+}
+
 enum PlanState {
   IDLE
   WAITING
@@ -142,6 +149,12 @@ type PlanStatusResponse {
 
 type ProgramSelection {
   deselected: [String!]!
+}
+
+type ProposedNightPlans {
+  proposalId: String!
+  nightPlans: SNightTimelines!
+  plansSummary: SRunSummary!
 }
 
 type Query {

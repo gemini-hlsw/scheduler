@@ -388,10 +388,37 @@ class NightPlansWithEvent:
     event: str
 
 
+@strawberry.type
+class ProposedNightPlans:
+    """
+    A plan computed on top of the one in effect, waiting for someone to accept or discard it.
+
+    Every UI gets the same proposal; the first decision (decidePlan) settles it for all of them
+    and is announced with PlanDecision. Until then the plan in effect is the last NewNightPlans.
+    """
+
+    proposal_id: str
+    night_plans: SNightTimelines
+    plans_summary: SRunSummary
+
+
+@strawberry.type
+class PlanDecision:
+    """
+    A proposed plan was accepted (it is now the plan in effect) or discarded (the plan in effect
+    stays), by `decided_by`.
+    """
+
+    proposal_id: str
+    accepted: bool
+    decided_by: str
+
+
 NightPlansResponse = Annotated[Union[NewNightPlans, NightPlansError], strawberry.union("NightPlansResponse")]
 
 NightPlansResponseRT = Annotated[
-    Union[NightPlansResponse, NewPlansRT, NightPlansWithEvent], strawberry.union("NightPlansResponseRT")
+    Union[NightPlansResponse, NewPlansRT, NightPlansWithEvent, ProposedNightPlans, PlanDecision],
+    strawberry.union("NightPlansResponseRT"),
 ]
 
 

@@ -83,6 +83,32 @@ class NightlyTimelineStore:
         async with self._lock:
             yield self._timeline
 
+    def plan_in_effect(self) -> bool:
+        """
+        Whether any site has a plan in effect. Writers only, from inside :meth:`mutate`.
+        """
+        return any(
+            self._last_entry_with_plan(site) is not None
+            for site in self._timeline.stitched_timeline.get(NightIndex(0), {}).keys()
+            | self._timeline.timeline.get(NightIndex(0), {}).keys()
+        )
+
+    def copy_timeline(self) -> NightlyTimeline:
+        """
+        A deep copy of the live timeline, to stitch a proposed plan onto without putting it in
+        effect. Writers only, from inside :meth:`mutate`.
+        """
+        return deepcopy(self._timeline)
+
+    async def replace(self, timeline: NightlyTimeline, collected_ids: Iterable[ObservationID]) -> None:
+        """
+        Put a timeline built with :meth:`copy_timeline` in effect, with the observations its
+        Collector had. The caller announces the sites with :meth:`plan_published` afterwards.
+        """
+        async with self._lock:
+            self._timeline = timeline
+            self._collected_ids = frozenset(collected_ids)
+
     async def reset(self) -> None:
         """
         Drop everything recorded so far. Called when the night ends, so the next night does not

@@ -19,6 +19,7 @@ from scheduler.services.logger_factory import create_logger
 from scheduler.shared_queue import (
     plan_response_subscribers,
     last_plan_responses,
+    pending_plan_responses,
     build_parameters_subscribers,
     program_selection_subscribers,
 )
@@ -56,6 +57,7 @@ from .types import (
     VisibleObservationsPage,
     SchedulerEvent,
     PlanStatusResponse,
+    PlanDecision,
 )
 from .inputs import CreateNewScheduleInput
 
@@ -369,10 +371,16 @@ class Subscription:
         try:
             # Subscribed first, so a plan published in between is not lost. At worst
             # it arrives twice, which is harmless: the UI replaces the whole plan.
+            # Both read before the first yield, so they belong to the same moment: the
+            # plan in effect, then the proposal still waiting for a decision, if any.
             last_plan = last_plan_responses.get(schedule_id)
+            pending_plan = pending_plan_responses.get(schedule_id)
             if last_plan is not None:
                 _logger.info(f"Subscription: Replaying last plan for {schedule_id}")
                 yield last_plan
+            if pending_plan is not None:
+                _logger.info(f"Subscription: Replaying the proposed plan for {schedule_id}")
+                yield pending_plan
             while True:
                 try:
                     _logger.info(f"Subscription: Waiting for plan response for {schedule_id}")
@@ -488,6 +496,19 @@ class Mutation:
         except ValidationError as e:
             msg += f'Error: {e.errors()}'
         return msg
+
+    @strawberry.mutation
+    async def decide_plan(self, info: strawberry.Info, proposal_id: str, accept: bool) -> PlanDecision:
+        """Accept or discard the proposed plan, for every UI. Fails when that plan is no longer
+        waiting: someone else decided on it first, or a newer plan replaced it."""
+        op_process = process_manager.get_operation_process()
+        if op_process is None or op_process.engine is None:
+            raise ValueError("No operation process is running: decide_plan is only available in OPERATION mode.")
+        context = info.context
+        user = context.get("user") if isinstance(context, dict) else None
+        decided_by = user.name if user is not None else "anonymous"
+        _logger.info(f"Plan {proposal_id} {'accept' if accept else 'discard'} requested by {_requester(info)}")
+        return await op_process.engine.decide_plan(proposal_id, accept, decided_by)
 
     @strawberry.mutation
     async def set_program_selection(

@@ -12,7 +12,12 @@ import { cn } from "@/lib/utils";
 import { ObsClassBadge } from "./ObsClassBadge";
 import { GroupBadge, planGroupIds } from "./GroupBadge";
 import { ObsIdLink } from "./ObsIdLink";
-import { FaCheck } from "react-icons/fa";
+import { FaCheck, FaChevronDown, FaChevronRight } from "react-icons/fa";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { IoHourglassOutline } from "react-icons/io5";
 import NightPlanSummary from "./NightPlanSummary";
@@ -146,6 +151,9 @@ export default function RealTimeEntry({
   moonIllumination,
   moonWaxing,
   site,
+  plotHeight,
+  tablesOpen,
+  onTablesOpenChange,
 }: {
   timeEntry: TimeEntryType;
   mornTwilight: string;
@@ -156,6 +164,13 @@ export default function RealTimeEntry({
   moonIllumination?: number | null;
   moonWaxing?: boolean | null;
   site: string;
+  plotHeight?: number;
+  /**
+   * When given, the observation tables can be collapsed with a toggle and
+   * this says whether they are shown. When not given they are always shown.
+   */
+  tablesOpen?: boolean;
+  onTablesOpenChange?: (open: boolean) => void;
 }) {
   function parseToVisitForPlot(visits: Visit[]) {
     return visits.map((visit: Visit) => ({
@@ -273,107 +288,133 @@ export default function RealTimeEntry({
         moonWaxing={moonWaxing}
         site={site}
         closureWindows={timeEntry.timelossWindows}
+        height={plotHeight}
       />
-      <Table>
-        <TableHeader>
-          <TableRow
-            className={cn("dark:bg-white/20 bg-black/20", "*:h-6 *:font-bold")}
+      <Collapsible open={tablesOpen ?? true} onOpenChange={onTablesOpenChange}>
+        {tablesOpen !== undefined && (
+          <CollapsibleTrigger
+            className={cn(
+              "flex flex-row items-center gap-2 px-2 py-1 text-sm font-bold",
+              "rounded-md dark:hover:bg-white/20 hover:bg-black/20",
+            )}
           >
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead className="text-center" colSpan={2}>
-              Atom
-            </TableHead>
-            <TableHead className="text-center" colSpan={2}>
-              Step
-            </TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-            <TableHead></TableHead>
-          </TableRow>
-          <TableRow
-            className={cn("dark:bg-white/20 bg-black/20", "*:h-6 *:font-bold")}
-          >
-            <TableHead></TableHead>
-            <TableHead>Observation Id</TableHead>
-            <TableHead>Targets</TableHead>
-            <TableHead>Observation Class</TableHead>
-            <TableHead>Group</TableHead>
-            <TableHead>Band</TableHead>
-            <TableHead>Start Time</TableHead>
-            <TableHead>Start</TableHead>
-            <TableHead>End</TableHead>
-            <TableHead>Start</TableHead>
-            <TableHead>End</TableHead>
-            <TableHead>Instrument</TableHead>
-            <TableHead>FPU</TableHead>
-            <TableHead>Grating</TableHead>
-            <TableHead>Filters</TableHead>
-            <TableHead>Cloud Cover</TableHead>
-            <TableHead>Image Quality</TableHead>
-            <TableHead>Water Vapor</TableHead>
-            <TableHead>Sky Background</TableHead>
-            <TableHead>Obs Completion</TableHead>
-            <TableHead>Peak Score</TableHead>
-            <TableHead>Score</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>{visitRows}</TableBody>
-      </Table>
-      <Table>
-        <TableHeader>
-          <TableRow
-            className={cn("dark:bg-white/20 bg-black/20", "*:h-6 *:font-bold")}
-          >
-            <TableHead>Program Id</TableHead>
-            <TableHead>Completition</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {Object.keys(timeEntry.plan.nightStats.programCompletion).length >
-          0 ? (
-            Object.keys(timeEntry.plan.nightStats.programCompletion).map(
-              (progId: string) => (
+            {tablesOpen ? <FaChevronDown /> : <FaChevronRight />}
+            {tablesOpen ? "Hide observations" : "Show observations"}
+            {` (${timeEntry.plan.visits.length})`}
+          </CollapsibleTrigger>
+        )}
+        <CollapsibleContent>
+          <Table>
+            <TableHeader>
+              <TableRow
+                className={cn(
+                  "dark:bg-white/20 bg-black/20",
+                  "*:h-6 *:font-bold",
+                )}
+              >
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead className="text-center" colSpan={2}>
+                  Atom
+                </TableHead>
+                <TableHead className="text-center" colSpan={2}>
+                  Step
+                </TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+              <TableRow
+                className={cn(
+                  "dark:bg-white/20 bg-black/20",
+                  "*:h-6 *:font-bold",
+                )}
+              >
+                <TableHead></TableHead>
+                <TableHead>Observation Id</TableHead>
+                <TableHead>Targets</TableHead>
+                <TableHead>Observation Class</TableHead>
+                <TableHead>Group</TableHead>
+                <TableHead>Band</TableHead>
+                <TableHead>Start Time</TableHead>
+                <TableHead>Start</TableHead>
+                <TableHead>End</TableHead>
+                <TableHead>Start</TableHead>
+                <TableHead>End</TableHead>
+                <TableHead>Instrument</TableHead>
+                <TableHead>FPU</TableHead>
+                <TableHead>Grating</TableHead>
+                <TableHead>Filters</TableHead>
+                <TableHead>Cloud Cover</TableHead>
+                <TableHead>Image Quality</TableHead>
+                <TableHead>Water Vapor</TableHead>
+                <TableHead>Sky Background</TableHead>
+                <TableHead>Obs Completion</TableHead>
+                <TableHead>Peak Score</TableHead>
+                <TableHead>Score</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>{visitRows}</TableBody>
+          </Table>
+          <Table>
+            <TableHeader>
+              <TableRow
+                className={cn(
+                  "dark:bg-white/20 bg-black/20",
+                  "*:h-6 *:font-bold",
+                )}
+              >
+                <TableHead>Program Id</TableHead>
+                <TableHead>Completition</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Object.keys(timeEntry.plan.nightStats.programCompletion).length >
+              0 ? (
+                Object.keys(timeEntry.plan.nightStats.programCompletion).map(
+                  (progId: string) => (
+                    <TableRow
+                      key={progId}
+                      className={cn(
+                        "odd:bg-muted/50 *:p-0 *:px-2",
+                        "dark:hover:bg-white/30 hover:bg-black/30",
+                      )}
+                    >
+                      <TableCell>{progId}</TableCell>
+                      <TableCell>
+                        {timeEntry.plan.nightStats.programCompletion[progId]}
+                      </TableCell>
+                    </TableRow>
+                  ),
+                )
+              ) : (
                 <TableRow
-                  key={progId}
                   className={cn(
                     "odd:bg-muted/50 *:p-0 *:px-2",
                     "dark:hover:bg-white/30 hover:bg-black/30",
                   )}
                 >
-                  <TableCell>{progId}</TableCell>
-                  <TableCell>
-                    {timeEntry.plan.nightStats.programCompletion[progId]}
-                  </TableCell>
+                  <TableCell>No available options</TableCell>
+                  <TableCell></TableCell>
                 </TableRow>
-              ),
-            )
-          ) : (
-            <TableRow
-              className={cn(
-                "odd:bg-muted/50 *:p-0 *:px-2",
-                "dark:hover:bg-white/30 hover:bg-black/30",
               )}
-            >
-              <TableCell>No available options</TableCell>
-              <TableCell></TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+            </TableBody>
+          </Table>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

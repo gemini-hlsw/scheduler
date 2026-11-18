@@ -13,12 +13,55 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { type RunSummary } from "./types";
+import { type PlanReview } from "./components/GlobalState/planReview";
+import { type QueueScheduleSubscription } from "./gql/graphql";
+
+/**
+ * Apply a message from a live backend's plan subscription to its plan review.
+ * Returns false for a message it does not know, so the caller can report it.
+ */
+function applyLivePlanMessage(
+  message: QueueScheduleSubscription["queueSchedule"],
+  review: PlanReview,
+  toasterId: string,
+): boolean {
+  switch (message.__typename) {
+    case "NewNightPlans":
+      review.inEffect(message.nightPlans.nightTimeline);
+      return true;
+    case "ProposedNightPlans":
+      review.proposed(message.proposalId, message.nightPlans.nightTimeline);
+      return true;
+    case "PlanDecision":
+      review.decided(message.proposalId, message.accepted);
+      toast(
+        `New plan ${message.accepted ? "accepted" : "discarded"} by ${message.decidedBy}`,
+        { closeButton: true, toasterId },
+      );
+      return true;
+    case "NightPlansError":
+      toast.error(message.error, {
+        closeButton: true,
+        duration: Infinity,
+        toasterId,
+      });
+      review.dropPending();
+      return true;
+    case "NewPlansRT":
+    case "NightPlansWithEvent":
+      // Deprecated
+      console.log("Deprecated method");
+      return true;
+    default:
+      return false;
+  }
+}
 
 function App() {
   const {
     setNightPlans,
-    setRtNightPlans,
-    setSimNightPlans,
+    rtPlanReview,
+    simPlanReview,
     setPlansSummary,
     setLoadingPlan,
     setRtLoadingPlan,
@@ -60,12 +103,14 @@ function App() {
   // The default (twilight) night the operation server plans for. Asked on load
   // and after every reconnect, and polled so it rolls over to the next night.
   const isRealtimeConnected = useReactiveVar(isRealtimeConnectedVar);
-  const { data: operationNightData, refetch: refetchOperationNight } =
-    useQuery(operationNightQuery, {
+  const { data: operationNightData, refetch: refetchOperationNight } = useQuery(
+    operationNightQuery,
+    {
       fetchPolicy: "no-cache",
       context: { clientName: "realtimeClient" },
       pollInterval: 10 * 60 * 1000,
-    });
+    },
+  );
 
   useEffect(() => {
     if (isRealtimeConnected) refetchOperationNight();
@@ -126,28 +171,14 @@ function App() {
   useEffect(() => {
     try {
       if (!rtLoading) {
-        if (rtData && rtData.queueSchedule.__typename === "NewNightPlans") {
-          setRtNightPlans(rtData.queueSchedule.nightPlans.nightTimeline);
-        } else if (
-          rtData &&
-          rtData.queueSchedule.__typename === "NightPlansError"
+        if (
+          !rtData ||
+          !applyLivePlanMessage(
+            rtData.queueSchedule,
+            rtPlanReview,
+            OPERATION_BACKEND.tab,
+          )
         ) {
-          toast.error(rtData.queueSchedule.error, {
-            closeButton: true,
-            duration: Infinity,
-            toasterId: OPERATION_BACKEND.tab,
-          });
-          setRtNightPlans([]);
-        } else if (rtData && rtData.queueSchedule.__typename === "NewPlansRT") {
-          // Deprecated
-          console.log("Deprecated method");
-        } else if (
-          rtData &&
-          rtData.queueSchedule.__typename === "NightPlansWithEvent"
-        ) {
-          // Deprecated
-          console.log("Deprecated method");
-        } else {
           toast.error(
             rtError?.message ??
               "Unknown type, probably due a mismatch between server and UI versions",
@@ -157,7 +188,7 @@ function App() {
               toasterId: OPERATION_BACKEND.tab,
             },
           );
-          setRtNightPlans([]);
+          rtPlanReview.dropPending();
         }
         setRtLoadingPlan(false);
       }
@@ -169,26 +200,14 @@ function App() {
   useEffect(() => {
     try {
       if (!simLoading) {
-        if (simData && simData.queueSchedule.__typename === "NewNightPlans") {
-          setSimNightPlans(simData.queueSchedule.nightPlans.nightTimeline);
-        } else if (
-          simData &&
-          simData.queueSchedule.__typename === "NightPlansError"
+        if (
+          !simData ||
+          !applyLivePlanMessage(
+            simData.queueSchedule,
+            simPlanReview,
+            SIMULATION_BACKEND.tab,
+          )
         ) {
-          toast.error(simData.queueSchedule.error, {
-            closeButton: true,
-            duration: Infinity,
-            toasterId: SIMULATION_BACKEND.tab,
-          });
-          setSimNightPlans([]);
-        } else if (
-          simData &&
-          (simData.queueSchedule.__typename === "NewPlansRT" ||
-            simData.queueSchedule.__typename === "NightPlansWithEvent")
-        ) {
-          // Deprecated
-          console.log("Deprecated method");
-        } else {
           toast.error(
             simError?.message ??
               "Unknown type, probably due a mismatch between server and UI versions",
@@ -198,7 +217,7 @@ function App() {
               toasterId: SIMULATION_BACKEND.tab,
             },
           );
-          setSimNightPlans([]);
+          simPlanReview.dropPending();
         }
         setSimLoadingPlan(false);
       }

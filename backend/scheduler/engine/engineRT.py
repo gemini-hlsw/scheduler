@@ -2,8 +2,10 @@
 # For license information see LICENSE or https://opensource.org/licenses/BSD-3-Clause
 
 import asyncio
+from dataclasses import dataclass
 from time import time
-from typing import Optional
+from typing import FrozenSet, List, Optional
+from uuid import uuid4
 import traceback
 import numpy as np
 from .params import SchedulerParameters, build_params_store, default_operation_parameters
@@ -20,7 +22,8 @@ from scheduler.core.events.queue.plan_status import PlanStatusTracker
 from scheduler.core.events.queue.scheduler_queue_client import SchedulerQueue
 from scheduler.core.statscalculator import StatCalculator
 from scheduler.graphql_mid.types import NewNightPlans, SNightTimelines, SRunSummary
-from scheduler.graphql_mid.types import NightPlansError
+from scheduler.graphql_mid.types import NightPlansError, PlanDecision, ProposedNightPlans
+from scheduler.core.events.queue.nightchanges import NightlyTimeline
 from scheduler.night_monitor.event_sources import WeatherEventSource
 from scheduler.services.visibility_aggregator import coordination
 from lucupy.minimodel import VariantSnapshot, ImageQuality, CloudCover, Site, WaterVapor
@@ -31,9 +34,26 @@ from astropy import units as u
 __all__ = ['EngineRT']
 
 from ..core.components.ranker import DefaultRanker
-from ..shared_queue import plan_response_subscribers, last_plan_responses
+from ..shared_queue import plan_response_subscribers, last_plan_responses, pending_plan_responses
 
 _logger = logger_factory.create_logger(__name__)
+
+
+@dataclass(frozen=True)
+class PlanProposal:
+    """
+    A plan stitched onto a copy of the timeline in effect, kept until someone decides on it.
+    """
+
+    proposal_id: str
+    timeline: NightlyTimeline
+    collected_ids: FrozenSet
+    sites: List[Site]
+    response: ProposedNightPlans
+
+
+class StaleProposalError(ValueError):
+    """The proposal decided on is no longer the one waiting: already decided, or replaced."""
 
 
 class EngineRT:
@@ -75,6 +95,8 @@ class EngineRT:
         self.last_program_list = None
         self.event_history = event_history if event_history is not None else EventHistory()
         self.plan_status = plan_status if plan_status is not None else PlanStatusTracker()
+        # A plan computed while another one is in effect waits here for decide_plan.
+        self.proposal: Optional[PlanProposal] = None
 
     def _refresh_default_night(self, build_params) -> None:
         """
@@ -360,12 +382,19 @@ class EngineRT:
 
         # The start timeslot section above already released the lock, so the Night Monitor
         # readers are only blocked while the timeline is actually being updated.
-        async with self.nightly_timeline_store.mutate() as nightly_timeline:
+        async with self.nightly_timeline_store.mutate() as live_timeline:
+            # The night's first plan has nothing to be compared with, so it takes effect at
+            # once. Any later one is stitched onto a copy and only proposed: the plan in
+            # effect, the one the Night Monitor watches, changes when someone accepts it.
+            propose = self.nightly_timeline_store.plan_in_effect()
+            nightly_timeline = self.nightly_timeline_store.copy_timeline() if propose else live_timeline
             for site in self.params.sites:
                 nightly_timeline.add(plans.night_idx, site, start_timeslot[site][0], event, plans.plans[site])
                 nightly_timeline.calculate_time_losses(plans.night_idx, site)
             # So the Night Monitor can tell an edit to an observation the plan passed over from a new one.
-            self.nightly_timeline_store.set_collected_observation_ids(self.scp.collector.get_observation_ids())
+            collected_ids = frozenset(self.scp.collector.get_observation_ids())
+            if not propose:
+                self.nightly_timeline_store.set_collected_observation_ids(collected_ids)
             run_summary = StatCalculator.calculate_stitched_timeline_stats(
                 nightly_timeline, self.params.night_indices, self.params.sites, self.scp.collector, self.scp.ranker
             )
@@ -374,12 +403,71 @@ class EngineRT:
             )
         s_plan_summary = SRunSummary.from_computed_run_summary(run_summary)
 
+        if propose:
+            response = ProposedNightPlans(
+                proposal_id=uuid4().hex, night_plans=s_timelines, plans_summary=s_plan_summary
+            )
+            # A newer proposal replaces one still waiting.
+            self.proposal = PlanProposal(
+                proposal_id=response.proposal_id,
+                timeline=nightly_timeline,
+                collected_ids=collected_ids,
+                sites=list(self.params.sites),
+                response=response,
+            )
+            # Set together with the proposal, so a reloaded UI never gets one already decided.
+            pending_plan_responses[self.process_id] = response
+            return response
+
+        self._drop_proposal()
         # Outside the mutate block on purpose: a listener reads the plan back, and the store's
         # lock is not reentrant.
         for site in self.params.sites:
             await self.nightly_timeline_store.plan_published(site)
 
         return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
+
+    async def _broadcast(self, response) -> None:
+        for q in plan_response_subscribers.get(self.process_id, set()):
+            await q.put(response)
+
+    def _drop_proposal(self) -> None:
+        self.proposal = None
+        pending_plan_responses.pop(self.process_id, None)
+
+    async def decide_plan(self, proposal_id: str, accept: bool, decided_by: str) -> PlanDecision:
+        """
+        Accept or discard the proposed plan for every UI.
+
+        Accepting puts the proposal's timeline in effect, so the Night Monitor watches it, the
+        next plan is stitched onto it and a reloaded UI gets it. Discarding keeps the plan in
+        effect as it was.
+
+        Raises:
+            StaleProposalError: the proposal is not the one waiting any more: someone else
+                decided on it, a newer plan replaced it, or the night ended.
+        """
+        proposal = self.proposal
+        if proposal is None or proposal.proposal_id != proposal_id:
+            raise StaleProposalError(
+                "This plan is no longer waiting for a decision: it was already accepted or "
+                "discarded, or a newer plan replaced it."
+            )
+        # Taken before the first await, so a second decision on the same proposal fails.
+        self._drop_proposal()
+
+        if accept:
+            await self.nightly_timeline_store.replace(proposal.timeline, proposal.collected_ids)
+            last_plan_responses[self.process_id] = NewNightPlans(
+                night_plans=proposal.response.night_plans, plans_summary=proposal.response.plans_summary
+            )
+            for site in proposal.sites:
+                await self.nightly_timeline_store.plan_published(site)
+
+        _logger.info(f"Plan {proposal_id} {'accepted' if accept else 'discarded'} by {decided_by}.")
+        decision = PlanDecision(proposal_id=proposal_id, accepted=accept, decided_by=decided_by)
+        await self._broadcast(decision)
+        return decision
 
     async def run(self):
         """
@@ -399,6 +487,7 @@ class EngineRT:
                         # effect to whatever runs next.
                         await self.nightly_timeline_store.reset()
                         last_plan_responses.pop(self.process_id, None)
+                        self._drop_proposal()
                         if is_operation:
                             # The NightTracker has already moved on to the next night, so keep
                             # consuming its events instead of leaving it unplanned.
@@ -411,15 +500,17 @@ class EngineRT:
                     # Plan is already computed by the callback in consume_events.
                     # Kept before publishing, so a UI subscribing meanwhile gets it either way.
                     # A failed plan is not kept: the last good one is still the plan in effect.
-                    last_plan_responses[self.process_id] = plan
-                    for q in plan_response_subscribers.get(self.process_id, set()):
-                        await q.put(plan)
+                    # A proposal is kept for new subscribers by _compute_event_plan.
+                    if not isinstance(plan, ProposedNightPlans):
+                        last_plan_responses[self.process_id] = plan
+                    await self._broadcast(plan)
 
                 except Exception as e:
                     traceback.print_exc()
                     _logger.error(f"Error in scheduler process: {e}")
-                    for q in plan_response_subscribers.get(self.process_id, set()):
-                        await q.put(NightPlansError(error=str(e)))
+                    # The UIs drop a proposal on an error, so the server does too.
+                    self._drop_proposal()
+                    await self._broadcast(NightPlansError(error=str(e)))
 
         except asyncio.CancelledError:
             _logger.info("Scheduler process was cancelled.")

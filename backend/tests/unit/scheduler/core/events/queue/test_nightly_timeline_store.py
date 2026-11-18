@@ -242,3 +242,25 @@ async def test_reset_tells_listeners_the_night_is_over():
     await store.reset()
 
     assert listener.resets == 1
+
+
+@pytest.mark.asyncio
+async def test_plan_in_effect_needs_an_entry_with_a_plan():
+    assert not NightlyTimelineStore().plan_in_effect()
+    assert not store_with(timeline_plans=[None]).plan_in_effect()
+    assert store_with(site=Site.GS, stitched_plans=[fake_plan('GS-1')]).plan_in_effect()
+
+
+@pytest.mark.asyncio
+async def test_a_proposed_timeline_takes_effect_only_when_replaced():
+    store = store_with(stitched_plans=[fake_plan('GN-1')])
+
+    async with store.mutate():
+        proposed = store.copy_timeline()
+    proposed.stitched_timeline[NIGHT_IDX][Site.GN].append(entry(fake_plan('GN-2')))
+
+    assert await store.planned_observation_ids(Site.GN) == {ObservationID('GN-1')}
+
+    await store.replace(proposed, [ObservationID('GN-2')])
+    assert await store.planned_observation_ids(Site.GN) == {ObservationID('GN-2')}
+    assert await store.collected_observation_ids() == {ObservationID('GN-2')}

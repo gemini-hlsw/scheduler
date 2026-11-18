@@ -44,22 +44,32 @@ const MOON_LINE_COLOR = "#a3a3a3";
 // Calibration visits are hatched, science visits are plain.
 const CALIBRATION_LEGEND_COLOR = "#999999";
 const isCalibration = (obsClass: string) => obsClass.endsWith("CAL");
-// Diagonal lines over a faint background of the same color.
+// Thick, widely spaced, semi-transparent diagonal stripes over a faint
+// background of the same color, so the observation labels drawn on top stay
+// readable.
+const HATCH_SIZE = 16;
+const HATCH_WIDTH = 5;
+const HATCH_STROKE_OPACITY = "66";
 const hatchedFill = (
   color: string,
   backgroundOpacity: string,
-): Highcharts.PatternObject => ({
-  pattern: {
-    path: {
-      d: "M 0 8 L 8 0 M -1 1 L 1 -1 M 7 9 L 9 7",
-      stroke: color,
-      strokeWidth: 1.5,
+): Highcharts.PatternObject => {
+  const s = HATCH_SIZE;
+  const h = HATCH_WIDTH;
+  return {
+    pattern: {
+      path: {
+        // The main diagonal plus the corner pieces, so stripes join across tiles.
+        d: `M 0 ${s} L ${s} 0 M ${-h} ${h} L ${h} ${-h} M ${s - h} ${s + h} L ${s + h} ${s - h}`,
+        stroke: `${color}${HATCH_STROKE_OPACITY}`,
+        strokeWidth: h,
+      },
+      width: s,
+      height: s,
+      backgroundColor: `${color}${backgroundOpacity}`,
     },
-    width: 8,
-    height: 8,
-    backgroundColor: `${color}${backgroundOpacity}`,
-  },
-});
+  };
+};
 
 interface Visit {
   startDate: Date;
@@ -85,7 +95,11 @@ interface AltAzPlotProps {
   moonWaxing?: boolean | null;
   site: string;
   closureWindows: TimeLossWindow[];
+  /** Chart height in pixels. */
+  height?: number;
 }
+
+export const DEFAULT_PLOT_HEIGHT = 400;
 
 const AltAzPlot: React.FC<AltAzPlotProps> = ({
   data,
@@ -99,6 +113,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   moonWaxing,
   site,
   closureWindows,
+  height = DEFAULT_PLOT_HEIGHT,
 }) => {
   const INITIAL_TIMEZONE = getSiteOffset(site);
 
@@ -343,8 +358,11 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
 
       const xPos = chart.xAxis[0].toPixels(x, false);
 
+      // The rotated text runs upwards from its anchor: start it just above
+      // the x axis, whatever the chart height.
+      const plotBottom = chart.plotTop + chart.plotHeight;
       const lbl = chart.renderer
-        .text(d.label, xPos + 4.5, 350)
+        .text(d.label, xPos + 4.5, plotBottom - 4)
         .attr({
           rotation: -90,
           textAlign: "center",
@@ -459,7 +477,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
     if (chartRef.current) {
       updateChart();
     }
-  }, [seriesData]);
+  }, [seriesData, height]);
 
   const debouncedResizeHandler = debounce(updateChart, 300);
 
@@ -478,6 +496,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
     },
     chart: {
       type: "arearange",
+      height,
     },
 
     tooltip: {

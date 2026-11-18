@@ -73,6 +73,7 @@ scalar JSON @specifiedBy(url: "https://ecma-international.org/wp-content/uploads
 
 type Mutation {
   updateBuildParams(buildParamsInput: BuildParametersInput!): String!
+  decidePlan(proposalId: String!, accept: Boolean!): PlanDecision!
   setProgramSelection(programIds: [String!]!, selected: Boolean!): ProgramSelection!
   resetProgramSelection: ProgramSelection!
 }
@@ -90,7 +91,7 @@ type NightPlansError {
   error: String!
 }
 
-union NightPlansResponseRT = NewNightPlans | NightPlansError | NewPlansRT | NightPlansWithEvent
+union NightPlansResponseRT = NewNightPlans | NightPlansError | NewPlansRT | NightPlansWithEvent | ProposedNightPlans | PlanDecision
 
 type NightPlansWithEvent {
   nightPlans: SPlans!
@@ -131,8 +132,36 @@ enum ObservationStatus {
   SKIPPED
 }
 
+type PlanDecision {
+  proposalId: String!
+  accepted: Boolean!
+  decidedBy: String!
+}
+
+enum PlanState {
+  IDLE
+  WAITING
+  COMPUTING
+}
+
+type PlanStatusResponse {
+  state: PlanState!
+  since: DateTime!
+  eventDescription: String
+  requestedByUser: Boolean!
+  lastFinishedAt: DateTime
+  lastDurationSeconds: Float
+  lastError: String
+}
+
 type ProgramSelection {
   deselected: [String!]!
+}
+
+type ProposedNightPlans {
+  proposalId: String!
+  nightPlans: SNightTimelines!
+  plansSummary: SRunSummary!
 }
 
 type Query {
@@ -140,6 +169,7 @@ type Query {
   schedule(scheduleId: String!, newScheduleInput: CreateNewScheduleInput!): String!
   scheduleV2: String!
   onDemandSchedule: String!
+  planStatus: PlanStatusResponse!
   operationNight: [SiteNight!]!
   availablePrograms(nightDate: Date = null): [AvailableProgram!]!
   visibilityAggregatorStatus: VisibilityAggregatorStatus!
@@ -256,7 +286,10 @@ type SVisit {
   atomTimes: [Int!]!
   stepStart: Int
   stepEnd: Int
+  band: Int
   exploreUrl: String
+  groupId: String
+  groupName: String
 }
 
 type SchedulerEvent {
@@ -299,6 +332,7 @@ type Subscription {
   buildParametersUpdates: BuildParametersResponse!
   programSelectionUpdates: ProgramSelection!
   schedulerEvents: SchedulerEvent!
+  planStatusUpdates: PlanStatusResponse!
 }
 
 type TimelineEntriesBySite {

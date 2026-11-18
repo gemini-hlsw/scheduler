@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { GlobalStateContext } from "../GlobalState/GlobalState";
 import WeatherConditions from "../WeatherConditions/WeatherConditions";
-import Result from "./Result";
+import ReviewedResult from "./ReviewedResult";
 import { cn } from "@/lib/utils";
 import { DisplayWeather } from "../WeatherConditions/DisplayWeather";
 import OnDemandControl from "../ControlPanel/OnDemandControl";
@@ -9,7 +9,7 @@ import BuildParameters from "../BuildParameters/BuildParameters";
 import SchedulerEvents from "./SchedulerEvents";
 
 export default function Operation() {
-  const { rtNightPlans } = useContext(GlobalStateContext);
+  const { rtPlanReview } = useContext(GlobalStateContext);
 
   return (
     <div className="flex flex-col gap-2">
@@ -34,7 +34,7 @@ export default function Operation() {
         </div>
       </div>
       <SchedulerEvents />
-      <Result plans={rtNightPlans} />
+      <ReviewedResult review={rtPlanReview} />
     </div>
   );
 }
