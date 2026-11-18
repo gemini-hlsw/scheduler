@@ -100,3 +100,7 @@ Access to fetch at 'http://localhost:8000/graphql' from origin 'http://localhost
 The UI will try to connect to the scheduler server using the origin provided in its configuration, by default it should be http://localhost:5173, so the server should be configured to allow this origin, it should be done by default in the latest version, this can be checked in the scheduler repository, `app.py` file, `origins` should list `http://localhost:5173` among the possible options, if it is not there pull the latest version of the repository or just add it.
 
 Also make sure the `.env` file was created in the UI root directory using the right value for `VITE_API_URL`.
+
+### Using SSO
+
+If you are using the latest version you have to configure local certificates to run the server using https instead of http and use a url in the .gemini.edu domain. More explanation about this can be found in the [docs/configuration.md](../docs/configuration.md#signing-in-sso) file.
