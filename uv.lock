@@ -1622,16 +1622,16 @@ wheels = [
 
 [[package]]
 name = "lucupy"
-version = "0.2.25"
+version = "0.2.26"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astropy" },
     { name = "gelidum" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/68/45/f59ace5be7f08bb19b32b04a6f0d2aba25a66faac01b23c6b482bbf08d83/lucupy-0.2.25.tar.gz", hash = "sha256:4091d3ff04ede8c2577487ed74fc2da2abe418e9b99e03bae453f8de2d51b445", size = 52176, upload-time = "2026-11-11T17:50:31.002Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/e6/e946981c9aab23165789ce85d2ea07f24a75810030d0a452638c162c7f9d/lucupy-0.2.26.tar.gz", hash = "sha256:ab127b1bd8b2a3e636bf5d1c911a5f66fa97ba64da86af59b285a44b4a93c411", size = 52191, upload-time = "2026-11-16T15:39:47.388Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/da/e2/b6c296c52da8695527b06133c138c8e8bf74de191b9a207e54eaa2647e5b/lucupy-0.2.25-py3-none-any.whl", hash = "sha256:d2785bd47a41a04dc2e29da4769f2a48057b98ac0443afbbfb39c30025762f6d", size = 74554, upload-time = "2026-11-11T17:50:31.95Z" },
+    { url = "https://files.pythonhosted.org/packages/70/6e/66687e21241223b1951575a6ca5ec7b09e22a937ac1c9f4eb738625dcee9/lucupy-0.2.26-py3-none-any.whl", hash = "sha256:1c3d46115f196fe61e36b786938739d8bd09f8b2f2f90156fb6adbb6e7c49890", size = 74579, upload-time = "2026-11-16T15:39:48.647Z" },
 ]
 
 [[package]]
@@ -3045,7 +3045,7 @@ requires-dist = [
     { name = "gql", specifier = ">=4.0.0" },
     { name = "greenlet", specifier = ">=3.3.1" },
     { name = "hypothesis", specifier = ">=6.137.1" },
-    { name = "lucupy", specifier = ">=0.2.25" },
+    { name = "lucupy", specifier = ">=0.2.26" },
     { name = "matplotlib", specifier = ">=3.10.5" },
     { name = "numpy", specifier = ">=2.3.2" },
     { name = "omegaconf", specifier = ">=2.3.0" },

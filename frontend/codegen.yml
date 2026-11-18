@@ -6,6 +6,10 @@ documents: "src/**/*.{ts,tsx}"
 generates:
   src/gql/:
     preset: client
+    presetConfig:
+      # Fragments only share selections between queries (NightPlansFields), so
+      # their fields stay readable on the result without useFragment.
+      fragmentMasking: false
     config:
       withHooks: true
       enumsAsTypes: true

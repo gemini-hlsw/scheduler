@@ -6,7 +6,7 @@ import {
 } from "../GlobalState/RealtimeBackend";
 import WeatherConditions from "../WeatherConditions/WeatherConditions";
 import { DisplayWeather } from "../WeatherConditions/DisplayWeather";
-import Result from "../Operation/Result";
+import ReviewedResult from "../Operation/ReviewedResult";
 import { cn } from "@/lib/utils";
 import OnDemandControl from "../ControlPanel/OnDemandControl";
 import BuildParameters from "../BuildParameters/BuildParameters";
@@ -15,7 +15,7 @@ import BuildParameters from "../BuildParameters/BuildParameters";
 // replaying it from evening twilight and picking another visibility range.
 // They talk to the simulation dyno.
 export function Simulation() {
-  const { simNightPlans } = useContext(GlobalStateContext);
+  const { simPlanReview } = useContext(GlobalStateContext);
 
   return (
     <RealtimeBackendContext.Provider value={SIMULATION_BACKEND}>
@@ -28,7 +28,7 @@ export function Simulation() {
             <DisplayWeather />
           </div>
         </div>
-        <Result plans={simNightPlans} />
+        <ReviewedResult review={simPlanReview} />
       </div>
     </RealtimeBackendContext.Provider>
   );

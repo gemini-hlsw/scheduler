@@ -4,6 +4,7 @@ import React, { createContext, useState, ReactNode } from "react";
 // Populate initial data, just for testing, should be removed
 import { NightPlanType, RunSummary, SiteNight } from "../../types";
 import { NightPlansWithEvent, RankerName } from "@/gql/graphql";
+import { PlanReview, usePlanReview } from "./planReview";
 // ------------------------------------------------------------
 
 interface GlobalStateContextType {
@@ -15,10 +16,10 @@ interface GlobalStateContextType {
   // loading flag, so a push or error from one never lands on another's tab.
   nightPlans: NightPlanType[];
   setNightPlans: React.Dispatch<React.SetStateAction<NightPlanType[]>>;
-  rtNightPlans: NightPlanType[];
-  setRtNightPlans: React.Dispatch<React.SetStateAction<NightPlanType[]>>;
-  simNightPlans: NightPlanType[];
-  setSimNightPlans: React.Dispatch<React.SetStateAction<NightPlanType[]>>;
+  // The live backends push plans on their own, so a new one waits for the
+  // user to accept or discard it (see planReview.ts).
+  rtPlanReview: PlanReview;
+  simPlanReview: PlanReview;
   operationNight: SiteNight[];
   setOperationNight: React.Dispatch<React.SetStateAction<SiteNight[]>>;
   rtPlan: NightPlansWithEvent;
@@ -76,8 +77,8 @@ export default function GlobalStateProvider({
     isConnected: null,
   });
   const [nightPlans, setNightPlans] = useState<NightPlanType[]>([]);
-  const [rtNightPlans, setRtNightPlans] = useState<NightPlanType[]>([]);
-  const [simNightPlans, setSimNightPlans] = useState<NightPlanType[]>([]);
+  const rtPlanReview = usePlanReview();
+  const simPlanReview = usePlanReview();
   const [operationNight, setOperationNight] = useState<SiteNight[]>([]);
   const [rtPlan, setRtPlan] = useState<NightPlansWithEvent>(
     {} as NightPlansWithEvent,
@@ -120,10 +121,8 @@ export default function GlobalStateProvider({
         setConnectionState,
         nightPlans,
         setNightPlans,
-        rtNightPlans,
-        setRtNightPlans,
-        simNightPlans,
-        setSimNightPlans,
+        rtPlanReview,
+        simPlanReview,
         operationNight,
         setOperationNight,
         rtPlan,
