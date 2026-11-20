@@ -41,6 +41,7 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "https://schedule-dev.gemini.edu",
+    "https://gpp-schedule-ui-dev.herokuapp.com",
     # Old name of the dev deployment; remove once the move to schedule-dev is done.
     "https://schedule-staging.gemini.edu",
     "https://schedule.gemini.edu",
