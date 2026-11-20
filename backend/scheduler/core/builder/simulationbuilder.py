@@ -84,11 +84,13 @@ class SimulationBuilder(SchedulerBuilder):
         blueprint: CollectorBlueprint,
         night_times: Dict[Site, Tuple[Time, Time]],
         program_list: Optional[bytes] = None,
+        ignored_observation_ids: FrozenSet[str] = frozenset(),
     ) -> Collector:
         # Build collector with deferred night events initialization
         collector = super().build_collector(
             start, end, num_of_nights, sites, semesters, blueprint, night_times, defer_night_events=True
         )
+        collector.ignored_observation_ids = ignored_observation_ids
 
         # Initialize night events asynchronously
         await collector.async_init_night_events()

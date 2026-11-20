@@ -786,6 +786,18 @@ class ObservationCoveragePage:
 
 
 @strawberry.type
+class IgnoredObservation:
+    """An observation the operators left out of the plans."""
+
+    observation_id: str
+    ignored_at: datetime
+
+    @staticmethod
+    def from_service(row) -> 'IgnoredObservation':
+        return IgnoredObservation(observation_id=row.observation_id, ignored_at=row.ignored_at)
+
+
+@strawberry.type
 class VisibleInterval:
     """A contiguous window of visibility, in UTC."""
 

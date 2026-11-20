@@ -152,6 +152,9 @@ class Collector(SchedulerComponent):
     # Visibility-loading override.
     use_local_visibility: Optional[bool] = None
 
+    # Reference labels of the observations to leave without visibility in this build.
+    ignored_observation_ids: FrozenSet[str] = frozenset()
+
     # Per-instance per-night visibility map populated by _load_visibility_from_sight.
     # Each Collector owns its own copy — never make this a ClassVar (would break
     # concurrent sims by sharing state across instances).
@@ -534,6 +537,20 @@ class Collector(SchedulerComponent):
     def get_visible_nights_for_observation(self, obs_id: ObservationID) -> set[NightIndex]:
         return {n for n, ids in self._visible_obs_by_night.items() if obs_id in ids}
 
+    def _without_ignored(
+        self, parsed_observations: List[Tuple[ProgramID, Observation]]
+    ) -> List[Tuple[ProgramID, Observation]]:
+        """The observations that get visibility: all but the ignored ones."""
+        ignored = self.ignored_observation_ids
+        if not ignored:
+            return parsed_observations
+        kept = [(p_id, obs) for p_id, obs in parsed_observations if obs.id.id not in ignored]
+        _logger.info(
+            f'Ignored observations: {len(parsed_observations) - len(kept)} of {len(ignored)} on the ignore list '
+            f'are in this build and get no visibility.'
+        )
+        return kept
+
     def _use_local_visibility(self) -> bool:
         """Resolve whether to compute visibility in-process vs. read from sight.
 
@@ -729,17 +746,19 @@ class Collector(SchedulerComponent):
         if bad_program_count:
             _logger.error(f'Could not parse {bad_program_count} programs.')
 
+        visibility_candidates = self._without_ignored(parsed_observations)
+
         # Off the loop as well as local visibility calculations/Horizons calls might be extensive.
         if self._use_local_visibility():
-            await self._async_load_visibility_locally(parsed_observations, nc)
+            await self._async_load_visibility_locally(visibility_candidates, nc)
         else:
             try:
                 # Applies the night configuration filter itself, between the Sight queries.
-                await self._async_load_visibility_from_sight(parsed_observations, nc)
+                await self._async_load_visibility_from_sight(visibility_candidates, nc)
             except Exception as exc:
                 record_sight_fallback()
                 _logger.warning(f'Sight visibility load failed ({exc}); falling back to local computation.')
-                await self._async_load_visibility_locally(parsed_observations, nc)
+                await self._async_load_visibility_locally(visibility_candidates, nc)
 
         for _p_id, _obs in parsed_observations:
             self._observations[_obs.id] = _obs, _obs.base_target()

@@ -5,11 +5,12 @@ import AggregatorStatusCard from "./AggregatorStatusCard";
 import CoverageSummary from "./CoverageSummary";
 import CoverageList from "./CoverageList";
 import VisibleTonight from "./VisibleTonight";
+import IgnoredObservations from "./IgnoredObservations";
 
 /**
  * Visibility status for the realtime deployment: whether the Sight DB holds
- * everything the ODB expects, what the aggregator is doing, and what is
- * observable tonight.
+ * everything the ODB expects, what the aggregator is doing, what is
+ * observable tonight, and which observations are left out of the plans.
  */
 export default function Visibility() {
   // Bumped by the summary's Refresh so the list re-reads too; otherwise it would
@@ -22,6 +23,7 @@ export default function Visibility() {
         <TabsList>
           <TabsTrigger value="coverage">Coverage</TabsTrigger>
           <TabsTrigger value="tonight">Tonight</TabsTrigger>
+          <TabsTrigger value="ignored">Ignored</TabsTrigger>
         </TabsList>
         <TabsContent value="coverage" className={cn("flex flex-col gap-3")}>
           <CoverageSummary onRefresh={() => setCoverageRefresh((n) => n + 1)} />
@@ -29,6 +31,9 @@ export default function Visibility() {
         </TabsContent>
         <TabsContent value="tonight">
           <VisibleTonight />
+        </TabsContent>
+        <TabsContent value="ignored">
+          <IgnoredObservations />
         </TabsContent>
       </Tabs>
     </div>

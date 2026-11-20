@@ -309,3 +309,19 @@ class SchedulerCoordination(Base):
 
     def __repr__(self) -> str:
         return f"<SchedulerCoordination {self.name} active={self.active}>"
+
+
+class IgnoredObservation(Base):
+    """An observation the operators left out of the plans, keyed by reference label."""
+
+    __tablename__ = "ignored_observations"
+
+    observation_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    ignored_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<IgnoredObservation {self.observation_id}>"

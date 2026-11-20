@@ -59,6 +59,11 @@ type GroupCoverage {
   skipped: Int!
 }
 
+type IgnoredObservation {
+  observationId: String!
+  ignoredAt: DateTime!
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf).
 """
@@ -68,6 +73,7 @@ type Mutation {
   updateBuildParams(buildParamsInput: BuildParametersInput!): String!
   setProgramSelection(programIds: [String!]!, selected: Boolean!): ProgramSelection!
   resetProgramSelection: ProgramSelection!
+  setObservationsIgnored(observationIds: [String!]!, ignored: Boolean!): [IgnoredObservation!]!
 }
 
 type NewNightPlans {
@@ -156,6 +162,7 @@ type Query {
   visibilityCoverage(nightDate: Date = null, refresh: Boolean! = false): VisibilityCoverage!
   observationCoverage(nightDate: Date = null, status: ObservationStatus = null, site: String = null, programLabel: String = null, search: String = null, limit: Int! = 50, offset: Int! = 0, refresh: Boolean! = false): ObservationCoveragePage!
   visibleObservations(site: String!, nightDate: Date = null, limit: Int! = 50, offset: Int! = 0, minRemainingMinutes: Int! = 1): VisibleObservationsPage!
+  ignoredObservations: [IgnoredObservation!]!
   buildParameters: BuildParametersResponse!
 }
 
@@ -311,6 +318,7 @@ type Subscription {
   queueSchedule(scheduleId: String!): NightPlansResponseRT!
   buildParametersUpdates: BuildParametersResponse!
   programSelectionUpdates: ProgramSelection!
+  ignoredObservationsUpdates: [IgnoredObservation!]!
   schedulerEvents: SchedulerEvent!
   planStatusUpdates: PlanStatusResponse!
 }
