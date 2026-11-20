@@ -40,6 +40,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 origins = [
+    "https://schedule-dev.gemini.edu",
+    # Old name of the dev deployment; remove once the move to schedule-dev is done.
     "https://schedule-staging.gemini.edu",
     "https://schedule.gemini.edu",
     "https://schedule-subscriber-staging.herokuapp.com",
