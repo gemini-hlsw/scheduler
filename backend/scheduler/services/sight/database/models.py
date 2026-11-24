@@ -333,6 +333,7 @@ class GeneratedPlan(Base):
     __table_args__ = (
         Index("ix_generated_plans_created_at", "created_at"),
         Index("ix_generated_plans_mode_created_at", "mode", "created_at"),
+        Index("ix_generated_plans_night_date_created_at", "night_date", "created_at"),
         Index("ix_generated_plans_proposal_id", "proposal_id", unique=True),
     )
 
@@ -352,6 +353,9 @@ class GeneratedPlan(Base):
     event_description: Mapped[str] = mapped_column(Text, nullable=False)
     event_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     event_site: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, comment="Null for both sites")
+    night_date: Mapped[Optional[date]] = mapped_column(
+        Date, nullable=True, comment="UTC date of the night's morning twilight"
+    )
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, comment="in_effect, proposed, accepted, discarded, superseded, expired"
     )

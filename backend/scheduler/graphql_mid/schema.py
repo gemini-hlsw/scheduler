@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import strawberry  # noqa
+from strawberry.scalars import JSON
 from astropy.time import Time
 from lucupy.minimodel import TimeslotIndex, NightIndex, VariantSnapshot
 from pydantic import ValidationError
@@ -33,6 +34,7 @@ from scheduler.services.visibility_status.status import (
     get_aggregator_status as get_typed_aggregator_status,
 )
 from scheduler.services.visibility_status.tonight import list_visible_observations
+from scheduler.services import plan_history
 from scheduler.version import get_app_version
 
 from .types import (
@@ -58,6 +60,8 @@ from .types import (
     SchedulerEvent,
     PlanStatusResponse,
     PlanDecision,
+    GeneratedPlanNight,
+    GeneratedPlanSummary,
 )
 from .inputs import CreateNewScheduleInput
 
@@ -334,6 +338,27 @@ class Query:
                 min_remaining_minutes=min_remaining_minutes,
             )
         return VisibleObservationsPage.from_service(page)
+
+    @strawberry.field
+    async def generated_plan_nights(self, limit: int = 60, mode: Optional[str] = None) -> list[GeneratedPlanNight]:
+        """The most recent nights with stored plans, newest first. ``mode`` keeps only the plans of
+        servers in that scheduler mode (operation, simulation)."""
+        async with session_scope() as session:
+            nights = await plan_history.list_plan_nights(session, limit=min(limit, 366), mode=mode)
+        return [GeneratedPlanNight(night_date=n.night_date, plan_count=n.plan_count) for n in nights]
+
+    @strawberry.field
+    async def generated_plans(self, night_date: date, mode: Optional[str] = None) -> list[GeneratedPlanSummary]:
+        """Every plan stored for a night, oldest first, without its content."""
+        async with session_scope() as session:
+            rows = await plan_history.list_night_plans(session, night_date, mode=mode)
+        return [GeneratedPlanSummary.from_row(row) for row in rows]
+
+    @strawberry.field
+    async def generated_plan_content(self, plan_id: int) -> Optional[JSON]:
+        """A stored plan as the UI received it: ``{nightPlans, plansSummary}``. Null if there is none."""
+        async with session_scope() as session:
+            return await plan_history.get_plan_content(session, plan_id)
 
     @strawberry.field
     async def build_parameters(self) -> BuildParametersResponse:
