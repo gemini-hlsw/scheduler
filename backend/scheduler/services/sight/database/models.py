@@ -2,6 +2,7 @@ from datetime import datetime, date
 from typing import Optional
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     LargeBinary,
     SmallInteger,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -309,3 +311,54 @@ class SchedulerCoordination(Base):
 
     def __repr__(self) -> str:
         return f"<SchedulerCoordination {self.name} active={self.active}>"
+
+
+class GeneratedPlan(Base):
+    """
+    A plan the real-time engine generated, with the event that triggered it.
+
+    The plan itself is kept as JSONB, in the shape the UI receives it, because its format
+    still changes often: a new field needs no migration. Written by
+    :mod:`scheduler.services.plan_archive`.
+
+    ``status`` is ``in_effect`` for a plan that took effect at once (the night's first),
+    and ``proposed`` for one waiting for a decision. A decision sets ``accepted`` or
+    ``discarded`` and who made it; a newer proposal sets ``superseded`` on the one it
+    replaces, and ``expired`` is set on one dropped without a decision, at the end of the
+    night or when the next plan fails. A row left ``proposed`` is either still waiting or
+    was lost when the server restarted.
+    """
+
+    __tablename__ = "generated_plans"
+    __table_args__ = (
+        Index("ix_generated_plans_created_at", "created_at"),
+        Index("ix_generated_plans_mode_created_at", "mode", "created_at"),
+        Index("ix_generated_plans_proposal_id", "proposal_id", unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), comment="When the plan was stored"
+    )
+    app_version: Mapped[str] = mapped_column(
+        String(100), nullable=False, comment="APP_VERSION of the server that made it, e.g. 1.4.0-staging-realtime"
+    )
+    mode: Mapped[str] = mapped_column(
+        String(20), nullable=False, comment="SchedulerModes the server runs in: operation, simulation"
+    )
+    event_type: Mapped[str] = mapped_column(
+        String(100), nullable=False, comment="Event class, e.g. OnDemandScheduleEvent"
+    )
+    event_description: Mapped[str] = mapped_column(Text, nullable=False)
+    event_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    event_site: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, comment="Null for both sites")
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, comment="in_effect, proposed, accepted, discarded, superseded, expired"
+    )
+    proposal_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    decided_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    plan: Mapped[dict] = mapped_column(JSONB, nullable=False, comment="{nightPlans, plansSummary} as sent to the UI")
+
+    def __repr__(self) -> str:
+        return f"<GeneratedPlan {self.id} {self.status} event={self.event_type}>"

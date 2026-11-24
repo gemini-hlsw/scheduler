@@ -10,8 +10,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from lucupy.minimodel import Site
 
-from scheduler.core.events.queue.events import OnDemandScheduleEvent
+from scheduler.core.events.queue.events import EndOfNightEvent, OnDemandScheduleEvent
 from scheduler.engine.engineRT import EngineRT, PlanProposal, StaleProposalError
+from scheduler.services.plan_archive import PlanArchive, PlanStatus
 from scheduler.graphql_mid.server import schema
 from scheduler.graphql_mid.types import (
     NewNightPlans,
@@ -58,7 +59,12 @@ def _engine(store: MagicMock) -> EngineRT:
     params = MagicMock()
     params.sites = [Site.GN]
     engine = EngineRT(
-        params, scheduler_queue=MagicMock(), process_id=_ID, weather_source=MagicMock(), nightly_timeline_store=store
+        params,
+        scheduler_queue=MagicMock(),
+        process_id=_ID,
+        weather_source=MagicMock(),
+        nightly_timeline_store=store,
+        plan_archive=MagicMock(spec=PlanArchive),
     )
     engine.build = AsyncMock()
     engine.clear_timelines_if_needed = AsyncMock()
@@ -98,6 +104,9 @@ async def test_the_first_plan_of_the_night_takes_effect_at_once():
     store.live.add.assert_called_once()
     store.plan_published.assert_awaited_once_with(Site.GN)
     assert engine.proposal is None
+    engine.plan_archive.record_plan.assert_called_once()
+    _, stored, status = engine.plan_archive.record_plan.call_args.args
+    assert stored is plans and status is PlanStatus.IN_EFFECT
 
 
 @pytest.mark.asyncio
@@ -115,6 +124,21 @@ async def test_a_later_plan_is_only_proposed():
     store.plan_published.assert_not_awaited()
     assert engine.proposal.proposal_id == plans.proposal_id
     assert pending_plan_responses[_ID] is plans
+    _, stored, status, proposal_id = engine.plan_archive.record_plan.call_args.args
+    assert stored is plans and status is PlanStatus.PROPOSED and proposal_id == plans.proposal_id
+    engine.plan_archive.record_superseded.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_newer_proposal_supersedes_the_one_waiting():
+    store = _store(in_effect=True)
+    engine = _engine(store)
+
+    first = await _compute(engine)
+    second = await _compute(engine)
+
+    assert engine.proposal.proposal_id == second.proposal_id != first.proposal_id
+    engine.plan_archive.record_superseded.assert_called_once_with(first.proposal_id)
 
 
 def _proposed(engine: EngineRT, store: MagicMock, proposal_id: str = "p1") -> ProposedNightPlans:
@@ -148,6 +172,8 @@ async def test_accepting_puts_the_proposal_in_effect_for_everyone():
     assert last_plan_responses[_ID].plans_summary.summary == {"tag": "proposed"}
     assert _ID not in pending_plan_responses
     assert ui.get_nowait() == PlanDecision(proposal_id="p1", accepted=True, decided_by="Ada")
+    assert engine.plan_archive.record_decision.call_args.args[:3] == ("p1", True, "Ada")
+    engine.plan_archive.record_expired.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -166,6 +192,7 @@ async def test_discarding_keeps_the_plan_in_effect():
     assert last_plan_responses[_ID] is kept
     assert _ID not in pending_plan_responses
     assert ui.get_nowait().accepted is False
+    assert engine.plan_archive.record_decision.call_args.args[:3] == ("p1", False, "Ada")
 
 
 @pytest.mark.asyncio
@@ -178,6 +205,7 @@ async def test_a_plan_is_decided_only_once():
     with pytest.raises(StaleProposalError):
         await engine.decide_plan("p1", accept=True, decided_by="Grace")
     store.replace.assert_not_awaited()
+    engine.plan_archive.record_decision.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -205,6 +233,24 @@ async def test_a_failed_plan_drops_the_proposal():
 
     assert engine.proposal is None
     assert _ID not in pending_plan_responses
+    engine.plan_archive.record_expired.assert_called_once_with("p1")
+
+
+@pytest.mark.asyncio
+async def test_the_end_of_the_night_expires_the_proposal():
+    store = _store(in_effect=True)
+    store.reset = AsyncMock()
+    engine = _engine(store)
+    _proposed(engine, store)
+    end_of_night = EndOfNightEvent(site=Site.GN, time=None, description="End of Night")
+    queue = MagicMock()
+    queue.consume_events = AsyncMock(side_effect=[(end_of_night, None), asyncio.CancelledError()])
+    engine.scheduler_queue = queue
+
+    await engine.run()
+
+    assert engine.proposal is None
+    engine.plan_archive.record_expired.assert_called_once_with("p1")
 
 
 _SUB = """
