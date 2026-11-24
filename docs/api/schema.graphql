@@ -50,6 +50,36 @@ type Event {
   description: String!
 }
 
+type GeneratedPlanNight {
+  nightDate: Date!
+  planCount: Int!
+}
+
+enum GeneratedPlanStatus {
+  IN_EFFECT
+  PROPOSED
+  ACCEPTED
+  DISCARDED
+  SUPERSEDED
+  EXPIRED
+}
+
+type GeneratedPlanSummary {
+  id: Int!
+  createdAt: DateTime!
+  mode: String!
+  appVersion: String!
+  nightDate: Date
+  eventType: String!
+  eventDescription: String!
+  eventTime: DateTime!
+  eventSite: String
+  status: GeneratedPlanStatus!
+  proposalId: String
+  decidedBy: String
+  decidedAt: DateTime
+}
+
 type GroupCoverage {
   key: String!
   expected: Int!
@@ -169,6 +199,9 @@ type Query {
   visibilityCoverage(nightDate: Date = null, refresh: Boolean! = false): VisibilityCoverage!
   observationCoverage(nightDate: Date = null, status: ObservationStatus = null, site: String = null, programLabel: String = null, search: String = null, limit: Int! = 50, offset: Int! = 0, refresh: Boolean! = false): ObservationCoveragePage!
   visibleObservations(site: String!, nightDate: Date = null, limit: Int! = 50, offset: Int! = 0, minRemainingMinutes: Int! = 1): VisibleObservationsPage!
+  generatedPlanNights(limit: Int! = 60, mode: String = null): [GeneratedPlanNight!]!
+  generatedPlans(nightDate: Date!, mode: String = null): [GeneratedPlanSummary!]!
+  generatedPlanContent(planId: Int!): JSON
   buildParameters: BuildParametersResponse!
 }
 

@@ -19,6 +19,7 @@ from scheduler.core.events.queue import NightlyTimeline, ReceivedEvent, PlanStat
 from scheduler.core.plans import Plan, Plans, Visit, NightStats
 from scheduler.core.statscalculator import RunSummary
 from scheduler.graphql_mid.scalars import SObservationID
+from scheduler.services.plan_archive import PlanStatus as StoredPlanStatus
 from scheduler.config import config
 
 # Finds a plan's programs, e.g. Collector.get_program, to link visits to Explore.
@@ -862,4 +863,53 @@ class VisibleObservationsPage:
             observations=[VisibleObservation.from_service(o) for o in page.observations],
             total=page.total,
             total_remaining_minutes=page.total_remaining_minutes,
+        )
+
+
+SGeneratedPlanStatus = strawberry.enum(StoredPlanStatus, name='GeneratedPlanStatus')
+
+
+@strawberry.type
+class GeneratedPlanNight:
+    """A night with stored plans."""
+
+    night_date: date
+    plan_count: int
+
+
+@strawberry.type
+class GeneratedPlanSummary:
+    """A stored plan without its content: what triggered it and what became of it."""
+
+    id: int
+    created_at: datetime
+    # The scheduler mode of the server that made it: operation or simulation.
+    mode: str
+    app_version: str
+    night_date: Optional[date]
+    event_type: str
+    event_description: str
+    event_time: datetime
+    event_site: Optional[str]
+    status: SGeneratedPlanStatus
+    proposal_id: Optional[str]
+    decided_by: Optional[str]
+    decided_at: Optional[datetime]
+
+    @staticmethod
+    def from_row(row) -> 'GeneratedPlanSummary':
+        return GeneratedPlanSummary(
+            id=row.id,
+            created_at=row.created_at,
+            mode=row.mode,
+            app_version=row.app_version,
+            night_date=row.night_date,
+            event_type=row.event_type,
+            event_description=row.event_description,
+            event_time=row.event_time,
+            event_site=row.event_site,
+            status=StoredPlanStatus(row.status),
+            proposal_id=row.proposal_id,
+            decided_by=row.decided_by,
+            decided_at=row.decided_at,
         )

@@ -16,6 +16,7 @@ export default function Navbar() {
     [
       { to: "/operation", name: "Operation" },
       { to: "/visibility", name: "Visibility" },
+      { to: "/plan-history", name: "Plan History" },
     ],
     [
       { to: "/validation", name: "Validation" },

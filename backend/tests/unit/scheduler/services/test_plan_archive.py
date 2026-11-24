@@ -165,6 +165,8 @@ async def test_a_plan_is_stored_with_its_event_and_then_its_decision(monkeypatch
     assert row['event_type'] == 'OnDemandScheduleEvent'
     assert row['event_description'] == 'Operator asked for a plan'
     assert row['event_time'] == _START
+    # The night as the UI labels it: the UTC date of its morning twilight.
+    assert row['night_date'] == (_START + timedelta(hours=9)).date()
     assert row['event_site'] is None
     assert row['status'] == 'proposed'
     assert row['proposal_id'] == 'p1'

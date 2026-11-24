@@ -16,7 +16,7 @@ import asyncio
 import dataclasses
 import math
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Optional, Set
 
@@ -55,6 +55,18 @@ def _app_version() -> str:
     # The deployed APP_VERSION also names the server (e.g. 1.4.0-staging-simulation), which the
     # version file does not: the realtime and simulation servers share the database.
     return os.environ.get('APP_VERSION') or get_app_version()
+
+
+def _night_date(night_plans: dict) -> Optional[date]:
+    """
+    The night a plan covers, as the UI labels it: the UTC date of its morning twilight.
+    None when the plan has no night in it.
+    """
+    try:
+        morning = night_plans['nightTimeline'][0]['timeEntriesBySite'][0]['mornTwilight']
+        return datetime.fromisoformat(morning).astimezone(timezone.utc).date()
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
 
 
 def _to_camel_case(name: str) -> str:
@@ -131,6 +143,7 @@ class PlanArchive:
         if not self.enabled:
             return
         site = getattr(event, 'site', None)
+        night_plans = to_json(response.night_plans)
         row = {
             'app_version': _app_version()[:100],
             # Read at each plan rather than imported, so it is the mode the server runs in.
@@ -139,9 +152,10 @@ class PlanArchive:
             'event_description': str(event.description),
             'event_time': event.time,
             'event_site': site.name if site is not None else None,
+            'night_date': _night_date(night_plans),
             'status': status.value,
             'proposal_id': proposal_id,
-            'plan': {'nightPlans': to_json(response.night_plans), 'plansSummary': to_json(response.plans_summary)},
+            'plan': {'nightPlans': night_plans, 'plansSummary': to_json(response.plans_summary)},
         }
         self._spawn(self._insert(row), f'plan for "{row["event_description"]}"')
 
