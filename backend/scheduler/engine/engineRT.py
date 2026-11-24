@@ -3,6 +3,7 @@
 
 import asyncio
 from dataclasses import dataclass
+from datetime import datetime, UTC
 from time import time
 from typing import FrozenSet, List, Optional
 from uuid import uuid4
@@ -15,6 +16,7 @@ from scheduler.core.builder import Blueprints, SimulationBuilder
 from scheduler.core.sources import Sources
 from scheduler.services import logger_factory
 from scheduler.services.telemetry import timed
+from scheduler.services.plan_archive import PlanArchive, PlanStatus
 from scheduler.core.events.queue import NightlyTimelineStore
 from scheduler.core.events.queue.events import Event, EndOfNightEvent, OnDemandScheduleEvent
 from scheduler.core.events.queue.event_history import EventHistory
@@ -67,6 +69,7 @@ class EngineRT:
         nightly_timeline_store: NightlyTimelineStore,
         event_history: Optional[EventHistory] = None,
         plan_status: Optional[PlanStatusTracker] = None,
+        plan_archive: Optional[PlanArchive] = None,
     ):
         """
         Initializes the EngineRT with the given parameters.
@@ -82,6 +85,8 @@ class EngineRT:
                 the UI. A private one is used if not given.
             plan_status (Optional[PlanStatusTracker]): Where the Engine says whether it is computing
                 a plan, for every UI. A private one is used if not given.
+            plan_archive (Optional[PlanArchive]): Where every generated plan is stored, with the
+                event that triggered it. One writing to the Sight DB is used if not given.
         """
         _logger.debug("Initializing real-time engine...")
         self.params = params
@@ -96,6 +101,7 @@ class EngineRT:
         self.last_program_list = None
         self.event_history = event_history if event_history is not None else EventHistory()
         self.plan_status = plan_status if plan_status is not None else PlanStatusTracker()
+        self.plan_archive = plan_archive if plan_archive is not None else PlanArchive()
         # A plan computed while another one is in effect waits here for decide_plan.
         self.proposal: Optional[PlanProposal] = None
 
@@ -424,6 +430,7 @@ class EngineRT:
                 proposal_id=uuid4().hex, night_plans=s_timelines, plans_summary=s_plan_summary
             )
             # A newer proposal replaces one still waiting.
+            replaced = self.proposal
             self.proposal = PlanProposal(
                 proposal_id=response.proposal_id,
                 timeline=nightly_timeline,
@@ -433,15 +440,20 @@ class EngineRT:
             )
             # Set together with the proposal, so a reloaded UI never gets one already decided.
             pending_plan_responses[self.process_id] = response
+            self.plan_archive.record_plan(event, response, PlanStatus.PROPOSED, response.proposal_id)
+            if replaced is not None:
+                self.plan_archive.record_superseded(replaced.proposal_id)
             return response
 
-        self._drop_proposal()
+        self._expire_proposal()
         # Outside the mutate block on purpose: a listener reads the plan back, and the store's
         # lock is not reentrant.
         for site in self.params.sites:
             await self.nightly_timeline_store.plan_published(site)
 
-        return NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
+        response = NewNightPlans(night_plans=s_timelines, plans_summary=s_plan_summary)
+        self.plan_archive.record_plan(event, response, PlanStatus.IN_EFFECT)
+        return response
 
     async def _broadcast(self, response) -> None:
         for q in plan_response_subscribers.get(self.process_id, set()):
@@ -450,6 +462,12 @@ class EngineRT:
     def _drop_proposal(self) -> None:
         self.proposal = None
         pending_plan_responses.pop(self.process_id, None)
+
+    def _expire_proposal(self) -> None:
+        """Drop the proposal waiting, if any, without a decision: the night ended or a plan failed."""
+        if self.proposal is not None:
+            self.plan_archive.record_expired(self.proposal.proposal_id)
+        self._drop_proposal()
 
     async def decide_plan(self, proposal_id: str, accept: bool, decided_by: str) -> PlanDecision:
         """
@@ -481,6 +499,7 @@ class EngineRT:
                 await self.nightly_timeline_store.plan_published(site)
 
         _logger.info(f"Plan {proposal_id} {'accepted' if accept else 'discarded'} by {decided_by}.")
+        self.plan_archive.record_decision(proposal_id, accept, decided_by, datetime.now(UTC))
         decision = PlanDecision(proposal_id=proposal_id, accepted=accept, decided_by=decided_by)
         await self._broadcast(decision)
         return decision
@@ -503,7 +522,7 @@ class EngineRT:
                         # effect to whatever runs next.
                         await self.nightly_timeline_store.reset()
                         last_plan_responses.pop(self.process_id, None)
-                        self._drop_proposal()
+                        self._expire_proposal()
                         if is_operation:
                             # The NightTracker has already moved on to the next night, so keep
                             # consuming its events instead of leaving it unplanned.
@@ -525,7 +544,7 @@ class EngineRT:
                     traceback.print_exc()
                     _logger.error(f"Error in scheduler process: {e}")
                     # The UIs drop a proposal on an error, so the server does too.
-                    self._drop_proposal()
+                    self._expire_proposal()
                     await self._broadcast(NightPlansError(error=str(e)))
 
         except asyncio.CancelledError:

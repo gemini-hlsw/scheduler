@@ -43,6 +43,12 @@ telemetry:
   # back on. Overridable via the TELEMETRY_ENABLED env var.
   enabled: ${oc.decode:${oc.env:TELEMETRY_ENABLED,true}}
 
+# Every plan the real-time engine generates is stored in the Sight DB's generated_plans
+# table, with the event that triggered it. Needs DATABASE_URL; without it nothing is
+# stored. Overridable via the PLAN_ARCHIVE_ENABLED env var.
+plan_archive:
+  enabled: ${oc.decode:${oc.env:PLAN_ARCHIVE_ENABLED,true}}
+
 # Background visibility-aggregator cron (scheduler.services.visibility_aggregator).
 visibility_aggregator:
   # Master switch for the aggregator coordination interlock. Set to false (or

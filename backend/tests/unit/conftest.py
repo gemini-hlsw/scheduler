@@ -12,6 +12,8 @@ os.environ["REDISCLOUD_URL"] = "redis://mock:6379"
 # to in-process visibility. setdefault lets a dev opt into the sight path by
 # exporting COLLECTOR_VISIBILITY_STRATEGY=sight with a real DATABASE_URL.
 os.environ.setdefault("COLLECTOR_VISIBILITY_STRATEGY", "local")
+# Nor store generated plans there; tests of the archive enable it explicitly.
+os.environ.setdefault("PLAN_ARCHIVE_ENABLED", "false")
 
 import pytest
 
