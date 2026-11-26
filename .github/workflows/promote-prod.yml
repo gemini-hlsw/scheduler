@@ -94,10 +94,10 @@ jobs:
 
       - name: Verify Heroku apps are set up
         env:
-          APP_REALTIME: ${{ secrets.HEROKU_APP_NAME_REALTIME_PRODUCTION }}
-          APP_SIMULATION: ${{ secrets.HEROKU_APP_NAME_SIMULATION_PRODUCTION }}
-          APP_MULTINIGHT: ${{ secrets.HEROKU_APP_NAME_MULTINIGHT_PRODUCTION }}
-          APP_FRONTEND: ${{ secrets.HEROKU_APP_NAME_FRONTEND_PRODUCTION }}
+          APP_REALTIME: ${{ secrets.HEROKU_APP_NAME_REALTIME_PROD }}
+          APP_SIMULATION: ${{ secrets.HEROKU_APP_NAME_SIMULATION_PROD }}
+          APP_MULTINIGHT: ${{ secrets.HEROKU_APP_NAME_MULTINIGHT_PROD }}
+          APP_FRONTEND: ${{ secrets.HEROKU_APP_NAME_FRONTEND_PROD }}
         run: |
           FAILED=0
 
@@ -149,14 +149,14 @@ jobs:
         include:
           - mode: realtime
             app_mode: operation
-            app_secret: HEROKU_APP_NAME_REALTIME_PRODUCTION
+            app_secret: HEROKU_APP_NAME_REALTIME_PROD
           - mode: simulation
             app_mode: operation
-            app_secret: HEROKU_APP_NAME_SIMULATION_PRODUCTION
+            app_secret: HEROKU_APP_NAME_SIMULATION_PROD
             skip_migrations: true
           - mode: multinight
             app_mode: validation
-            app_secret: HEROKU_APP_NAME_MULTINIGHT_PRODUCTION
+            app_secret: HEROKU_APP_NAME_MULTINIGHT_PROD
     steps:
       - uses: actions/checkout@v4
         with:
@@ -208,7 +208,7 @@ jobs:
         with:
           heroku_email: ${{ secrets.HEROKU_EMAIL }}
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: ${{ secrets.HEROKU_APP_NAME_FRONTEND_PRODUCTION }}
+          heroku_app_name: ${{ secrets.HEROKU_APP_NAME_FRONTEND_PROD }}
           appdir: frontend
           buildpack: heroku-community/nginx
 
