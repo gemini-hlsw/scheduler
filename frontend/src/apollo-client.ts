@@ -11,8 +11,8 @@ import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { setContext } from "@apollo/client/link/context";
 import { getAuthState } from "./auth/store";
 
-const SCHEDULER_BACKEND_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:8000/graphql";
+const VALIDATION_BACKEND_URL =
+  import.meta.env.VITE_VALIDATION_API_URL ?? "http://localhost:8000/graphql";
 
 const REALTIME_BACKEND_URL =
   import.meta.env.VITE_REALTIME_API_URL ?? "http://localhost:8000/graphql";
@@ -30,7 +30,7 @@ const WEATHER_BACKEND_URL =
 const SIMULATION_WEATHER_BACKEND_URL =
   import.meta.env.VITE_SIMULATION_WEATHER_URL ?? "http://localhost:4000";
 
-const SCHEDULER_API_URL = new URL(SCHEDULER_BACKEND_URL);
+const SCHEDULER_API_URL = new URL(VALIDATION_BACKEND_URL);
 const REALTIME_API_URL = new URL(REALTIME_BACKEND_URL);
 const SIMULATION_API_URL = new URL(SIMULATION_BACKEND_URL);
 const WEATHER_API_URL = new URL(WEATHER_BACKEND_URL);
@@ -48,14 +48,14 @@ function bearer(): Record<string, string> {
 const authLink = setContext((_operation, prevContext) =>
   WEATHER_CLIENTS.has(prevContext.clientName)
     ? {}
-    : { headers: { ...prevContext.headers, ...bearer() } }
+    : { headers: { ...prevContext.headers, ...bearer() } },
 );
 
 function createWsLink(
   url: URL,
   clientName: string,
   connectedVar?: ReactiveVar<boolean>,
-  authenticated = true
+  authenticated = true,
 ) {
   return new GraphQLWsLink(
     createClient({
@@ -73,7 +73,7 @@ function createWsLink(
             connectedVar(true);
           }
           console.log(
-            `${clientName} Subscription connected successfully to ${url}`
+            `${clientName} Subscription connected successfully to ${url}`,
           );
         },
         error: (error) => {
@@ -82,7 +82,7 @@ function createWsLink(
           }
           console.log(
             `${clientName} Error connecting to subscription server ${url}`,
-            error
+            error,
           );
         },
         closed: () => {
@@ -92,7 +92,7 @@ function createWsLink(
           console.log(`${clientName} Subscription connection closed to ${url}`);
         },
       },
-    })
+    }),
   );
 }
 
@@ -106,32 +106,32 @@ const wsWeatherLink = createWsLink(
   WEATHER_API_URL,
   "Weather",
   isWeatherConnectedVar,
-  false
+  false,
 );
 const wsSimulationWeatherLink = createWsLink(
   SIMULATION_WEATHER_API_URL,
   "Simulation Weather",
   isSimulationWeatherConnectedVar,
-  false
+  false,
 );
 const wsSchedulerLink = createWsLink(
   SCHEDULER_API_URL,
   "Scheduler",
-  isSchedulerConnectedVar
+  isSchedulerConnectedVar,
 );
 const wsRealtimeLink = createWsLink(
   REALTIME_API_URL,
   "Realtime",
-  isRealtimeConnectedVar
+  isRealtimeConnectedVar,
 );
 const wsSimulationLink = createWsLink(
   SIMULATION_API_URL,
   "Simulation",
-  isSimulationConnectedVar
+  isSimulationConnectedVar,
 );
 
 const httpSchedulerLink = new HttpLink({
-  uri: SCHEDULER_BACKEND_URL,
+  uri: VALIDATION_BACKEND_URL,
 });
 
 const httpRealtimeLink = new HttpLink({
@@ -170,10 +170,10 @@ const splitLink = split(
         split(
           (op) => op.getContext().clientName === "simulationWeatherClient",
           wsSimulationWeatherLink,
-          wsSchedulerLink
-        )
-      )
-    )
+          wsSchedulerLink,
+        ),
+      ),
+    ),
   ),
   split(
     (op) => op.getContext().clientName === "weatherClient",
@@ -187,11 +187,11 @@ const splitLink = split(
         split(
           (op) => op.getContext().clientName === "simulationWeatherClient",
           httpSimulationWeatherLink,
-          httpSchedulerLink
-        )
-      )
-    )
-  )
+          httpSchedulerLink,
+        ),
+      ),
+    ),
+  ),
 );
 
 export const client = new ApolloClient({
