@@ -40,14 +40,14 @@ jobs:
         include:
           - mode: realtime
             app_mode: operation
-            app_secret: HEROKU_APP_NAME_REALTIME_STAGING
+            app_secret: HEROKU_APP_NAME_REALTIME_DEV
           - mode: simulation
             app_mode: operation
-            app_secret: HEROKU_APP_NAME_SIMULATION_STAGING
+            app_secret: HEROKU_APP_NAME_SIMULATION_DEV
             skip_migrations: true
           - mode: multinight
             app_mode: validation
-            app_secret: HEROKU_APP_NAME_MULTINIGHT_STAGING
+            app_secret: HEROKU_APP_NAME_MULTINIGHT_DEV
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,7 +83,7 @@ jobs:
         run: |
           heroku container:push -a ${{ secrets[matrix.app_secret] }} web \
             --context-path .. \
-            --arg APP_VERSION=${{ steps.version.outputs.version }}-staging-${{ matrix.mode }},GPP_GROUP=gpp-dev
+            --arg APP_VERSION=${{ steps.version.outputs.version }}-dev-${{ matrix.mode }},GPP_GROUP=gpp-dev
 
       - name: Release container on Heroku
         run: |
