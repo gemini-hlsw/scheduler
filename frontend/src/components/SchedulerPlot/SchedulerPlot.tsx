@@ -14,6 +14,7 @@ import { ThemeContext } from "../../theme/ThemeProvider";
 import { getSiteOffset, utcToLocal } from "@/helpers/utcTime";
 import { AltitudePoint, Event, TimeLossWindow } from "@/types";
 import MoonPhaseIcon from "./MoonPhaseIcon";
+import { VisitHoverStore } from "../Results/visitHover";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const debounce = <F extends (...args: any[]) => void>(
@@ -97,6 +98,8 @@ interface AltAzPlotProps {
   closureWindows: TimeLossWindow[];
   /** Chart height in pixels. */
   height?: number;
+  /** Shares the hovered visit (its index in `data`) with the observations table. */
+  hoverStore?: VisitHoverStore;
 }
 
 export const DEFAULT_PLOT_HEIGHT = 400;
@@ -114,6 +117,7 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   site,
   closureWindows,
   height = DEFAULT_PLOT_HEIGHT,
+  hoverStore,
 }) => {
   const INITIAL_TIMEZONE = getSiteOffset(site);
 
@@ -205,57 +209,77 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
   const axisMin = eveTwiX - TWILIGHT_MARGIN;
   const axisMax = mornTwiX + TWILIGHT_MARGIN;
 
-  const seriesData: Array<SeriesArearangeOptions> = data.map((d: Visit) => {
-    const instrumentColor = colorMap[d.instrument] ?? fallbackColor;
-    const hatched = isCalibration(d.obsClass);
-    const zones = [];
-    for (let i = 0; i < d.atomTimes.length; i++) {
-      const atomTime = d.atomTimes[i];
-      const atomX = utcToLocal(
-        new Date(d.startDate.getTime() + atomTime * 60 * 1000),
-        INITIAL_TIMEZONE,
-      );
-      zones.push({
-        value: atomX,
-        color: instrumentColor,
-        // Atoms alternate between a stronger and a fainter shade
-        fillColor: hatched
-          ? hatchedFill(instrumentColor, i % 2 === 0 ? "40" : "1a")
-          : i % 2 === 0
-            ? `${instrumentColor}66`
-            : `${instrumentColor}33`,
-      });
-    }
+  const seriesData: Array<SeriesArearangeOptions> = data.map(
+    (d: Visit, visitIndex: number) => {
+      const instrumentColor = colorMap[d.instrument] ?? fallbackColor;
+      const hatched = isCalibration(d.obsClass);
+      const zones = [];
+      for (let i = 0; i < d.atomTimes.length; i++) {
+        const atomTime = d.atomTimes[i];
+        const atomX = utcToLocal(
+          new Date(d.startDate.getTime() + atomTime * 60 * 1000),
+          INITIAL_TIMEZONE,
+        );
+        zones.push({
+          value: atomX,
+          color: instrumentColor,
+          // Atoms alternate between a stronger and a fainter shade
+          fillColor: hatched
+            ? hatchedFill(instrumentColor, i % 2 === 0 ? "40" : "1a")
+            : i % 2 === 0
+              ? `${instrumentColor}66`
+              : `${instrumentColor}33`,
+        });
+      }
 
-    const yMinArray = d.yPoints.map(() => 0);
-    return {
-      name: d.instrument,
-      type: "arearange",
-      zoneAxis: "x",
-      zones: zones,
-      data: d.yPoints.map((y: number, i: number) => {
-        return {
-          x: utcToLocal(d.startDate, INITIAL_TIMEZONE) + i * 60 * 1000,
-          low: yMinArray[i],
-          high: y,
-        };
-      }),
-      lineWidth: 1,
-      color: instrumentColor,
-      ...(hatched ? { fillColor: hatchedFill(instrumentColor, "40") } : {}),
-      fillOpacity: 0.3,
-      zIndex: 0,
-      marker: {
-        enabled: false,
-      },
-      events: {
-        legendItemClick: function () {
-          return false; // Prevents the default action, which is toggling visibility
+      const yMinArray = d.yPoints.map(() => 0);
+      return {
+        name: d.instrument,
+        type: "arearange",
+        zoneAxis: "x",
+        zones: zones,
+        data: d.yPoints.map((y: number, i: number) => {
+          return {
+            x: utcToLocal(d.startDate, INITIAL_TIMEZONE) + i * 60 * 1000,
+            low: yMinArray[i],
+            high: y,
+          };
+        }),
+        lineWidth: 1,
+        color: instrumentColor,
+        ...(hatched ? { fillColor: hatchedFill(instrumentColor, "40") } : {}),
+        fillOpacity: 0.3,
+        zIndex: 0,
+        marker: {
+          enabled: false,
         },
-      },
-      showInLegend: true, // Hide this series in the legend
-    };
-  });
+        custom: { visitIndex },
+        events: {
+          legendItemClick: function () {
+            return false; // Prevents the default action, which is toggling visibility
+          },
+          mouseOver: () => hoverStore?.set(visitIndex),
+          mouseOut: () => hoverStore?.set(null),
+        },
+        showInLegend: true, // Hide this series in the legend
+      };
+    },
+  );
+
+  // Highlights the visit hovered here or in the observations table the way
+  // Highcharts does on hover: the visit stands out, the others fade.
+  function showHoveredVisit() {
+    const chart = chartRef.current?.chart;
+    if (!chart || !hoverStore) return;
+    const hovered = hoverStore.get();
+    chart.series.forEach((series) => {
+      const visitIndex = series.options.custom?.visitIndex;
+      if (visitIndex === undefined) return;
+      series.setState(
+        hovered === null ? "" : visitIndex === hovered ? "hover" : "inactive",
+      );
+    });
+  }
 
   // Create a set to keep track of names we've seen
   const seenNames = new Set();
@@ -467,6 +491,8 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
     chart.xAxis[0].addPlotBand({});
 
     chart.redraw();
+    // The update drops the series states.
+    showHoveredVisit();
   }
 
   useEffect(() => {
@@ -478,6 +504,8 @@ const AltAzPlot: React.FC<AltAzPlotProps> = ({
       updateChart();
     }
   }, [seriesData, height]);
+
+  useEffect(() => hoverStore?.subscribe(showHoveredVisit), [hoverStore]);
 
   const debouncedResizeHandler = debounce(updateChart, 300);
 
