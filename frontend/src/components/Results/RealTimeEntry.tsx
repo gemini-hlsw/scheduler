@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AltitudePoint, TimeEntryType, Visit } from "../../types";
 import AltAzPlot from "../SchedulerPlot/SchedulerPlot";
 import {
@@ -12,6 +13,11 @@ import { cn } from "@/lib/utils";
 import { ObsClassBadge } from "./ObsClassBadge";
 import { GroupBadge, planGroupIds } from "./GroupBadge";
 import { ObsIdLink } from "./ObsIdLink";
+import {
+  createVisitHoverStore,
+  useIsVisitHovered,
+  VisitHoverStore,
+} from "./visitHover";
 import { FaCheck, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import {
   Collapsible,
@@ -24,6 +30,8 @@ import NightPlanSummary from "./NightPlanSummary";
 
 function VisitRow({
   visit,
+  visitIndex,
+  hoverStore,
   site,
   state,
   groupIds,
@@ -32,6 +40,9 @@ function VisitRow({
   drawBotBorder = false,
 }: {
   visit: Visit;
+  /** Its index in the plan's visits, as the plot numbers them. */
+  visitIndex: number;
+  hoverStore: VisitHoverStore;
   site: string;
   state: string;
   groupIds: string[];
@@ -73,6 +84,8 @@ function VisitRow({
     ).toFixed(0)}%)`;
   };
 
+  const hovered = useIsVisitHovered(hoverStore, visitIndex);
+
   let icon = null;
   switch (state) {
     case "executed":
@@ -103,7 +116,11 @@ function VisitRow({
         "*:p-0 *:px-2",
         drawTopBorder ? "*:border-t-2 *:border-t-blue-500" : "",
         drawBotBorder ? "*:border-b-2 *:border-b-blue-500" : "",
+        // Hovered here or in the plot. Important, to win over the row stripes.
+        hovered && "bg-amber-300/60! dark:bg-amber-500/40!",
       )}
+      onMouseEnter={() => hoverStore.set(visitIndex)}
+      onMouseLeave={() => hoverStore.set(null)}
     >
       <TableCell>{icon}</TableCell>
       <TableCell>
@@ -184,6 +201,8 @@ export default function RealTimeEntry({
     }));
   }
 
+  const [hoverStore] = useState(createVisitHoverStore);
+
   if (!timeEntry || !timeEntry.plan) return <div>No plan found</div>;
 
   const eventTime = new Date(timeEntry.event.time);
@@ -192,6 +211,7 @@ export default function RealTimeEntry({
   const scheduledVisits = [];
   const visitRows = [];
   const groupIds = planGroupIds(timeEntry.plan.visits);
+  const visitIndex = new Map(timeEntry.plan.visits.map((v, i) => [v, i]));
 
   for (const visit of timeEntry.plan.visits) {
     if (new Date(visit.endTime) < eventTime) {
@@ -209,6 +229,8 @@ export default function RealTimeEntry({
         <VisitRow
           key={`executed-visit-${i}`}
           visit={executedVisits[i]}
+          visitIndex={visitIndex.get(executedVisits[i])!}
+          hoverStore={hoverStore}
           groupIds={groupIds}
           site={site}
           state="executed"
@@ -220,6 +242,8 @@ export default function RealTimeEntry({
         <VisitRow
           key={`executed-visit-${i}`}
           visit={executedVisits[i]}
+          visitIndex={visitIndex.get(executedVisits[i])!}
+          hoverStore={hoverStore}
           groupIds={groupIds}
           site={site}
           state="executed"
@@ -233,6 +257,8 @@ export default function RealTimeEntry({
       <VisitRow
         key={`current-visit-${i}`}
         visit={beingExecutedVisits[i]}
+        visitIndex={visitIndex.get(beingExecutedVisits[i])!}
+        hoverStore={hoverStore}
         groupIds={groupIds}
         site={site}
         state="executing"
@@ -247,6 +273,8 @@ export default function RealTimeEntry({
         <VisitRow
           key={`scheduled-visit-${i}`}
           visit={scheduledVisits[i]}
+          visitIndex={visitIndex.get(scheduledVisits[i])!}
+          hoverStore={hoverStore}
           groupIds={groupIds}
           site={site}
           state="scheduled"
@@ -260,6 +288,8 @@ export default function RealTimeEntry({
         <VisitRow
           key={`scheduled-visit-${i}`}
           visit={scheduledVisits[i]}
+          visitIndex={visitIndex.get(scheduledVisits[i])!}
+          hoverStore={hoverStore}
           groupIds={groupIds}
           site={site}
           state="scheduled"
@@ -288,6 +318,7 @@ export default function RealTimeEntry({
         moonWaxing={moonWaxing}
         site={site}
         closureWindows={timeEntry.timelossWindows}
+        hoverStore={hoverStore}
         height={plotHeight}
       />
       <Collapsible open={tablesOpen ?? true} onOpenChange={onTablesOpenChange}>
